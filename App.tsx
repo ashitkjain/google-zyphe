@@ -8,6 +8,7 @@ import TablesSection from './components/TablesSection';
 import PropertyFacts from './components/PropertyFacts';
 import AIAnalysis from './components/AIAnalysis';
 import PropertyImages from './components/PropertyImages';
+import PropertyMaps from './components/PropertyMaps';
 import SystemLogs from './components/SystemLogs';
 
 const App: React.FC = () => {
@@ -39,33 +40,37 @@ const App: React.FC = () => {
     setError(null);
     setPropertyData(null);
     setAnalysis(null);
-    setLogs([]); // Reset logs for new search
+    setLogs([]);
 
     try {
-      // Step 1: Normalize via Radar
-      addLog('Radar API', 'request', { url: `https://api.radar.io/v1/geocode/forward?query=${address}`, method: 'GET' });
-      const normalized = await normalizeAddress(address);
-      addLog('Radar API', 'response', { formattedAddress: normalized, status: 'OK' });
+      // Step 1: Geocode and Get Maps via Radar
+      addLog('Radar Geocode API', 'request', { address });
+      const radarResult = await normalizeAddress(address);
+      addLog('Radar Geocode API', 'response', radarResult);
       
       // Step 2: Fetch Basic Property Data
-      addLog('US Housing Data API (Property)', 'request', { 
-        url: `https://us-housing-market-data1.p.rapidapi.com/property?address=${encodeURIComponent(normalized)}`,
-        headers: { 'x-rapidapi-host': 'us-housing-market-data1.p.rapidapi.com' }
-      });
-      const data = await fetchPropertyData(normalized);
+      addLog('US Housing Data API (Property)', 'request', { address: radarResult.formattedAddress });
+      const data = await fetchPropertyData(radarResult.formattedAddress);
+      
+      // Merge Radar results into property data
+      const mergedData: PropertyData = {
+        ...data,
+        coordinates: radarResult.coordinates,
+        mapZoomIn: radarResult.mapZoomIn,
+        mapZoomOut: radarResult.mapZoomOut,
+        address: radarResult.formattedAddress // Use normalized address
+      };
+      
       addLog('US Housing Data API (Property)', 'response', data);
-      setPropertyData(data);
+      setPropertyData(mergedData);
       setLoading(false);
 
-      // Step 3: Fetch Images using zpid if available
+      // Step 3: Fetch Images
       if (data.zpid) {
         setImagesLoading(true);
-        addLog('US Housing Data API (Images)', 'request', { 
-          url: `https://us-housing-market-data1.p.rapidapi.com/images?zpid=${data.zpid}`,
-          headers: { 'x-rapidapi-host': 'us-housing-market-data1.p.rapidapi.com' }
-        });
+        addLog('US Housing Data API (Images)', 'request', { zpid: data.zpid });
         const images = await fetchPropertyImages(data.zpid);
-        addLog('US Housing Data API (Images)', 'response', { zpid: data.zpid, imagesCount: images.length, imagesUrls: images });
+        addLog('US Housing Data API (Images)', 'response', { imagesCount: images.length });
         setPropertyData(prev => prev ? { ...prev, images } : null);
         setImagesLoading(false);
       }
@@ -73,7 +78,7 @@ const App: React.FC = () => {
     } catch (err: any) {
       const errorMsg = err.message || 'An unexpected error occurred.';
       setError(errorMsg);
-      addLog('System', 'error', { message: errorMsg, stack: err.stack });
+      addLog('System', 'error', { message: errorMsg });
       setLoading(false);
       setImagesLoading(false);
     }
@@ -83,11 +88,7 @@ const App: React.FC = () => {
     if (!propertyData) return;
     
     setAnalysisLoading(true);
-    addLog('Gemini AI', 'request', { 
-      model: 'gemini-3-flash-preview', 
-      task: 'Intelligent Real Estate Analysis',
-      context: { address: propertyData.address, zpid: propertyData.zpid, price: propertyData.price }
-    });
+    addLog('Gemini AI', 'request', { model: 'gemini-3-flash-preview', task: 'Deep Analysis' });
     
     try {
       const aiResult = await analyzeProperty(propertyData);
@@ -103,7 +104,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Search Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50 py-5 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -157,18 +157,20 @@ const App: React.FC = () => {
               </div>
             </div>
             <p className="text-xl font-medium animate-pulse">Gathering real-time housing data...</p>
-            <p className="text-base">Fetching from Radar and US Housing APIs</p>
+            <p className="text-base">Geocoding via Radar & Fetching from US Housing APIs</p>
           </div>
         ) : propertyData ? (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {/* Gallery Section */}
             <PropertyImages images={propertyData.images} loading={imagesLoading} />
 
             <PropertyHeader data={propertyData} />
             <TablesSection data={propertyData} />
+            
+            {/* Maps Section */}
+            <PropertyMaps mapZoomIn={propertyData.mapZoomIn} mapZoomOut={propertyData.mapZoomOut} />
+            
             <PropertyFacts facts={propertyData.resoFacts} />
 
-            {/* Property Description Section */}
             <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 mb-8 mt-8">
               <h3 className="font-bold text-gray-800 mb-5 flex items-center text-lg">
                 <i className="fa-solid fa-align-left text-gray-400 mr-3"></i>
@@ -179,7 +181,6 @@ const App: React.FC = () => {
               </p>
             </div>
 
-            {/* AI Analysis Section Toggle */}
             {!analysis && !analysisLoading ? (
               <div className="mt-10 mb-14 text-center">
                 <button
@@ -205,7 +206,6 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* System Logs Section */}
         <SystemLogs logs={logs} />
       </main>
     </div>

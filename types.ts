@@ -24,7 +24,30 @@ export interface PropertyData {
   homeInsights?: any;
   timeOnZillow?: number;
   resoFacts?: ResoFacts;
-  images?: string[]; // Added for property photos
+  images?: string[];
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+  mapZoomIn?: string;
+  mapZoomOut?: string;
+}
+
+export interface RadarGeocodeResponse {
+  coordinates: {
+    latitude: number;
+    longitude: number;
+  };
+  formattedAddress: string;
+  components: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+  };
+  mapZoomIn?: string;
+  mapZoomOut?: string;
 }
 
 export interface School {

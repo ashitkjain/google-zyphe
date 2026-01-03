@@ -1,9 +1,11 @@
 
-import { PropertyData } from "../types";
+import { PropertyData, RadarGeocodeResponse } from "../types";
 
-// Note: Using the key provided in the prompt example for demonstration
 const RAPID_API_KEY = "ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f";
 const RAPID_API_HOST = "us-housing-market-data1.p.rapidapi.com";
+
+// Radar Key provided by user
+const RADAR_API_KEY = "prj_live_pk_eef2517d56b63939d892c06a7dac57af7f2278cb";
 
 const getCache = <T>(key: string): T | null => {
   const cached = sessionStorage.getItem(`prop_cache_${key}`);
@@ -14,10 +16,6 @@ const setCache = (key: string, data: any) => {
   sessionStorage.setItem(`prop_cache_${key}`, JSON.stringify(data));
 };
 
-/**
- * Safely extracts a numeric value from potential API response types.
- * API sometimes returns a number, sometimes an object like { value: 5, label: 'Moderate', max: 10 }
- */
 const extractNumericValue = (val: any): number => {
   if (typeof val === 'number') return val;
   if (val && typeof val === 'object' && 'value' in val) {
@@ -27,10 +25,6 @@ const extractNumericValue = (val: any): number => {
   return 0;
 };
 
-/**
- * Converts various API field types (arrays, objects, numbers) into a displayable string
- * to prevent React "object as child" errors while ensuring data is shown.
- */
 const safeStringify = (val: any): string | undefined => {
   if (val === null || val === undefined) return undefined;
   if (typeof val === 'string') return val;
@@ -39,7 +33,6 @@ const safeStringify = (val: any): string | undefined => {
     return val.map(item => (typeof item === 'object' ? JSON.stringify(item) : item)).join(', ');
   }
   if (typeof val === 'object') {
-    // If it's a simple object with a 'label' or 'text' property, use that.
     if ('label' in val) return String(val.label);
     if ('text' in val) return String(val.text);
     return JSON.stringify(val);
@@ -47,33 +40,81 @@ const safeStringify = (val: any): string | undefined => {
   return String(val);
 };
 
-export const normalizeAddress = async (address: string): Promise<string> => {
-  try {
-    const cacheKey = `normalize_${address}`;
-    const cached = getCache<string>(cacheKey);
-    if (cached) return cached;
+export const normalizeAddress = async (address: string): Promise<RadarGeocodeResponse> => {
+  const cacheKey = `radar_geocode_${address}`;
+  const cached = getCache<RadarGeocodeResponse>(cacheKey);
+  if (cached) return cached;
 
-    // Simulate Radar API normalization
-    await new Promise(r => setTimeout(r, 400));
-    setCache(cacheKey, address);
-    return address;
-  } catch (e) {
-    console.error("Radar normalization failed", e);
-    return address;
+  const url = `https://api.radar.io/v1/geocode/forward?query=${encodeURIComponent(address)}`;
+  console.log('>>> RADAR GEOCODE REQUEST:', {
+    url,
+    method: 'GET',
+    headers: {
+      'Authorization': `${RADAR_API_KEY.substring(0, 12)}...`,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  const geocodeResponse = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Authorization': RADAR_API_KEY,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  const geocodeData = await geocodeResponse.json();
+  console.log('<<< RADAR GEOCODE RESPONSE:', {
+    status: geocodeResponse.status,
+    statusText: geocodeResponse.statusText,
+    data: geocodeData
+  });
+
+  if (!geocodeResponse.ok) {
+    throw new Error(`Radar API error: ${geocodeResponse.status} - ${geocodeData?.meta?.message || geocodeResponse.statusText}`);
   }
+  
+  if (!geocodeData.addresses || geocodeData.addresses.length === 0) {
+    throw new Error('No geocoding results found for the provided address');
+  }
+
+  const firstResult = geocodeData.addresses[0];
+  const coordinates = {
+    latitude: firstResult.latitude,
+    longitude: firstResult.longitude,
+  };
+
+  const zoomOutUrl = `https://api.radar.io/maps/static?publishableKey=${RADAR_API_KEY}&center=${coordinates.latitude},${coordinates.longitude}&zoom=15&width=1024&height=1024&style=radar-default-v1&scale=1&markers=color:0x000257%7C${coordinates.latitude},${coordinates.longitude}`;
+  const zoomInUrl = `https://api.radar.io/maps/static?publishableKey=${RADAR_API_KEY}&center=${coordinates.latitude},${coordinates.longitude}&zoom=20&width=2048&height=2048&style=radar-default-v1&scale=1&markers=color:0x000257%7C${coordinates.latitude},${coordinates.longitude}`;
+
+  const result: RadarGeocodeResponse = {
+    coordinates,
+    formattedAddress: firstResult.formattedAddress,
+    components: {
+      street: firstResult.street,
+      city: firstResult.city,
+      state: firstResult.state,
+      zipCode: firstResult.postalCode,
+      country: firstResult.country,
+    },
+    mapZoomIn: zoomInUrl,
+    mapZoomOut: zoomOutUrl
+  };
+
+  setCache(cacheKey, result);
+  return result;
 };
 
 export const fetchPropertyImages = async (zpid: string): Promise<string[]> => {
   try {
     const cacheKey = `images_${zpid}`;
     const cached = getCache<string[]>(cacheKey);
-    if (cached) {
-      console.log(`📦 Returning cached images for zpid: ${zpid}`);
-      return cached;
-    }
+    if (cached) return cached;
 
-    console.log(`📸 Fetching real images for zpid: ${zpid}`);
-    const response = await fetch(`https://us-housing-market-data1.p.rapidapi.com/images?zpid=${zpid}`, {
+    const url = `https://us-housing-market-data1.p.rapidapi.com/images?zpid=${zpid}`;
+    console.log('>>> HOUSING IMAGES REQUEST:', { url });
+
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'x-rapidapi-host': RAPID_API_HOST,
@@ -81,9 +122,11 @@ export const fetchPropertyImages = async (zpid: string): Promise<string[]> => {
       },
     });
 
+    const data = await response.json();
+    console.log('<<< HOUSING IMAGES RESPONSE:', { status: response.status, data });
+
     if (!response.ok) throw new Error(`Images API error: ${response.status}`);
     
-    const data = await response.json();
     const images = Array.isArray(data) ? data : (data.images || []);
     
     setCache(cacheKey, images);
@@ -97,12 +140,12 @@ export const fetchPropertyImages = async (zpid: string): Promise<string[]> => {
 export const fetchPropertyData = async (address: string): Promise<PropertyData> => {
   const cacheKey = `data_${address}`;
   const cached = getCache<PropertyData>(cacheKey);
-  if (cached) {
-    console.log(`📦 Returning cached property data for: ${address}`);
-    return cached;
-  }
+  if (cached) return cached;
 
-  const response = await fetch(`https://us-housing-market-data1.p.rapidapi.com/property?address=${encodeURIComponent(address)}`, {
+  const url = `https://us-housing-market-data1.p.rapidapi.com/property?address=${encodeURIComponent(address)}`;
+  console.log('>>> HOUSING PROPERTY REQUEST:', { url });
+
+  const response = await fetch(url, {
     method: 'GET',
     headers: {
       'x-rapidapi-host': RAPID_API_HOST,
@@ -110,11 +153,11 @@ export const fetchPropertyData = async (address: string): Promise<PropertyData> 
     },
   });
 
+  const data = await response.json();
+  console.log('<<< HOUSING PROPERTY RESPONSE:', { status: response.status, data });
+
   if (!response.ok) throw new Error(`Property API error: ${response.status}`);
   
-  const data = await response.json();
-  
-  // Map API response to our internal PropertyData structure
   const mappedData: PropertyData = {
     address: typeof data.address === 'string' ? data.address : address,
     zpid: String(data.zpid || ""),
@@ -132,7 +175,7 @@ export const fetchPropertyData = async (address: string): Promise<PropertyData> 
     windRiskScore: extractNumericValue(data.climate?.windSources?.primary?.riskScore),
     floodRiskScore: extractNumericValue(data.climate?.floodSources?.primary?.riskScore),
     fireRiskScore: extractNumericValue(data.climate?.fireSources?.primary?.riskScore),
-    heatRiskScore: extractNumericValue(data.climate?.heatSources?.primary?.riskScore),
+    heatRiskScore: extractNumericValue(data.climate?.heatRiskScore),
     description: typeof data.description === 'string' ? data.description : "No description available.",
     schools: Array.isArray(data.schools) ? data.schools : [],
     resoFacts: {
@@ -153,6 +196,7 @@ export const fetchPropertyData = async (address: string): Promise<PropertyData> 
       cooling: safeStringify(data.resoFacts?.cooling),
       laundryFeatures: safeStringify(data.resoFacts?.laundryFeatures),
       heating: safeStringify(data.resoFacts?.heating),
+      basement: safeStringify(data.resoFacts?.basement),
     }
   };
 
