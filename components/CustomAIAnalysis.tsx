@@ -3,14 +3,16 @@ import React, { useState } from 'react';
 import { CustomAIAnalysisResult } from '../types';
 
 interface Props {
-  analysis: CustomAIAnalysisResult;
+  analysis: CustomAIAnalysisResult | null;
   loading: boolean;
   onBack: () => void;
+  onRefresh: () => void;
+  mapUrl?: string;
 }
 
-type TabType = 'interior' | 'rooms' | 'exterior';
+type TabType = 'interior' | 'rooms' | 'exterior' | 'neighborhood';
 
-const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack }) => {
+const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefresh, mapUrl }) => {
   const [activeTab, setActiveTab] = useState<TabType>('interior');
 
   if (loading) {
@@ -25,7 +27,7 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack }) => {
         </div>
         <h3 className="text-3xl font-bold text-indigo-900 mb-4">Analyzing Property Visuals...</h3>
         <p className="text-indigo-700/70 max-w-md mx-auto text-lg">
-          Gemini 3 Flash is scanning your property images to identify design styles, materials, and spatial quality.
+          Gemini 3 Flash is scanning your property images and map data to build a comprehensive report.
         </p>
         <div className="mt-12 flex gap-3">
           <div className="w-3 h-3 bg-indigo-400 rounded-full animate-bounce"></div>
@@ -38,13 +40,37 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack }) => {
 
   if (!analysis) return null;
 
-  const { home_interior, room_highlights, exterior_and_neighborhood } = analysis;
+  // Use optional chaining and default values to prevent "Cannot read property of undefined" errors
+  const { 
+    home_interior = {} as any, 
+    room_highlights = [], 
+    exterior_and_neighborhood = {} as any, 
+    neighborhood 
+  } = analysis;
 
   const tabs = [
     { id: 'interior', label: 'Interior', icon: 'fa-couch' },
     { id: 'rooms', label: 'Rooms', icon: 'fa-star' },
     { id: 'exterior', label: 'Exterior', icon: 'fa-tree' },
+    { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
   ];
+
+  const EmptyState = ({ section }: { section: string }) => (
+    <div className="p-20 bg-white/50 rounded-[2rem] text-center border-2 border-dashed border-gray-200 flex flex-col items-center justify-center">
+      <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6 text-gray-400">
+        <i className="fa-solid fa-magnifying-glass-chart text-3xl"></i>
+      </div>
+      <h4 className="text-xl font-bold text-gray-800 mb-2">Analysis Missing for {section}</h4>
+      <p className="text-gray-500 max-w-sm mx-auto mb-8">This section of the report couldn't be generated from the available visual data.</p>
+      <button 
+        onClick={onRefresh}
+        className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all flex items-center gap-3"
+      >
+        <i className="fa-solid fa-rotate"></i>
+        Retry Analysis
+      </button>
+    </div>
+  );
 
   return (
     <div className="space-y-8 pb-20">
@@ -59,13 +85,17 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack }) => {
         </button>
         
         <div className="flex items-center gap-4">
+          <button 
+            onClick={onRefresh}
+            title="Refresh current analysis"
+            className="flex items-center gap-2 text-xs text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 font-bold uppercase tracking-wider hover:bg-indigo-100 transition-colors"
+          >
+            <i className="fa-solid fa-rotate"></i>
+            Refresh
+          </button>
           <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100 font-bold uppercase tracking-wider">
             <i className="fa-solid fa-bolt-lightning text-indigo-500"></i>
             Visual Intelligence Report
-          </div>
-          <div className="hidden sm:flex items-center gap-2 text-xs text-gray-400 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100 font-bold uppercase tracking-wider">
-            <i className="fa-solid fa-shield-halved text-emerald-500"></i>
-            AI Verified
           </div>
         </div>
       </div>
@@ -94,95 +124,99 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack }) => {
       <div className="min-h-[500px]">
         {activeTab === 'interior' && (
           <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-4xl mx-auto">
-            <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-10">
-              
-              {/* Overall Description */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Overall Description</h3>
-                <p className="text-gray-600 text-base leading-relaxed">
-                  {home_interior.overall_description}
-                </p>
-              </div>
-
-              {/* Design Style */}
-              <div className="space-y-4 pt-6 border-t border-gray-50">
-                <div className="flex items-center gap-3">
-                  <i className="fa-solid fa-wand-magic-sparkles text-gray-400"></i>
-                  <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Design Style</h3>
+            {!home_interior?.overall_description ? (
+              <EmptyState section="Interior" />
+            ) : (
+              <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-10">
+                {/* Overall Description */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Overall Description</h3>
+                  <p className="text-gray-600 text-base leading-relaxed">
+                    {home_interior.overall_description}
+                  </p>
                 </div>
-                <div className="inline-block bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1 rounded-full mb-2">
-                  {home_interior.design_style.style}
+
+                {/* Design Style */}
+                <div className="space-y-4 pt-6 border-t border-gray-50">
+                  <div className="flex items-center gap-3">
+                    <i className="fa-solid fa-wand-magic-sparkles text-gray-400"></i>
+                    <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Design Style</h3>
+                  </div>
+                  {home_interior.design_style?.style && (
+                    <div className="inline-block bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1 rounded-full mb-2">
+                      {home_interior.design_style.style}
+                    </div>
+                  )}
+                  <p className="text-gray-600 text-base leading-relaxed">
+                    {home_interior.design_style?.reasoning || 'Analysis not available for this section.'}
+                  </p>
                 </div>
-                <p className="text-gray-600 text-base leading-relaxed">
-                  {home_interior.design_style.reasoning}
-                </p>
-              </div>
 
-              {/* Color & Materials */}
-              <div className="space-y-4 pt-6 border-t border-gray-50">
-                <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Color & Materials</h3>
-                <p className="text-gray-600 text-base leading-relaxed">
-                  {home_interior.color_and_materials}
-                </p>
-              </div>
-
-              {/* Lighting */}
-              <div className="space-y-4 pt-6 border-t border-gray-50">
-                <div className="flex items-center gap-3">
-                  <i className="fa-solid fa-lightbulb text-gray-400"></i>
-                  <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Lighting</h3>
+                {/* Color & Materials */}
+                <div className="space-y-4 pt-6 border-t border-gray-50">
+                  <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Color & Materials</h3>
+                  <p className="text-gray-600 text-base leading-relaxed">
+                    {home_interior.color_and_materials}
+                  </p>
                 </div>
-                <p className="text-gray-600 text-base leading-relaxed">
-                  {home_interior.lighting}
-                </p>
-              </div>
 
-              {/* Spatial Flow */}
-              <div className="space-y-4 pt-6 border-t border-gray-50">
-                <div className="flex items-center gap-3">
-                  <i className="fa-solid fa-arrow-right text-gray-400"></i>
-                  <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Spatial Flow</h3>
+                {/* Lighting */}
+                <div className="space-y-4 pt-6 border-t border-gray-50">
+                  <div className="flex items-center gap-3">
+                    <i className="fa-solid fa-lightbulb text-gray-400"></i>
+                    <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Lighting</h3>
+                  </div>
+                  <p className="text-gray-600 text-base leading-relaxed">
+                    {home_interior.lighting}
+                  </p>
                 </div>
-                <p className="text-gray-600 text-base leading-relaxed">
-                  {home_interior.spatial_flow}
-                </p>
-              </div>
 
-              {/* Staging & Furnishings */}
-              <div className="space-y-4 pt-6 border-t border-gray-50">
-                <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Staging & Furnishings</h3>
-                <p className="text-gray-600 text-base leading-relaxed">
-                  {home_interior.staging_and_furnishings}
-                </p>
-              </div>
+                {/* Spatial Flow */}
+                <div className="space-y-4 pt-6 border-t border-gray-50">
+                  <div className="flex items-center gap-3">
+                    <i className="fa-solid fa-arrow-right text-gray-400"></i>
+                    <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Spatial Flow</h3>
+                  </div>
+                  <p className="text-gray-600 text-base leading-relaxed">
+                    {home_interior.spatial_flow}
+                  </p>
+                </div>
 
-              {/* Condition & Finish */}
-              <div className="space-y-4 pt-6 border-t border-gray-50">
-                <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Condition & Finish</h3>
-                <p className="text-gray-600 text-base leading-relaxed">
-                  {home_interior.condition_and_finish}
-                </p>
-              </div>
+                {/* Staging & Furnishings */}
+                <div className="space-y-4 pt-6 border-t border-gray-50">
+                  <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Staging & Furnishings</h3>
+                  <p className="text-gray-600 text-base leading-relaxed">
+                    {home_interior.staging_and_furnishings}
+                  </p>
+                </div>
 
-              {/* Market Context Bottom Card */}
-              <div className="pt-10">
-                <div className="bg-indigo-900 rounded-3xl p-8 text-white flex flex-col md:flex-row items-center gap-8">
-                   <div className="flex-1">
-                      <h4 className="text-indigo-300 text-xs font-black uppercase tracking-widest mb-2">Ideal Profile</h4>
-                      <div className="text-2xl font-black mb-2">{home_interior.suggested_lifestyle.buyer_type}</div>
-                      <p className="text-indigo-100/70 text-sm">{home_interior.suggested_lifestyle.lifestyle}</p>
-                   </div>
-                   <div className="flex -space-x-3">
-                      {[1, 2, 3, 4].map(i => (
-                        <div key={i} className="w-12 h-12 rounded-full border-4 border-indigo-900 bg-indigo-800 flex items-center justify-center">
-                          <i className="fa-solid fa-user text-indigo-400 text-sm"></i>
-                        </div>
-                      ))}
-                   </div>
+                {/* Condition & Finish */}
+                <div className="space-y-4 pt-6 border-t border-gray-50">
+                  <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Condition & Finish</h3>
+                  <p className="text-gray-600 text-base leading-relaxed">
+                    {home_interior.condition_and_finish}
+                  </p>
+                </div>
+
+                {/* Market Context Bottom Card */}
+                <div className="pt-10">
+                  <div className="bg-indigo-900 rounded-3xl p-8 text-white flex flex-col md:flex-row items-center gap-8">
+                    <div className="flex-1">
+                        <h4 className="text-indigo-300 text-xs font-black uppercase tracking-widest mb-2">Ideal Profile</h4>
+                        <div className="text-2xl font-black mb-2">{home_interior.suggested_lifestyle?.buyer_type || 'Prospective Resident'}</div>
+                        <p className="text-indigo-100/70 text-sm">{home_interior.suggested_lifestyle?.lifestyle || 'Lifestyle analysis based on current interior features.'}</p>
+                    </div>
+                    <div className="flex -space-x-3">
+                        {[1, 2, 3, 4].map(i => (
+                          <div key={i} className="w-12 h-12 rounded-full border-4 border-indigo-900 bg-indigo-800 flex items-center justify-center">
+                            <i className="fa-solid fa-user text-indigo-400 text-sm"></i>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
                 </div>
               </div>
-
-            </div>
+            )}
           </section>
         )}
 
@@ -198,110 +232,187 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack }) => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {room_highlights.map((room, idx) => (
-                <div key={idx} className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group relative overflow-hidden flex flex-col">
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-                      <i className={`fa-solid ${room.room_name.toLowerCase().includes('kitchen') ? 'fa-kitchen-set' : 'fa-door-open'}`}></i>
-                    </div>
-                    <span className="text-[10px] font-black text-gray-400 uppercase bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">{room.floor}</span>
-                  </div>
-                  <h4 className="font-black text-gray-900 text-2xl mb-4 group-hover:text-purple-600 transition-colors">{room.room_name}</h4>
-                  <p className="text-gray-600 text-base leading-relaxed mb-6">{room.description}</p>
-                  
-                  {room.potential_improvements && (
-                    <div className="pt-6 border-t border-gray-100 bg-gray-50 -mx-8 -mb-8 p-8 mt-auto">
-                      <div className="flex items-center gap-2 mb-3">
-                        <i className="fa-solid fa-wand-magic-sparkles text-purple-600 text-sm"></i>
-                        <div className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Enhancement Strategy</div>
+            {room_highlights.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {room_highlights.map((room, idx) => (
+                  <div key={idx} className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group relative overflow-hidden flex flex-col">
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                        <i className={`fa-solid ${room.room_name?.toLowerCase().includes('kitchen') ? 'fa-kitchen-set' : 'fa-door-open'}`}></i>
                       </div>
-                      <p className="text-gray-500 text-sm italic font-medium">"{room.potential_improvements}"</p>
+                      <span className="text-[10px] font-black text-gray-400 uppercase bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">{room.floor || 'N/A'}</span>
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                    <h4 className="font-black text-gray-900 text-2xl mb-4 group-hover:text-purple-600 transition-colors">{room.room_name || 'Room Highlight'}</h4>
+                    <p className="text-gray-600 text-base leading-relaxed mb-6">{room.description}</p>
+                    
+                    {room.potential_improvements && (
+                      <div className="pt-6 border-t border-gray-100 bg-gray-50 -mx-8 -mb-8 p-8 mt-auto">
+                        <div className="flex items-center gap-2 mb-3">
+                          <i className="fa-solid fa-wand-magic-sparkles text-purple-600 text-sm"></i>
+                          <div className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Enhancement Strategy</div>
+                        </div>
+                        <p className="text-gray-500 text-sm italic font-medium">"{room.potential_improvements}"</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState section="Room Highlights" />
+            )}
           </section>
         )}
 
         {activeTab === 'exterior' && (
           <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-4xl mx-auto">
-            <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-10">
-              
-              {/* Exterior & Lot Appeal Section */}
-              <div className="space-y-8">
-                <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Exterior & Lot Appeal</h3>
-                
-                <div className="space-y-6 pl-0 md:pl-4 border-l-2 border-gray-50">
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Architecture Style</h4>
-                    <p className="text-gray-600 text-base leading-relaxed">
-                      {exterior_and_neighborhood.exterior_and_lot_appeal.architecture_style}
-                    </p>
-                  </div>
+            {!exterior_and_neighborhood?.exterior_and_lot_appeal?.architecture_style ? (
+              <EmptyState section="Exterior" />
+            ) : (
+              <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-10">
+                {/* Exterior & Lot Appeal Section */}
+                <div className="space-y-8">
+                  <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Exterior & Lot Appeal</h3>
                   
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Curb Appeal</h4>
-                    <p className="text-gray-600 text-base leading-relaxed">
-                      {exterior_and_neighborhood.exterior_and_lot_appeal.curb_appeal}
-                    </p>
+                  <div className="space-y-6 pl-0 md:pl-4 border-l-2 border-gray-50">
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Architecture Style</h4>
+                      <p className="text-gray-600 text-base leading-relaxed">
+                        {exterior_and_neighborhood.exterior_and_lot_appeal.architecture_style}
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Curb Appeal</h4>
+                      <p className="text-gray-600 text-base leading-relaxed">
+                        {exterior_and_neighborhood.exterior_and_lot_appeal.curb_appeal}
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Backyard & Patio</h4>
+                      <p className="text-gray-600 text-base leading-relaxed">
+                        {exterior_and_neighborhood.exterior_and_lot_appeal.backyard_and_patio}
+                      </p>
+                    </div>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Backyard & Patio</h4>
-                    <p className="text-gray-600 text-base leading-relaxed">
-                      {exterior_and_neighborhood.exterior_and_lot_appeal.backyard_and_patio}
-                    </p>
+                </div>
+
+                {/* Views, Privacy & Orientation Section */}
+                <div className="space-y-8 pt-8 border-t border-gray-50">
+                  <div className="flex items-center gap-3">
+                    <i className="fa-solid fa-eye text-gray-400"></i>
+                    <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Views, Privacy & Orientation</h3>
+                  </div>
+
+                  <div className="space-y-6 pl-0 md:pl-4 border-l-2 border-gray-50">
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Views</h4>
+                      <p className="text-gray-600 text-base leading-relaxed">
+                        {exterior_and_neighborhood.views_privacy_orientation?.views || 'Not specified.'}
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Orientation</h4>
+                      <p className="text-gray-600 text-base leading-relaxed">
+                        {exterior_and_neighborhood.views_privacy_orientation?.orientation || 'Not specified.'}
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Privacy</h4>
+                      <p className="text-gray-600 text-base leading-relaxed">
+                        {exterior_and_neighborhood.views_privacy_orientation?.privacy || 'Not specified.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Environmental Match Card */}
+                <div className="pt-10">
+                  <div className="bg-emerald-900 rounded-3xl p-8 text-white flex items-center gap-6">
+                    <div className="w-16 h-16 bg-emerald-800 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                      <i className="fa-solid fa-leaf text-emerald-400 text-2xl"></i>
+                    </div>
+                    <div>
+                      <h4 className="text-emerald-300 text-xs font-black uppercase tracking-widest mb-1">Environmental Assessment</h4>
+                      <p className="text-lg font-medium">The property grounds demonstrate characteristic architectural integrity suitable for the regional environment.</p>
+                    </div>
                   </div>
                 </div>
               </div>
+            )}
+          </section>
+        )}
 
-              {/* Views, Privacy & Orientation Section */}
-              <div className="space-y-8 pt-8 border-t border-gray-50">
-                <div className="flex items-center gap-3">
-                  <i className="fa-solid fa-eye text-gray-400"></i>
-                  <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Views, Privacy & Orientation</h3>
+        {activeTab === 'neighborhood' && (
+          <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-7xl mx-auto">
+            {!neighborhood?.overview ? (
+              <EmptyState section="Neighborhood" />
+            ) : (
+              <div className="bg-[#F3F4F6] rounded-[2.5rem] p-6 sm:p-10 space-y-10">
+                {/* Reference Map Context */}
+                <div className="flex flex-col lg:flex-row gap-10 items-center">
+                  {/* Reduced map container by roughly 60% compared to previous lg:w-1/3 layout */}
+                  <div className="lg:w-[15%] flex-shrink-0">
+                    <div className="bg-white rounded-2xl p-3 shadow-xl shadow-gray-200/50 border border-white">
+                      <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative group">
+                        {mapUrl ? (
+                          <img src={mapUrl} alt="Neighborhood Context" className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-700" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-300">
+                            <i className="fa-solid fa-map-marked-alt text-3xl"></i>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 space-y-3">
+                    <h3 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] flex items-center gap-3">
+                      <span className="w-8 h-[2px] bg-indigo-600"></span>
+                      Overview
+                    </h3>
+                    <p className="text-gray-700 text-xl font-medium leading-relaxed italic">
+                      "{neighborhood.overview}"
+                    </p>
+                  </div>
                 </div>
 
-                <div className="space-y-6 pl-0 md:pl-4 border-l-2 border-gray-50">
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Views</h4>
-                    <p className="text-gray-600 text-base leading-relaxed">
-                      {exterior_and_neighborhood.views_privacy_orientation.views}
-                    </p>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Orientation</h4>
-                    <p className="text-gray-600 text-base leading-relaxed">
-                      {exterior_and_neighborhood.views_privacy_orientation.orientation}
-                    </p>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Privacy</h4>
-                    <p className="text-gray-600 text-base leading-relaxed">
-                      {exterior_and_neighborhood.views_privacy_orientation.privacy}
-                    </p>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Object.entries(neighborhood.neighborhood_features || {}).map(([key, value]) => {
+                    const labels: Record<string, string> = {
+                      general: 'General Characteristics',
+                      topography: 'Topography',
+                      nearby_amenities: 'Nearby Amenities',
+                      development_patterns: 'Development Patterns',
+                      neighborhood_density: 'Neighborhood Density',
+                      transportation_access: 'Transportation Access',
+                      walkability_indicators: 'Walkability Indicators',
+                      street_layout_and_traffic: 'Street Layout & Traffic',
+                      sidewalks_and_pedestrian_infra: 'Sidewalks & Pedestrian Infra',
+                      proximity_to_greenery_and_water: 'Proximity to Greenery & Water'
+                    };
+
+                    return (
+                      <div 
+                        key={key} 
+                        className="bg-white p-6 sm:p-8 rounded-[2rem] border border-white shadow-sm flex flex-col justify-start group transition-all hover:shadow-xl hover:-translate-y-1"
+                      >
+                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                          <span className="w-1 h-1 rounded-full bg-indigo-500"></span>
+                          {labels[key] || key.replace(/_/g, ' ')}
+                        </h4>
+                        <p className="text-gray-700 text-sm sm:text-base leading-relaxed">
+                          {value as string}
+                        </p>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-
-              {/* Environmental Match Card */}
-              <div className="pt-10">
-                <div className="bg-emerald-900 rounded-3xl p-8 text-white flex items-center gap-6">
-                  <div className="w-16 h-16 bg-emerald-800 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg">
-                    <i className="fa-solid fa-leaf text-emerald-400 text-2xl"></i>
-                  </div>
-                  <div>
-                    <h4 className="text-emerald-300 text-xs font-black uppercase tracking-widest mb-1">Environmental Assessment</h4>
-                    <p className="text-lg font-medium">The property grounds demonstrate characteristic architectural integrity and orientation suitable for the local climate.</p>
-                  </div>
-                </div>
-              </div>
-
-            </div>
+            )}
           </section>
         )}
       </div>

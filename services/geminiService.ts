@@ -1,8 +1,10 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult } from "../types";
+import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis } from "../types";
+import { getCache, setCache } from "./apiService";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Always use process.env.API_KEY directly as per guidelines.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const analyzeProperty = async (property: PropertyData): Promise<AIAnalysisResult> => {
   const prompt = `
@@ -22,6 +24,7 @@ export const analyzeProperty = async (property: PropertyData): Promise<AIAnalysi
     4. A short market outlook for this specific type of property in this area.
   `;
 
+  // Use gemini-3-flash-preview for basic text tasks
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: prompt,
@@ -40,6 +43,7 @@ export const analyzeProperty = async (property: PropertyData): Promise<AIAnalysi
     }
   });
 
+  // Extracting text output from GenerateContentResponse using .text property.
   const text = response.text || "{}";
   return JSON.parse(text) as AIAnalysisResult;
 };
@@ -57,6 +61,74 @@ async function urlToBase64(url: string): Promise<{ data: string, mimeType: strin
     reader.readAsDataURL(blob);
   });
 }
+
+/**
+ * Generates a stable cache key from the map URL. 
+ * Since Radar URLs include center coords and zoom, they are perfect for identifying a neighborhood area.
+ */
+const getNeighborhoodCacheKey = (url: string) => {
+  return `nb_analysis_${btoa(url).substring(0, 32)}`;
+};
+
+export const analyzeNeighborhood = async (mapImageUrl: string, propertyAddress: string): Promise<NeighborhoodAnalysis> => {
+  // Check internal cache first to save Gemini tokens and improve latency
+  const cacheKey = getNeighborhoodCacheKey(mapImageUrl);
+  const cached = getCache<NeighborhoodAnalysis>(cacheKey);
+  if (cached) {
+    console.log('Using cached neighborhood analysis for map URL');
+    return cached;
+  }
+
+  const { data, mimeType } = await urlToBase64(mapImageUrl);
+  
+  const prompt = `You are a neighborhood and location analyst. Focus on street context, plot positioning, and surrounding neighborhood features from map analysis.
+
+Return a JSON object with the following schema (no other text):
+
+{
+  "overview": "A detailed 2-3 sentence high-level summary of the area's character and vibe.",
+  "neighborhood_features": {
+    "street_layout_and_traffic": "Road types, intersection patterns, potential traffic flow.",
+    "sidewalks_and_pedestrian_infra": "Visible walkways, pedestrian accessibility.",
+    "proximity_to_greenery_and_water": "Visible green spaces, parks, trailheads, landscaping, water bodies etc.",
+    "neighborhood_density": "Housing density, lot sizes, spacing between homes.",
+    "walkability_indicators": "Proximity to amenities, grid vs suburban layout.",
+    "topography": "Hills, slopes, elevation changes visible.",
+    "development_patterns": "New vs established neighborhoods, construction activity.",
+    "nearby_amenities": "Schools, shopping, recreational facilities etc visible on map, as well as your knowledge.",
+    "transportation_access": "Major roads, highway access, airports, public transit proximity.",
+    "general": "Street parking, driveways, nearby parking areas, proximity to cultural communities, neighborhood vibe etc."
+  }
+}
+
+Analyze these map images for property: ${propertyAddress}
+ZOOMED OUT view - broader area context for neighborhood analysis
+
+Focus on street layout, neighborhood density, amenities, transportation, and general area characteristics.`;
+
+  // Use gemini-3-flash-preview for multimodal tasks
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: {
+      parts: [
+        { text: prompt },
+        { inlineData: { data, mimeType } }
+      ]
+    },
+    config: {
+      responseMimeType: "application/json"
+    }
+  });
+
+  // Extracting text output from GenerateContentResponse using .text property.
+  const text = response.text || "{}";
+  const result = JSON.parse(text) as NeighborhoodAnalysis;
+
+  // Save to cache
+  setCache(cacheKey, result);
+  
+  return result;
+};
 
 export const analyzePropertyImages = async (imageUrls: string[]): Promise<CustomAIAnalysisResult> => {
   // Limit to 15 images to avoid token limits or context overflow for a quick analysis
@@ -124,6 +196,7 @@ INSTRUCTIONS:
 4. AVOID sales words like "stunning," "gorgeous," "dream home," "perfect for," or "unbelievable."
 5. Focus on the facts of what is visible in the images.`;
 
+  // Use gemini-3-flash-preview for multimodal tasks
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: {
@@ -137,6 +210,7 @@ INSTRUCTIONS:
     }
   });
 
+  // Extracting text output from GenerateContentResponse using .text property.
   const text = response.text || "{}";
   return JSON.parse(text) as CustomAIAnalysisResult;
 };

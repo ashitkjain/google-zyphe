@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, LogEntry } from './types';
 import { normalizeAddress, fetchPropertyData, fetchPropertyImages, getCache, setCache } from './services/apiService';
-import { analyzeProperty, analyzePropertyImages } from './services/geminiService';
+import { analyzeProperty, analyzePropertyImages, analyzeNeighborhood } from './services/geminiService';
 import PropertyHeader from './components/PropertyHeader';
 import TablesSection from './components/TablesSection';
 import PropertyFacts from './components/PropertyFacts';
@@ -118,40 +118,103 @@ const App: React.FC = () => {
     }
   };
 
-  const handleRunCustomAnalysis = async () => {
-    if (!propertyData?.images || propertyData.images.length === 0) return;
+  /**
+   * Performs the heavy multimodal Gemini analysis for images and maps.
+   * Forces a fresh call if sections are detected as empty.
+   */
+  const handleRunCustomAnalysis = async (forceRefresh: boolean = false) => {
+    if (!propertyData) return;
 
-    // Double check cache before hitting API
-    if (propertyData.zpid) {
-      const cached = getCache<CustomAIAnalysisResult>(`visual_analysis_${propertyData.zpid}`);
-      if (cached) {
-        setCustomAnalysis(cached);
-        setViewMode('visual-report');
-        return;
-      }
+    // Determine if we need to perform analysis
+    const isInteriorMissing = !customAnalysis?.home_interior?.overall_description;
+    const isNeighborhoodMissing = !customAnalysis?.neighborhood?.overview;
+    
+    if (!forceRefresh && !isInteriorMissing && !isNeighborhoodMissing) {
+      setViewMode('visual-report');
+      return;
     }
 
     setCustomAnalysisLoading(true);
     setViewMode('visual-report');
-    addLog('Gemini AI (Multimodal)', 'request', { model: 'gemini-3-flash-preview', task: 'Visual Analysis', imageCount: Math.min(propertyData.images.length, 15) });
     
+    // Declare finalResult outside the try block so it's accessible in the catch block
+    let finalResult: CustomAIAnalysisResult | null = null;
+
     try {
-      const result = await analyzePropertyImages(propertyData.images);
-      addLog('Gemini AI (Multimodal)', 'response', result);
-      
-      // Store in cache if we have a ZPID to identify the property
-      if (propertyData.zpid) {
-        setCache(`visual_analysis_${propertyData.zpid}`, result);
+      // Start with current state or a fresh skeleton
+      finalResult = customAnalysis ? { ...customAnalysis } : {
+        report_title: 'Real Estate Property Analysis',
+        home_interior: { 
+          overall_description: '', 
+          design_style: { style: '', reasoning: '' }, 
+          color_and_materials: '', 
+          lighting: '', 
+          spatial_flow: '', 
+          staging_and_furnishings: '', 
+          condition_and_finish: '', 
+          suggested_lifestyle: { lifestyle: '', buyer_type: '' } 
+        },
+        room_highlights: [],
+        exterior_and_neighborhood: { 
+          exterior_and_lot_appeal: { architecture_style: '', curb_appeal: '', backyard_and_patio: '' }, 
+          views_privacy_orientation: { views: '', orientation: '', privacy: '' } 
+        }
+      };
+
+      const tasks = [];
+
+      // 1. Analyze property photos if available AND missing or forced
+      if (propertyData.images && propertyData.images.length > 0 && (isInteriorMissing || forceRefresh)) {
+        addLog('Gemini AI (Multimodal - Photos)', 'request', { model: 'gemini-3-flash-preview', task: 'Visual Analysis', imageCount: Math.min(propertyData.images.length, 15) });
+        tasks.push(
+          analyzePropertyImages(propertyData.images).then(result => {
+            addLog('Gemini AI (Multimodal - Photos)', 'response', result);
+            if (finalResult) {
+              finalResult = { 
+                ...finalResult, 
+                ...result,
+                home_interior: { ...finalResult.home_interior, ...result.home_interior },
+                exterior_and_neighborhood: { ...finalResult.exterior_and_neighborhood, ...result.exterior_and_neighborhood }
+              };
+            }
+          })
+        );
       }
-      
-      setCustomAnalysis(result);
+
+      // 2. Analyze Neighborhood via zoomed out map if available AND missing or forced
+      if (propertyData.mapZoomOut && (isNeighborhoodMissing || forceRefresh)) {
+        addLog('Gemini AI (Multimodal - Map)', 'request', { model: 'gemini-3-flash-preview', task: 'Neighborhood Analysis' });
+        tasks.push(
+          analyzeNeighborhood(propertyData.mapZoomOut, propertyData.address).then(neighborhoodResult => {
+            addLog('Gemini AI (Multimodal - Map)', 'response', neighborhoodResult);
+            if (finalResult) {
+              finalResult.neighborhood = neighborhoodResult;
+            }
+          })
+        );
+      }
+
+      if (tasks.length > 0) {
+        await Promise.all(tasks);
+        
+        // Store in cache if we have a ZPID to identify the property
+        if (propertyData.zpid && finalResult) {
+          setCache(`visual_analysis_${propertyData.zpid}`, finalResult);
+        }
+        setCustomAnalysis(finalResult);
+      } else {
+        // No new tasks were needed, just ensure we're looking at the right view
+        setViewMode('visual-report');
+      }
+
     } catch (err: any) {
       const errorMsg = err.message || 'Custom AI analysis failed.';
       addLog('Gemini AI (Multimodal)', 'error', { message: errorMsg });
-      // Go back to main if analysis fails completely and we have no result
-      if (!customAnalysis) {
+      // If we literally have nothing, show an error and go back
+      // Fix: finalResult is now defined in this scope
+      if (!customAnalysis && !finalResult?.home_interior?.overall_description) {
         setViewMode('main');
-        setError(`Visual AI analysis failed: ${errorMsg}`);
+        setError(`Visual AI analysis failed: ${errorMsg}. Please try searching again.`);
       }
     } finally {
       setCustomAnalysisLoading(false);
@@ -191,15 +254,15 @@ const App: React.FC = () => {
               </button>
             )}
             
-            {propertyData.images && propertyData.images.length > 0 && (
+            {(propertyData.images && propertyData.images.length > 0) || propertyData.mapZoomOut ? (
               <button
-                onClick={customAnalysis ? () => setViewMode('visual-report') : handleRunCustomAnalysis}
+                onClick={() => handleRunCustomAnalysis(false)}
                 className={`inline-flex items-center gap-4 px-8 py-5 ${customAnalysis ? 'bg-indigo-900' : 'bg-gradient-to-r from-purple-600 to-indigo-600'} text-white rounded-2xl font-bold shadow-xl shadow-purple-100 hover:scale-[1.02] transition-all group text-base border-2 border-white/20`}
               >
                 <i className={`fa-solid ${customAnalysis ? 'fa-chart-pie' : 'fa-wand-magic-sparkles'} text-xl group-hover:animate-spin`}></i>
                 {customAnalysis ? 'View Visual AI Analysis' : 'Run Custom Visual AI Analysis'}
               </button>
-            )}
+            ) : null}
           </div>
 
           {analysisLoading || analysis ? (
@@ -283,9 +346,11 @@ const App: React.FC = () => {
         ) : (
           <div className="animate-in fade-in slide-in-from-right-4 duration-500">
             <CustomAIAnalysis 
-              analysis={customAnalysis!} 
+              analysis={customAnalysis} 
               loading={customAnalysisLoading} 
               onBack={() => setViewMode('main')}
+              onRefresh={() => handleRunCustomAnalysis(true)}
+              mapUrl={propertyData?.mapZoomOut}
             />
           </div>
         )}

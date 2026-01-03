@@ -88,6 +88,22 @@ export interface AIAnalysisResult {
   marketOutlook: string;
 }
 
+export interface NeighborhoodAnalysis {
+  overview: string;
+  neighborhood_features: {
+    street_layout_and_traffic: string;
+    sidewalks_and_pedestrian_infra: string;
+    proximity_to_greenery_and_water: string;
+    neighborhood_density: string;
+    walkability_indicators: string;
+    topography: string;
+    development_patterns: string;
+    nearby_amenities: string;
+    transportation_access: string;
+    general: string;
+  }
+}
+
 export interface CustomAIAnalysisResult {
   report_title: string;
   home_interior: {
@@ -124,6 +140,7 @@ export interface CustomAIAnalysisResult {
       privacy: string;
     };
   };
+  neighborhood?: NeighborhoodAnalysis;
 }
 
 export interface LogEntry {
