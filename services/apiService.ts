@@ -7,13 +7,41 @@ const RAPID_API_HOST = "us-housing-market-data1.p.rapidapi.com";
 // Radar Key provided by user
 const RADAR_API_KEY = "prj_live_pk_eef2517d56b63939d892c06a7dac57af7f2278cb";
 
+// 14 days in milliseconds
+const CACHE_EXPIRATION_MS = 14 * 24 * 60 * 60 * 1000;
+
+interface CacheWrapper<T> {
+  data: T;
+  timestamp: number;
+}
+
 const getCache = <T>(key: string): T | null => {
-  const cached = sessionStorage.getItem(`prop_cache_${key}`);
-  return cached ? JSON.parse(cached) : null;
+  const cached = localStorage.getItem(`propintel_cache_${key}`);
+  if (!cached) return null;
+
+  try {
+    const wrapper: CacheWrapper<T> = JSON.parse(cached);
+    const now = Date.now();
+    
+    // Check if cache is expired (14 days)
+    if (now - wrapper.timestamp > CACHE_EXPIRATION_MS) {
+      localStorage.removeItem(`propintel_cache_${key}`);
+      console.log(`Cache expired for key: ${key}`);
+      return null;
+    }
+    
+    return wrapper.data;
+  } catch (e) {
+    return null;
+  }
 };
 
 const setCache = (key: string, data: any) => {
-  sessionStorage.setItem(`prop_cache_${key}`, JSON.stringify(data));
+  const wrapper: CacheWrapper<any> = {
+    data,
+    timestamp: Date.now()
+  };
+  localStorage.setItem(`propintel_cache_${key}`, JSON.stringify(wrapper));
 };
 
 const extractNumericValue = (val: any): number => {
@@ -41,9 +69,12 @@ const safeStringify = (val: any): string | undefined => {
 };
 
 export const normalizeAddress = async (address: string): Promise<RadarGeocodeResponse> => {
-  const cacheKey = `radar_geocode_${address}`;
-  const cached = getCache<RadarGeocodeResponse>(cacheKey);
-  if (cached) return cached;
+  const normalizedKey = address.trim().toLowerCase();
+  const cached = getCache<RadarGeocodeResponse>(`radar_${normalizedKey}`);
+  if (cached) {
+    console.log('Using cached Radar geocode for:', normalizedKey);
+    return cached;
+  }
 
   const url = `https://api.radar.io/v1/geocode/forward?query=${encodeURIComponent(address)}`;
   console.log('>>> RADAR GEOCODE REQUEST:', {
@@ -101,15 +132,17 @@ export const normalizeAddress = async (address: string): Promise<RadarGeocodeRes
     mapZoomOut: zoomOutUrl
   };
 
-  setCache(cacheKey, result);
+  setCache(`radar_${normalizedKey}`, result);
   return result;
 };
 
 export const fetchPropertyImages = async (zpid: string): Promise<string[]> => {
   try {
-    const cacheKey = `images_${zpid}`;
-    const cached = getCache<string[]>(cacheKey);
-    if (cached) return cached;
+    const cached = getCache<string[]>(`images_${zpid}`);
+    if (cached) {
+      console.log('Using cached images for ZPID:', zpid);
+      return cached;
+    }
 
     const url = `https://us-housing-market-data1.p.rapidapi.com/images?zpid=${zpid}`;
     console.log('>>> HOUSING IMAGES REQUEST:', { url });
@@ -129,7 +162,7 @@ export const fetchPropertyImages = async (zpid: string): Promise<string[]> => {
     
     const images = Array.isArray(data) ? data : (data.images || []);
     
-    setCache(cacheKey, images);
+    setCache(`images_${zpid}`, images);
     return images;
   } catch (error) {
     console.error("Error fetching images:", error);
@@ -138,9 +171,12 @@ export const fetchPropertyImages = async (zpid: string): Promise<string[]> => {
 };
 
 export const fetchPropertyData = async (address: string): Promise<PropertyData> => {
-  const cacheKey = `data_${address}`;
-  const cached = getCache<PropertyData>(cacheKey);
-  if (cached) return cached;
+  const normalizedKey = address.trim().toLowerCase();
+  const cached = getCache<PropertyData>(`data_${normalizedKey}`);
+  if (cached) {
+    console.log('Using cached Housing data for:', normalizedKey);
+    return cached;
+  }
 
   const url = `https://us-housing-market-data1.p.rapidapi.com/property?address=${encodeURIComponent(address)}`;
   console.log('>>> HOUSING PROPERTY REQUEST:', { url });
@@ -200,6 +236,6 @@ export const fetchPropertyData = async (address: string): Promise<PropertyData> 
     }
   };
 
-  setCache(cacheKey, mappedData);
+  setCache(`data_${normalizedKey}`, mappedData);
   return mappedData;
 };
