@@ -1,15 +1,18 @@
 
-import React, { useState } from 'react';
-import { PropertyData, AIAnalysisResult, LogEntry } from './types';
+import React, { useState, useEffect } from 'react';
+import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, LogEntry } from './types';
 import { normalizeAddress, fetchPropertyData, fetchPropertyImages } from './services/apiService';
-import { analyzeProperty } from './services/geminiService';
+import { analyzeProperty, analyzePropertyImages } from './services/geminiService';
 import PropertyHeader from './components/PropertyHeader';
 import TablesSection from './components/TablesSection';
 import PropertyFacts from './components/PropertyFacts';
 import AIAnalysis from './components/AIAnalysis';
+import CustomAIAnalysis from './components/CustomAIAnalysis';
 import PropertyImages from './components/PropertyImages';
 import PropertyMaps from './components/PropertyMaps';
 import SystemLogs from './components/SystemLogs';
+
+type ViewMode = 'main' | 'visual-report';
 
 const App: React.FC = () => {
   const [address, setAddress] = useState('3588 Ballantyne Dr, Pleasanton, CA 94588');
@@ -19,7 +22,15 @@ const App: React.FC = () => {
   const [propertyData, setPropertyData] = useState<PropertyData | null>(null);
   const [analysis, setAnalysis] = useState<AIAnalysisResult | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [customAnalysis, setCustomAnalysis] = useState<CustomAIAnalysisResult | null>(null);
+  const [customAnalysisLoading, setCustomAnalysisLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [viewMode, setViewMode] = useState<ViewMode>('main');
+
+  // Scroll to top when switching views
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [viewMode]);
 
   const addLog = (service: string, type: 'request' | 'response' | 'error', content: any) => {
     const entry: LogEntry = {
@@ -40,32 +51,30 @@ const App: React.FC = () => {
     setError(null);
     setPropertyData(null);
     setAnalysis(null);
+    setCustomAnalysis(null);
     setLogs([]);
+    setViewMode('main');
 
     try {
-      // Step 1: Geocode and Get Maps via Radar
       addLog('Radar Geocode API', 'request', { address });
       const radarResult = await normalizeAddress(address);
       addLog('Radar Geocode API', 'response', radarResult);
       
-      // Step 2: Fetch Basic Property Data
       addLog('US Housing Data API (Property)', 'request', { address: radarResult.formattedAddress });
       const data = await fetchPropertyData(radarResult.formattedAddress);
       
-      // Merge Radar results into property data
       const mergedData: PropertyData = {
         ...data,
         coordinates: radarResult.coordinates,
         mapZoomIn: radarResult.mapZoomIn,
         mapZoomOut: radarResult.mapZoomOut,
-        address: radarResult.formattedAddress // Use normalized address
+        address: radarResult.formattedAddress
       };
       
       addLog('US Housing Data API (Property)', 'response', data);
       setPropertyData(mergedData);
       setLoading(false);
 
-      // Step 3: Fetch Images
       if (data.zpid) {
         setImagesLoading(true);
         addLog('US Housing Data API (Images)', 'request', { zpid: data.zpid });
@@ -102,16 +111,92 @@ const App: React.FC = () => {
     }
   };
 
+  const handleRunCustomAnalysis = async () => {
+    if (!propertyData?.images || propertyData.images.length === 0) return;
+
+    setCustomAnalysisLoading(true);
+    setViewMode('visual-report');
+    addLog('Gemini AI (Multimodal)', 'request', { model: 'gemini-3-flash-preview', task: 'Visual Analysis', imageCount: Math.min(propertyData.images.length, 15) });
+    
+    try {
+      const result = await analyzePropertyImages(propertyData.images);
+      addLog('Gemini AI (Multimodal)', 'response', result);
+      setCustomAnalysis(result);
+    } catch (err: any) {
+      const errorMsg = err.message || 'Custom AI analysis failed.';
+      addLog('Gemini AI (Multimodal)', 'error', { message: errorMsg });
+      // If error occurs, stay on page but show error state is handled by CustomAIAnalysis component normally 
+      // but if we want to go back we can.
+    } finally {
+      setCustomAnalysisLoading(false);
+    }
+  };
+
+  // Main Page Content
+  const renderMainContent = () => (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <PropertyImages images={propertyData?.images} loading={imagesLoading} />
+
+      {propertyData && (
+        <>
+          <PropertyHeader data={propertyData} />
+          <TablesSection data={propertyData} />
+          <PropertyMaps mapZoomIn={propertyData.mapZoomIn} mapZoomOut={propertyData.mapZoomOut} />
+          <PropertyFacts facts={propertyData.resoFacts} />
+
+          <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 mb-8 mt-8">
+            <h3 className="font-bold text-gray-800 mb-5 flex items-center text-lg">
+              <i className="fa-solid fa-align-left text-gray-400 mr-3"></i>
+              Property Description
+            </h3>
+            <p className="text-base text-gray-600 leading-relaxed">
+              {propertyData.description}
+            </p>
+          </div>
+
+          <div className="flex flex-col md:flex-row items-center justify-center gap-6 mt-12 mb-16">
+            {!analysis && !analysisLoading && (
+              <button
+                onClick={handleTriggerAnalysis}
+                className="inline-flex items-center gap-4 px-8 py-5 bg-gradient-to-r from-indigo-600 to-indigo-800 text-white rounded-2xl font-bold shadow-xl shadow-indigo-100 hover:scale-[1.02] transition-all group text-base"
+              >
+                <i className="fa-solid fa-brain text-xl group-hover:animate-bounce"></i>
+                Run PropIntel™ Data Analysis
+              </button>
+            )}
+            
+            {propertyData.images && propertyData.images.length > 0 && (
+              <button
+                onClick={customAnalysis ? () => setViewMode('visual-report') : handleRunCustomAnalysis}
+                className={`inline-flex items-center gap-4 px-8 py-5 ${customAnalysis ? 'bg-indigo-900' : 'bg-gradient-to-r from-purple-600 to-indigo-600'} text-white rounded-2xl font-bold shadow-xl shadow-purple-100 hover:scale-[1.02] transition-all group text-base border-2 border-white/20`}
+              >
+                <i className={`fa-solid ${customAnalysis ? 'fa-chart-pie' : 'fa-wand-magic-sparkles'} text-xl group-hover:animate-spin`}></i>
+                {customAnalysis ? 'View Visual AI Analysis' : 'Run Custom Visual AI Analysis'}
+              </button>
+            )}
+          </div>
+
+          {analysisLoading || analysis ? (
+            <AIAnalysis analysis={analysis!} loading={analysisLoading} />
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50 py-5 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
+              <div 
+                className="h-12 w-12 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200 cursor-pointer"
+                onClick={() => setViewMode('main')}
+              >
                 <i className="fa-solid fa-building-circle-check text-white text-2xl"></i>
               </div>
-              <div>
+              <div className="cursor-pointer" onClick={() => setViewMode('main')}>
                 <h1 className="text-2xl font-bold text-gray-900 tracking-tight">PropIntel AI</h1>
                 <p className="text-xs text-gray-500 uppercase font-bold tracking-widest">Intelligent Market Analysis</p>
               </div>
@@ -159,54 +244,27 @@ const App: React.FC = () => {
             <p className="text-xl font-medium animate-pulse">Gathering real-time housing data...</p>
             <p className="text-base">Geocoding via Radar & Fetching from US Housing APIs</p>
           </div>
-        ) : propertyData ? (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <PropertyImages images={propertyData.images} loading={imagesLoading} />
-
-            <PropertyHeader data={propertyData} />
-            <TablesSection data={propertyData} />
-            
-            {/* Maps Section */}
-            <PropertyMaps mapZoomIn={propertyData.mapZoomIn} mapZoomOut={propertyData.mapZoomOut} />
-            
-            <PropertyFacts facts={propertyData.resoFacts} />
-
-            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 mb-8 mt-8">
-              <h3 className="font-bold text-gray-800 mb-5 flex items-center text-lg">
-                <i className="fa-solid fa-align-left text-gray-400 mr-3"></i>
-                Property Description
-              </h3>
-              <p className="text-base text-gray-600 leading-relaxed">
-                {propertyData.description}
-              </p>
-            </div>
-
-            {!analysis && !analysisLoading ? (
-              <div className="mt-10 mb-14 text-center">
-                <button
-                  onClick={handleTriggerAnalysis}
-                  className="inline-flex items-center gap-4 px-10 py-5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-bold shadow-xl shadow-indigo-100 hover:scale-[1.02] transition-all group text-base"
-                >
-                  <i className="fa-solid fa-brain text-xl group-hover:animate-bounce"></i>
-                  Run PropIntel™ Deep AI Analysis
-                </button>
-                <p className="text-sm text-gray-400 mt-4 font-medium">Powered by Gemini 3 Flash</p>
+        ) : viewMode === 'main' ? (
+          propertyData ? renderMainContent() : (
+            <div className="flex flex-col items-center justify-center py-24 text-center">
+              <div className="w-28 h-28 bg-gray-100 rounded-full flex items-center justify-center mb-8">
+                <i className="fa-solid fa-house-chimney-window text-5xl text-gray-300"></i>
               </div>
-            ) : (
-              <AIAnalysis analysis={analysis!} loading={analysisLoading} />
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-28 h-28 bg-gray-100 rounded-full flex items-center justify-center mb-8">
-              <i className="fa-solid fa-house-chimney-window text-5xl text-gray-300"></i>
+              <h2 className="text-3xl font-bold text-gray-800 mb-3">Ready to Analyze?</h2>
+              <p className="text-base text-gray-500 max-w-md">Enter a US property address above to generate a comprehensive PropIntel report using Radar, US Housing Data, and Gemini AI.</p>
             </div>
-            <h2 className="text-3xl font-bold text-gray-800 mb-3">Ready to Analyze?</h2>
-            <p className="text-base text-gray-500 max-w-md">Enter a US property address above to generate a comprehensive PropIntel report using Radar, US Housing Data, and Gemini AI.</p>
+          )
+        ) : (
+          <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+            <CustomAIAnalysis 
+              analysis={customAnalysis!} 
+              loading={customAnalysisLoading} 
+              onBack={() => setViewMode('main')}
+            />
           </div>
         )}
 
-        <SystemLogs logs={logs} />
+        {viewMode === 'main' && <SystemLogs logs={logs} />}
       </main>
     </div>
   );

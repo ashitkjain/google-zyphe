@@ -88,6 +88,44 @@ export interface AIAnalysisResult {
   marketOutlook: string;
 }
 
+export interface CustomAIAnalysisResult {
+  report_title: string;
+  home_interior: {
+    overall_description: string;
+    design_style: {
+      style: string;
+      reasoning: string;
+    };
+    color_and_materials: string;
+    lighting: string;
+    spatial_flow: string;
+    staging_and_furnishings: string;
+    condition_and_finish: string;
+    suggested_lifestyle: {
+      lifestyle: string;
+      buyer_type: string;
+    };
+  };
+  room_highlights: Array<{
+    room_name: string;
+    floor: string;
+    description: string;
+    potential_improvements: string;
+  }>;
+  exterior_and_neighborhood: {
+    exterior_and_lot_appeal: {
+      architecture_style: string;
+      curb_appeal: string;
+      backyard_and_patio: string;
+    };
+    views_privacy_orientation: {
+      views: string;
+      orientation: string;
+      privacy: string;
+    };
+  };
+}
+
 export interface LogEntry {
   timestamp: string;
   service: string;
