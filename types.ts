@@ -24,6 +24,7 @@ export interface PropertyData {
   homeInsights?: any;
   timeOnZillow?: number;
   resoFacts?: ResoFacts;
+  images?: string[]; // Added for property photos
 }
 
 export interface School {
@@ -62,4 +63,11 @@ export interface AIAnalysisResult {
   sellerStrategy: string;
   realtorPitch: string;
   marketOutlook: string;
+}
+
+export interface LogEntry {
+  timestamp: string;
+  service: string;
+  type: 'request' | 'response' | 'error';
+  content: any;
 }

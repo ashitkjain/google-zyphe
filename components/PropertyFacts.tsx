@@ -9,45 +9,90 @@ interface Props {
 const PropertyFacts: React.FC<Props> = ({ facts }) => {
   if (!facts) return null;
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6 p-6 bg-white rounded-xl shadow-sm border border-gray-100">
-      {/* Part 1 */}
-      <div>
-        <div className="flex items-center mb-4 text-gray-700">
-          <i className="fa-solid fa-file-invoice text-gray-400 mr-2"></i>
-          <h3 className="font-bold">Property Facts (Part 1)</h3>
-        </div>
-        <div className="space-y-2 text-sm">
-          <p><span className="font-bold text-gray-800">Flooring:</span> {facts.flooring}</p>
-          <p><span className="font-bold text-gray-800">Foundation Details:</span> {facts.foundationDetails}</p>
-          <div>
-            <span className="font-bold text-gray-800">Rooms:</span>
-            <p className="ml-4 mt-1 text-gray-600 italic">{facts.rooms}</p>
-          </div>
-          <p><span className="font-bold text-gray-800">Fees And Dues:</span> {facts.feesAndDues}</p>
-          <p><span className="font-bold text-gray-800">Exterior Features:</span> {facts.exteriorFeatures}</p>
-          <p><span className="font-bold text-gray-800">Architectural Style:</span> {facts.architecturalStyle}</p>
-          <p><span className="font-bold text-gray-800">Garage Parking Capacity:</span> {facts.garageParkingCapacity}</p>
-        </div>
-      </div>
+  const renderFact = (label: string, value: any) => {
+    let displayValue = value === undefined || value === null || value === '' || value === 'null' ? '' : String(value);
+    
+    if (!displayValue) return null;
 
-      {/* Part 2 */}
-      <div>
-        <div className="flex items-center mb-4 text-gray-700">
-          <i className="fa-solid fa-file-invoice text-gray-400 mr-2"></i>
-          <h3 className="font-bold">Property Facts (Part 2)</h3>
+    // Handle special formatting for "Rooms" as requested
+    if (label === 'Rooms') {
+      let finalString = '';
+      
+      try {
+        // Try to handle if it's a JSON stringified object
+        const parsed = JSON.parse(displayValue);
+        if (typeof parsed === 'object' && parsed !== null) {
+          finalString = Object.entries(parsed)
+            .filter(([_, v]) => v !== null && v !== undefined && v !== 'null' && v !== '')
+            .map(([k, v]) => `${k} - ${v}`)
+            .join(', ');
+        } else {
+          finalString = String(parsed);
+        }
+      } catch (e) {
+        // Fallback for non-JSON strings
+        finalString = displayValue
+          .split(',')
+          .map(part => part.trim())
+          .filter(part => {
+            if (!part) return false;
+            const lower = part.toLowerCase();
+            return lower !== 'null' && !lower.includes(': null') && !part.endsWith(':');
+          })
+          .map(part => part.replace(':', ' -')) // Change colon to dash
+          .join(', ');
+      }
+
+      // Strip any remaining brackets or quotes globally as requested
+      const cleaned = finalString.replace(/[{}|[\]"]/g, '').trim();
+      
+      if (!cleaned) return null;
+
+      return (
+        <div key={label} className="py-1 text-base">
+          <span className="font-bold text-gray-800">{label}:</span> <span className="text-gray-700">{cleaned}</span>
         </div>
-        <div className="space-y-2 text-sm">
-          <p><span className="font-bold text-gray-800">Lot Features:</span> {facts.lotFeatures}</p>
-          <p><span className="font-bold text-gray-800">Roof Type:</span> {facts.roofType}</p>
-          <p><span className="font-bold text-gray-800">Days On Zillow:</span> {facts.daysOnZillow}</p>
-          <p><span className="font-bold text-gray-800">Construction Materials:</span> {facts.constructionMaterials}</p>
-          <p><span className="font-bold text-gray-800">Fireplace Features:</span> {facts.fireplaceFeatures}</p>
-          <p><span className="font-bold text-gray-800">Appliances:</span> {facts.appliances}</p>
-          <p><span className="font-bold text-gray-800">Fencing:</span> {facts.fencing}</p>
-          <p><span className="font-bold text-gray-800">Cooling:</span> {facts.cooling}</p>
-          <p><span className="font-bold text-gray-800">Laundry Features:</span> {facts.laundryFeatures}</p>
-          <p><span className="font-bold text-gray-800">Heating:</span> {facts.heating}</p>
+      );
+    }
+
+    return (
+      <div key={label} className="py-1 text-base">
+        <span className="font-bold text-gray-800">{label}:</span> <span className="text-gray-700">{displayValue}</span>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white px-8 py-8 rounded-b-xl border-x border-b border-gray-200">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-2">
+        {/* Column 1 */}
+        <div className="space-y-1">
+          {renderFact('Flooring', facts.flooring)}
+          {renderFact('Foundation Details', facts.foundationDetails)}
+          {renderFact('Rooms', facts.rooms)}
+          {renderFact('Fees And Dues', facts.feesAndDues)}
+          {renderFact('Exterior Features', facts.exteriorFeatures)}
+          {renderFact('Architectural Style', facts.architecturalStyle)}
+        </div>
+
+        {/* Column 2 */}
+        <div className="space-y-1">
+          {renderFact('Garage Parking Capacity', facts.garageParkingCapacity)}
+          {renderFact('Lot Features', facts.lotFeatures)}
+          {renderFact('Roof Type', facts.roofType)}
+          {renderFact('Days On Zillow', facts.daysOnZillow)}
+          {renderFact('Construction Materials', facts.constructionMaterials)}
+          {renderFact('Fireplace Features', facts.fireplaceFeatures)}
+        </div>
+
+        {/* Column 3 */}
+        <div className="space-y-1">
+          {renderFact('Appliances', facts.appliances)}
+          {renderFact('Fencing', facts.fencing)}
+          {renderFact('Cooling', facts.cooling)}
+          {renderFact('Laundry Features', facts.laundryFeatures)}
+          {renderFact('Heating', facts.heating)}
+          {renderFact('Basement', facts.basement)}
         </div>
       </div>
     </div>

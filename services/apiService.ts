@@ -1,23 +1,61 @@
 
 import { PropertyData } from "../types";
 
-// Note: In a production environment, these would be handled via a secure backend or proxy
-// to protect API keys. For this demonstration, we focus on the logic structure.
-const RADAR_API_KEY = "prj_live_sk_..."; // Placeholder
-const RAPID_API_KEY = "YOUR_RAPID_API_KEY"; // Placeholder
+// Note: Using the key provided in the prompt example for demonstration
+const RAPID_API_KEY = "ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f";
 const RAPID_API_HOST = "us-housing-market-data1.p.rapidapi.com";
+
+const getCache = <T>(key: string): T | null => {
+  const cached = sessionStorage.getItem(`prop_cache_${key}`);
+  return cached ? JSON.parse(cached) : null;
+};
+
+const setCache = (key: string, data: any) => {
+  sessionStorage.setItem(`prop_cache_${key}`, JSON.stringify(data));
+};
+
+/**
+ * Safely extracts a numeric value from potential API response types.
+ * API sometimes returns a number, sometimes an object like { value: 5, label: 'Moderate', max: 10 }
+ */
+const extractNumericValue = (val: any): number => {
+  if (typeof val === 'number') return val;
+  if (val && typeof val === 'object' && 'value' in val) {
+    const numeric = Number(val.value);
+    return isNaN(numeric) ? 0 : numeric;
+  }
+  return 0;
+};
+
+/**
+ * Converts various API field types (arrays, objects, numbers) into a displayable string
+ * to prevent React "object as child" errors while ensuring data is shown.
+ */
+const safeStringify = (val: any): string | undefined => {
+  if (val === null || val === undefined) return undefined;
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number') return String(val);
+  if (Array.isArray(val)) {
+    return val.map(item => (typeof item === 'object' ? JSON.stringify(item) : item)).join(', ');
+  }
+  if (typeof val === 'object') {
+    // If it's a simple object with a 'label' or 'text' property, use that.
+    if ('label' in val) return String(val.label);
+    if ('text' in val) return String(val.text);
+    return JSON.stringify(val);
+  }
+  return String(val);
+};
 
 export const normalizeAddress = async (address: string): Promise<string> => {
   try {
-    // In a real scenario, you'd fetch from Radar
-    // const response = await fetch(`https://api.radar.io/v1/geocode/forward?query=${encodeURIComponent(address)}`, {
-    //   headers: { 'Authorization': RADAR_API_KEY }
-    // });
-    // const data = await response.json();
-    // return data.addresses?.[0]?.formattedAddress || address;
-    
-    // Simulate API delay and return the input for now since we don't have keys
-    await new Promise(r => setTimeout(r, 500));
+    const cacheKey = `normalize_${address}`;
+    const cached = getCache<string>(cacheKey);
+    if (cached) return cached;
+
+    // Simulate Radar API normalization
+    await new Promise(r => setTimeout(r, 400));
+    setCache(cacheKey, address);
     return address;
   } catch (e) {
     console.error("Radar normalization failed", e);
@@ -25,55 +63,99 @@ export const normalizeAddress = async (address: string): Promise<string> => {
   }
 };
 
-export const fetchPropertyData = async (address: string): Promise<PropertyData> => {
-  // Simulate the US Housing Data API response based on the logic provided in the prompt
-  // In reality, this would be a fetch call to US-housing-market-data1.p.rapidapi.com
-  
-  await new Promise(r => setTimeout(r, 1500));
+export const fetchPropertyImages = async (zpid: string): Promise<string[]> => {
+  try {
+    const cacheKey = `images_${zpid}`;
+    const cached = getCache<string[]>(cacheKey);
+    if (cached) {
+      console.log(`📦 Returning cached images for zpid: ${zpid}`);
+      return cached;
+    }
 
-  // Mock data matching the structure from the prompt's Deno function
-  return {
-    address: address,
-    zpid: "25064531",
-    homeStatus: "FOR_SALE",
-    homeType: "SINGLE_FAMILY",
-    livingAreaValue: 1796,
-    bedrooms: 4,
-    bathrooms: 2,
-    yearBuilt: 1981,
-    lotSize: "6,969 sqft",
-    price: 1625000,
-    zestimate: 1589600,
-    rentZestimate: 4219,
-    annualHomeownersInsurance: 6825,
-    windRiskScore: 1,
-    floodRiskScore: 1,
-    fireRiskScore: 7,
-    heatRiskScore: 4,
-    description: "Gorgeous light, bright, move in condition, very well cared for home. Turn key. Freshly painted. Remodeled gourmet kitchen: deluxe features includes: Quartz counters. New cabinets, self closing drawers, lazy susan, pull out spice drawer, pull out pots/pans drawers. Upgraded knobs and handles. Stainless steel appliances, gas stove/oven (four burner-plus additional griddle in center) built-in microwave, dishwasher, deep sink. Formal LR w/bay window and DR. Family room with fireplace. Dual level halo lighting. Recessed lighting. New LVP faux wood flooring. Upgraded bathrooms with new quartz counters, mirrors, lights. Six panel doors-new knobs/hinges. Nest Thermostat. Ring doorbell. Inside laundry. Central heating and air conditioning. Whole house fan. Dual pane windows. Shelves, storage area, sink in garage. Stamped concrete driveway. Certainteed Roof (2023). Newly landscaped backyard with brick island, good size grass area, cement pad for spa or BBQ area. Second cement pad on side yard for a shed. Washer/Dryer included. Refrigerator in garage included. Covered patio. Covered side yard. Wonderful Pleasant Meadows neighborhood with sidewalks. Superior school district. Rare find, one story. Move in condition!",
-    schools: [
-      { name: "Fairlands Elementary School", level: "Elementary", rating: "8/10", distance: "0.8mi" },
-      { name: "Harvest Park Preschool Center", level: "Elementary", rating: "N/A/10", distance: "2mi" },
-      { name: "Thomas S. Hart Middle School", level: "Middle", rating: "8/10", distance: "2.1mi" }
-    ],
+    console.log(`📸 Fetching real images for zpid: ${zpid}`);
+    const response = await fetch(`https://us-housing-market-data1.p.rapidapi.com/images?zpid=${zpid}`, {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-host': RAPID_API_HOST,
+        'x-rapidapi-key': RAPID_API_KEY,
+      },
+    });
+
+    if (!response.ok) throw new Error(`Images API error: ${response.status}`);
+    
+    const data = await response.json();
+    const images = Array.isArray(data) ? data : (data.images || []);
+    
+    setCache(cacheKey, images);
+    return images;
+  } catch (error) {
+    console.error("Error fetching images:", error);
+    return [];
+  }
+};
+
+export const fetchPropertyData = async (address: string): Promise<PropertyData> => {
+  const cacheKey = `data_${address}`;
+  const cached = getCache<PropertyData>(cacheKey);
+  if (cached) {
+    console.log(`📦 Returning cached property data for: ${address}`);
+    return cached;
+  }
+
+  const response = await fetch(`https://us-housing-market-data1.p.rapidapi.com/property?address=${encodeURIComponent(address)}`, {
+    method: 'GET',
+    headers: {
+      'x-rapidapi-host': RAPID_API_HOST,
+      'x-rapidapi-key': RAPID_API_KEY,
+    },
+  });
+
+  if (!response.ok) throw new Error(`Property API error: ${response.status}`);
+  
+  const data = await response.json();
+  
+  // Map API response to our internal PropertyData structure
+  const mappedData: PropertyData = {
+    address: typeof data.address === 'string' ? data.address : address,
+    zpid: String(data.zpid || ""),
+    homeStatus: typeof data.homeStatus === 'string' ? data.homeStatus : "UNKNOWN",
+    homeType: typeof data.homeType === 'string' ? data.homeType : "SINGLE_FAMILY",
+    livingAreaValue: extractNumericValue(data.livingAreaValue || data.livingArea),
+    bedrooms: extractNumericValue(data.bedrooms),
+    bathrooms: extractNumericValue(data.bathrooms),
+    yearBuilt: extractNumericValue(data.yearBuilt),
+    lotSize: safeStringify(data.resoFacts?.lotSize) || "N/A",
+    price: extractNumericValue(data.price || data.zestimate),
+    zestimate: extractNumericValue(data.zestimate),
+    rentZestimate: extractNumericValue(data.rentZestimate),
+    annualHomeownersInsurance: extractNumericValue(data.annualHomeownersInsurance),
+    windRiskScore: extractNumericValue(data.climate?.windSources?.primary?.riskScore),
+    floodRiskScore: extractNumericValue(data.climate?.floodSources?.primary?.riskScore),
+    fireRiskScore: extractNumericValue(data.climate?.fireSources?.primary?.riskScore),
+    heatRiskScore: extractNumericValue(data.climate?.heatSources?.primary?.riskScore),
+    description: typeof data.description === 'string' ? data.description : "No description available.",
+    schools: Array.isArray(data.schools) ? data.schools : [],
     resoFacts: {
-      flooring: "Vinyl",
-      foundationDetails: "Slab",
-      rooms: "Kitchen: Counter - Solid Surface, Eat-in Kitchen, Gas Range/Cooktop, Microwave, Updated Kitchen",
-      feesAndDues: "N/A",
-      exteriorFeatures: "Stucco",
-      architecturalStyle: "Traditional",
-      garageParkingCapacity: 2,
-      lotFeatures: "Back Yard, Front Yard",
-      roofType: "Composition",
-      daysOnZillow: 26,
-      constructionMaterials: "Stucco",
-      fireplaceFeatures: "Family Room",
-      appliances: "Gas Range, Microwave",
-      fencing: "Fenced",
-      cooling: "Central Air",
-      laundryFeatures: "Inside",
-      heating: "Central"
+      flooring: safeStringify(data.resoFacts?.flooring),
+      foundationDetails: safeStringify(data.resoFacts?.foundationDetails),
+      rooms: safeStringify(data.resoFacts?.rooms),
+      feesAndDues: safeStringify(data.resoFacts?.feesAndDues),
+      exteriorFeatures: safeStringify(data.resoFacts?.exteriorFeatures),
+      architecturalStyle: safeStringify(data.resoFacts?.architecturalStyle),
+      garageParkingCapacity: extractNumericValue(data.resoFacts?.garageParkingCapacity),
+      lotFeatures: safeStringify(data.resoFacts?.lotFeatures),
+      roofType: safeStringify(data.resoFacts?.roofType),
+      daysOnZillow: extractNumericValue(data.daysOnZillow || data.resoFacts?.daysOnZillow),
+      constructionMaterials: safeStringify(data.resoFacts?.constructionMaterials),
+      fireplaceFeatures: safeStringify(data.resoFacts?.fireplaceFeatures),
+      appliances: safeStringify(data.resoFacts?.appliances),
+      fencing: safeStringify(data.resoFacts?.fencing),
+      cooling: safeStringify(data.resoFacts?.cooling),
+      laundryFeatures: safeStringify(data.resoFacts?.laundryFeatures),
+      heating: safeStringify(data.resoFacts?.heating),
     }
   };
+
+  setCache(cacheKey, mappedData);
+  return mappedData;
 };
