@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, LogEntry } from './types';
-import { normalizeAddress, fetchPropertyData, fetchPropertyImages } from './services/apiService';
+import { normalizeAddress, fetchPropertyData, fetchPropertyImages, getCache, setCache } from './services/apiService';
 import { analyzeProperty, analyzePropertyImages } from './services/geminiService';
 import PropertyHeader from './components/PropertyHeader';
 import TablesSection from './components/TablesSection';
@@ -76,6 +76,13 @@ const App: React.FC = () => {
       setLoading(false);
 
       if (data.zpid) {
+        // Try to load cached visual analysis if it exists for this ZPID
+        const cachedVisual = getCache<CustomAIAnalysisResult>(`visual_analysis_${data.zpid}`);
+        if (cachedVisual) {
+          console.log('Found cached visual analysis for ZPID:', data.zpid);
+          setCustomAnalysis(cachedVisual);
+        }
+
         setImagesLoading(true);
         addLog('US Housing Data API (Images)', 'request', { zpid: data.zpid });
         const images = await fetchPropertyImages(data.zpid);
@@ -114,6 +121,16 @@ const App: React.FC = () => {
   const handleRunCustomAnalysis = async () => {
     if (!propertyData?.images || propertyData.images.length === 0) return;
 
+    // Double check cache before hitting API
+    if (propertyData.zpid) {
+      const cached = getCache<CustomAIAnalysisResult>(`visual_analysis_${propertyData.zpid}`);
+      if (cached) {
+        setCustomAnalysis(cached);
+        setViewMode('visual-report');
+        return;
+      }
+    }
+
     setCustomAnalysisLoading(true);
     setViewMode('visual-report');
     addLog('Gemini AI (Multimodal)', 'request', { model: 'gemini-3-flash-preview', task: 'Visual Analysis', imageCount: Math.min(propertyData.images.length, 15) });
@@ -121,12 +138,21 @@ const App: React.FC = () => {
     try {
       const result = await analyzePropertyImages(propertyData.images);
       addLog('Gemini AI (Multimodal)', 'response', result);
+      
+      // Store in cache if we have a ZPID to identify the property
+      if (propertyData.zpid) {
+        setCache(`visual_analysis_${propertyData.zpid}`, result);
+      }
+      
       setCustomAnalysis(result);
     } catch (err: any) {
       const errorMsg = err.message || 'Custom AI analysis failed.';
       addLog('Gemini AI (Multimodal)', 'error', { message: errorMsg });
-      // If error occurs, stay on page but show error state is handled by CustomAIAnalysis component normally 
-      // but if we want to go back we can.
+      // Go back to main if analysis fails completely and we have no result
+      if (!customAnalysis) {
+        setViewMode('main');
+        setError(`Visual AI analysis failed: ${errorMsg}`);
+      }
     } finally {
       setCustomAnalysisLoading(false);
     }

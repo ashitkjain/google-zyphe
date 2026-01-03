@@ -226,88 +226,81 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack }) => {
         )}
 
         {activeTab === 'exterior' && (
-          <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div className="bg-gray-900 rounded-[3rem] p-12 md:p-20 text-white relative overflow-hidden shadow-3xl">
-              <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2"></div>
-              <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2"></div>
+          <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-4xl mx-auto">
+            <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-10">
               
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 relative z-10">
-                <div>
-                  <div className="flex items-center gap-6 mb-12">
-                    <div className="w-16 h-16 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-2xl shadow-emerald-500/20">
-                      <i className="fa-solid fa-tree text-white text-3xl"></i>
-                    </div>
-                    <div>
-                      <h3 className="text-4xl font-black">Exterior & Lot</h3>
-                      <p className="text-emerald-400 font-bold uppercase tracking-widest text-sm mt-1">Grounds assessment</p>
-                    </div>
+              {/* Exterior & Lot Appeal Section */}
+              <div className="space-y-8">
+                <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Exterior & Lot Appeal</h3>
+                
+                <div className="space-y-6 pl-0 md:pl-4 border-l-2 border-gray-50">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Architecture Style</h4>
+                    <p className="text-gray-600 text-base leading-relaxed">
+                      {exterior_and_neighborhood.exterior_and_lot_appeal.architecture_style}
+                    </p>
                   </div>
                   
-                  <div className="space-y-12">
-                    <div className="group">
-                      <h4 className="text-emerald-400 text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-3">
-                        <div className="w-2 h-2 bg-emerald-500 rounded-full group-hover:scale-150 transition-transform"></div>
-                        Architecture & Style
-                      </h4>
-                      <p className="text-gray-300 text-xl leading-relaxed font-light">{exterior_and_neighborhood.exterior_and_lot_appeal.architecture_style}</p>
-                    </div>
-                    <div className="group">
-                      <h4 className="text-emerald-400 text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-3">
-                        <div className="w-2 h-2 bg-emerald-500 rounded-full group-hover:scale-150 transition-transform"></div>
-                        Curb Appeal & Landscaping
-                      </h4>
-                      <p className="text-gray-300 text-xl leading-relaxed font-light">{exterior_and_neighborhood.exterior_and_lot_appeal.curb_appeal}</p>
-                    </div>
-                    <div className="group">
-                      <h4 className="text-emerald-400 text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-3">
-                        <div className="w-2 h-2 bg-emerald-500 rounded-full group-hover:scale-150 transition-transform"></div>
-                        Outdoor Oasis
-                      </h4>
-                      <p className="text-gray-300 text-xl leading-relaxed font-light">{exterior_and_neighborhood.exterior_and_lot_appeal.backyard_and_patio}</p>
-                    </div>
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Curb Appeal</h4>
+                    <p className="text-gray-600 text-base leading-relaxed">
+                      {exterior_and_neighborhood.exterior_and_lot_appeal.curb_appeal}
+                    </p>
                   </div>
-                </div>
-
-                <div className="flex flex-col justify-center">
-                  <div className="bg-white/5 backdrop-blur-md rounded-[2.5rem] p-12 border border-white/10 shadow-inner">
-                    <h4 className="text-2xl font-black mb-10 flex items-center gap-4">
-                      <i className="fa-solid fa-mountain-sun text-orange-400"></i> Environmental Context
-                    </h4>
-                    
-                    <div className="grid grid-cols-1 gap-10">
-                      <div className="flex gap-6 items-start group">
-                        <div className="w-14 h-14 rounded-2xl bg-white/5 flex-shrink-0 flex items-center justify-center border border-white/10 group-hover:bg-orange-500/20 group-hover:border-orange-500/50 transition-all duration-500">
-                          <i className="fa-solid fa-compass text-orange-400 text-xl"></i>
-                        </div>
-                        <div>
-                          <div className="text-xs text-orange-400 font-black uppercase tracking-widest mb-2">Solar Orientation</div>
-                          <p className="text-lg text-gray-200 leading-relaxed font-medium">{exterior_and_neighborhood.views_privacy_orientation.orientation}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-6 items-start group">
-                        <div className="w-14 h-14 rounded-2xl bg-white/5 flex-shrink-0 flex items-center justify-center border border-white/10 group-hover:bg-orange-500/20 group-hover:border-orange-500/50 transition-all duration-500">
-                          <i className="fa-solid fa-panorama text-orange-400 text-xl"></i>
-                        </div>
-                        <div>
-                          <div className="text-xs text-orange-400 font-black uppercase tracking-widest mb-2">Vista Perspectives</div>
-                          <p className="text-lg text-gray-200 leading-relaxed font-medium">{exterior_and_neighborhood.views_privacy_orientation.views}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-6 items-start group">
-                        <div className="w-14 h-14 rounded-2xl bg-white/5 flex-shrink-0 flex items-center justify-center border border-white/10 group-hover:bg-orange-500/20 group-hover:border-orange-500/50 transition-all duration-500">
-                          <i className="fa-solid fa-eye-slash text-orange-400 text-xl"></i>
-                        </div>
-                        <div>
-                          <div className="text-xs text-orange-400 font-black uppercase tracking-widest mb-2">Privacy Index</div>
-                          <p className="text-lg text-gray-200 leading-relaxed font-medium">{exterior_and_neighborhood.views_privacy_orientation.privacy}</p>
-                        </div>
-                      </div>
-                    </div>
+                  
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Backyard & Patio</h4>
+                    <p className="text-gray-600 text-base leading-relaxed">
+                      {exterior_and_neighborhood.exterior_and_lot_appeal.backyard_and_patio}
+                    </p>
                   </div>
                 </div>
               </div>
+
+              {/* Views, Privacy & Orientation Section */}
+              <div className="space-y-8 pt-8 border-t border-gray-50">
+                <div className="flex items-center gap-3">
+                  <i className="fa-solid fa-eye text-gray-400"></i>
+                  <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Views, Privacy & Orientation</h3>
+                </div>
+
+                <div className="space-y-6 pl-0 md:pl-4 border-l-2 border-gray-50">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Views</h4>
+                    <p className="text-gray-600 text-base leading-relaxed">
+                      {exterior_and_neighborhood.views_privacy_orientation.views}
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Orientation</h4>
+                    <p className="text-gray-600 text-base leading-relaxed">
+                      {exterior_and_neighborhood.views_privacy_orientation.orientation}
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Privacy</h4>
+                    <p className="text-gray-600 text-base leading-relaxed">
+                      {exterior_and_neighborhood.views_privacy_orientation.privacy}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Environmental Match Card */}
+              <div className="pt-10">
+                <div className="bg-emerald-900 rounded-3xl p-8 text-white flex items-center gap-6">
+                  <div className="w-16 h-16 bg-emerald-800 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                    <i className="fa-solid fa-leaf text-emerald-400 text-2xl"></i>
+                  </div>
+                  <div>
+                    <h4 className="text-emerald-300 text-xs font-black uppercase tracking-widest mb-1">Environmental Assessment</h4>
+                    <p className="text-lg font-medium">The property grounds demonstrate characteristic architectural integrity and orientation suitable for the local climate.</p>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </section>
         )}

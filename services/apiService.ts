@@ -1,5 +1,5 @@
 
-import { PropertyData, RadarGeocodeResponse } from "../types";
+import { PropertyData, RadarGeocodeResponse, CustomAIAnalysisResult } from "../types";
 
 const RAPID_API_KEY = "ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f";
 const RAPID_API_HOST = "us-housing-market-data1.p.rapidapi.com";
@@ -15,7 +15,7 @@ interface CacheWrapper<T> {
   timestamp: number;
 }
 
-const getCache = <T>(key: string): T | null => {
+export const getCache = <T>(key: string): T | null => {
   const cached = localStorage.getItem(`propintel_cache_${key}`);
   if (!cached) return null;
 
@@ -36,7 +36,7 @@ const getCache = <T>(key: string): T | null => {
   }
 };
 
-const setCache = (key: string, data: any) => {
+export const setCache = (key: string, data: any) => {
   const wrapper: CacheWrapper<any> = {
     data,
     timestamp: Date.now()
