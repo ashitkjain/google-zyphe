@@ -1,0 +1,55 @@
+
+import React from 'react';
+import { AIAnalysisResult } from '../types';
+
+interface Props {
+  analysis: AIAnalysisResult;
+  loading: boolean;
+}
+
+const AIAnalysis: React.FC<Props> = ({ analysis, loading }) => {
+  if (loading) {
+    return (
+      <div className="bg-blue-50 border border-blue-100 rounded-xl p-8 text-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-blue-800 font-medium">Gemini is performing deep intelligent analysis...</p>
+      </div>
+    );
+  }
+
+  const sections = [
+    { title: "Buyer's Report", icon: "fa-shopping-cart", content: analysis.buyerAnalysis, color: "blue" },
+    { title: "Seller's Strategy", icon: "fa-money-bill-trend-up", content: analysis.sellerStrategy, color: "green" },
+    { title: "Realtor's Pitch", icon: "fa-microphone-lines", content: analysis.realtorPitch, color: "purple" },
+    { title: "Market Outlook", icon: "fa-chart-area", content: analysis.marketOutlook, color: "orange" },
+  ];
+
+  return (
+    <div className="mt-8 space-y-6">
+      <div className="flex items-center space-x-3 mb-2">
+        <div className="h-8 w-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
+          <i className="fa-solid fa-brain text-white text-sm"></i>
+        </div>
+        <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">PropIntel™ AI Deep Analysis</h2>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {sections.map((s, idx) => (
+          <div key={idx} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow group">
+            <div className="flex items-center mb-4">
+              <div className={`p-2 rounded-lg bg-${s.color}-100 text-${s.color}-600 mr-3 group-hover:scale-110 transition-transform`}>
+                <i className={`fa-solid ${s.icon}`}></i>
+              </div>
+              <h3 className={`font-bold text-gray-800 text-lg`}>{s.title}</h3>
+            </div>
+            <div className="prose prose-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
+              {s.content}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default AIAnalysis;
