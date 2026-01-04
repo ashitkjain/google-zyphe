@@ -1,6 +1,6 @@
 {
-  "name": "Copy of PropIntel AI",
-  "description": "Smart AI-powered property analysis tool for buyers, sellers, and realtors. Get normalized address data, deep market insights, and intelligent risk assessments.",
+  "name": "Zyphe AI",
+  "description": "Zyphe AI - Smart AI-powered property analysis tool for buyers, sellers, and realtors. Get normalized address data, deep market insights, and intelligent risk assessments.",
   "requestFramePermissions": [
     "geolocation"
   ]

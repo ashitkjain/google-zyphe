@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { CustomAIAnalysisResult } from '../types';
+import { CustomAIAnalysisResult, CommunityPulseSection } from '../types';
 
 interface Props {
   analysis: CustomAIAnalysisResult | null;
@@ -10,7 +10,7 @@ interface Props {
   mapUrl?: string;
 }
 
-type TabType = 'interior' | 'rooms' | 'exterior' | 'neighborhood';
+type TabType = 'interior' | 'rooms' | 'exterior' | 'neighborhood' | 'pulse';
 
 const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefresh, mapUrl }) => {
   const [activeTab, setActiveTab] = useState<TabType>('interior');
@@ -22,12 +22,12 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
           <div className="absolute inset-0 border-4 border-indigo-200 rounded-full"></div>
           <div className="absolute inset-0 border-t-4 border-indigo-600 rounded-full animate-spin"></div>
           <div className="absolute inset-0 flex items-center justify-center">
-            <i className="fa-solid fa-eye text-indigo-600 text-2xl animate-pulse"></i>
+            <i className="fa-solid fa-wand-magic-sparkles text-indigo-600 text-2xl animate-pulse"></i>
           </div>
         </div>
-        <h3 className="text-3xl font-bold text-indigo-900 mb-4">Analyzing Property Visuals...</h3>
+        <h3 className="text-3xl font-bold text-indigo-900 mb-4">Zyphe™ Visual Scanning...</h3>
         <p className="text-indigo-700/70 max-w-md mx-auto text-lg">
-          Gemini 3 Flash is scanning your property images and map data to build a comprehensive report.
+          Our multimodal engine is dissecting architecture and neighborhood context.
         </p>
         <div className="mt-12 flex gap-3">
           <div className="w-3 h-3 bg-indigo-400 rounded-full animate-bounce"></div>
@@ -40,12 +40,12 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
 
   if (!analysis) return null;
 
-  // Use optional chaining and default values to prevent "Cannot read property of undefined" errors
   const { 
     home_interior = {} as any, 
     room_highlights = [], 
     exterior_and_neighborhood = {} as any, 
-    neighborhood 
+    neighborhood,
+    community_pulse
   } = analysis;
 
   const tabs = [
@@ -53,7 +53,54 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
     { id: 'rooms', label: 'Rooms', icon: 'fa-star' },
     { id: 'exterior', label: 'Exterior', icon: 'fa-tree' },
     { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
+    { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
   ];
+
+  const PulseCard = ({ title, data, icon, color }: { title: string, data: CommunityPulseSection, icon: string, color: string }) => (
+    <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col transition-all hover:shadow-xl hover:-translate-y-1">
+      <div className="flex items-center gap-4 mb-6">
+        <div className={`w-12 h-12 rounded-2xl bg-${color}-50 flex items-center justify-center text-${color}-600`}>
+          <i className={`fa-solid ${icon} text-xl`}></i>
+        </div>
+        <h4 className="text-xl font-black text-gray-900 tracking-tight">{title}</h4>
+      </div>
+      <p className="text-gray-700 font-medium mb-4 leading-relaxed">{data.summary}</p>
+      <ul className="space-y-3 mb-8 flex-1">
+        {data.points.map((pt, i) => (
+          <li key={i} className="flex gap-3 text-gray-600 text-sm leading-relaxed">
+            <span className={`w-1.5 h-1.5 rounded-full bg-${color}-400 mt-2 flex-shrink-0`}></span>
+            {pt}
+          </li>
+        ))}
+      </ul>
+      {data.sources && data.sources.length > 0 && (
+        <div className="pt-6 border-t border-gray-50">
+          <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Sources</div>
+          <div className="flex flex-wrap gap-2">
+            {data.sources.map((src, i) => {
+              let label = 'Source';
+              try {
+                const url = new URL(src);
+                label = url.hostname.replace('www.', '');
+              } catch (e) {}
+              return (
+                <a 
+                  key={i} 
+                  href={src} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all truncate max-w-[150px]"
+                >
+                  <i className="fa-solid fa-arrow-up-right-from-square mr-1.5 opacity-70"></i>
+                  {label}
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   const EmptyState = ({ section }: { section: string }) => (
     <div className="p-20 bg-white/50 rounded-[2rem] text-center border-2 border-dashed border-gray-200 flex flex-col items-center justify-center">
@@ -61,7 +108,7 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
         <i className="fa-solid fa-magnifying-glass-chart text-3xl"></i>
       </div>
       <h4 className="text-xl font-bold text-gray-800 mb-2">Analysis Missing for {section}</h4>
-      <p className="text-gray-500 max-w-sm mx-auto mb-8">This section of the report couldn't be generated from the available visual data.</p>
+      <p className="text-gray-500 max-w-sm mx-auto mb-8">This section of the report couldn't be generated from the available data.</p>
       <button 
         onClick={onRefresh}
         className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all flex items-center gap-3"
@@ -95,19 +142,19 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
           </button>
           <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100 font-bold uppercase tracking-wider">
             <i className="fa-solid fa-bolt-lightning text-indigo-500"></i>
-            Visual Intelligence Report
+            Zyphe™ Visual Intelligence
           </div>
         </div>
       </div>
 
       {/* Tab Navigation */}
       <div className="flex justify-center sm:justify-start">
-        <div className="inline-flex bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm">
+        <div className="inline-flex bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm overflow-x-auto no-scrollbar max-w-full">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as TabType)}
-              className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black transition-all text-sm uppercase tracking-tight ${
+              className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black transition-all text-sm uppercase tracking-tight whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -203,7 +250,7 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
                   <div className="bg-indigo-900 rounded-3xl p-8 text-white flex flex-col md:flex-row items-center gap-8">
                     <div className="flex-1">
                         <h4 className="text-indigo-300 text-xs font-black uppercase tracking-widest mb-2">Ideal Profile</h4>
-                        <div className="text-2xl font-black mb-2">{home_interior.suggested_lifestyle?.buyer_type || 'Prospective Resident'}</div>
+                        <div className="text-2xl font-black mb-2 tracking-tight">{home_interior.suggested_lifestyle?.buyer_type || 'Prospective Resident'}</div>
                         <p className="text-indigo-100/70 text-sm">{home_interior.suggested_lifestyle?.lifestyle || 'Lifestyle analysis based on current interior features.'}</p>
                     </div>
                     <div className="flex -space-x-3">
@@ -227,7 +274,7 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
                 <i className="fa-solid fa-star text-white text-xl"></i>
               </div>
               <div>
-                <h3 className="text-2xl font-black text-gray-900">Space Analysis</h3>
+                <h3 className="text-2xl font-black text-gray-900 tracking-tight">Space Analysis</h3>
                 <p className="text-gray-500 text-sm font-medium">Standout features and potential upgrades</p>
               </div>
             </div>
@@ -242,7 +289,7 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
                       </div>
                       <span className="text-[10px] font-black text-gray-400 uppercase bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">{room.floor || 'N/A'}</span>
                     </div>
-                    <h4 className="font-black text-gray-900 text-2xl mb-4 group-hover:text-purple-600 transition-colors">{room.room_name || 'Room Highlight'}</h4>
+                    <h4 className="font-black text-gray-900 text-2xl mb-4 group-hover:text-purple-600 transition-colors tracking-tight">{room.room_name || 'Room Highlight'}</h4>
                     <p className="text-gray-600 text-base leading-relaxed mb-6">{room.description}</p>
                     
                     {room.potential_improvements && (
@@ -269,7 +316,6 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
               <EmptyState section="Exterior" />
             ) : (
               <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-10">
-                {/* Exterior & Lot Appeal Section */}
                 <div className="space-y-8">
                   <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Exterior & Lot Appeal</h3>
                   
@@ -297,7 +343,6 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
                   </div>
                 </div>
 
-                {/* Views, Privacy & Orientation Section */}
                 <div className="space-y-8 pt-8 border-t border-gray-50">
                   <div className="flex items-center gap-3">
                     <i className="fa-solid fa-eye text-gray-400"></i>
@@ -328,7 +373,6 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
                   </div>
                 </div>
 
-                {/* Environmental Match Card */}
                 <div className="pt-10">
                   <div className="bg-emerald-900 rounded-3xl p-8 text-white flex items-center gap-6">
                     <div className="w-16 h-16 bg-emerald-800 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg">
@@ -351,9 +395,7 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
               <EmptyState section="Neighborhood" />
             ) : (
               <div className="bg-[#F3F4F6] rounded-[2.5rem] p-6 sm:p-10 space-y-10">
-                {/* Reference Map Context */}
                 <div className="flex flex-col lg:flex-row gap-10 items-center">
-                  {/* Reduced map container by roughly 60% compared to previous lg:w-1/3 layout */}
                   <div className="lg:w-[15%] flex-shrink-0">
                     <div className="bg-white rounded-2xl p-3 shadow-xl shadow-gray-200/50 border border-white">
                       <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative group">
@@ -372,7 +414,7 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
                   <div className="flex-1 space-y-3">
                     <h3 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] flex items-center gap-3">
                       <span className="w-8 h-[2px] bg-indigo-600"></span>
-                      Overview
+                      Neighborhood Overview
                     </h3>
                     <p className="text-gray-700 text-xl font-medium leading-relaxed italic">
                       "{neighborhood.overview}"
@@ -415,6 +457,53 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
             )}
           </section>
         )}
+
+        {activeTab === 'pulse' && (
+          <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {!community_pulse ? (
+              <EmptyState section="Community Pulse" />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <PulseCard 
+                  title="What Residents Like" 
+                  data={community_pulse.what_residents_like} 
+                  icon="fa-heart" 
+                  color="emerald" 
+                />
+                <PulseCard 
+                  title="Common Complaints" 
+                  data={community_pulse.common_complaints} 
+                  icon="fa-circle-exclamation" 
+                  color="rose" 
+                />
+                <PulseCard 
+                  title="Safety & Concerns" 
+                  data={community_pulse.safety_and_concerns} 
+                  icon="fa-shield-halved" 
+                  color="orange" 
+                />
+                <PulseCard 
+                  title="Schools & Family" 
+                  data={community_pulse.schools_family_friendliness} 
+                  icon="fa-children" 
+                  color="blue" 
+                />
+                <PulseCard 
+                  title="Lifestyle & Commute" 
+                  data={community_pulse.lifestyle_convenience} 
+                  icon="fa-route" 
+                  color="purple" 
+                />
+                <PulseCard 
+                  title="Investment Insights" 
+                  data={community_pulse.investment_insights} 
+                  icon="fa-chart-line" 
+                  color="indigo" 
+                />
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
       {/* Footer Action */}
@@ -424,7 +513,7 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
           className="px-12 py-5 bg-gray-900 text-white rounded-2xl font-black text-lg shadow-2xl hover:bg-gray-800 hover:scale-[1.02] transition-all flex items-center gap-4 group"
         >
           <i className="fa-solid fa-check-circle text-emerald-400"></i>
-          Finished Reviewing Report
+          Finished Reviewing Intelligence
         </button>
       </div>
     </div>

@@ -104,6 +104,21 @@ export interface NeighborhoodAnalysis {
   }
 }
 
+export interface CommunityPulseSection {
+  summary: string;
+  points: string[];
+  sources: string[];
+}
+
+export interface CommunityPulseResult {
+  what_residents_like: CommunityPulseSection;
+  common_complaints: CommunityPulseSection;
+  safety_and_concerns: CommunityPulseSection;
+  schools_family_friendliness: CommunityPulseSection;
+  lifestyle_convenience: CommunityPulseSection;
+  investment_insights: CommunityPulseSection;
+}
+
 export interface CustomAIAnalysisResult {
   report_title: string;
   home_interior: {
@@ -141,6 +156,7 @@ export interface CustomAIAnalysisResult {
     };
   };
   neighborhood?: NeighborhoodAnalysis;
+  community_pulse?: CommunityPulseResult;
 }
 
 export interface LogEntry {

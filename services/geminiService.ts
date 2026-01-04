@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis } from "../types";
+import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult } from "../types";
 import { getCache, setCache } from "./apiService";
 
 // Always use process.env.API_KEY directly as per guidelines.
@@ -70,6 +70,13 @@ const getNeighborhoodCacheKey = (url: string) => {
   return `nb_analysis_${btoa(url).substring(0, 32)}`;
 };
 
+/**
+ * Generates a stable cache key for Community Pulse based on address.
+ */
+const getPulseCacheKey = (address: string) => {
+  return `pulse_analysis_${btoa(address.trim().toLowerCase()).substring(0, 32)}`;
+};
+
 export const analyzeNeighborhood = async (mapImageUrl: string, propertyAddress: string): Promise<NeighborhoodAnalysis> => {
   // Check internal cache first to save Gemini tokens and improve latency
   const cacheKey = getNeighborhoodCacheKey(mapImageUrl);
@@ -127,6 +134,102 @@ Focus on street layout, neighborhood density, amenities, transportation, and gen
   // Save to cache
   setCache(cacheKey, result);
   
+  return result;
+};
+
+export const analyzeCommunityPulse = async (address: string, cityState: string): Promise<CommunityPulseResult> => {
+  const cacheKey = getPulseCacheKey(address);
+  const cached = getCache<CommunityPulseResult>(cacheKey);
+  if (cached) {
+    console.log('Using cached community pulse for address:', address);
+    return cached;
+  }
+
+  const prompt = `Task:
+
+You are a research assistant helping a homebuyer evaluate a property location using real resident perspectives, online reviews, and publicly available data.
+
+Property details:
+
+Address (or neighborhood/ZIP): ${address}
+
+City/State: ${cityState}
+
+Instructions:
+
+Collect and summarize credible, real-world opinions and insights about this location from multiple independent sources.
+
+Required sources (use as many as relevant):
+- Reddit (city or neighborhood subreddits)
+- Trulia neighborhood reviews
+- Niche.com neighborhood reviews
+- City-Data forums
+- Google Maps reviews (area & nearby amenities)
+- Local news or Patch.com
+- Public crime or safety reports
+- School review platforms (GreatSchools, Niche)
+
+Return your response as a JSON object with exactly this structure. Each section MUST include a "sources" array with full URLs of the sources used for that specific section:
+
+{
+  "what_residents_like": {
+    "summary": "<positive aspects: what residents love, community vibe, friendliness, diversity>",
+    "points": ["<point 1>", "<point 2>"],
+    "sources": ["https://reddit.com/r/...", "https://trulia.com/..."]
+  },
+  "common_complaints": {
+    "summary": "<negative aspects: complaints, noise, traffic, parking issues>",
+    "points": ["<complaint 1>", "<complaint 2>"],
+    "sources": ["https://..."]
+  },
+  "safety_and_concerns": {
+    "summary": "<safety perception, crime concerns, red flags, recurring warnings>",
+    "points": ["<point 1>", "<point 2>"],
+    "sources": ["https://..."]
+  },
+  "schools_family_friendliness": {
+    "summary": "<school quality and family-friendliness>",
+    "points": ["<point 1>", "<point 2>"],
+    "sources": ["https://..."]
+  },
+  "lifestyle_convenience": {
+    "summary": "<walkability, commute, remote work suitability, daily convenience>",
+    "points": ["<point 1>", "<point 2>"],
+    "sources": ["https://..."]
+  },
+  "investment_insights": {
+    "summary": "<rental demand, tenant profile, resale desirability, market trends>",
+    "points": ["<insight 1>", "<insight 2>"],
+    "sources": ["https://..."]
+  }
+}
+
+IMPORTANT: Each section's "sources" array must contain full clickable URLs (starting with https://) for the specific sources used in that section. Do not include inline citations in the points text. AVOID REPEATING the same information across different sections.
+
+Source requirements:
+- Each section must have its own sources array with full URLs
+- Prefer recent sources (last 2–3 years)
+- If no reliable sources found for a section, use an empty sources array []
+
+Tone: Neutral, evidence-based, buyer-oriented. Avoid marketing language.
+
+Respond ONLY with the JSON object, no additional text or markdown formatting.`;
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: prompt,
+    config: {
+      tools: [{ googleSearch: {} }],
+      responseMimeType: "application/json"
+    }
+  });
+
+  const text = response.text || "{}";
+  const result = JSON.parse(text) as CommunityPulseResult;
+
+  // Save to cache
+  setCache(cacheKey, result);
+
   return result;
 };
 

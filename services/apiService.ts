@@ -16,7 +16,7 @@ interface CacheWrapper<T> {
 }
 
 export const getCache = <T>(key: string): T | null => {
-  const cached = localStorage.getItem(`propintel_cache_${key}`);
+  const cached = localStorage.getItem(`zyphe_cache_${key}`);
   if (!cached) return null;
 
   try {
@@ -25,7 +25,7 @@ export const getCache = <T>(key: string): T | null => {
     
     // Check if cache is expired (14 days)
     if (now - wrapper.timestamp > CACHE_EXPIRATION_MS) {
-      localStorage.removeItem(`propintel_cache_${key}`);
+      localStorage.removeItem(`zyphe_cache_${key}`);
       console.log(`Cache expired for key: ${key}`);
       return null;
     }
@@ -41,7 +41,7 @@ export const setCache = (key: string, data: any) => {
     data,
     timestamp: Date.now()
   };
-  localStorage.setItem(`propintel_cache_${key}`, JSON.stringify(wrapper));
+  localStorage.setItem(`zyphe_cache_${key}`, JSON.stringify(wrapper));
 };
 
 const extractNumericValue = (val: any): number => {

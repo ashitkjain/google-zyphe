@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, LogEntry } from './types';
 import { normalizeAddress, fetchPropertyData, fetchPropertyImages, getCache, setCache } from './services/apiService';
-import { analyzeProperty, analyzePropertyImages, analyzeNeighborhood } from './services/geminiService';
+import { analyzeProperty, analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse } from './services/geminiService';
 import PropertyHeader from './components/PropertyHeader';
 import TablesSection from './components/TablesSection';
 import PropertyFacts from './components/PropertyFacts';
@@ -26,6 +26,7 @@ const App: React.FC = () => {
   const [customAnalysisLoading, setCustomAnalysisLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('main');
+  const [geoComponents, setGeoComponents] = useState<{ city: string; state: string } | null>(null);
 
   // Scroll to top when switching views
   useEffect(() => {
@@ -54,12 +55,15 @@ const App: React.FC = () => {
     setCustomAnalysis(null);
     setLogs([]);
     setViewMode('main');
+    setGeoComponents(null);
 
     try {
       addLog('Radar Geocode API', 'request', { address });
       const radarResult = await normalizeAddress(address);
       addLog('Radar Geocode API', 'response', radarResult);
       
+      setGeoComponents({ city: radarResult.components.city, state: radarResult.components.state });
+
       addLog('US Housing Data API (Property)', 'request', { address: radarResult.formattedAddress });
       const data = await fetchPropertyData(radarResult.formattedAddress);
       
@@ -118,18 +122,14 @@ const App: React.FC = () => {
     }
   };
 
-  /**
-   * Performs the heavy multimodal Gemini analysis for images and maps.
-   * Forces a fresh call if sections are detected as empty.
-   */
   const handleRunCustomAnalysis = async (forceRefresh: boolean = false) => {
     if (!propertyData) return;
 
-    // Determine if we need to perform analysis
     const isInteriorMissing = !customAnalysis?.home_interior?.overall_description;
     const isNeighborhoodMissing = !customAnalysis?.neighborhood?.overview;
+    const isCommunityPulseMissing = !customAnalysis?.community_pulse;
     
-    if (!forceRefresh && !isInteriorMissing && !isNeighborhoodMissing) {
+    if (!forceRefresh && !isInteriorMissing && !isNeighborhoodMissing && !isCommunityPulseMissing) {
       setViewMode('visual-report');
       return;
     }
@@ -137,13 +137,11 @@ const App: React.FC = () => {
     setCustomAnalysisLoading(true);
     setViewMode('visual-report');
     
-    // Declare finalResult outside the try block so it's accessible in the catch block
     let finalResult: CustomAIAnalysisResult | null = null;
 
     try {
-      // Start with current state or a fresh skeleton
       finalResult = customAnalysis ? { ...customAnalysis } : {
-        report_title: 'Real Estate Property Analysis',
+        report_title: 'Zyphe AI Visual Analysis',
         home_interior: { 
           overall_description: '', 
           design_style: { style: '', reasoning: '' }, 
@@ -163,7 +161,6 @@ const App: React.FC = () => {
 
       const tasks = [];
 
-      // 1. Analyze property photos if available AND missing or forced
       if (propertyData.images && propertyData.images.length > 0 && (isInteriorMissing || forceRefresh)) {
         addLog('Gemini AI (Multimodal - Photos)', 'request', { model: 'gemini-3-flash-preview', task: 'Visual Analysis', imageCount: Math.min(propertyData.images.length, 15) });
         tasks.push(
@@ -181,7 +178,6 @@ const App: React.FC = () => {
         );
       }
 
-      // 2. Analyze Neighborhood via zoomed out map if available AND missing or forced
       if (propertyData.mapZoomOut && (isNeighborhoodMissing || forceRefresh)) {
         addLog('Gemini AI (Multimodal - Map)', 'request', { model: 'gemini-3-flash-preview', task: 'Neighborhood Analysis' });
         tasks.push(
@@ -194,25 +190,34 @@ const App: React.FC = () => {
         );
       }
 
+      // Community Pulse Analysis
+      if (isCommunityPulseMissing || forceRefresh) {
+        const cityState = geoComponents ? `${geoComponents.city}, ${geoComponents.state}` : '';
+        addLog('Gemini AI (Google Search Grounding)', 'request', { model: 'gemini-3-flash-preview', task: 'Community Pulse' });
+        tasks.push(
+          analyzeCommunityPulse(propertyData.address, cityState).then(pulseResult => {
+            addLog('Gemini AI (Google Search Grounding)', 'response', pulseResult);
+            if (finalResult) {
+              finalResult.community_pulse = pulseResult;
+            }
+          })
+        );
+      }
+
       if (tasks.length > 0) {
         await Promise.all(tasks);
-        
-        // Store in cache if we have a ZPID to identify the property
         if (propertyData.zpid && finalResult) {
           setCache(`visual_analysis_${propertyData.zpid}`, finalResult);
         }
         setCustomAnalysis(finalResult);
       } else {
-        // No new tasks were needed, just ensure we're looking at the right view
         setViewMode('visual-report');
       }
 
     } catch (err: any) {
       const errorMsg = err.message || 'Custom AI analysis failed.';
       addLog('Gemini AI (Multimodal)', 'error', { message: errorMsg });
-      // If we literally have nothing, show an error and go back
-      // Fix: finalResult is now defined in this scope
-      if (!customAnalysis && !finalResult?.home_interior?.overall_description) {
+      if (!customAnalysis && (!finalResult || !finalResult.home_interior?.overall_description)) {
         setViewMode('main');
         setError(`Visual AI analysis failed: ${errorMsg}. Please try searching again.`);
       }
@@ -221,7 +226,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Main Page Content
   const renderMainContent = () => (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
       <PropertyImages images={propertyData?.images} loading={imagesLoading} />
@@ -250,7 +254,7 @@ const App: React.FC = () => {
                 className="inline-flex items-center gap-4 px-8 py-5 bg-gradient-to-r from-indigo-600 to-indigo-800 text-white rounded-2xl font-bold shadow-xl shadow-indigo-100 hover:scale-[1.02] transition-all group text-base"
               >
                 <i className="fa-solid fa-brain text-xl group-hover:animate-bounce"></i>
-                Run PropIntel™ Data Analysis
+                Run Zyphe™ Data Analysis
               </button>
             )}
             
@@ -260,7 +264,7 @@ const App: React.FC = () => {
                 className={`inline-flex items-center gap-4 px-8 py-5 ${customAnalysis ? 'bg-indigo-900' : 'bg-gradient-to-r from-purple-600 to-indigo-600'} text-white rounded-2xl font-bold shadow-xl shadow-purple-100 hover:scale-[1.02] transition-all group text-base border-2 border-white/20`}
               >
                 <i className={`fa-solid ${customAnalysis ? 'fa-chart-pie' : 'fa-wand-magic-sparkles'} text-xl group-hover:animate-spin`}></i>
-                {customAnalysis ? 'View Visual AI Analysis' : 'Run Custom Visual AI Analysis'}
+                {customAnalysis ? 'View Visual AI Analysis' : 'Run Zyphe™ Visual Analysis'}
               </button>
             ) : null}
           </div>
@@ -279,15 +283,20 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
+              {/* New Zyphe AI Logo */}
               <div 
-                className="h-12 w-12 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200 cursor-pointer"
+                className="h-12 w-12 bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-800 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200 cursor-pointer relative overflow-hidden group"
                 onClick={() => setViewMode('main')}
               >
-                <i className="fa-solid fa-building-circle-check text-white text-2xl"></i>
+                <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative flex items-center justify-center">
+                   <i className="fa-solid fa-house-chimney text-white text-xl translate-y-[-2px]"></i>
+                   <i className="fa-solid fa-bolt-lightning text-yellow-300 text-[10px] absolute bottom-0 right-[-2px] drop-shadow-md"></i>
+                </div>
               </div>
               <div className="cursor-pointer" onClick={() => setViewMode('main')}>
-                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">PropIntel AI</h1>
-                <p className="text-xs text-gray-500 uppercase font-bold tracking-widest">Intelligent Market Analysis</p>
+                <h1 className="text-2xl font-black text-gray-900 tracking-tighter leading-none">ZYPHE <span className="text-indigo-600">AI</span></h1>
+                <p className="text-[10px] text-gray-400 uppercase font-black tracking-[0.2em]">Intelligent Real Estate</p>
               </div>
             </div>
 
@@ -306,7 +315,7 @@ const App: React.FC = () => {
                   disabled={loading}
                   className="absolute right-3 top-1/2 -translate-y-1/2 bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md shadow-indigo-100"
                 >
-                  {loading ? 'Analyzing...' : 'Search'}
+                  {loading ? 'Analyzing...' : 'Analyze'}
                 </button>
               </div>
             </form>
@@ -330,17 +339,17 @@ const App: React.FC = () => {
                 <div className="w-14 h-14 border-t-4 border-indigo-600 rounded-full"></div>
               </div>
             </div>
-            <p className="text-xl font-medium animate-pulse">Gathering real-time housing data...</p>
-            <p className="text-base">Geocoding via Radar & Fetching from US Housing APIs</p>
+            <p className="text-xl font-medium animate-pulse text-gray-600">Gathering intelligence...</p>
+            <p className="text-base">Radar Geocoding & Rapid Housing Intelligence</p>
           </div>
         ) : viewMode === 'main' ? (
           propertyData ? renderMainContent() : (
             <div className="flex flex-col items-center justify-center py-24 text-center">
-              <div className="w-28 h-28 bg-gray-100 rounded-full flex items-center justify-center mb-8">
-                <i className="fa-solid fa-house-chimney-window text-5xl text-gray-300"></i>
+              <div className="w-28 h-28 bg-white border border-gray-100 rounded-full flex items-center justify-center mb-8 shadow-sm">
+                <i className="fa-solid fa-house-laptop text-5xl text-indigo-500/20"></i>
               </div>
-              <h2 className="text-3xl font-bold text-gray-800 mb-3">Ready to Analyze?</h2>
-              <p className="text-base text-gray-500 max-w-md">Enter a US property address above to generate a comprehensive PropIntel report using Radar, US Housing Data, and Gemini AI.</p>
+              <h2 className="text-3xl font-black text-gray-800 mb-3 tracking-tight">Intelligence Starts Here</h2>
+              <p className="text-base text-gray-500 max-w-md">Enter any US property address to generate a comprehensive Zyphe™ report with deep visual and data analysis.</p>
             </div>
           )
         ) : (

@@ -10,7 +10,6 @@ const PropertyHeader: React.FC<Props> = ({ data }) => {
   const formatCurrency = (val?: number) => val ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val) : 'N/A';
 
   const metrics = [
-    { icon: 'fa-location-dot', label: 'Address', value: data.address, full: true },
     { icon: 'fa-bed', label: 'Bedrooms', value: data.bedrooms },
     { icon: 'fa-bath', label: 'Bathrooms', value: data.bathrooms },
     { icon: 'fa-square', label: 'Living Area', value: `${data.livingAreaValue?.toLocaleString()} sq ft` },
@@ -28,7 +27,7 @@ const PropertyHeader: React.FC<Props> = ({ data }) => {
     <div className="bg-white p-8 rounded-t-xl border-x border-t border-gray-200">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
         {metrics.map((m, idx) => (
-          <div key={idx} className={`flex items-center text-base ${m.full ? 'md:col-span-2' : ''}`}>
+          <div key={idx} className="flex items-center text-base">
             <div className="w-8 flex justify-center mr-3">
               <i className={`fa-solid ${m.icon} text-gray-400 text-base`}></i>
             </div>
