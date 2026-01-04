@@ -65,7 +65,7 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
         <h4 className="text-xl font-black text-gray-900 tracking-tight">{title}</h4>
       </div>
       <p className="text-gray-700 font-medium mb-4 leading-relaxed">{data.summary}</p>
-      <ul className="space-y-3 mb-8 flex-1">
+      <ul className="space-y-3 mb-4 flex-1">
         {data.points.map((pt, i) => (
           <li key={i} className="flex gap-3 text-gray-600 text-sm leading-relaxed">
             <span className={`w-1.5 h-1.5 rounded-full bg-${color}-400 mt-2 flex-shrink-0`}></span>
@@ -74,8 +74,8 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
         ))}
       </ul>
       {data.sources && data.sources.length > 0 && (
-        <div className="pt-6 border-t border-gray-50">
-          <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Sources</div>
+        <div className="pt-4 border-t border-gray-50">
+          <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2.5">Sources</div>
           <div className="flex flex-wrap gap-2">
             {data.sources.map((src, i) => {
               let label = 'Source';
@@ -269,16 +269,6 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
 
         {activeTab === 'rooms' && (
           <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-12 h-12 rounded-xl bg-purple-600 flex items-center justify-center shadow-lg shadow-purple-100">
-                <i className="fa-solid fa-star text-white text-xl"></i>
-              </div>
-              <div>
-                <h3 className="text-2xl font-black text-gray-900 tracking-tight">Space Analysis</h3>
-                <p className="text-gray-500 text-sm font-medium">Standout features and potential upgrades</p>
-              </div>
-            </div>
-
             {room_highlights.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {room_highlights.map((room, idx) => (

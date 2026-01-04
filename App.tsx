@@ -11,6 +11,7 @@ import CustomAIAnalysis from './components/CustomAIAnalysis';
 import PropertyImages from './components/PropertyImages';
 import PropertyMaps from './components/PropertyMaps';
 import SystemLogs from './components/SystemLogs';
+import DataInspector from './components/DataInspector';
 
 type ViewMode = 'main' | 'visual-report';
 
@@ -27,6 +28,7 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('main');
   const [geoComponents, setGeoComponents] = useState<{ city: string; state: string } | null>(null);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
 
   // Scroll to top when switching views
   useEffect(() => {
@@ -267,6 +269,14 @@ const App: React.FC = () => {
                 {customAnalysis ? 'View Visual AI Analysis' : 'Run Zyphe™ Visual Analysis'}
               </button>
             ) : null}
+
+            <button
+              onClick={() => setIsInspectorOpen(true)}
+              className="inline-flex items-center gap-3 px-6 py-5 bg-white border border-gray-200 text-gray-700 rounded-2xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition-all text-base"
+            >
+              <i className="fa-solid fa-code text-gray-400"></i>
+              View Raw Intelligence
+            </button>
           </div>
 
           {analysisLoading || analysis ? (
@@ -366,6 +376,16 @@ const App: React.FC = () => {
 
         {viewMode === 'main' && <SystemLogs logs={logs} />}
       </main>
+
+      <DataInspector 
+        isOpen={isInspectorOpen}
+        onClose={() => setIsInspectorOpen(false)}
+        data={{
+          property: propertyData,
+          analysis: analysis,
+          visual: customAnalysis
+        }}
+      />
     </div>
   );
 };
