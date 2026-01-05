@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { LogEntry } from '../types';
 
@@ -42,6 +41,7 @@ const SystemLogs: React.FC<Props> = ({ logs }) => {
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                     log.type === 'request' ? 'bg-blue-900/40 text-blue-400' :
                     log.type === 'response' ? 'bg-green-900/40 text-green-400' :
+                    log.type === 'info' ? 'bg-indigo-900/40 text-indigo-400' :
                     'bg-red-900/40 text-red-400'
                   }`}>
                     {log.type}

@@ -1,10 +1,29 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult } from "../types";
-import { getCache, setCache } from "./apiService";
+import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult } from "../types";
 
 // Always use process.env.API_KEY directly as per guidelines.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+/**
+ * Helper to clean and parse JSON from the model's text response.
+ * Handles cases where the model might include markdown code fences or conversational filler.
+ */
+const parseJSONSafely = (text: string) => {
+  try {
+    // Look for the first occurrence of '{' and the last occurrence of '}'
+    const startIndex = text.indexOf('{');
+    const endIndex = text.lastIndexOf('}');
+    
+    if (startIndex !== -1 && endIndex !== -1) {
+      const jsonCandidate = text.substring(startIndex, endIndex + 1);
+      return JSON.parse(jsonCandidate);
+    }
+    return JSON.parse(text);
+  } catch (e) {
+    console.error("Failed to parse JSON from AI response:", text);
+    throw new Error("AI returned an invalid data format. Please try again.");
+  }
+};
 
 export const analyzeProperty = async (property: PropertyData): Promise<AIAnalysisResult> => {
   const prompt = `
@@ -24,9 +43,8 @@ export const analyzeProperty = async (property: PropertyData): Promise<AIAnalysi
     4. A short market outlook for this specific type of property in this area.
   `;
 
-  // Use gemini-3-flash-preview for basic text tasks
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-2.5-flash",
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -43,7 +61,6 @@ export const analyzeProperty = async (property: PropertyData): Promise<AIAnalysi
     }
   });
 
-  // Extracting text output from GenerateContentResponse using .text property.
   const text = response.text || "{}";
   return JSON.parse(text) as AIAnalysisResult;
 };
@@ -62,60 +79,14 @@ async function urlToBase64(url: string): Promise<{ data: string, mimeType: strin
   });
 }
 
-/**
- * Generates a stable cache key from the map URL. 
- * Since Radar URLs include center coords and zoom, they are perfect for identifying a neighborhood area.
- */
-const getNeighborhoodCacheKey = (url: string) => {
-  return `nb_analysis_${btoa(url).substring(0, 32)}`;
-};
-
-/**
- * Generates a stable cache key for Community Pulse based on address.
- */
-const getPulseCacheKey = (address: string) => {
-  return `pulse_analysis_${btoa(address.trim().toLowerCase()).substring(0, 32)}`;
-};
-
 export const analyzeNeighborhood = async (mapImageUrl: string, propertyAddress: string): Promise<NeighborhoodAnalysis> => {
-  // Check internal cache first to save Gemini tokens and improve latency
-  const cacheKey = getNeighborhoodCacheKey(mapImageUrl);
-  const cached = getCache<NeighborhoodAnalysis>(cacheKey);
-  if (cached) {
-    console.log('Using cached neighborhood analysis for map URL');
-    return cached;
-  }
-
   const { data, mimeType } = await urlToBase64(mapImageUrl);
   
-  const prompt = `You are a neighborhood and location analyst. Focus on street context, plot positioning, and surrounding neighborhood features from map analysis.
+  const prompt = `You are a neighborhood and location analyst. Return a JSON object for property: ${propertyAddress}. 
+  Focus on street layout, neighborhood density, amenities, transportation, and general area characteristics.`;
 
-Return a JSON object with the following schema (no other text):
-
-{
-  "overview": "A detailed 2-3 sentence high-level summary of the area's character and vibe.",
-  "neighborhood_features": {
-    "street_layout_and_traffic": "Road types, intersection patterns, potential traffic flow.",
-    "sidewalks_and_pedestrian_infra": "Visible walkways, pedestrian accessibility.",
-    "proximity_to_greenery_and_water": "Visible green spaces, parks, trailheads, landscaping, water bodies etc.",
-    "neighborhood_density": "Housing density, lot sizes, spacing between homes.",
-    "walkability_indicators": "Proximity to amenities, grid vs suburban layout.",
-    "topography": "Hills, slopes, elevation changes visible.",
-    "development_patterns": "New vs established neighborhoods, construction activity.",
-    "nearby_amenities": "Schools, shopping, recreational facilities etc visible on map, as well as your knowledge.",
-    "transportation_access": "Major roads, highway access, airports, public transit proximity.",
-    "general": "Street parking, driveways, nearby parking areas, proximity to cultural communities, neighborhood vibe etc."
-  }
-}
-
-Analyze these map images for property: ${propertyAddress}
-ZOOMED OUT view - broader area context for neighborhood analysis
-
-Focus on street layout, neighborhood density, amenities, transportation, and general area characteristics.`;
-
-  // Use gemini-3-flash-preview for multimodal tasks
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-2.5-flash",
     contents: {
       parts: [
         { text: prompt },
@@ -123,39 +94,42 @@ Focus on street layout, neighborhood density, amenities, transportation, and gen
       ]
     },
     config: {
-      responseMimeType: "application/json"
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          overview: { type: Type.STRING },
+          neighborhood_features: {
+            type: Type.OBJECT,
+            properties: {
+              street_layout_and_traffic: { type: Type.STRING },
+              sidewalks_and_pedestrian_infra: { type: Type.STRING },
+              proximity_to_greenery_and_water: { type: Type.STRING },
+              neighborhood_density: { type: Type.STRING },
+              walkability_indicators: { type: Type.STRING },
+              topography: { type: Type.STRING },
+              development_patterns: { type: Type.STRING },
+              nearby_amenities: { type: Type.STRING },
+              transportation_access: { type: Type.STRING },
+              general: { type: Type.STRING }
+            },
+            required: ["general", "neighborhood_density", "transportation_access"]
+          }
+        },
+        required: ["overview", "neighborhood_features"]
+      }
     }
   });
 
-  // Extracting text output from GenerateContentResponse using .text property.
   const text = response.text || "{}";
-  const result = JSON.parse(text) as NeighborhoodAnalysis;
-
-  // Save to cache
-  setCache(cacheKey, result);
-  
-  return result;
+  return JSON.parse(text) as NeighborhoodAnalysis;
 };
 
 export const analyzeCommunityPulse = async (address: string, cityState: string): Promise<CommunityPulseResult> => {
-  const cacheKey = getPulseCacheKey(address);
-  const cached = getCache<CommunityPulseResult>(cacheKey);
-  if (cached) {
-    console.log('Using cached community pulse for address:', address);
-    return cached;
-  }
-
-  const prompt = `Task:
-
-You are a research assistant helping a homebuyer evaluate a property location using real resident perspectives, online reviews, and publicly available data.
-
-Property details:
-
-Address (or neighborhood/ZIP): ${address}
-
-City/State: ${cityState}
-
-Instructions:
+  const prompt = `Task: Act as a specialized neighborhood research assistant for the property located at ${address}, ${cityState}. 
+  Your mission is to provide an authentic "Community Pulse" report by synthesizing real resident perspectives, local forum sentiment, news, and area-specific reviews.
+  
+  Instructions:
 
 Collect and summarize credible, real-world opinions and insights about this location from multiple independent sources.
 
@@ -169,42 +143,43 @@ Required sources (use as many as relevant):
 - Public crime or safety reports
 - School review platforms (GreatSchools, Niche)
 
-Return your response as a JSON object with exactly this structure. Each section MUST include a "sources" array with full URLs of the sources used for that specific section:
+Return your response as a JSON object with exactly this structure. Each section MUST include a "sources" array:
 
 {
   "what_residents_like": {
     "summary": "<positive aspects: what residents love, community vibe, friendliness, diversity>",
     "points": ["<point 1>", "<point 2>"],
-    "sources": ["https://reddit.com/r/...", "https://trulia.com/..."]
+    "sources": ["reddit.com", "trulia.com"]
   },
   "common_complaints": {
     "summary": "<negative aspects: complaints, noise, traffic, parking issues>",
     "points": ["<complaint 1>", "<complaint 2>"],
-    "sources": ["https://..."]
+    "sources": ["reddit.com", "trulia.com"]
   },
   "safety_and_concerns": {
     "summary": "<safety perception, crime concerns, red flags, recurring warnings>",
     "points": ["<point 1>", "<point 2>"],
-    "sources": ["https://..."]
+    "sources": ["reddit.com", "trulia.com"]
   },
   "schools_family_friendliness": {
     "summary": "<school quality and family-friendliness>",
     "points": ["<point 1>", "<point 2>"],
-    "sources": ["https://..."]
+    "sources": ["reddit.com", "trulia.com"]
   },
   "lifestyle_convenience": {
     "summary": "<walkability, commute, remote work suitability, daily convenience>",
     "points": ["<point 1>", "<point 2>"],
-    "sources": ["https://..."]
+    "sources": ["reddit.com", "trulia.com"]
   },
   "investment_insights": {
     "summary": "<rental demand, tenant profile, resale desirability, market trends>",
     "points": ["<insight 1>", "<insight 2>"],
-    "sources": ["https://..."]
+    "sources": ["reddit.com", "trulia.com"]
   }
 }
 
-IMPORTANT: Each section's "sources" array must contain full clickable URLs (starting with https://) for the specific sources used in that section. Do not include inline citations in the points text. AVOID REPEATING the same information across different sections.
+IMPORTANT: Each section's "sources" array must contain the names of specific sources used in that section. Do not include inline citations in the points text. 
+AVOID REPEATING the same information across different sections.
 
 Source requirements:
 - Each section must have its own sources array with full URLs
@@ -216,104 +191,192 @@ Tone: Neutral, evidence-based, buyer-oriented. Avoid marketing language.
 Respond ONLY with the JSON object, no additional text or markdown formatting.`;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
-      tools: [{ googleSearch: {} }],
-      responseMimeType: "application/json"
+      tools: [{ googleSearch: {} }]
+      // responseMimeType: "application/json" is NOT supported when tools are used with gemini-2.5-flash
     }
   });
 
   const text = response.text || "{}";
-  const result = JSON.parse(text) as CommunityPulseResult;
-
-  // Save to cache
-  setCache(cacheKey, result);
-
-  return result;
+  return parseJSONSafely(text) as CommunityPulseResult;
 };
 
 export const analyzePropertyImages = async (imageUrls: string[]): Promise<CustomAIAnalysisResult> => {
-  // Limit to 15 images to avoid token limits or context overflow for a quick analysis
   const selectedImages = imageUrls.slice(0, 15);
   const imageParts = await Promise.all(selectedImages.map(async (url) => {
     const { data, mimeType } = await urlToBase64(url);
-    return {
-      inlineData: {
-        data,
-        mimeType
-      }
-    };
+    return { inlineData: { data, mimeType } };
   }));
 
-  const prompt = `You are an unbiased property inspector and architectural analyst. Your task is to provide an extremely detailed, high-wordcount, and objective report on the property based on the visual evidence.
+  const prompt = `You are a property analyst. Provide a detailed, objective JSON report based on the visuals.`;
 
-Return the response as a single JSON object that conforms to the following schema. 
-
-CRITICAL: The tone must be neutral, factual, and observational. Avoid sales-oriented language, "fluff," or overly positive marketing adjectives.
-
-{
-  "report_title": "Real Estate Property Analysis",
-  "home_interior": {
-    "overall_description": "A long, neutral, observational description (2 paragraphs) of the home's interior, focusing on factual layout and atmosphere without sales bias.",
-    "design_style": {
-      "style": "The specific identified style.",
-      "reasoning": "A detailed paragraph explaining the architectural and design cues found in the photos that support this classification using neutral terminology."
-    },
-    "color_and_materials": "A comprehensive paragraph describing the full color palette, specific flooring types, countertop materials, cabinetry finishes, and wall textures observed in a factual manner.",
-    "lighting": "A detailed paragraph analyzing both natural light (window placement, exposure) and artificial lighting (fixtures, recessed lighting) based on visual evidence.",
-    "spatial_flow": "A detailed paragraph describing the floor plan layout (open vs defined), how rooms connect, and the logical navigation of the home.",
-    "staging_and_furnishings": "A neutral analysis of the furniture or virtual staging, focusing on how it populates the space and demonstrates scale.",
-    "condition_and_finish": "An objective assessment of the home's maintenance state, identifying wear, tear, or the quality level of finishes without marketing spin.",
-    "suggested_lifestyle": {
-      "lifestyle": "Objective description of the likely intended use.",
-      "buyer_type": "Factual description of the demographic best suited for this configuration."
-    }
-  },
-  "room_highlights": [
-    {
-      "room_name": "Name of room",
-      "floor": "Floor level",
-      "description": "Detailed multi-sentence description of features and layout. Maintain a strictly neutral and observational tone.",
-      "potential_improvements": "Actionable, objective designer-level advice for practical improvements to this specific room."
-    }
-  ],
-  "exterior_and_neighborhood": {
-    "exterior_and_lot_appeal": {
-      "architecture_style": "Detailed architectural analysis of the exterior features.",
-      "curb_appeal": "Objective review of the landscaping, entryway, and exterior condition.",
-      "backyard_and_patio": "Factual description of outdoor spaces, hardscaping, fencing, and vegetation."
-    },
-    "views_privacy_orientation": {
-      "views": "Objective description of observed sightlines from the property.",
-      "orientation": "Orientation and sun exposure analysis based on visual cues.",
-      "privacy": "Factual privacy assessment relative to adjacent properties."
-    }
-  }
-}
-
-INSTRUCTIONS:
-1. Only analyze rooms for which images are provided.
-2. Use professional, objective, and precise terminology.
-3. Be specific about materials (e.g., 'white shaker-style cabinets' instead of 'white cabinets').
-4. AVOID sales words like "stunning," "gorgeous," "dream home," "perfect for," or "unbelievable."
-5. Focus on the facts of what is visible in the images.`;
-
-  // Use gemini-3-flash-preview for multimodal tasks
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: {
-      parts: [
-        { text: prompt },
-        ...imageParts
-      ]
-    },
-    config: {
-      responseMimeType: "application/json"
+    model: "gemini-2.5-flash",
+    contents: { parts: [{ text: prompt }, ...imageParts] },
+    config: { 
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          report_title: { type: Type.STRING },
+          home_interior: {
+            type: Type.OBJECT,
+            properties: {
+              overall_description: { type: Type.STRING },
+              design_style: {
+                type: Type.OBJECT,
+                properties: {
+                  style: { type: Type.STRING },
+                  reasoning: { type: Type.STRING }
+                },
+                required: ["style", "reasoning"]
+              },
+              color_and_materials: { type: Type.STRING },
+              lighting: { type: Type.STRING },
+              spatial_flow: { type: Type.STRING },
+              staging_and_furnishings: { type: Type.STRING },
+              condition_and_finish: { type: Type.STRING },
+              suggested_lifestyle: {
+                type: Type.OBJECT,
+                properties: {
+                  lifestyle: { type: Type.STRING },
+                  buyer_type: { type: Type.STRING }
+                },
+                required: ["lifestyle", "buyer_type"]
+              }
+            },
+            required: ["overall_description", "design_style"]
+          },
+          room_highlights: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                room_name: { type: Type.STRING },
+                floor: { type: Type.STRING },
+                description: { type: Type.STRING },
+                potential_improvements: { type: Type.STRING }
+              },
+              required: ["room_name", "description"]
+            }
+          },
+          exterior_and_neighborhood: {
+            type: Type.OBJECT,
+            properties: {
+              exterior_and_lot_appeal: {
+                type: Type.OBJECT,
+                properties: {
+                  architecture_style: { type: Type.STRING },
+                  curb_appeal: { type: Type.STRING },
+                  backyard_and_patio: { type: Type.STRING }
+                },
+                required: ["architecture_style", "curb_appeal"]
+              },
+              views_privacy_orientation: {
+                type: Type.OBJECT,
+                properties: {
+                  views: { type: Type.STRING },
+                  orientation: { type: Type.STRING },
+                  privacy: { type: Type.STRING }
+                },
+                required: ["views", "privacy"]
+              }
+            },
+            required: ["exterior_and_lot_appeal"]
+          }
+        },
+        required: ["home_interior", "room_highlights", "exterior_and_neighborhood"]
+      }
     }
   });
 
-  // Extracting text output from GenerateContentResponse using .text property.
   const text = response.text || "{}";
   return JSON.parse(text) as CustomAIAnalysisResult;
+};
+
+export const analyzeComprehensive = async (property: PropertyData, visual: CustomAIAnalysisResult): Promise<ComprehensiveAnalysisResult> => {
+  const PROPERTY_DETAILS = JSON.stringify(property, null, 2);
+  const VISUAL_ANALYSIS = JSON.stringify(visual, null, 2);
+
+  const prompt = `You are an AI-powered home buying assistant, tasked with generating a comprehensive and compelling analysis of a residential property. 
+Your goal is to provide a detailed, narrative-style, realtor written, professional report to a home buyer, based on a combination of provided - 
+
+1. property information ${PROPERTY_DETAILS}, 
+2. image analysis - ${VISUAL_ANALYSIS}, and 
+3. online research. 
+
+Instructions:
+Persona: Act as a knowledgeable and unbiased real estate analyst.
+Narrative Style: Write in a flowing, descriptive paragraph style in a compelling tone that engages a potential buyer. Avoid bullet points or lists in the main sections.
+Data Integration: Synthesize all provided data (property details, images, map analysis) with information you gather from your online searches. It is important to not miss important details.
+No Duplication: Ensure that each section contains unique and distinct content. Do not repeat the same information across different headings.
+Numerical Ranges: When showing ranges, use the format "3-5" or "$25-$35," not "35" or "$2535."
+Citations: Do not include citations like [1] or [3] in the final output.
+Avoid putting days count (like days on market) that would make a few days old generated report inaccurate.
+ 
+To complete this task, you must use your internal search tools to find the necessary data. 
+Prioritize authoritative and recent sources.
+
+For example, use your search tools to gather additional data for :
+Future Development: Search for zoning, permits, or upcoming developments by using the property address and the city/county name.
+Market & Neighborhood: Research current market trends, neighborhood demographics, rental demand, and appreciation rates for the area.
+
+**CRITICAL: You MUST respond with a valid JSON object only. No markdown, no code fences, no additional text before or after the JSON.**
+Deduplicate information across JSON sections.
+
+Response content should include 
+
+"summary": "150-200 word summary with key highlights. Use **bold** for critical decision factors such as: direction facing, quiet street, excellent school district, natural light, move-in ready, and any other key highlights.",
+  "detailed_analysis": {
+    "location_neighborhood": "Based on the provided property facts and description, map analysis and your knowledge, write a short paragraph describing proximity to schools, highways, parks, public transport options, and shops. Note the Walk Score, neighborhood character (e.g., young professionals, families), and local safety data. Include commute times to major work hubs, access to public transport, and any upcoming local development. Add any information about the community amenities that you can find. Discuss local appreciation trends, vacancy risk, and saturation of short-term rentals. Use **bold** for key highlights like distances, scores, and important features.",
+    "outdoors_view_quality": "Using the provided photo and map analysis, write a short paragraph evaluating views (e.g., yard, hills, ocean) and the level of privacy. Assess the backyard, patio, or balcony for usability. Mention fencing, surface types, and sun exposure. Highlight any coastal erosion concerns or sea-level projections if relevant. Use **bold** for key highlights like view types, privacy level, and notable outdoor features.",
+    "visual_appeal_condition": "Summarize the visual appeal and condition from provided information, like the provided property photo analysis, facts and description, including a paragraph commenting on finishes, natural lighting, cleanliness, and style (e.g., Mediterranean, Modern). Assess the apparent condition of the roof, windows, and major systems. Describe the emotional feel of the home. Use **bold** for key highlights like style, condition ratings, and standout features.",
+    "privacy_layout": "Based on the provided images and map analysis, write a short paragraph assessing separation from neighbors, landscaping, window placement, lot shape, and interior room layout. Mention potential for an Accessory Dwelling Unit (ADU), zoning constraints, and expansion possibilities. Use **bold** for key highlights like lot size, privacy level, and expansion potential.",
+    "climate_resilience": "Using the provided climate risk scores, insurance recommendations, existing knowledge and your search results, write a short paragraph indicating whether the home lies within a FEMA flood zone, wildfire-prone area, or has earthquake risk. Discuss how these risks might affect insurance premiums and highlight any resilience features the home may possess. Evaluate the long-term climate stability of the region. Use **bold** for key highlights like risk scores, zone designations, and resilience features.",
+    "additional_considerations": "Write a short paragraph including information on garage capacity, storage, smart home features, HVAC quality, internet speed availability, HOA rules, and any historical permit data discovered during your search. Include any other market or neighborhood details or information provided that is not yet covered. Use **bold** for key highlights like capacities, fees, and notable features."
+  },
+  "lifestyle_fit": {
+    "families": "Write a paragraph, explaining reasons, about suitability for kids, nearby parks, schools, and neighborhood safety. Consider School Quality & Proximity, Nearby Parks & Playgrounds, Neighborhood Safety, Community & Social Life, Traffic & Street Safety, Access to Childcare & Libraries, Noise Levels. Use **bold** for key highlights like school ratings, park distances, and safety scores.",
+    "professionals": "Write a paragraph, explaining reasons, about commute convenience, suitability for remote work, and fast internet access. Consider Commute Time, Remote Work Suitability, Internet Connectivity, Coworking Spaces Nearby, Local Amenities, Neighborhood Vibe, Time Zone Flexibility. Use **bold** for key highlights like commute times, internet speeds, and workspace features.",
+    "retirees": "Write a paragraph, explaining reasons, about single-level access, accessibility low-maintenance features, and proximity to hospitals and trails. Consider Accessibility, Low-Maintenance Living, Healthcare Proximity, Recreation & Wellness, Safety & Peacefulness, Public Transport Options, Social Opportunities. Use **bold** for key highlights like accessibility features, hospital distances, and maintenance level.",
+    "investors": "Write a paragraph, explaining reasons, about the home's investment potential, rental demand (short-term and long-term), and local appreciation rate. Consider Rental Demand, Appreciation Rate, Market Liquidity, Neighborhood Development Plans, HOA Rules & Fees, Property Taxes & Insurance, Condition & Renovation Potential. Use **bold** for key highlights like appreciation rates, rental yields, and investment metrics."
+  },
+  "risks_considerations": "Write a paragraph highlighting any concerns regarding: Location (Crime rate, noise, environmental hazards, lack of essential services, zoning or future development changes), Property Condition (Age and state of roof, foundation, plumbing/electrical, HVAC, outdated layout, accessibility issues, storage/parking limits, energy inefficiency), Financial (Overpricing compared to comps, high property taxes, HOA fees/restrictions, rental market volatility, low appreciation potential, high insurance costs), Lifestyle Fit (Mismatch with buyer's needs, limited amenities, long commute, noise pollution), Legal/Compliance (Title disputes, unpermitted work, restrictive ordinances), Any other risk factors mentioned in the provided information. Use **bold** for critical risk factors and warning items.",
+  "buyer_recommendation": "Write a concluding paragraph that includes the ideal buyer type(s), any urgency factors for a purchase, and the median time to sell in the area. Add any leverage if the property has been in market for long. Use **bold** for key recommendations and urgency factors."
+
+Return your response as a JSON object with the following structure:
+{
+  "summary": "string",
+  "detailed_analysis": {
+    "location_neighborhood": "string",
+    "outdoors_view_quality": "string",
+    "visual_appeal_condition": "string",
+    "privacy_layout": "string",
+    "climate_resilience": "string",
+    "additional_considerations": "string"
+  },
+  "lifestyle_fit": {
+    "families": "string",
+    "professionals": "string",
+    "retirees": "string",
+    "investors": "string"
+  },
+  "risks_considerations": "string",
+  "buyer_recommendation": "string"
+}`;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: prompt,
+    config: {
+      tools: [{ googleSearch: {} }],
+      // responseMimeType: "application/json" is NOT supported when tools are used with gemini-2.5-flash
+      thinkingConfig: { thinkingBudget: 4000 }
+    }
+  });
+
+  const text = response.text || "{}";
+  return parseJSONSafely(text) as ComprehensiveAnalysisResult;
 };

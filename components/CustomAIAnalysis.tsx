@@ -1,18 +1,27 @@
-
 import React, { useState } from 'react';
-import { CustomAIAnalysisResult, CommunityPulseSection } from '../types';
+import { CustomAIAnalysisResult, CommunityPulseSection, ComprehensiveAnalysisResult } from '../types';
 
 interface Props {
   analysis: CustomAIAnalysisResult | null;
   loading: boolean;
   onBack: () => void;
   onRefresh: () => void;
+  onRunComprehensive: () => void;
+  comprehensiveResult: ComprehensiveAnalysisResult | null;
   mapUrl?: string;
 }
 
 type TabType = 'interior' | 'rooms' | 'exterior' | 'neighborhood' | 'pulse';
 
-const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefresh, mapUrl }) => {
+const CustomAIAnalysis: React.FC<Props> = ({ 
+  analysis, 
+  loading, 
+  onBack, 
+  onRefresh, 
+  onRunComprehensive,
+  comprehensiveResult,
+  mapUrl 
+}) => {
   const [activeTab, setActiveTab] = useState<TabType>('interior');
 
   if (loading) {
@@ -56,51 +65,59 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
     { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
   ];
 
-  const PulseCard = ({ title, data, icon, color }: { title: string, data: CommunityPulseSection, icon: string, color: string }) => (
-    <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col transition-all hover:shadow-xl hover:-translate-y-1">
-      <div className="flex items-center gap-4 mb-6">
-        <div className={`w-12 h-12 rounded-2xl bg-${color}-50 flex items-center justify-center text-${color}-600`}>
-          <i className={`fa-solid ${icon} text-xl`}></i>
-        </div>
-        <h4 className="text-xl font-black text-gray-900 tracking-tight">{title}</h4>
-      </div>
-      <p className="text-gray-700 font-medium mb-4 leading-relaxed">{data.summary}</p>
-      <ul className="space-y-3 mb-4 flex-1">
-        {data.points.map((pt, i) => (
-          <li key={i} className="flex gap-3 text-gray-600 text-sm leading-relaxed">
-            <span className={`w-1.5 h-1.5 rounded-full bg-${color}-400 mt-2 flex-shrink-0`}></span>
-            {pt}
-          </li>
-        ))}
-      </ul>
-      {data.sources && data.sources.length > 0 && (
-        <div className="pt-4 border-t border-gray-50">
-          <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2.5">Sources</div>
-          <div className="flex flex-wrap gap-2">
-            {data.sources.map((src, i) => {
-              let label = 'Source';
-              try {
-                const url = new URL(src);
-                label = url.hostname.replace('www.', '');
-              } catch (e) {}
-              return (
-                <a 
-                  key={i} 
-                  href={src} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all truncate max-w-[150px]"
-                >
-                  <i className="fa-solid fa-arrow-up-right-from-square mr-1.5 opacity-70"></i>
-                  {label}
-                </a>
-              );
-            })}
+  const getCleanDomain = (src: string) => {
+    try {
+      let url = new URL(src);
+      
+      // If it's a Vertex AI or Google Search wrapper, try to extract the real target URI
+      if (url.hostname.includes('vertexaisearch.cloud.google.com') || url.hostname.includes('google.com')) {
+        const uriParam = url.searchParams.get('uri');
+        if (uriParam) {
+          url = new URL(uriParam);
+        }
+      }
+      
+      return url.hostname.replace('www.', '');
+    } catch (e) {
+      // If parsing fails, just try simple cleanup or return the raw string
+      return src.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '');
+    }
+  };
+
+  const PulseCard = ({ title, data, icon, color }: { title: string, data?: CommunityPulseSection, icon: string, color: string }) => {
+    if (!data || !data.summary) return null;
+    
+    // Deduplicate and clean hostnames
+    const cleanSources = Array.from(new Set(data.sources?.map(getCleanDomain))).filter(Boolean);
+    
+    return (
+      <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col transition-all hover:shadow-xl hover:-translate-y-1">
+        <div className="flex items-center gap-4 mb-6">
+          <div className={`w-12 h-12 rounded-2xl bg-${color}-50 flex items-center justify-center text-${color}-600`}>
+            <i className={`fa-solid ${icon} text-xl`}></i>
           </div>
+          <h4 className="text-xl font-black text-gray-900 tracking-tight">{title}</h4>
         </div>
-      )}
-    </div>
-  );
+        <p className="text-gray-700 font-medium mb-4 leading-relaxed">{data.summary}</p>
+        <ul className="space-y-3 mb-4 flex-1">
+          {data.points?.map((pt, i) => (
+            <li key={i} className="flex gap-3 text-gray-600 text-sm leading-relaxed">
+              <span className={`w-1.5 h-1.5 rounded-full bg-${color}-400 mt-2 flex-shrink-0`}></span>
+              {pt}
+            </li>
+          ))}
+        </ul>
+        {cleanSources.length > 0 && (
+          <div className="pt-4 border-t border-gray-50">
+            <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Sources</div>
+            <div className="text-[10px] text-gray-400 font-medium leading-relaxed italic">
+              {cleanSources.join(', ')}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const EmptyState = ({ section }: { section: string }) => (
     <div className="p-20 bg-white/50 rounded-[2rem] text-center border-2 border-dashed border-gray-200 flex flex-col items-center justify-center">
@@ -131,7 +148,7 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
           Back to Overview
         </button>
         
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <button 
             onClick={onRefresh}
             title="Refresh current analysis"
@@ -140,6 +157,15 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
             <i className="fa-solid fa-rotate"></i>
             Refresh
           </button>
+          
+          <button 
+            onClick={onRunComprehensive} 
+            className="flex items-center gap-3 px-6 py-2.5 bg-gradient-to-r from-indigo-700 to-gray-900 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-xl hover:scale-[1.05] transition-all group"
+          >
+            <i className="fa-solid fa-file-invoice-dollar text-sm"></i>
+            {comprehensiveResult ? 'Full Narrative Report' : 'Generate Full Report'}
+          </button>
+
           <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100 font-bold uppercase tracking-wider">
             <i className="fa-solid fa-bolt-lightning text-indigo-500"></i>
             Zyphe™ Visual Intelligence
@@ -190,7 +216,7 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
                     <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Design Style</h3>
                   </div>
                   {home_interior.design_style?.style && (
-                    <div className="inline-block bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1 rounded-full mb-2">
+                    <div className="inline-block bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full mb-2">
                       {home_interior.design_style.style}
                     </div>
                   )}
@@ -497,13 +523,12 @@ const CustomAIAnalysis: React.FC<Props> = ({ analysis, loading, onBack, onRefres
       </div>
 
       {/* Footer Action */}
-      <div className="flex justify-center pt-10 border-t border-gray-100">
+      <div className="flex flex-col items-center gap-8 pt-10 border-t border-gray-100">
         <button 
           onClick={onBack}
-          className="px-12 py-5 bg-gray-900 text-white rounded-2xl font-black text-lg shadow-2xl hover:bg-gray-800 hover:scale-[1.02] transition-all flex items-center gap-4 group"
+          className="text-gray-400 hover:text-gray-600 font-bold uppercase tracking-widest text-xs transition-colors"
         >
-          <i className="fa-solid fa-check-circle text-emerald-400"></i>
-          Finished Reviewing Intelligence
+          Return to Summary Overview
         </button>
       </div>
     </div>

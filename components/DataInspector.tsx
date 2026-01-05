@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult } from '../types';
 
@@ -92,7 +91,7 @@ const DataInspector: React.FC<Props> = ({ isOpen, onClose, data }) => {
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Live Session</span>
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500"></span> Cached Object</span>
           </div>
-          <p className="text-gray-600 text-[10px] font-bold">ZYPHE™ DATA INSPECTOR V1.2</p>
+          <p className="text-gray-600 text-[10px] font-bold">Zyphe™ DATA INSPECTOR V1.2</p>
         </div>
       </div>
       

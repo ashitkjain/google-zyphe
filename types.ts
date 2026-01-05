@@ -1,4 +1,3 @@
-
 export interface PropertyData {
   zpid?: string;
   address: string;
@@ -31,6 +30,10 @@ export interface PropertyData {
   };
   mapZoomIn?: string;
   mapZoomOut?: string;
+  // AI fields for cloud caching
+  analysis?: AIAnalysisResult;
+  visual_analysis?: CustomAIAnalysisResult;
+  comprehensive_analysis?: ComprehensiveAnalysisResult;
 }
 
 export interface RadarGeocodeResponse {
@@ -159,9 +162,29 @@ export interface CustomAIAnalysisResult {
   community_pulse?: CommunityPulseResult;
 }
 
+export interface ComprehensiveAnalysisResult {
+  summary: string;
+  detailed_analysis: {
+    location_neighborhood: string;
+    outdoors_view_quality: string;
+    visual_appeal_condition: string;
+    privacy_layout: string;
+    climate_resilience: string;
+    additional_considerations: string;
+  };
+  lifestyle_fit: {
+    families: string;
+    professionals: string;
+    retirees: string;
+    investors: string;
+  };
+  risks_considerations: string;
+  buyer_recommendation: string;
+}
+
 export interface LogEntry {
   timestamp: string;
   service: string;
-  type: 'request' | 'response' | 'error';
+  type: 'request' | 'response' | 'error' | 'info';
   content: any;
 }

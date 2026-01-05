@@ -1,19 +1,29 @@
-
-import React, { useState, useEffect } from 'react';
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, LogEntry } from './types';
-import { normalizeAddress, fetchPropertyData, fetchPropertyImages, getCache, setCache } from './services/apiService';
-import { analyzeProperty, analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse } from './services/geminiService';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogEntry } from './types';
+import { normalizeAddress, fetchPropertyData, fetchPropertyImages } from './services/apiService';
+import { analyzeProperty, analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive } from './services/geminiService';
+import { 
+  logUserActivity, 
+  savePropertyToCloud, 
+  saveDeepAnalysisToCloud, 
+  saveVisualAnalysisToCloud,
+  saveComprehensiveAnalysisToCloud,
+  getDeepAnalysisFromCloud,
+  getVisualAnalysisFromCloud,
+  getComprehensiveAnalysisFromCloud
+} from './services/firebaseService';
 import PropertyHeader from './components/PropertyHeader';
 import TablesSection from './components/TablesSection';
 import PropertyFacts from './components/PropertyFacts';
 import AIAnalysis from './components/AIAnalysis';
 import CustomAIAnalysis from './components/CustomAIAnalysis';
+import ComprehensiveAnalysis from './components/ComprehensiveAnalysis';
 import PropertyImages from './components/PropertyImages';
 import PropertyMaps from './components/PropertyMaps';
 import SystemLogs from './components/SystemLogs';
 import DataInspector from './components/DataInspector';
 
-type ViewMode = 'main' | 'visual-report';
+type ViewMode = 'main' | 'visual-report' | 'comprehensive-report';
 
 const App: React.FC = () => {
   const [address, setAddress] = useState('3588 Ballantyne Dr, Pleasanton, CA 94588');
@@ -25,29 +35,70 @@ const App: React.FC = () => {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [customAnalysis, setCustomAnalysis] = useState<CustomAIAnalysisResult | null>(null);
   const [customAnalysisLoading, setCustomAnalysisLoading] = useState(false);
+  const [comprehensiveAnalysis, setComprehensiveAnalysis] = useState<ComprehensiveAnalysisResult | null>(null);
+  const [comprehensiveLoading, setComprehensiveLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('main');
   const [geoComponents, setGeoComponents] = useState<{ city: string; state: string } | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  
+  // Search History State
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const historyRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to top when switching views
+  // In-memory session ID (no localStorage)
+  const sessionId = useMemo(() => Math.random().toString(36).substring(2, 15), []);
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [viewMode]);
 
-  const addLog = (service: string, type: 'request' | 'response' | 'error', content: any) => {
-    const entry: LogEntry = {
-      timestamp: new Date().toLocaleTimeString(),
-      service,
-      type,
-      content
+  // Load history on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('zyphe_search_history');
+    if (saved) {
+      try {
+        setSearchHistory(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse search history");
+      }
+    }
+  }, []);
+
+  // Handle click outside history dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (historyRef.current && !historyRef.current.contains(event.target as Node)) {
+        setShowHistory(false);
+      }
     };
-    setLogs(prev => [...prev, entry]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const addToHistory = (newAddress: string) => {
+    const filtered = searchHistory.filter(item => item.toLowerCase() !== newAddress.toLowerCase());
+    const newHistory = [newAddress, ...filtered].slice(0, 5);
+    setSearchHistory(newHistory);
+    localStorage.setItem('zyphe_search_history', JSON.stringify(newHistory));
   };
 
-  const handleSearch = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!address.trim()) return;
+  const clearHistory = () => {
+    setSearchHistory([]);
+    localStorage.removeItem('zyphe_search_history');
+    setShowHistory(false);
+  };
+
+  const handleHistoryItemClick = (item: string) => {
+    setAddress(item);
+    setShowHistory(false);
+    // Use a small timeout to ensure the state update for address is processed if needed
+    setTimeout(() => performSearch(item), 10);
+  };
+
+  const performSearch = async (searchAddress: string) => {
+    if (!searchAddress.trim()) return;
 
     setLoading(true);
     setImagesLoading(false);
@@ -55,46 +106,63 @@ const App: React.FC = () => {
     setPropertyData(null);
     setAnalysis(null);
     setCustomAnalysis(null);
+    setComprehensiveAnalysis(null);
     setLogs([]);
     setViewMode('main');
     setGeoComponents(null);
 
+    logUserActivity(sessionId, searchAddress);
+
     try {
-      addLog('Radar Geocode API', 'request', { address });
-      const radarResult = await normalizeAddress(address);
+      addLog('Radar Geocode API', 'request', { address: searchAddress });
+      const radarResult = await normalizeAddress(searchAddress);
       addLog('Radar Geocode API', 'response', radarResult);
       
+      const normalizedAddr = radarResult.formattedAddress;
+      addToHistory(normalizedAddr);
+      setAddress(normalizedAddr);
+
       setGeoComponents({ city: radarResult.components.city, state: radarResult.components.state });
 
-      addLog('US Housing Data API (Property)', 'request', { address: radarResult.formattedAddress });
-      const data = await fetchPropertyData(radarResult.formattedAddress);
+      addLog('Zyphe Data Layer (Properties Table)', 'request', { address: normalizedAddr });
+      const data = await fetchPropertyData(normalizedAddr);
       
       const mergedData: PropertyData = {
         ...data,
         coordinates: radarResult.coordinates,
         mapZoomIn: radarResult.mapZoomIn,
         mapZoomOut: radarResult.mapZoomOut,
-        address: radarResult.formattedAddress
+        address: normalizedAddr
       };
       
-      addLog('US Housing Data API (Property)', 'response', data);
+      addLog('Zyphe Data Layer', 'response', data);
+      
       setPropertyData(mergedData);
       setLoading(false);
 
       if (data.zpid) {
-        // Try to load cached visual analysis if it exists for this ZPID
-        const cachedVisual = getCache<CustomAIAnalysisResult>(`visual_analysis_${data.zpid}`);
-        if (cachedVisual) {
-          console.log('Found cached visual analysis for ZPID:', data.zpid);
-          setCustomAnalysis(cachedVisual);
+        // Restore Analysis from Cloud Table
+        const cloudDeepAnalysis = await getDeepAnalysisFromCloud(data.zpid);
+        if (cloudDeepAnalysis) {
+          setAnalysis(cloudDeepAnalysis);
+          addLog('Zyphe Cloud', 'response', { message: 'Restored deep analysis from cloud', data: cloudDeepAnalysis });
         }
 
-        setImagesLoading(true);
-        addLog('US Housing Data API (Images)', 'request', { zpid: data.zpid });
-        const images = await fetchPropertyImages(data.zpid);
-        addLog('US Housing Data API (Images)', 'response', { imagesCount: images.length });
-        setPropertyData(prev => prev ? { ...prev, images } : null);
-        setImagesLoading(false);
+        const cloudVisualAnalysis = await getVisualAnalysisFromCloud(data.zpid);
+        if (cloudVisualAnalysis) {
+          setCustomAnalysis(cloudVisualAnalysis);
+          addLog('Zyphe Cloud', 'response', { message: 'Restored visual analysis from cloud', data: cloudVisualAnalysis });
+        }
+        
+        if (!data.images || data.images.length === 0) {
+          setImagesLoading(true);
+          const images = await fetchPropertyImages(data.zpid);
+          setPropertyData(prev => prev ? { ...prev, images } : null);
+          if (images.length > 0) {
+            await savePropertyToCloud(data.zpid, { images });
+          }
+          setImagesLoading(false);
+        }
       }
 
     } catch (err: any) {
@@ -106,32 +174,77 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setShowHistory(false);
+    performSearch(address);
+  };
+
+  const addLog = (service: string, type: 'request' | 'response' | 'error' | 'info', content: any) => {
+    const entry: LogEntry = {
+      timestamp: new Date().toLocaleTimeString(),
+      service,
+      type,
+      content
+    };
+    setLogs(prev => [...prev, entry]);
+  };
+
   const handleTriggerAnalysis = async () => {
-    if (!propertyData) return;
-    
+    if (!propertyData || !propertyData.zpid) return;
     setAnalysisLoading(true);
-    addLog('Gemini AI', 'request', { model: 'gemini-3-flash-preview', task: 'Deep Analysis' });
-    
+    addLog('Gemini 2.5 Flash', 'request', { model: 'gemini-2.5-flash', task: 'Deep Analysis' });
     try {
       const aiResult = await analyzeProperty(propertyData);
-      addLog('Gemini AI', 'response', aiResult);
       setAnalysis(aiResult);
+      addLog('Gemini 2.5 Flash', 'response', aiResult);
+      await saveDeepAnalysisToCloud(propertyData.zpid, aiResult);
     } catch (err: any) {
-      const errorMsg = err.message || 'AI analysis failed.';
-      addLog('Gemini AI', 'error', { message: errorMsg });
+      addLog('Gemini 2.5 Flash', 'error', { message: err.message });
     } finally {
       setAnalysisLoading(false);
     }
   };
 
-  const handleRunCustomAnalysis = async (forceRefresh: boolean = false) => {
-    if (!propertyData) return;
+  const handleRunComprehensiveAnalysis = async () => {
+    if (!propertyData || !propertyData.zpid) return;
+    if (comprehensiveAnalysis) {
+      setViewMode('comprehensive-report');
+      return;
+    }
 
-    const isInteriorMissing = !customAnalysis?.home_interior?.overall_description;
-    const isNeighborhoodMissing = !customAnalysis?.neighborhood?.overview;
-    const isCommunityPulseMissing = !customAnalysis?.community_pulse;
+    let visual = customAnalysis;
+    if (!visual) {
+      alert("Visual intelligence required first.");
+      return;
+    }
+
+    setComprehensiveLoading(true);
+    setViewMode('comprehensive-report');
+    addLog('Gemini 2.5 Flash', 'request', { model: 'gemini-2.5-flash', task: 'Comprehensive Report', search: true });
     
-    if (!forceRefresh && !isInteriorMissing && !isNeighborhoodMissing && !isCommunityPulseMissing) {
+    try {
+      const result = await analyzeComprehensive(propertyData, visual);
+      addLog('Gemini 2.5 Flash', 'response', result);
+      setComprehensiveAnalysis(result);
+      await saveComprehensiveAnalysisToCloud(propertyData.zpid, result);
+    } catch (err: any) {
+      addLog('Gemini 2.5 Flash', 'error', { message: err.message });
+      setViewMode('visual-report');
+    } finally {
+      setComprehensiveLoading(false);
+    }
+  };
+
+  const handleRunCustomAnalysis = async (forceRefresh: boolean = false) => {
+    if (!propertyData || !propertyData.zpid) return;
+    
+    if (imagesLoading) {
+      alert("Photos are still downloading. Please wait a moment.");
+      return;
+    }
+
+    if (!forceRefresh && customAnalysis) {
       setViewMode('visual-report');
       return;
     }
@@ -139,203 +252,137 @@ const App: React.FC = () => {
     setCustomAnalysisLoading(true);
     setViewMode('visual-report');
     
-    let finalResult: CustomAIAnalysisResult | null = null;
+    let finalResult: CustomAIAnalysisResult | null = {
+      report_title: 'Zyphe AI Visual Analysis',
+      home_interior: { 
+        overall_description: 'Analyzing...', 
+        design_style: { style: 'Detecting...', reasoning: 'Processing images...' },
+        color_and_materials: 'Detecting...',
+        lighting: 'Detecting...',
+        spatial_flow: 'Detecting...',
+        staging_and_furnishings: 'Detecting...',
+        condition_and_finish: 'Detecting...',
+        suggested_lifestyle: { lifestyle: 'Predicting...', buyer_type: 'Detecting...' }
+      },
+      room_highlights: [],
+      exterior_and_neighborhood: { 
+        exterior_and_lot_appeal: { architecture_style: 'Detecting...', curb_appeal: 'Detecting...', backyard_and_patio: 'Detecting...' },
+        views_privacy_orientation: { views: 'Detecting...', orientation: 'Detecting...', privacy: 'Detecting...' } 
+      }
+    };
 
     try {
-      finalResult = customAnalysis ? { ...customAnalysis } : {
-        report_title: 'Zyphe AI Visual Analysis',
-        home_interior: { 
-          overall_description: '', 
-          design_style: { style: '', reasoning: '' }, 
-          color_and_materials: '', 
-          lighting: '', 
-          spatial_flow: '', 
-          staging_and_furnishings: '', 
-          condition_and_finish: '', 
-          suggested_lifestyle: { lifestyle: '', buyer_type: '' } 
-        },
-        room_highlights: [],
-        exterior_and_neighborhood: { 
-          exterior_and_lot_appeal: { architecture_style: '', curb_appeal: '', backyard_and_patio: '' }, 
-          views_privacy_orientation: { views: '', orientation: '', privacy: '' } 
-        }
-      };
-
       const tasks = [];
-
-      if (propertyData.images && propertyData.images.length > 0 && (isInteriorMissing || forceRefresh)) {
-        addLog('Gemini AI (Multimodal - Photos)', 'request', { model: 'gemini-3-flash-preview', task: 'Visual Analysis', imageCount: Math.min(propertyData.images.length, 15) });
-        tasks.push(
-          analyzePropertyImages(propertyData.images).then(result => {
-            addLog('Gemini AI (Multimodal - Photos)', 'response', result);
-            if (finalResult) {
-              finalResult = { 
-                ...finalResult, 
-                ...result,
-                home_interior: { ...finalResult.home_interior, ...result.home_interior },
-                exterior_and_neighborhood: { ...finalResult.exterior_and_neighborhood, ...result.exterior_and_neighborhood }
-              };
-            }
-          })
-        );
-      }
-
-      if (propertyData.mapZoomOut && (isNeighborhoodMissing || forceRefresh)) {
-        addLog('Gemini AI (Multimodal - Map)', 'request', { model: 'gemini-3-flash-preview', task: 'Neighborhood Analysis' });
-        tasks.push(
-          analyzeNeighborhood(propertyData.mapZoomOut, propertyData.address).then(neighborhoodResult => {
-            addLog('Gemini AI (Multimodal - Map)', 'response', neighborhoodResult);
-            if (finalResult) {
-              finalResult.neighborhood = neighborhoodResult;
-            }
-          })
-        );
-      }
-
-      // Community Pulse Analysis
-      if (isCommunityPulseMissing || forceRefresh) {
-        const cityState = geoComponents ? `${geoComponents.city}, ${geoComponents.state}` : '';
-        addLog('Gemini AI (Google Search Grounding)', 'request', { model: 'gemini-3-flash-preview', task: 'Community Pulse' });
-        tasks.push(
-          analyzeCommunityPulse(propertyData.address, cityState).then(pulseResult => {
-            addLog('Gemini AI (Google Search Grounding)', 'response', pulseResult);
-            if (finalResult) {
-              finalResult.community_pulse = pulseResult;
-            }
-          })
-        );
-      }
-
-      if (tasks.length > 0) {
-        await Promise.all(tasks);
-        if (propertyData.zpid && finalResult) {
-          setCache(`visual_analysis_${propertyData.zpid}`, finalResult);
-        }
-        setCustomAnalysis(finalResult);
+      
+      if (propertyData.images && propertyData.images.length > 0) {
+        tasks.push(analyzePropertyImages(propertyData.images).then(result => {
+          if (finalResult) {
+            finalResult = { ...finalResult, ...result };
+          }
+        }));
       } else {
-        setViewMode('visual-report');
+        addLog('App Logic', 'info', 'No images found for visual analysis.');
       }
 
-    } catch (err: any) {
-      const errorMsg = err.message || 'Custom AI analysis failed.';
-      addLog('Gemini AI (Multimodal)', 'error', { message: errorMsg });
-      if (!customAnalysis && (!finalResult || !finalResult.home_interior?.overall_description)) {
-        setViewMode('main');
-        setError(`Visual AI analysis failed: ${errorMsg}. Please try searching again.`);
+      if (propertyData.mapZoomOut) {
+        tasks.push(analyzeNeighborhood(propertyData.mapZoomOut, propertyData.address).then(neighborhoodResult => {
+          if (finalResult) finalResult.neighborhood = neighborhoodResult;
+        }));
       }
+
+      const cityState = geoComponents ? `${geoComponents.city}, ${geoComponents.state}` : '';
+      tasks.push(analyzeCommunityPulse(propertyData.address, cityState).then(pulseResult => {
+        if (finalResult) finalResult.community_pulse = pulseResult;
+      }));
+      
+      await Promise.all(tasks);
+      
+      if (finalResult) {
+        addLog('Gemini 2.5 Flash (Visual)', 'response', finalResult);
+        await saveVisualAnalysisToCloud(propertyData.zpid, finalResult);
+        setCustomAnalysis(finalResult);
+      }
+    } catch (err: any) {
+      addLog('Gemini 2.5 Flash (Multimodal)', 'error', { message: err.message });
+      setError(`Visual analysis failed: ${err.message}`);
     } finally {
       setCustomAnalysisLoading(false);
     }
   };
-
-  const renderMainContent = () => (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <PropertyImages images={propertyData?.images} loading={imagesLoading} />
-
-      {propertyData && (
-        <>
-          <PropertyHeader data={propertyData} />
-          <TablesSection data={propertyData} />
-          <PropertyMaps mapZoomIn={propertyData.mapZoomIn} mapZoomOut={propertyData.mapZoomOut} />
-          <PropertyFacts facts={propertyData.resoFacts} />
-
-          <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 mb-8 mt-8">
-            <h3 className="font-bold text-gray-800 mb-5 flex items-center text-lg">
-              <i className="fa-solid fa-align-left text-gray-400 mr-3"></i>
-              Property Description
-            </h3>
-            <p className="text-base text-gray-600 leading-relaxed">
-              {propertyData.description}
-            </p>
-          </div>
-
-          <div className="flex flex-col md:flex-row items-center justify-center gap-6 mt-12 mb-16">
-            {!analysis && !analysisLoading && (
-              <button
-                onClick={handleTriggerAnalysis}
-                className="inline-flex items-center gap-4 px-8 py-5 bg-gradient-to-r from-indigo-600 to-indigo-800 text-white rounded-2xl font-bold shadow-xl shadow-indigo-100 hover:scale-[1.02] transition-all group text-base"
-              >
-                <i className="fa-solid fa-brain text-xl group-hover:animate-bounce"></i>
-                Run Zyphe™ Data Analysis
-              </button>
-            )}
-            
-            {(propertyData.images && propertyData.images.length > 0) || propertyData.mapZoomOut ? (
-              <button
-                onClick={() => handleRunCustomAnalysis(false)}
-                className={`inline-flex items-center gap-4 px-8 py-5 ${customAnalysis ? 'bg-indigo-900' : 'bg-gradient-to-r from-purple-600 to-indigo-600'} text-white rounded-2xl font-bold shadow-xl shadow-purple-100 hover:scale-[1.02] transition-all group text-base border-2 border-white/20`}
-              >
-                <i className={`fa-solid ${customAnalysis ? 'fa-chart-pie' : 'fa-wand-magic-sparkles'} text-xl group-hover:animate-spin`}></i>
-                {customAnalysis ? 'View Visual AI Analysis' : 'Run Zyphe™ Visual Analysis'}
-              </button>
-            ) : null}
-
-            <button
-              onClick={() => setIsInspectorOpen(true)}
-              className="inline-flex items-center gap-3 px-6 py-5 bg-white border border-gray-200 text-gray-700 rounded-2xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition-all text-base"
-            >
-              <i className="fa-solid fa-code text-gray-400"></i>
-              View Raw Intelligence
-            </button>
-          </div>
-
-          {analysisLoading || analysis ? (
-            <AIAnalysis analysis={analysis!} loading={analysisLoading} />
-          ) : null}
-        </>
-      )}
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50 py-5 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              {/* New Zyphe AI Logo */}
-              <div 
-                className="h-12 w-12 bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-800 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200 cursor-pointer relative overflow-hidden group"
-                onClick={() => setViewMode('main')}
-              >
-                <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div className="relative flex items-center justify-center">
-                   <i className="fa-solid fa-house-chimney text-white text-xl translate-y-[-2px]"></i>
-                   <i className="fa-solid fa-bolt-lightning text-yellow-300 text-[10px] absolute bottom-0 right-[-2px] drop-shadow-md"></i>
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-4 cursor-pointer" onClick={() => setViewMode('main')}>
+                <div className="h-12 w-12 bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-800 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
+                  <i className="fa-solid fa-house-chimney text-white text-xl"></i>
                 </div>
-              </div>
-              <div className="cursor-pointer" onClick={() => setViewMode('main')}>
-                <h1 className="text-2xl font-black text-gray-900 tracking-tighter leading-none">ZYPHE <span className="text-indigo-600">AI</span></h1>
-                <p className="text-[10px] text-gray-400 uppercase font-black tracking-[0.2em]">Intelligent Real Estate</p>
+                <div>
+                  <h1 className="text-2xl font-black text-gray-900 tracking-tighter leading-none">Zyphe <span className="text-indigo-600">AI</span></h1>
+                  <p className="text-[10px] text-gray-400 uppercase font-black tracking-[0.2em]">Intelligent Real Estate</p>
+                </div>
               </div>
             </div>
 
-            <form onSubmit={handleSearch} className="flex-1 max-w-2xl">
-              <div className="relative group">
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Enter property address..."
-                  className="w-full pl-14 pr-4 py-4 bg-gray-100 border-transparent focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 rounded-2xl transition-all outline-none text-base font-medium"
-                />
-                <i className="fa-solid fa-magnifying-glass absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors text-lg"></i>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md shadow-indigo-100"
-                >
-                  {loading ? 'Analyzing...' : 'Analyze'}
-                </button>
-              </div>
-            </form>
+            <div className="flex-1 max-w-2xl relative" ref={historyRef}>
+              <form onSubmit={handleSearchSubmit}>
+                <div className="relative group">
+                  <input
+                    type="text"
+                    value={address}
+                    onFocus={() => setShowHistory(true)}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Enter property address..."
+                    className="w-full pl-14 pr-4 py-4 bg-gray-100 border-transparent focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 rounded-2xl transition-all outline-none text-base font-medium"
+                  />
+                  <i className="fa-solid fa-magnifying-glass absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 text-lg"></i>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 shadow-md"
+                  >
+                    {loading ? 'Analyzing...' : 'Analyze'}
+                  </button>
+                </div>
+              </form>
+
+              {/* History Dropdown */}
+              {showHistory && searchHistory.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[60] animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Recent Searches</span>
+                    <button 
+                      onClick={clearHistory}
+                      className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-800 transition-colors"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {searchHistory.map((item, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleHistoryItemClick(item)}
+                        className="w-full px-5 py-4 text-left flex items-center gap-4 hover:bg-indigo-50 transition-colors border-b border-gray-50 last:border-0 group"
+                      >
+                        <i className="fa-solid fa-clock-rotate-left text-gray-300 group-hover:text-indigo-400 transition-colors"></i>
+                        <span className="text-sm font-medium text-gray-700 truncate">{item}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10">
         {error && (
-          <div className="bg-red-50 border border-red-100 text-red-700 p-5 rounded-xl mb-10 flex items-center shadow-sm">
+          <div className="bg-red-50 border border-red-100 text-red-700 p-5 rounded-xl mb-10 flex items-center">
             <i className="fa-solid fa-circle-exclamation mr-4 text-xl"></i>
             <p className="text-base font-medium">{error}</p>
           </div>
@@ -350,42 +397,72 @@ const App: React.FC = () => {
               </div>
             </div>
             <p className="text-xl font-medium animate-pulse text-gray-600">Gathering intelligence...</p>
-            <p className="text-base">Radar Geocoding & Rapid Housing Intelligence</p>
           </div>
         ) : viewMode === 'main' ? (
-          propertyData ? renderMainContent() : (
+          propertyData ? (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <PropertyImages images={propertyData?.images} loading={imagesLoading} />
+              <PropertyHeader data={propertyData} />
+              <TablesSection data={propertyData} />
+              <PropertyMaps mapZoomIn={propertyData.mapZoomIn} mapZoomOut={propertyData.mapZoomOut} />
+              <PropertyFacts facts={propertyData.resoFacts} />
+              <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 my-8">
+                <h3 className="font-bold text-gray-800 mb-5 flex items-center text-lg"><i className="fa-solid fa-align-left text-gray-400 mr-3"></i>Property Description</h3>
+                <p className="text-base text-gray-600 leading-relaxed">{propertyData.description}</p>
+              </div>
+              
+              <div className="flex flex-wrap items-center justify-center gap-4 mt-12 mb-16">
+                {!analysis && (
+                  <button onClick={handleTriggerAnalysis} disabled={analysisLoading} className="inline-flex items-center gap-4 px-8 py-5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-2xl font-bold hover:bg-indigo-100 transition-all group">
+                    <i className="fa-solid fa-brain"></i>{analysisLoading ? 'Analyzing...' : 'Run Data Intelligence'}
+                  </button>
+                )}
+                
+                <button 
+                  onClick={() => handleRunCustomAnalysis(false)} 
+                  disabled={imagesLoading}
+                  className={`inline-flex items-center gap-4 px-8 py-5 ${customAnalysis ? 'bg-indigo-900' : 'bg-gradient-to-r from-purple-600 to-indigo-600'} text-white rounded-2xl font-bold shadow-xl hover:scale-[1.02] transition-all group disabled:opacity-70 disabled:grayscale disabled:hover:scale-100`}
+                >
+                  <i className={`fa-solid ${imagesLoading ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'}`}></i>
+                  {imagesLoading ? 'Gathering photos...' : (customAnalysis ? 'View Visual AI Analysis' : 'Run Visual Intelligence')}
+                </button>
+                
+                <button onClick={() => setIsInspectorOpen(true)} className="inline-flex items-center gap-3 px-6 py-5 bg-white border border-gray-200 text-gray-700 rounded-2xl font-bold shadow-sm hover:bg-gray-50 transition-all">
+                  <i className="fa-solid fa-code text-gray-400"></i>Data Inspector
+                </button>
+              </div>
+
+              {analysis && <AIAnalysis analysis={analysis} loading={analysisLoading} />}
+            </div>
+          ) : (
             <div className="flex flex-col items-center justify-center py-24 text-center">
               <div className="w-28 h-28 bg-white border border-gray-100 rounded-full flex items-center justify-center mb-8 shadow-sm">
                 <i className="fa-solid fa-house-laptop text-5xl text-indigo-500/20"></i>
               </div>
               <h2 className="text-3xl font-black text-gray-800 mb-3 tracking-tight">Intelligence Starts Here</h2>
-              <p className="text-base text-gray-500 max-w-md">Enter any US property address to generate a comprehensive Zyphe™ report with deep visual and data analysis.</p>
+              <p className="text-base text-gray-500 max-w-md">Enter any US property address to generate a comprehensive Zyphe™ intelligence report.</p>
             </div>
           )
+        ) : viewMode === 'visual-report' ? (
+          <CustomAIAnalysis 
+            analysis={customAnalysis} 
+            loading={customAnalysisLoading} 
+            onBack={() => setViewMode('main')} 
+            onRefresh={() => handleRunCustomAnalysis(true)} 
+            onRunComprehensive={handleRunComprehensiveAnalysis}
+            comprehensiveResult={comprehensiveAnalysis}
+            mapUrl={propertyData?.mapZoomOut} 
+          />
         ) : (
-          <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-            <CustomAIAnalysis 
-              analysis={customAnalysis} 
-              loading={customAnalysisLoading} 
-              onBack={() => setViewMode('main')}
-              onRefresh={() => handleRunCustomAnalysis(true)}
-              mapUrl={propertyData?.mapZoomOut}
-            />
-          </div>
+          <ComprehensiveAnalysis analysis={comprehensiveAnalysis} loading={comprehensiveLoading} onBack={() => setViewMode('visual-report')} address={propertyData?.address} />
         )}
 
-        {viewMode === 'main' && <SystemLogs logs={logs} />}
+        <div id="system-logs-section">
+          <SystemLogs logs={logs} />
+        </div>
       </main>
 
-      <DataInspector 
-        isOpen={isInspectorOpen}
-        onClose={() => setIsInspectorOpen(false)}
-        data={{
-          property: propertyData,
-          analysis: analysis,
-          visual: customAnalysis
-        }}
-      />
+      <DataInspector isOpen={isInspectorOpen} onClose={() => setIsInspectorOpen(false)} data={{ property: propertyData, analysis: analysis, visual: customAnalysis }} />
     </div>
   );
 };
