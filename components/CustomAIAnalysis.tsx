@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CustomAIAnalysisResult, CommunityPulseSection, ComprehensiveAnalysisResult } from '../types';
 
 interface Props {
@@ -23,6 +23,20 @@ const CustomAIAnalysis: React.FC<Props> = ({
   mapUrl 
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('interior');
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    let interval: number;
+    if (loading) {
+      setSeconds(0);
+      interval = window.setInterval(() => {
+        setSeconds(s => s + 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [loading]);
 
   if (loading) {
     return (
@@ -34,7 +48,10 @@ const CustomAIAnalysis: React.FC<Props> = ({
             <i className="fa-solid fa-wand-magic-sparkles text-indigo-600 text-2xl animate-pulse"></i>
           </div>
         </div>
-        <h3 className="text-3xl font-bold text-indigo-900 mb-4">Zyphe™ Visual Scanning...</h3>
+        <h3 className="text-3xl font-bold text-indigo-900 mb-2">Zyphe™ Visual Scanning...</h3>
+        <p className="text-indigo-500 font-mono text-sm font-bold mb-4 bg-white/50 px-4 py-1 rounded-full border border-indigo-100">
+          Time elapsed: {seconds}s
+        </p>
         <p className="text-indigo-700/70 max-w-md mx-auto text-lg">
           Our multimodal engine is dissecting architecture and neighborhood context.
         </p>

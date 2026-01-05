@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ComprehensiveAnalysisResult } from '../types';
 
 interface Props {
@@ -9,6 +9,21 @@ interface Props {
 }
 
 const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, address }) => {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    let interval: number;
+    if (loading) {
+      setSeconds(0);
+      interval = window.setInterval(() => {
+        setSeconds(s => s + 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [loading]);
+
   if (loading) {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center p-12 text-center bg-white rounded-[3rem] shadow-xl border border-gray-100 my-10 animate-in fade-in duration-500">
@@ -19,7 +34,10 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
             <i className="fa-solid fa-feather-pointed text-indigo-600 text-3xl animate-pulse"></i>
           </div>
         </div>
-        <h2 className="text-4xl font-black text-gray-900 mb-4 tracking-tight">Drafting Comprehensive Intelligence...</h2>
+        <h2 className="text-4xl font-black text-gray-900 mb-2 tracking-tight">Drafting Comprehensive Intelligence...</h2>
+        <p className="text-indigo-500 font-mono text-sm font-bold mb-6 bg-indigo-50 px-4 py-1.5 rounded-full border border-indigo-100">
+          Running for {seconds} seconds...
+        </p>
         <p className="text-gray-500 max-w-xl mx-auto text-lg leading-relaxed">
           Zyphe AI is currently synthesizing multi-source data, search grounding, and visual scans into a professional narrative report. This usually takes 30-60 seconds.
         </p>
