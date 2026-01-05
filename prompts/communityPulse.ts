@@ -12,53 +12,46 @@ export const getCommunityPulsePrompt = (address: string, cityState: string) => `
   - City-Data forums
   - Google Maps reviews (area & nearby amenities)
   - Local news or Patch.com
-  - Public crime or safety reports
+  - Public crime or safety reports, CrimeMapping.com
   - School review platforms (GreatSchools, Niche)
 
-  Return your response as a JSON object with exactly this structure. Each section MUST include a "sources" array:
-
-  {
-    "what_residents_like": {
-      "summary": "<positive aspects: what residents love, community vibe, friendliness, diversity>",
-      "points": ["<point 1>", "<point 2>"],
-      "sources": ["reddit.com", "trulia.com"]
-    },
-    "common_complaints": {
-      "summary": "<negative aspects: complaints, noise, traffic, parking issues>",
-      "points": ["<point 1>", "<point 2>"],
-      "sources": ["reddit.com", "trulia.com"]
-    },
-    "safety_and_concerns": {
-      "summary": "<safety perception, crime concerns, red flags, recurring warnings>",
-      "points": ["<point 1>", "<point 2>"],
-      "sources": ["reddit.com", "trulia.com"]
-    },
-    "schools_family_friendliness": {
-      "summary": "<school quality and family-friendliness>",
-      "points": ["<point 1>", "<point 2>"],
-      "sources": ["reddit.com", "trulia.com"]
-    },
-    "lifestyle_convenience": {
-      "summary": "<walkability, commute, remote work suitability, daily convenience>",
-      "points": ["<point 1>", "<point 2>"],
-      "sources": ["reddit.com", "trulia.com"]
-    },
-    "investment_insights": {
-      "summary": "<rental demand, tenant profile, resale desirability, market trends>",
-      "points": ["<insight 1>", "<insight 2>"],
-      "sources": ["reddit.com", "trulia.com"]
-    }
-  }
-
-  IMPORTANT: Each section's "sources" array must contain the names of specific sources used in that section. Do not include inline citations in the points text. 
-  AVOID REPEATING the same information across different sections.
-
   Source requirements:
-  - Each section must have its own sources array with full URLs
+  - Each section MUST include a "sources" array with Footnote Style	Text of source like niche, patch.com, crmemapping.com at the bottom. 
+  - Do not show URL wrapper like googlevertex
   - Prefer recent sources (last 2–3 years)
   - If no reliable sources found for a section, use an empty sources array []
 
   Tone: Neutral, evidence-based, buyer-oriented. Avoid marketing language.
 
-  Respond ONLY with the JSON object, no additional text or markdown formatting.
-`;
+  Return your response as a JSON object with exactly this structure. 
+
+  {
+    "what_residents_like": {
+      "summary": "<positive aspects: what residents love, community vibe, friendliness, diversity>",
+      "sources": []
+    },
+    "common_complaints": {
+      "summary": "<negative aspects: complaints, noise, traffic, parking issues>",
+      "sources": []
+    },
+    "safety_and_concerns": {
+      "summary": "<safety perception, crime concerns, red flags, recurring warnings>",
+      "sources": []
+    },
+    "schools_family_friendliness": {
+      "summary": "<school quality and family-friendliness>",
+      "sources": []
+    },
+    "lifestyle_convenience": {
+      "summary": "<walkability, commute, remote work suitability, daily convenience>",
+      "sources": []
+    },
+    "investment_insights": {
+      "summary": "<rental demand, tenant profile, resale desirability, market trends>",
+      "sources": []
+    }
+  }
+
+  AVOID REPEATING the same information across different sections.
+
+  Respond ONLY with the JSON object, no additional text or markdown formatting.`;

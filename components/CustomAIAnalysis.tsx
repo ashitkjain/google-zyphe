@@ -312,7 +312,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
                       <div className="pt-6 border-t border-gray-100 bg-gray-50 -mx-8 -mb-8 p-8 mt-auto">
                         <div className="flex items-center gap-2 mb-3">
                           <i className="fa-solid fa-wand-magic-sparkles text-purple-600 text-sm"></i>
-                          <div className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Enhancement Strategy</div>
+                          <div className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Potential Improvements</div>
                         </div>
                         <p className="text-gray-500 text-sm italic font-medium">"{room.potential_improvements}"</p>
                       </div>
