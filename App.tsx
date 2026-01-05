@@ -1,21 +1,18 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogEntry } from './types';
+import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogEntry } from './types';
 import { normalizeAddress, fetchPropertyData, fetchPropertyImages } from './services/apiService';
-import { analyzeProperty, analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive } from './services/geminiService';
+import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive } from './services/geminiService';
 import { 
   logUserActivity, 
   savePropertyToCloud, 
-  saveDeepAnalysisToCloud, 
   saveVisualAnalysisToCloud,
   saveComprehensiveAnalysisToCloud,
-  getDeepAnalysisFromCloud,
   getVisualAnalysisFromCloud,
   getComprehensiveAnalysisFromCloud
 } from './services/firebaseService';
 import PropertyHeader from './components/PropertyHeader';
 import TablesSection from './components/TablesSection';
 import PropertyFacts from './components/PropertyFacts';
-import AIAnalysis from './components/AIAnalysis';
 import CustomAIAnalysis from './components/CustomAIAnalysis';
 import ComprehensiveAnalysis from './components/ComprehensiveAnalysis';
 import PropertyImages from './components/PropertyImages';
@@ -30,8 +27,6 @@ const App: React.FC = () => {
   const [imagesLoading, setImagesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [propertyData, setPropertyData] = useState<PropertyData | null>(null);
-  const [analysis, setAnalysis] = useState<AIAnalysisResult | null>(null);
-  const [analysisLoading, setAnalysisLoading] = useState(false);
   const [customAnalysis, setCustomAnalysis] = useState<CustomAIAnalysisResult | null>(null);
   const [customAnalysisLoading, setCustomAnalysisLoading] = useState(false);
   const [comprehensiveAnalysis, setComprehensiveAnalysis] = useState<ComprehensiveAnalysisResult | null>(null);
@@ -91,7 +86,6 @@ const App: React.FC = () => {
   const handleHistoryItemClick = (item: string) => {
     setAddress(item);
     setShowHistory(false);
-    // Use a small timeout to ensure the state update for address is processed if needed
     setTimeout(() => performSearch(item), 10);
   };
 
@@ -102,7 +96,6 @@ const App: React.FC = () => {
     setImagesLoading(false);
     setError(null);
     setPropertyData(null);
-    setAnalysis(null);
     setCustomAnalysis(null);
     setComprehensiveAnalysis(null);
     setLogs([]);
@@ -139,13 +132,6 @@ const App: React.FC = () => {
       setLoading(false);
 
       if (data.zpid) {
-        // Restore Analysis from Cloud Table
-        const cloudDeepAnalysis = await getDeepAnalysisFromCloud(data.zpid);
-        if (cloudDeepAnalysis) {
-          setAnalysis(cloudDeepAnalysis);
-          addLog('Zyphe Cloud', 'response', { message: 'Restored deep analysis from cloud', data: cloudDeepAnalysis });
-        }
-
         const cloudVisualAnalysis = await getVisualAnalysisFromCloud(data.zpid);
         if (cloudVisualAnalysis) {
           setCustomAnalysis(cloudVisualAnalysis);
@@ -162,7 +148,6 @@ const App: React.FC = () => {
           setImagesLoading(false);
         }
       }
-
     } catch (err: any) {
       const errorMsg = err.message || 'An unexpected error occurred.';
       setError(errorMsg);
@@ -186,22 +171,6 @@ const App: React.FC = () => {
       content
     };
     setLogs(prev => [...prev, entry]);
-  };
-
-  const handleTriggerAnalysis = async () => {
-    if (!propertyData || !propertyData.zpid) return;
-    setAnalysisLoading(true);
-    addLog('Gemini 2.5 Flash', 'request', { model: 'gemini-2.5-flash', task: 'Deep Analysis' });
-    try {
-      const aiResult = await analyzeProperty(propertyData);
-      setAnalysis(aiResult);
-      addLog('Gemini 2.5 Flash', 'response', aiResult);
-      await saveDeepAnalysisToCloud(propertyData.zpid, aiResult);
-    } catch (err: any) {
-      addLog('Gemini 2.5 Flash', 'error', { message: err.message });
-    } finally {
-      setAnalysisLoading(false);
-    }
   };
 
   const handleRunComprehensiveAnalysis = async () => {
@@ -271,29 +240,20 @@ const App: React.FC = () => {
 
     try {
       const tasks = [];
-      
       if (propertyData.images && propertyData.images.length > 0) {
         tasks.push(analyzePropertyImages(propertyData.images, propertyData).then(result => {
-          if (finalResult) {
-            finalResult = { ...finalResult, ...result };
-          }
+          if (finalResult) finalResult = { ...finalResult, ...result };
         }));
-      } else {
-        addLog('App Logic', 'info', 'No images found for visual analysis.');
       }
-
       if (propertyData.mapZoomOut) {
         tasks.push(analyzeNeighborhood(propertyData.mapZoomOut, propertyData).then(neighborhoodResult => {
           if (finalResult) finalResult.neighborhood = neighborhoodResult;
         }));
       }
-
       tasks.push(analyzeCommunityPulse(propertyData).then(pulseResult => {
         if (finalResult) finalResult.community_pulse = pulseResult;
       }));
-      
       await Promise.all(tasks);
-      
       if (finalResult) {
         addLog('Gemini 2.5 Flash (Visual)', 'response', finalResult);
         await saveVisualAnalysisToCloud(propertyData.zpid, finalResult);
@@ -336,35 +296,20 @@ const App: React.FC = () => {
                     className="w-full pl-14 pr-4 py-4 bg-gray-100 border-transparent focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 rounded-2xl transition-all outline-none text-base font-medium"
                   />
                   <i className="fa-solid fa-magnifying-glass absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 text-lg"></i>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 shadow-md"
-                  >
+                  <button type="submit" disabled={loading} className="absolute right-3 top-1/2 -translate-y-1/2 bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 shadow-md">
                     {loading ? 'Analyzing...' : 'Analyze'}
                   </button>
                 </div>
               </form>
-
-              {/* History Dropdown */}
               {showHistory && searchHistory.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[60] animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Recent Searches</span>
-                    <button 
-                      onClick={clearHistory}
-                      className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-800 transition-colors"
-                    >
-                      Clear All
-                    </button>
+                    <button onClick={clearHistory} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-800 transition-colors">Clear All</button>
                   </div>
                   <div className="max-h-64 overflow-y-auto">
                     {searchHistory.map((item, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleHistoryItemClick(item)}
-                        className="w-full px-5 py-4 text-left flex items-center gap-4 hover:bg-indigo-50 transition-colors border-b border-gray-50 last:border-0 group"
-                      >
+                      <button key={idx} onClick={() => handleHistoryItemClick(item)} className="w-full px-5 py-4 text-left flex items-center gap-4 hover:bg-indigo-50 transition-colors border-b border-gray-50 last:border-0 group">
                         <i className="fa-solid fa-clock-rotate-left text-gray-300 group-hover:text-indigo-400 transition-colors"></i>
                         <span className="text-sm font-medium text-gray-700 truncate">{item}</span>
                       </button>
@@ -398,6 +343,16 @@ const App: React.FC = () => {
         ) : viewMode === 'main' ? (
           propertyData ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
+                <button onClick={() => handleRunCustomAnalysis(false)} disabled={imagesLoading} className={`flex items-center gap-3 px-6 py-3 ${customAnalysis ? 'bg-indigo-900' : 'bg-gradient-to-r from-purple-600 to-indigo-600'} text-white rounded-xl font-bold text-sm shadow-xl hover:scale-[1.02] transition-all group disabled:opacity-70 disabled:grayscale disabled:hover:scale-100 w-full md:w-auto text-center justify-center`}>
+                  <i className={`fa-solid ${imagesLoading ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'} text-base`}></i>
+                  {imagesLoading ? 'Gathering photos...' : 'Generate AI Insights'}
+                </button>
+                <div className="flex items-center gap-2 text-xs text-gray-400 bg-white px-4 py-3 rounded-xl border border-gray-100 font-bold uppercase tracking-wider shadow-sm">
+                  <i className="fa-solid fa-bolt-lightning text-indigo-500"></i>
+                  Zyphe™ Visual Intelligence
+                </div>
+              </div>
               <PropertyImages images={propertyData?.images} loading={imagesLoading} />
               <PropertyHeader data={propertyData} />
               <TablesSection data={propertyData} />
@@ -407,25 +362,6 @@ const App: React.FC = () => {
                 <h3 className="font-bold text-gray-800 mb-5 flex items-center text-lg"><i className="fa-solid fa-align-left text-gray-400 mr-3"></i>Property Description</h3>
                 <p className="text-base text-gray-600 leading-relaxed">{propertyData.description}</p>
               </div>
-              
-              <div className="flex flex-wrap items-center justify-center gap-4 mt-12 mb-16">
-                {!analysis && (
-                  <button onClick={handleTriggerAnalysis} disabled={analysisLoading} className="inline-flex items-center gap-4 px-8 py-5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-2xl font-bold hover:bg-indigo-100 transition-all group">
-                    <i className="fa-solid fa-brain"></i>{analysisLoading ? 'Analyzing...' : 'Run Data Intelligence'}
-                  </button>
-                )}
-                
-                <button 
-                  onClick={() => handleRunCustomAnalysis(false)} 
-                  disabled={imagesLoading}
-                  className={`inline-flex items-center gap-4 px-8 py-5 ${customAnalysis ? 'bg-indigo-900' : 'bg-gradient-to-r from-purple-600 to-indigo-600'} text-white rounded-2xl font-bold shadow-xl hover:scale-[1.02] transition-all group disabled:opacity-70 disabled:grayscale disabled:hover:scale-100`}
-                >
-                  <i className={`fa-solid ${imagesLoading ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'}`}></i>
-                  {imagesLoading ? 'Gathering photos...' : (customAnalysis ? 'View Visual AI Analysis' : 'Run Visual Intelligence')}
-                </button>
-              </div>
-
-              {analysis && <AIAnalysis analysis={analysis} loading={analysisLoading} />}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -437,19 +373,10 @@ const App: React.FC = () => {
             </div>
           )
         ) : viewMode === 'visual-report' ? (
-          <CustomAIAnalysis 
-            analysis={customAnalysis} 
-            loading={customAnalysisLoading} 
-            onBack={() => setViewMode('main')} 
-            onRefresh={() => handleRunCustomAnalysis(true)} 
-            onRunComprehensive={handleRunComprehensiveAnalysis}
-            comprehensiveResult={comprehensiveAnalysis}
-            mapUrl={propertyData?.mapZoomOut} 
-          />
+          <CustomAIAnalysis analysis={customAnalysis} loading={customAnalysisLoading} onBack={() => setViewMode('main')} onRefresh={() => handleRunCustomAnalysis(true)} onRunComprehensive={handleRunComprehensiveAnalysis} comprehensiveResult={comprehensiveAnalysis} mapUrl={propertyData?.mapZoomOut} />
         ) : (
           <ComprehensiveAnalysis analysis={comprehensiveAnalysis} loading={comprehensiveLoading} onBack={() => setViewMode('visual-report')} address={propertyData?.address} />
         )}
-
         <div id="system-logs-section">
           <SystemLogs logs={logs} />
         </div>
