@@ -132,10 +132,17 @@ const App: React.FC = () => {
       setLoading(false);
 
       if (data.zpid) {
+        // Retrieve cached analyses from Google Cloud
         const cloudVisualAnalysis = await getVisualAnalysisFromCloud(data.zpid);
         if (cloudVisualAnalysis) {
           setCustomAnalysis(cloudVisualAnalysis);
           addLog('Zyphe Cloud', 'response', { message: 'Restored visual analysis from cloud', data: cloudVisualAnalysis });
+        }
+
+        const cloudCompAnalysis = await getComprehensiveAnalysisFromCloud(data.zpid);
+        if (cloudCompAnalysis) {
+          setComprehensiveAnalysis(cloudCompAnalysis);
+          addLog('Zyphe Cloud', 'response', { message: 'Restored comprehensive report from cloud', data: cloudCompAnalysis });
         }
         
         if (!data.images || data.images.length === 0) {
@@ -296,7 +303,7 @@ const App: React.FC = () => {
                     className="w-full pl-14 pr-4 py-4 bg-gray-100 border-transparent focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 rounded-2xl transition-all outline-none text-base font-medium"
                   />
                   <i className="fa-solid fa-magnifying-glass absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 text-lg"></i>
-                  <button type="submit" disabled={loading} className="absolute right-3 top-1/2 -translate-y-1/2 bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 shadow-md">
+                  <button type="submit" disabled={loading} className="absolute right-3 top-1/2 -translate-y-1/2 bg-indigo-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 shadow-md">
                     {loading ? 'Analyzing...' : 'Analyze'}
                   </button>
                 </div>
@@ -344,11 +351,11 @@ const App: React.FC = () => {
           propertyData ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
               <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
-                <button onClick={() => handleRunCustomAnalysis(false)} disabled={imagesLoading} className={`flex items-center gap-3 px-6 py-3 ${customAnalysis ? 'bg-indigo-900' : 'bg-gradient-to-r from-purple-600 to-indigo-600'} text-white rounded-xl font-bold text-sm shadow-xl hover:scale-[1.02] transition-all group disabled:opacity-70 disabled:grayscale disabled:hover:scale-100 w-full md:w-auto text-center justify-center`}>
+                <button onClick={() => handleRunCustomAnalysis(false)} disabled={imagesLoading} className="flex items-center gap-3 px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-xl hover:bg-indigo-700 active:scale-95 transition-all group disabled:opacity-70 disabled:grayscale disabled:hover:scale-100 w-full md:w-auto text-center justify-center">
                   <i className={`fa-solid ${imagesLoading ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'} text-base`}></i>
                   {imagesLoading ? 'Gathering photos...' : 'Generate AI Insights'}
                 </button>
-                <div className="flex items-center gap-2 text-xs text-gray-400 bg-white px-4 py-3 rounded-xl border border-gray-100 font-bold uppercase tracking-wider shadow-sm">
+                <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 px-4 py-3 rounded-xl border border-gray-100 font-bold uppercase tracking-wider">
                   <i className="fa-solid fa-bolt-lightning text-indigo-500"></i>
                   Zyphe™ Visual Intelligence
                 </div>

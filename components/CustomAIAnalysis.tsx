@@ -120,9 +120,8 @@ const CustomAIAnalysis: React.FC<Props> = ({
       </div>
       <h4 className="text-xl font-bold text-gray-800 mb-2">Analysis Missing for {section}</h4>
       <p className="text-gray-500 max-w-sm mx-auto mb-8">This section of the report couldn't be generated from the available data.</p>
-      <button onClick={onRefresh} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all flex items-center gap-3">
-        <i className="fa-solid fa-rotate"></i>
-        Retry Analysis
+      <button onClick={onRefresh} title="Retry Analysis" className="text-indigo-600 hover:text-indigo-800 transition-all active:scale-90 p-4">
+        <i className="fa-solid fa-rotate text-2xl"></i>
       </button>
     </div>
   );
@@ -130,16 +129,12 @@ const CustomAIAnalysis: React.FC<Props> = ({
   return (
     <div className="space-y-8 pb-20">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <button onClick={onBack} className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-2xl text-gray-700 font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition-all group w-fit">
+        <button onClick={onBack} className="flex items-center gap-3 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-md hover:bg-indigo-700 active:scale-95 transition-all group w-fit">
           <i className="fa-solid fa-arrow-left transition-transform group-hover:-translate-x-1"></i>
           Back to Overview
         </button>
         <div className="flex flex-wrap items-center gap-4">
-          <button onClick={onRefresh} title="Refresh current analysis" className="flex items-center gap-2 text-xs text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 font-bold uppercase tracking-wider hover:bg-indigo-100 transition-colors">
-            <i className="fa-solid fa-rotate"></i>
-            Refresh
-          </button>
-          <button onClick={onRunComprehensive} className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-indigo-700 to-gray-900 text-white rounded-xl font-bold text-sm shadow-xl hover:scale-[1.05] transition-all group">
+          <button onClick={onRunComprehensive} className="flex items-center gap-3 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-xl hover:bg-indigo-700 active:scale-95 transition-all group">
             <i className="fa-solid fa-file-invoice-dollar text-sm"></i>
             {comprehensiveResult ? 'Full Narrative Report' : 'Generate Full Report'}
           </button>
@@ -147,6 +142,9 @@ const CustomAIAnalysis: React.FC<Props> = ({
             <i className="fa-solid fa-bolt-lightning text-indigo-500"></i>
             Zyphe™ Visual Intelligence
           </div>
+          <button onClick={onRefresh} title="Refresh current analysis" className="text-indigo-600 hover:text-indigo-800 transition-all active:scale-90 p-2">
+            <i className="fa-solid fa-rotate text-xl"></i>
+          </button>
         </div>
       </div>
 
@@ -236,7 +234,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
           </section>
         )}
       </div>
-      <div className="flex flex-col items-center gap-8 pt-10 border-t border-gray-100"><button onClick={onBack} className="text-gray-400 hover:text-gray-600 font-bold uppercase tracking-widest text-xs transition-colors">Return to Summary Overview</button></div>
+      <div className="flex flex-col items-center gap-8 pt-10 border-t border-gray-100"><button onClick={onBack} className="text-gray-400 hover:text-indigo-600 font-bold uppercase tracking-widest text-xs transition-colors">Return to Summary Overview</button></div>
     </div>
   );
 };

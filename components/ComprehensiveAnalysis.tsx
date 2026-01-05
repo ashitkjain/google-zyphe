@@ -60,7 +60,7 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
       <div className="flex items-center justify-between mb-8 sticky top-24 z-40 bg-gray-50/80 backdrop-blur-md py-4">
         <button 
           onClick={onBack}
-          className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-2xl text-gray-700 font-bold shadow-sm hover:bg-gray-50 transition-all group"
+          className="flex items-center gap-3 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-md hover:bg-indigo-700 active:scale-95 transition-all group w-fit"
         >
           <i className="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
           Back to Overview
@@ -68,11 +68,11 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
         <div className="flex items-center gap-3">
           <button 
             onClick={() => window.print()}
-            className="w-12 h-12 flex items-center justify-center bg-white border border-gray-200 rounded-2xl text-gray-500 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm"
+            className="w-12 h-12 flex items-center justify-center bg-indigo-600 text-white border border-indigo-500 rounded-2xl hover:bg-indigo-700 active:scale-95 transition-all shadow-md"
           >
             <i className="fa-solid fa-print"></i>
           </button>
-          <div className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-indigo-200">
+          <div className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold text-sm uppercase tracking-widest shadow-xl shadow-indigo-200">
             Professional Report
           </div>
         </div>
