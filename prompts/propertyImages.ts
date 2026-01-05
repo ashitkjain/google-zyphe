@@ -1,11 +1,17 @@
 import { Type } from "@google/genai";
+import { PropertyData } from "../types";
 
-export const propertyImagesPrompt = `
-  You are an expert real estate agent and interior design critic. Your task is to provide a comprehensive, detailed, and actionable report on the property.
-I'm sharing a set of images of a residential property.
- Narrative Style: Write in a flowing, descriptive paragraph style in a compelling tone that engages a potential buyer. Avoid bullet points or lists in the main sections.
- Add as much details as possible accurately.
-"Return the response as a single JSON object that conforms to the following schema. Do not include any other text or explanation outside of the JSON.
+export const getPropertyImagesPrompt = (property: PropertyData) => `
+  You are an expert real estate agent and interior design critic. Your task is to provide a comprehensive, detailed, and actionable report on the property based on visual evidence and provided data.
+  
+  Property Context:
+  ${JSON.stringify(property, null, 2)}
+
+  I'm sharing a set of images of this residential property.
+  Narrative Style: Write in a flowing, descriptive paragraph style in a compelling tone that engages a potential buyer. Avoid bullet points or lists in the main sections.
+  Add as much details as possible accurately.
+
+  "Return the response as a single JSON object that conforms to the following schema. Do not include any other text or explanation outside of the JSON.
 {
   "report_title": "Real Estate Property Analysis",
   "home_interior": {
@@ -45,15 +51,14 @@ I'm sharing a set of images of a residential property.
     }
   }
 }
-INSTRUCTIONS:
 
+INSTRUCTIONS:
 First analyze each image and describe what you see in each one, in this format -
 Image 1 : Is it a room ? What room is it ? What does it show ?
 Image 2 : Is it a room ? What room is it ? What does it show ?
 And so on.
 
 After that collate this response and organize it into three sections:
-
 IMPORTANT ;  Only analyze those rooms for which the images have been provided
 
 📝 Home Interior
@@ -70,8 +75,8 @@ Write this in a natural, emotionally resonant tone suitable for a real estate li
 
 📌 Room & Feature Highlights
 List and briefly describe the standout rooms and interior features based on the images, only if images have been provided
-
 Use a bulleted list or short paragraph per room/space.
+
 🌳 Exterior & Neighborhood Overview
 Create a natural-flowing narrative that captures the curb appeal, backyard, surrounding environment, and street/neighborhood context. Include:
 🏠 Exterior & Lot Appeal
@@ -89,11 +94,7 @@ Proximity to schools, parks, cafes, shops, transit, trails
 Visibility of potential noise sources (highways, trains, commercial buildings)
 Overall safety, walkability, and family-friendliness based on visible cues
 Write this as a natural, lifestyle-based narrative, helping the reader imagine not just the house, but life in and around it.
-
-Additional Notes:
-Do not repeat information across sections unless it's especially important.
-Use language that helps a buyer visualize daily life in this home
-If anything is unclear or not visible in the images, say so gracefully ("appears to be…", "not clearly visible")`;
+`;
 
 export const propertyImagesSchema = {
   type: Type.OBJECT,

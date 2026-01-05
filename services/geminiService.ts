@@ -3,7 +3,7 @@ import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAna
 import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/propertyAnalysis";
 import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/neighborhoodAnalysis";
 import { getCommunityPulsePrompt } from "../prompts/communityPulse";
-import { propertyImagesPrompt, propertyImagesSchema } from "../prompts/propertyImages";
+import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/propertyImages";
 import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis";
 
 // Always use process.env.API_KEY directly as per guidelines.
@@ -57,14 +57,14 @@ export const analyzeProperty = async (property: PropertyData): Promise<AIAnalysi
   return JSON.parse(response.text || "{}") as AIAnalysisResult;
 };
 
-export const analyzeNeighborhood = async (mapImageUrl: string, propertyAddress: string): Promise<NeighborhoodAnalysis> => {
+export const analyzeNeighborhood = async (mapImageUrl: string, property: PropertyData): Promise<NeighborhoodAnalysis> => {
   const { data, mimeType } = await urlToBase64(mapImageUrl);
   
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
     contents: {
       parts: [
-        { text: getNeighborhoodAnalysisPrompt(propertyAddress) },
+        { text: getNeighborhoodAnalysisPrompt(property) },
         { inlineData: { data, mimeType } }
       ]
     },
@@ -77,10 +77,10 @@ export const analyzeNeighborhood = async (mapImageUrl: string, propertyAddress: 
   return JSON.parse(response.text || "{}") as NeighborhoodAnalysis;
 };
 
-export const analyzeCommunityPulse = async (address: string, cityState: string): Promise<CommunityPulseResult> => {
+export const analyzeCommunityPulse = async (property: PropertyData): Promise<CommunityPulseResult> => {
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
-    contents: getCommunityPulsePrompt(address, cityState),
+    contents: getCommunityPulsePrompt(property),
     config: {
       tools: [{ googleSearch: {} }]
     }
@@ -89,7 +89,7 @@ export const analyzeCommunityPulse = async (address: string, cityState: string):
   return parseJSONSafely(response.text || "{}") as CommunityPulseResult;
 };
 
-export const analyzePropertyImages = async (imageUrls: string[]): Promise<CustomAIAnalysisResult> => {
+export const analyzePropertyImages = async (imageUrls: string[], property: PropertyData): Promise<CustomAIAnalysisResult> => {
   const selectedImages = imageUrls.slice(0, 15);
   const imageParts = await Promise.all(selectedImages.map(async (url) => {
     const { data, mimeType } = await urlToBase64(url);
@@ -98,7 +98,7 @@ export const analyzePropertyImages = async (imageUrls: string[]): Promise<Custom
 
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
-    contents: { parts: [{ text: propertyImagesPrompt }, ...imageParts] },
+    contents: { parts: [{ text: getPropertyImagesPrompt(property) }, ...imageParts] },
     config: { 
       responseMimeType: "application/json",
       responseSchema: propertyImagesSchema

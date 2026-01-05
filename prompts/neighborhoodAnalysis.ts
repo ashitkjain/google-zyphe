@@ -1,22 +1,27 @@
 import { Type } from "@google/genai";
+import { PropertyData } from "../types";
 
-export const getNeighborhoodAnalysisPrompt = (propertyAddress: string) => `
+export const getNeighborhoodAnalysisPrompt = (property: PropertyData) => `
   You are an expert Spatial Analyst and Urban Planning Consultant. 
   
-  I am providing you with map imagery (satellite/map views) for the property at: ${propertyAddress}.
+  I am providing you with map imagery (satellite/map views) and property data for:
+  ${JSON.stringify(property, null, 2)}
   
   TASK:
-  Analyze the provided map images in detail. Your analysis should be based primarily on the visual evidence in the maps, combined with your general knowledge of urban geography.
+  Analyze the provided map images and property context in detail. Your analysis should be based primarily on the visual evidence in the maps, combined with the property facts provided and your general knowledge of urban geography.
   
   INSTRUCTIONS:
-  1. STREET LAYOUT: Identify the street pattern (e.g., quiet cul-de-sac, grid system, busy arterial proximity). Note traffic flow indicators.
-  2. DENSITY & LAND USE: Evaluate the neighborhood density. Are homes tightly packed? Are there large lots? Are there commercial or industrial buffers nearby?
-  3. GREENERY & BLUE SPACE: Identify visible parks, wooded areas, walking trails, or bodies of water in the immediate vicinity.
-  4. INFRASTRUCTURE: Look for sidewalks, crosswalks, and pedestrian-friendly features. Identify public transit stops or parking availability if visible.
-  5. TOPOGRAPHY: Note any significant slopes, hills, or unique geographical features visible in the map context.
-  6. DEVELOPMENT: Assess the age and style of surrounding development based on the roof patterns and parcel layouts.
-
-  Return the response as a single JSON object matching the requested schema. Ensure the "overview" provides a high-level summary of the "vibe" found in the imagery.
+    "street_layout_and_traffic": "Road types, intersection patterns, potential traffic flow.",
+    "sidewalks_and_pedestrian_infra": "Visible walkways, pedestrian accessibility.",
+    "proximity_to_greenery_and_water": "Visible green spaces, parks, trailheads, landscaping, water bodies etc.",
+    "neighborhood_density": "Housing density, lot sizes, spacing between homes.",
+    "walkability_indicators": "Proximity to amenities, grid vs suburban layout.",
+    "topography": "Hills, slopes, elevation changes visible.",
+    "development_patterns": "New vs established neighborhoods, construction activity.",
+    "nearby_amenities": "Schools, shopping, recreational facilities etc visible on map, as well as your knowledge.",
+    "transportation_access": "Major roads, highway access, airports, public transit proximity.",
+    "general": "Street parking, driveways, nearby parking areas, proximity to cultural communities, neighborhood vibe etc."
+  Return the response as a single JSON object matching the requested schema. Ensure the "overview" provides a high-level summary of the "vibe" found in the imagery and data.
 `;
 
 export const neighborhoodAnalysisSchema = {

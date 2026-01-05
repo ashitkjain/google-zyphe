@@ -1,5 +1,9 @@
-export const getCommunityPulsePrompt = (address: string, cityState: string) => `
-  Task: Act as a specialized neighborhood research assistant for the property located at ${address}, ${cityState}. 
+import { PropertyData } from "../types";
+
+export const getCommunityPulsePrompt = (property: PropertyData) => `
+  Task: Act as a specialized neighborhood research assistant for the following property:
+  ${JSON.stringify(property, null, 2)}
+
   Your mission is to provide an authentic "Community Pulse" report by synthesizing real resident perspectives, local forum sentiment, news, and area-specific reviews.
   
   Instructions:

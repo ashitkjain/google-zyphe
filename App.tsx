@@ -21,7 +21,6 @@ import ComprehensiveAnalysis from './components/ComprehensiveAnalysis';
 import PropertyImages from './components/PropertyImages';
 import PropertyMaps from './components/PropertyMaps';
 import SystemLogs from './components/SystemLogs';
-import DataInspector from './components/DataInspector';
 
 type ViewMode = 'main' | 'visual-report' | 'comprehensive-report';
 
@@ -40,7 +39,6 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('main');
   const [geoComponents, setGeoComponents] = useState<{ city: string; state: string } | null>(null);
-  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   
   // Search History State
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
@@ -275,7 +273,7 @@ const App: React.FC = () => {
       const tasks = [];
       
       if (propertyData.images && propertyData.images.length > 0) {
-        tasks.push(analyzePropertyImages(propertyData.images).then(result => {
+        tasks.push(analyzePropertyImages(propertyData.images, propertyData).then(result => {
           if (finalResult) {
             finalResult = { ...finalResult, ...result };
           }
@@ -285,13 +283,12 @@ const App: React.FC = () => {
       }
 
       if (propertyData.mapZoomOut) {
-        tasks.push(analyzeNeighborhood(propertyData.mapZoomOut, propertyData.address).then(neighborhoodResult => {
+        tasks.push(analyzeNeighborhood(propertyData.mapZoomOut, propertyData).then(neighborhoodResult => {
           if (finalResult) finalResult.neighborhood = neighborhoodResult;
         }));
       }
 
-      const cityState = geoComponents ? `${geoComponents.city}, ${geoComponents.state}` : '';
-      tasks.push(analyzeCommunityPulse(propertyData.address, cityState).then(pulseResult => {
+      tasks.push(analyzeCommunityPulse(propertyData).then(pulseResult => {
         if (finalResult) finalResult.community_pulse = pulseResult;
       }));
       
@@ -426,10 +423,6 @@ const App: React.FC = () => {
                   <i className={`fa-solid ${imagesLoading ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'}`}></i>
                   {imagesLoading ? 'Gathering photos...' : (customAnalysis ? 'View Visual AI Analysis' : 'Run Visual Intelligence')}
                 </button>
-                
-                <button onClick={() => setIsInspectorOpen(true)} className="inline-flex items-center gap-3 px-6 py-5 bg-white border border-gray-200 text-gray-700 rounded-2xl font-bold shadow-sm hover:bg-gray-50 transition-all">
-                  <i className="fa-solid fa-code text-gray-400"></i>Data Inspector
-                </button>
               </div>
 
               {analysis && <AIAnalysis analysis={analysis} loading={analysisLoading} />}
@@ -461,8 +454,6 @@ const App: React.FC = () => {
           <SystemLogs logs={logs} />
         </div>
       </main>
-
-      <DataInspector isOpen={isInspectorOpen} onClose={() => setIsInspectorOpen(false)} data={{ property: propertyData, analysis: analysis, visual: customAnalysis }} />
     </div>
   );
 };
