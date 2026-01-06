@@ -1,7 +1,7 @@
+
 import { PropertyData, RadarGeocodeResponse } from "../types";
 import { savePropertyToCloud, getPropertyByAddress } from "./firebaseService";
 
-// Security: Use environment variables for sensitive API keys
 const RAPID_API_KEY = process.env.RAPID_API_KEY || "ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f";
 const RAPID_API_HOST = process.env.RAPID_API_HOST || "us-housing-market-data1.p.rapidapi.com";
 const RADAR_API_KEY = process.env.RADAR_API_KEY || "prj_live_pk_eef2517d56b63939d892c06a7dac57af7f2278cb";
@@ -69,13 +69,9 @@ export const normalizeAddress = async (address: string): Promise<RadarGeocodeRes
 };
 
 export const fetchPropertyData = async (address: string): Promise<PropertyData> => {
-  // Check Firebase Cloud Cache
   const cloudCached = await getPropertyByAddress(address);
-  if (cloudCached) {
-    return cloudCached as PropertyData;
-  }
+  if (cloudCached) return cloudCached as PropertyData;
 
-  // Fetch from External Housing API
   const url = `https://us-housing-market-data1.p.rapidapi.com/property?address=${encodeURIComponent(address)}`;
   const response = await fetch(url, {
     method: 'GET',
@@ -88,26 +84,29 @@ export const fetchPropertyData = async (address: string): Promise<PropertyData> 
   const data = await response.json();
   if (!response.ok) throw new Error(`Property API error: ${response.status}`);
   
+  // Robust ZPID extraction as some API responses wrap the data
+  const rawZpid = data.zpid || data.props?.zpid || (data.properties && data.properties[0]?.zpid);
+
   const mappedData: PropertyData = {
-    address: typeof data.address === 'string' ? data.address : address,
-    zpid: String(data.zpid || ""),
-    homeStatus: data.homeStatus || "UNKNOWN",
-    homeType: data.homeType || "SINGLE_FAMILY",
-    livingAreaValue: extractNumericValue(data.livingAreaValue || data.livingArea),
-    bedrooms: extractNumericValue(data.bedrooms),
-    bathrooms: extractNumericValue(data.bathrooms),
-    yearBuilt: extractNumericValue(data.yearBuilt),
-    lotSize: safeStringify(data.resoFacts?.lotSize) || "N/A",
-    price: extractNumericValue(data.price || data.zestimate),
-    zestimate: extractNumericValue(data.zestimate),
-    rentZestimate: extractNumericValue(data.rentZestimate),
+    address: data.address || address,
+    zpid: rawZpid ? String(rawZpid) : undefined,
+    homeStatus: data.homeStatus || data.props?.homeStatus || "OFF_MARKET",
+    homeType: data.homeType || data.props?.homeType || "SINGLE_FAMILY",
+    livingAreaValue: extractNumericValue(data.livingAreaValue || data.livingArea || data.props?.livingArea),
+    bedrooms: extractNumericValue(data.bedrooms || data.props?.bedrooms),
+    bathrooms: extractNumericValue(data.bathrooms || data.props?.bathrooms),
+    yearBuilt: extractNumericValue(data.yearBuilt || data.props?.yearBuilt),
+    lotSize: safeStringify(data.resoFacts?.lotSize || data.props?.resoFacts?.lotSize) || "N/A",
+    price: extractNumericValue(data.price || data.zestimate || data.props?.price),
+    zestimate: extractNumericValue(data.zestimate || data.props?.zestimate),
+    rentZestimate: extractNumericValue(data.rentZestimate || data.props?.rentZestimate),
     annualHomeownersInsurance: extractNumericValue(data.annualHomeownersInsurance),
     windRiskScore: extractNumericValue(data.climate?.windSources?.primary?.riskScore),
     floodRiskScore: extractNumericValue(data.climate?.floodSources?.primary?.riskScore),
     fireRiskScore: extractNumericValue(data.climate?.fireSources?.primary?.riskScore),
     heatRiskScore: extractNumericValue(data.climate?.heatRiskScore),
-    description: data.description || "No description available.",
-    schools: Array.isArray(data.schools) ? data.schools : [],
+    description: data.description || data.props?.description || "No description available.",
+    schools: Array.isArray(data.schools) ? data.schools : (data.props?.schools || []),
     resoFacts: {
       flooring: safeStringify(data.resoFacts?.flooring),
       foundationDetails: safeStringify(data.resoFacts?.foundationDetails),
@@ -147,9 +146,9 @@ export const fetchPropertyImages = async (zpid: string): Promise<string[]> => {
     },
   });
 
-  const data = await response.json();
   if (!response.ok) return [];
+  const data = await response.json();
   
-  const images = Array.isArray(data) ? data : (data.images || []);
+  const images = Array.isArray(data) ? data : (data.images || data.props?.images || []);
   return images;
 };

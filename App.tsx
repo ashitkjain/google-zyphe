@@ -23,7 +23,32 @@ import PreloadManager from './components/PreloadManager';
 type ViewMode = 'main' | 'visual-report' | 'comprehensive-report';
 
 const App: React.FC = () => {
-  const [address, setAddress] = useState('3588 Ballantyne Dr, Pleasanton, CA 94588');
+  const [searchHistory, setSearchHistory] = useState<string[]>(() => {
+    const saved = localStorage.getItem('zyphe_search_history');
+    if (saved) {
+      try {
+        const history = JSON.parse(saved);
+        return Array.isArray(history) ? history : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  const [address, setAddress] = useState(() => {
+    const saved = localStorage.getItem('zyphe_search_history');
+    if (saved) {
+      try {
+        const history = JSON.parse(saved);
+        if (Array.isArray(history) && history.length > 0) {
+          return history[0];
+        }
+      } catch (e) {}
+    }
+    return '';
+  });
+
   const [loading, setLoading] = useState(false);
   const [imagesLoading, setImagesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,31 +62,15 @@ const App: React.FC = () => {
   const [geoComponents, setGeoComponents] = useState<{ city: string; state: string } | null>(null);
   const [showPreload, setShowPreload] = useState(false);
   
-  // Search History State
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const historyRef = useRef<HTMLDivElement>(null);
 
-  // In-memory session ID (no localStorage)
   const sessionId = useMemo(() => Math.random().toString(36).substring(2, 15), []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [viewMode]);
 
-  // Load history on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('zyphe_search_history');
-    if (saved) {
-      try {
-        setSearchHistory(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse search history");
-      }
-    }
-  }, []);
-
-  // Handle click outside history dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (historyRef.current && !historyRef.current.contains(event.target as Node)) {
@@ -73,22 +82,25 @@ const App: React.FC = () => {
   }, []);
 
   const addToHistory = (newAddress: string) => {
-    const filtered = searchHistory.filter(item => item.toLowerCase() !== newAddress.toLowerCase());
-    const newHistory = [newAddress, ...filtered].slice(0, 5);
-    setSearchHistory(newHistory);
-    localStorage.setItem('zyphe_search_history', JSON.stringify(newHistory));
+    setSearchHistory(prev => {
+      const filtered = prev.filter(item => item.toLowerCase() !== newAddress.toLowerCase());
+      const newHistory = [newAddress, ...filtered].slice(0, 10);
+      localStorage.setItem('zyphe_search_history', JSON.stringify(newHistory));
+      return newHistory;
+    });
   };
 
   const clearHistory = () => {
     setSearchHistory([]);
     localStorage.removeItem('zyphe_search_history');
     setShowHistory(false);
+    setAddress('');
   };
 
   const handleHistoryItemClick = (item: string) => {
     setAddress(item);
     setShowHistory(false);
-    setTimeout(() => performSearch(item), 10);
+    performSearch(item);
   };
 
   const performSearch = async (searchAddress: string) => {
@@ -117,7 +129,7 @@ const App: React.FC = () => {
 
       setGeoComponents({ city: radarResult.components.city, state: radarResult.components.state });
 
-      addLog('Zyphe Data Layer (Properties Table)', 'request', { address: normalizedAddr });
+      addLog('Zyphe Data Layer', 'request', { address: normalizedAddr });
       const data = await fetchPropertyData(normalizedAddr);
       
       const mergedData: PropertyData = {
@@ -129,12 +141,10 @@ const App: React.FC = () => {
       };
       
       addLog('Zyphe Data Layer', 'response', data);
-      
       setPropertyData(mergedData);
       setLoading(false);
 
       if (data.zpid) {
-        // Retrieve cached analyses from Google Cloud
         const cloudVisualAnalysis = await getVisualAnalysisFromCloud(data.zpid);
         if (cloudVisualAnalysis) {
           setCustomAnalysis(cloudVisualAnalysis);
@@ -147,15 +157,17 @@ const App: React.FC = () => {
           addLog('Zyphe Cloud', 'response', { message: 'Restored comprehensive report from cloud', data: cloudCompAnalysis });
         }
         
-        if (!data.images || data.images.length === 0) {
-          setImagesLoading(true);
-          const images = await fetchPropertyImages(data.zpid);
-          setPropertyData(prev => prev ? { ...prev, images } : null);
-          if (images.length > 0) {
-            await savePropertyToCloud(data.zpid, { images });
-          }
-          setImagesLoading(false);
+        setImagesLoading(true);
+        addLog('Zyphe Media API', 'request', { zpid: data.zpid });
+        const images = await fetchPropertyImages(data.zpid);
+        setPropertyData(prev => prev ? { ...prev, images } : null);
+        if (images.length > 0) {
+          await savePropertyToCloud(data.zpid, { images });
+          addLog('Zyphe Media API', 'response', { count: images.length });
+        } else {
+          addLog('Zyphe Media API', 'info', { message: 'No images returned (Property is likely off-market)' });
         }
+        setImagesLoading(false);
       }
     } catch (err: any) {
       const errorMsg = err.message || 'An unexpected error occurred.';
@@ -197,15 +209,15 @@ const App: React.FC = () => {
 
     setComprehensiveLoading(true);
     setViewMode('comprehensive-report');
-    addLog('Gemini 2.5 Flash', 'request', { model: 'gemini-2.5-flash', task: 'Comprehensive Report', search: true });
+    addLog('Zyphe AI Engine', 'request', { task: 'Comprehensive Report', search: true });
     
     try {
       const result = await analyzeComprehensive(propertyData, visual);
-      addLog('Gemini 2.5 Flash', 'response', result);
+      addLog('Zyphe AI Engine', 'response', result);
       setComprehensiveAnalysis(result);
       await saveComprehensiveAnalysisToCloud(propertyData.zpid, result);
     } catch (err: any) {
-      addLog('Gemini 2.5 Flash', 'error', { message: err.message });
+      addLog('Zyphe AI Engine', 'error', { message: err.message });
       setViewMode('visual-report');
     } finally {
       setComprehensiveLoading(false);
@@ -216,7 +228,7 @@ const App: React.FC = () => {
     if (!propertyData || !propertyData.zpid) return;
     
     if (imagesLoading) {
-      alert("Photos are still downloading. Please wait a moment.");
+      alert("Media check in progress. Please wait a moment.");
       return;
     }
 
@@ -229,10 +241,10 @@ const App: React.FC = () => {
     setViewMode('visual-report');
     
     let finalResult: CustomAIAnalysisResult | null = {
-      report_title: 'Zyphe AI Visual Analysis',
+      report_title: 'Zyphe AI Analysis',
       home_interior: { 
         overall_description: 'Analyzing...', 
-        design_style: { style: 'Detecting...', reasoning: 'Processing images...' },
+        design_style: { style: 'Detecting...', reasoning: 'Processing context...' },
         color_and_materials: 'Detecting...',
         lighting: 'Detecting...',
         spatial_flow: 'Detecting...',
@@ -249,28 +261,34 @@ const App: React.FC = () => {
 
     try {
       const tasks = [];
-      if (propertyData.images && propertyData.images.length > 0) {
-        tasks.push(analyzePropertyImages(propertyData.images, propertyData).then(result => {
-          if (finalResult) finalResult = { ...finalResult, ...result };
-        }));
-      }
+      // Always run visual intelligence task, even if images are empty
+      addLog('Zyphe AI Engine', 'request', { task: 'Property Intelligence', hasImages: (propertyData.images?.length || 0) > 0 });
+      tasks.push(analyzePropertyImages(propertyData.images || [], propertyData).then(result => {
+        if (finalResult) finalResult = { ...finalResult, ...result };
+      }));
+
       if (propertyData.mapZoomOut) {
+        addLog('Zyphe AI Engine', 'request', { task: 'Neighborhood Analysis' });
         tasks.push(analyzeNeighborhood(propertyData.mapZoomOut, propertyData).then(neighborhoodResult => {
           if (finalResult) finalResult.neighborhood = neighborhoodResult;
         }));
       }
+      
+      addLog('Zyphe AI Engine', 'request', { task: 'Community Pulse', search: true });
       tasks.push(analyzeCommunityPulse(propertyData).then(pulseResult => {
         if (finalResult) finalResult.community_pulse = pulseResult;
       }));
+      
       await Promise.all(tasks);
+      
       if (finalResult) {
-        addLog('Gemini 2.5 Flash (Visual)', 'response', finalResult);
+        addLog('Zyphe Intelligence Suite', 'response', finalResult);
         await saveVisualAnalysisToCloud(propertyData.zpid, finalResult);
         setCustomAnalysis(finalResult);
       }
     } catch (err: any) {
-      addLog('Gemini 2.5 Flash (Multimodal)', 'error', { message: err.message });
-      setError(`Visual analysis failed: ${err.message}`);
+      addLog('Zyphe AI Engine', 'error', { message: err.message });
+      setError(`Analysis failed: ${err.message}`);
     } finally {
       setCustomAnalysisLoading(false);
     }
@@ -330,7 +348,6 @@ const App: React.FC = () => {
               )}
             </div>
             
-            {/* Pipeline Toggle */}
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => setShowPreload(true)}
@@ -373,10 +390,10 @@ const App: React.FC = () => {
                 </button>
                 <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 px-4 py-3 rounded-xl border border-gray-100 font-bold uppercase tracking-wider">
                   <i className="fa-solid fa-bolt-lightning text-indigo-500"></i>
-                  Zyphe™ Visual Intelligence
+                  Zyphe™ Intelligence Engine
                 </div>
               </div>
-              <PropertyImages images={propertyData?.images} loading={imagesLoading} />
+              <PropertyImages images={propertyData?.images} loading={imagesLoading} homeStatus={propertyData.homeStatus} />
               <PropertyHeader data={propertyData} />
               <TablesSection data={propertyData} />
               <PropertyMaps mapZoomIn={propertyData.mapZoomIn} mapZoomOut={propertyData.mapZoomOut} />
@@ -396,7 +413,7 @@ const App: React.FC = () => {
             </div>
           )
         ) : viewMode === 'visual-report' ? (
-          <CustomAIAnalysis analysis={customAnalysis} loading={customAnalysisLoading} onBack={() => setViewMode('main')} onRefresh={() => handleRunCustomAnalysis(true)} onRunComprehensive={handleRunComprehensiveAnalysis} comprehensiveResult={comprehensiveAnalysis} mapUrl={propertyData?.mapZoomOut} />
+          <CustomAIAnalysis analysis={customAnalysis} loading={customAnalysisLoading} onBack={() => setViewMode('main')} onRefresh={() => handleRunCustomAnalysis(true)} onRunComprehensive={handleRunComprehensiveAnalysis} comprehensiveResult={comprehensiveAnalysis} mapUrl={propertyData?.mapZoomOut} hasImages={(propertyData?.images?.length || 0) > 0} />
         ) : (
           <ComprehensiveAnalysis analysis={comprehensiveAnalysis} loading={comprehensiveLoading} onBack={() => setViewMode('visual-report')} address={propertyData?.address} />
         )}

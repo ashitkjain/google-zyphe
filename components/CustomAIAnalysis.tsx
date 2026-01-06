@@ -9,6 +9,7 @@ interface Props {
   onRunComprehensive: () => void;
   comprehensiveResult: ComprehensiveAnalysisResult | null;
   mapUrl?: string;
+  hasImages: boolean;
 }
 
 type TabType = 'interior' | 'rooms' | 'exterior' | 'neighborhood' | 'pulse';
@@ -20,7 +21,8 @@ const CustomAIAnalysis: React.FC<Props> = ({
   onRefresh, 
   onRunComprehensive,
   comprehensiveResult,
-  mapUrl 
+  mapUrl,
+  hasImages
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('interior');
   const [seconds, setSeconds] = useState(0);
@@ -48,18 +50,15 @@ const CustomAIAnalysis: React.FC<Props> = ({
             <i className="fa-solid fa-wand-magic-sparkles text-indigo-600 text-2xl animate-pulse"></i>
           </div>
         </div>
-        <h3 className="text-3xl font-bold text-indigo-900 mb-2">Zyphe™ Visual Scanning...</h3>
+        <h3 className="text-3xl font-bold text-indigo-900 mb-2">Zyphe™ AI Processing...</h3>
         <p className="text-indigo-500 font-mono text-sm font-bold mb-4 bg-white/50 px-4 py-1 rounded-full border border-indigo-100">
           Time elapsed: {seconds}s
         </p>
-        <p className="text-indigo-700/70 max-w-md mx-auto text-lg">
-          Our multimodal engine is dissecting architecture and neighborhood context.
+        <p className="text-indigo-700/70 max-w-md mx-auto text-lg leading-relaxed">
+          {hasImages 
+            ? "Zyphe AI is analyzing photographs and spatial context."
+            : "Zyphe AI is synthesizing property specs and market data for an off-market report."}
         </p>
-        <div className="mt-12 flex gap-3">
-          <div className="w-3 h-3 bg-indigo-400 rounded-full animate-bounce"></div>
-          <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-          <div className="w-3 h-3 bg-indigo-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-        </div>
       </div>
     );
   }
@@ -87,9 +86,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
       let url = new URL(src);
       if (url.hostname.includes('vertexaisearch.cloud.google.com') || url.hostname.includes('google.com')) {
         const uriParam = url.searchParams.get('uri');
-        if (uriParam) {
-          url = new URL(uriParam);
-        }
+        if (uriParam) url = new URL(uriParam);
       }
       return url.hostname.replace('www.', '');
     } catch (e) {
@@ -121,27 +118,12 @@ const CustomAIAnalysis: React.FC<Props> = ({
         {cleanSources.length > 0 && (
           <div className="pt-4 border-t border-gray-50">
             <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Sources</div>
-            <div className="text-[10px] text-gray-400 font-medium leading-relaxed italic">
-              {cleanSources.join(', ')}
-            </div>
+            <div className="text-[10px] text-gray-400 font-medium leading-relaxed italic">{cleanSources.join(', ')}</div>
           </div>
         )}
       </div>
     );
   };
-
-  const EmptyState = ({ section }: { section: string }) => (
-    <div className="p-20 bg-white/50 rounded-[2rem] text-center border-2 border-dashed border-gray-200 flex flex-col items-center justify-center">
-      <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6 text-gray-400">
-        <i className="fa-solid fa-magnifying-glass-chart text-3xl"></i>
-      </div>
-      <h4 className="text-xl font-bold text-gray-800 mb-2">Analysis Missing for {section}</h4>
-      <p className="text-gray-500 max-w-sm mx-auto mb-8">This section of the report couldn't be generated from the available data.</p>
-      <button onClick={onRefresh} title="Retry Analysis" className="text-indigo-600 hover:text-indigo-800 transition-all active:scale-90 p-4">
-        <i className="fa-solid fa-rotate text-2xl"></i>
-      </button>
-    </div>
-  );
 
   return (
     <div className="space-y-8 pb-20">
@@ -151,17 +133,28 @@ const CustomAIAnalysis: React.FC<Props> = ({
           Back to Overview
         </button>
         <div className="flex flex-wrap items-center gap-4">
+          {!hasImages && (
+             <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 px-4 py-3 rounded-xl border border-amber-100 font-bold uppercase tracking-wider">
+               <i className="fa-solid fa-circle-info"></i>
+               Limited Visual Data
+             </div>
+          )}
+          <button 
+            onClick={onRefresh}
+            title="Refetch AI Intelligence"
+            className="flex items-center gap-3 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl font-bold text-sm shadow-sm hover:bg-gray-50 active:scale-95 transition-all group"
+          >
+            <i className="fa-solid fa-rotate text-xs text-gray-400 group-hover:text-indigo-600"></i>
+            Re-analyze
+          </button>
           <button onClick={onRunComprehensive} className="flex items-center gap-3 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-xl hover:bg-indigo-700 active:scale-95 transition-all group">
             <i className="fa-solid fa-file-invoice-dollar text-sm"></i>
             {comprehensiveResult ? 'Full Narrative Report' : 'Generate Full Report'}
           </button>
           <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 px-4 py-3 rounded-xl border border-gray-100 font-bold uppercase tracking-wider">
             <i className="fa-solid fa-bolt-lightning text-indigo-500"></i>
-            Zyphe™ Visual Intelligence
+            Zyphe™ Intelligence
           </div>
-          <button onClick={onRefresh} title="Refresh current analysis" className="text-indigo-600 hover:text-indigo-800 transition-all active:scale-90 p-2">
-            <i className="fa-solid fa-rotate text-xl"></i>
-          </button>
         </div>
       </div>
 
@@ -179,25 +172,23 @@ const CustomAIAnalysis: React.FC<Props> = ({
       <div className="min-h-[500px]">
         {activeTab === 'interior' && (
           <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-4xl mx-auto">
-            {!home_interior?.overall_description ? <EmptyState section="Interior" /> : (
-              <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-10">
-                <div className="space-y-4">
+            <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-10">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
                   <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Overall Description</h3>
-                  <p className="text-gray-600 text-base leading-relaxed">{home_interior.overall_description}</p>
+                  {!hasImages && <span className="text-[10px] bg-gray-100 text-gray-400 px-3 py-1 rounded-full font-bold">INFERRED ANALYSIS</span>}
                 </div>
-                <div className="space-y-4 pt-6 border-t border-gray-50">
-                  <div className="flex items-center gap-3"><i className="fa-solid fa-wand-magic-sparkles text-gray-400"></i><h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Design Style</h3></div>
-                  {home_interior.design_style?.style && <div className="inline-block bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full mb-2">{home_interior.design_style.style}</div>}
-                  <p className="text-gray-600 text-base leading-relaxed">{home_interior.design_style?.reasoning}</p>
-                </div>
-                <div className="space-y-4 pt-6 border-t border-gray-50"><h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Color & Materials</h3><p className="text-gray-600 text-base leading-relaxed">{home_interior.color_and_materials}</p></div>
-                <div className="space-y-4 pt-6 border-t border-gray-50"><div className="flex items-center gap-3"><i className="fa-solid fa-lightbulb text-gray-400"></i><h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Lighting</h3></div><p className="text-gray-600 text-base leading-relaxed">{home_interior.lighting}</p></div>
-                <div className="space-y-4 pt-6 border-t border-gray-50"><div className="flex items-center gap-3"><i className="fa-solid fa-arrow-right text-gray-400"></i><h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Spatial Flow</h3></div><p className="text-gray-600 text-base leading-relaxed">{home_interior.spatial_flow}</p></div>
-                <div className="space-y-4 pt-6 border-t border-gray-50"><h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Staging & Furnishings</h3><p className="text-gray-600 text-base leading-relaxed">{home_interior.staging_and_furnishings}</p></div>
-                <div className="space-y-4 pt-6 border-t border-gray-50"><h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Condition & Finish</h3><p className="text-gray-600 text-base leading-relaxed">{home_interior.condition_and_finish}</p></div>
-                <div className="pt-10"><div className="bg-indigo-900 rounded-3xl p-8 text-white flex flex-col md:flex-row items-center gap-8"><div className="flex-1"><h4 className="text-indigo-300 text-xs font-black uppercase tracking-widest mb-2">Ideal Profile</h4><div className="text-2xl font-black mb-2 tracking-tight">{home_interior.suggested_lifestyle?.buyer_type}</div><p className="text-indigo-100/70 text-sm">{home_interior.suggested_lifestyle?.lifestyle}</p></div><div className="flex -space-x-3">{[1, 2, 3, 4].map(i => (<div key={i} className="w-12 h-12 rounded-full border-4 border-indigo-900 bg-indigo-800 flex items-center justify-center"><i className="fa-solid fa-user text-indigo-400 text-sm"></i></div>))}</div></div></div>
+                <p className="text-gray-600 text-base leading-relaxed">{home_interior.overall_description}</p>
               </div>
-            )}
+              <div className="space-y-4 pt-6 border-t border-gray-50">
+                <div className="flex items-center gap-3"><i className="fa-solid fa-wand-magic-sparkles text-gray-400"></i><h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Design Style</h3></div>
+                {home_interior.design_style?.style && <div className="inline-block bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full mb-2">{home_interior.design_style.style}</div>}
+                <p className="text-gray-600 text-base leading-relaxed">{home_interior.design_style?.reasoning}</p>
+              </div>
+              <div className="space-y-4 pt-6 border-t border-gray-50"><h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Color & Materials</h3><p className="text-gray-600 text-base leading-relaxed">{home_interior.color_and_materials}</p></div>
+              <div className="space-y-4 pt-6 border-t border-gray-50"><h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Spatial Flow</h3><p className="text-gray-600 text-base leading-relaxed">{home_interior.spatial_flow}</p></div>
+              <div className="pt-10"><div className="bg-indigo-900 rounded-3xl p-8 text-white flex flex-col md:flex-row items-center gap-8"><div className="flex-1"><h4 className="text-indigo-300 text-xs font-black uppercase tracking-widest mb-2">Ideal Profile</h4><div className="text-2xl font-black mb-2 tracking-tight">{home_interior.suggested_lifestyle?.buyer_type}</div><p className="text-indigo-100/70 text-sm">{home_interior.suggested_lifestyle?.lifestyle}</p></div><div className="flex -space-x-3">{[1, 2, 3, 4].map(i => (<div key={i} className="w-12 h-12 rounded-full border-4 border-indigo-900 bg-indigo-800 flex items-center justify-center"><i className="fa-solid fa-user text-indigo-400 text-sm"></i></div>))}</div></div></div>
+            </div>
           </section>
         )}
         {activeTab === 'rooms' && (
@@ -206,39 +197,24 @@ const CustomAIAnalysis: React.FC<Props> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {room_highlights.map((room, idx) => (
                   <div key={idx} className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group relative overflow-hidden flex flex-col">
-                    <div className="flex justify-between items-start mb-6"><div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors"><i className={`fa-solid ${room.room_name?.toLowerCase().includes('kitchen') ? 'fa-kitchen-set' : 'fa-door-open'}`}></i></div><span className="text-[10px] font-black text-gray-400 uppercase bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">{room.floor || 'N/A'}</span></div>
-                    <h4 className="font-black text-gray-900 text-2xl mb-4 group-hover:text-purple-600 transition-colors tracking-tight">{room.room_name}</h4>
+                    <div className="flex justify-between items-start mb-6"><div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors"><i className={`fa-solid ${room.room_name?.toLowerCase().includes('kitchen') ? 'fa-kitchen-set' : 'fa-door-open'}`}></i></div></div>
+                    <h4 className="font-black text-gray-900 text-2xl mb-4 tracking-tight">{room.room_name}</h4>
                     <p className="text-gray-600 text-base leading-relaxed mb-6">{room.description}</p>
-                    {room.potential_improvements && (<div className="pt-6 border-t border-gray-100 bg-gray-50 -mx-8 -mb-8 p-8 mt-auto"><div className="flex items-center gap-2 mb-3"><i className="fa-solid fa-wand-magic-sparkles text-purple-600 text-sm"></i><div className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Potential Improvements</div></div><p className="text-gray-500 text-sm italic font-medium">"{room.potential_improvements}"</p></div>)}
                   </div>
                 ))}
               </div>
-            ) : <EmptyState section="Room Highlights" />}
-          </section>
-        )}
-        {activeTab === 'exterior' && (
-          <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-4xl mx-auto">
-            {!exterior_and_neighborhood?.exterior_and_lot_appeal?.architecture_style ? <EmptyState section="Exterior" /> : (
-              <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-10">
-                <div className="space-y-8"><h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Exterior & Lot Appeal</h3><div className="space-y-6 pl-0 md:pl-4 border-l-2 border-gray-50"><div className="space-y-2"><h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Architecture Style</h4><p className="text-gray-600 text-base leading-relaxed">{exterior_and_neighborhood.exterior_and_lot_appeal.architecture_style}</p></div><div className="space-y-2"><h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Curb Appeal</h4><p className="text-gray-600 text-base leading-relaxed">{exterior_and_neighborhood.exterior_and_lot_appeal.curb_appeal}</p></div><div className="space-y-2"><h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Backyard & Patio</h4><p className="text-gray-600 text-base leading-relaxed">{exterior_and_neighborhood.exterior_and_lot_appeal.backyard_and_patio}</p></div></div></div>
-                <div className="space-y-8 pt-8 border-t border-gray-50"><div className="flex items-center gap-3"><i className="fa-solid fa-eye text-gray-400"></i><h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Views, Privacy & Orientation</h3></div><div className="space-y-6 pl-0 md:pl-4 border-l-2 border-gray-50"><div className="space-y-2"><h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Views</h4><p className="text-gray-600 text-base leading-relaxed">{exterior_and_neighborhood.views_privacy_orientation?.views}</p></div><div className="space-y-2"><h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Orientation</h4><p className="text-gray-600 text-base leading-relaxed">{exterior_and_neighborhood.views_privacy_orientation?.orientation}</p></div><div className="space-y-2"><h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Privacy</h4><p className="text-gray-600 text-base leading-relaxed">{exterior_and_neighborhood.views_privacy_orientation?.privacy}</p></div></div></div>
-              </div>
-            )}
-          </section>
-        )}
-        {activeTab === 'neighborhood' && (
-          <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-7xl mx-auto">
-            {!neighborhood?.overview ? <EmptyState section="Neighborhood" /> : (
-              <div className="bg-[#F3F4F6] rounded-[2.5rem] p-6 sm:p-10 space-y-10">
-                <div className="flex flex-col lg:flex-row gap-10 items-center"><div className="lg:w-[15%] flex-shrink-0"><div className="bg-white rounded-2xl p-3 shadow-xl shadow-gray-200/50 border border-white"><div className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative group">{mapUrl ? <img src={mapUrl} alt="Neighborhood Context" className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-700" /> : <div className="w-full h-full flex items-center justify-center text-gray-300"><i className="fa-solid fa-map-marked-alt text-3xl"></i></div>}</div></div></div><div className="flex-1 space-y-3"><h3 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] flex items-center gap-3"><span className="w-8 h-[2px] bg-indigo-600"></span>Neighborhood Overview</h3><p className="text-gray-700 text-xl font-medium leading-relaxed italic">"{neighborhood.overview}"</p></div></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{Object.entries(neighborhood.neighborhood_features || {}).map(([key, value]) => (<div key={key} className="bg-white p-6 sm:p-8 rounded-[2rem] border border-white shadow-sm flex flex-col justify-start group transition-all hover:shadow-xl hover:-translate-y-1"><h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-indigo-500"></span>{key.replace(/_/g, ' ')}</h4><p className="text-gray-700 text-sm sm:text-base leading-relaxed">{value as string}</p></div>))}</div>
+            ) : (
+              <div className="p-20 bg-white/50 rounded-[2rem] text-center border-2 border-dashed border-gray-200 flex flex-col items-center justify-center">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6 text-gray-400"><i className="fa-solid fa-star text-3xl"></i></div>
+                <h4 className="text-xl font-bold text-gray-800 mb-2">Feature List Restricted</h4>
+                <p className="text-gray-500 max-sm mx-auto">Detailed room-by-room highlights require photographic verification which is currently unavailable for this off-market property.</p>
               </div>
             )}
           </section>
         )}
         {activeTab === 'pulse' && (
           <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {!community_pulse ? <EmptyState section="Community Pulse" /> : (
+            {community_pulse ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 <PulseCard title="What Residents Like" data={community_pulse.what_residents_like} icon="fa-heart" color="emerald" />
                 <PulseCard title="Common Complaints" data={community_pulse.common_complaints} icon="fa-circle-exclamation" color="rose" />
@@ -247,11 +223,28 @@ const CustomAIAnalysis: React.FC<Props> = ({
                 <PulseCard title="Lifestyle & Commute" data={community_pulse.lifestyle_convenience} icon="fa-route" color="purple" />
                 <PulseCard title="Investment Insights" data={community_pulse.investment_insights} icon="fa-chart-line" color="indigo" />
               </div>
+            ) : <div className="text-center py-20">Analyzing market context...</div>}
+          </section>
+        )}
+        {activeTab === 'neighborhood' && (
+          <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-7xl mx-auto">
+            {neighborhood?.overview && (
+              <div className="bg-[#F3F4F6] rounded-[2.5rem] p-6 sm:p-10 space-y-10">
+                <div className="flex flex-col lg:flex-row gap-10 items-center"><div className="lg:w-[15%] flex-shrink-0"><div className="bg-white rounded-2xl p-3 shadow-xl shadow-gray-200/50 border border-white"><div className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative group">{mapUrl ? <img src={mapUrl} alt="Map" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300"><i className="fa-solid fa-map-marked-alt text-3xl"></i></div>}</div></div></div><div className="flex-1 space-y-3"><h3 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] flex items-center gap-3"><span className="w-8 h-[2px] bg-indigo-600"></span>Neighborhood Overview</h3><p className="text-gray-700 text-xl font-medium leading-relaxed italic">"{neighborhood.overview}"</p></div></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{Object.entries(neighborhood.neighborhood_features || {}).map(([key, value]) => (<div key={key} className="bg-white p-6 sm:p-8 rounded-[2rem] border border-white shadow-sm"><h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">{key.replace(/_/g, ' ')}</h4><p className="text-gray-700 text-sm sm:text-base leading-relaxed">{value as string}</p></div>))}</div>
+              </div>
             )}
           </section>
         )}
+        {activeTab === 'exterior' && (
+          <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-4xl mx-auto">
+            <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm p-8 md:p-12 space-y-10">
+              <div className="space-y-8"><h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Exterior Analysis</h3><div className="space-y-6 pl-4 border-l-2 border-gray-50"><div className="space-y-2"><h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Architecture Style</h4><p className="text-gray-600 text-base leading-relaxed">{exterior_and_neighborhood.exterior_and_lot_appeal?.architecture_style || "Analysis pending specifications..."}</p></div><div className="space-y-2"><h4 className="text-sm font-black text-gray-800 uppercase tracking-widest">Curb Appeal</h4><p className="text-gray-600 text-base leading-relaxed">{exterior_and_neighborhood.exterior_and_lot_appeal?.curb_appeal}</p></div></div></div>
+            </div>
+          </section>
+        )}
       </div>
-      <div className="flex flex-col items-center gap-8 pt-10 border-t border-gray-100"><button onClick={onBack} className="text-gray-400 hover:text-indigo-600 font-bold uppercase tracking-widest text-xs transition-colors">Return to Summary Overview</button></div>
+      <div className="flex flex-col items-center gap-8 pt-10 border-t border-gray-100"><button onClick={onBack} className="text-gray-400 hover:text-indigo-600 font-bold uppercase tracking-widest text-xs transition-colors">Return to Overview</button></div>
     </div>
   );
 };
