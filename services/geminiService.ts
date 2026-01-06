@@ -6,7 +6,19 @@ import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/commun
 import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/propertyImages";
 import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis";
 
-// Always use process.env.API_KEY directly as per guidelines.
+// Single source of truth for the model name as requested
+const MODEL_NAME = 'gemini-2.5-flash';
+
+// Custom error to pass raw response back for logging
+export class AiResponseError extends Error {
+  rawResponse: string;
+  constructor(message: string, rawResponse: string) {
+    super(message);
+    this.rawResponse = rawResponse;
+    this.name = "AiResponseError";
+  }
+}
+
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
@@ -14,42 +26,47 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
  * text preambles, and outermost structure identification.
  */
 function extractJson<T>(text: string | undefined): T {
-  if (!text) return {} as T;
+  if (!text) throw new AiResponseError("Empty response from AI", "");
+  
   const cleaned = text.trim();
   
-  // 1. Direct attempt
-  try {
-    return JSON.parse(cleaned);
-  } catch (e) {
-    // 2. Try to extract from markdown code blocks
-    const match = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (match && match[1]) {
-      try {
-        return JSON.parse(match[1].trim());
-      } catch (e2) {}
+  // Helper to attempt parsing
+  const tryParse = (str: string) => {
+    try {
+      return JSON.parse(str);
+    } catch (e) {
+      return null;
     }
-    
-    // 3. Try to find the first '{' and last '}' (Object)
-    const firstBrace = cleaned.indexOf('{');
-    const lastBrace = cleaned.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-      try {
-        return JSON.parse(cleaned.substring(firstBrace, lastBrace + 1));
-      } catch (e3) {}
-    }
+  };
 
-    // 4. Try to find the first '[' and last ']' (Array)
-    const firstBracket = cleaned.indexOf('[');
-    const lastBracket = cleaned.lastIndexOf(']');
-    if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
-      try {
-        return JSON.parse(cleaned.substring(firstBracket, lastBracket + 1));
-      } catch (e4) {}
-    }
-    
-    console.error("Failed to parse AI response:", cleaned);
-    throw new Error("Could not parse AI response as JSON");
+  // 1. Direct attempt
+  let result = tryParse(cleaned);
+  if (result) return result;
+
+  // 2. Try to extract from markdown code blocks
+  const match = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (match && match[1]) {
+    result = tryParse(match[1].trim());
+    if (result) return result;
   }
+  
+  // 3. Try to find the first '{' and last '}' (Object)
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    result = tryParse(cleaned.substring(firstBrace, lastBrace + 1));
+    if (result) return result;
+  }
+
+  // 4. Try to find the first '[' and last ']' (Array)
+  const firstBracket = cleaned.indexOf('[');
+  const lastBracket = cleaned.lastIndexOf(']');
+  if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+    result = tryParse(cleaned.substring(firstBracket, lastBracket + 1));
+    if (result) return result;
+  }
+  
+  throw new AiResponseError("Could not parse AI response as JSON", text);
 }
 
 async function urlToBase64(url: string): Promise<{ data: string, mimeType: string }> {
@@ -69,7 +86,7 @@ async function urlToBase64(url: string): Promise<{ data: string, mimeType: strin
 export const analyzeProperty = async (property: PropertyData): Promise<AIAnalysisResult> => {
   const prompt = getPropertyAnalysisPrompt(property);
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: MODEL_NAME,
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -85,7 +102,7 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
   const prompt = getNeighborhoodAnalysisPrompt(property);
   
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: MODEL_NAME,
     contents: {
       parts: [
         { text: prompt },
@@ -102,9 +119,9 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
 };
 
 export const analyzeCommunityPulse = async (property: PropertyData): Promise<CommunityPulseResult> => {
-  const prompt = getCommunityPulsePrompt(property) + "\n\nIMPORTANT: Output ONLY valid JSON. Do not include markdown code blocks or additional text.";
+  const prompt = getCommunityPulsePrompt(property);
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: MODEL_NAME,
     contents: prompt,
     config: {
       tools: [{ googleSearch: {} }]
@@ -125,10 +142,10 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
 
   const textInstruction = hasImages 
     ? getPropertyImagesPrompt(property)
-    : `${getPropertyImagesPrompt(property)}\n\nNOTE: No photographs were provided for this property because it is currently off-market. Please perform your analysis based EXCLUSIVELY on the detailed property description and specifications provided in the JSON context. Infer design style and condition from the text and list attributes.`;
+    : `${getPropertyImagesPrompt(property)}\n\nNOTE: No photographs were provided for this property. Perform analysis based on detailed specifications.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: MODEL_NAME,
     contents: { parts: [{ text: textInstruction }, ...imageParts] },
     config: { 
       responseMimeType: "application/json",
@@ -140,13 +157,13 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
 };
 
 export const analyzeComprehensive = async (property: PropertyData, visual: CustomAIAnalysisResult): Promise<ComprehensiveAnalysisResult> => {
-  const prompt = getComprehensiveAnalysisPrompt(property, visual) + "\n\nIMPORTANT: Output ONLY valid JSON. Do not include markdown code blocks or additional text.";
+  const prompt = getComprehensiveAnalysisPrompt(property, visual);
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: MODEL_NAME,
     contents: prompt,
     config: {
       tools: [{ googleSearch: {} }],
-      thinkingConfig: { thinkingBudget: 4000 }
+      thinkingConfig: { thinkingBudget: 16000 }
     }
   });
 

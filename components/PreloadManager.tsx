@@ -72,7 +72,7 @@ const PreloadManager: React.FC<Props> = ({ onClose, initialAddress }) => {
               <button 
                 onClick={handleStartPipeline}
                 disabled={loading || !address}
-                className="absolute right-2 top-2 bottom-2 bg-indigo-600 text-white px-6 rounded-xl font-bold text-xs hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50"
+                className="absolute right-2 top-2 bottom-2 bg-gradient-to-r from-indigo-700 to-gray-900 text-white px-6 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-[1.05] active:scale-95 transition-all disabled:opacity-50"
               >
                 {loading ? 'RUNNING...' : 'START PIPELINE'}
               </button>
@@ -95,7 +95,7 @@ const PreloadManager: React.FC<Props> = ({ onClose, initialAddress }) => {
               {progress.map((p, i) => (
                 <div key={i} className="flex items-start gap-4 group">
                   <div className={`mt-1 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
-                    p.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : 
+                    p.status === 'completed' ? 'bg-indigo-100 text-indigo-600' : 
                     p.status === 'running' ? 'bg-indigo-100 text-indigo-600' : 
                     p.status === 'error' ? 'bg-rose-100 text-rose-600' : 'bg-gray-200 text-gray-400'
                   }`}>
@@ -109,7 +109,7 @@ const PreloadManager: React.FC<Props> = ({ onClose, initialAddress }) => {
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-black text-gray-900 uppercase tracking-tight">{p.step}</span>
                       <span className={`text-[10px] font-black uppercase tracking-widest ${
-                        p.status === 'completed' ? 'text-emerald-500' : 
+                        p.status === 'completed' ? 'text-indigo-600' : 
                         p.status === 'running' ? 'text-indigo-500' : 
                         p.status === 'error' ? 'text-rose-500' : 'text-gray-400'
                       }`}>
@@ -124,15 +124,15 @@ const PreloadManager: React.FC<Props> = ({ onClose, initialAddress }) => {
           </div>
 
           {success && (
-            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 flex items-center gap-5 animate-in slide-in-from-top-4">
-              <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-100 text-white">
+            <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-6 flex items-center gap-5 animate-in slide-in-from-top-4">
+              <div className="w-12 h-12 bg-indigo-600 rounded-full flex items-center justify-center shadow-lg shadow-indigo-100 text-white">
                 <i className="fa-solid fa-bolt-lightning text-xl"></i>
               </div>
               <div>
-                <h4 className="font-black text-emerald-900 text-sm">Property Ready!</h4>
-                <p className="text-emerald-700/70 text-xs">All intelligence layers are now cached in the cloud for this address.</p>
+                <h4 className="font-black text-indigo-900 text-sm">Property Ready!</h4>
+                <p className="text-indigo-700/70 text-xs">All intelligence layers are now cached in the cloud for this address.</p>
               </div>
-              <button onClick={onClose} className="ml-auto bg-emerald-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors">Close</button>
+              <button onClick={onClose} className="ml-auto bg-gradient-to-r from-indigo-700 to-gray-900 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:scale-[1.05] transition-all">Close</button>
             </div>
           )}
         </div>

@@ -74,11 +74,10 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
 
   return (
     <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-6 duration-1000 pb-20">
-      {/* Report Controls */}
       <div className="flex items-center justify-between mb-8 sticky top-24 z-40 bg-gray-50/80 backdrop-blur-md py-4">
         <button 
           onClick={onBack}
-          className="flex items-center gap-3 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-md hover:bg-indigo-700 active:scale-95 transition-all group w-fit"
+          className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-xl font-bold text-sm text-gray-700 shadow-sm hover:bg-gray-50 active:scale-95 transition-all group w-fit"
         >
           <i className="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
           Back to Overview
@@ -86,62 +85,25 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
         <div className="flex items-center gap-3">
           <button 
             onClick={() => window.print()}
-            className="w-12 h-12 flex items-center justify-center bg-indigo-600 text-white border border-indigo-500 rounded-2xl hover:bg-indigo-700 active:scale-95 transition-all shadow-md"
+            className="w-12 h-12 flex items-center justify-center bg-white border border-gray-200 rounded-xl hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
           >
-            <i className="fa-solid fa-print"></i>
+            <i className="fa-solid fa-print text-gray-600"></i>
           </button>
-          <div className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold text-sm uppercase tracking-widest shadow-xl shadow-indigo-200">
+          <div className="bg-gradient-to-r from-indigo-700 to-gray-900 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-indigo-100">
             Professional Report
           </div>
         </div>
       </div>
 
       <div className="space-y-6">
-        {/* Executive Summary Card */}
-        <SectionCard 
-          title="Summary" 
-          icon="fa-arrow-trend-up" 
-          content={analysis.summary} 
-        />
+        <SectionCard title="Summary" icon="fa-arrow-trend-up" content={analysis.summary} />
+        <SectionCard title="Location & Neighborhood" icon="fa-location-dot" content={analysis.detailed_analysis?.location_neighborhood} />
+        <SectionCard title="Outdoors & View Quality" icon="fa-eye" content={analysis.detailed_analysis?.outdoors_view_quality} />
+        <SectionCard title="Architectural Appeal & Condition" icon="fa-house-circle-check" content={analysis.detailed_analysis?.visual_appeal_condition} />
+        <SectionCard title="Privacy, Layout & Expansion" icon="fa-maximize" content={analysis.detailed_analysis?.privacy_layout} />
+        <SectionCard title="Climate Resilience & Sustainability" icon="fa-cloud-bolt" content={analysis.detailed_analysis?.climate_resilience} />
+        <SectionCard title="Infrastructure & Special Features" icon="fa-sliders" content={analysis.detailed_analysis?.additional_considerations} />
 
-        {/* Detailed Analysis Cards */}
-        <SectionCard 
-          title="Location & Neighborhood" 
-          icon="fa-location-dot" 
-          content={analysis.detailed_analysis?.location_neighborhood} 
-        />
-
-        <SectionCard 
-          title="Outdoors & View Quality" 
-          icon="fa-eye" 
-          content={analysis.detailed_analysis?.outdoors_view_quality} 
-        />
-
-        <SectionCard 
-          title="Architectural Appeal & Condition" 
-          icon="fa-house-circle-check" 
-          content={analysis.detailed_analysis?.visual_appeal_condition} 
-        />
-
-        <SectionCard 
-          title="Privacy, Layout & Expansion" 
-          icon="fa-maximize" 
-          content={analysis.detailed_analysis?.privacy_layout} 
-        />
-
-        <SectionCard 
-          title="Climate Resilience & Sustainability" 
-          icon="fa-cloud-bolt" 
-          content={analysis.detailed_analysis?.climate_resilience} 
-        />
-
-        <SectionCard 
-          title="Infrastructure & Special Features" 
-          icon="fa-sliders" 
-          content={analysis.detailed_analysis?.additional_considerations} 
-        />
-
-        {/* Critical Risks - Rose Tinted */}
         <div className="bg-rose-50/50 rounded-2xl p-10 border border-rose-100 shadow-sm">
           <div className="flex items-center gap-4 mb-6">
             <div className="w-10 h-10 bg-rose-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-rose-200">
@@ -154,7 +116,6 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
           </div>
         </div>
 
-        {/* Lifestyle Matrix */}
         <div className="bg-white rounded-2xl p-10 border border-gray-100 shadow-sm">
           <div className="text-center mb-12">
             <h2 className="text-2xl font-black text-gray-900 mb-2">Lifestyle Suitability Assessment</h2>
@@ -163,25 +124,20 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {[
-              { title: 'Families & Education', content: analysis.lifestyle_fit?.families, color: 'blue', icon: 'fa-children' },
-              { title: 'Professionals & Remote Work', content: analysis.lifestyle_fit?.professionals, color: 'purple', icon: 'fa-laptop-code' },
-              { title: 'Retirees & Low-Maintenance', content: analysis.lifestyle_fit?.retirees, color: 'emerald', icon: 'fa-wheelchair' },
+              { title: 'Families & Education', content: analysis.lifestyle_fit?.families, color: 'indigo', icon: 'fa-children' },
+              { title: 'Professionals & Remote Work', content: analysis.lifestyle_fit?.professionals, color: 'indigo', icon: 'fa-laptop-code' },
+              { title: 'Retirees & Low-Maintenance', content: analysis.lifestyle_fit?.retirees, color: 'indigo', icon: 'fa-wheelchair' },
               { title: 'Investors & Growth', content: analysis.lifestyle_fit?.investors, color: 'indigo', icon: 'fa-chart-line' },
             ].map((item, idx) => (
               <div 
                 key={idx} 
-                className={`space-y-4 p-6 rounded-2xl transition-all duration-300 hover:scale-[1.03] hover:shadow-xl border border-transparent cursor-default
-                  ${item.color === 'blue' ? 'bg-blue-50/40 hover:border-blue-100' : ''}
-                  ${item.color === 'purple' ? 'bg-purple-50/40 hover:border-purple-100' : ''}
-                  ${item.color === 'emerald' ? 'bg-emerald-50/40 hover:border-emerald-100' : ''}
-                  ${item.color === 'indigo' ? 'bg-indigo-50/40 hover:border-indigo-100' : ''}
-                `}
+                className="space-y-4 p-6 rounded-2xl transition-all duration-300 hover:scale-[1.03] hover:shadow-xl border border-transparent cursor-default bg-slate-50/50 hover:border-indigo-100"
               >
                 <div className="flex items-center gap-4">
-                  <div className={`w-11 h-11 rounded-xl bg-white shadow-sm flex items-center justify-center text-${item.color}-600`}>
+                  <div className={`w-11 h-11 rounded-xl bg-white shadow-sm flex items-center justify-center text-indigo-600`}>
                     <i className={`fa-solid ${item.icon} text-base`}></i>
                   </div>
-                  <h4 className="font-bold text-gray-900 text-sm uppercase tracking-wider">{item.title}</h4>
+                  <h4 className="font-black text-gray-900 text-[11px] uppercase tracking-wider">{item.title}</h4>
                 </div>
                 <p className="text-gray-600 text-sm leading-relaxed text-justify">{renderContent(item.content)}</p>
               </div>
@@ -189,15 +145,8 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
           </div>
         </div>
 
-        {/* Final Verdict - White Background */}
-        <SectionCard 
-          title="Final Analyst Verdict" 
-          icon="fa-gavel" 
-          content={analysis.buyer_recommendation}
-          colorClass="text-gray-900 font-medium italic"
-        />
+        <SectionCard title="Final Analyst Verdict" icon="fa-gavel" content={analysis.buyer_recommendation} colorClass="text-gray-900 font-medium italic" />
 
-        {/* Footer branding */}
         <div className="pt-10 flex flex-col items-center gap-4">
           <div className="h-px bg-gray-200 w-full max-w-xs"></div>
           <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.5em]">
