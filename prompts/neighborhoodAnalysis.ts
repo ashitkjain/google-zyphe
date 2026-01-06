@@ -2,13 +2,12 @@ import { Type } from "@google/genai";
 import { PropertyData } from "../types";
 
 export const getNeighborhoodAnalysisPrompt = (property: PropertyData) => `
-  You are an expert Spatial Analyst and Urban Planning Consultant. 
+ You are an expert Spatial Analyst and Urban Planning Consultant. 
   
-  I am providing you with map imagery (satellite/map views) and property data for:
-  ${JSON.stringify(property, null, 2)}
+  I am providing you with map imagery (satellite/map views) for the property at: ${property.address}.
   
   TASK:
-  Analyze the provided map images and property context in detail. Your analysis should be based primarily on the visual evidence in the maps, combined with the property facts provided and your general knowledge of urban geography.
+  Analyze the provided map images in detail. Your analysis should be based primarily on the visual evidence in the maps, combined with your general knowledge of urban geography.
   
   INSTRUCTIONS:
   1. STREET LAYOUT: Identify the street pattern (e.g., quiet cul-de-sac, grid system, busy arterial proximity). Note traffic flow indicators.
@@ -18,7 +17,7 @@ export const getNeighborhoodAnalysisPrompt = (property: PropertyData) => `
   5. TOPOGRAPHY: Note any significant slopes, hills, or unique geographical features visible in the map context.
   6. DEVELOPMENT: Assess the age and style of surrounding development based on the roof patterns and parcel layouts.
 
-  Return the response as a single JSON object matching the requested schema. Ensure the "overview" provides a high-level summary of the "vibe" found in the imagery and data.
+  Return the response as a single JSON object matching the requested schema. Ensure the "overview" provides a high-level summary of the "vibe" found in the imagery.
 `;
 
 export const neighborhoodAnalysisSchema = {

@@ -1,33 +1,53 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult } from "../types";
 import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/propertyAnalysis";
 import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/neighborhoodAnalysis";
 import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/communityPulse";
 import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/propertyImages";
-import { getComprehensiveAnalysisPrompt, comprehensiveAnalysisSchema } from "../prompts/comprehensiveAnalysis";
+import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis";
 
 // Always use process.env.API_KEY directly as per guidelines.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+/**
+ * Robust JSON extraction helper that handles markdown code blocks,
+ * text preambles, and outermost structure identification.
+ */
 function extractJson<T>(text: string | undefined): T {
   if (!text) return {} as T;
+  const cleaned = text.trim();
+  
+  // 1. Direct attempt
   try {
-    return JSON.parse(text);
+    return JSON.parse(cleaned);
   } catch (e) {
-    const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    // 2. Try to extract from markdown code blocks
+    const match = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (match && match[1]) {
       try {
-        return JSON.parse(match[1]);
+        return JSON.parse(match[1].trim());
       } catch (e2) {}
     }
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start !== -1 && end !== -1) {
+    
+    // 3. Try to find the first '{' and last '}' (Object)
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
       try {
-        return JSON.parse(text.substring(start, end + 1));
+        return JSON.parse(cleaned.substring(firstBrace, lastBrace + 1));
       } catch (e3) {}
     }
+
+    // 4. Try to find the first '[' and last ']' (Array)
+    const firstBracket = cleaned.indexOf('[');
+    const lastBracket = cleaned.lastIndexOf(']');
+    if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+      try {
+        return JSON.parse(cleaned.substring(firstBracket, lastBracket + 1));
+      } catch (e4) {}
+    }
+    
+    console.error("Failed to parse AI response:", cleaned);
     throw new Error("Could not parse AI response as JSON");
   }
 }
@@ -47,26 +67,28 @@ async function urlToBase64(url: string): Promise<{ data: string, mimeType: strin
 }
 
 export const analyzeProperty = async (property: PropertyData): Promise<AIAnalysisResult> => {
+  const prompt = getPropertyAnalysisPrompt(property);
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
-    contents: getPropertyAnalysisPrompt(property),
+    contents: prompt,
     config: {
       responseMimeType: "application/json",
       responseSchema: propertyAnalysisSchema
     }
   });
 
-  return JSON.parse(response.text || "{}") as AIAnalysisResult;
+  return extractJson<AIAnalysisResult>(response.text);
 };
 
 export const analyzeNeighborhood = async (mapImageUrl: string, property: PropertyData): Promise<NeighborhoodAnalysis> => {
   const { data, mimeType } = await urlToBase64(mapImageUrl);
+  const prompt = getNeighborhoodAnalysisPrompt(property);
   
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
     contents: {
       parts: [
-        { text: getNeighborhoodAnalysisPrompt(property) },
+        { text: prompt },
         { inlineData: { data, mimeType } }
       ]
     },
@@ -76,13 +98,14 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
     }
   });
 
-  return JSON.parse(response.text || "{}") as NeighborhoodAnalysis;
+  return extractJson<NeighborhoodAnalysis>(response.text);
 };
 
 export const analyzeCommunityPulse = async (property: PropertyData): Promise<CommunityPulseResult> => {
+  const prompt = getCommunityPulsePrompt(property) + "\n\nIMPORTANT: Output ONLY valid JSON. Do not include markdown code blocks or additional text.";
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: getCommunityPulsePrompt(property) + "\n\nIMPORTANT: Output ONLY valid JSON. Do not include markdown code blocks or additional text.",
+    model: "gemini-2.5-flash",
+    contents: prompt,
     config: {
       tools: [{ googleSearch: {} }]
     }
@@ -113,13 +136,14 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
     }
   });
 
-  return JSON.parse(response.text || "{}") as CustomAIAnalysisResult;
+  return extractJson<CustomAIAnalysisResult>(response.text);
 };
 
 export const analyzeComprehensive = async (property: PropertyData, visual: CustomAIAnalysisResult): Promise<ComprehensiveAnalysisResult> => {
+  const prompt = getComprehensiveAnalysisPrompt(property, visual) + "\n\nIMPORTANT: Output ONLY valid JSON. Do not include markdown code blocks or additional text.";
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
-    contents: getComprehensiveAnalysisPrompt(property, visual) + "\n\nIMPORTANT: Output ONLY valid JSON. Do not include markdown code blocks or additional text.",
+    contents: prompt,
     config: {
       tools: [{ googleSearch: {} }],
       thinkingConfig: { thinkingBudget: 4000 }

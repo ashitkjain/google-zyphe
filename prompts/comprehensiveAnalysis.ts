@@ -30,7 +30,7 @@ export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: C
   **CRITICAL: You MUST respond with a valid JSON object only. No markdown, no code fences, no additional text before or after the JSON.**
   Deduplicate information across JSON sections.
 
-  Response content should include 
+ Return your response as a JSON object with the following structure:
 
   "summary": "150-200 word summary with key highlights. Use **bold** for critical decision factors such as: direction facing, quiet street, excellent school district, natural light, move-in ready, and any other key highlights.",
     "detailed_analysis": {
@@ -49,25 +49,5 @@ export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: C
     },
     "risks_considerations": "Write a paragraph highlighting any concerns regarding: Location (Crime rate, noise, environmental hazards, lack of essential services, zoning or future development changes), Property Condition (Age and state of roof, foundation, plumbing/electrical, HVAC, outdated layout, accessibility issues, storage/parking limits, energy inefficiency), Financial (Overpricing compared to comps, high property taxes, HOA fees/restrictions, rental market volatility, low appreciation potential, high insurance costs), Lifestyle Fit (Mismatch with buyer's needs, limited amenities, long commute, noise pollution), Legal/Compliance (Title disputes, unpermitted work, restrictive ordinances), Any other risk factors mentioned in the provided information. Use **bold** for critical risk factors and warning items.",
     "buyer_recommendation": "Write a concluding paragraph that includes the ideal buyer type(s), any urgency factors for a purchase, and the median time to sell in the area. Add any leverage if the property has been in market for long. Use **bold** for key recommendations and urgency factors."
-
-  Return your response as a JSON object with the following structure:
-  {
-    "summary": "string",
-    "detailed_analysis": {
-      "location_neighborhood": "string",
-      "outdoors_view_quality": "string",
-      "visual_appeal_condition": "string",
-      "privacy_layout": "string",
-      "climate_resilience": "string",
-      "additional_considerations": "string"
-    },
-    "lifestyle_fit": {
-      "families": "string",
-      "professionals": "string",
-      "retirees": "string",
-      "investors": "string"
-    },
-    "risks_considerations": "string",
-    "buyer_recommendation": "string"
-  }`;
+  `;
 };
