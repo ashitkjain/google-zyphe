@@ -2,33 +2,12 @@ import { GoogleGenAI } from "@google/genai";
 import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult } from "../types";
 import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/propertyAnalysis";
 import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/neighborhoodAnalysis";
-import { getCommunityPulsePrompt } from "../prompts/communityPulse";
+import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/communityPulse";
 import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/propertyImages";
-import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis";
+import { getComprehensiveAnalysisPrompt, comprehensiveAnalysisSchema } from "../prompts/comprehensiveAnalysis";
 
 // Always use process.env.API_KEY directly as per guidelines.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-/**
- * Helper to clean and parse JSON from the model's text response.
- * Handles cases where the model might include markdown code fences or conversational filler.
- */
-const parseJSONSafely = (text: string) => {
-  try {
-    // Look for the first occurrence of '{' and the last occurrence of '}'
-    const startIndex = text.indexOf('{');
-    const endIndex = text.lastIndexOf('}');
-    
-    if (startIndex !== -1 && endIndex !== -1) {
-      const jsonCandidate = text.substring(startIndex, endIndex + 1);
-      return JSON.parse(jsonCandidate);
-    }
-    return JSON.parse(text);
-  } catch (e) {
-    console.error("Failed to parse JSON from AI response:", text);
-    throw new Error("AI returned an invalid data format. Please try again.");
-  }
-};
 
 async function urlToBase64(url: string): Promise<{ data: string, mimeType: string }> {
   const response = await fetch(url);
@@ -46,7 +25,7 @@ async function urlToBase64(url: string): Promise<{ data: string, mimeType: strin
 
 export const analyzeProperty = async (property: PropertyData): Promise<AIAnalysisResult> => {
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-3-flash-preview",
     contents: getPropertyAnalysisPrompt(property),
     config: {
       responseMimeType: "application/json",
@@ -61,7 +40,7 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
   const { data, mimeType } = await urlToBase64(mapImageUrl);
   
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-3-flash-preview",
     contents: {
       parts: [
         { text: getNeighborhoodAnalysisPrompt(property) },
@@ -79,14 +58,16 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
 
 export const analyzeCommunityPulse = async (property: PropertyData): Promise<CommunityPulseResult> => {
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3-flash-preview',
     contents: getCommunityPulsePrompt(property),
     config: {
-      tools: [{ googleSearch: {} }]
+      tools: [{ googleSearch: {} }],
+      responseMimeType: "application/json",
+      responseSchema: communityPulseSchema
     }
   });
 
-  return parseJSONSafely(response.text || "{}") as CommunityPulseResult;
+  return JSON.parse(response.text || "{}") as CommunityPulseResult;
 };
 
 export const analyzePropertyImages = async (imageUrls: string[], property: PropertyData): Promise<CustomAIAnalysisResult> => {
@@ -97,7 +78,7 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
   }));
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-3-flash-preview",
     contents: { parts: [{ text: getPropertyImagesPrompt(property) }, ...imageParts] },
     config: { 
       responseMimeType: "application/json",
@@ -110,13 +91,15 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
 
 export const analyzeComprehensive = async (property: PropertyData, visual: CustomAIAnalysisResult): Promise<ComprehensiveAnalysisResult> => {
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-3-flash-preview",
     contents: getComprehensiveAnalysisPrompt(property, visual),
     config: {
       tools: [{ googleSearch: {} }],
+      responseMimeType: "application/json",
+      responseSchema: comprehensiveAnalysisSchema,
       thinkingConfig: { thinkingBudget: 4000 }
     }
   });
 
-  return parseJSONSafely(response.text || "{}") as ComprehensiveAnalysisResult;
+  return JSON.parse(response.text || "{}") as ComprehensiveAnalysisResult;
 };

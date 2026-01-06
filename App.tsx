@@ -18,6 +18,7 @@ import ComprehensiveAnalysis from './components/ComprehensiveAnalysis';
 import PropertyImages from './components/PropertyImages';
 import PropertyMaps from './components/PropertyMaps';
 import SystemLogs from './components/SystemLogs';
+import PreloadManager from './components/PreloadManager';
 
 type ViewMode = 'main' | 'visual-report' | 'comprehensive-report';
 
@@ -34,6 +35,7 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('main');
   const [geoComponents, setGeoComponents] = useState<{ city: string; state: string } | null>(null);
+  const [showPreload, setShowPreload] = useState(false);
   
   // Search History State
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
@@ -276,6 +278,8 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
+      {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
+      
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50 py-5 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -324,6 +328,18 @@ const App: React.FC = () => {
                   </div>
                 </div>
               )}
+            </div>
+            
+            {/* Pipeline Toggle */}
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setShowPreload(true)}
+                title="Open Pipeline Manager"
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all border border-gray-200 shadow-sm active:scale-95"
+              >
+                <i className="fa-solid fa-microchip"></i>
+                Pipeline
+              </button>
             </div>
           </div>
         </div>

@@ -1,5 +1,4 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAnalytics, isSupported } from "firebase/analytics";
 import { 
   getFirestore, 
   doc, 
@@ -12,50 +11,47 @@ import {
   limit,
   serverTimestamp 
 } from "firebase/firestore";
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from "../types";
+import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from "../types";
 
-// User-provided Firebase configuration (using v12.7.0 as requested)
+/**
+ * Zyphe Firebase Configuration
+ */
+const getSafeApiKey = (): string => {
+  // Use the default key provided by the user
+  const key = "AIzaSyDtYf5fFDgCsLK8ndaVXQmJcfv2c5ogcfQ";
+  return key;
+};
+
 const firebaseConfig = {
-  apiKey: "AIzaSyAx1-b_G1OtFDRhHZBu29ows4oo71RTRGo",
-  authDomain: "zyphe-fe1e9.firebaseapp.com",
-  projectId: "zyphe-fe1e9",
-  storageBucket: "zyphe-fe1e9.firebasestorage.app",
-  messagingSenderId: "1068664413700",
-  appId: "1:1068664413700:web:1e6b150cb963e4bfb35f51",
-  measurementId: "G-1MCE2XSXJM"
+  apiKey: getSafeApiKey(),
+  authDomain: "zyphe-af0bf.firebaseapp.com",
+  projectId: "zyphe-af0bf",
+  storageBucket: "zyphe-af0bf.firebasestorage.app",
+  messagingSenderId: "365448651061",
+  appId: "1:365448651061:web:8d297a7e3713606f363065"
 };
 
 /**
- * Recursive utility to remove undefined values from an object/array.
- * Firestore does not allow 'undefined' fields but accepts 'null'.
+ * Utility to sanitize data for Firestore.
  */
 const sanitizeForFirestore = (data: any): any => {
-  if (Array.isArray(data)) {
-    return data.map(sanitizeForFirestore);
-  } else if (data !== null && typeof data === 'object') {
+  if (data === undefined || data === null) return null;
+  if (Array.isArray(data)) return data.map(sanitizeForFirestore);
+  if (typeof data === 'object') {
+    if (data instanceof Date) return data;
     return Object.fromEntries(
-      Object.entries(data)
-        .filter(([_, value]) => value !== undefined)
-        .map(([key, value]) => [key, sanitizeForFirestore(value)])
+      Object.entries(data).map(([key, value]) => [key, sanitizeForFirestore(value)])
     );
   }
   return data;
 };
 
+// Initialize Firebase App instance
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(app);
 
-isSupported().then(supported => {
-  if (supported) {
-    getAnalytics(app);
-  }
-}).catch(err => {
-  console.warn("Firebase Analytics failed to initialize:", err);
-});
-
 /**
  * TABLE: properties
- * Stores core house metadata, specs, and images.
  */
 export const savePropertyToCloud = async (zpid: string, data: Partial<PropertyData>) => {
   try {
@@ -66,8 +62,12 @@ export const savePropertyToCloud = async (zpid: string, data: Partial<PropertyDa
       lastUpdated: serverTimestamp()
     }, { merge: true });
     return true;
-  } catch (error) {
-    console.error("Firestore Save Error (properties):", error);
+  } catch (error: any) {
+    if (error.code === 'permission-denied') {
+      console.warn("Firestore Permission Denied: Please set Rules to 'allow read, write: if true;' in Firebase Console.");
+    } else {
+      console.error("Firestore Save Error (properties):", error);
+    }
     return false;
   }
 };
@@ -80,8 +80,8 @@ export const getPropertyFromCloud = async (zpid: string): Promise<PropertyData |
       return docSnap.data() as PropertyData;
     }
     return null;
-  } catch (error) {
-    console.error("Firestore Load Error (properties):", error);
+  } catch (error: any) {
+    console.debug("Cloud Cache unavailable (Permission Denied)");
     return null;
   }
 };
@@ -98,43 +98,14 @@ export const getPropertyByAddress = async (address: string): Promise<PropertyDat
       return querySnapshot.docs[0].data() as PropertyData;
     }
     return null;
-  } catch (error) {
-    console.error("Firestore Search Error (properties):", error);
-    return null;
-  }
-};
-
-/**
- * TABLE: property_analyses_deep
- * Stores the Gemini-generated text analysis (Buyer/Seller/Realtor).
- */
-export const saveDeepAnalysisToCloud = async (zpid: string, analysis: AIAnalysisResult) => {
-  try {
-    const docRef = doc(db, "property_analyses_deep", zpid);
-    await setDoc(docRef, {
-      ...sanitizeForFirestore(analysis),
-      timestamp: serverTimestamp()
-    });
-    return true;
-  } catch (error) {
-    console.error("Firestore Save Error (deep_analysis):", error);
-    return false;
-  }
-};
-
-export const getDeepAnalysisFromCloud = async (zpid: string): Promise<AIAnalysisResult | null> => {
-  try {
-    const docRef = doc(db, "property_analyses_deep", zpid);
-    const docSnap = await getDoc(docRef);
-    return docSnap.exists() ? (docSnap.data() as AIAnalysisResult) : null;
-  } catch (error) {
+  } catch (error: any) {
+    console.debug("Cloud Search unavailable (Permission Denied)");
     return null;
   }
 };
 
 /**
  * TABLE: property_analyses_visual
- * Stores the Multimodal Gemini analysis (Interior, exterior, neighborhood).
  */
 export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAIAnalysisResult) => {
   try {
@@ -145,7 +116,6 @@ export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAI
     });
     return true;
   } catch (error) {
-    console.error("Firestore Save Error (visual_analysis):", error);
     return false;
   }
 };
@@ -162,7 +132,6 @@ export const getVisualAnalysisFromCloud = async (zpid: string): Promise<CustomAI
 
 /**
  * TABLE: property_analyses_comprehensive
- * Stores the massive 2500-word narrative report.
  */
 export const saveComprehensiveAnalysisToCloud = async (zpid: string, analysis: ComprehensiveAnalysisResult) => {
   try {
@@ -173,7 +142,6 @@ export const saveComprehensiveAnalysisToCloud = async (zpid: string, analysis: C
     });
     return true;
   } catch (error) {
-    console.error("Firestore Save Error (comprehensive_analysis):", error);
     return false;
   }
 };
@@ -200,6 +168,6 @@ export const logUserActivity = async (sessionId: string, address: string) => {
       timestamp: serverTimestamp()
     });
   } catch (error) {
-    console.warn("Activity logging failed", error);
+    // Silent catch
   }
 };

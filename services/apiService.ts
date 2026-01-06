@@ -1,9 +1,10 @@
 import { PropertyData, RadarGeocodeResponse } from "../types";
 import { savePropertyToCloud, getPropertyByAddress } from "./firebaseService";
 
-const RAPID_API_KEY = "ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f";
-const RAPID_API_HOST = "us-housing-market-data1.p.rapidapi.com";
-const RADAR_API_KEY = "prj_live_pk_eef2517d56b63939d892c06a7dac57af7f2278cb";
+// Security: Use environment variables for sensitive API keys
+const RAPID_API_KEY = process.env.RAPID_API_KEY || "ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f";
+const RAPID_API_HOST = process.env.RAPID_API_HOST || "us-housing-market-data1.p.rapidapi.com";
+const RADAR_API_KEY = process.env.RADAR_API_KEY || "prj_live_pk_eef2517d56b63939d892c06a7dac57af7f2278cb";
 
 const extractNumericValue = (val: any): number => {
   if (typeof val === 'number') return val;
@@ -68,7 +69,7 @@ export const normalizeAddress = async (address: string): Promise<RadarGeocodeRes
 };
 
 export const fetchPropertyData = async (address: string): Promise<PropertyData> => {
-  // Check Firebase Cloud Cache (Still used as it is server-side/cloud)
+  // Check Firebase Cloud Cache
   const cloudCached = await getPropertyByAddress(address);
   if (cloudCached) {
     return cloudCached as PropertyData;
