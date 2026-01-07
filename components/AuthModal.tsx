@@ -4,14 +4,14 @@ import {
   googleProvider, 
   saveUserProfile, 
   getUserProfile 
-} from '../services/firebaseService';
+} from '../services/firebaseService.ts';
 import { 
   signInWithPopup, 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import Logo from './Logo';
+import Logo from './Logo.tsx';
 
 interface Props {
   isOpen: boolean;
@@ -50,14 +50,15 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
     const code = err.code || "";
     const message = err.message || "";
 
-    // Specific check for the unauthorized domain error
-    if (code === "auth/unauthorized-domain" || message.includes("unauthorized-domain")) {
+    if (code === "auth/email-already-in-use" || message.includes("email-already-in-use")) {
+      setError("An account with this email already exists. Would you like to sign in instead?");
+      setErrorLink({
+        url: "#",
+        label: "Switch to Sign In"
+      });
+    } else if (code === "auth/unauthorized-domain" || message.includes("unauthorized-domain")) {
       const hostname = getTargetDomain();
-      if (hostname) {
-        setError(`Domain "${hostname}" is not authorized. You must add it to your Firebase Console 'Authorized Domains' list.`);
-      } else {
-        setError("This preview environment's domain is not authorized in Firebase. Please add your current browser URL to the 'Authorized Domains' list in the Firebase Console.");
-      }
+      setError(`Domain "${hostname}" is not authorized. You must add it to your Firebase Console 'Authorized Domains' list.`);
       setErrorLink({
         url: "https://console.firebase.google.com/project/zyphe-af0bf/authentication/settings",
         label: "Go to Firebase Console"
@@ -68,28 +69,6 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
         url: "https://console.cloud.google.com/apis/library/identitytoolkit.googleapis.com",
         label: "Enable Identity Toolkit API"
       });
-    } else if (message.includes("signup-are-blocked") || message.includes("authenticationservice.signup")) {
-      setError("Email/Password sign-up is disabled. You must enable it in the Firebase Console.");
-      setErrorLink({
-        url: "https://console.firebase.google.com/project/zyphe-af0bf/authentication/providers",
-        label: "Enable Email Provider"
-      });
-    } else if (
-      message.includes("identitytoolkit.googleapis.com") || 
-      code.includes("identity-toolkit") || 
-      message.includes("are-blocked")
-    ) {
-      setError("Identity API is blocked. Check your API Key restrictions in Google Cloud Console.");
-      setErrorLink({
-        url: "https://console.cloud.google.com/apis/credentials",
-        label: "Check API Key Restrictions"
-      });
-    } else if (code === "auth/operation-not-allowed") {
-      setError("Sign-in provider is not enabled in Firebase Console.");
-      setErrorLink({
-        url: "https://console.firebase.google.com/project/zyphe-af0bf/authentication/providers",
-        label: "Fix in Firebase Console"
-      });
     } else if (code === "auth/weak-password") {
       setError("Password is too weak. Please use at least 6 characters.");
     } else if (code === "auth/invalid-email") {
@@ -98,14 +77,6 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
       setError("Login window was closed.");
     } else if (code === "auth/user-not-found" || code === "auth/wrong-password" || code === "auth/invalid-credential") {
       setError("Invalid email or password.");
-    } else if (code === "auth/email-already-in-use") {
-      setError("An account with this email already exists.");
-    } else if (code === "permission-denied") {
-      setError("Database permission denied. Ensure Firestore rules are configured.");
-      setErrorLink({
-        url: "https://console.firebase.google.com/project/zyphe-af0bf/firestore/rules",
-        label: "Fix Firestore Rules"
-      });
     } else {
       setError(err.message.replace("Firebase: ", ""));
     }
@@ -138,8 +109,6 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Client-side validation
     if (!isLogin && password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
@@ -153,13 +122,8 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
-        // Step 1: Create Auth User
         const result = await createUserWithEmailAndPassword(auth, email, password);
-        
-        // Step 2: Update Auth Profile
         await updateProfile(result.user, { displayName: name });
-        
-        // Step 3: Create Firestore Document
         await saveUserProfile(result.user.uid, {
           email,
           displayName: name,
@@ -173,6 +137,15 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
       handleFirebaseError(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleActionClick = (e: React.MouseEvent) => {
+    if (errorLink?.label === "Switch to Sign In") {
+      e.preventDefault();
+      setIsLogin(true);
+      setError(null);
+      setErrorLink(null);
     }
   };
 
@@ -195,14 +168,11 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
           {error && (
             <div className="mb-6 p-5 bg-rose-50 border border-rose-100 rounded-[2rem] text-rose-600 text-xs font-bold space-y-4 animate-in slide-in-from-top-2 shadow-sm">
               <div className="flex items-start gap-3">
-                <i className="fa-solid fa-shield-halved mt-0.5 text-rose-500 text-sm"></i>
+                <i className="fa-solid fa-circle-exclamation mt-0.5 text-rose-500 text-sm"></i>
                 <div className="flex-1 space-y-3">
                   <span className="block leading-relaxed">{error}</span>
                   {(error.includes("unauthorized") || error.includes("preview")) && (
                     <div className="space-y-2">
-                      <p className="text-[10px] text-rose-400 font-medium italic">
-                        Tip: Preview environments often use temporary domains. Copy yours below and add it to Firebase.
-                      </p>
                       <button 
                         onClick={copyHostname}
                         className="flex items-center gap-2 px-3 py-2 bg-white border border-rose-200 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all text-rose-700 w-fit"
@@ -218,11 +188,12 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 <div className="pt-1">
                   <a 
                     href={errorLink.url} 
-                    target="_blank" 
+                    target={errorLink.url === "#" ? "_self" : "_blank"} 
                     rel="noopener noreferrer"
+                    onClick={handleActionClick}
                     className="w-full flex items-center justify-center gap-2 text-white font-black uppercase tracking-widest text-[10px] bg-rose-600 px-4 py-3 rounded-xl shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95"
                   >
-                    {errorLink.label} <i className="fa-solid fa-arrow-up-right-from-square"></i>
+                    {errorLink.label} <i className={`fa-solid ${errorLink.url === "#" ? 'fa-arrow-right' : 'fa-arrow-up-right-from-square'}`}></i>
                   </a>
                 </div>
               )}

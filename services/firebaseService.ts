@@ -15,8 +15,7 @@ import {
 import { 
   getAuth, 
   GoogleAuthProvider, 
-  Auth,
-  onAuthStateChanged,
+  Auth
 } from "firebase/auth";
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile } from "../types.ts";
 
@@ -30,7 +29,7 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase App
-let app: FirebaseApp;
+let app: FirebaseApp | null = null;
 try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 } catch (e) {
@@ -40,7 +39,7 @@ try {
 // Initialize Firestore with safety
 let db: Firestore | null = null;
 try {
-  if (app!) db = getFirestore(app);
+  if (app) db = getFirestore(app);
 } catch (e) {
   console.error("Firestore service initialization failed (it might be blocked by an ad-blocker):", e);
 }
@@ -48,13 +47,13 @@ try {
 // Initialize Auth with safety
 let authInstance: Auth | null = null;
 try {
-  if (app!) authInstance = getAuth(app);
+  if (app) authInstance = getAuth(app);
 } catch (e) {
   console.error("Auth service initialization failed:", e);
 }
 
 export const db_instance = db;
-export const auth = authInstance!;
+export const auth = authInstance;
 export const googleProvider = new GoogleAuthProvider();
 
 /**

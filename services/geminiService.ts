@@ -6,8 +6,8 @@ import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/commun
 import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/propertyImages.ts";
 import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis.ts";
 
-// Single source of truth for the model name
-export const GEMINI_MODEL = 'gemini-2.5-flash';
+// Fix: Using gemini-3-pro-preview for complex reasoning and property analysis tasks
+export const GEMINI_MODEL = 'gemini-3-pro-preview';
 
 // Custom error to pass raw response back for logging
 export class AiResponseError extends Error {
@@ -19,11 +19,12 @@ export class AiResponseError extends Error {
   }
 }
 
-// Lazy initialization of the Gemini API client to handle environments without process.env
+// Lazy initialization of the Gemini API client
 let aiInstance: GoogleGenAI | null = null;
 const getAi = () => {
   if (!aiInstance) {
-    const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY) || "";
+    // Fix: Access process.env.API_KEY directly as required by guidelines
+    const apiKey = process.env.API_KEY || "";
     aiInstance = new GoogleGenAI({ apiKey });
   }
   return aiInstance;
@@ -98,6 +99,7 @@ export const analyzeProperty = async (property: PropertyData): Promise<AIAnalysi
     }
   });
 
+  // Use .text property directly as per guidelines
   return extractJson<AIAnalysisResult>(response.text);
 };
 

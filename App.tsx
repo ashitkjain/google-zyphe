@@ -68,6 +68,11 @@ const App: React.FC = () => {
   const sessionId = useMemo(() => Math.random().toString(36).substring(2, 15), []);
 
   useEffect(() => {
+    if (!auth) {
+      console.warn("Auth service is unavailable. User sessions will not be synchronized.");
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
@@ -294,7 +299,9 @@ const App: React.FC = () => {
                     <p className="text-[9px] font-bold text-indigo-600 uppercase tracking-widest mt-0.5">{currentUser.role}</p>
                   </div>
                   <button 
-                    onClick={() => signOut(auth)}
+                    onClick={() => {
+                      if (auth) signOut(auth);
+                    }}
                     className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-100 transition-all flex items-center justify-center group"
                     title="Sign Out"
                   >
