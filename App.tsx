@@ -16,7 +16,9 @@ import {
   getVisualAnalysisFromCloud,
   getComprehensiveAnalysisFromCloud,
   auth,
-  getUserProfile
+  getUserProfile,
+  trackUserPropertyView,
+  getUserViewHistory
 } from './services/firebaseService.ts';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import PropertyHeader from './components/PropertyHeader.tsx';
@@ -38,6 +40,7 @@ type ViewMode = 'main' | 'visual-report' | 'comprehensive-report';
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [cloudHistory, setCloudHistory] = useState<any[]>([]);
   
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
     try {
@@ -81,6 +84,9 @@ const App: React.FC = () => {
           const profile = await getUserProfile(user.uid);
           if (profile) {
             setCurrentUser(profile);
+            // Fetch cloud history for the landing page
+            const history = await getUserViewHistory(user.uid);
+            setCloudHistory(history);
           } else {
             setCurrentUser({
               uid: user.uid,
@@ -102,6 +108,7 @@ const App: React.FC = () => {
         }
       } else {
         setCurrentUser(null);
+        setCloudHistory([]);
       }
     });
     return () => unsubscribe();
@@ -185,6 +192,11 @@ const App: React.FC = () => {
       addLog('Zyphe Data Layer', 'response', data);
       setPropertyData(mergedData);
       setLoading(false);
+
+      // PERSISTENT CLOUD TRACKING
+      if (currentUser && mergedData.zpid) {
+        trackUserPropertyView(currentUser.uid, mergedData);
+      }
 
       if (data.zpid) {
         if (!forceRefresh) {
@@ -274,6 +286,7 @@ const App: React.FC = () => {
       try {
         await signOut(auth);
         setCurrentUser(null);
+        setCloudHistory([]);
       } catch (err) {
         console.error("Sign out failed", err);
       }
@@ -441,6 +454,36 @@ const App: React.FC = () => {
                   The world's most advanced property analysis suite. Instant deep-dives into property value, neighborhood pulse, and structural visual intelligence.
                 </p>
               </div>
+
+              {/* CLOUD VIEW HISTORY FOR LOGGED IN USERS */}
+              {currentUser && cloudHistory.length > 0 && (
+                <div className="mb-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                  <div className="flex items-center justify-between mb-6 px-2">
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Recently Analyzed Intelligence</h3>
+                    <div className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-lg shadow-emerald-200"></div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {cloudHistory.map((item, i) => (
+                      <button 
+                        key={i} 
+                        onClick={() => performSearch(item.address)}
+                        className="p-5 bg-white border border-slate-100 rounded-3xl text-left hover:border-indigo-500 hover:shadow-xl hover:shadow-indigo-100 transition-all group"
+                      >
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                            <i className="fa-solid fa-house-circle-check text-xs"></i>
+                          </div>
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.homeType?.replace(/_/g, ' ') || 'Property'}</span>
+                        </div>
+                        <h4 className="text-sm font-black text-slate-900 mb-1 truncate">{item.address}</h4>
+                        <p className="text-indigo-600 font-black text-[10px] uppercase tracking-wider">
+                          {item.price ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(item.price) : 'Value Analyzed'}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {[

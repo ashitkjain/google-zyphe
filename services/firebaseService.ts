@@ -1,3 +1,4 @@
+
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { 
   getFirestore, 
@@ -8,6 +9,7 @@ import {
   query, 
   where, 
   getDocs,
+  orderBy,
   limit,
   serverTimestamp,
   Firestore
@@ -84,6 +86,38 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
   } catch (error) {
     console.error("Error getting user profile:", error);
     return null;
+  }
+};
+
+/**
+ * User View History
+ */
+export const trackUserPropertyView = async (uid: string, property: PropertyData) => {
+  if (!db || !property.zpid) return;
+  try {
+    const historyRef = doc(db, "users", uid, "viewHistory", property.zpid);
+    await setDoc(historyRef, {
+      zpid: property.zpid,
+      address: property.address,
+      homeType: property.homeType || null,
+      price: property.price || property.zestimate || null,
+      timestamp: serverTimestamp()
+    });
+  } catch (error) {
+    console.error("Error tracking property view:", error);
+  }
+};
+
+export const getUserViewHistory = async (uid: string, maxItems = 6) => {
+  if (!db) return [];
+  try {
+    const historyCol = collection(db, "users", uid, "viewHistory");
+    const q = query(historyCol, orderBy("timestamp", "desc"), limit(maxItems));
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => doc.data());
+  } catch (error) {
+    console.error("Error fetching user history:", error);
+    return [];
   }
 };
 
@@ -166,6 +200,7 @@ export const getVisualAnalysisFromCloud = async (zpid: string): Promise<CustomAI
   try {
     const docRef = doc(db, "property_analyses_visual", zpid);
     const docSnap = await getDoc(docRef);
+    // Fixed: Changed 'snap' to 'docSnap' to match the variable declaration on line 202
     return docSnap.exists() ? (docSnap.data() as CustomAIAnalysisResult) : null;
   } catch (error) {
     return null;
