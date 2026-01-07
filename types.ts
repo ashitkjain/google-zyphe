@@ -27,6 +27,12 @@ export interface PropertyData {
   floodRiskScore?: number;
   fireRiskScore?: number;
   heatRiskScore?: number;
+  walkScore?: number;
+  walkScoreDesc?: string;
+  transitScore?: number;
+  transitScoreDesc?: string;
+  bikeScore?: number;
+  bikeScoreDesc?: string;
   schools?: School[];
   nearbyHomes?: any[];
   homeInsights?: any;
@@ -90,6 +96,8 @@ export interface ResoFacts {
   heating?: string;
   mlsid?: string;
   utilities?: string;
+  sewer?: string;
+  waterSource?: string;
   basement?: string;
 }
 

@@ -11,8 +11,15 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
     <script>
-      // Safe environment shim
-      window.process = window.process || { env: { API_KEY: "" } };
+      // Safe environment shim with all expected keys to prevent ReferenceErrors or SyntaxErrors
+      window.process = window.process || { 
+        env: { 
+          API_KEY: "", 
+          RAPID_API_KEY: "", 
+          RADAR_API_KEY: "",
+          RAPID_API_HOST: ""
+        } 
+      };
       
       window.onerror = function(msg, url, lineNo, columnNo, error) {
         const root = document.getElementById('root');
@@ -20,7 +27,7 @@
           root.innerHTML = `
             <div style="padding: 40px; font-family: sans-serif; max-width: 600px; margin: auto; text-align: center;">
               <h1 style="color: #e11d48; font-weight: 900; font-size: 24px;">Initialization Failed</h1>
-              <p style="color: #4b5563; margin-top: 10px;">The Zyphe AI application encountered a loading error. This may be due to an ad-blocker or module conflict.</p>
+              <p style="color: #4b5563; margin-top: 10px;">The Zyphe AI application encountered a loading error. This may be due to a script error or module conflict.</p>
               <div style="background: #f3f4f6; padding: 20px; border-radius: 12px; font-family: monospace; font-size: 11px; margin-top: 20px; text-align: left; border: 1px solid #e5e7eb; overflow: auto; max-height: 200px;">
                 <strong>Error:</strong> ${msg}<br>
                 <strong>Source:</strong> ${url}:${lineNo}
@@ -48,6 +55,8 @@
         font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
         background-color: #f8fafc;
       }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 <script type="importmap">
 {
@@ -62,7 +71,7 @@
     "firebase/firestore": "https://esm.sh/firebase@12.7.0/firestore",
     "firebase/auth": "https://esm.sh/firebase@12.7.0/auth",
     "firebase/analytics": "https://esm.sh/firebase@12.7.0/analytics",
-    "path": "https://esm.sh/path@^0.12.7",
+    "path": "https://esm.sh/path-browserify@^1.0.1",
     "firebase/": "https://esm.sh/firebase@^12.7.0/",
     "url": "https://esm.sh/url@^0.11.4",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
@@ -75,7 +84,7 @@
     <div id="root">
         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: #4F46E5;">
             <div style="font-weight: 900; font-size: 24px; letter-spacing: -0.05em; margin-bottom: 10px;">ZYPHE AI</div>
-            <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3em; opacity: 0.6;">Initializing Modules...</div>
+            <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3em; opacity: 0.6;">Initializing Intelligence Suite...</div>
         </div>
     </div>
     <script type="module" src="./index.tsx"></script>

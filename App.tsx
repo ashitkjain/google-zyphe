@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   PropertyData, 
@@ -25,6 +26,7 @@ import CustomAIAnalysis from './components/CustomAIAnalysis.tsx';
 import ComprehensiveAnalysis from './components/ComprehensiveAnalysis.tsx';
 import PropertyImages from './components/PropertyImages.tsx';
 import PropertyMaps from './components/PropertyMaps.tsx';
+import ClimateRiskSection from './components/ClimateRiskSection.tsx';
 import SystemLogs from './components/SystemLogs.tsx';
 import PreloadManager from './components/PreloadManager.tsx';
 import ChatInterface from './components/ChatInterface.tsx';
@@ -80,7 +82,6 @@ const App: React.FC = () => {
           if (profile) {
             setCurrentUser(profile);
           } else {
-            // Fallback to basic auth info if Firestore profile isn't indexed yet
             setCurrentUser({
               uid: user.uid,
               email: user.email || '',
@@ -91,7 +92,6 @@ const App: React.FC = () => {
           }
         } catch (e) {
           console.error("Profile load failed", e);
-          // Maintain login state with auth fallback
           setCurrentUser({
             uid: user.uid,
             email: user.email || '',
@@ -142,16 +142,21 @@ const App: React.FC = () => {
     performSearch(item);
   };
 
-  const performSearch = async (searchAddress: string) => {
+  const performSearch = async (searchAddress: string, forceRefresh: boolean = false) => {
     if (!searchAddress.trim()) return;
 
     setLoading(true);
-    setImagesLoading(false);
+    setImagesLoading(forceRefresh ? true : false); 
     setError(null);
-    setPropertyData(null);
-    setCustomAnalysis(null);
-    setComprehensiveAnalysis(null);
-    setLogs([]);
+    
+    const currentImages = propertyData?.images || [];
+
+    if (forceRefresh) {
+      setCustomAnalysis(null);
+      setComprehensiveAnalysis(null);
+    }
+    
+    if (!forceRefresh) setLogs([]); 
     setViewMode('main');
 
     logUserActivity(sessionId, searchAddress);
@@ -165,15 +170,16 @@ const App: React.FC = () => {
       addToHistory(normalizedAddr);
       setAddress(normalizedAddr);
 
-      addLog('Zyphe Data Layer', 'request', { address: normalizedAddr });
-      const data = await fetchPropertyData(normalizedAddr);
+      addLog('Zyphe Data Layer', 'request', { address: normalizedAddr, forceRefresh });
+      const data = await fetchPropertyData(normalizedAddr, forceRefresh);
       
       const mergedData: PropertyData = {
         ...data,
         coordinates: radarResult.coordinates,
         mapZoomIn: radarResult.mapZoomIn,
         mapZoomOut: radarResult.mapZoomOut,
-        address: normalizedAddr
+        address: normalizedAddr,
+        images: forceRefresh && currentImages.length > 0 ? currentImages : data.images
       };
       
       addLog('Zyphe Data Layer', 'response', data);
@@ -181,11 +187,13 @@ const App: React.FC = () => {
       setLoading(false);
 
       if (data.zpid) {
-        const cloudVisualAnalysis = await getVisualAnalysisFromCloud(data.zpid);
-        if (cloudVisualAnalysis) setCustomAnalysis(cloudVisualAnalysis);
+        if (!forceRefresh) {
+          const cloudVisualAnalysis = await getVisualAnalysisFromCloud(data.zpid);
+          if (cloudVisualAnalysis) setCustomAnalysis(cloudVisualAnalysis);
 
-        const cloudCompAnalysis = await getComprehensiveAnalysisFromCloud(data.zpid);
-        if (cloudCompAnalysis) setComprehensiveAnalysis(cloudCompAnalysis);
+          const cloudCompAnalysis = await getComprehensiveAnalysisFromCloud(data.zpid);
+          if (cloudCompAnalysis) setComprehensiveAnalysis(cloudCompAnalysis);
+        }
         
         setImagesLoading(true);
         const images = await fetchPropertyImages(data.zpid);
@@ -196,6 +204,7 @@ const App: React.FC = () => {
       setError(err.message || 'An unexpected error occurred.');
       addLog('System', 'error', err);
       setLoading(false);
+      setImagesLoading(false);
     }
   };
 
@@ -276,7 +285,6 @@ const App: React.FC = () => {
       {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
       <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
       
-      {/* Visual confirmation of signed-in user at the absolute top */}
       {currentUser && (
         <div className="bg-slate-900 text-white py-2 px-4 shadow-inner border-b border-white/5 relative z-[60]">
           <div className="max-w-7xl mx-auto flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em]">
@@ -379,7 +387,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {loading ? (
+        {loading && !propertyData ? (
           <div className="flex flex-col items-center justify-center py-32 text-slate-400">
             <div className="relative mb-10">
                <Logo size={220} className="animate-pulse" />
@@ -391,12 +399,23 @@ const App: React.FC = () => {
           propertyData ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-10">
               <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-white p-8 rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/50">
-                <div className="flex-1">
-                   <h2 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">{propertyData.address}</h2>
-                   <p className="text-slate-500 font-medium flex items-center gap-2">
-                     <i className="fa-solid fa-location-dot text-indigo-500"></i>
-                     {propertyData.homeType?.replace('_', ' ')} • Built in {propertyData.yearBuilt}
-                   </p>
+                <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-4">
+                   <div className="flex-1">
+                     <h2 className="text-3xl font-black text-slate-900 mb-2 tracking-tight flex items-center gap-4">
+                       {propertyData.address}
+                       <button 
+                         onClick={() => performSearch(propertyData.address, true)}
+                         className="p-2 text-slate-400 hover:text-indigo-600 transition-colors bg-slate-50 rounded-xl hover:bg-indigo-50 border border-transparent hover:border-indigo-100 active:scale-90"
+                         title="Refresh Cache"
+                       >
+                         <i className={`fa-solid fa-rotate ${loading ? 'animate-spin' : ''}`}></i>
+                       </button>
+                     </h2>
+                     <p className="text-slate-500 font-medium flex items-center gap-2">
+                       <i className="fa-solid fa-location-dot text-indigo-500"></i>
+                       {propertyData.homeType?.replace(/_/g, ' ')} • Built in {propertyData.yearBuilt}
+                     </p>
+                   </div>
                 </div>
                 <button 
                   onClick={() => handleRunCustomAnalysis(false)} 
@@ -409,9 +428,10 @@ const App: React.FC = () => {
 
               <PropertyImages images={propertyData.images} loading={imagesLoading} homeStatus={propertyData.homeStatus} />
               <PropertyHeader data={propertyData} />
+              <PropertyFacts facts={propertyData.resoFacts} />
               <TablesSection data={propertyData} />
               <PropertyMaps mapZoomIn={propertyData.mapZoomIn} mapZoomOut={propertyData.mapZoomOut} />
-              <PropertyFacts facts={propertyData.resoFacts} />
+              <ClimateRiskSection data={propertyData} />
             </div>
           ) : (
             <div className="max-w-4xl mx-auto py-12">

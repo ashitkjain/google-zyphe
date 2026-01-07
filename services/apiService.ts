@@ -6,9 +6,14 @@ const RAPID_API_HOST = process.env.RAPID_API_HOST || "us-housing-market-data1.p.
 const RADAR_API_KEY = process.env.RADAR_API_KEY || "prj_live_pk_eef2517d56b63939d892c06a7dac57af7f2278cb";
 
 const extractNumericValue = (val: any): number => {
+  if (val === null || val === undefined) return 0;
   if (typeof val === 'number') return val;
+  if (typeof val === 'string') {
+    const numeric = Number(val.replace(/[^0-9.-]/g, ''));
+    return isNaN(numeric) ? 0 : numeric;
+  }
   if (val && typeof val === 'object' && 'value' in val) {
-    const numeric = Number(val.value);
+    const numeric = Number(String(val.value).replace(/[^0-9.-]/g, ''));
     return isNaN(numeric) ? 0 : numeric;
   }
   return 0;
@@ -67,9 +72,43 @@ export const normalizeAddress = async (address: string): Promise<RadarGeocodeRes
   };
 };
 
-export const fetchPropertyData = async (address: string): Promise<PropertyData> => {
-  const cloudCached = await getPropertyByAddress(address);
-  if (cloudCached) return cloudCached as PropertyData;
+export const fetchScores = async (zpid: string): Promise<{ 
+  walkScore?: number, walkScoreDesc?: string,
+  transitScore?: number, transitScoreDesc?: string,
+  bikeScore?: number, bikeScoreDesc?: string 
+}> => {
+  const url = `https://us-housing-market-data1.p.rapidapi.com/walkAndTransitScore?zpid=${zpid}`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-host': RAPID_API_HOST,
+        'x-rapidapi-key': RAPID_API_KEY,
+      },
+    });
+    if (!response.ok) return {};
+    const data = await response.json();
+    
+    // Mapping based on user screenshot structure
+    return {
+      walkScore: extractNumericValue(data.walkScore?.walkscore),
+      walkScoreDesc: data.walkScore?.description,
+      transitScore: extractNumericValue(data.transitScore?.transit_score),
+      transitScoreDesc: data.transitScore?.description,
+      bikeScore: extractNumericValue(data.bikeScore?.bikescore),
+      bikeScoreDesc: data.bikeScore?.description,
+    };
+  } catch (e) {
+    console.error("Failed to fetch walk/transit scores", e);
+    return {};
+  }
+};
+
+export const fetchPropertyData = async (address: string, forceRefresh: boolean = false): Promise<PropertyData> => {
+  if (!forceRefresh) {
+    const cloudCached = await getPropertyByAddress(address);
+    if (cloudCached) return cloudCached as PropertyData;
+  }
 
   const url = `https://us-housing-market-data1.p.rapidapi.com/property?address=${encodeURIComponent(address)}`;
   const response = await fetch(url, {
@@ -83,7 +122,6 @@ export const fetchPropertyData = async (address: string): Promise<PropertyData> 
   const data = await response.json();
   if (!response.ok) throw new Error(`Property API error: ${response.status}`);
   
-  // Robust ZPID extraction as some API responses wrap the data
   const rawZpid = data.zpid || data.props?.zpid || (data.properties && data.properties[0]?.zpid);
 
   const mappedData: PropertyData = {
@@ -125,10 +163,21 @@ export const fetchPropertyData = async (address: string): Promise<PropertyData> 
       laundryFeatures: safeStringify(data.resoFacts?.laundryFeatures),
       heating: safeStringify(data.resoFacts?.heating),
       basement: safeStringify(data.resoFacts?.basement),
+      utilities: safeStringify(data.resoFacts?.utilities),
+      sewer: safeStringify(data.resoFacts?.sewer),
+      waterSource: safeStringify(data.resoFacts?.waterSource),
     }
   };
 
   if (mappedData.zpid) {
+    const scores = await fetchScores(mappedData.zpid);
+    mappedData.walkScore = scores.walkScore;
+    mappedData.walkScoreDesc = scores.walkScoreDesc;
+    mappedData.transitScore = scores.transitScore;
+    mappedData.transitScoreDesc = scores.transitScoreDesc;
+    mappedData.bikeScore = scores.bikeScore;
+    mappedData.bikeScoreDesc = scores.bikeScoreDesc;
+    
     savePropertyToCloud(mappedData.zpid, mappedData);
   }
 
@@ -137,17 +186,38 @@ export const fetchPropertyData = async (address: string): Promise<PropertyData> 
 
 export const fetchPropertyImages = async (zpid: string): Promise<string[]> => {
   const url = `https://us-housing-market-data1.p.rapidapi.com/images?zpid=${zpid}`;
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'x-rapidapi-host': RAPID_API_HOST,
-      'x-rapidapi-key': RAPID_API_KEY,
-    },
-  });
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-host': RAPID_API_HOST,
+        'x-rapidapi-key': RAPID_API_KEY,
+      },
+    });
 
-  if (!response.ok) return [];
-  const data = await response.json();
-  
-  const images = Array.isArray(data) ? data : (data.images || data.props?.images || []);
-  return images;
+    if (!response.ok) return [];
+    const data = await response.json();
+    
+    let images: any[] = [];
+    if (Array.isArray(data)) {
+      images = data;
+    } else if (data.images && Array.isArray(data.images)) {
+      images = data.images;
+    } else if (data.props?.images && Array.isArray(data.props.images)) {
+      images = data.props.images;
+    } else if (data.property?.images && Array.isArray(data.property.images)) {
+      images = data.property.images;
+    }
+
+    return images.map((img: any) => {
+      if (typeof img === 'string') return img;
+      if (typeof img === 'object' && img !== null) {
+        return img.url || img.uri || img.src || JSON.stringify(img);
+      }
+      return String(img);
+    }).filter(img => typeof img === 'string' && img.startsWith('http'));
+  } catch (e) {
+    console.error("Error fetching images", e);
+    return [];
+  }
 };

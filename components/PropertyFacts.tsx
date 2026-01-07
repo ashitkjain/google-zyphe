@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ResoFacts } from '../types';
 
@@ -9,51 +8,31 @@ interface Props {
 const PropertyFacts: React.FC<Props> = ({ facts }) => {
   if (!facts) return null;
 
-  const renderFact = (label: string, value: any) => {
-    let displayValue = value === undefined || value === null || value === '' || value === 'null' ? '' : String(value);
-    
-    if (!displayValue) return null;
+  const parseComplexFact = (value: any): string => {
+    const rawValue = value === undefined || value === null || value === '' || value === 'null' ? '' : String(value);
+    if (!rawValue) return '';
 
-    // Handle special formatting for "Rooms" as requested
-    if (label === 'Rooms') {
-      let finalString = '';
-      
-      try {
-        // Try to handle if it's a JSON stringified object
-        const parsed = JSON.parse(displayValue);
-        if (typeof parsed === 'object' && parsed !== null) {
-          finalString = Object.entries(parsed)
-            .filter(([_, v]) => v !== null && v !== undefined && v !== 'null' && v !== '')
-            .map(([k, v]) => `${k} - ${v}`)
-            .join(', ');
-        } else {
-          finalString = String(parsed);
-        }
-      } catch (e) {
-        // Fallback for non-JSON strings
-        finalString = displayValue
-          .split(',')
-          .map(part => part.trim())
-          .filter(part => {
-            if (!part) return false;
-            const lower = part.toLowerCase();
-            return lower !== 'null' && !lower.includes(': null') && !part.endsWith(':');
-          })
-          .map(part => part.replace(':', ' -')) // Change colon to dash
+    try {
+      // Try parsing as JSON to handle numeric-keyed objects like {"0": "Public Sewer", "1": "..."}
+      const parsed = JSON.parse(rawValue);
+      if (typeof parsed === 'object' && parsed !== null) {
+        return Object.values(parsed)
+          .filter(v => v !== null && v !== undefined && v !== '')
+          .map(v => String(v))
           .join(', ');
       }
-
-      // Strip any remaining brackets or quotes globally as requested
-      const cleaned = finalString.replace(/[{}|[\]"]/g, '').trim();
-      
-      if (!cleaned) return null;
-
-      return (
-        <div key={label} className="py-1 text-base">
-          <span className="font-bold text-gray-800">{label}:</span> <span className="text-gray-700">{cleaned}</span>
-        </div>
-      );
+    } catch (e) {
+      // Not JSON, return as is
     }
+    return rawValue;
+  };
+
+  const renderFact = (label: string, value: any, isComplex: boolean = false) => {
+    const displayValue = isComplex ? parseComplexFact(value) : (value === undefined || value === null || value === '' || value === 'null' ? '' : String(value));
+    if (!displayValue || displayValue.toLowerCase() === 'null') return null;
+
+    // Explicitly skipping Rooms as requested previously
+    if (label === 'Rooms') return null;
 
     return (
       <div key={label} className="py-1 text-base">
@@ -63,13 +42,19 @@ const PropertyFacts: React.FC<Props> = ({ facts }) => {
   };
 
   return (
-    <div className="bg-white px-8 py-8 rounded-b-xl border-x border-b border-gray-200">
+    <div className="bg-white px-8 py-6 border-x border-gray-100">
+      <div className="flex items-center text-base font-bold text-gray-700 mb-6 border-b border-gray-50 pb-3">
+        <i className="fa-solid fa-gears text-gray-400 mr-3"></i>
+        Structural & Technical Specifications
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-2">
         {/* Column 1 */}
         <div className="space-y-1">
           {renderFact('Flooring', facts.flooring)}
           {renderFact('Foundation Details', facts.foundationDetails)}
-          {renderFact('Rooms', facts.rooms)}
+          {renderFact('Sewer', facts.sewer, true)}
+          {renderFact('Utilities', facts.utilities, true)}
+          {renderFact('Water Source', facts.waterSource, true)}
           {renderFact('Fees And Dues', facts.feesAndDues)}
           {renderFact('Exterior Features', facts.exteriorFeatures)}
           {renderFact('Architectural Style', facts.architecturalStyle)}
