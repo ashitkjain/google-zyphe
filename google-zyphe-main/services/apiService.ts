@@ -1,5 +1,6 @@
-import { PropertyData, RadarGeocodeResponse } from "../types.ts";
-import { savePropertyToCloud, getPropertyByAddress } from "./firebaseService.ts";
+
+import { PropertyData, RadarGeocodeResponse } from "../types";
+import { savePropertyToCloud, getPropertyByAddress } from "./firebaseService";
 
 const RAPID_API_KEY = process.env.RAPID_API_KEY || "ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f";
 const RAPID_API_HOST = process.env.RAPID_API_HOST || "us-housing-market-data1.p.rapidapi.com";

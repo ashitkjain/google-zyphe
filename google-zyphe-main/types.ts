@@ -1,12 +1,3 @@
-export interface UserProfile {
-  uid: string;
-  email: string;
-  displayName: string;
-  role: 'buyer' | 'seller' | 'realtor';
-  address?: string;
-  createdAt: any;
-}
-
 export interface PropertyData {
   zpid?: string;
   address: string;

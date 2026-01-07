@@ -1,5 +1,5 @@
-import { normalizeAddress, fetchPropertyData, fetchPropertyImages } from './apiService.ts';
-import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, AiResponseError } from './geminiService.ts';
+import { normalizeAddress, fetchPropertyData, fetchPropertyImages } from './apiService';
+import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, AiResponseError } from './geminiService';
 import { 
   savePropertyToCloud, 
   saveVisualAnalysisToCloud,
@@ -7,8 +7,8 @@ import {
   getPropertyByAddress,
   getVisualAnalysisFromCloud,
   getComprehensiveAnalysisFromCloud
-} from './firebaseService.ts';
-import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from '../types.ts';
+} from './firebaseService';
+import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from '../types';
 
 export interface PipelineProgress {
   step: string;

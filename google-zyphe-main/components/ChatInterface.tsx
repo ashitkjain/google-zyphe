@@ -34,13 +34,7 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
 
   // Re-initialize chat if the property changes or we start a new session
   const initChat = () => {
-    const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY) || "";
-    if (!apiKey) {
-      console.warn("Gemini API Key is missing. Chat functionality will be limited.");
-      return;
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     // Construct an exhaustive intelligence context
     const intelligenceContext = {
@@ -111,11 +105,6 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
 
     // Initialize session if not exists
     if (!chatSessionRef.current) initChat();
-
-    if (!chatSessionRef.current) {
-       setMessages(prev => [...prev, { role: 'assistant', content: "I'm sorry, I can't connect to my brain right now. Please ensure your API key is configured." }]);
-       return;
-    }
 
     const userMessage: Message = { role: 'user', content: text };
     setMessages(prev => [...prev, userMessage]);

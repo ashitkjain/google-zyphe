@@ -1,12 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult } from "../types.ts";
-import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/propertyAnalysis.ts";
-import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/neighborhoodAnalysis.ts";
-import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/communityPulse.ts";
-import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/propertyImages.ts";
-import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis.ts";
+import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult } from "../types";
+import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/propertyAnalysis";
+import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/neighborhoodAnalysis";
+import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/communityPulse";
+import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/propertyImages";
+import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis";
 
-// Single source of truth for the model name
+// Single source of truth for the model name as requested
 export const GEMINI_MODEL = 'gemini-2.5-flash';
 
 // Custom error to pass raw response back for logging
@@ -19,15 +19,7 @@ export class AiResponseError extends Error {
   }
 }
 
-// Lazy initialization of the Gemini API client to handle environments without process.env
-let aiInstance: GoogleGenAI | null = null;
-const getAi = () => {
-  if (!aiInstance) {
-    const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY) || "";
-    aiInstance = new GoogleGenAI({ apiKey });
-  }
-  return aiInstance;
-};
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
  * Robust JSON extraction helper that handles markdown code blocks,
@@ -38,6 +30,7 @@ function extractJson<T>(text: string | undefined): T {
   
   const cleaned = text.trim();
   
+  // Helper to attempt parsing
   const tryParse = (str: string) => {
     try {
       return JSON.parse(str);
@@ -46,15 +39,18 @@ function extractJson<T>(text: string | undefined): T {
     }
   };
 
+  // 1. Direct attempt
   let result = tryParse(cleaned);
   if (result) return result;
 
+  // 2. Try to extract from markdown code blocks
   const match = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (match && match[1]) {
     result = tryParse(match[1].trim());
     if (result) return result;
   }
   
+  // 3. Try to find the first '{' and last '}' (Object)
   const firstBrace = cleaned.indexOf('{');
   const lastBrace = cleaned.lastIndexOf('}');
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
@@ -62,6 +58,7 @@ function extractJson<T>(text: string | undefined): T {
     if (result) return result;
   }
 
+  // 4. Try to find the first '[' and last ']' (Array)
   const firstBracket = cleaned.indexOf('[');
   const lastBracket = cleaned.lastIndexOf(']');
   if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
@@ -88,7 +85,6 @@ async function urlToBase64(url: string): Promise<{ data: string, mimeType: strin
 
 export const analyzeProperty = async (property: PropertyData): Promise<AIAnalysisResult> => {
   const prompt = getPropertyAnalysisPrompt(property);
-  const ai = getAi();
   const response = await ai.models.generateContent({
     model: GEMINI_MODEL,
     contents: prompt,
@@ -104,7 +100,6 @@ export const analyzeProperty = async (property: PropertyData): Promise<AIAnalysi
 export const analyzeNeighborhood = async (mapImageUrl: string, property: PropertyData): Promise<NeighborhoodAnalysis> => {
   const { data, mimeType } = await urlToBase64(mapImageUrl);
   const prompt = getNeighborhoodAnalysisPrompt(property);
-  const ai = getAi();
   
   const response = await ai.models.generateContent({
     model: GEMINI_MODEL,
@@ -125,7 +120,6 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
 
 export const analyzeCommunityPulse = async (property: PropertyData): Promise<CommunityPulseResult> => {
   const prompt = getCommunityPulsePrompt(property);
-  const ai = getAi();
   const response = await ai.models.generateContent({
     model: GEMINI_MODEL,
     contents: prompt,
@@ -140,7 +134,6 @@ export const analyzeCommunityPulse = async (property: PropertyData): Promise<Com
 export const analyzePropertyImages = async (imageUrls: string[], property: PropertyData): Promise<CustomAIAnalysisResult> => {
   const selectedImages = imageUrls.slice(0, 15);
   const hasImages = selectedImages.length > 0;
-  const ai = getAi();
 
   const imageParts = await Promise.all(selectedImages.map(async (url) => {
     const { data, mimeType } = await urlToBase64(url);
@@ -165,7 +158,6 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
 
 export const analyzeComprehensive = async (property: PropertyData, visual: CustomAIAnalysisResult): Promise<ComprehensiveAnalysisResult> => {
   const prompt = getComprehensiveAnalysisPrompt(property, visual);
-  const ai = getAi();
   const response = await ai.models.generateContent({
     model: GEMINI_MODEL,
     contents: prompt,

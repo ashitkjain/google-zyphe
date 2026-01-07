@@ -1,4 +1,4 @@
-import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { 
   getFirestore, 
   doc, 
@@ -9,19 +9,21 @@ import {
   where, 
   getDocs,
   limit,
-  serverTimestamp,
-  Firestore
+  serverTimestamp 
 } from "firebase/firestore";
-import { 
-  getAuth, 
-  GoogleAuthProvider, 
-  Auth,
-  onAuthStateChanged,
-} from "firebase/auth";
-import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile } from "../types.ts";
+import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from "../types";
+
+/**
+ * Zyphe Firebase Configuration
+ */
+const getSafeApiKey = (): string => {
+  // Use the default key provided by the user
+  const key = "AIzaSyDtYf5fFDgCsLK8ndaVXQmJcfv2c5ogcfQ";
+  return key;
+};
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAj8uT4osd5uUrG-ZdXKZyFxtceYAbww8w",
+  apiKey: getSafeApiKey(),
   authDomain: "zyphe-af0bf.firebaseapp.com",
   projectId: "zyphe-af0bf",
   storageBucket: "zyphe-af0bf.firebasestorage.app",
@@ -29,65 +31,9 @@ const firebaseConfig = {
   appId: "1:365448651061:web:8d297a7e3713606f363065"
 };
 
-// Initialize Firebase App
-let app: FirebaseApp;
-try {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-} catch (e) {
-  console.error("Firebase App initialization failed:", e);
-}
-
-// Initialize Firestore with safety
-let db: Firestore | null = null;
-try {
-  if (app!) db = getFirestore(app);
-} catch (e) {
-  console.error("Firestore service initialization failed (it might be blocked by an ad-blocker):", e);
-}
-
-// Initialize Auth with safety
-let authInstance: Auth | null = null;
-try {
-  if (app!) authInstance = getAuth(app);
-} catch (e) {
-  console.error("Auth service initialization failed:", e);
-}
-
-export const db_instance = db;
-export const auth = authInstance!;
-export const googleProvider = new GoogleAuthProvider();
-
 /**
- * User Profile Management
+ * Utility to sanitize data for Firestore.
  */
-export const saveUserProfile = async (uid: string, profile: Partial<UserProfile>) => {
-  if (!db) return false;
-  try {
-    const userRef = doc(db, "users", uid);
-    await setDoc(userRef, {
-      ...profile,
-      uid,
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-    return true;
-  } catch (error) {
-    console.error("Error saving user profile:", error);
-    throw error;
-  }
-};
-
-export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
-  if (!db) return null;
-  try {
-    const userRef = doc(db, "users", uid);
-    const snap = await getDoc(userRef);
-    return snap.exists() ? (snap.data() as UserProfile) : null;
-  } catch (error) {
-    console.error("Error getting user profile:", error);
-    return null;
-  }
-};
-
 const sanitizeForFirestore = (data: any): any => {
   if (data === undefined || data === null) return null;
   if (Array.isArray(data)) return data.map(sanitizeForFirestore);
@@ -100,8 +46,14 @@ const sanitizeForFirestore = (data: any): any => {
   return data;
 };
 
+// Initialize Firebase App instance
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+export const db = getFirestore(app);
+
+/**
+ * TABLE: properties
+ */
 export const savePropertyToCloud = async (zpid: string, data: Partial<PropertyData>) => {
-  if (!db) return false;
   try {
     const docRef = doc(db, "properties", zpid);
     const sanitized = sanitizeForFirestore(data);
@@ -111,13 +63,16 @@ export const savePropertyToCloud = async (zpid: string, data: Partial<PropertyDa
     }, { merge: true });
     return true;
   } catch (error: any) {
-    console.error("Firestore Save Error (properties):", error);
+    if (error.code === 'permission-denied') {
+      console.warn("Firestore Permission Denied: Please set Rules to 'allow read, write: if true;' in Firebase Console.");
+    } else {
+      console.error("Firestore Save Error (properties):", error);
+    }
     return false;
   }
 };
 
 export const getPropertyFromCloud = async (zpid: string): Promise<PropertyData | null> => {
-  if (!db) return null;
   try {
     const docRef = doc(db, "properties", zpid);
     const docSnap = await getDoc(docRef);
@@ -126,12 +81,12 @@ export const getPropertyFromCloud = async (zpid: string): Promise<PropertyData |
     }
     return null;
   } catch (error: any) {
+    console.debug("Cloud Cache unavailable (Permission Denied)");
     return null;
   }
 };
 
 export const getPropertyByAddress = async (address: string): Promise<PropertyData | null> => {
-  if (!db) return null;
   try {
     const q = query(
       collection(db, "properties"), 
@@ -144,12 +99,15 @@ export const getPropertyByAddress = async (address: string): Promise<PropertyDat
     }
     return null;
   } catch (error: any) {
+    console.debug("Cloud Search unavailable (Permission Denied)");
     return null;
   }
 };
 
+/**
+ * TABLE: property_analyses_visual
+ */
 export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAIAnalysisResult) => {
-  if (!db) return false;
   try {
     const docRef = doc(db, "property_analyses_visual", zpid);
     await setDoc(docRef, {
@@ -163,7 +121,6 @@ export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAI
 };
 
 export const getVisualAnalysisFromCloud = async (zpid: string): Promise<CustomAIAnalysisResult | null> => {
-  if (!db) return null;
   try {
     const docRef = doc(db, "property_analyses_visual", zpid);
     const docSnap = await getDoc(docRef);
@@ -173,8 +130,10 @@ export const getVisualAnalysisFromCloud = async (zpid: string): Promise<CustomAI
   }
 };
 
+/**
+ * TABLE: property_analyses_comprehensive
+ */
 export const saveComprehensiveAnalysisToCloud = async (zpid: string, analysis: ComprehensiveAnalysisResult) => {
-  if (!db) return false;
   try {
     const docRef = doc(db, "property_analyses_comprehensive", zpid);
     await setDoc(docRef, {
@@ -188,7 +147,6 @@ export const saveComprehensiveAnalysisToCloud = async (zpid: string, analysis: C
 };
 
 export const getComprehensiveAnalysisFromCloud = async (zpid: string): Promise<ComprehensiveAnalysisResult | null> => {
-  if (!db) return null;
   try {
     const docRef = doc(db, "property_analyses_comprehensive", zpid);
     const docSnap = await getDoc(docRef);
@@ -198,8 +156,10 @@ export const getComprehensiveAnalysisFromCloud = async (zpid: string): Promise<C
   }
 };
 
+/**
+ * Activity Logging
+ */
 export const logUserActivity = async (sessionId: string, address: string) => {
-  if (!db) return;
   try {
     const activityRef = doc(collection(db, "user_activity"));
     await setDoc(activityRef, {

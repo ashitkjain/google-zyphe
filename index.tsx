@@ -1,15 +1,23 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App';
+import App from './App.tsx';
 
 const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
-}
 
-const root = createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+if (!rootElement) {
+  console.error("Critical Failure: Root element not found in DOM.");
+} else {
+  try {
+    const root = createRoot(rootElement);
+    root.render(
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>
+    );
+  } catch (err) {
+    console.error("Render Error:", err);
+    if (rootElement) {
+      rootElement.innerHTML = `<div style="padding: 20px; color: red; font-family: sans-serif;">Failed to render application. Check console for details.</div>`;
+    }
+  }
+}

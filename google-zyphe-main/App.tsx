@@ -1,51 +1,38 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { 
-  PropertyData, 
-  CustomAIAnalysisResult, 
-  ComprehensiveAnalysisResult, 
-  LogEntry,
-  UserProfile
-} from './types.ts';
-import { normalizeAddress, fetchPropertyData, fetchPropertyImages } from './services/apiService.ts';
-import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, AiResponseError } from './services/geminiService.ts';
+import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogEntry } from './types';
+import { normalizeAddress, fetchPropertyData, fetchPropertyImages } from './services/apiService';
+import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, AiResponseError } from './services/geminiService';
 import { 
   logUserActivity, 
   saveVisualAnalysisToCloud,
   saveComprehensiveAnalysisToCloud,
   getVisualAnalysisFromCloud,
-  getComprehensiveAnalysisFromCloud,
-  auth,
-  getUserProfile
-} from './services/firebaseService.ts';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import PropertyHeader from './components/PropertyHeader.tsx';
-import TablesSection from './components/TablesSection.tsx';
-import PropertyFacts from './components/PropertyFacts.tsx';
-import CustomAIAnalysis from './components/CustomAIAnalysis.tsx';
-import ComprehensiveAnalysis from './components/ComprehensiveAnalysis.tsx';
-import PropertyImages from './components/PropertyImages.tsx';
-import PropertyMaps from './components/PropertyMaps.tsx';
-import SystemLogs from './components/SystemLogs.tsx';
-import PreloadManager from './components/PreloadManager.tsx';
-import ChatInterface from './components/ChatInterface.tsx';
-import Logo from './components/Logo.tsx';
-import AuthModal from './components/AuthModal.tsx';
+  getComprehensiveAnalysisFromCloud
+} from './services/firebaseService';
+import PropertyHeader from './components/PropertyHeader';
+import TablesSection from './components/TablesSection';
+import PropertyFacts from './components/PropertyFacts';
+import CustomAIAnalysis from './components/CustomAIAnalysis';
+import ComprehensiveAnalysis from './components/ComprehensiveAnalysis';
+import PropertyImages from './components/PropertyImages';
+import PropertyMaps from './components/PropertyMaps';
+import SystemLogs from './components/SystemLogs';
+import PreloadManager from './components/PreloadManager';
+import ChatInterface from './components/ChatInterface';
+import Logo from './components/Logo';
 
 type ViewMode = 'main' | 'visual-report' | 'comprehensive-report';
 
 const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('zyphe_search_history');
-      if (saved) {
+    const saved = localStorage.getItem('zyphe_search_history');
+    if (saved) {
+      try {
         const history = JSON.parse(saved);
         return Array.isArray(history) ? history : [];
+      } catch (e) {
+        return [];
       }
-    } catch (e) {
-      console.warn("Storage access not available:", e);
     }
     return [];
   });
@@ -66,22 +53,6 @@ const App: React.FC = () => {
   const historyRef = useRef<HTMLDivElement>(null);
 
   const sessionId = useMemo(() => Math.random().toString(36).substring(2, 15), []);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          const profile = await getUserProfile(user.uid);
-          setCurrentUser(profile);
-        } catch (e) {
-          console.error("Profile load failed", e);
-        }
-      } else {
-        setCurrentUser(null);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -105,9 +76,7 @@ const App: React.FC = () => {
     setSearchHistory(prev => {
       const filtered = prev.filter(item => item.toLowerCase() !== newAddress.toLowerCase());
       const newHistory = [newAddress, ...filtered].slice(0, 10);
-      try {
-        localStorage.setItem('zyphe_search_history', JSON.stringify(newHistory));
-      } catch (e) {}
+      localStorage.setItem('zyphe_search_history', JSON.stringify(newHistory));
       return newHistory;
     });
   };
@@ -178,6 +147,7 @@ const App: React.FC = () => {
   const handleRunCustomAnalysis = async (force = false) => {
     if (!propertyData) return;
     
+    // If analysis already exists and we are not forcing a refresh, just switch the view
     if (customAnalysis && !force) {
       setViewMode('visual-report');
       return;
@@ -213,6 +183,7 @@ const App: React.FC = () => {
   const handleRunComprehensive = async (force = false) => {
     if (!propertyData || !customAnalysis) return;
 
+    // If comprehensive analysis already exists and we are not forcing, just switch view
     if (comprehensiveAnalysis && !force) {
       setViewMode('comprehensive-report');
       return;
@@ -239,7 +210,6 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
-      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
       
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50 py-2 shadow-sm backdrop-blur-md bg-white/90">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -269,7 +239,7 @@ const App: React.FC = () => {
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-[60] animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recent Searches</span>
-                    <button onClick={() => { setSearchHistory([]); try { localStorage.removeItem('zyphe_search_history'); } catch(e){} }} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-800">Clear</button>
+                    <button onClick={() => setSearchHistory([])} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-800">Clear</button>
                   </div>
                   {searchHistory.map((item, idx) => (
                     <button key={idx} onClick={() => handleHistoryItemClick(item)} className="w-full px-5 py-3.5 text-left flex items-center gap-4 hover:bg-indigo-50 transition-colors border-b border-slate-50 last:border-0">
@@ -281,35 +251,10 @@ const App: React.FC = () => {
               )}
             </div>
             
-            <div className="flex items-center gap-3">
-              <button onClick={() => setShowPreload(true)} className="px-4 py-2 bg-slate-800 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-700 transition-all shadow-lg active:scale-95 flex items-center gap-2">
-                <i className="fa-solid fa-bolt"></i>
-                Pipeline
-              </button>
-
-              {currentUser ? (
-                <div className="flex items-center gap-3 pl-3 border-l border-slate-100">
-                  <div className="text-right hidden sm:block">
-                    <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight leading-none">{currentUser.displayName}</p>
-                    <p className="text-[9px] font-bold text-indigo-600 uppercase tracking-widest mt-0.5">{currentUser.role}</p>
-                  </div>
-                  <button 
-                    onClick={() => signOut(auth)}
-                    className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-100 transition-all flex items-center justify-center group"
-                    title="Sign Out"
-                  >
-                    <i className="fa-solid fa-power-off text-sm group-hover:rotate-12 transition-transform"></i>
-                  </button>
-                </div>
-              ) : (
-                <button 
-                  onClick={() => setAuthModalOpen(true)}
-                  className="px-6 py-2.5 bg-white border-2 border-slate-100 hover:border-indigo-600 text-slate-700 hover:text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm"
-                >
-                  Sign In
-                </button>
-              )}
-            </div>
+            <button onClick={() => setShowPreload(true)} className="px-4 py-2 bg-slate-800 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-700 transition-all shadow-lg active:scale-95 flex items-center gap-2">
+              <i className="fa-solid fa-bolt"></i>
+              Pipeline
+            </button>
           </div>
         </div>
       </header>
@@ -372,7 +317,7 @@ const App: React.FC = () => {
                   { title: 'For Realtors', icon: 'fa-briefcase', color: 'indigo', desc: 'Generate professional multi-source reports and compelling marketing copy in seconds.' }
                 ].map((item, i) => (
                   <div key={i} className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 hover:-translate-y-2 transition-all group">
-                    <div className={`w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
+                    <div className={`w-14 h-14 rounded-2xl bg-${item.color}-50 text-${item.color}-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
                       <i className={`fa-solid ${item.icon} text-2xl`}></i>
                     </div>
                     <h3 className="text-xl font-black text-slate-900 mb-4">{item.title}</h3>
