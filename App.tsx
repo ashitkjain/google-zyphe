@@ -77,9 +77,28 @@ const App: React.FC = () => {
       if (user) {
         try {
           const profile = await getUserProfile(user.uid);
-          setCurrentUser(profile);
+          if (profile) {
+            setCurrentUser(profile);
+          } else {
+            // Fallback to basic auth info if Firestore profile isn't indexed yet
+            setCurrentUser({
+              uid: user.uid,
+              email: user.email || '',
+              displayName: user.displayName || 'User',
+              role: 'buyer',
+              createdAt: new Date()
+            });
+          }
         } catch (e) {
           console.error("Profile load failed", e);
+          // Maintain login state with auth fallback
+          setCurrentUser({
+            uid: user.uid,
+            email: user.email || '',
+            displayName: user.displayName || 'User',
+            role: 'buyer',
+            createdAt: new Date()
+          });
         }
       } else {
         setCurrentUser(null);
@@ -241,12 +260,43 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSignOut = async () => {
+    if (auth) {
+      try {
+        await signOut(auth);
+        setCurrentUser(null);
+      } catch (err) {
+        console.error("Sign out failed", err);
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
       <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
       
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 py-2 shadow-sm backdrop-blur-md bg-white/90">
+      {/* Visual confirmation of signed-in user at the absolute top */}
+      {currentUser && (
+        <div className="bg-slate-900 text-white py-2 px-4 shadow-inner border-b border-white/5 relative z-[60]">
+          <div className="max-w-7xl mx-auto flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em]">
+            <div className="flex items-center gap-3">
+              <span className="opacity-40">Intelligence Access:</span>
+              <span className="text-indigo-400">{currentUser.displayName}</span>
+              <span className="hidden sm:inline opacity-20">|</span>
+              <span className="hidden sm:inline opacity-40">{currentUser.role} Account</span>
+            </div>
+            <button 
+              onClick={handleSignOut}
+              className="text-rose-400 hover:text-white transition-colors flex items-center gap-2 group"
+            >
+              Sign Out <i className="fa-solid fa-arrow-right-from-bracket group-hover:translate-x-1 transition-transform"></i>
+            </button>
+          </div>
+        </div>
+      )}
+
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 py-3 shadow-sm backdrop-blur-md bg-white/90">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center cursor-pointer scale-75 md:scale-90 origin-left" onClick={() => setViewMode('main')}>
@@ -294,18 +344,18 @@ const App: React.FC = () => {
 
               {currentUser ? (
                 <div className="flex items-center gap-3 pl-3 border-l border-slate-100">
-                  <div className="text-right hidden sm:block">
-                    <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight leading-none">{currentUser.displayName}</p>
-                    <p className="text-[9px] font-bold text-indigo-600 uppercase tracking-widest mt-0.5">{currentUser.role}</p>
+                  <div className="flex flex-col items-end">
+                    <span className="text-[11px] font-black text-slate-900 uppercase tracking-tight leading-none">{currentUser.displayName}</span>
+                    <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-[0.1em] mt-1">{currentUser.role}</span>
                   </div>
+                  <div className="h-10 w-px bg-slate-100 mx-1"></div>
                   <button 
-                    onClick={() => {
-                      if (auth) signOut(auth);
-                    }}
-                    className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-100 transition-all flex items-center justify-center group"
+                    onClick={handleSignOut}
+                    className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-100 rounded-xl transition-all group"
                     title="Sign Out"
                   >
-                    <i className="fa-solid fa-power-off text-sm group-hover:rotate-12 transition-transform"></i>
+                    <span className="text-[9px] font-black uppercase tracking-widest hidden sm:inline">Logout</span>
+                    <i className="fa-solid fa-power-off text-xs group-hover:rotate-12 transition-transform"></i>
                   </button>
                 </div>
               ) : (

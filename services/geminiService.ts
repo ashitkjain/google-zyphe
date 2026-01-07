@@ -7,7 +7,7 @@ import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/proper
 import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis.ts";
 
 // Fix: Using gemini-3-pro-preview for complex reasoning and property analysis tasks
-export const GEMINI_MODEL = 'gemini-3-pro-preview';
+export const GEMINI_MODEL = 'gemini-2.5-flash';
 
 // Custom error to pass raw response back for logging
 export class AiResponseError extends Error {
