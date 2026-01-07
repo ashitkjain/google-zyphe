@@ -4,7 +4,6 @@ import { normalizeAddress, fetchPropertyData, fetchPropertyImages } from './serv
 import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, AiResponseError } from './services/geminiService';
 import { 
   logUserActivity, 
-  savePropertyToCloud, 
   saveVisualAnalysisToCloud,
   saveComprehensiveAnalysisToCloud,
   getVisualAnalysisFromCloud,
@@ -19,6 +18,7 @@ import PropertyImages from './components/PropertyImages';
 import PropertyMaps from './components/PropertyMaps';
 import SystemLogs from './components/SystemLogs';
 import PreloadManager from './components/PreloadManager';
+import ChatInterface from './components/ChatInterface';
 import Logo from './components/Logo';
 
 type ViewMode = 'main' | 'visual-report' | 'comprehensive-report';
@@ -144,13 +144,20 @@ const App: React.FC = () => {
     }
   };
 
-  const handleRunCustomAnalysis = async () => {
+  const handleRunCustomAnalysis = async (force = false) => {
     if (!propertyData) return;
+    
+    // If analysis already exists and we are not forcing a refresh, just switch the view
+    if (customAnalysis && !force) {
+      setViewMode('visual-report');
+      return;
+    }
+
     setCustomAnalysisLoading(true);
     setViewMode('visual-report');
     
     try {
-      addLog('Gemini AI', 'request', { task: 'visual_analysis' });
+      addLog('Gemini AI', 'request', { task: 'visual_analysis', forced: force });
       const result = await analyzePropertyImages(propertyData.images || [], propertyData);
       
       if (propertyData.mapZoomOut) {
@@ -173,13 +180,20 @@ const App: React.FC = () => {
     }
   };
 
-  const handleRunComprehensive = async () => {
+  const handleRunComprehensive = async (force = false) => {
     if (!propertyData || !customAnalysis) return;
+
+    // If comprehensive analysis already exists and we are not forcing, just switch view
+    if (comprehensiveAnalysis && !force) {
+      setViewMode('comprehensive-report');
+      return;
+    }
+
     setComprehensiveLoading(true);
     setViewMode('comprehensive-report');
 
     try {
-      addLog('Gemini AI', 'request', { task: 'comprehensive_analysis' });
+      addLog('Gemini AI', 'request', { task: 'comprehensive_analysis', forced: force });
       const result = await analyzeComprehensive(propertyData, customAnalysis);
       setComprehensiveAnalysis(result);
       addLog('Gemini AI', 'response', result);
@@ -272,9 +286,12 @@ const App: React.FC = () => {
                      {propertyData.homeType?.replace('_', ' ')} • Built in {propertyData.yearBuilt}
                    </p>
                 </div>
-                <button onClick={handleRunCustomAnalysis} className="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-indigo-700 to-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-200 hover:scale-[1.05] active:scale-95 transition-all flex items-center justify-center gap-3">
-                  <i className="fa-solid fa-wand-magic-sparkles"></i>
-                  Generate AI Intelligence
+                <button 
+                  onClick={() => handleRunCustomAnalysis(false)} 
+                  className="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-indigo-700 to-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-200 hover:scale-[1.05] active:scale-95 transition-all flex items-center justify-center gap-3"
+                >
+                  <i className={`fa-solid ${customAnalysis ? 'fa-eye' : 'fa-wand-magic-sparkles'}`}></i>
+                  {customAnalysis ? 'View AI Intelligence' : 'Generate AI Intelligence'}
                 </button>
               </div>
 
@@ -295,7 +312,7 @@ const App: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {[
-                  { title: 'For Buyers', icon: 'fa-shopping-bag', color: 'indigo', desc: 'Identify hidden risks, school quality, and lifestyle suitability before you make an offer.' },
+                  { title: 'For Buyers', icon: 'fa-shopping-bag', color: 'indigo', desc: "Navigate the market with unmatched clarity. Our AI cross-references public records, maps and property pictures, and resident sentiment to uncover hidden structural risks, neighborhood, community pulse on what people like and don't, and score lifestyle compatibility for your family." },
                   { title: 'For Sellers', icon: 'fa-money-bill-trend-up', color: 'slate', desc: 'Discover how to maximize your home value with AI-driven staging and market insights.' },
                   { title: 'For Realtors', icon: 'fa-briefcase', color: 'indigo', desc: 'Generate professional multi-source reports and compelling marketing copy in seconds.' }
                 ].map((item, i) => (
@@ -315,8 +332,8 @@ const App: React.FC = () => {
             analysis={customAnalysis} 
             loading={customAnalysisLoading} 
             onBack={() => setViewMode('main')} 
-            onRefresh={handleRunCustomAnalysis} 
-            onRunComprehensive={handleRunComprehensive} 
+            onRefresh={() => handleRunCustomAnalysis(true)} 
+            onRunComprehensive={() => handleRunComprehensive(false)} 
             comprehensiveResult={comprehensiveAnalysis} 
             hasImages={(propertyData?.images?.length || 0) > 0} 
           />
@@ -342,6 +359,14 @@ const App: React.FC = () => {
           </div>
         </div>
       </footer>
+
+      {propertyData && (
+        <ChatInterface 
+          property={propertyData} 
+          visual={customAnalysis} 
+          comprehensive={comprehensiveAnalysis} 
+        />
+      )}
     </div>
   );
 };

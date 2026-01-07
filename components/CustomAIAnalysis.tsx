@@ -88,7 +88,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
     return (
       <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col transition-all hover:shadow-xl hover:-translate-y-1">
         <div className="flex items-center gap-4 mb-6">
-          <div className={`w-12 h-12 rounded-2xl bg-${color}-50 flex items-center justify-center text-${color}-600`}>
+          <div className={`w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600`}>
             <i className={`fa-solid ${icon} text-xl`}></i>
           </div>
           <h4 className="text-xl font-black text-gray-900 tracking-tight">{title}</h4>
@@ -97,7 +97,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
         <ul className="space-y-3 mb-4 flex-1">
           {data.points?.map((pt, i) => (
             <li key={i} className="flex gap-3 text-gray-600 text-sm leading-relaxed">
-              <span className={`w-1.5 h-1.5 rounded-full bg-${color}-400 mt-2 flex-shrink-0`}></span>
+              <span className={`w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 flex-shrink-0`}></span>
               {pt}
             </li>
           ))}
@@ -245,15 +245,67 @@ const CustomAIAnalysis: React.FC<Props> = ({
         )}
 
         {activeTab === 'exterior' && (
-          <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-4xl mx-auto">
+          <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-4xl mx-auto space-y-8">
              {!exterior_and_neighborhood?.exterior_and_lot_appeal?.architecture_style ? (
               <EmptyState section="Exterior" />
             ) : (
-              <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-10">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Architecture & Curb Appeal</h3>
-                  <p className="text-gray-600 text-base leading-relaxed">{exterior_and_neighborhood.exterior_and_lot_appeal.architecture_style}</p>
+              <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
+                {/* Lot & Architecture */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3">
+                    <i className="fa-solid fa-house-chimney text-indigo-600"></i>
+                    <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Exterior & Lot Appeal</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Architectural Style</h4>
+                      <p className="text-gray-600 text-sm leading-relaxed">{exterior_and_neighborhood.exterior_and_lot_appeal.architecture_style}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Curb Appeal</h4>
+                      <p className="text-gray-600 text-sm leading-relaxed">{exterior_and_neighborhood.exterior_and_lot_appeal.curb_appeal}</p>
+                    </div>
+                    <div className="col-span-full space-y-2">
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Backyard & Outdoor Living</h4>
+                      <p className="text-gray-600 text-sm leading-relaxed">{exterior_and_neighborhood.exterior_and_lot_appeal.backyard_and_patio}</p>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Views & Privacy */}
+                {exterior_and_neighborhood.views_privacy_orientation && (
+                  <div className="pt-10 border-t border-gray-50 space-y-6">
+                    <div className="flex items-center gap-3">
+                      <i className="fa-solid fa-compass text-indigo-600"></i>
+                      <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Views, Privacy & Orientation</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                      <div className="space-y-2">
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scenic Views</h4>
+                        <p className="text-gray-600 text-sm leading-relaxed">{exterior_and_neighborhood.views_privacy_orientation.views}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sun Exposure</h4>
+                        <p className="text-gray-600 text-sm leading-relaxed">{exterior_and_neighborhood.views_privacy_orientation.orientation}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Privacy Level</h4>
+                        <p className="text-gray-600 text-sm leading-relaxed">{exterior_and_neighborhood.views_privacy_orientation.privacy}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Street Level Insights */}
+                {exterior_and_neighborhood.neighborhood_street_insights && (
+                  <div className="pt-10 border-t border-gray-50 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <i className="fa-solid fa-road text-indigo-600"></i>
+                      <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Street-Level Insights</h3>
+                    </div>
+                    <p className="text-gray-600 text-sm leading-relaxed italic">{exterior_and_neighborhood.neighborhood_street_insights}</p>
+                  </div>
+                )}
               </div>
             )}
           </section>
@@ -267,6 +319,36 @@ const CustomAIAnalysis: React.FC<Props> = ({
                   <h3 className="text-lg font-black text-gray-900 uppercase tracking-wide">Neighborhood Context</h3>
                   <p className="text-gray-600 text-base leading-relaxed">{neighborhood.overview}</p>
                 </div>
+                
+                {neighborhood.neighborhood_features && (
+                  <div className="pt-10 border-t border-gray-50 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+                    {Object.entries(neighborhood.neighborhood_features).map(([key, value]) => {
+                      if (!value || key === 'general') return null;
+                      const label = key
+                        .split('_')
+                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(' ');
+                      
+                      return (
+                        <div key={key} className="space-y-2">
+                          <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
+                            <span className="w-1 h-1 rounded-full bg-indigo-600"></span>
+                            {label}
+                          </h4>
+                          <p className="text-gray-600 text-sm leading-relaxed">{value as string}</p>
+                        </div>
+                      );
+                    })}
+                    {neighborhood.neighborhood_features.general && (
+                      <div className="col-span-1 md:col-span-2 space-y-2 pt-4">
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Additional Spatial Notes</h4>
+                        <p className="text-gray-500 text-sm italic leading-relaxed">
+                          {neighborhood.neighborhood_features.general}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <EmptyState section="Neighborhood" />

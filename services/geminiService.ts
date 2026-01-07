@@ -7,7 +7,7 @@ import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/proper
 import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis";
 
 // Single source of truth for the model name as requested
-const MODEL_NAME = 'gemini-2.5-flash';
+export const GEMINI_MODEL = 'gemini-2.5-flash';
 
 // Custom error to pass raw response back for logging
 export class AiResponseError extends Error {
@@ -86,7 +86,7 @@ async function urlToBase64(url: string): Promise<{ data: string, mimeType: strin
 export const analyzeProperty = async (property: PropertyData): Promise<AIAnalysisResult> => {
   const prompt = getPropertyAnalysisPrompt(property);
   const response = await ai.models.generateContent({
-    model: MODEL_NAME,
+    model: GEMINI_MODEL,
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -102,7 +102,7 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
   const prompt = getNeighborhoodAnalysisPrompt(property);
   
   const response = await ai.models.generateContent({
-    model: MODEL_NAME,
+    model: GEMINI_MODEL,
     contents: {
       parts: [
         { text: prompt },
@@ -121,7 +121,7 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
 export const analyzeCommunityPulse = async (property: PropertyData): Promise<CommunityPulseResult> => {
   const prompt = getCommunityPulsePrompt(property);
   const response = await ai.models.generateContent({
-    model: MODEL_NAME,
+    model: GEMINI_MODEL,
     contents: prompt,
     config: {
       tools: [{ googleSearch: {} }]
@@ -145,7 +145,7 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
     : `${getPropertyImagesPrompt(property)}\n\nNOTE: No photographs were provided for this property. Perform analysis based on detailed specifications.`;
 
   const response = await ai.models.generateContent({
-    model: MODEL_NAME,
+    model: GEMINI_MODEL,
     contents: { parts: [{ text: textInstruction }, ...imageParts] },
     config: { 
       responseMimeType: "application/json",
@@ -159,7 +159,7 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
 export const analyzeComprehensive = async (property: PropertyData, visual: CustomAIAnalysisResult): Promise<ComprehensiveAnalysisResult> => {
   const prompt = getComprehensiveAnalysisPrompt(property, visual);
   const response = await ai.models.generateContent({
-    model: MODEL_NAME,
+    model: GEMINI_MODEL,
     contents: prompt,
     config: {
       tools: [{ googleSearch: {} }],
