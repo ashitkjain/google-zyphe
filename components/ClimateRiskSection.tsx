@@ -36,49 +36,44 @@ const ClimateRiskSection: React.FC<Props> = ({ data }) => {
   };
 
   return (
-    <div className="bg-white border-x border-b border-gray-200 px-8 py-8 rounded-b-[2rem] shadow-sm">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center text-base font-bold text-gray-700">
-          <i className="fa-regular fa-shield-halved text-gray-400 mr-3"></i>
+    <div className="bg-white border-x border-gray-100 px-8 py-4">
+      <div className="flex items-center justify-between text-xs font-black text-gray-400 uppercase tracking-widest mb-3">
+        <div className="flex items-center">
+          <i className="fa-regular fa-shield-halved mr-2"></i>
           Climate Risk Assessment
         </div>
-        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
-          Actuarial Scoring
-        </span>
+        <div className="flex items-center gap-4">
+          <span className="hidden sm:inline opacity-50">Insurance Est: {data.annualHomeownersInsurance ? `$${data.annualHomeownersInsurance.toLocaleString()}/yr` : 'N/A'}</span>
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {risks.map((r, idx) => (
           <div 
             key={idx} 
-            className={`flex flex-col p-4 rounded-2xl border border-gray-100 transition-all hover:shadow-md ${getRiskBg(r.score)}`}
+            className={`flex items-center gap-3 p-3 rounded-xl border border-gray-50 transition-all hover:shadow-sm ${getRiskBg(r.score)}`}
           >
-            <div className="flex items-center justify-between mb-3">
-              <i className={`fa-solid ${r.icon} ${getRiskColor(r.score)} text-sm`}></i>
-              <span className={`text-[11px] font-black uppercase tracking-tight ${getRiskColor(r.score)}`}>
-                {getStatusLabel(r.score)}
-              </span>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-white shadow-sm ${getRiskColor(r.score)}`}>
+              <i className={`fa-solid ${r.icon} text-sm`}></i>
             </div>
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{r.type} Risk</span>
+            <div className="flex flex-col min-w-0">
               <div className="flex items-baseline gap-1">
-                <span className={`text-2xl font-black ${getRiskColor(r.score)}`}>
+                <span className={`text-lg font-black leading-none ${getRiskColor(r.score)}`}>
                   {r.score !== undefined ? r.score : '--'}
                 </span>
-                <span className="text-xs font-bold text-gray-400">/10</span>
+                <span className="text-[10px] font-bold text-gray-400">/10</span>
               </div>
+              <span className="text-[10px] font-black text-gray-500 uppercase tracking-tight truncate">
+                {r.type} • {getStatusLabel(r.score)}
+              </span>
             </div>
           </div>
         ))}
-      </div>
-      
-      <div className="mt-6 flex items-center justify-between text-[10px] text-gray-400 font-bold uppercase tracking-widest px-1">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Low</span>
-          <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Moderate</span>
-          <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Critical</span>
-        </div>
-        <span>Annual Insurance: {data.annualHomeownersInsurance ? `$${data.annualHomeownersInsurance.toLocaleString()}/yr` : 'N/A'}</span>
       </div>
     </div>
   );

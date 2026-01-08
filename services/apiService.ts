@@ -1,5 +1,6 @@
+
 import { PropertyData, RadarGeocodeResponse } from "../types.ts";
-import { savePropertyToCloud, getPropertyByAddress } from "./firebaseService.ts";
+import { savePropertyToCloud } from "./firebaseService.ts";
 
 const RAPID_API_KEY = process.env.RAPID_API_KEY || "ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f";
 const RAPID_API_HOST = process.env.RAPID_API_HOST || "us-housing-market-data1.p.rapidapi.com";
@@ -42,6 +43,7 @@ export const normalizeAddress = async (address: string): Promise<RadarGeocodeRes
       'Authorization': RADAR_API_KEY,
       'Content-Type': 'application/json',
     },
+    cache: 'no-store'
   });
 
   const geocodeData = await geocodeResponse.json();
@@ -85,11 +87,11 @@ export const fetchScores = async (zpid: string): Promise<{
         'x-rapidapi-host': RAPID_API_HOST,
         'x-rapidapi-key': RAPID_API_KEY,
       },
+      cache: 'no-store'
     });
     if (!response.ok) return {};
     const data = await response.json();
     
-    // Mapping based on user screenshot structure
     return {
       walkScore: extractNumericValue(data.walkScore?.walkscore),
       walkScoreDesc: data.walkScore?.description,
@@ -104,12 +106,63 @@ export const fetchScores = async (zpid: string): Promise<{
   }
 };
 
-export const fetchPropertyData = async (address: string, forceRefresh: boolean = false): Promise<PropertyData> => {
-  if (!forceRefresh) {
-    const cloudCached = await getPropertyByAddress(address);
-    if (cloudCached) return cloudCached as PropertyData;
-  }
+export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<string[]> => {
+  const url = `https://us-housing-market-data1.p.rapidapi.com/images?zpid=${zpid}`;
+  
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'x-rapidapi-host': RAPID_API_HOST,
+          'x-rapidapi-key': RAPID_API_KEY,
+        },
+        cache: 'no-store'
+      });
 
+      if (!response.ok) {
+        if (response.status === 429 && attempt < retries) {
+          // Rate limited, wait 1s before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          continue;
+        }
+        throw new Error(`Images API Error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      let images: any[] = [];
+      if (Array.isArray(data)) {
+        images = data;
+      } else if (data.images && Array.isArray(data.images)) {
+        images = data.images;
+      } else if (data.props?.images && Array.isArray(data.props.images)) {
+        images = data.props.images;
+      } else if (data.property?.images && Array.isArray(data.property.images)) {
+        images = data.property.images;
+      }
+
+      return images.map((img: any) => {
+        if (typeof img === 'string') return img;
+        if (typeof img === 'object' && img !== null) {
+          return img.url || img.uri || img.src || JSON.stringify(img);
+        }
+        return String(img);
+      }).filter(img => typeof img === 'string' && img.startsWith('http'));
+
+    } catch (e) {
+      if (attempt === retries) {
+        console.error(`Final attempt to fetch images failed for ZPID ${zpid}:`, e);
+        return [];
+      }
+      // Simple backoff
+      await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+    }
+  }
+  return [];
+};
+
+export const fetchPropertyData = async (address: string, forceRefresh: boolean = true): Promise<PropertyData> => {
   const url = `https://us-housing-market-data1.p.rapidapi.com/property?address=${encodeURIComponent(address)}`;
   const response = await fetch(url, {
     method: 'GET',
@@ -117,6 +170,7 @@ export const fetchPropertyData = async (address: string, forceRefresh: boolean =
       'x-rapidapi-host': RAPID_API_HOST,
       'x-rapidapi-key': RAPID_API_KEY,
     },
+    cache: 'no-store'
   });
 
   const data = await response.json();
@@ -169,7 +223,17 @@ export const fetchPropertyData = async (address: string, forceRefresh: boolean =
     }
   };
 
+  // Extract images from primary response if available
+  let images = data.images || data.props?.images || (data.properties && data.properties[0]?.images) || [];
+  
   if (mappedData.zpid) {
+    // If no images in primary response, fetch from dedicated images endpoint
+    if (!images || images.length === 0) {
+      images = await fetchPropertyImages(mappedData.zpid);
+    }
+    
+    mappedData.images = images;
+
     const scores = await fetchScores(mappedData.zpid);
     mappedData.walkScore = scores.walkScore;
     mappedData.walkScoreDesc = scores.walkScoreDesc;
@@ -179,45 +243,9 @@ export const fetchPropertyData = async (address: string, forceRefresh: boolean =
     mappedData.bikeScoreDesc = scores.bikeScoreDesc;
     
     savePropertyToCloud(mappedData.zpid, mappedData);
+  } else {
+    mappedData.images = images;
   }
 
   return mappedData;
-};
-
-export const fetchPropertyImages = async (zpid: string): Promise<string[]> => {
-  const url = `https://us-housing-market-data1.p.rapidapi.com/images?zpid=${zpid}`;
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'x-rapidapi-host': RAPID_API_HOST,
-        'x-rapidapi-key': RAPID_API_KEY,
-      },
-    });
-
-    if (!response.ok) return [];
-    const data = await response.json();
-    
-    let images: any[] = [];
-    if (Array.isArray(data)) {
-      images = data;
-    } else if (data.images && Array.isArray(data.images)) {
-      images = data.images;
-    } else if (data.props?.images && Array.isArray(data.props.images)) {
-      images = data.props.images;
-    } else if (data.property?.images && Array.isArray(data.property.images)) {
-      images = data.property.images;
-    }
-
-    return images.map((img: any) => {
-      if (typeof img === 'string') return img;
-      if (typeof img === 'object' && img !== null) {
-        return img.url || img.uri || img.src || JSON.stringify(img);
-      }
-      return String(img);
-    }).filter(img => typeof img === 'string' && img.startsWith('http'));
-  } catch (e) {
-    console.error("Error fetching images", e);
-    return [];
-  }
 };

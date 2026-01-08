@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult } from "../types.ts";
 import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/propertyAnalysis.ts";
@@ -6,8 +7,8 @@ import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/commun
 import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/propertyImages.ts";
 import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis.ts";
 
-// Upgrade to gemini-3-pro-preview for elite property intelligence and complex reasoning
-export const GEMINI_MODEL = 'gemini-3-pro-preview';
+// Never change the Gemini model without permission
+export const GEMINI_MODEL = 'gemini-2.5-flash';
 
 // Custom error to pass raw response back for logging
 export class AiResponseError extends Error {
@@ -30,13 +31,13 @@ const getAi = () => {
 };
 
 /**
- * Robust JSON extraction helper that handles markdown code blocks,
- * text preambles, and outermost structure identification.
+ * Robust JSON extraction helper that handles various formatting anomalies.
  */
 function extractJson<T>(text: string | undefined): T {
   if (!text) throw new AiResponseError("Empty response from AI", "");
   
-  const cleaned = text.trim();
+  // Remove zero-width spaces, BOM, and other non-printable chars that can break JSON.parse
+  let cleaned = text.replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
   
   const tryParse = (str: string) => {
     try {
@@ -46,27 +47,40 @@ function extractJson<T>(text: string | undefined): T {
     }
   };
 
+  // 1. Try direct parse
   let result = tryParse(cleaned);
   if (result) return result;
 
-  const match = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  if (match && match[1]) {
-    result = tryParse(match[1].trim());
-    if (result) return result;
+  // 2. Try to find content inside markdown code blocks
+  const markdownMatches = [...cleaned.matchAll(/```(?:json)?\s*([\s\S]*?)\s*```/gi)];
+  for (const match of markdownMatches) {
+    if (match[1]) {
+      result = tryParse(match[1].trim());
+      if (result) return result;
+    }
   }
-  
+
+  // 3. Greedy substring extraction (Object)
   const firstBrace = cleaned.indexOf('{');
   const lastBrace = cleaned.lastIndexOf('}');
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    result = tryParse(cleaned.substring(firstBrace, lastBrace + 1));
-    if (result) return result;
+    // Attempt to find the largest valid JSON object within the braces
+    for (let end = lastBrace; end > firstBrace; end--) {
+      const candidate = cleaned.substring(firstBrace, end + 1);
+      result = tryParse(candidate);
+      if (result) return result;
+    }
   }
 
+  // 4. Greedy substring extraction (Array)
   const firstBracket = cleaned.indexOf('[');
   const lastBracket = cleaned.lastIndexOf(']');
   if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
-    result = tryParse(cleaned.substring(firstBracket, lastBracket + 1));
-    if (result) return result;
+    for (let end = lastBracket; end > firstBracket; end--) {
+      const candidate = cleaned.substring(firstBracket, end + 1);
+      result = tryParse(candidate);
+      if (result) return result;
+    }
   }
   
   throw new AiResponseError("Could not parse AI response as JSON", text);

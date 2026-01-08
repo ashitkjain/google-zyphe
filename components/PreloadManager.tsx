@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { runFullIntelligencePipeline, PipelineProgress } from '../services/preloadService';
 
 interface Props {
@@ -11,6 +12,18 @@ const PreloadManager: React.FC<Props> = ({ onClose, initialAddress }) => {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<PipelineProgress[]>([]);
   const [success, setSuccess] = useState(false);
+  const [timer, setTimer] = useState(0);
+
+  useEffect(() => {
+    let interval: number;
+    if (loading) {
+      setTimer(0);
+      interval = window.setInterval(() => {
+        setTimer(t => t + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [loading]);
 
   const handleStartPipeline = async () => {
     setLoading(true);
@@ -82,7 +95,15 @@ const PreloadManager: React.FC<Props> = ({ onClose, initialAddress }) => {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Process Monitor</label>
-              {loading && <span className="flex h-2 w-2 rounded-full bg-indigo-600 animate-ping"></span>}
+              <div className="flex items-center gap-3">
+                {loading && (
+                  <span className="px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-full text-[9px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
+                    <i className="fa-solid fa-clock animate-pulse"></i>
+                    Pipeline Active: <span className="font-mono text-[11px]">{timer}s</span>
+                  </span>
+                )}
+                {loading && <span className="flex h-2 w-2 rounded-full bg-indigo-600 animate-ping"></span>}
+              </div>
             </div>
             
             <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 space-y-4">

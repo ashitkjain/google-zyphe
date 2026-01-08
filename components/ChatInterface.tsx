@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from '../types';
@@ -63,6 +64,14 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
           status: property.homeStatus,
           details: property.resoFacts
         },
+        mobility: {
+          walk: property.walkScore,
+          walkDesc: property.walkScoreDesc,
+          transit: property.transitScore,
+          transitDesc: property.transitScoreDesc,
+          bike: property.bikeScore,
+          bikeDesc: property.bikeScoreDesc
+        },
         risks: {
           flood: property.floodRiskScore,
           wind: property.windRiskScore,
@@ -99,9 +108,10 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
           2. If data is missing (e.g., visual analysis hasn't been run), encourage the user to click the "Generate AI Intelligence" button in the dashboard.
           3. Be conversational but extremely precise. Use "bold" for key numbers and specs.
           4. If asked about safety or neighborhood vibe, refer directly to the 'neighborhoodPulse' section.
-          5. If asked about technical specs like roof type or foundation, check the 'specifications.details' field.
-          6. Always maintain a helpful, professional "Concierge" tone.
-          7. Note: You only see the current user prompt to maintain high speed. Treat every request as a fresh inquiry about the property data provided.`,
+          5. If asked about mobility, walkability, or transit, check the 'mobility' field.
+          6. If asked about technical specs like roof type or foundation, check the 'specifications.details' field.
+          7. Always maintain a helpful, professional "Concierge" tone.
+          8. Note: You only see the current user prompt to maintain high speed. Treat every request as a fresh inquiry about the property data provided.`,
           temperature: 0.2,
           topP: 0.8,
           topK: 40,
@@ -122,7 +132,7 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
     { label: "Is This A Good Investment?", icon: "fa-chart-line" },
     { label: "Safety And Community Vibe?", icon: "fa-shield-halved" },
     { label: "Technical Specs & Condition", icon: "fa-gears" },
-    { label: "School Quality Check", icon: "fa-graduation-cap" }
+    { label: "Walk & Transit Scores?", icon: "fa-route" }
   ];
 
   return (

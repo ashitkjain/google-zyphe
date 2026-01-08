@@ -13,22 +13,23 @@ import {
   logUserActivity, 
   saveVisualAnalysisToCloud,
   saveComprehensiveAnalysisToCloud,
-  getVisualAnalysisFromCloud,
-  getComprehensiveAnalysisFromCloud,
   auth,
   getUserProfile,
   trackUserPropertyView,
-  getUserViewHistory
+  getUserViewHistory,
+  getVisualAnalysisFromCloud,
+  getComprehensiveAnalysisFromCloud
 } from './services/firebaseService.ts';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import PropertyHeader from './components/PropertyHeader.tsx';
-import TablesSection from './components/TablesSection.tsx';
 import PropertyFacts from './components/PropertyFacts.tsx';
 import CustomAIAnalysis from './components/CustomAIAnalysis.tsx';
 import ComprehensiveAnalysis from './components/ComprehensiveAnalysis.tsx';
 import PropertyImages from './components/PropertyImages.tsx';
 import PropertyMaps from './components/PropertyMaps.tsx';
 import ClimateRiskSection from './components/ClimateRiskSection.tsx';
+import MobilityScores from './components/MobilityScores.tsx';
+import SchoolScores from './components/SchoolScores.tsx';
 import SystemLogs from './components/SystemLogs.tsx';
 import PreloadManager from './components/PreloadManager.tsx';
 import ChatInterface from './components/ChatInterface.tsx';
@@ -42,21 +43,12 @@ const App: React.FC = () => {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [cloudHistory, setCloudHistory] = useState<any[]>([]);
   
-  const [searchHistory, setSearchHistory] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('zyphe_search_history');
-      if (saved) {
-        const history = JSON.parse(saved);
-        return Array.isArray(history) ? history : [];
-      }
-    } catch (e) {
-      console.warn("Storage access not available:", e);
-    }
-    return [];
-  });
+  // Browser caching removed: search history no longer persists in localStorage
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
 
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingTimer, setLoadingTimer] = useState(0);
   const [imagesLoading, setImagesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [propertyData, setPropertyData] = useState<PropertyData | null>(null);
@@ -73,6 +65,17 @@ const App: React.FC = () => {
   const sessionId = useMemo(() => Math.random().toString(36).substring(2, 15), []);
 
   useEffect(() => {
+    let interval: number;
+    if (loading && !propertyData) {
+      setLoadingTimer(0);
+      interval = window.setInterval(() => {
+        setLoadingTimer(t => t + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [loading, propertyData]);
+
+  useEffect(() => {
     if (!auth) {
       console.warn("Auth service is unavailable. User sessions will not be synchronized.");
       return;
@@ -84,7 +87,6 @@ const App: React.FC = () => {
           const profile = await getUserProfile(user.uid);
           if (profile) {
             setCurrentUser(profile);
-            // Fetch cloud history for the landing page
             const history = await getUserViewHistory(user.uid);
             setCloudHistory(history);
           } else {
@@ -128,18 +130,14 @@ const App: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const addLog = (service: string, type: 'request' | 'response' | 'error' | 'info', content: any) => {
+  const addLog = (service: string, {type}: any, content: any) => {
     setLogs(prev => [...prev, { timestamp: new Date().toLocaleTimeString(), service, type, content }]);
   };
 
   const addToHistory = (newAddress: string) => {
     setSearchHistory(prev => {
       const filtered = prev.filter(item => item.toLowerCase() !== newAddress.toLowerCase());
-      const newHistory = [newAddress, ...filtered].slice(0, 10);
-      try {
-        localStorage.setItem('zyphe_search_history', JSON.stringify(newHistory));
-      } catch (e) {}
-      return newHistory;
+      return [newAddress, ...filtered].slice(0, 10);
     });
   };
 
@@ -153,68 +151,65 @@ const App: React.FC = () => {
     if (!searchAddress.trim()) return;
 
     setLoading(true);
-    setImagesLoading(forceRefresh ? true : false); 
+    setImagesLoading(true); 
     setError(null);
     
-    const currentImages = propertyData?.images || [];
-
-    if (forceRefresh) {
-      setCustomAnalysis(null);
-      setComprehensiveAnalysis(null);
-    }
+    setCustomAnalysis(null);
+    setComprehensiveAnalysis(null);
     
-    if (!forceRefresh) setLogs([]); 
+    setLogs([]); 
     setViewMode('main');
 
     logUserActivity(sessionId, searchAddress);
 
     try {
-      addLog('Radar Geocode API', 'request', { address: searchAddress });
+      addLog('Radar Geocode API', {type: 'request'}, { address: searchAddress });
       const radarResult = await normalizeAddress(searchAddress);
-      addLog('Radar Geocode API', 'response', radarResult);
+      addLog('Radar Geocode API', {type: 'response'}, radarResult);
       
       const normalizedAddr = radarResult.formattedAddress;
       addToHistory(normalizedAddr);
       setAddress(normalizedAddr);
 
-      addLog('Zyphe Data Layer', 'request', { address: normalizedAddr, forceRefresh });
-      const data = await fetchPropertyData(normalizedAddr, forceRefresh);
+      addLog('Zyphe Data Layer', {type: 'request'}, { address: normalizedAddr, forceRefresh: true });
+      const data = await fetchPropertyData(normalizedAddr, true);
       
       const mergedData: PropertyData = {
         ...data,
         coordinates: radarResult.coordinates,
         mapZoomIn: radarResult.mapZoomIn,
         mapZoomOut: radarResult.mapZoomOut,
-        address: normalizedAddr,
-        images: forceRefresh && currentImages.length > 0 ? currentImages : data.images
+        address: normalizedAddr
       };
       
-      addLog('Zyphe Data Layer', 'response', data);
+      addLog('Zyphe Data Layer', {type: 'response'}, data);
       setPropertyData(mergedData);
       setLoading(false);
 
-      // PERSISTENT CLOUD TRACKING
       if (currentUser && mergedData.zpid) {
         trackUserPropertyView(currentUser.uid, mergedData);
       }
 
       if (data.zpid) {
-        if (!forceRefresh) {
-          const cloudVisualAnalysis = await getVisualAnalysisFromCloud(data.zpid);
-          if (cloudVisualAnalysis) setCustomAnalysis(cloudVisualAnalysis);
-
-          const cloudCompAnalysis = await getComprehensiveAnalysisFromCloud(data.zpid);
-          if (cloudCompAnalysis) setComprehensiveAnalysis(cloudCompAnalysis);
-        }
-        
+        addLog('Image Engine', {type: 'request'}, { zpid: data.zpid, action: 'Dedicated Gallery Fetch' });
         setImagesLoading(true);
         const images = await fetchPropertyImages(data.zpid);
+        
+        if (images.length > 0) {
+          addLog('Image Engine', {type: 'response'}, { status: 'Success', count: images.length });
+        } else {
+          addLog('Image Engine', {type: 'info'}, { status: 'No Images Returned', reason: 'Possible suppression or restricted listing' });
+        }
+        
         setPropertyData(prev => prev ? { ...prev, images } : null);
+        setImagesLoading(false);
+      } else {
+        addLog('Image Engine', {type: 'error'}, { status: 'Failed', reason: 'No ZPID available for this property' });
         setImagesLoading(false);
       }
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.');
-      addLog('System', 'error', err);
+      addLog('System', {type: 'error'}, err);
       setLoading(false);
       setImagesLoading(false);
     }
@@ -223,7 +218,8 @@ const App: React.FC = () => {
   const handleRunCustomAnalysis = async (force = false) => {
     if (!propertyData) return;
     
-    if (customAnalysis && !force) {
+    // Check in-memory state first
+    if (!force && customAnalysis) {
       setViewMode('visual-report');
       return;
     }
@@ -232,7 +228,20 @@ const App: React.FC = () => {
     setViewMode('visual-report');
     
     try {
-      addLog('Gemini AI', 'request', { task: 'visual_analysis', forced: force });
+      // Check Cloud Cache first
+      if (!force && propertyData.zpid) {
+        addLog('Cloud Cache', {type: 'request'}, { zpid: propertyData.zpid, task: 'visual_analysis' });
+        const cached = await getVisualAnalysisFromCloud(propertyData.zpid);
+        if (cached) {
+          addLog('Cloud Cache', {type: 'response'}, { status: 'Hit', data: cached });
+          setCustomAnalysis(cached);
+          setCustomAnalysisLoading(false);
+          return;
+        }
+        addLog('Cloud Cache', {type: 'info'}, { status: 'Miss' });
+      }
+
+      addLog('Gemini AI', {type: 'request'}, { task: 'visual_analysis', forced: force });
       const result = await analyzePropertyImages(propertyData.images || [], propertyData);
       
       if (propertyData.mapZoomOut) {
@@ -244,11 +253,11 @@ const App: React.FC = () => {
       result.community_pulse = pulse;
       
       setCustomAnalysis(result);
-      addLog('Gemini AI', 'response', result);
+      addLog('Gemini AI', {type: 'response'}, result);
       if (propertyData.zpid) await saveVisualAnalysisToCloud(propertyData.zpid, result);
     } catch (err: any) {
       const logContent = err instanceof AiResponseError ? { message: err.message, raw: err.rawResponse } : err;
-      addLog('Gemini AI', 'error', logContent);
+      addLog('Gemini AI', {type: 'error'}, logContent);
       setError("AI analysis failed. Check logs for details.");
     } finally {
       setCustomAnalysisLoading(false);
@@ -258,7 +267,7 @@ const App: React.FC = () => {
   const handleRunComprehensive = async (force = false) => {
     if (!propertyData || !customAnalysis) return;
 
-    if (comprehensiveAnalysis && !force) {
+    if (!force && comprehensiveAnalysis) {
       setViewMode('comprehensive-report');
       return;
     }
@@ -267,14 +276,27 @@ const App: React.FC = () => {
     setViewMode('comprehensive-report');
 
     try {
-      addLog('Gemini AI', 'request', { task: 'comprehensive_analysis', forced: force });
+      // Check Cloud Cache first
+      if (!force && propertyData.zpid) {
+        addLog('Cloud Cache', {type: 'request'}, { zpid: propertyData.zpid, task: 'comprehensive_analysis' });
+        const cached = await getComprehensiveAnalysisFromCloud(propertyData.zpid);
+        if (cached) {
+          addLog('Cloud Cache', {type: 'response'}, { status: 'Hit', data: cached });
+          setComprehensiveAnalysis(cached);
+          setComprehensiveLoading(false);
+          return;
+        }
+        addLog('Cloud Cache', {type: 'info'}, { status: 'Miss' });
+      }
+
+      addLog('Gemini AI', {type: 'request'}, { task: 'comprehensive_analysis', forced: force });
       const result = await analyzeComprehensive(propertyData, customAnalysis);
       setComprehensiveAnalysis(result);
-      addLog('Gemini AI', 'response', result);
+      addLog('Gemini AI', {type: 'response'}, result);
       if (propertyData.zpid) await saveComprehensiveAnalysisToCloud(propertyData.zpid, result);
     } catch (err: any) {
       const logContent = err instanceof AiResponseError ? { message: err.message, raw: err.rawResponse } : err;
-      addLog('Gemini AI', 'error', logContent);
+      addLog('Gemini AI', {type: 'error'}, logContent);
       setError("Comprehensive report failed. Check logs for details.");
     } finally {
       setComprehensiveLoading(false);
@@ -344,8 +366,8 @@ const App: React.FC = () => {
               {showHistory && searchHistory.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-[60] animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recent Searches</span>
-                    <button onClick={() => { setSearchHistory([]); try { localStorage.removeItem('zyphe_search_history'); } catch(e){} }} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-800">Clear</button>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recent Searches (Session)</span>
+                    <button onClick={() => setSearchHistory([])} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-800">Clear</button>
                   </div>
                   {searchHistory.map((item, idx) => (
                     <button key={idx} onClick={() => handleHistoryItemClick(item)} className="w-full px-5 py-3.5 text-left flex items-center gap-4 hover:bg-indigo-50 transition-colors border-b border-slate-50 last:border-0">
@@ -406,7 +428,13 @@ const App: React.FC = () => {
                <Logo size={220} className="animate-pulse" />
             </div>
             <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-2">Analyzing Property DNA...</h2>
-            <p className="text-sm font-medium text-slate-500 animate-pulse">Our AI is fetching market specs, mapping neighborhood context, and assessing risk factors.</p>
+            <div className="mb-6 flex flex-col items-center gap-2">
+              <span className="px-5 py-2 bg-indigo-50 border border-indigo-100 rounded-full text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-3 shadow-sm">
+                <i className="fa-solid fa-stopwatch animate-pulse"></i>
+                Analysis Active: <span className="font-mono text-xs">{loadingTimer}s</span>
+              </span>
+            </div>
+            <p className="text-sm font-medium text-slate-500 animate-pulse">Our AI is fetching fresh market specs, mapping neighborhood context, and assessing risk factors.</p>
           </div>
         ) : viewMode === 'main' ? (
           propertyData ? (
@@ -419,7 +447,7 @@ const App: React.FC = () => {
                        <button 
                          onClick={() => performSearch(propertyData.address, true)}
                          className="p-2 text-slate-400 hover:text-indigo-600 transition-colors bg-slate-50 rounded-xl hover:bg-indigo-50 border border-transparent hover:border-indigo-100 active:scale-90"
-                         title="Refresh Cache"
+                         title="Refresh All Data"
                        >
                          <i className={`fa-solid fa-rotate ${loading ? 'animate-spin' : ''}`}></i>
                        </button>
@@ -434,32 +462,32 @@ const App: React.FC = () => {
                   onClick={() => handleRunCustomAnalysis(false)} 
                   className="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-indigo-700 to-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-200 hover:scale-[1.05] active:scale-95 transition-all flex items-center justify-center gap-3"
                 >
-                  <i className={`fa-solid ${customAnalysis ? 'fa-eye' : 'fa-wand-magic-sparkles'}`}></i>
-                  {customAnalysis ? 'View AI Intelligence' : 'Generate AI Intelligence'}
+                  <i className="fa-solid fa-eye"></i>
+                  View Visual AI Analysis
                 </button>
               </div>
 
               <PropertyImages images={propertyData.images} loading={imagesLoading} homeStatus={propertyData.homeStatus} />
               <PropertyHeader data={propertyData} />
               <PropertyFacts facts={propertyData.resoFacts} />
-              <TablesSection data={propertyData} />
-              <PropertyMaps mapZoomIn={propertyData.mapZoomIn} mapZoomOut={propertyData.mapZoomOut} />
+              <MobilityScores data={propertyData} />
+              <SchoolScores data={propertyData} />
               <ClimateRiskSection data={propertyData} />
+              <PropertyMaps mapZoomIn={propertyData.mapZoomIn} mapZoomOut={propertyData.mapZoomOut} />
             </div>
           ) : (
             <div className="max-w-4xl mx-auto py-12">
               <div className="text-center space-y-4 mb-16 flex flex-col items-center">
                 <Logo size={480} className="hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
                 <p className="text-xl text-slate-500 max-w-2xl mx-auto font-medium leading-relaxed mt-10">
-                  The world's most advanced property analysis suite. Instant deep-dives into property value, neighborhood pulse, and structural visual intelligence.
+                  The world's most advanced property analysis suite. Instant fresh deep-dives into property value, neighborhood pulse, and structural visual intelligence.
                 </p>
               </div>
 
-              {/* CLOUD VIEW HISTORY FOR LOGGED IN USERS */}
               {currentUser && cloudHistory.length > 0 && (
                 <div className="mb-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
                   <div className="flex items-center justify-between mb-6 px-2">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Recently Analyzed Intelligence</h3>
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Recently Viewed Intelligence</h3>
                     <div className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-lg shadow-emerald-200"></div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

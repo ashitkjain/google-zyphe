@@ -14,10 +14,10 @@ const PropertyMaps: React.FC<Props> = ({ mapZoomIn, mapZoomOut }) => {
   const handleClose = () => setExpandedMap(null);
 
   return (
-    <div className="bg-white border-x border-gray-200 px-8 py-8 shadow-sm">
+    <div className="bg-white border-x border-b border-gray-100 px-8 py-8 shadow-sm rounded-b-[2rem]">
       <div className="flex items-center text-base font-bold text-gray-700 mb-6 border-b border-gray-50 pb-3">
         <i className="fa-solid fa-map-location-dot text-gray-400 mr-3"></i>
-        Location Context & Spatial Analysis
+        Location Maps
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

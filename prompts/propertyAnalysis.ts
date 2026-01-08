@@ -1,3 +1,4 @@
+
 import { Type } from "@google/genai";
 import { PropertyData } from "../types";
 
@@ -9,6 +10,7 @@ export const getPropertyAnalysisPrompt = (property: PropertyData) => `
   Details: ${property.bedrooms} beds, ${property.bathrooms} baths, ${property.livingAreaValue} sqft
   Year Built: ${property.yearBuilt}
   Description: ${property.description}
+  Mobility: Walk Score(${property.walkScore || 'N/A'}), Transit Score(${property.transitScore || 'N/A'}), Bike Score(${property.bikeScore || 'N/A'})
   Risk Factors: Wind(${property.windRiskScore}), Flood(${property.floodRiskScore}), Fire(${property.fireRiskScore}), Heat(${property.heatRiskScore})
   
   Please provide:
