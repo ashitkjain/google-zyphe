@@ -537,7 +537,10 @@ const App: React.FC = () => {
             onRefresh={() => handleRunCustomAnalysis(true)} 
             onRunComprehensive={() => handleRunComprehensive(false)} 
             comprehensiveResult={comprehensiveAnalysis} 
-            hasImages={(propertyData?.images?.length || 0) > 0} 
+            hasImages={(propertyData?.images?.length || 0) > 0}
+            userRole={currentUser?.role}
+            propertyImages={propertyData?.images}
+            onUpdateAnalysis={(updated) => setCustomAnalysis(updated)}
           />
         ) : (
           <ComprehensiveAnalysis 

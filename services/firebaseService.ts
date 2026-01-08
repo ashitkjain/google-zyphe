@@ -58,6 +58,18 @@ export const db_instance = db;
 export const auth = authInstance;
 export const googleProvider = new GoogleAuthProvider();
 
+const sanitizeForFirestore = (data: any): any => {
+  if (data === undefined || data === null) return null;
+  if (Array.isArray(data)) return data.map(sanitizeForFirestore);
+  if (typeof data === 'object') {
+    if (data instanceof Date) return data;
+    return Object.fromEntries(
+      Object.entries(data).map(([key, value]) => [key, sanitizeForFirestore(value)])
+    );
+  }
+  return data;
+};
+
 /**
  * User Profile Management
  */
@@ -65,8 +77,9 @@ export const saveUserProfile = async (uid: string, profile: Partial<UserProfile>
   if (!db) return false;
   try {
     const userRef = doc(db, "users", uid);
+    const sanitized = sanitizeForFirestore(profile);
     await setDoc(userRef, {
-      ...profile,
+      ...sanitized,
       uid,
       updatedAt: serverTimestamp()
     }, { merge: true });
@@ -119,18 +132,6 @@ export const getUserViewHistory = async (uid: string, maxItems = 6) => {
     console.error("Error fetching user history:", error);
     return [];
   }
-};
-
-const sanitizeForFirestore = (data: any): any => {
-  if (data === undefined || data === null) return null;
-  if (Array.isArray(data)) return data.map(sanitizeForFirestore);
-  if (typeof data === 'object') {
-    if (data instanceof Date) return data;
-    return Object.fromEntries(
-      Object.entries(data).map(([key, value]) => [key, sanitizeForFirestore(value)])
-    );
-  }
-  return data;
 };
 
 export const savePropertyToCloud = async (zpid: string, data: Partial<PropertyData>) => {
@@ -200,7 +201,6 @@ export const getVisualAnalysisFromCloud = async (zpid: string): Promise<CustomAI
   try {
     const docRef = doc(db, "property_analyses_visual", zpid);
     const docSnap = await getDoc(docRef);
-    // Fixed: Changed 'snap' to 'docSnap' to match the variable declaration on line 202
     return docSnap.exists() ? (docSnap.data() as CustomAIAnalysisResult) : null;
   } catch (error) {
     return null;

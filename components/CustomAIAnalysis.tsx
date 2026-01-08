@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { CustomAIAnalysisResult, CommunityPulseSection, ComprehensiveAnalysisResult } from '../types';
+import { CustomAIAnalysisResult, CommunityPulseSection, ComprehensiveAnalysisResult, ImageQualityAnalysisResult } from '../types';
+import { analyzeImageQuality, AiResponseError } from '../services/geminiService';
 
 interface Props {
   analysis: CustomAIAnalysisResult | null;
@@ -11,9 +12,12 @@ interface Props {
   comprehensiveResult: ComprehensiveAnalysisResult | null;
   mapUrl?: string;
   hasImages: boolean;
+  userRole?: string;
+  propertyImages?: string[];
+  onUpdateAnalysis: (updated: CustomAIAnalysisResult) => void;
 }
 
-type TabType = 'interior' | 'rooms' | 'exterior' | 'neighborhood' | 'pulse';
+type TabType = 'interior' | 'rooms' | 'exterior' | 'neighborhood' | 'pulse' | 'quality';
 
 const CustomAIAnalysis: React.FC<Props> = ({ 
   analysis, 
@@ -23,10 +27,14 @@ const CustomAIAnalysis: React.FC<Props> = ({
   onRunComprehensive,
   comprehensiveResult,
   mapUrl,
-  hasImages
+  hasImages,
+  userRole,
+  propertyImages = [],
+  onUpdateAnalysis
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('interior');
   const [timer, setTimer] = useState(0);
+  const [qualityLoading, setQualityLoading] = useState(false);
 
   useEffect(() => {
     let interval: number;
@@ -38,6 +46,23 @@ const CustomAIAnalysis: React.FC<Props> = ({
     }
     return () => clearInterval(interval);
   }, [loading]);
+
+  const handleRunQualityAnalysis = async () => {
+    if (!analysis || !propertyImages.length || qualityLoading) return;
+    
+    setQualityLoading(true);
+    try {
+      const result = await analyzeImageQuality(propertyImages);
+      onUpdateAnalysis({
+        ...analysis,
+        image_quality_analysis: result
+      });
+    } catch (err) {
+      console.error("Quality Analysis Failed:", err);
+    } finally {
+      setQualityLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -72,7 +97,8 @@ const CustomAIAnalysis: React.FC<Props> = ({
     room_highlights = [], 
     exterior_and_neighborhood = {} as any, 
     neighborhood,
-    community_pulse
+    community_pulse,
+    image_quality_analysis
   } = analysis;
 
   const tabs = [
@@ -82,6 +108,10 @@ const CustomAIAnalysis: React.FC<Props> = ({
     { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
     { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
   ];
+
+  if (userRole === 'realtor') {
+    tabs.push({ id: 'quality', label: 'Image Quality Analysis', icon: 'fa-camera-rotate' });
+  }
 
   const getCleanDomain = (src: string) => {
     try {
@@ -127,6 +157,84 @@ const CustomAIAnalysis: React.FC<Props> = ({
       </div>
     );
   };
+
+  const QualityScoreWidget = ({ score, summary }: { score: number, summary: string }) => {
+    const getColor = (s: number) => {
+      if (s >= 80) return 'text-emerald-500 stroke-emerald-500';
+      if (s >= 50) return 'text-amber-500 stroke-amber-500';
+      return 'text-rose-500 stroke-rose-500';
+    };
+    
+    return (
+      <div className="bg-white p-10 rounded-[3rem] border border-gray-100 shadow-sm flex flex-col md:flex-row items-center gap-10">
+        <div className="relative w-32 h-32 flex-shrink-0">
+          <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="45" fill="none" stroke="#f1f5f9" strokeWidth="10" />
+            <circle 
+              cx="50" cy="50" r="45" fill="none" strokeWidth="10" 
+              className={`${getColor(score)} transition-all duration-1000 ease-out`}
+              strokeDasharray={`${2 * Math.PI * 45}`}
+              strokeDashoffset={`${2 * Math.PI * 45 * (1 - score / 100)}`}
+              strokeLinecap="round"
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-3xl font-black text-gray-900">{score}</span>
+            <span className="text-[10px] font-black text-gray-400 uppercase">Score</span>
+          </div>
+        </div>
+        <div className="flex-1 text-center md:text-left">
+          <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.4em] mb-2">Overall Listing Visual Score</div>
+          <h4 className="text-2xl font-black text-gray-900 mb-2">Professional Audit Verdict</h4>
+          <p className="text-gray-600 font-medium leading-relaxed italic">"{summary}"</p>
+        </div>
+      </div>
+    );
+  };
+
+  const QualityRatingCard = ({ title, data, icon }: { title: string, data: { rating: string, observations: string[], issues: string[] }, icon: string }) => (
+    <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col transition-all hover:shadow-xl">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-indigo-600">
+            <i className={`fa-solid ${icon}`}></i>
+          </div>
+          <h4 className="font-black text-gray-900 tracking-tight">{title}</h4>
+        </div>
+        <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${
+          data.rating.toLowerCase().includes('good') ? 'bg-emerald-50 text-emerald-600' :
+          data.rating.toLowerCase().includes('fair') ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'
+        }`}>
+          {data.rating}
+        </span>
+      </div>
+      
+      <div className="space-y-6 flex-1">
+        <div>
+          <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Observations</div>
+          <ul className="space-y-2">
+            {data.observations.map((obs, i) => (
+              <li key={i} className="text-xs text-gray-700 font-medium flex gap-2">
+                <span className="text-indigo-400">•</span> {obs}
+              </li>
+            ))}
+          </ul>
+        </div>
+        {data.issues.length > 0 && (
+          <div>
+            <div className="text-[9px] font-black text-rose-400 uppercase tracking-widest mb-2">Potential Issues</div>
+            <ul className="space-y-2">
+              {data.issues.map((issue, i) => (
+                <li key={i} className="text-xs text-rose-700/80 font-medium flex gap-2 italic">
+                  <span className="text-rose-400">!</span> {issue}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   const EmptyState = ({ section }: { section: string }) => (
     <div className="p-20 bg-white/50 rounded-[2rem] text-center border-2 border-dashed border-gray-200 flex flex-col items-center justify-center">
@@ -416,6 +524,103 @@ const CustomAIAnalysis: React.FC<Props> = ({
               </div>
             ) : (
               <EmptyState section="Community Pulse" />
+            )}
+          </section>
+        )}
+
+        {activeTab === 'quality' && (
+          <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 space-y-8">
+            {!image_quality_analysis && !qualityLoading ? (
+              <div className="p-20 bg-white rounded-[3rem] text-center border-2 border-dashed border-gray-200 flex flex-col items-center justify-center">
+                <div className="w-24 h-24 bg-indigo-50 rounded-[2rem] flex items-center justify-center mb-8 text-indigo-600 shadow-xl shadow-indigo-100">
+                  <i className="fa-solid fa-camera-rotate text-4xl"></i>
+                </div>
+                <h3 className="text-3xl font-black text-gray-900 mb-4 tracking-tight">Realtor Listing Quality Audit</h3>
+                <p className="text-gray-500 max-w-md mx-auto mb-10 font-medium text-lg">Perform a professional audit of your property photos to ensure maximum engagement and listing performance.</p>
+                <button 
+                  onClick={handleRunQualityAnalysis}
+                  className="px-10 py-5 bg-gradient-to-r from-indigo-700 to-gray-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-2xl hover:scale-[1.05] active:scale-95 transition-all"
+                >
+                  <i className="fa-solid fa-wand-magic-sparkles mr-3"></i>
+                  Run Quality Audit
+                </button>
+              </div>
+            ) : qualityLoading ? (
+              <div className="bg-indigo-50 border border-indigo-100 rounded-[3rem] p-12 text-center my-10 shadow-sm flex flex-col items-center justify-center min-h-[50vh]">
+                <div className="w-20 h-20 mb-8 relative">
+                  <div className="absolute inset-0 border-4 border-indigo-200 rounded-full"></div>
+                  <div className="absolute inset-0 border-t-4 border-indigo-600 rounded-full animate-spin"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <i className="fa-solid fa-camera text-indigo-600 text-2xl animate-pulse"></i>
+                  </div>
+                </div>
+                <h3 className="text-3xl font-black text-indigo-900 mb-4 tracking-tight">AI Audit in Progress...</h3>
+                <p className="text-indigo-700/70 max-w-md mx-auto text-lg font-medium">Analyzing lighting, composition, staging, and technical photo metrics.</p>
+              </div>
+            ) : (
+              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
+                <QualityScoreWidget score={image_quality_analysis.overall_score.score} summary={image_quality_analysis.overall_score.summary} />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  <QualityRatingCard title="Lighting & Color" data={image_quality_analysis.lighting_and_color} icon="fa-sun" />
+                  <QualityRatingCard title="Staging & Clutter" data={image_quality_analysis.staging_and_clutter} icon="fa-couch" />
+                  <QualityRatingCard title="Composition" data={image_quality_analysis.composition} icon="fa-crop-simple" />
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="bg-rose-50 p-10 rounded-[3rem] border border-rose-100 flex flex-col gap-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-rose-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-rose-200">
+                        <i className="fa-solid fa-trash-can text-xl"></i>
+                      </div>
+                      <h4 className="text-2xl font-black text-rose-900 tracking-tight">Critical Removals</h4>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="text-rose-800 font-bold leading-relaxed">{image_quality_analysis.delete_list.description}</div>
+                      <div className="flex flex-wrap gap-2">
+                        {image_quality_analysis.delete_list.reasons.map((reason, i) => (
+                          <span key={i} className="px-4 py-2 bg-white border border-rose-200 rounded-xl text-[10px] font-black text-rose-600 uppercase tracking-widest">{reason}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-indigo-700 p-10 rounded-[3rem] shadow-xl shadow-indigo-100 text-white flex flex-col gap-8">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-white text-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                        <i className="fa-solid fa-rocket text-xl"></i>
+                      </div>
+                      <h4 className="text-2xl font-black tracking-tight">Realtor Action Plan</h4>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                      <div>
+                        <div className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-4">Priority Actions</div>
+                        <ul className="space-y-3">
+                          {image_quality_analysis.action_plan.priority_actions.map((act, i) => (
+                            <li key={i} className="text-xs font-bold flex gap-3"><span className="text-indigo-300">#</span>{act}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <div className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-4">Editing Suite</div>
+                        <ul className="space-y-3">
+                          {image_quality_analysis.action_plan.editing_suggestions.map((act, i) => (
+                            <li key={i} className="text-xs font-bold flex gap-3"><span className="text-indigo-300">#</span>{act}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <div className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-4">Reshoot Reqs</div>
+                        <ul className="space-y-3">
+                          {image_quality_analysis.action_plan.reshoot_suggestions.map((act, i) => (
+                            <li key={i} className="text-xs font-bold flex gap-3"><span className="text-indigo-300">#</span>{act}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
           </section>
         )}

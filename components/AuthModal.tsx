@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
   auth, 
@@ -128,7 +129,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
           email,
           displayName: name,
           role,
-          address: address || undefined,
+          address: address || null,
           createdAt: new Date()
         });
       }

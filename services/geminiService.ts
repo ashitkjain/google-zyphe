@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult } from "../types.ts";
+import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult } from "../types.ts";
 import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/propertyAnalysis.ts";
 import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/neighborhoodAnalysis.ts";
 import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/communityPulse.ts";
@@ -190,4 +190,72 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
   });
 
   return extractJson<ComprehensiveAnalysisResult>(response.text);
+};
+
+export const analyzeImageQuality = async (imageUrls: string[]): Promise<ImageQualityAnalysisResult> => {
+  const ai = getAi();
+  const selectedImages = imageUrls.slice(0, 15);
+  
+  const imageParts = await Promise.all(selectedImages.map(async (url) => {
+    const { data, mimeType } = await urlToBase64(url);
+    return { inlineData: { data, mimeType } };
+  }));
+
+  const prompt = `I am uploading photos for a new property listing. Please perform a comprehensive audit of the entire gallery and return your analysis as a JSON object with exactly this structure:
+
+{
+  "overall_score": {
+    "score": <number 0-100>,
+    "summary": "<brief explanation of the score>"
+  },
+  "top_photos": {
+    "count": <number>,
+    "description": "<which photos are strongest and why>",
+    "recommendations": ["<recommendation 1>", "<recommendation 2>"]
+  },
+  "lighting_and_color": {
+    "rating": "<Good/Fair/Poor>",
+    "observations": ["<observation 1>", "<observation 2>"],
+    "issues": ["<issue 1>", "<issue 2>"]
+  },
+  "staging_and_clutter": {
+    "rating": "<Good/Fair/Poor>",
+    "observations": ["<observation 1>", "<observation 2>"],
+    "issues": ["<issue 1>", "<issue 2>"]
+  },
+  "composition": {
+    "rating": "<Good/Fair/Poor>",
+    "observations": ["<observation 1>", "<observation 2>"],
+    "issues": ["<issue 1>", "<issue 2>"]
+  },
+  "delete_list": {
+    "count": <number>,
+    "reasons": ["<reason 1>", "<reason 2>"],
+    "description": "<which photos should be removed and why>"
+  },
+  "action_plan": {
+    "priority_actions": ["<action 1>", "<action 2>", "<action 3>"],
+    "editing_suggestions": ["<suggestion 1>", "<suggestion 2>"],
+    "reshoot_suggestions": ["<suggestion 1>", "<suggestion 2>"]
+  }
+}
+
+Respond ONLY with the JSON object, no additional text or markdown formatting.
+
+Here are the photos:`;
+
+  const response = await ai.models.generateContent({
+    model: GEMINI_MODEL,
+    contents: {
+      parts: [
+        { text: prompt },
+        ...imageParts
+      ]
+    },
+    config: {
+      responseMimeType: "application/json"
+    }
+  });
+
+  return extractJson<ImageQualityAnalysisResult>(response.text);
 };

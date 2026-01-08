@@ -1,3 +1,4 @@
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -139,6 +140,43 @@ export interface CommunityPulseResult {
   investment_insights: CommunityPulseSection;
 }
 
+export interface ImageQualityAnalysisResult {
+  overall_score: {
+    score: number;
+    summary: string;
+  };
+  top_photos: {
+    count: number;
+    description: string;
+    recommendations: string[];
+  };
+  lighting_and_color: {
+    rating: string;
+    observations: string[];
+    issues: string[];
+  };
+  staging_and_clutter: {
+    rating: string;
+    observations: string[];
+    issues: string[];
+  };
+  composition: {
+    rating: string;
+    observations: string[];
+    issues: string[];
+  };
+  delete_list: {
+    count: number;
+    reasons: string[];
+    description: string;
+  };
+  action_plan: {
+    priority_actions: string[];
+    editing_suggestions: string[];
+    reshoot_suggestions: string[];
+  };
+}
+
 export interface CustomAIAnalysisResult {
   report_title: string;
   home_interior: {
@@ -177,6 +215,7 @@ export interface CustomAIAnalysisResult {
   };
   neighborhood?: NeighborhoodAnalysis;
   community_pulse?: CommunityPulseResult;
+  image_quality_analysis?: ImageQualityAnalysisResult;
 }
 
 export interface ComprehensiveAnalysisResult {
