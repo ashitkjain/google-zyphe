@@ -49,7 +49,7 @@ const MobilityScores: React.FC<Props> = ({ data }) => {
                 </span>
                 <span className="text-[10px] font-bold text-gray-400">/100</span>
               </div>
-              <span className="text-[10px] font-black text-gray-500 uppercase tracking-tight truncate">
+              <span className="text-xs font-black text-gray-500 uppercase tracking-tight truncate">
                 {s.type} {s.desc ? `• ${s.desc}` : ''}
               </span>
             </div>

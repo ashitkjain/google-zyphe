@@ -43,7 +43,7 @@ const ClimateRiskSection: React.FC<Props> = ({ data }) => {
           Climate Risk Assessment
         </div>
         <div className="flex items-center gap-4">
-          <span className="hidden sm:inline opacity-50">Insurance Est: {data.annualHomeownersInsurance ? `$${data.annualHomeownersInsurance.toLocaleString()}/yr` : 'N/A'}</span>
+          <span className="hidden sm:inline text-black font-bold">Insurance Est: {data.annualHomeownersInsurance ? `$${data.annualHomeownersInsurance.toLocaleString()}/yr` : 'N/A'}</span>
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
@@ -68,7 +68,7 @@ const ClimateRiskSection: React.FC<Props> = ({ data }) => {
                 </span>
                 <span className="text-[10px] font-bold text-gray-400">/10</span>
               </div>
-              <span className="text-[10px] font-black text-gray-500 uppercase tracking-tight truncate">
+              <span className="text-xs font-black text-gray-500 uppercase tracking-tight truncate">
                 {r.type} • {getStatusLabel(r.score)}
               </span>
             </div>

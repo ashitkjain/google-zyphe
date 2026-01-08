@@ -25,6 +25,10 @@ const safeStringify = (val: any): string | null => {
   if (typeof val === 'string') return val;
   if (typeof val === 'number') return String(val);
   if (Array.isArray(val)) {
+    // If it's an array of objects, we want to preserve valid JSON for parseComplexFact
+    if (val.length > 0 && typeof val[0] === 'object') {
+      return JSON.stringify(val);
+    }
     return val.map(item => (typeof item === 'object' ? JSON.stringify(item) : item)).join(', ');
   }
   if (typeof val === 'object') {
@@ -207,6 +211,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
       flooring: safeStringify(data.resoFacts?.flooring),
       foundationDetails: safeStringify(data.resoFacts?.foundationDetails),
       rooms: safeStringify(data.resoFacts?.rooms),
+      roomTypes: safeStringify(data.resoFacts?.roomTypes),
       feesAndDues: safeStringify(data.resoFacts?.feesAndDues),
       exteriorFeatures: safeStringify(data.resoFacts?.exteriorFeatures),
       architecturalStyle: safeStringify(data.resoFacts?.architecturalStyle),
@@ -225,6 +230,9 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
       utilities: safeStringify(data.resoFacts?.utilities),
       sewer: safeStringify(data.resoFacts?.sewer),
       waterSource: safeStringify(data.resoFacts?.waterSource),
+      securityFeatures: safeStringify(data.resoFacts?.securityFeatures),
+      windowFeatures: safeStringify(data.resoFacts?.windowFeatures),
+      roomFeatures: safeStringify(data.resoFacts?.roomFeatures),
     }
   };
 

@@ -287,7 +287,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as TabType)}
-              className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black transition-all text-[10px] uppercase tracking-tight whitespace-nowrap ${
+              className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black transition-all text-[12px] whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'bg-gradient-to-r from-indigo-700 to-gray-900 text-white shadow-lg'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -309,13 +309,13 @@ const CustomAIAnalysis: React.FC<Props> = ({
               <>
                 <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
                   <div className="space-y-4">
-                    <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.3em]">Core Interior Narrative</div>
+                    <div className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">SUMMARY</div>
                     <p className="text-gray-800 font-sans font-medium text-sm leading-relaxed">{home_interior.overall_description}</p>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 pt-12 border-t border-gray-100">
                     <div className="space-y-3">
-                      <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Design Philosophy</div>
+                      <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Design Philosophy</div>
                       <div className="inline-block bg-indigo-50 text-indigo-700 text-[9px] font-black uppercase px-3 py-1.5 rounded-full mb-2">
                         {home_interior.design_style?.style}
                       </div>
@@ -323,27 +323,27 @@ const CustomAIAnalysis: React.FC<Props> = ({
                     </div>
 
                     <div className="space-y-3">
-                      <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Colors & Materials</div>
+                      <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Colors & Materials</div>
                       <p className="text-gray-700 font-sans font-medium text-sm leading-relaxed">{home_interior.color_and_materials}</p>
                     </div>
 
                     <div className="space-y-3">
-                      <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Lighting Environment</div>
+                      <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Lighting Environment</div>
                       <p className="text-gray-700 font-sans font-medium text-sm leading-relaxed">{home_interior.lighting}</p>
                     </div>
 
                     <div className="space-y-3">
-                      <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Spatial Architecture</div>
+                      <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Spatial Architecture</div>
                       <p className="text-gray-700 font-sans font-medium text-sm leading-relaxed">{home_interior.spatial_flow}</p>
                     </div>
 
                     <div className="space-y-3">
-                      <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Staging & Furnishings</div>
+                      <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Staging & Furnishings</div>
                       <p className="text-gray-700 font-sans font-medium text-sm leading-relaxed">{home_interior.staging_and_furnishings}</p>
                     </div>
 
                     <div className="space-y-3">
-                      <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Condition & Finish Quality</div>
+                      <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Condition & Finish Quality</div>
                       <p className="text-gray-700 font-sans font-medium text-sm leading-relaxed">{home_interior.condition_and_finish}</p>
                     </div>
                   </div>

@@ -80,6 +80,7 @@ export interface ResoFacts {
   flooring?: string;
   foundationDetails?: string;
   rooms?: string;
+  roomTypes?: string;
   feesAndDues?: string;
   exteriorFeatures?: string;
   architecturalStyle?: string;
@@ -100,6 +101,9 @@ export interface ResoFacts {
   sewer?: string;
   waterSource?: string;
   basement?: string;
+  securityFeatures?: string;
+  windowFeatures?: string;
+  roomFeatures?: string;
 }
 
 export interface AIAnalysisResult {

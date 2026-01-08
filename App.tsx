@@ -18,7 +18,8 @@ import {
   trackUserPropertyView,
   getUserViewHistory,
   getVisualAnalysisFromCloud,
-  getComprehensiveAnalysisFromCloud
+  getComprehensiveAnalysisFromCloud,
+  deleteUserAccount
 } from './services/firebaseService.ts';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import PropertyHeader from './components/PropertyHeader.tsx';
@@ -82,26 +83,33 @@ const App: React.FC = () => {
       if (user) {
         let profile = null;
         let attempts = 0;
-        const maxAttempts = 8;
-
+        const maxAttempts = 3;
+        
+        // Use a more relaxed attempt loop for user profiles to handle initialization lags
         while (attempts < maxAttempts) {
           try {
             profile = await getUserProfile(user.uid);
             if (profile) break;
           } catch (e: any) {
-            if (e.message?.includes('permissions')) {
-              console.error("Firestore Permission Denied. Check your security rules in the Firebase Console.");
+            // Silently retry permission issues on initial load to handle Firebase rule propagation
+            if (e.code === 'permission-denied') {
+              console.warn("Initial permission sync attempt failed, retrying...");
             }
           }
           attempts++;
-          await new Promise(resolve => setTimeout(resolve, 500 + (attempts * 100)));
+          if (attempts < maxAttempts) await new Promise(resolve => setTimeout(resolve, 500 * attempts));
         }
 
         if (profile) {
           setCurrentUser(profile);
-          const history = await getUserViewHistory(user.uid);
-          setCloudHistory(history);
+          try {
+            const history = await getUserViewHistory(user.uid);
+            setCloudHistory(history);
+          } catch (e) {
+             console.warn("Could not retrieve cloud history:", e);
+          }
         } else {
+          // If no profile found after attempts, create a temporary guest session for the UI
           setCurrentUser({
             uid: user.uid,
             email: user.email || '',
@@ -205,7 +213,6 @@ const App: React.FC = () => {
       
       addLog('Zyphe Data Layer', {type: 'response'}, mergedData);
       
-      // All data (Main, Scores, Images) is now present in mergedData
       setPropertyData(mergedData);
       setLoading(false);
       setImagesLoading(false);
@@ -312,9 +319,29 @@ const App: React.FC = () => {
         await signOut(auth);
         setCurrentUser(null);
         setCloudHistory([]);
+        setError(null);
       } catch (err) {
         console.error("Sign out failed", err);
       }
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!currentUser) return;
+    const confirm = window.confirm("WARNING: Are you absolutely sure? This will permanently delete your account, saved preferences, and viewing history. This action cannot be undone.");
+    if (!confirm) return;
+
+    setLoading(true);
+    setLoadingSublabel("Safely purging account data...");
+    try {
+      await deleteUserAccount(currentUser.uid);
+      setCurrentUser(null);
+      setCloudHistory([]);
+      setError("Your account has been permanently deleted.");
+    } catch (err: any) {
+      setError(err.message || "Failed to delete account.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -332,12 +359,20 @@ const App: React.FC = () => {
               <span className="hidden sm:inline opacity-20">|</span>
               <span className="hidden sm:inline opacity-40">{currentUser.role} Account</span>
             </div>
-            <button 
-              onClick={handleSignOut}
-              className="text-rose-400 hover:text-white transition-colors flex items-center gap-2 group"
-            >
-              Sign Out <i className="fa-solid fa-arrow-right-from-bracket group-hover:translate-x-1 transition-transform"></i>
-            </button>
+            <div className="flex items-center gap-6">
+              <button 
+                onClick={handleDeleteAccount}
+                className="text-rose-600 hover:text-rose-400 transition-colors flex items-center gap-2 group border-r border-white/10 pr-6"
+              >
+                Delete Account
+              </button>
+              <button 
+                onClick={handleSignOut}
+                className="text-white/60 hover:text-white transition-colors flex items-center gap-2 group"
+              >
+                Sign Out <i className="fa-solid fa-arrow-right-from-bracket group-hover:translate-x-1 transition-transform"></i>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -357,7 +392,7 @@ const App: React.FC = () => {
                     value={address}
                     onFocus={() => setShowHistory(true)}
                     onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Enter property address or ZPID for analysis..."
+                    placeholder="Enter property address..."
                     className="w-full pl-12 pr-4 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 rounded-2xl transition-all outline-none text-base font-medium shadow-inner"
                   />
                   <i className="fa-solid fa-house-laptop absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 text-lg"></i>
@@ -445,7 +480,7 @@ const App: React.FC = () => {
               <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-white p-8 rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/50">
                 <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-4">
                    <div className="flex-1">
-                     <h2 className="text-3xl font-black text-slate-900 mb-2 tracking-tight flex items-center gap-4">
+                     <h2 className="text-2xl font-black text-slate-900 mb-2 tracking-tight flex items-center gap-4">
                        {propertyData.address}
                        <button 
                          onClick={() => performSearch(propertyData.zpid || propertyData.address, true)}

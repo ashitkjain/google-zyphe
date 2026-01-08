@@ -12,14 +12,51 @@ import {
   orderBy,
   limit,
   serverTimestamp,
-  Firestore
+  Firestore,
+  deleteDoc,
+  writeBatch,
+  FirestoreError
 } from "firebase/firestore";
 import { 
   getAuth, 
   GoogleAuthProvider, 
-  Auth
+  Auth,
+  deleteUser
 } from "firebase/auth";
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile } from "../types.ts";
+
+/**
+ * FIRESTORE SECURITY RULES (REQUIRED):
+ * To resolve "Missing or insufficient permissions" errors, deploy these rules in your Firebase Console:
+ * 
+ * service cloud.firestore {
+ *   match /databases/{database}/documents {
+ *     // Shared property cache - allow read/write for all users to enable global intelligence caching
+ *     match /properties/{zpid} {
+ *       allow read, write: if true;
+ *     }
+ *     match /property_analyses_visual/{zpid} {
+ *       allow read, write: if true;
+ *     }
+ *     match /property_analyses_comprehensive/{zpid} {
+ *       allow read, write: if true;
+ *     }
+ *     match /user_activity/{docId} {
+ *       allow write: if true;
+ *       allow read: if false;
+ *     }
+ *     
+ *     // User-specific data - strictly restricted to the owner
+ *     match /users/{userId} {
+ *       allow read, write: if request.auth != null && request.auth.uid == userId;
+ *       
+ *       match /viewHistory/{zpid} {
+ *         allow read, write: if request.auth != null && request.auth.uid == userId;
+ *       }
+ *     }
+ *   }
+ * }
+ */
 
 const firebaseConfig = {
   apiKey: "AIzaSyAj8uT4osd5uUrG-ZdXKZyFxtceYAbww8w",
@@ -71,6 +108,19 @@ const sanitizeForFirestore = (data: any): any => {
 };
 
 /**
+ * Internal helper to handle Firestore errors gracefully.
+ * Prevents non-critical background task failures from interrupting user experience.
+ */
+const handleFirestoreError = (error: any, context: string) => {
+  if (error?.code === 'permission-denied') {
+    console.warn(`[Firestore ${context}] Missing or insufficient permissions. This property intelligence will not be cached in the cloud, but the session remains active. Ensure your Firestore Security Rules allow writes to the appropriate collection.`);
+    return false;
+  }
+  console.error(`[Firestore ${context}] Error:`, error);
+  return false;
+};
+
+/**
  * User Profile Management
  */
 export const saveUserProfile = async (uid: string, profile: Partial<UserProfile>) => {
@@ -85,8 +135,7 @@ export const saveUserProfile = async (uid: string, profile: Partial<UserProfile>
     }, { merge: true });
     return true;
   } catch (error) {
-    console.error("Error saving user profile:", error);
-    throw error;
+    return handleFirestoreError(error, "saveUserProfile");
   }
 };
 
@@ -97,12 +146,36 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
     const snap = await getDoc(userRef);
     return snap.exists() ? (snap.data() as UserProfile) : null;
   } catch (error: any) {
-    // Specifically catch permission errors and re-throw with context
-    if (error.code === 'permission-denied' || error.message?.includes('permissions')) {
-      throw new Error(`Insufficient Firestore permissions to access profile for ${uid}. Please ensure your Security Rules allow reading the 'users' collection.`);
-    }
-    console.error("Error getting user profile:", error);
+    handleFirestoreError(error, "getUserProfile");
     return null;
+  }
+};
+
+/**
+ * Delete User Account
+ */
+export const deleteUserAccount = async (uid: string) => {
+  if (!db || !auth || !auth.currentUser) throw new Error("Authentication state missing.");
+  
+  try {
+    const user = auth.currentUser;
+    const profileRef = doc(db, "users", uid);
+    const historyCol = collection(db, "users", uid, "viewHistory");
+    const historySnap = await getDocs(historyCol);
+    
+    const batch = writeBatch(db);
+    historySnap.docs.forEach((doc) => batch.delete(doc.ref));
+    batch.delete(profileRef);
+    await batch.commit();
+
+    await deleteUser(user);
+    return true;
+  } catch (error: any) {
+    console.error("Error deleting account:", error);
+    if (error.code === 'auth/requires-recent-login') {
+      throw new Error("This sensitive operation requires a recent login. Please sign out and sign back in to delete your account.");
+    }
+    throw error;
   }
 };
 
@@ -121,7 +194,7 @@ export const trackUserPropertyView = async (uid: string, property: PropertyData)
       timestamp: serverTimestamp()
     });
   } catch (error) {
-    console.error("Error tracking property view:", error);
+    handleFirestoreError(error, "trackUserPropertyView");
   }
 };
 
@@ -133,7 +206,7 @@ export const getUserViewHistory = async (uid: string, maxItems = 6) => {
     const snap = await getDocs(q);
     return snap.docs.map(doc => doc.data());
   } catch (error) {
-    console.error("Error fetching user history:", error);
+    handleFirestoreError(error, "getUserViewHistory");
     return [];
   }
 };
@@ -149,8 +222,7 @@ export const savePropertyToCloud = async (zpid: string, data: Partial<PropertyDa
     }, { merge: true });
     return true;
   } catch (error: any) {
-    console.error("Firestore Save Error (properties):", error);
-    return false;
+    return handleFirestoreError(error, "savePropertyToCloud");
   }
 };
 
@@ -164,6 +236,7 @@ export const getPropertyFromCloud = async (zpid: string): Promise<PropertyData |
     }
     return null;
   } catch (error: any) {
+    handleFirestoreError(error, "getPropertyFromCloud");
     return null;
   }
 };
@@ -182,6 +255,7 @@ export const getPropertyByAddress = async (address: string): Promise<PropertyDat
     }
     return null;
   } catch (error: any) {
+    handleFirestoreError(error, "getPropertyByAddress");
     return null;
   }
 };
@@ -196,7 +270,7 @@ export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAI
     });
     return true;
   } catch (error) {
-    return false;
+    return handleFirestoreError(error, "saveVisualAnalysisToCloud");
   }
 };
 
@@ -207,6 +281,7 @@ export const getVisualAnalysisFromCloud = async (zpid: string): Promise<CustomAI
     const docSnap = await getDoc(docRef);
     return docSnap.exists() ? (docSnap.data() as CustomAIAnalysisResult) : null;
   } catch (error) {
+    handleFirestoreError(error, "getVisualAnalysisFromCloud");
     return null;
   }
 };
@@ -221,7 +296,7 @@ export const saveComprehensiveAnalysisToCloud = async (zpid: string, analysis: C
     });
     return true;
   } catch (error) {
-    return false;
+    return handleFirestoreError(error, "saveComprehensiveAnalysisToCloud");
   }
 };
 
@@ -232,6 +307,7 @@ export const getComprehensiveAnalysisFromCloud = async (zpid: string): Promise<C
     const docSnap = await getDoc(docRef);
     return docSnap.exists() ? (docSnap.data() as ComprehensiveAnalysisResult) : null;
   } catch (error) {
+    handleFirestoreError(error, "getComprehensiveAnalysisFromCloud");
     return null;
   }
 };
@@ -246,6 +322,6 @@ export const logUserActivity = async (sessionId: string, address: string) => {
       timestamp: serverTimestamp()
     });
   } catch (error) {
-    // Silent catch
+    // Silently handle activity logging failures
   }
 };

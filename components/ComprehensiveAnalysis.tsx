@@ -81,7 +81,7 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
           className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-xl font-black text-[10px] uppercase tracking-widest text-gray-700 shadow-sm hover:bg-gray-50 active:scale-95 transition-all group w-fit"
         >
           <i className="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
-          Back to Overview
+          Back to Visual Analysis
         </button>
         <div className="flex items-center gap-3">
           <button 

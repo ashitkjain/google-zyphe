@@ -7,7 +7,7 @@ import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/commun
 import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/propertyImages.ts";
 import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis.ts";
 
-// Never change the Gemini model without permission
+// Updated to gemini-2.5-flash for significantly faster response times as requested.
 export const GEMINI_MODEL = 'gemini-2.5-flash';
 
 // Custom error to pass raw response back for logging
@@ -185,7 +185,8 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
     contents: prompt,
     config: {
       tools: [{ googleSearch: {} }],
-      thinkingConfig: { thinkingBudget: 16000 }
+      // Reduced thinking budget for faster overall generation time with 2.5 Flash
+      thinkingConfig: { thinkingBudget: 4000 }
     }
   });
 

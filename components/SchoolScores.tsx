@@ -46,18 +46,18 @@ const SchoolScores: React.FC<Props> = ({ data }) => {
             className={`flex items-center gap-3 p-3 rounded-xl border border-gray-50 transition-all hover:shadow-sm ${getRatingBg(school.rating)}`}
           >
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-white shadow-sm ${getRatingColor(school.rating)}`}>
-              <span className="text-sm font-black">{school.rating || '?'}</span>
+              <span className="text-base font-black">{school.rating || '?'}</span>
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-[10px] font-black text-gray-900 uppercase tracking-tight truncate">
+              <span className="text-xs font-black text-gray-900 uppercase tracking-tight truncate">
                 {school.name}
               </span>
               <div className="flex items-center gap-2">
-                 <span className={`text-[9px] font-black uppercase tracking-widest ${getRatingColor(school.rating)}`}>
+                 <span className={`text-[10px] font-black uppercase tracking-widest ${getRatingColor(school.rating)}`}>
                   {getRatingLabel(school.rating)}
                 </span>
                 <span className="text-gray-300 text-[10px]">•</span>
-                <span className="text-[9px] font-bold text-gray-500 uppercase">
+                <span className="text-[10px] font-bold text-gray-500 uppercase">
                   {school.distance} away
                 </span>
               </div>

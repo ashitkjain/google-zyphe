@@ -112,9 +112,11 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
           6. If asked about technical specs like roof type or foundation, check the 'specifications.details' field.
           7. Always maintain a helpful, professional "Concierge" tone.
           8. Note: You only see the current user prompt to maintain high speed. Treat every request as a fresh inquiry about the property data provided.`,
-          temperature: 0.2,
+          temperature: 0.1,
           topP: 0.8,
           topK: 40,
+          // Disable thinking budget for the chat interface to maximize speed
+          thinkingConfig: { thinkingBudget: 0 }
         },
       });
 
