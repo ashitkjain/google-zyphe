@@ -43,7 +43,7 @@ let db: Firestore | null = null;
 try {
   if (app) db = getFirestore(app);
 } catch (e) {
-  console.error("Firestore service initialization failed (it might be blocked by an ad-blocker):", e);
+  console.error("Firestore service initialization failed:", e);
 }
 
 // Initialize Auth with safety
@@ -96,7 +96,11 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
     const userRef = doc(db, "users", uid);
     const snap = await getDoc(userRef);
     return snap.exists() ? (snap.data() as UserProfile) : null;
-  } catch (error) {
+  } catch (error: any) {
+    // Specifically catch permission errors and re-throw with context
+    if (error.code === 'permission-denied' || error.message?.includes('permissions')) {
+      throw new Error(`Insufficient Firestore permissions to access profile for ${uid}. Please ensure your Security Rules allow reading the 'users' collection.`);
+    }
     console.error("Error getting user profile:", error);
     return null;
   }

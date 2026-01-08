@@ -122,7 +122,6 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
 
       if (!response.ok) {
         if (response.status === 429 && attempt < retries) {
-          // Rate limited, wait 1s before retrying
           await new Promise(resolve => setTimeout(resolve, 1000));
           continue;
         }
@@ -155,15 +154,21 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
         console.error(`Final attempt to fetch images failed for ZPID ${zpid}:`, e);
         return [];
       }
-      // Simple backoff
       await new Promise(resolve => setTimeout(resolve, 500 * attempt));
     }
   }
   return [];
 };
 
-export const fetchPropertyData = async (address: string, forceRefresh: boolean = true): Promise<PropertyData> => {
-  const url = `https://us-housing-market-data1.p.rapidapi.com/property?address=${encodeURIComponent(address)}`;
+/**
+ * Combined fetch that ensures all sub-data is retrieved before returning
+ */
+export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boolean = false, onStep?: (step: string) => void): Promise<PropertyData> => {
+  const url = isZpid 
+    ? `https://us-housing-market-data1.p.rapidapi.com/property?zpid=${addressOrZpid}`
+    : `https://us-housing-market-data1.p.rapidapi.com/property?address=${encodeURIComponent(addressOrZpid)}`;
+  
+  onStep?.("Fetching property facts...");
   const response = await fetch(url, {
     method: 'GET',
     headers: {
@@ -176,10 +181,10 @@ export const fetchPropertyData = async (address: string, forceRefresh: boolean =
   const data = await response.json();
   if (!response.ok) throw new Error(`Property API error: ${response.status}`);
   
-  const rawZpid = data.zpid || data.props?.zpid || (data.properties && data.properties[0]?.zpid);
+  const rawZpid = isZpid ? addressOrZpid : (data.zpid || data.props?.zpid || (data.properties && data.properties[0]?.zpid));
 
   const mappedData: PropertyData = {
-    address: data.address || address,
+    address: data.address || data.props?.address || addressOrZpid,
     zpid: rawZpid ? String(rawZpid) : undefined,
     homeStatus: data.homeStatus || data.props?.homeStatus || "OFF_MARKET",
     homeType: data.homeType || data.props?.homeType || "SINGLE_FAMILY",
@@ -223,17 +228,8 @@ export const fetchPropertyData = async (address: string, forceRefresh: boolean =
     }
   };
 
-  // Extract images from primary response if available
-  let images = data.images || data.props?.images || (data.properties && data.properties[0]?.images) || [];
-  
   if (mappedData.zpid) {
-    // If no images in primary response, fetch from dedicated images endpoint
-    if (!images || images.length === 0) {
-      images = await fetchPropertyImages(mappedData.zpid);
-    }
-    
-    mappedData.images = images;
-
+    onStep?.("Syncing mobility scores...");
     const scores = await fetchScores(mappedData.zpid);
     mappedData.walkScore = scores.walkScore;
     mappedData.walkScoreDesc = scores.walkScoreDesc;
@@ -241,11 +237,18 @@ export const fetchPropertyData = async (address: string, forceRefresh: boolean =
     mappedData.transitScoreDesc = scores.transitScoreDesc;
     mappedData.bikeScore = scores.bikeScore;
     mappedData.bikeScoreDesc = scores.bikeScoreDesc;
-    
-    savePropertyToCloud(mappedData.zpid, mappedData);
-  } else {
+
+    onStep?.("Fetching image gallery...");
+    const images = await fetchPropertyImages(mappedData.zpid);
     mappedData.images = images;
+    
+    await savePropertyToCloud(mappedData.zpid, mappedData);
   }
 
   return mappedData;
+};
+
+// Legacy support for address only if needed
+export const fetchPropertyData = async (address: string, forceRefresh: boolean = true): Promise<PropertyData> => {
+  return fetchPropertyDataFull(address, false);
 };

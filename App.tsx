@@ -7,7 +7,7 @@ import {
   LogEntry,
   UserProfile
 } from './types.ts';
-import { normalizeAddress, fetchPropertyData, fetchPropertyImages } from './services/apiService.ts';
+import { normalizeAddress, fetchPropertyDataFull } from './services/apiService.ts';
 import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, AiResponseError } from './services/geminiService.ts';
 import { 
   logUserActivity, 
@@ -43,11 +43,11 @@ const App: React.FC = () => {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [cloudHistory, setCloudHistory] = useState<any[]>([]);
   
-  // Browser caching removed: search history no longer persists in localStorage
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
 
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingSublabel, setLoadingSublabel] = useState('');
   const [loadingTimer, setLoadingTimer] = useState(0);
   const [imagesLoading, setImagesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,34 +76,36 @@ const App: React.FC = () => {
   }, [loading, propertyData]);
 
   useEffect(() => {
-    if (!auth) {
-      console.warn("Auth service is unavailable. User sessions will not be synchronized.");
-      return;
-    }
+    if (!auth) return;
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        try {
-          const profile = await getUserProfile(user.uid);
-          if (profile) {
-            setCurrentUser(profile);
-            const history = await getUserViewHistory(user.uid);
-            setCloudHistory(history);
-          } else {
-            setCurrentUser({
-              uid: user.uid,
-              email: user.email || '',
-              displayName: user.displayName || 'User',
-              role: 'buyer',
-              createdAt: new Date()
-            });
+        let profile = null;
+        let attempts = 0;
+        const maxAttempts = 8;
+
+        while (attempts < maxAttempts) {
+          try {
+            profile = await getUserProfile(user.uid);
+            if (profile) break;
+          } catch (e: any) {
+            if (e.message?.includes('permissions')) {
+              console.error("Firestore Permission Denied. Check your security rules in the Firebase Console.");
+            }
           }
-        } catch (e) {
-          console.error("Profile load failed", e);
+          attempts++;
+          await new Promise(resolve => setTimeout(resolve, 500 + (attempts * 100)));
+        }
+
+        if (profile) {
+          setCurrentUser(profile);
+          const history = await getUserViewHistory(user.uid);
+          setCloudHistory(history);
+        } else {
           setCurrentUser({
             uid: user.uid,
             email: user.email || '',
-            displayName: user.displayName || 'User',
+            displayName: user.displayName || 'Guest User',
             role: 'buyer',
             createdAt: new Date()
           });
@@ -151,64 +153,68 @@ const App: React.FC = () => {
     if (!searchAddress.trim()) return;
 
     setLoading(true);
+    setLoadingSublabel("Initializing session...");
     setImagesLoading(true); 
     setError(null);
-    
+    setPropertyData(null);
     setCustomAnalysis(null);
     setComprehensiveAnalysis(null);
-    
     setLogs([]); 
     setViewMode('main');
 
     logUserActivity(sessionId, searchAddress);
 
     try {
-      addLog('Radar Geocode API', {type: 'request'}, { address: searchAddress });
-      const radarResult = await normalizeAddress(searchAddress);
-      addLog('Radar Geocode API', {type: 'response'}, radarResult);
+      let finalAddress = searchAddress;
+      let coords = null;
+      let mapIn = undefined;
+      let mapOut = undefined;
       
-      const normalizedAddr = radarResult.formattedAddress;
-      addToHistory(normalizedAddr);
-      setAddress(normalizedAddr);
+      const isZpid = /^\d+$/.test(searchAddress);
 
-      addLog('Zyphe Data Layer', {type: 'request'}, { address: normalizedAddr, forceRefresh: true });
-      const data = await fetchPropertyData(normalizedAddr, true);
+      if (!isZpid) {
+        setLoadingSublabel("Normalizing address...");
+        addLog('Radar Geocode API', {type: 'request'}, { address: searchAddress });
+        const radarResult = await normalizeAddress(searchAddress);
+        addLog('Radar Geocode API', {type: 'response'}, radarResult);
+        finalAddress = radarResult.formattedAddress;
+        coords = radarResult.coordinates;
+        mapIn = radarResult.mapZoomIn;
+        mapOut = radarResult.mapZoomOut;
+        addToHistory(finalAddress);
+        setAddress(finalAddress);
+      } else {
+        setLoadingSublabel(`Direct ZPID Search: ${searchAddress}`);
+      }
+
+      addLog('Zyphe Data Layer', {type: 'request'}, { target: finalAddress, isZpid });
+      
+      const fullData = await fetchPropertyDataFull(
+        finalAddress, 
+        isZpid, 
+        (step) => setLoadingSublabel(step)
+      );
       
       const mergedData: PropertyData = {
-        ...data,
-        coordinates: radarResult.coordinates,
-        mapZoomIn: radarResult.mapZoomIn,
-        mapZoomOut: radarResult.mapZoomOut,
-        address: normalizedAddr
+        ...fullData,
+        coordinates: coords || fullData.coordinates,
+        mapZoomIn: mapIn || fullData.mapZoomIn,
+        mapZoomOut: mapOut || fullData.mapZoomOut,
+        address: finalAddress || fullData.address
       };
       
-      addLog('Zyphe Data Layer', {type: 'response'}, data);
+      addLog('Zyphe Data Layer', {type: 'response'}, mergedData);
+      
+      // All data (Main, Scores, Images) is now present in mergedData
       setPropertyData(mergedData);
       setLoading(false);
+      setImagesLoading(false);
 
       if (currentUser && mergedData.zpid) {
         trackUserPropertyView(currentUser.uid, mergedData);
       }
-
-      if (data.zpid) {
-        addLog('Image Engine', {type: 'request'}, { zpid: data.zpid, action: 'Dedicated Gallery Fetch' });
-        setImagesLoading(true);
-        const images = await fetchPropertyImages(data.zpid);
-        
-        if (images.length > 0) {
-          addLog('Image Engine', {type: 'response'}, { status: 'Success', count: images.length });
-        } else {
-          addLog('Image Engine', {type: 'info'}, { status: 'No Images Returned', reason: 'Possible suppression or restricted listing' });
-        }
-        
-        setPropertyData(prev => prev ? { ...prev, images } : null);
-        setImagesLoading(false);
-      } else {
-        addLog('Image Engine', {type: 'error'}, { status: 'Failed', reason: 'No ZPID available for this property' });
-        setImagesLoading(false);
-      }
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
+      setError(err.message || 'An unexpected error occurred during property retrieval.');
       addLog('System', {type: 'error'}, err);
       setLoading(false);
       setImagesLoading(false);
@@ -218,7 +224,6 @@ const App: React.FC = () => {
   const handleRunCustomAnalysis = async (force = false) => {
     if (!propertyData) return;
     
-    // Check in-memory state first
     if (!force && customAnalysis) {
       setViewMode('visual-report');
       return;
@@ -228,7 +233,6 @@ const App: React.FC = () => {
     setViewMode('visual-report');
     
     try {
-      // Check Cloud Cache first
       if (!force && propertyData.zpid) {
         addLog('Cloud Cache', {type: 'request'}, { zpid: propertyData.zpid, task: 'visual_analysis' });
         const cached = await getVisualAnalysisFromCloud(propertyData.zpid);
@@ -276,7 +280,6 @@ const App: React.FC = () => {
     setViewMode('comprehensive-report');
 
     try {
-      // Check Cloud Cache first
       if (!force && propertyData.zpid) {
         addLog('Cloud Cache', {type: 'request'}, { zpid: propertyData.zpid, task: 'comprehensive_analysis' });
         const cached = await getComprehensiveAnalysisFromCloud(propertyData.zpid);
@@ -354,7 +357,7 @@ const App: React.FC = () => {
                     value={address}
                     onFocus={() => setShowHistory(true)}
                     onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Enter property address for AI analysis..."
+                    placeholder="Enter property address or ZPID for analysis..."
                     className="w-full pl-12 pr-4 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 rounded-2xl transition-all outline-none text-base font-medium shadow-inner"
                   />
                   <i className="fa-solid fa-house-laptop absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 text-lg"></i>
@@ -434,7 +437,7 @@ const App: React.FC = () => {
                 Analysis Active: <span className="font-mono text-xs">{loadingTimer}s</span>
               </span>
             </div>
-            <p className="text-sm font-medium text-slate-500 animate-pulse">Our AI is fetching fresh market specs, mapping neighborhood context, and assessing risk factors.</p>
+            <p className="text-sm font-black text-indigo-600 animate-pulse uppercase tracking-[0.2em]">{loadingSublabel}</p>
           </div>
         ) : viewMode === 'main' ? (
           propertyData ? (
@@ -445,7 +448,7 @@ const App: React.FC = () => {
                      <h2 className="text-3xl font-black text-slate-900 mb-2 tracking-tight flex items-center gap-4">
                        {propertyData.address}
                        <button 
-                         onClick={() => performSearch(propertyData.address, true)}
+                         onClick={() => performSearch(propertyData.zpid || propertyData.address, true)}
                          className="p-2 text-slate-400 hover:text-indigo-600 transition-colors bg-slate-50 rounded-xl hover:bg-indigo-50 border border-transparent hover:border-indigo-100 active:scale-90"
                          title="Refresh All Data"
                        >
@@ -493,7 +496,7 @@ const App: React.FC = () => {
                     {cloudHistory.map((item, i) => (
                       <button 
                         key={i} 
-                        onClick={() => performSearch(item.address)}
+                        onClick={() => performSearch(item.zpid || item.address)}
                         className="p-5 bg-white border border-slate-100 rounded-3xl text-left hover:border-indigo-500 hover:shadow-xl hover:shadow-indigo-100 transition-all group"
                       >
                         <div className="flex items-center gap-3 mb-3">
