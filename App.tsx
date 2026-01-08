@@ -476,10 +476,9 @@ const App: React.FC = () => {
               <PropertyMaps mapZoomIn={propertyData.mapZoomIn} mapZoomOut={propertyData.mapZoomOut} />
             </div>
           ) : (
-            <div className="max-w-4xl mx-auto py-12">
-              <div className="text-center space-y-4 mb-16 flex flex-col items-center">
-                <Logo size={480} className="hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
-                <p className="text-xl text-slate-500 max-w-2xl mx-auto font-medium leading-relaxed mt-10">
+            <div className="max-w-4xl mx-auto py-6">
+              <div className="text-center space-y-4 mb-12 flex flex-col items-center">
+                <p className="text-2xl text-slate-500 max-w-2xl mx-auto font-medium leading-relaxed">
                   The world's most advanced property analysis suite. Instant fresh deep-dives into property value, neighborhood pulse, and structural visual intelligence.
                 </p>
               </div>
@@ -551,10 +550,10 @@ const App: React.FC = () => {
         <SystemLogs logs={logs} />
       </main>
 
-      <footer className="bg-slate-900 py-16 mt-20">
+      <footer className="bg-slate-900 py-8 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center">
-          <Logo size={240} className="mb-10 brightness-0 invert opacity-60 hover:opacity-100 transition-opacity" />
-          <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em] mb-10">Intelligence Suite • 2025</p>
+          <Logo size={120} className="mb-6 brightness-0 invert opacity-60 hover:opacity-100 transition-opacity" />
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em] mb-6">Intelligence Suite • 2025</p>
           <div className="flex gap-12 text-slate-400 text-xs font-bold">
             <a href="#" className="hover:text-indigo-400 transition-colors">Privacy Policy</a>
             <a href="#" className="hover:text-indigo-400 transition-colors">Terms of Service</a>
