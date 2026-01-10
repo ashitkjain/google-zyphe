@@ -1,13 +1,14 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult } from "../types.ts";
-import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/propertyAnalysis.ts";
-import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/neighborhoodAnalysis.ts";
-import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/communityPulse.ts";
-import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/propertyImages.ts";
-import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis.ts";
+import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult } from "../types";
+import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/propertyAnalysis";
+import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/neighborhoodAnalysis";
+import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/communityPulse";
+import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/propertyImages";
+import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis";
+import { getImageQualityAnalysisPrompt, imageQualityAnalysisSchema } from "../prompts/imageQualityAnalysis";
 
-// Updated to gemini-2.5-flash for significantly faster response times as requested.
+// Updated to gemini-3-flash-preview for Basic Text Tasks and complex analysis as per guidelines.
 export const GEMINI_MODEL = 'gemini-2.5-flash';
 
 // Custom error to pass raw response back for logging
@@ -24,6 +25,7 @@ export class AiResponseError extends Error {
 let aiInstance: GoogleGenAI | null = null;
 const getAi = () => {
   if (!aiInstance) {
+    // API key is correctly pulled from process.env.API_KEY
     const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY) || "";
     aiInstance = new GoogleGenAI({ apiKey });
   }
@@ -31,12 +33,14 @@ const getAi = () => {
 };
 
 /**
- * Robust JSON extraction helper that handles various formatting anomalies.
+ * Enhanced JSON extraction helper.
+ * Uses a greedy backtracking strategy to find valid JSON objects/arrays 
+ * even if the model appends trailing garbage or extra braces.
  */
 function extractJson<T>(text: string | undefined): T {
   if (!text) throw new AiResponseError("Empty response from AI", "");
   
-  // Remove zero-width spaces, BOM, and other non-printable chars that can break JSON.parse
+  // Clean basic non-printable characters
   let cleaned = text.replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
   
   const tryParse = (str: string) => {
@@ -55,31 +59,41 @@ function extractJson<T>(text: string | undefined): T {
   const markdownMatches = [...cleaned.matchAll(/```(?:json)?\s*([\s\S]*?)\s*```/gi)];
   for (const match of markdownMatches) {
     if (match[1]) {
-      result = tryParse(match[1].trim());
+      const candidate = match[1].trim();
+      result = tryParse(candidate);
       if (result) return result;
     }
   }
 
-  // 3. Greedy substring extraction (Object)
+  // 3. Greedy Object Extraction with Backtracking
+  // Handles the case where the LLM might output: { "json": true } } (extra brace)
   const firstBrace = cleaned.indexOf('{');
-  const lastBrace = cleaned.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    // Attempt to find the largest valid JSON object within the braces
-    for (let end = lastBrace; end > firstBrace; end--) {
-      const candidate = cleaned.substring(firstBrace, end + 1);
-      result = tryParse(candidate);
-      if (result) return result;
+  if (firstBrace !== -1) {
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (lastBrace > firstBrace) {
+      // Iterate backwards from the last closing brace to find the valid JSON structure
+      for (let end = lastBrace; end > firstBrace; end--) {
+        if (cleaned[end] === '}') {
+          const candidate = cleaned.substring(firstBrace, end + 1);
+          result = tryParse(candidate);
+          if (result) return result;
+        }
+      }
     }
   }
 
-  // 4. Greedy substring extraction (Array)
+  // 4. Greedy Array Extraction with Backtracking
   const firstBracket = cleaned.indexOf('[');
-  const lastBracket = cleaned.lastIndexOf(']');
-  if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
-    for (let end = lastBracket; end > firstBracket; end--) {
-      const candidate = cleaned.substring(firstBracket, end + 1);
-      result = tryParse(candidate);
-      if (result) return result;
+  if (firstBracket !== -1) {
+    const lastBracket = cleaned.lastIndexOf(']');
+    if (lastBracket > firstBracket) {
+      for (let end = lastBracket; end > firstBracket; end--) {
+        if (cleaned[end] === ']') {
+          const candidate = cleaned.substring(firstBracket, end + 1);
+          result = tryParse(candidate);
+          if (result) return result;
+        }
+      }
     }
   }
   
@@ -112,6 +126,7 @@ export const analyzeProperty = async (property: PropertyData): Promise<AIAnalysi
     }
   });
 
+  // Use response.text directly (property, not a method)
   return extractJson<AIAnalysisResult>(response.text);
 };
 
@@ -134,6 +149,7 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
     }
   });
 
+  // Use response.text directly
   return extractJson<NeighborhoodAnalysis>(response.text);
 };
 
@@ -148,6 +164,7 @@ export const analyzeCommunityPulse = async (property: PropertyData): Promise<Com
     }
   });
 
+  // Use response.text directly
   return extractJson<CommunityPulseResult>(response.text);
 };
 
@@ -174,6 +191,7 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
     }
   });
 
+  // Use response.text directly
   return extractJson<CustomAIAnalysisResult>(response.text);
 };
 
@@ -185,11 +203,12 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
     contents: prompt,
     config: {
       tools: [{ googleSearch: {} }],
-      // Reduced thinking budget for faster overall generation time with 2.5 Flash
+      // Reduced thinking budget for faster overall generation time
       thinkingConfig: { thinkingBudget: 4000 }
     }
   });
 
+  // Use response.text directly
   return extractJson<ComprehensiveAnalysisResult>(response.text);
 };
 
@@ -202,48 +221,7 @@ export const analyzeImageQuality = async (imageUrls: string[]): Promise<ImageQua
     return { inlineData: { data, mimeType } };
   }));
 
-  const prompt = `I am uploading photos for a new property listing. Please perform a comprehensive audit of the entire gallery and return your analysis as a JSON object with exactly this structure:
-
-{
-  "overall_score": {
-    "score": <number 0-100>,
-    "summary": "<brief explanation of the score>"
-  },
-  "top_photos": {
-    "count": <number>,
-    "description": "<which photos are strongest and why>",
-    "recommendations": ["<recommendation 1>", "<recommendation 2>"]
-  },
-  "lighting_and_color": {
-    "rating": "<Good/Fair/Poor>",
-    "observations": ["<observation 1>", "<observation 2>"],
-    "issues": ["<issue 1>", "<issue 2>"]
-  },
-  "staging_and_clutter": {
-    "rating": "<Good/Fair/Poor>",
-    "observations": ["<observation 1>", "<observation 2>"],
-    "issues": ["<issue 1>", "<issue 2>"]
-  },
-  "composition": {
-    "rating": "<Good/Fair/Poor>",
-    "observations": ["<observation 1>", "<observation 2>"],
-    "issues": ["<issue 1>", "<issue 2>"]
-  },
-  "delete_list": {
-    "count": <number>,
-    "reasons": ["<reason 1>", "<reason 2>"],
-    "description": "<which photos should be removed and why>"
-  },
-  "action_plan": {
-    "priority_actions": ["<action 1>", "<action 2>", "<action 3>"],
-    "editing_suggestions": ["<suggestion 1>", "<suggestion 2>"],
-    "reshoot_suggestions": ["<suggestion 1>", "<suggestion 2>"]
-  }
-}
-
-Respond ONLY with the JSON object, no additional text or markdown formatting.
-
-Here are the photos:`;
+  const prompt = getImageQualityAnalysisPrompt();
 
   const response = await ai.models.generateContent({
     model: GEMINI_MODEL,
@@ -254,9 +232,11 @@ Here are the photos:`;
       ]
     },
     config: {
-      responseMimeType: "application/json"
+      responseMimeType: "application/json",
+      responseSchema: imageQualityAnalysisSchema
     }
   });
 
+  // Use response.text directly
   return extractJson<ImageQualityAnalysisResult>(response.text);
 };

@@ -1,13 +1,21 @@
+
 import React from 'react';
 
 interface LogoProps {
   className?: string;
   size?: number;
+  // Added onClick prop to fix the error in App.tsx
+  onClick?: () => void;
 }
 
-const Logo: React.FC<LogoProps> = ({ className = "", size = 48 }) => {
+const Logo: React.FC<LogoProps> = ({ className = "", size = 48, onClick }) => {
   return (
-    <div className={`relative flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
+    <div 
+      className={`relative flex items-center justify-center ${className} ${onClick ? 'cursor-pointer' : ''}`} 
+      style={{ width: size, height: size }}
+      // Fixed: applied onClick handler to the container
+      onClick={onClick}
+    >
       <svg
         viewBox="0 0 100 100"
         fill="none"

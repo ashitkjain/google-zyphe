@@ -1,10 +1,11 @@
 
 import { normalizeAddress, fetchPropertyData, fetchPropertyImages } from './apiService.ts';
-import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, AiResponseError } from './geminiService.ts';
+import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, analyzeImageQuality, AiResponseError } from './geminiService.ts';
 import { 
   savePropertyToCloud, 
   saveVisualAnalysisToCloud,
-  saveComprehensiveAnalysisToCloud
+  saveComprehensiveAnalysisToCloud,
+  saveImageQualityAnalysisToCloud
 } from './firebaseService.ts';
 import { PropertyData, CustomAIAnalysisResult } from '../types.ts';
 
@@ -25,7 +26,7 @@ export const runFullIntelligencePipeline = async (
     const address = radar.formattedAddress;
     onProgress({ step: 'Geocoding', status: 'completed', message: `Address normalized: ${address}` });
 
-    // 2. Cache Audit - Removed to prevent browser/system caching
+    // 2. Fresh Scan
     onProgress({ step: 'Status Check', status: 'running', message: 'Initiating fresh property scan...' });
     onProgress({ step: 'Status Check', status: 'completed', message: 'Ready for fresh ingestion.' });
 
@@ -74,9 +75,21 @@ export const runFullIntelligencePipeline = async (
     visualResult.community_pulse = pulse;
     onProgress({ step: 'Market AI', status: 'completed', message: 'Fresh market pulse analysis complete.' });
 
+    // 8. Quality Audit (New Pipeline Step)
+    onProgress({ step: 'Quality Audit', status: 'running', message: 'Performing deep picture quality scan...' });
+    if (images.length > 0) {
+      const qualityResult = await analyzeImageQuality(images);
+      visualResult.image_quality_analysis = qualityResult;
+      // Save specifically to the new collection
+      await saveImageQualityAnalysisToCloud(zpid, qualityResult);
+      onProgress({ step: 'Quality Audit', status: 'completed', message: 'Picture quality intelligence generated.' });
+    } else {
+      onProgress({ step: 'Quality Audit', status: 'completed', message: 'Skipped (no images).' });
+    }
+
     await saveVisualAnalysisToCloud(zpid, visualResult);
 
-    // 8. Narrative AI
+    // 9. Narrative AI
     onProgress({ step: 'Narrative AI', status: 'running', message: 'Synthesizing professional report...' });
     const compResult = await analyzeComprehensive(enrichedData, visualResult);
     await saveComprehensiveAnalysisToCloud(zpid, compResult);

@@ -1,4 +1,5 @@
 
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -144,34 +145,34 @@ export interface CommunityPulseResult {
   investment_insights: CommunityPulseSection;
 }
 
+export interface ImageQualityPoint {
+  text: string;
+  image_indices: number[];
+}
+
+export interface ImageQualityCategory {
+  rating: string;
+  observations: ImageQualityPoint[];
+  issues: ImageQualityPoint[];
+}
+
 export interface ImageQualityAnalysisResult {
   overall_score: {
     score: number;
     summary: string;
   };
-  top_photos: {
-    count: number;
-    description: string;
-    recommendations: string[];
-  };
-  lighting_and_color: {
-    rating: string;
-    observations: string[];
-    issues: string[];
-  };
-  staging_and_clutter: {
-    rating: string;
-    observations: string[];
-    issues: string[];
-  };
-  composition: {
-    rating: string;
-    observations: string[];
-    issues: string[];
-  };
+  top_photos: Array<{
+    image_index: number;
+    label: string;
+    justification: string;
+  }>;
+  lighting_and_color: ImageQualityCategory;
+  staging_and_clutter: ImageQualityCategory;
+  composition: ImageQualityCategory;
   delete_list: {
     count: number;
     reasons: string[];
+    image_indices: number[];
     description: string;
   };
   action_plan: {

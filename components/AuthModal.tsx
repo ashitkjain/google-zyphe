@@ -5,14 +5,14 @@ import {
   googleProvider, 
   saveUserProfile, 
   getUserProfile 
-} from '../services/firebaseService.ts';
+} from '../services/firebaseService';
 import { 
   signInWithPopup, 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import Logo from './Logo.tsx';
+import Logo from './Logo';
 
 interface Props {
   isOpen: boolean;
