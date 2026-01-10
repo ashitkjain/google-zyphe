@@ -1,14 +1,14 @@
 
 import React, { useState } from 'react';
-import { 
-  auth, 
-  googleProvider, 
-  saveUserProfile, 
-  getUserProfile 
+import {
+  auth,
+  googleProvider,
+  saveUserProfile,
+  getUserProfile
 } from '../services/firebaseService';
-import { 
-  signInWithPopup, 
-  createUserWithEmailAndPassword, 
+import {
+  signInWithPopup,
+  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
@@ -90,7 +90,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
-      
+
       const existing = await getUserProfile(user.uid);
       if (!existing) {
         await saveUserProfile(user.uid, {
@@ -123,15 +123,24 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
+        // Store the intended role in localStorage so App.tsx can find it if Firestore fails or is slow
+        localStorage.setItem('zyphe_pending_role', role);
+        console.log("Stored pending role in localStorage:", role);
+
         const result = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(result.user, { displayName: name });
-        await saveUserProfile(result.user.uid, {
+
+        const success = await saveUserProfile(result.user.uid, {
           email,
           displayName: name,
           role,
           address: address || null,
           createdAt: new Date()
         });
+
+        if (!success) {
+          console.warn("Firestore profile creation failed, but auth account exists. App will use localStorage fallback.");
+        }
       }
       onClose();
     } catch (err: any) {
@@ -153,7 +162,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
       <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={onClose}></div>
-      
+
       <div className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col">
         <div className="p-8 pb-4 flex flex-col items-center text-center">
           <Logo size={80} className="mb-6" />
@@ -174,7 +183,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   <span className="block leading-relaxed">{error}</span>
                   {(error.includes("unauthorized") || error.includes("preview")) && (
                     <div className="space-y-2">
-                      <button 
+                      <button
                         onClick={copyHostname}
                         className="flex items-center gap-2 px-3 py-2 bg-white border border-rose-200 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all text-rose-700 w-fit"
                       >
@@ -187,9 +196,9 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
               </div>
               {errorLink && (
                 <div className="pt-1">
-                  <a 
-                    href={errorLink.url} 
-                    target={errorLink.url === "#" ? "_self" : "_blank"} 
+                  <a
+                    href={errorLink.url}
+                    target={errorLink.url === "#" ? "_self" : "_blank"}
                     rel="noopener noreferrer"
                     onClick={handleActionClick}
                     className="w-full flex items-center justify-center gap-2 text-white font-black uppercase tracking-widest text-[10px] bg-rose-600 px-4 py-3 rounded-xl shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95"
@@ -201,7 +210,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          <button 
+          <button
             onClick={handleGoogleLogin}
             disabled={loading}
             className="w-full flex items-center justify-center gap-3 py-3.5 border-2 border-slate-100 rounded-2xl hover:bg-slate-50 hover:border-slate-200 transition-all font-bold text-slate-700 mb-6 active:scale-[0.98] disabled:opacity-50"
@@ -221,16 +230,16 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
               <>
                 <div>
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Full Name</label>
-                  <input 
-                    type="text" 
-                    required 
+                  <input
+                    type="text"
+                    required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all"
                     placeholder="John Doe"
                   />
                 </div>
-                
+
                 <div>
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">I am a...</label>
                   <div className="grid grid-cols-3 gap-2">
@@ -243,11 +252,10 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         key={r.id}
                         type="button"
                         onClick={() => setRole(r.id as any)}
-                        className={`py-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${
-                          role === r.id 
-                            ? 'border-indigo-600 bg-indigo-50 text-indigo-700' 
+                        className={`py-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${role === r.id
+                            ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
                             : 'border-slate-100 text-slate-400 hover:border-slate-200'
-                        }`}
+                          }`}
                       >
                         <i className={`fa-solid ${r.icon} text-xs`}></i>
                         <span className="text-[9px] font-black uppercase tracking-widest">{r.label}</span>
@@ -258,8 +266,8 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
                 <div>
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Current Address (Optional)</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     className="w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all"
@@ -271,9 +279,9 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Email Address</label>
-              <input 
-                type="email" 
-                required 
+              <input
+                type="email"
+                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all"
@@ -283,9 +291,9 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Password</label>
-              <input 
-                type="password" 
-                required 
+              <input
+                type="password"
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all"
@@ -294,8 +302,8 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
               {!isLogin && <p className="text-[9px] text-slate-400 mt-1.5 ml-1">Minimum 6 characters required.</p>}
             </div>
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={loading}
               className="w-full py-4 bg-gradient-to-r from-indigo-700 to-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-98 transition-all mt-4 disabled:opacity-50"
             >
@@ -304,7 +312,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
           </form>
 
           <div className="mt-8 text-center border-t border-slate-50 pt-6">
-            <button 
+            <button
               onClick={() => {
                 setIsLogin(!isLogin);
                 setError(null);

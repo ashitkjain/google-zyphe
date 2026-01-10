@@ -1,13 +1,13 @@
 
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
-import { 
-  getFirestore, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  collection, 
-  query, 
-  where, 
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  collection,
+  query,
+  where,
   getDocs,
   orderBy,
   limit,
@@ -17,9 +17,9 @@ import {
   writeBatch
   // FirestoreError // Removed as type might cause issues with some bundlers
 } from "firebase/firestore";
-import { 
-  getAuth, 
-  GoogleAuthProvider, 
+import {
+  getAuth,
+  GoogleAuthProvider,
   // Auth, // Removed as type might cause issues with some bundlers
   deleteUser
 } from "firebase/auth";
@@ -113,8 +113,12 @@ const handleFirestoreError = (error: any, context: string) => {
 };
 
 export const saveUserProfile = async (uid: string, profile: Partial<UserProfile>) => {
-  if (!db) return false;
+  if (!db) {
+    console.error("[Firestore] Database service not initialized.");
+    return false;
+  }
   try {
+    console.log(`[Firestore] Attempting to save profile for UID: ${uid}`, profile);
     const userRef = doc(db, "users", uid);
     const sanitized = sanitizeForFirestore(profile);
     await setDoc(userRef, {
@@ -122,8 +126,10 @@ export const saveUserProfile = async (uid: string, profile: Partial<UserProfile>
       uid,
       updatedAt: serverTimestamp()
     }, { merge: true });
+    console.log("[Firestore] Profile saved successfully.");
     return true;
   } catch (error) {
+    console.error("[Firestore] saveUserProfile error:", error);
     return handleFirestoreError(error, "saveUserProfile");
   }
 };
@@ -141,24 +147,38 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
 };
 
 export const deleteUserAccount = async (uid: string) => {
-  if (!db || !auth || !auth.currentUser) throw new Error("Authentication state missing.");
+  if (!auth) throw new Error("Authentication service not initialized.");
+  const user = auth.currentUser;
+  if (!user) throw new Error("No authenticated user found.");
+
+  // Attempt to clean up Firestore data, but don't block account deletion if permissions fail
   try {
-    const user = auth.currentUser;
-    const profileRef = doc(db, "users", uid);
-    const historyCol = collection(db, "users", uid, "viewHistory");
-    const historySnap = await getDocs(historyCol);
-    const batch = writeBatch(db);
-    historySnap.docs.forEach((doc) => batch.delete(doc.ref));
-    batch.delete(profileRef);
-    await batch.commit();
+    if (db) {
+      const profileRef = doc(db, "users", uid);
+      const historyCol = collection(db, "users", uid, "viewHistory");
+      const historySnap = await getDocs(historyCol);
+      const batch = writeBatch(db);
+
+      historySnap.docs.forEach((doc) => batch.delete(doc.ref));
+      batch.delete(profileRef);
+
+      await batch.commit();
+      console.log("[Firestore] Account data cleaned up successfully.");
+    }
+  } catch (error) {
+    console.warn("[Firestore] Failed to clean up user data (likely permission denied), proceeding with account deletion:", error);
+  }
+
+  try {
     await deleteUser(user);
+    console.log("[Auth] Account deleted successfully.");
     return true;
   } catch (error: any) {
-    console.error("Error deleting account:", error);
+    console.error("[Auth] Error deleting account:", error);
     if (error.code === 'auth/requires-recent-login') {
-      throw new Error("This sensitive operation requires a recent login. Please sign out and sign back in.");
+      throw new Error("This sensitive operation requires a recent login. Please sign out and sign back in before trying again.");
     }
-    throw error;
+    throw new Error(error.message || "Failed to delete account. Please try again later.");
   }
 };
 

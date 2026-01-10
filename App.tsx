@@ -1,16 +1,16 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { 
-  PropertyData, 
-  CustomAIAnalysisResult, 
-  ComprehensiveAnalysisResult, 
+import {
+  PropertyData,
+  CustomAIAnalysisResult,
+  ComprehensiveAnalysisResult,
   LogEntry,
   UserProfile
 } from './types';
 import { normalizeAddress, fetchPropertyDataFull } from './services/apiService';
 import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, AiResponseError } from './services/geminiService';
-import { 
-  logUserActivity, 
+import {
+  logUserActivity,
   saveVisualAnalysisToCloud,
   saveComprehensiveAnalysisToCloud,
   auth,
@@ -44,7 +44,7 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [cloudHistory, setCloudHistory] = useState<any[]>([]);
-  
+
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
 
   const [address, setAddress] = useState('');
@@ -85,18 +85,25 @@ const App: React.FC = () => {
         let profile = null;
         let attempts = 0;
         const maxAttempts = 3;
-        
+
         while (attempts < maxAttempts) {
           try {
             profile = await getUserProfile(user.uid);
-            if (profile) break;
+            if (profile) {
+              // Successfully got profile, clear temporary role storage
+              localStorage.removeItem('zyphe_pending_role');
+              break;
+            }
           } catch (e: any) {
             if (e.code === 'permission-denied') {
               console.warn("Initial permission sync attempt failed, retrying...");
             }
           }
           attempts++;
-          if (attempts < maxAttempts) await new Promise(resolve => setTimeout(resolve, 500 * attempts));
+          if (attempts < maxAttempts) {
+            console.log(`Retrying profile fetch (attempt ${attempts})...`);
+            await new Promise(resolve => setTimeout(resolve, 800 * attempts));
+          }
         }
 
         if (profile) {
@@ -105,14 +112,18 @@ const App: React.FC = () => {
             const history = await getUserViewHistory(user.uid);
             setCloudHistory(history);
           } catch (e) {
-             console.warn("Could not retrieve cloud history:", e);
+            console.warn("Could not retrieve cloud history:", e);
           }
         } else {
+          // Fallback to localStorage role if available, otherwise default to buyer
+          const pendingRole = (localStorage.getItem('zyphe_pending_role') as any) || 'buyer';
+          console.log(`Profile not found in Firestore. Using role: ${pendingRole}`);
+
           setCurrentUser({
             uid: user.uid,
             email: user.email || '',
             displayName: user.displayName || 'Guest User',
-            role: 'buyer',
+            role: pendingRole,
             createdAt: new Date()
           });
         }
@@ -138,7 +149,7 @@ const App: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const addLog = (service: string, {type}: any, content: any) => {
+  const addLog = (service: string, { type }: any, content: any) => {
     setLogs(prev => [...prev, { timestamp: new Date().toLocaleTimeString(), service, type, content }]);
   };
 
@@ -160,12 +171,12 @@ const App: React.FC = () => {
 
     setLoading(true);
     setLoadingSublabel("Initializing session...");
-    setImagesLoading(true); 
+    setImagesLoading(true);
     setError(null);
     setPropertyData(null);
     setCustomAnalysis(null);
     setComprehensiveAnalysis(null);
-    setLogs([]); 
+    setLogs([]);
     setViewMode('main');
 
     logUserActivity(sessionId, searchAddress);
@@ -175,14 +186,14 @@ const App: React.FC = () => {
       let coords = null;
       let mapIn = undefined;
       let mapOut = undefined;
-      
+
       const isZpid = /^\d+$/.test(searchAddress);
 
       if (!isZpid) {
         setLoadingSublabel("Normalizing address...");
-        addLog('Radar Geocode API', {type: 'request'}, { address: searchAddress });
+        addLog('Radar Geocode API', { type: 'request' }, { address: searchAddress });
         const radarResult = await normalizeAddress(searchAddress);
-        addLog('Radar Geocode API', {type: 'response'}, radarResult);
+        addLog('Radar Geocode API', { type: 'response' }, radarResult);
         finalAddress = radarResult.formattedAddress;
         coords = radarResult.coordinates;
         mapIn = radarResult.mapZoomIn;
@@ -193,14 +204,14 @@ const App: React.FC = () => {
         setLoadingSublabel(`Direct ZPID Search: ${searchAddress}`);
       }
 
-      addLog('Zyphe Data Layer', {type: 'request'}, { target: finalAddress, isZpid });
-      
+      addLog('Zyphe Data Layer', { type: 'request' }, { target: finalAddress, isZpid });
+
       const fullData = await fetchPropertyDataFull(
-        finalAddress, 
-        isZpid, 
+        finalAddress,
+        isZpid,
         (step) => setLoadingSublabel(step)
       );
-      
+
       const mergedData: PropertyData = {
         ...fullData,
         coordinates: coords || fullData.coordinates,
@@ -208,9 +219,9 @@ const App: React.FC = () => {
         mapZoomOut: mapOut || fullData.mapZoomOut,
         address: finalAddress || fullData.address
       };
-      
-      addLog('Zyphe Data Layer', {type: 'response'}, mergedData);
-      
+
+      addLog('Zyphe Data Layer', { type: 'response' }, mergedData);
+
       setPropertyData(mergedData);
       setLoading(false);
       setImagesLoading(false);
@@ -220,7 +231,7 @@ const App: React.FC = () => {
       }
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred during property retrieval.');
-      addLog('System', {type: 'error'}, err);
+      addLog('System', { type: 'error' }, err);
       setLoading(false);
       setImagesLoading(false);
     }
@@ -228,7 +239,7 @@ const App: React.FC = () => {
 
   const handleRunCustomAnalysis = async (force = false) => {
     if (!propertyData) return;
-    
+
     if (!force && customAnalysis) {
       setViewMode('visual-report');
       return;
@@ -236,41 +247,41 @@ const App: React.FC = () => {
 
     setCustomAnalysisLoading(true);
     setViewMode('visual-report');
-    
+
     try {
       if (!force && propertyData.zpid) {
-        addLog('Cloud Cache', {type: 'request'}, { zpid: propertyData.zpid, task: 'visual_analysis' });
+        addLog('Cloud Cache', { type: 'request' }, { zpid: propertyData.zpid, task: 'visual_analysis' });
         const cached = await getVisualAnalysisFromCloud(propertyData.zpid);
         if (cached) {
           // Check for separate image quality cache
           const qualityCached = await getImageQualityAnalysisFromCloud(propertyData.zpid);
           if (qualityCached) cached.image_quality_analysis = qualityCached;
-          
-          addLog('Cloud Cache', {type: 'response'}, { status: 'Hit', data: cached });
+
+          addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', data: cached });
           setCustomAnalysis(cached);
           setCustomAnalysisLoading(false);
           return;
         }
-        addLog('Cloud Cache', {type: 'info'}, { status: 'Miss' });
+        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss' });
       }
 
-      addLog('Gemini AI', {type: 'request'}, { task: 'visual_analysis', forced: force });
+      addLog('Gemini AI', { type: 'request' }, { task: 'visual_analysis', forced: force });
       const result = await analyzePropertyImages(propertyData.images || [], propertyData);
-      
+
       if (propertyData.mapZoomOut) {
         const neighborhood = await analyzeNeighborhood(propertyData.mapZoomOut, propertyData);
         result.neighborhood = neighborhood;
       }
-      
+
       const pulse = await analyzeCommunityPulse(propertyData);
       result.community_pulse = pulse;
-      
+
       setCustomAnalysis(result);
-      addLog('Gemini AI', {type: 'response'}, result);
+      addLog('Gemini AI', { type: 'response' }, result);
       if (propertyData.zpid) await saveVisualAnalysisToCloud(propertyData.zpid, result);
     } catch (err: any) {
       const logContent = err instanceof AiResponseError ? { message: err.message, raw: err.rawResponse } : err;
-      addLog('Gemini AI', {type: 'error'}, logContent);
+      addLog('Gemini AI', { type: 'error' }, logContent);
       setError("AI analysis failed. Check logs for details.");
     } finally {
       setCustomAnalysisLoading(false);
@@ -290,25 +301,25 @@ const App: React.FC = () => {
 
     try {
       if (!force && propertyData.zpid) {
-        addLog('Cloud Cache', {type: 'request'}, { zpid: propertyData.zpid, task: 'comprehensive_analysis' });
+        addLog('Cloud Cache', { type: 'request' }, { zpid: propertyData.zpid, task: 'comprehensive_analysis' });
         const cached = await getComprehensiveAnalysisFromCloud(propertyData.zpid);
         if (cached) {
-          addLog('Cloud Cache', {type: 'response'}, { status: 'Hit', data: cached });
+          addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', data: cached });
           setComprehensiveAnalysis(cached);
           setComprehensiveLoading(false);
           return;
         }
-        addLog('Cloud Cache', {type: 'info'}, { status: 'Miss' });
+        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss' });
       }
 
-      addLog('Gemini AI', {type: 'request'}, { task: 'comprehensive_analysis', forced: force });
+      addLog('Gemini AI', { type: 'request' }, { task: 'comprehensive_analysis', forced: force });
       const result = await analyzeComprehensive(propertyData, customAnalysis);
       setComprehensiveAnalysis(result);
-      addLog('Gemini AI', {type: 'response'}, result);
+      addLog('Gemini AI', { type: 'response' }, result);
       if (propertyData.zpid) await saveComprehensiveAnalysisToCloud(propertyData.zpid, result);
     } catch (err: any) {
       const logContent = err instanceof AiResponseError ? { message: err.message, raw: err.rawResponse } : err;
-      addLog('Gemini AI', {type: 'error'}, logContent);
+      addLog('Gemini AI', { type: 'error' }, logContent);
       setError("Comprehensive report failed. Check logs for details.");
     } finally {
       setComprehensiveLoading(false);
@@ -329,16 +340,26 @@ const App: React.FC = () => {
   };
 
   const handleDeleteAccount = async () => {
-    if (!currentUser) return;
-    const confirm = window.confirm("WARNING: Are you absolutely sure?");
-    if (!confirm) return;
+    if (!currentUser) {
+      console.warn("Delete account aborted: No current user in state.");
+      return;
+    }
+
+    const confirmed = window.confirm("WARNING: All your data and saved analysis will be permanently deleted. Are you absolutely sure?");
+    if (!confirmed) return;
+
     setLoading(true);
+    setError(null);
+    console.log("Starting account deletion for UID:", currentUser.uid);
+
     try {
       await deleteUserAccount(currentUser.uid);
+      console.log("Account deletion completed successfully.");
       setCurrentUser(null);
       setCloudHistory([]);
     } catch (err: any) {
-      setError(err.message);
+      console.error("Account deletion failed:", err);
+      setError(err.message || "An unexpected error occurred during account deletion.");
     } finally {
       setLoading(false);
     }
@@ -348,7 +369,7 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
       <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
-      
+
       {currentUser && (
         <div className="bg-slate-900 text-white py-2 px-4 shadow-inner border-b border-white/5 relative z-[60]">
           <div className="max-w-7xl mx-auto flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em]">
@@ -371,13 +392,21 @@ const App: React.FC = () => {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <Logo size={120} className="scale-75 md:scale-90 origin-left" onClick={() => setViewMode('main')} />
             <div className="flex-1 max-w-2xl relative" ref={historyRef}>
-              <form onSubmit={(e) => { e.preventDefault(); performSearch(address); }}>
-                <div className="relative group">
-                  <input type="text" value={address} onFocus={() => setShowHistory(true)} onChange={(e) => setAddress(e.target.value)} placeholder="Enter property address..." className="w-full pl-12 pr-4 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none" />
-                  <i className="fa-solid fa-house-laptop absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                  <button type="submit" disabled={loading} className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-700 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase">Analyze</button>
-                </div>
-              </form>
+              <div className="flex items-center gap-4">
+                <form onSubmit={(e) => { e.preventDefault(); performSearch(address); }} className="flex-1">
+                  <div className="relative group">
+                    <input type="text" value={address} onFocus={() => setShowHistory(true)} onChange={(e) => setAddress(e.target.value)} placeholder="Enter property address..." className="w-full pl-12 pr-4 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none" />
+                    <i className="fa-solid fa-house-laptop absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <button type="submit" disabled={loading} className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-700 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase">Analyze</button>
+                  </div>
+                </form>
+                {!currentUser && (
+                  <button onClick={() => setAuthModalOpen(true)} className="flex items-center gap-2 bg-white border border-slate-200 px-6 py-3 rounded-2xl text-xs font-black uppercase text-slate-700 hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap">
+                    <i className="fa-solid fa-user-circle text-lg text-indigo-600"></i>
+                    <span>Sign In</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -408,18 +437,34 @@ const App: React.FC = () => {
               <PropertyMaps mapZoomIn={propertyData.mapZoomIn} mapZoomOut={propertyData.mapZoomOut} />
             </div>
           ) : (
-            <div className="max-w-4xl mx-auto py-6 text-center">
+            <div className="max-w-4xl mx-auto py-6 text-center space-y-12">
               <p className="text-2xl text-slate-500 font-medium leading-relaxed">The world's most advanced property analysis suite.</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
+                {[
+                  { title: 'For Buyers', icon: 'fa-shopping-bag', color: 'indigo', desc: "Navigate the market with unmatched clarity. Our AI cross-references public records, maps and property pictures, and resident sentiment to uncover hidden structural risks, neighborhood, community pulse on what people like and don't, and score lifestyle compatibility for your family." },
+                  { title: 'For Sellers', icon: 'fa-money-bill-trend-up', color: 'slate', desc: 'Discover how to maximize your home value with AI-driven staging and market insights.' },
+                  { title: 'For Realtors', icon: 'fa-briefcase', color: 'indigo', desc: 'Provide comprehensive home report, concierge chat box to your clients and track their preferences. Generate professional multi-source reports and compelling marketing copy in seconds.' }
+                ].map((item, i) => (
+                  <div key={i} className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 hover:-translate-y-2 transition-all group">
+                    <div className={`w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
+                      <i className={`fa-solid ${item.icon} text-2xl`}></i>
+                    </div>
+                    <h3 className="text-xl font-black text-slate-900 mb-4">{item.title}</h3>
+                    <p className="text-slate-500 text-sm leading-relaxed font-medium">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           )
         ) : viewMode === 'visual-report' ? (
-          <CustomAIAnalysis 
-            analysis={customAnalysis} 
-            loading={customAnalysisLoading} 
-            onBack={() => setViewMode('main')} 
-            onRefresh={() => handleRunCustomAnalysis(true)} 
-            onRunComprehensive={() => handleRunComprehensive(false)} 
-            comprehensiveResult={comprehensiveAnalysis} 
+          <CustomAIAnalysis
+            analysis={customAnalysis}
+            loading={customAnalysisLoading}
+            onBack={() => setViewMode('main')}
+            onRefresh={() => handleRunCustomAnalysis(true)}
+            onRunComprehensive={() => handleRunComprehensive(false)}
+            comprehensiveResult={comprehensiveAnalysis}
             hasImages={(propertyData?.images?.length || 0) > 0}
             userRole={currentUser?.role}
             propertyImages={propertyData?.images}
