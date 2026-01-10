@@ -88,17 +88,27 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
     setError(null);
     setErrorLink(null);
     try {
+      // Store the intended role in localStorage so App.tsx can find it if Firestore fails or is slow
+      localStorage.setItem('zyphe_pending_role', role);
+      console.log("Stored pending role for Google login:", role);
+
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
       const existing = await getUserProfile(user.uid);
       if (!existing) {
+        console.log("Creating new Google user profile with role:", role);
         await saveUserProfile(user.uid, {
           email: user.email || '',
           displayName: user.displayName || 'User',
-          role: 'buyer',
+          role: role, // Use the role selected in the UI
           createdAt: new Date()
         });
+      } else {
+        console.log("Existing Google user signed in:", existing.role);
+        // If user already exists, we might want to update their role if it's different? 
+        // For now, let's just stick to their existing role to avoid accidental changes on every login.
+        localStorage.removeItem('zyphe_pending_role');
       }
       onClose();
     } catch (err: any) {
@@ -210,6 +220,31 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
             </div>
           )}
 
+          <div className="px-5 mb-6">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">I am a...</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'buyer', label: 'Buyer', icon: 'fa-shopping-cart' },
+                { id: 'seller', label: 'Seller', icon: 'fa-house-user' },
+                { id: 'realtor', label: 'Realtor', icon: 'fa-briefcase' }
+              ].map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setRole(r.id as any)}
+                  className={`py-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${role === r.id
+                    ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                    : 'border-slate-100 text-slate-400 hover:border-slate-200'
+                    }`}
+                >
+                  <i className={`fa-solid ${r.icon} text-xs`}></i>
+                  <span className="text-[9px] font-black uppercase tracking-widest">{r.label}</span>
+                </button>
+              ))}
+            </div>
+            {isLogin && <p className="text-[9px] text-slate-400 mt-2 ml-1 text-center italic">Required for first-time Google sign-ins</p>}
+          </div>
+
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
@@ -238,30 +273,6 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     className="w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all"
                     placeholder="John Doe"
                   />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">I am a...</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: 'buyer', label: 'Buyer', icon: 'fa-shopping-cart' },
-                      { id: 'seller', label: 'Seller', icon: 'fa-house-user' },
-                      { id: 'realtor', label: 'Realtor', icon: 'fa-briefcase' }
-                    ].map((r) => (
-                      <button
-                        key={r.id}
-                        type="button"
-                        onClick={() => setRole(r.id as any)}
-                        className={`py-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${role === r.id
-                            ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
-                            : 'border-slate-100 text-slate-400 hover:border-slate-200'
-                          }`}
-                      >
-                        <i className={`fa-solid ${r.icon} text-xs`}></i>
-                        <span className="text-[9px] font-black uppercase tracking-widest">{r.label}</span>
-                      </button>
-                    ))}
-                  </div>
                 </div>
 
                 <div>
