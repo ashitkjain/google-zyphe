@@ -4,7 +4,8 @@ import {
   auth,
   googleProvider,
   saveUserProfile,
-  getUserProfile
+  getUserProfile,
+  resetPassword
 } from '../services/firebaseService';
 import {
   signInWithPopup,
@@ -30,6 +31,8 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const [errorLink, setErrorLink] = useState<{ url: string, label: string } | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [resetMode, setResetMode] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   if (!isOpen) return null;
 
@@ -86,6 +89,25 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
       });
     } else {
       setError(err.message.replace("Firebase: ", ""));
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      setError("Please enter your email address first.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await resetPassword(email);
+      setResetSent(true);
+      setError(null);
+    } catch (err: any) {
+      handleFirebaseError(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -194,10 +216,12 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
         <div className="p-8 pb-4 flex flex-col items-center text-center">
           <Logo size={80} className="mb-6" />
           <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-            {isLogin ? 'Welcome Back' : 'Join Zyphe AI'}
+            {resetMode ? 'Reset Password' : (isLogin ? 'Welcome Back' : 'Join Zyphe AI')}
           </h2>
           <p className="text-slate-500 text-sm font-medium mt-1">
-            {isLogin ? 'Access your saved property insights.' : 'Start your intelligent property journey.'}
+            {resetMode
+              ? 'Enter your email to receive a reset link.'
+              : (isLogin ? 'Access your saved property insights.' : 'Start your intelligent property journey.')}
           </p>
         </div>
 
@@ -262,23 +286,34 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
             {isLogin && <p className="text-[9px] text-slate-400 mt-2 ml-1 text-center italic">Required for first-time Google sign-ins</p>}
           </div>
 
-          <button
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 py-3.5 border-2 border-slate-100 rounded-2xl hover:bg-slate-50 hover:border-slate-200 transition-all font-bold text-slate-700 mb-6 active:scale-[0.98] disabled:opacity-50"
-          >
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
-            Continue with Google
-          </button>
+          {!resetMode && (
+            <button
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-3 py-3.5 border-2 border-slate-100 rounded-2xl hover:bg-slate-50 hover:border-slate-200 transition-all font-bold text-slate-700 mb-6 active:scale-[0.98] disabled:opacity-50"
+            >
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+              Continue with Google
+            </button>
+          )}
 
-          <div className="flex items-center gap-4 mb-6">
-            <div className="flex-1 h-px bg-slate-100"></div>
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">or email</span>
-            <div className="flex-1 h-px bg-slate-100"></div>
-          </div>
+          {!resetMode && (
+            <div className="flex items-center gap-4 mb-6">
+              <div className="flex-1 h-px bg-slate-100"></div>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">or email</span>
+              <div className="flex-1 h-px bg-slate-100"></div>
+            </div>
+          )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
+          <form onSubmit={resetMode ? handleResetPassword : handleSubmit} className="space-y-4">
+            {resetSent && (
+              <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-600 text-xs font-bold flex items-center gap-3 animate-in zoom-in-95">
+                <i className="fa-solid fa-circle-check text-emerald-500 text-sm"></i>
+                <span>Reset link sent! Please check your inbox.</span>
+              </div>
+            )}
+
+            {!isLogin && !resetMode && (
               <>
                 <div>
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Full Name</label>
@@ -317,38 +352,62 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
               />
             </div>
 
-            <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Password</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all"
-                placeholder="••••••••"
-              />
-              {!isLogin && <p className="text-[9px] text-slate-400 mt-1.5 ml-1">Minimum 6 characters required.</p>}
-            </div>
+            {!resetMode && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5 px-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Password</label>
+                  {isLogin && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResetMode(true);
+                        setError(null);
+                        setResetSent(false);
+                      }}
+                      className="text-[9px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-700 transition-colors"
+                    >
+                      Forgot?
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all"
+                  placeholder="••••••••"
+                />
+                {!isLogin && <p className="text-[9px] text-slate-400 mt-1.5 ml-1">Minimum 6 characters required.</p>}
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={loading}
               className="w-full py-4 bg-gradient-to-r from-indigo-700 to-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-98 transition-all mt-4 disabled:opacity-50"
             >
-              {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
+              {loading ? 'Processing...' : (resetMode ? 'Send Reset Link' : (isLogin ? 'Sign In' : 'Create Account'))}
             </button>
           </form>
 
           <div className="mt-8 text-center border-t border-slate-50 pt-6">
             <button
               onClick={() => {
-                setIsLogin(!isLogin);
+                if (resetMode) {
+                  setResetMode(false);
+                } else {
+                  setIsLogin(!isLogin);
+                }
                 setError(null);
                 setErrorLink(null);
+                setResetSent(false);
               }}
               className="text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"
             >
-              {isLogin ? "Don't have an account? Create one" : "Already have an account? Sign in"}
+              {resetMode
+                ? "Back to Sign In"
+                : (isLogin ? "Don't have an account? Create one" : "Already have an account? Sign in")}
             </button>
           </div>
         </div>

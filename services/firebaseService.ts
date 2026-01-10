@@ -21,7 +21,8 @@ import {
   getAuth,
   GoogleAuthProvider,
   // Auth, // Removed as type might cause issues with some bundlers
-  deleteUser
+  deleteUser,
+  sendPasswordResetEmail
 } from "firebase/auth";
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult } from "../types";
 
@@ -184,6 +185,17 @@ export const deleteUserAccount = async (uid: string) => {
       throw new Error("This sensitive operation requires a recent login. Please sign out and sign back in before trying again.");
     }
     throw new Error(error.message || "Failed to delete account. Please try again later.");
+  }
+};
+
+export const resetPassword = async (email: string) => {
+  if (!auth) throw new Error("Authentication service not initialized.");
+  try {
+    await sendPasswordResetEmail(auth, email);
+    return true;
+  } catch (error: any) {
+    console.error("[Auth] Reset password error:", error);
+    throw error;
   }
 };
 
