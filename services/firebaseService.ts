@@ -58,12 +58,13 @@ import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, User
  */
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAj8uT4osd5uUrG-ZdXKZyFxtceYAbww8w",
+  apiKey: "AIzaSyBiP85bXTptTAqvXUh4JwYC-6SQJqwukvI",
   authDomain: "zyphe-af0bf.firebaseapp.com",
   projectId: "zyphe-af0bf",
   storageBucket: "zyphe-af0bf.firebasestorage.app",
-  messagingSenderId: "365448651061",
-  appId: "1:365448651061:web:8d297a7e3713606f363065"
+  messagingSenderId: "434538487700",
+  appId: "1:434538487700:web:2d0880addbfdca71c13981",
+  measurementId: "G-S07B3J7TJZ"
 };
 
 let app: FirebaseApp | null = null;
@@ -135,12 +136,16 @@ export const saveUserProfile = async (uid: string, profile: Partial<UserProfile>
 };
 
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
-  if (!db) return null;
+  if (!db) {
+    console.error("[Firestore] Database service not initialized.");
+    return null;
+  }
   try {
     const userRef = doc(db, "users", uid);
     const snap = await getDoc(userRef);
     return snap.exists() ? (snap.data() as UserProfile) : null;
   } catch (error: any) {
+    console.error("[Firestore] getUserProfile error:", error);
     handleFirestoreError(error, "getUserProfile");
     return null;
   }

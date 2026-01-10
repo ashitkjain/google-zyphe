@@ -78,6 +78,12 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
       setError("Login window was closed.");
     } else if (code === "auth/user-not-found" || code === "auth/wrong-password" || code === "auth/invalid-credential") {
       setError("Invalid email or password.");
+    } else if (code === "auth/invalid-continue-uri" || message.includes("invalid-continue-uri")) {
+      setError("This domain is not authorized for Firebase Authentication. Please ensure 'localhost' and 'zyphe.ai' are in your Authorized Domains list.");
+      setErrorLink({
+        url: "https://console.firebase.google.com/project/zyphe-af0bf/authentication/settings",
+        label: "Authorize Domains in Firebase"
+      });
     } else {
       setError(err.message.replace("Firebase: ", ""));
     }
@@ -87,32 +93,43 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
     setLoading(true);
     setError(null);
     setErrorLink(null);
-    try {
-      // Store the intended role in localStorage so App.tsx can find it if Firestore fails or is slow
-      localStorage.setItem('zyphe_pending_role', role);
-      console.log("Stored pending role for Google login:", role);
 
-      const result = await signInWithPopup(auth, googleProvider);
+    // Timeout safety: If Google popup takes > 30s, something is wrong
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Login timed out. Please check if your popup was blocked or if the Identity Toolkit API is enabled.")), 30000);
+    });
+
+    try {
+      localStorage.setItem('zyphe_pending_role', role);
+      console.log("[Google Auth] Starting sign-in flow...");
+      const result = (await Promise.race([
+        signInWithPopup(auth, googleProvider),
+        timeoutPromise
+      ])) as any;
+
       const user = result.user;
+      console.log("[Google Auth] Sign-in successful for UID:", user?.uid);
 
       const existing = await getUserProfile(user.uid);
       if (!existing) {
-        console.log("Creating new Google user profile with role:", role);
+        console.log("DEBUG [Google Auth]: Creating new profile...");
         await saveUserProfile(user.uid, {
           email: user.email || '',
           displayName: user.displayName || 'User',
-          role: role, // Use the role selected in the UI
+          role: role,
           createdAt: new Date()
         });
       } else {
-        console.log("Existing Google user signed in:", existing.role);
-        // If user already exists, we might want to update their role if it's different? 
-        // For now, let's just stick to their existing role to avoid accidental changes on every login.
         localStorage.removeItem('zyphe_pending_role');
       }
       onClose();
     } catch (err: any) {
-      handleFirebaseError(err);
+      console.error("[Google Auth Error]:", err);
+      if (err.message?.includes("timed out")) {
+        setError(err.message);
+      } else {
+        handleFirebaseError(err);
+      }
     } finally {
       setLoading(false);
     }
