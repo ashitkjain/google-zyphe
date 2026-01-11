@@ -24,7 +24,7 @@ import {
   deleteUser,
   sendPasswordResetEmail
 } from "firebase/auth";
-import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult } from "../types";
+import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult, InvestmentResearchResult } from "../types";
 
 /**
  * FIRESTORE SECURITY RULES (REQUIRED):
@@ -54,9 +54,14 @@ import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, User
  *       allow read: if true;
  *       allow write: if request.auth != null;
  *     }
+ *
+ *     match /investment_research/{zpid} {
+ *       allow read: if true;
+ *       allow write: if request.auth != null;
+ *     }
  * 
  *     match /system_test/{docId} {
- *       allow read, write: if true;
+ *       allow read, write: if true; // Used for connectivity testing
  *     }
  * 
  *     // 2. STRICTLY PRIVATE
@@ -359,6 +364,33 @@ export const getImageQualityAnalysisFromCloud = async (zpid: string): Promise<Im
     return docSnap.exists() ? (docSnap.data() as ImageQualityAnalysisResult) : null;
   } catch (error) {
     handleFirestoreError(error, "getImageQualityAnalysisFromCloud");
+    return null;
+  }
+};
+export const saveInvestmentResearchToCloud = async (zpid: string, research: InvestmentResearchResult) => {
+  if (!db) return { success: false, error: "Database not initialized" };
+  try {
+    const user = auth?.currentUser;
+    console.log(`[Firestore] Saving investment research for ZPID: "${zpid}". Auth: ${user ? user.email : 'GUEST'}`);
+    const docRef = doc(db, "investment_research", zpid);
+    await setDoc(docRef, {
+      ...sanitizeForFirestore(research),
+      timestamp: serverTimestamp()
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: handleFirestoreError(error, "saveInvestmentResearchToCloud") as string };
+  }
+};
+
+export const getInvestmentResearchFromCloud = async (zpid: string): Promise<InvestmentResearchResult | null> => {
+  if (!db) return null;
+  try {
+    const docRef = doc(db, "investment_research", zpid);
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists() ? (docSnap.data() as InvestmentResearchResult) : null;
+  } catch (error) {
+    handleFirestoreError(error, "getInvestmentResearchFromCloud");
     return null;
   }
 };

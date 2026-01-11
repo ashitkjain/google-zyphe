@@ -1,12 +1,13 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult } from "../types";
+import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, InvestmentResearchResult } from "../types";
 import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/propertyAnalysis";
 import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/neighborhoodAnalysis";
 import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/communityPulse";
 import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/propertyImages";
 import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis";
 import { getImageQualityAnalysisPrompt, imageQualityAnalysisSchema } from "../prompts/imageQualityAnalysis";
+import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompts/investmentResearch";
 
 // Set to gemini-2.5-flash everywhere as requested.
 export const GEMINI_MODEL = 'gemini-2.5-flash';
@@ -352,5 +353,27 @@ export const analyzeImageQuality = async (imageUrls: string[]): Promise<ImageQua
       throw error;
     }
     throw new AiResponseError(error.message, "Raw API Error", sanitizedPrompt);
+  }
+};
+export const analyzeInvestmentResearch = async (property: PropertyData): Promise<InvestmentResearchResult> => {
+  const prompt = getInvestmentResearchPrompt(property);
+  try {
+    const ai = getAi();
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }]
+        // Note: JSON schema is incompatible with Tool Use, so we rely on extractJson
+      }
+    });
+
+    return extractJson<InvestmentResearchResult>(response.text);
+  } catch (error: any) {
+    if (error instanceof AiResponseError) {
+      error.prompt = prompt;
+      throw error;
+    }
+    throw new AiResponseError(error.message, "Raw API Error", prompt);
   }
 };

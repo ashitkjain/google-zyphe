@@ -10,18 +10,20 @@ import {
 import { normalizeAddress, fetchPropertyDataFull } from './services/apiService';
 import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, AiResponseError } from './services/geminiService';
 import {
-  logUserActivity,
+  savePropertyToCloud,
   saveVisualAnalysisToCloud,
+  getVisualAnalysisFromCloud,
   saveComprehensiveAnalysisToCloud,
+  getComprehensiveAnalysisFromCloud,
   auth,
   getUserProfile,
   trackUserPropertyView,
   getUserViewHistory,
-  getVisualAnalysisFromCloud,
-  getComprehensiveAnalysisFromCloud,
+  logUserActivity,
+  verifyFirestoreConnection,
   getImageQualityAnalysisFromCloud,
-  deleteUserAccount,
-  verifyFirestoreConnection
+  getInvestmentResearchFromCloud,
+  deleteUserAccount
 } from './services/firebaseService';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import PropertyHeader from './components/PropertyHeader';
@@ -293,6 +295,10 @@ const App: React.FC = () => {
           // Check for separate image quality cache
           const qualityCached = await getImageQualityAnalysisFromCloud(propertyData.zpid);
           if (qualityCached) cached.image_quality_analysis = qualityCached;
+
+          // Check for separate investment research cache
+          const investmentCached = await getInvestmentResearchFromCloud(propertyData.zpid);
+          if (investmentCached) cached.investment_research = investmentCached;
 
           addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', data: cached });
           setCustomAnalysis(cached);

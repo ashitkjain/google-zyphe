@@ -182,6 +182,38 @@ export interface ImageQualityAnalysisResult {
   };
 }
 
+export interface InvestmentResearchResult {
+  market_performance: {
+    occupancy_rate: string;
+    adr: string;
+    summary: string;
+  };
+  competitor_gaps: {
+    friction_points: string[];
+    praised_amenities: string[];
+    standout_recommendations: string;
+  };
+  regulatory_updates: {
+    laws_and_zoning: string;
+    permit_caps: string;
+    summary: string;
+  };
+  demand_drivers: Array<{
+    event: string;
+    date: string;
+    pricing_impact: string;
+  }>;
+  revenue_projection_2026: Array<{
+    period: string;
+    projected_revenue: string;
+    occupancy_estimate: string;
+  }>;
+  web_sources: Array<{
+    title: string;
+    url: string;
+  }>;
+}
+
 export interface CustomAIAnalysisResult {
   report_title: string;
   home_interior: {
@@ -221,6 +253,7 @@ export interface CustomAIAnalysisResult {
   neighborhood?: NeighborhoodAnalysis;
   community_pulse?: CommunityPulseResult;
   image_quality_analysis?: ImageQualityAnalysisResult;
+  investment_research?: InvestmentResearchResult;
 }
 
 export interface ComprehensiveAnalysisResult {
