@@ -20,7 +20,8 @@ import {
   getVisualAnalysisFromCloud,
   getComprehensiveAnalysisFromCloud,
   getImageQualityAnalysisFromCloud,
-  deleteUserAccount
+  deleteUserAccount,
+  verifyFirestoreConnection
 } from './services/firebaseService';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import PropertyHeader from './components/PropertyHeader';
@@ -136,6 +137,18 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const checkConnection = async () => {
+      const result = await verifyFirestoreConnection();
+      if (result.success) {
+        addLog('Cloud Cache', { type: 'info' }, result.message);
+      } else {
+        addLog('System', { type: 'error' }, { message: "Firestore Connection Failed", error: result.message });
+      }
+    };
+    checkConnection();
+  }, []);
+
+  useEffect(() => {
     window.scrollTo(0, 0);
   }, [viewMode]);
 
@@ -241,6 +254,11 @@ const App: React.FC = () => {
 
       addLog('Zyphe Data Layer', { type: 'response' }, mergedData);
 
+      const { db_instance } = await import('./services/firebaseService');
+      if (!db_instance) {
+        addLog('System', { type: 'error' }, "Firestore Database not initialized. Cloud caching will be disabled.");
+      }
+      console.log(`[Zyphe API] Property Data Loaded. ZPID: ${mergedData.zpid || 'MISSING'}`);
       setPropertyData(mergedData);
       setLoading(false);
       setImagesLoading(false);
@@ -297,7 +315,12 @@ const App: React.FC = () => {
 
       setCustomAnalysis(result);
       addLog('Gemini AI', { type: 'response' }, result);
-      if (propertyData.zpid) await saveVisualAnalysisToCloud(propertyData.zpid, result);
+      if (propertyData.zpid) {
+        const saveResult = await saveVisualAnalysisToCloud(propertyData.zpid, result);
+        if (!saveResult.success) {
+          addLog('System', { type: 'error' }, { message: "Cloud Cache Save Failed", task: 'visual_analysis', error: saveResult.error });
+        }
+      }
     } catch (err: any) {
       const logContent = err instanceof AiResponseError
         ? { message: err.message, raw: err.rawResponse, prompt: err.prompt }
@@ -399,6 +422,7 @@ const App: React.FC = () => {
             <div className="flex items-center gap-3">
               <span className="opacity-40">Intelligence Access:</span>
               <span className="text-indigo-400">{currentUser.displayName}</span>
+              <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] border border-indigo-500/30">PRO</span>
               <span className="hidden sm:inline opacity-20">|</span>
               <span className="hidden sm:inline opacity-40">{currentUser.role} Account</span>
             </div>
@@ -546,9 +570,13 @@ const App: React.FC = () => {
             onUpdateAnalysis={async (updated) => {
               setCustomAnalysis(updated);
               if (propertyData?.zpid) {
-                await saveVisualAnalysisToCloud(propertyData.zpid, updated);
+                const res = await saveVisualAnalysisToCloud(propertyData.zpid, updated);
+                if (!res.success) {
+                  addLog('System', { type: 'error' }, { message: "Cloud Cache Save Failed", task: 'visual_analysis', error: res.error });
+                }
               }
             }}
+            addLog={addLog}
           />
         ) : (
           <ComprehensiveAnalysis analysis={comprehensiveAnalysis} loading={comprehensiveLoading} onBack={() => setViewMode('visual-report')} />

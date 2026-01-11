@@ -17,15 +17,16 @@ interface Props {
   propertyImages?: string[];
   zpid?: string;
   onUpdateAnalysis: (updated: CustomAIAnalysisResult) => void;
+  addLog: (service: string, meta: { type: 'request' | 'response' | 'error' | 'info' }, content: any) => void;
 }
 
 type TabType = 'interior' | 'rooms' | 'exterior' | 'neighborhood' | 'pulse' | 'quality';
 
-const CustomAIAnalysis: React.FC<Props> = ({ 
-  analysis, 
-  loading, 
-  onBack, 
-  onRefresh, 
+const CustomAIAnalysis: React.FC<Props> = ({
+  analysis,
+  loading,
+  onBack,
+  onRefresh,
   onRunComprehensive,
   comprehensiveResult,
   mapUrl,
@@ -33,12 +34,13 @@ const CustomAIAnalysis: React.FC<Props> = ({
   userRole,
   propertyImages = [],
   zpid,
-  onUpdateAnalysis
+  onUpdateAnalysis,
+  addLog
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('interior');
   const [timer, setTimer] = useState(0);
   const [qualityLoading, setQualityLoading] = useState(false);
-  
+
   // Hover preview state
   const [hoveredImage, setHoveredImage] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -65,14 +67,16 @@ const CustomAIAnalysis: React.FC<Props> = ({
     if (!analysis || analysis.image_quality_analysis || !propertyImages.length || qualityLoading) {
       return;
     }
-    
+
     setTimer(0);
     setQualityLoading(true);
+    addLog('Cloud Cache', { type: 'request' }, { zpid, task: 'image_quality_analysis' });
     try {
       // 1. Check Cloud Cache First in the new dedicated collection
       if (zpid) {
         const cloudCached = await getImageQualityAnalysisFromCloud(zpid);
         if (cloudCached) {
+          addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'image_quality_analysis', zpid, data: cloudCached });
           onUpdateAnalysis({
             ...analysis,
             image_quality_analysis: cloudCached
@@ -80,23 +84,33 @@ const CustomAIAnalysis: React.FC<Props> = ({
           setQualityLoading(false);
           return;
         }
+        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'image_quality_analysis', zpid });
       }
 
       // 2. If not cached, run Gemini
+      addLog('Gemini AI', { type: 'request' }, { task: 'image_quality_analysis', zpid });
       const result = await analyzeImageQuality(propertyImages);
-      
-      // 3. Persist to Cloud in the dedicated collection
-      if (zpid) {
-        await saveImageQualityAnalysisToCloud(zpid, result);
-      }
 
-      // 4. Update parent state
+      // Update UI and log response immediately
       onUpdateAnalysis({
         ...analysis,
         image_quality_analysis: result
       });
-    } catch (err) {
+      addLog('Gemini AI', { type: 'response' }, { task: 'image_quality_analysis', zpid, data: result });
+
+      // 3. Persist to Cloud in the dedicated collection (asynchronous background task)
+      if (zpid) {
+        addLog('Cloud Cache', { type: 'info' }, { task: 'saving_image_quality', zpid });
+        const result_save = await saveImageQualityAnalysisToCloud(zpid, result);
+        if (result_save.success) {
+          addLog('Cloud Cache', { type: 'info' }, { status: 'Saved Successfully', task: 'image_quality_analysis', zpid });
+        } else {
+          addLog('System', { type: 'error' }, { message: "Cloud Cache Save Failed", task: 'image_quality_analysis', error: result_save.error });
+        }
+      }
+    } catch (err: any) {
       console.error("Picture Quality Analysis Failed:", err);
+      addLog('System', { type: 'error' }, { message: "Picture Quality Analysis Failed", error: err.message || err });
     } finally {
       setQualityLoading(false);
     }
@@ -125,7 +139,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
           </div>
         </div>
         <h3 className="text-3xl font-black text-indigo-900 mb-4 tracking-tight">Zyphe™ Visual Scanning...</h3>
-        
+
         <div className="mb-8">
           <span className="px-5 py-2 bg-white border border-indigo-100 rounded-full text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] shadow-sm inline-flex items-center gap-2">
             <i className="fa-solid fa-clock animate-pulse"></i>
@@ -142,10 +156,10 @@ const CustomAIAnalysis: React.FC<Props> = ({
 
   if (!analysis) return null;
 
-  const { 
-    home_interior = {} as any, 
-    room_highlights = [], 
-    exterior_and_neighborhood = {} as any, 
+  const {
+    home_interior = {} as any,
+    room_highlights = [],
+    exterior_and_neighborhood = {} as any,
     neighborhood,
     community_pulse,
     image_quality_analysis
@@ -211,8 +225,8 @@ const CustomAIAnalysis: React.FC<Props> = ({
       <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar pb-1">
         {indices.map((idx) => (
           propertyImages[idx] && (
-            <div 
-              key={idx} 
+            <div
+              key={idx}
               onMouseEnter={(e) => {
                 clearPreviewTimer();
                 setHoveredImage(propertyImages[idx]);
@@ -252,14 +266,13 @@ const CustomAIAnalysis: React.FC<Props> = ({
           </div>
           <h4 className="font-black text-gray-900 tracking-tight text-xl">{title}</h4>
         </div>
-        <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${
-          data.rating.toLowerCase().includes('good') ? 'bg-emerald-50 text-emerald-600' :
+        <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${data.rating.toLowerCase().includes('good') ? 'bg-emerald-50 text-emerald-600' :
           data.rating.toLowerCase().includes('fair') ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'
-        }`}>
+          }`}>
           {data.rating}
         </span>
       </div>
-      
+
       <div className="space-y-6 flex-1">
         <div>
           <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Observations</div>
@@ -306,16 +319,16 @@ const CustomAIAnalysis: React.FC<Props> = ({
   return (
     <div className="space-y-8 pb-20 relative">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <button 
+        <button
           onClick={onBack}
           className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-700 shadow-sm hover:shadow-md hover:bg-gray-50 transition-all group w-fit"
         >
           <i className="fa-solid fa-arrow-left transition-transform group-hover:-translate-x-1"></i>
           Back to Overview
         </button>
-        
+
         <div className="flex flex-wrap items-center gap-4">
-          <button 
+          <button
             onClick={onRefresh}
             className="flex items-center gap-3 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm hover:shadow-md hover:bg-slate-50 active:scale-95 transition-all group"
             title="Refresh AI Analysis"
@@ -323,9 +336,9 @@ const CustomAIAnalysis: React.FC<Props> = ({
             <i className={`fa-solid fa-rotate group-hover:rotate-180 transition-transform duration-500`}></i>
             Refresh Analysis
           </button>
-          
-          <button 
-            onClick={onRunComprehensive} 
+
+          <button
+            onClick={onRunComprehensive}
             className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-indigo-700 to-gray-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-[1.05] active:scale-95 transition-all group"
           >
             <i className="fa-solid fa-file-invoice-dollar text-sm"></i>
@@ -344,11 +357,10 @@ const CustomAIAnalysis: React.FC<Props> = ({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as TabType)}
-              className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black transition-all text-[12px] whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'bg-gradient-to-r from-indigo-700 to-gray-900 text-white shadow-lg'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
+              className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black transition-all text-[12px] whitespace-nowrap ${activeTab === tab.id
+                ? 'bg-gradient-to-r from-indigo-700 to-gray-900 text-white shadow-lg'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
             >
               <i className={`fa-solid ${tab.icon} ${activeTab === tab.id ? 'text-white' : 'text-gray-400'}`}></i>
               {tab.label}
@@ -369,7 +381,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
                     <div className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">SUMMARY</div>
                     <p className="text-gray-800 font-sans font-medium text-sm leading-relaxed">{home_interior.overall_description}</p>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 pt-12 border-t border-gray-100">
                     <div className="space-y-3">
                       <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Design Philosophy</div>
@@ -460,7 +472,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
 
         {activeTab === 'exterior' && (
           <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-5xl mx-auto space-y-8">
-             {!exterior_and_neighborhood?.exterior_and_lot_appeal?.architecture_style ? (
+            {!exterior_and_neighborhood?.exterior_and_lot_appeal?.architecture_style ? (
               <EmptyState section="Exterior" />
             ) : (
               <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
@@ -511,7 +523,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
                     </div>
                   </div>
                 )}
-                
+
                 {exterior_and_neighborhood.neighborhood_street_insights && (
                   <div className="pt-12 border-t border-gray-100 space-y-4">
                     <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em]">Micro-Neighborhood Insight</div>
@@ -525,13 +537,13 @@ const CustomAIAnalysis: React.FC<Props> = ({
 
         {activeTab === 'neighborhood' && (
           <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-5xl mx-auto">
-             {neighborhood ? (
+            {neighborhood ? (
               <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm p-8 md:p-12 space-y-12">
                 <div className="space-y-4">
                   <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.3em]">Spatial Intelligence Summary</div>
                   <p className="text-gray-800 font-sans font-medium text-sm leading-relaxed">{neighborhood.overview}</p>
                 </div>
-                
+
                 {neighborhood.neighborhood_features && (
                   <div className="pt-12 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
                     {Object.entries(neighborhood.neighborhood_features).map(([key, value]) => {
@@ -540,7 +552,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
                         .split('_')
                         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
                         .join(' ');
-                      
+
                       return (
                         <div key={key} className="space-y-2">
                           <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
@@ -597,7 +609,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
                   </div>
                 </div>
                 <h3 className="text-3xl font-black text-indigo-900 mb-4 tracking-tight">Picture Audit in Progress...</h3>
-                
+
                 <div className="mb-8">
                   <span className="px-5 py-2 bg-white border border-indigo-100 rounded-full text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] shadow-sm inline-flex items-center gap-2">
                     <i className="fa-solid fa-clock animate-pulse"></i>
@@ -618,7 +630,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
             ) : (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
                 <QualityVerdictWidget summary={image_quality_analysis.overall_score.summary} />
-                
+
                 {/* Top Listing Photos Section - Table Form */}
                 <div className="bg-white p-10 rounded-[3rem] border border-gray-100 shadow-sm flex flex-col gap-6">
                   <div className="flex items-center gap-4 mb-4">
@@ -632,11 +644,11 @@ const CustomAIAnalysis: React.FC<Props> = ({
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-6">
                     {image_quality_analysis.top_photos.map((item, idx) => (
                       <div key={idx} className="grid grid-cols-[120px_1fr] gap-6 items-center group">
-                        <div 
+                        <div
                           className="w-[120px] h-[90px] rounded-2xl overflow-hidden border border-slate-100 shadow-sm cursor-help relative"
                           onMouseEnter={(e) => {
                             clearPreviewTimer();
@@ -708,19 +720,19 @@ const CustomAIAnalysis: React.FC<Props> = ({
 
       {/* Hover Preview Overlay */}
       {hoveredImage && (
-        <div 
+        <div
           onMouseEnter={clearPreviewTimer}
           onMouseLeave={hidePreviewImmediately}
           className="fixed z-[999] p-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-200 ring-1 ring-black/5 flex flex-col group/preview"
-          style={{ 
-            left: Math.min(window.innerWidth - 320, mousePos.x + 20), 
+          style={{
+            left: Math.min(window.innerWidth - 320, mousePos.x + 20),
             top: Math.max(20, Math.min(window.innerHeight - 240, mousePos.y - 120)),
             width: '300px'
           }}
         >
           <div className="relative">
             <img src={hoveredImage} className="w-full h-auto rounded-xl" alt="Preview" />
-            <button 
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 setHoveredImage(null);

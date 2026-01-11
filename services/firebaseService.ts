@@ -28,31 +28,49 @@ import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, User
 
 /**
  * FIRESTORE SECURITY RULES (REQUIRED):
- * To resolve "Missing or insufficient permissions" errors, deploy these rules in your Firebase Console:
+ * Paste this into: Firebase Console > Firestore Database > Rules tab.
  * 
  * service cloud.firestore {
  *   match /databases/{database}/documents {
+ *     
+ *     // 1. PUBLIC READ, AUTHENTICATED WRITE
+ *     // Allows guests to see results, but only logged-in users can trigger the "save/cache"
  *     match /properties/{zpid} {
- *       allow read, write: if true;
+ *       allow read: if true;
+ *       allow write: if request.auth != null;
  *     }
+ *     
  *     match /property_analyses_visual/{zpid} {
- *       allow read, write: if true;
+ *       allow read: if true;
+ *       allow write: if request.auth != null;
  *     }
+ * 
  *     match /property_analyses_comprehensive/{zpid} {
- *       allow read, write: if true;
+ *       allow read: if true;
+ *       allow write: if request.auth != null;
  *     }
+ * 
  *     match /image_quality_analysis/{zpid} {
+ *       allow read: if true;
+ *       allow write: if request.auth != null;
+ *     }
+ * 
+ *     match /system_test/{docId} {
  *       allow read, write: if true;
  *     }
- *     match /user_activity/{docId} {
- *       allow write: if true;
- *       allow read: if false;
- *     }
+ * 
+ *     // 2. STRICTLY PRIVATE
  *     match /users/{userId} {
  *       allow read, write: if request.auth != null && request.auth.uid == userId;
  *       match /viewHistory/{zpid} {
  *         allow read, write: if request.auth != null && request.auth.uid == userId;
  *       }
+ *     }
+ * 
+ *     // 3. ANONYMOUS LOGGING
+ *     match /user_activity/{activityId} {
+ *       allow create: if true;
+ *       allow read, update, delete: if false; 
  *     }
  *   }
  * }
@@ -106,12 +124,15 @@ const sanitizeForFirestore = (data: any): any => {
 };
 
 const handleFirestoreError = (error: any, context: string) => {
+  const message = error?.message || String(error);
   if (error?.code === 'permission-denied') {
-    console.warn(`[Firestore ${context}] Missing or insufficient permissions. Intelligence will not be cached in the cloud.`);
-    return false;
+    const permError = `[Firestore ${context}] Permission Denied. Ensure your security rules allow write access to this collection.`;
+    console.warn(permError);
+    return permError;
   }
-  console.error(`[Firestore ${context}] Error:`, error);
-  return false;
+  const genericError = `[Firestore ${context}] Error: ${message}`;
+  console.error(genericError);
+  return genericError;
 };
 
 export const saveUserProfile = async (uid: string, profile: Partial<UserProfile>) => {
@@ -229,7 +250,7 @@ export const getUserViewHistory = async (uid: string, maxItems = 6) => {
 };
 
 export const savePropertyToCloud = async (zpid: string, data: Partial<PropertyData>) => {
-  if (!db) return false;
+  if (!db) return { success: false, error: "Database not initialized" };
   try {
     const docRef = doc(db, "properties", zpid);
     const sanitized = sanitizeForFirestore(data);
@@ -237,9 +258,9 @@ export const savePropertyToCloud = async (zpid: string, data: Partial<PropertyDa
       ...sanitized,
       lastUpdated: serverTimestamp()
     }, { merge: true });
-    return true;
+    return { success: true };
   } catch (error: any) {
-    return handleFirestoreError(error, "savePropertyToCloud");
+    return { success: false, error: handleFirestoreError(error, "savePropertyToCloud") };
   }
 };
 
@@ -259,16 +280,16 @@ export const getPropertyFromCloud = async (zpid: string): Promise<PropertyData |
 };
 
 export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAIAnalysisResult) => {
-  if (!db) return false;
+  if (!db) return { success: false, error: "Database not initialized" };
   try {
     const docRef = doc(db, "property_analyses_visual", zpid);
     await setDoc(docRef, {
       ...sanitizeForFirestore(analysis),
       timestamp: serverTimestamp()
     });
-    return true;
+    return { success: true };
   } catch (error) {
-    return handleFirestoreError(error, "saveVisualAnalysisToCloud");
+    return { success: false, error: handleFirestoreError(error, "saveVisualAnalysisToCloud") };
   }
 };
 
@@ -311,16 +332,22 @@ export const getComprehensiveAnalysisFromCloud = async (zpid: string): Promise<C
 };
 
 export const saveImageQualityAnalysisToCloud = async (zpid: string, analysis: ImageQualityAnalysisResult) => {
-  if (!db) return false;
+  if (!db) {
+    return { success: false, error: "Database not initialized" };
+  }
   try {
+    const user = auth?.currentUser;
+    console.log(`[Firestore] Attempting save picture quality audit for ZPID: "${zpid}". Current Auth: ${user ? user.email : 'NOT_LOGGED_IN'}`);
     const docRef = doc(db, "image_quality_analysis", zpid);
     await setDoc(docRef, {
       ...sanitizeForFirestore(analysis),
       timestamp: serverTimestamp()
     });
-    return true;
+    console.log(`[Firestore] SUCCESS: picture quality audit saved for ZPID: "${zpid}"`);
+    return { success: true };
   } catch (error) {
-    return handleFirestoreError(error, "saveImageQualityAnalysisToCloud");
+    console.error(`[Firestore] FAILED to save audit for ${zpid}:`, error);
+    return { success: false, error: handleFirestoreError(error, "saveImageQualityAnalysisToCloud") as string };
   }
 };
 
@@ -348,3 +375,25 @@ export const logUserActivity = async (sessionId: string, address: string) => {
   } catch (error) {
   }
 };
+
+export const verifyFirestoreConnection = async () => {
+  if (!db) return { success: false, message: "Database not initialized" };
+  const user = auth?.currentUser;
+  const authStatus = user ? `LOGGED_IN (${user.email})` : "NOT_LOGGED_IN";
+
+  console.log(`[Firestore] Connection check. Auth Status: ${authStatus}`);
+
+  try {
+    const testRef = doc(db, "system_test", "connectivity");
+    await setDoc(testRef, {
+      lastTest: serverTimestamp(),
+      status: "online",
+      authStatus
+    });
+    return { success: true, message: `Firestore verified. Status: ${authStatus}. Collection 'system_test' updated.` };
+  } catch (error: any) {
+    return { success: false, message: `${error.message}. Auth was: ${authStatus}` };
+  }
+};
+
+console.log(`[Firebase] Initialized for Project: ${firebaseConfig.projectId}`);

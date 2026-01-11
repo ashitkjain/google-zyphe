@@ -8,7 +8,7 @@ import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/proper
 import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis";
 import { getImageQualityAnalysisPrompt, imageQualityAnalysisSchema } from "../prompts/imageQualityAnalysis";
 
-// Updated to gemini-3-flash-preview for Basic Text Tasks and complex analysis as per guidelines.
+// Set to gemini-2.5-flash everywhere as requested.
 export const GEMINI_MODEL = 'gemini-2.5-flash';
 
 // Custom error to pass raw response back for logging
