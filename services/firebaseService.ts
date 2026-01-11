@@ -55,7 +55,7 @@ import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, User
  *       allow write: if request.auth != null;
  *     }
  *
- *     match /investment_research/{zpid} {
+ *     match /market_research/{zpid} {
  *       allow read: if true;
  *       allow write: if request.auth != null;
  *     }
@@ -372,7 +372,7 @@ export const saveInvestmentResearchToCloud = async (zpid: string, research: Inve
   try {
     const user = auth?.currentUser;
     console.log(`[Firestore] Saving investment research for ZPID: "${zpid}". Auth: ${user ? user.email : 'GUEST'}`);
-    const docRef = doc(db, "investment_research", zpid);
+    const docRef = doc(db, "market_research", zpid);
     await setDoc(docRef, {
       ...sanitizeForFirestore(research),
       timestamp: serverTimestamp()
@@ -386,7 +386,7 @@ export const saveInvestmentResearchToCloud = async (zpid: string, research: Inve
 export const getInvestmentResearchFromCloud = async (zpid: string): Promise<InvestmentResearchResult | null> => {
   if (!db) return null;
   try {
-    const docRef = doc(db, "investment_research", zpid);
+    const docRef = doc(db, "market_research", zpid);
     const docSnap = await getDoc(docRef);
     return docSnap.exists() ? (docSnap.data() as InvestmentResearchResult) : null;
   } catch (error) {
