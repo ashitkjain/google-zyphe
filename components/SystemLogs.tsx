@@ -7,11 +7,36 @@ interface Props {
 
 const SystemLogs: React.FC<Props> = ({ logs }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [hasOpenedForError, setHasOpenedForError] = useState(false);
+  const [expandedLogs, setExpandedLogs] = useState<Set<number>>(new Set());
+
+  const toggleLog = (index: number) => {
+    const newExpanded = new Set(expandedLogs);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedLogs(newExpanded);
+  };
+
+  React.useEffect(() => {
+    // Auto-open on new error, but only once per error burst to avoid annoyance if user closes it
+    const hasError = logs.some(l => l.type === 'error');
+    if (hasError && !isOpen && !hasOpenedForError) {
+      setIsOpen(true);
+      setHasOpenedForError(true);
+    }
+    // Reset the "opened" flag if logs are cleared
+    if (logs.length === 0) {
+      setHasOpenedForError(false);
+    }
+  }, [logs, isOpen, hasOpenedForError]);
 
   if (logs.length === 0) return null;
 
   return (
-    <div className="mt-14 border-t border-gray-200 pt-10">
+    <div className="mt-14 border-t border-gray-200 pt-10 pb-20">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center space-x-3 text-gray-500 hover:text-indigo-600 transition-colors mb-5 group"
@@ -34,27 +59,42 @@ const SystemLogs: React.FC<Props> = ({ logs }) => {
             <span className="text-gray-400 text-xs font-bold">prop-intel-terminal — v1.0.4</span>
           </div>
           <div className="p-5 max-h-[600px] overflow-y-auto space-y-5 no-scrollbar">
-            {logs.map((log, idx) => (
-              <div key={idx} className="border-l-2 border-gray-700 pl-4 py-1.5">
-                <div className="flex items-center space-x-3 mb-2">
-                  <span className="text-gray-500">[{log.timestamp}]</span>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                    log.type === 'request' ? 'bg-blue-900/40 text-blue-400' :
-                    log.type === 'response' ? 'bg-green-900/40 text-green-400' :
-                    log.type === 'info' ? 'bg-indigo-900/40 text-indigo-400' :
-                    'bg-red-900/40 text-red-400'
-                  }`}>
-                    {log.type}
-                  </span>
-                  <span className="text-indigo-400 font-bold">{log.service}</span>
+            {logs.map((log, idx) => {
+              const isError = log.type === 'error';
+              const isExpanded = expandedLogs.has(idx);
+              const showDetails = isError || isExpanded;
+
+              return (
+                <div key={idx} className="border-l-2 border-gray-700 pl-4 py-1.5">
+                  <div
+                    className={`flex items-center space-x-3 mb-2 cursor-pointer select-none group ${!isError ? 'hover:opacity-80' : ''}`}
+                    onClick={() => !isError && toggleLog(idx)}
+                  >
+                    <span className="text-gray-500">[{log.timestamp}]</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${log.type === 'request' ? 'bg-blue-900/40 text-blue-400' :
+                      log.type === 'response' ? 'bg-green-900/40 text-green-400' :
+                        log.type === 'info' ? 'bg-indigo-900/40 text-indigo-400' :
+                          'bg-red-900/40 text-red-400'
+                      }`}>
+                      {log.type}
+                    </span>
+                    <span className="text-indigo-400 font-bold">{log.service}</span>
+                    {!isError && (
+                      <span className="text-gray-600 text-[10px] group-hover:text-gray-400 transition-colors">
+                        {isExpanded ? '[-]' : '[+] show details'}
+                      </span>
+                    )}
+                  </div>
+                  {showDetails && (
+                    <pre className="text-gray-300 whitespace-pre-wrap break-all overflow-x-auto text-[11px] animate-in slide-in-from-top-1 duration-200">
+                      {typeof log.content === 'string'
+                        ? log.content
+                        : JSON.stringify(log.content, null, 2)}
+                    </pre>
+                  )}
                 </div>
-                <pre className="text-gray-300 whitespace-pre-wrap break-all overflow-x-auto text-[11px]">
-                  {typeof log.content === 'string' 
-                    ? log.content 
-                    : JSON.stringify(log.content, null, 2)}
-                </pre>
-              </div>
-            ))}
+              );
+            })}
             <div className="flex items-center text-gray-500 animate-pulse">
               <span className="mr-2">_</span>
               <span className="text-xs">Waiting for system events...</span>

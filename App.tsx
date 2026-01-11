@@ -45,7 +45,7 @@ const App: React.FC = () => {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [cloudHistory, setCloudHistory] = useState<any[]>([]);
 
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [searchHistory, setSearchHistory] = useState<{ address: string, timestamp: number }[]>([]);
 
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
@@ -146,6 +146,21 @@ const App: React.FC = () => {
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
+
+    // Load local history
+    try {
+      const stored = localStorage.getItem('zyphe_search_history');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const now = Date.now();
+        const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+        const valid = parsed.filter((item: any) => (now - item.timestamp) < thirtyDays);
+        setSearchHistory(valid);
+      }
+    } catch (e) {
+      console.error("Failed to load search history", e);
+    }
+
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
@@ -155,8 +170,12 @@ const App: React.FC = () => {
 
   const addToHistory = (newAddress: string) => {
     setSearchHistory(prev => {
-      const filtered = prev.filter(item => item.toLowerCase() !== newAddress.toLowerCase());
-      return [newAddress, ...filtered].slice(0, 10);
+      const now = Date.now();
+      const newItem = { address: newAddress, timestamp: now };
+      const filtered = prev.filter(item => item.address.toLowerCase() !== newAddress.toLowerCase());
+      const updated = [newItem, ...filtered].slice(0, 20); // Keep last 20
+      localStorage.setItem('zyphe_search_history', JSON.stringify(updated));
+      return updated;
     });
   };
 
@@ -280,7 +299,9 @@ const App: React.FC = () => {
       addLog('Gemini AI', { type: 'response' }, result);
       if (propertyData.zpid) await saveVisualAnalysisToCloud(propertyData.zpid, result);
     } catch (err: any) {
-      const logContent = err instanceof AiResponseError ? { message: err.message, raw: err.rawResponse } : err;
+      const logContent = err instanceof AiResponseError
+        ? { message: err.message, raw: err.rawResponse, prompt: err.prompt }
+        : err;
       addLog('Gemini AI', { type: 'error' }, logContent);
       setError("AI analysis failed. Check logs for details.");
     } finally {
@@ -318,7 +339,9 @@ const App: React.FC = () => {
       addLog('Gemini AI', { type: 'response' }, result);
       if (propertyData.zpid) await saveComprehensiveAnalysisToCloud(propertyData.zpid, result);
     } catch (err: any) {
-      const logContent = err instanceof AiResponseError ? { message: err.message, raw: err.rawResponse } : err;
+      const logContent = err instanceof AiResponseError
+        ? { message: err.message, raw: err.rawResponse, prompt: err.prompt }
+        : err;
       addLog('Gemini AI', { type: 'error' }, logContent);
       setError("Comprehensive report failed. Check logs for details.");
     } finally {
@@ -393,12 +416,63 @@ const App: React.FC = () => {
             <Logo size={120} className="scale-75 md:scale-90 origin-left" onClick={() => setViewMode('main')} />
             <div className="flex-1 max-w-2xl relative" ref={historyRef}>
               <div className="flex items-center gap-4">
-                <form onSubmit={(e) => { e.preventDefault(); performSearch(address); }} className="flex-1">
+                <form onSubmit={(e) => { e.preventDefault(); performSearch(address); }} className="flex-1 relative z-50">
                   <div className="relative group">
-                    <input type="text" value={address} onFocus={() => setShowHistory(true)} onChange={(e) => setAddress(e.target.value)} placeholder="Enter property address..." className="w-full pl-12 pr-4 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none" />
+                    <input
+                      type="text"
+                      value={address}
+                      onFocus={() => setShowHistory(true)}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="Enter property address..."
+                      className="w-full pl-12 pr-28 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all"
+                    />
                     <i className="fa-solid fa-house-laptop absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                    <button type="submit" disabled={loading} className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-700 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase">Analyze</button>
+                    <button type="submit" disabled={loading} className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-700 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-200">Analyze</button>
                   </div>
+
+                  {showHistory && (searchHistory.length > 0 || cloudHistory.length > 0) && (
+                    <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="max-h-[300px] overflow-y-auto p-2">
+                        {searchHistory.length > 0 && (
+                          <div className="mb-2">
+                            <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                              <i className="fa-solid fa-clock-rotate-left"></i>
+                              Recent Searches
+                            </div>
+                            {searchHistory.map((item, idx) => (
+                              <button
+                                key={`local-${idx}`}
+                                onClick={() => handleHistoryItemClick(item.address)}
+                                className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between group"
+                              >
+                                <span className="truncate">{item.address}</span>
+                                <i className="fa-solid fa-arrow-right -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all text-indigo-500 text-xs"></i>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {cloudHistory.length > 0 && (
+                          <div>
+                            <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-indigo-400 uppercase tracking-widest flex items-center gap-2 border-t border-gray-100 mt-2 pt-4">
+                              <i className="fa-solid fa-cloud"></i>
+                              Saved History
+                            </div>
+                            {cloudHistory.map((item: any, idx) => (
+                              <button
+                                key={`cloud-${idx}`}
+                                onClick={() => handleHistoryItemClick(item.address)}
+                                className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between group"
+                              >
+                                <span className="truncate">{item.address}</span>
+                                <i className="fa-solid fa-cloud-arrow-down -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all text-indigo-500 text-xs"></i>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </form>
                 {!currentUser && (
                   <button onClick={() => setAuthModalOpen(true)} className="flex items-center gap-2 bg-white border border-slate-200 px-6 py-3 rounded-2xl text-xs font-black uppercase text-slate-700 hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap">
@@ -479,6 +553,7 @@ const App: React.FC = () => {
         ) : (
           <ComprehensiveAnalysis analysis={comprehensiveAnalysis} loading={comprehensiveLoading} onBack={() => setViewMode('visual-report')} />
         )}
+        <SystemLogs logs={logs} />
       </main>
       {propertyData && <ChatInterface property={propertyData} visual={customAnalysis} comprehensive={comprehensiveAnalysis} />}
     </div>
