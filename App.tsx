@@ -587,7 +587,9 @@ const App: React.FC = () => {
         ) : (
           <ComprehensiveAnalysis analysis={comprehensiveAnalysis} loading={comprehensiveLoading} onBack={() => setViewMode('visual-report')} />
         )}
-        <SystemLogs logs={logs} />
+        {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
+          <SystemLogs logs={logs} />
+        )}
       </main>
       {propertyData && <ChatInterface property={propertyData} visual={customAnalysis} comprehensive={comprehensiveAnalysis} />}
     </div>

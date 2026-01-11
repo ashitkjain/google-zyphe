@@ -242,10 +242,10 @@ const CustomAIAnalysis: React.FC<Props> = ({
           </div>
           <h4 className="text-xl font-black text-gray-900 tracking-tight">{title}</h4>
         </div>
-        <p className="text-gray-700 font-sans font-medium mb-4 leading-relaxed text-sm">{data.summary}</p>
+        <p className="text-gray-700 font-sans font-normal mb-4 leading-[1.625] text-[13px]">{data.summary}</p>
         <ul className="space-y-2 mb-6 flex-1">
           {data.points?.map((pt, i) => (
-            <li key={i} className="flex gap-3 text-gray-600 text-sm leading-relaxed font-sans font-medium">
+            <li key={i} className="flex gap-3 text-gray-600 text-[13px] leading-[1.625] font-sans font-normal">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 flex-shrink-0"></span>
               {pt}
             </li>
@@ -318,7 +318,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
           <ul className="space-y-4">
             {data.observations.map((point, i) => (
               <li key={i} className="flex flex-col">
-                <div className="text-sm text-gray-600 font-medium flex gap-2 leading-relaxed">
+                <div className="text-[13px] text-gray-600 font-normal flex gap-2 leading-[1.625]">
                   <span className="text-indigo-400">•</span> {point.text}
                 </div>
                 <ThumbnailScroller indices={point.image_indices} />
@@ -332,7 +332,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
             <ul className="space-y-4">
               {data.issues.map((point, i) => (
                 <li key={i} className="flex flex-col">
-                  <div className="text-sm text-rose-700/80 font-medium flex gap-2 italic leading-relaxed">
+                  <div className="text-[13px] text-rose-700/80 font-normal flex gap-2 italic leading-[1.625]">
                     <span className="text-rose-400">!</span> {point.text}
                   </div>
                   <ThumbnailScroller indices={point.image_indices} />
@@ -351,7 +351,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
       <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
         <div className="space-y-4">
           <div className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">STR INVESTMENT SUMMARY</div>
-          <p className="text-gray-800 font-sans font-medium text-sm leading-relaxed">{data.market_performance.summary}</p>
+          <p className="text-gray-800 font-sans font-normal text-[13px] leading-[1.625]">{data.market_performance.summary}</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
             <div className="px-6 py-4 bg-white rounded-2xl border border-gray-100 flex flex-col shadow-sm">
@@ -369,16 +369,16 @@ const CustomAIAnalysis: React.FC<Props> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 pt-12 border-t border-gray-100">
           <div className="space-y-3">
             <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Regulatory Landscape</div>
-            <p className="text-gray-700 font-sans font-medium text-sm leading-relaxed">{data.regulatory_updates.laws_and_zoning}</p>
+            <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.regulatory_updates.laws_and_zoning}</p>
             <div className="mt-4 p-4 bg-rose-50 rounded-2xl border border-rose-100">
               <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest block mb-1">Permit Status & Caps</span>
-              <p className="text-xs font-bold text-rose-900">{data.regulatory_updates.permit_caps}</p>
+              <p className="font-sans font-normal text-[13px] leading-[1.625] text-rose-900">{data.regulatory_updates.permit_caps}</p>
             </div>
           </div>
 
           <div className="space-y-3">
             <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Competitive Edge</div>
-            <p className="text-gray-700 font-sans font-medium text-sm leading-relaxed">{data.competitor_gaps.standout_recommendations}</p>
+            <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.competitor_gaps.standout_recommendations}</p>
             <div className="mt-4 space-y-3">
               <div className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Highlighted Amenities</div>
               <div className="flex flex-wrap gap-2">
@@ -394,7 +394,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
             <div className="space-y-4">
               {data.demand_drivers.slice(0, 3).map((d, i) => (
                 <div key={i} className="flex flex-col border-l-2 border-indigo-100 pl-4 py-1">
-                  <div className="text-xs font-black text-gray-900 mb-0.5">{d.event}</div>
+                  <div className="font-sans font-normal text-[13px] leading-[1.625] text-gray-900 mb-0.5">{d.event}</div>
                   <div className="text-[10px] text-indigo-500 font-bold uppercase tracking-widest">{d.date}</div>
                 </div>
               ))}
@@ -455,15 +455,15 @@ const CustomAIAnalysis: React.FC<Props> = ({
                 <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
                   <div className="space-y-4">
                     <div className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">SUMMARY</div>
-                    <p className="text-gray-800 font-sans font-medium text-sm leading-relaxed">{home_interior.overall_description}</p>
+                    <p className="text-gray-800 font-sans font-normal text-[13px] leading-[1.625]">{home_interior.overall_description}</p>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 pt-12 border-t border-gray-100">
-                    <div className="space-y-3"><div className="text-xl font-black text-gray-400 uppercase tracking-widest">Design Philosophy</div><div className="inline-block bg-indigo-50 text-indigo-700 text-[9px] font-black uppercase px-3 py-1.5 rounded-full mb-2">{home_interior.design_style?.style}</div><p className="text-gray-700 font-sans font-medium text-sm leading-relaxed">{home_interior.design_style?.reasoning}</p></div>
-                    <div className="space-y-3"><div className="text-xl font-black text-gray-400 uppercase tracking-widest">Colors & Materials</div><p className="text-gray-700 font-sans font-medium text-sm leading-relaxed">{home_interior.color_and_materials}</p></div>
-                    <div className="space-y-3"><div className="text-xl font-black text-gray-400 uppercase tracking-widest">Lighting Environment</div><p className="text-gray-700 font-sans font-medium text-sm leading-relaxed">{home_interior.lighting}</p></div>
-                    <div className="space-y-3"><div className="text-xl font-black text-gray-400 uppercase tracking-widest">Spatial Architecture</div><p className="text-gray-700 font-sans font-medium text-sm leading-relaxed">{home_interior.spatial_flow}</p></div>
-                    <div className="space-y-3"><div className="text-xl font-black text-gray-400 uppercase tracking-widest">Staging & Furnishings</div><p className="text-gray-700 font-sans font-medium text-sm leading-relaxed">{home_interior.staging_and_furnishings}</p></div>
-                    <div className="space-y-3"><div className="text-xl font-black text-gray-400 uppercase tracking-widest">Condition & Finish</div><p className="text-gray-700 font-sans font-medium text-sm leading-relaxed">{home_interior.condition_and_finish}</p></div>
+                    <div className="space-y-3"><div className="text-xl font-black text-gray-400 uppercase tracking-widest">Design Philosophy</div><div className="inline-block bg-indigo-50 text-indigo-700 text-[9px] font-black uppercase px-3 py-1.5 rounded-full mb-2">{home_interior.design_style?.style}</div><p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{home_interior.design_style?.reasoning}</p></div>
+                    <div className="space-y-3"><div className="text-xl font-black text-gray-400 uppercase tracking-widest">Colors & Materials</div><p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{home_interior.color_and_materials}</p></div>
+                    <div className="space-y-3"><div className="text-xl font-black text-gray-400 uppercase tracking-widest">Lighting Environment</div><p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{home_interior.lighting}</p></div>
+                    <div className="space-y-3"><div className="text-xl font-black text-gray-400 uppercase tracking-widest">Spatial Architecture</div><p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{home_interior.spatial_flow}</p></div>
+                    <div className="space-y-3"><div className="text-xl font-black text-gray-400 uppercase tracking-widest">Staging & Furnishings</div><p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{home_interior.staging_and_furnishings}</p></div>
+                    <div className="space-y-3"><div className="text-xl font-black text-gray-400 uppercase tracking-widest">Condition & Finish</div><p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{home_interior.condition_and_finish}</p></div>
                   </div>
                 </div>
                 {home_interior.suggested_lifestyle && (
@@ -472,7 +472,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
                     <div className="flex-1 text-center md:text-left">
                       <div className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-200 mb-2">AI-Driven Suggested Lifestyle</div>
                       <h4 className="text-2xl font-black mb-4 tracking-tight">Best Suited for: <span className="text-indigo-200 italic">{home_interior.suggested_lifestyle.buyer_type}</span></h4>
-                      <p className="text-indigo-50 font-sans font-medium text-sm leading-relaxed opacity-90">{home_interior.suggested_lifestyle.lifestyle}</p>
+                      <p className="text-indigo-50 font-sans font-normal text-[13px] leading-[1.625] opacity-90">{home_interior.suggested_lifestyle.lifestyle}</p>
                     </div>
                   </div>
                 )}
@@ -488,8 +488,8 @@ const CustomAIAnalysis: React.FC<Props> = ({
                   <div key={idx} className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
                     <div className="flex justify-between items-start mb-6"><div className="w-12 h-12 bg-gray-50 rounded-[1.25rem] flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors"><i className={`fa-solid ${room.room_name?.toLowerCase().includes('kitchen') ? 'fa-kitchen-set' : 'fa-door-open'} text-xl`}></i></div><span className="text-[9px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">{room.floor || 'N/A'}</span></div>
                     <h4 className="font-black text-gray-900 text-xl mb-4 tracking-tight">{room.room_name}</h4>
-                    <p className="text-gray-700 font-sans font-medium text-sm leading-relaxed mb-6">{room.description}</p>
-                    {room.potential_improvements && <div className="pt-6 border-t border-gray-100 bg-gray-50 -mx-8 -mb-8 p-8 mt-auto"><div className="text-[9px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3">Strategic Enhancement</div><p className="text-gray-500 text-sm font-sans font-black italic leading-relaxed">"{room.potential_improvements}"</p></div>}
+                    <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625] mb-6">{room.description}</p>
+                    {room.potential_improvements && <div className="pt-6 border-t border-gray-100 bg-gray-50 -mx-8 -mb-8 p-8 mt-auto"><div className="text-[9px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3">Strategic Enhancement</div><p className="text-gray-500 text-[13px] font-sans font-normal italic leading-[1.625]">"{room.potential_improvements}"</p></div>}
                   </div>
                 ))}
               </div>
@@ -503,9 +503,9 @@ const CustomAIAnalysis: React.FC<Props> = ({
                 <div className="space-y-6">
                   <div className="flex items-center gap-3"><div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 shadow-sm"><i className="fa-solid fa-house-chimney text-lg"></i></div><h3 className="text-xl font-black text-gray-900 tracking-tight">Curb Appeal & Exterior</h3></div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <div className="space-y-2"><h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Architecture</h4><p className="text-gray-800 font-sans font-medium text-sm leading-relaxed">{exterior_and_neighborhood.exterior_and_lot_appeal.architecture_style}</p></div>
-                    <div className="space-y-2"><h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Frontage</h4><p className="text-gray-800 font-sans font-medium text-sm leading-relaxed">{exterior_and_neighborhood.exterior_and_lot_appeal.curb_appeal}</p></div>
-                    <div className="col-span-full space-y-2"><h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Outdoor Living</h4><p className="text-gray-800 font-sans font-medium text-sm leading-relaxed">{exterior_and_neighborhood.exterior_and_lot_appeal.backyard_and_patio}</p></div>
+                    <div className="space-y-2"><h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Architecture</h4><p className="text-gray-800 font-sans font-normal text-[13px] leading-[1.625]">{exterior_and_neighborhood.exterior_and_lot_appeal.architecture_style}</p></div>
+                    <div className="space-y-2"><h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Frontage</h4><p className="text-gray-800 font-sans font-normal text-[13px] leading-[1.625]">{exterior_and_neighborhood.exterior_and_lot_appeal.curb_appeal}</p></div>
+                    <div className="col-span-full space-y-2"><h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Outdoor Living</h4><p className="text-gray-800 font-sans font-normal text-[13px] leading-[1.625]">{exterior_and_neighborhood.exterior_and_lot_appeal.backyard_and_patio}</p></div>
                   </div>
                 </div>
               </div>
@@ -516,12 +516,12 @@ const CustomAIAnalysis: React.FC<Props> = ({
           <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-5xl mx-auto">
             {neighborhood ? (
               <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm p-8 md:p-12 space-y-12">
-                <div className="space-y-4"><div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.3em]">Spatial Summary</div><p className="text-gray-800 font-sans font-medium text-sm leading-relaxed">{neighborhood.overview}</p></div>
+                <div className="space-y-4"><div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.3em]">Spatial Summary</div><p className="text-gray-800 font-sans font-normal text-[13px] leading-[1.625]">{neighborhood.overview}</p></div>
                 {neighborhood.neighborhood_features && (
                   <div className="pt-12 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
                     {Object.entries(neighborhood.neighborhood_features).map(([key, value]) => {
                       if (!value || key === 'general') return null;
-                      return <div key={key} className="space-y-2"><h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>{key.replace(/_/g, ' ')}</h4><p className="text-gray-700 font-sans font-medium text-sm leading-relaxed">{value as string}</p></div>;
+                      return <div key={key} className="space-y-2"><h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>{key.replace(/_/g, ' ')}</h4><p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{value as string}</p></div>;
                     })}
                   </div>
                 )}
