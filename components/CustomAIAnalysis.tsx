@@ -40,7 +40,10 @@ const CustomAIAnalysis: React.FC<Props> = ({
   onUpdateAnalysis,
   addLog
 }) => {
-  const [activeTab, setActiveTab] = useState<TabType>('interior');
+  const role = (userRole as 'buyer' | 'seller' | 'realtor') || 'buyer';
+  const allowedTabs = (APP_CONFIG as any).roleTabs[role] || (APP_CONFIG as any).roleTabs.buyer;
+
+  const [activeTab, setActiveTab] = useState<TabType>(allowedTabs[0] || 'interior');
   const [timer, setTimer] = useState(0);
   const [qualityLoading, setQualityLoading] = useState(false);
   const [investmentLoading, setInvestmentLoading] = useState(false);
@@ -257,7 +260,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
     { id: 'quality', label: 'Picture Quality Audit', icon: 'fa-camera-rotate' },
     { id: 'investment', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
     { id: 'bidding', label: 'Bidding Strategy', icon: 'fa-gavel' },
-  ];
+  ].filter(tab => allowedTabs.includes(tab.id));
 
   const getCleanDomain = (src: string) => {
     try {

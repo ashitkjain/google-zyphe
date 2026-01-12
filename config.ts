@@ -13,5 +13,10 @@ export const APP_CONFIG = {
     models: {
         default: 'gemini-2.5-flash',
         bidding_strategy: 'gemini-2.5-flash', // Reverted to Flash as per user request
+    },
+    roleTabs: {
+        buyer: ['interior', 'rooms', 'exterior', 'neighborhood', 'pulse', 'investment', 'bidding'],
+        seller: ['quality'],
+        realtor: ['interior', 'rooms', 'exterior', 'neighborhood', 'pulse', 'quality', 'investment', 'bidding']
     }
 };
