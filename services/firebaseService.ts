@@ -24,7 +24,7 @@ import {
   deleteUser,
   sendPasswordResetEmail
 } from "firebase/auth";
-import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult, InvestmentResearchResult, BiddingStrategyResult } from "../types";
+import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult, InvestmentResearchResult } from "../types";
 
 /**
  * FIRESTORE SECURITY RULES (REQUIRED):
@@ -59,11 +59,7 @@ import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, User
  *       allow read: if true;
  *       allow write: if request.auth != null;
  *     }
- * 
- *     match /bidding_strategy/{zpid} {
- *       allow read: if true;
- *       allow write: if request.auth != null;
- *     }
+
  * 
  *     match /system_test/{docId} {
  *       allow read, write: if true; // Used for connectivity testing
@@ -400,33 +396,7 @@ export const getInvestmentResearchFromCloud = async (zpid: string): Promise<Inve
   }
 };
 
-export const saveBiddingStrategyToCloud = async (zpid: string, strategy: BiddingStrategyResult) => {
-  if (!db) return { success: false, error: "Database not initialized" };
-  try {
-    const user = auth?.currentUser;
-    console.log(`[Firestore] Saving bidding strategy for ZPID: "${zpid}". Auth: ${user ? user.email : 'GUEST'}`);
-    const docRef = doc(db, "bidding_strategy", zpid);
-    await setDoc(docRef, {
-      ...sanitizeForFirestore(strategy),
-      timestamp: serverTimestamp()
-    });
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: handleFirestoreError(error, "saveBiddingStrategyToCloud") as string };
-  }
-};
 
-export const getBiddingStrategyFromCloud = async (zpid: string): Promise<BiddingStrategyResult | null> => {
-  if (!db) return null;
-  try {
-    const docRef = doc(db, "bidding_strategy", zpid);
-    const docSnap = await getDoc(docRef);
-    return docSnap.exists() ? (docSnap.data() as BiddingStrategyResult) : null;
-  } catch (error) {
-    handleFirestoreError(error, "getBiddingStrategyFromCloud");
-    return null;
-  }
-};
 
 export const logUserActivity = async (sessionId: string, address: string) => {
   if (!db) return;

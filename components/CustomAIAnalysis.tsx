@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CustomAIAnalysisResult, CommunityPulseSection, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, ImageQualityPoint, ImageQualityCategory, InvestmentResearchResult, BiddingStrategyResult } from '../types';
 import { analyzeImageQuality, analyzeInvestmentResearch, analyzeBiddingStrategy, AiResponseError } from '../services/geminiService';
-import { saveImageQualityAnalysisToCloud, getImageQualityAnalysisFromCloud, saveInvestmentResearchToCloud, getInvestmentResearchFromCloud, saveBiddingStrategyToCloud, getBiddingStrategyFromCloud } from '../services/firebaseService';
+import { saveImageQualityAnalysisToCloud, getImageQualityAnalysisFromCloud, saveInvestmentResearchToCloud, getInvestmentResearchFromCloud } from '../services/firebaseService';
 
 interface Props {
   analysis: CustomAIAnalysisResult | null;
@@ -172,25 +172,13 @@ const CustomAIAnalysis: React.FC<Props> = ({
     }
   };
 
-  const handleRunBiddingStrategy = async (force = false) => {
+  const handleRunBiddingStrategy = async () => {
     if (!analysis || !zpid || biddingLoading) return;
 
     setTimer(0);
     setBiddingLoading(true);
 
     try {
-      if (!force) {
-        addLog('Cloud Cache', { type: 'request' }, { zpid, task: 'bidding_strategy' });
-        const cached = await getBiddingStrategyFromCloud(zpid);
-        if (cached) {
-          addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'bidding_strategy', zpid });
-          onUpdateAnalysis({ ...analysis, bidding_strategy: cached });
-          setBiddingLoading(false);
-          return;
-        }
-        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'bidding_strategy', zpid });
-      }
-
       addLog('Gemini AI', { type: 'request' }, { task: 'bidding_strategy', zpid });
 
       // Use actual property data if available, otherwise fallback to basic context
@@ -203,11 +191,6 @@ const CustomAIAnalysis: React.FC<Props> = ({
 
       onUpdateAnalysis({ ...analysis, bidding_strategy: result });
       addLog('Gemini AI', { type: 'response' }, { task: 'bidding_strategy', zpid, data: result });
-
-      const saveRes = await saveBiddingStrategyToCloud(zpid, result);
-      if (!saveRes.success) {
-        addLog('System', { type: 'error' }, { message: "Bidding Cache Save Failed", error: saveRes.error });
-      }
     } catch (err: any) {
       console.error("Bidding Strategy Failed:", err);
       addLog('System', { type: 'error' }, { message: "Bidding Strategy Failed", error: err.message || err });
@@ -468,7 +451,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
             <div className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">BIDDING STRATEGY REPORT</div>
             <button
-              onClick={() => handleRunBiddingStrategy(true)}
+              onClick={() => handleRunBiddingStrategy()}
               className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-100 transition-all active:scale-95"
             >
               <i className="fa-solid fa-rotate"></i>
