@@ -44,8 +44,9 @@ import ChatInterface from './components/ChatInterface';
 import Logo from './components/Logo';
 import AuthModal from './components/AuthModal';
 import AddClientModal from './components/AddClientModal';
+import ClientDashboard from './components/ClientDashboard';
 
-type ViewMode = 'main' | 'visual-report' | 'comprehensive-report';
+type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -524,28 +525,53 @@ const App: React.FC = () => {
       )}
 
       {currentUser && (
-        <div className="bg-slate-900 text-white py-2 px-4 shadow-inner border-b border-white/5 relative z-[60]">
+        <div className={`py-4 px-4 shadow-inner border-b border-white/5 relative z-[60] transition-all duration-500 ${currentUser.role === 'realtor'
+          ? 'bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 text-white border-indigo-500/20'
+          : 'bg-slate-900 text-white'
+          }`}>
           <div className="max-w-7xl mx-auto flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em]">
             <div className="flex items-center gap-3">
-              <span className="opacity-40">Intelligence Access:</span>
-              <span className="text-indigo-400">{currentUser.displayName}</span>
-              <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] border border-indigo-500/30">PRO</span>
-              <span className="hidden sm:inline opacity-20">|</span>
-              <span className="hidden sm:inline opacity-40">{currentUser.role} Account</span>
+              {currentUser.role === 'realtor' ? (
+                <>
+                  <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-amber-400/90 to-amber-600/90 rounded-full text-slate-900 text-[8px] shadow-lg shadow-amber-900/20">
+                    <i className="fa-solid fa-crown text-[10px]"></i>
+                    <span>Professional Realtor Mode</span>
+                  </div>
+                  <span className="opacity-20">|</span>
+                  <span className="text-indigo-300 tracking-[0.3em] font-black">{currentUser.displayName}</span>
+                </>
+              ) : (
+                <>
+                  <span className="opacity-40">Intelligence Access:</span>
+                  <span className="text-indigo-400">{currentUser.displayName}</span>
+                  <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] border border-indigo-500/30">PRO</span>
+                  <span className="hidden sm:inline opacity-20">|</span>
+                  <span className="hidden sm:inline opacity-40">{currentUser.role} Account</span>
+                </>
+              )}
             </div>
             <div className="flex items-center gap-6">
               {currentUser.role === 'realtor' && (
-                <button
-                  onClick={() => setAddClientModalOpen(true)}
-                  className="flex items-center gap-2 bg-indigo-500/10 text-indigo-400 px-4 py-1.5 rounded-lg hover:bg-indigo-500/20 transition-all border border-indigo-500/20"
-                >
-                  <i className="fa-solid fa-user-plus text-xs"></i>
-                  Add Client
-                </button>
+                <>
+                  <button
+                    onClick={() => setAddClientModalOpen(true)}
+                    className="flex items-center gap-2 bg-indigo-500/20 text-white px-4 py-1.5 rounded-lg hover:bg-indigo-500/30 transition-all border border-indigo-400/30"
+                  >
+                    <i className="fa-solid fa-user-plus text-xs"></i>
+                    Add Client
+                  </button>
+                  <button
+                    onClick={() => setViewMode('dashboard')}
+                    className="flex items-center gap-2 bg-indigo-500/20 text-white px-4 py-1.5 rounded-lg hover:bg-indigo-500/30 transition-all border border-indigo-400/30"
+                  >
+                    <i className="fa-solid fa-chart-line text-xs"></i>
+                    Client Dashboard
+                  </button>
+                </>
               )}
               <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
               <button onClick={handleDeleteAccount} className="text-rose-600 hover:text-rose-400 transition-colors border-r border-white/10 pr-6">Delete Account</button>
-              <button onClick={handleSignOut} className="text-white/60 hover:text-white transition-colors flex items-center gap-2">Sign Out</button>
+              <button onClick={handleSignOut} className="text-white hover:text-white/80 transition-colors flex items-center gap-2">Sign Out</button>
             </div>
           </div>
         </div>
@@ -555,7 +581,7 @@ const App: React.FC = () => {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50 py-3 shadow-sm backdrop-blur-md bg-white/90">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <Logo size={120} className="scale-75 md:scale-90 origin-left" onClick={() => setViewMode('main')} />
+            <Logo size={100} className="scale-75 md:scale-90 origin-left" onClick={() => setViewMode('main')} />
             <div className="flex-1 max-w-3xl relative" ref={historyRef}>
               <div className="flex items-center gap-4">
                 <form onSubmit={(e) => { e.preventDefault(); performSearch(address); }} className="flex-1 relative z-50">
@@ -690,7 +716,9 @@ const App: React.FC = () => {
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-10">
         {error && <div className="bg-rose-50 border border-rose-100 text-rose-700 p-4 rounded-2xl mb-8">{error}</div>}
 
-        {loading && !propertyData ? (
+        {viewMode === 'dashboard' && currentUser?.role === 'realtor' ? (
+          <ClientDashboard realtorId={currentUser.uid} onBack={() => setViewMode('main')} />
+        ) : loading && !propertyData ? (
           <div className="flex flex-col items-center justify-center py-32 text-slate-400">
             <Logo size={220} className="animate-pulse" />
             <h2 className="text-2xl font-black text-slate-900 mt-10">Analyzing Property DNA...</h2>

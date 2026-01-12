@@ -15,8 +15,8 @@ import {
   addDoc,
   // Firestore, // Removed as type might cause issues with some bundlers
   deleteDoc,
-  writeBatch
-  // FirestoreError // Removed as type might cause issues with some bundlers
+  writeBatch,
+  increment
 } from "firebase/firestore";
 import {
   getAuth,
@@ -33,59 +33,71 @@ import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, User
  * 
  * service cloud.firestore {
  *   match /databases/{database}/documents {
- *     
- *     // 1. PUBLIC READ, AUTHENTICATED WRITE
- *     // Allows guests to see results, but only logged-in users can trigger the "save/cache"
- *     match /properties/{zpid} {
- *       allow read: if true;
- *       allow write: if request.auth != null;
- *     }
- *     
- *     match /property_analyses_visual/{zpid} {
- *       allow read: if true;
- *       allow write: if request.auth != null;
- *     }
- * 
- *     match /property_analyses_comprehensive/{zpid} {
- *       allow read: if true;
- *       allow write: if request.auth != null;
- *     }
- * 
- *     match /image_quality_analysis/{zpid} {
- *       allow read: if true;
- *       allow write: if request.auth != null;
- *     }
- *
- *     match /market_research/{zpid} {
- *       allow read: if true;
- *       allow write: if request.auth != null;
- *     }
+    
+    // 1. PUBLIC READ, AUTHENTICATED WRITE
+    match /properties/{zpid} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    match /property_analyses_visual/{zpid} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
 
- * 
- *     match /system_test/{docId} {
- *       allow read, write: if true; // Used for connectivity testing
- *     }
- * 
- *     // 2. STRICTLY PRIVATE
- *     match /users/{userId} {
- *       allow read, write: if request.auth != null && request.auth.uid == userId;
- *       match /viewHistory/{zpid} {
- *         allow read, write: if request.auth != null && request.auth.uid == userId;
- *       }
- *       match /favorites/{zpid} {
- *         allow read, write: if request.auth != null && request.auth.uid == userId;
- *       }
- *     }
- * 
- *     // 3. ANONYMOUS LOGGING
- *     match /user_activity/{activityId} {
- *       allow create: if true;
- *       allow read, update, delete: if false; 
- *     }
- *
- *     match /mail/{mailId} {
- *       allow create: if request.auth != null;
- *     }
+    match /property_analyses_comprehensive/{zpid} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /image_quality_analysis/{zpid} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /market_research/{zpid} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /system_test/{docId} {
+      allow read, write: if true; 
+    }
+
+    // 2. USER DATA & REALTOR-CLIENT ACCESS
+    match /users/{userId} {
+      // Users can manage their own profiles
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Realtors can read profiles of clients they invited
+      allow read: if request.auth != null && 
+                   resource.data.realtorId == request.auth.uid;
+      
+      match /viewHistory/{zpid} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        // Realtors can see their client's view history
+        allow read: if request.auth != null && 
+                     get(/databases/$(database)/documents/users/$(userId)).data.realtorId == request.auth.uid;
+      }
+      
+      match /favorites/{zpid} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        // Realtors can see their client's favorites
+        allow read: if request.auth != null && 
+                     get(/databases/$(database)/documents/users/$(userId)).data.realtorId == request.auth.uid;
+      }
+    }
+
+    // 3. ANONYMOUS LOGGING
+    match /user_activity/{activityId} {
+      allow create: if true;
+      allow read, update, delete: if false; 
+    }
+    
+    match /mail/{mailId} {
+      allow create: if request.auth != null;
+    }
+  }
  *   }
  * }
  */
@@ -243,8 +255,9 @@ export const trackUserPropertyView = async (uid: string, property: PropertyData)
       address: property.address,
       homeType: property.homeType || null,
       price: property.price || property.zestimate || null,
-      timestamp: serverTimestamp()
-    });
+      timestamp: serverTimestamp(),
+      viewCount: increment(1)
+    }, { merge: true });
   } catch (error) {
     handleFirestoreError(error, "trackUserPropertyView");
   }
@@ -373,6 +386,35 @@ export const sendInviteEmail = async (email: string, subject: string, html: stri
   } catch (error) {
     console.error("Error queueing email:", error);
     return { success: false, error: (error as Error).message };
+  }
+};
+
+export const getRealtorClients = async (realtorId: string) => {
+  if (!db) return [];
+  try {
+    const usersCol = collection(db, "users");
+    const q = query(usersCol, where("realtorId", "==", realtorId));
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => doc.data() as UserProfile);
+  } catch (error) {
+    console.error("Error fetching realtor clients:", error);
+    return [];
+  }
+};
+
+export const getClientActivity = async (uid: string) => {
+  if (!db) return { favorites: [], views: [] };
+  try {
+    const favs = await getUserFavorites(uid);
+    const historyCol = collection(db, "users", uid, "viewHistory");
+    const q = query(historyCol, orderBy("timestamp", "desc"));
+    const historySnap = await getDocs(q);
+    const views = historySnap.docs.map(doc => doc.data());
+
+    return { favorites: favs, views };
+  } catch (error) {
+    console.error("Error fetching client activity:", error);
+    return { favorites: [], views: [] };
   }
 };
 

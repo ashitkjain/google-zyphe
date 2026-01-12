@@ -5,7 +5,8 @@ import {
   googleProvider,
   saveUserProfile,
   getUserProfile,
-  resetPassword
+  resetPassword,
+  sendInviteEmail
 } from '../services/firebaseService';
 import {
   signInWithPopup,
@@ -209,6 +210,25 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
         if (!success) {
           console.warn("Firestore profile creation failed, but auth account exists. App will use localStorage fallback.");
         }
+
+        // Notify realtor that their client has joined
+        if (inviteData?.realtorId) {
+          try {
+            const realtorProfile = await getUserProfile(inviteData.realtorId);
+            if (realtorProfile?.email) {
+              const subject = `Your client ${name} has joined Zyphe AI!`;
+              const body = `
+                <p>Hi ${inviteData.realtorName},</p>
+                <p>Good news! Your client <strong>${name}</strong> (${email}) has just accepted your invitation and created their Zyphe AI account as a <strong>${role}</strong>.</p>
+                <p>They can now start viewing property insights and reports.</p>
+                <p>Best,<br/>The Zyphe AI Team</p>
+              `;
+              await sendInviteEmail(realtorProfile.email, subject, body);
+            }
+          } catch (notifyErr) {
+            console.error("Failed to notify realtor:", notifyErr);
+          }
+        }
       }
       onClose();
     } catch (err: any) {
@@ -242,7 +262,14 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
             {resetMode
               ? 'Enter your email to receive a reset link.'
               : (inviteData
-                ? `Join as a client of ${inviteData.realtorName}`
+                ? (
+                  <span className="flex flex-col gap-1">
+                    <span>Join as a client of {inviteData.realtorName}</span>
+                    <span className="text-indigo-600 font-black uppercase text-[10px] tracking-widest mt-1">
+                      Joining as a {inviteData.role}
+                    </span>
+                  </span>
+                )
                 : (isLogin ? 'Access your saved property insights.' : 'Start your intelligent property journey.'))}
           </p>
         </div>
