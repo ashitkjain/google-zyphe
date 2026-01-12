@@ -1,23 +1,42 @@
 
-import { PropertyData, RadarGeocodeResponse } from "../types.ts";
+import { PropertyData, RadarGeocodeResponse, PropertyComp } from "../types.ts";
 import { savePropertyToCloud } from "./firebaseService.ts";
 
 const RAPID_API_KEY = process.env.RAPID_API_KEY || "ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f";
 const RAPID_API_HOST = process.env.RAPID_API_HOST || "us-housing-market-data1.p.rapidapi.com";
 const RADAR_API_KEY = process.env.RADAR_API_KEY || "prj_live_pk_eef2517d56b63939d892c06a7dac57af7f2278cb";
 
-const extractNumericValue = (val: any): number => {
-  if (val === null || val === undefined) return 0;
+const extractNumericValue = (val: any): number | null => {
+  if (val === null || val === undefined || val === '') return null;
   if (typeof val === 'number') return val;
   if (typeof val === 'string') {
-    const numeric = Number(val.replace(/[^0-9.-]/g, ''));
-    return isNaN(numeric) ? 0 : numeric;
+    const cleaned = val.replace(/[^0-9.-]/g, '');
+    if (cleaned === '') return null;
+    const numeric = Number(cleaned);
+    return isNaN(numeric) ? null : numeric;
   }
   if (val && typeof val === 'object' && 'value' in val) {
-    const numeric = Number(String(val.value).replace(/[^0-9.-]/g, ''));
-    return isNaN(numeric) ? 0 : numeric;
+    const cleaned = String(val.value).replace(/[^0-9.-]/g, '');
+    if (cleaned === '') return null;
+    const numeric = Number(cleaned);
+    return isNaN(numeric) ? null : numeric;
   }
-  return 0;
+  return null;
+};
+
+const formatAddress = (addr: any): string => {
+  if (typeof addr === 'string') return addr;
+  if (addr && typeof addr === 'object') {
+    const { streetAddress, city, state, zipcode, zipCode } = addr;
+    const parts = [
+      streetAddress,
+      city,
+      state,
+      zipcode || zipCode
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : JSON.stringify(addr);
+  }
+  return String(addr || "Unknown Address");
 };
 
 const safeStringify = (val: any): string | null => {
@@ -54,7 +73,7 @@ export const normalizeAddress = async (address: string): Promise<RadarGeocodeRes
   if (!geocodeResponse.ok) {
     throw new Error(`Radar API error: ${geocodeResponse.status}`);
   }
-  
+
   const firstResult = geocodeData.addresses[0];
   if (!firstResult) throw new Error("No address found for the provided query.");
 
@@ -78,10 +97,10 @@ export const normalizeAddress = async (address: string): Promise<RadarGeocodeRes
   };
 };
 
-export const fetchScores = async (zpid: string): Promise<{ 
+export const fetchScores = async (zpid: string): Promise<{
   walkScore?: number, walkScoreDesc?: string,
   transitScore?: number, transitScoreDesc?: string,
-  bikeScore?: number, bikeScoreDesc?: string 
+  bikeScore?: number, bikeScoreDesc?: string
 }> => {
   const url = `https://us-housing-market-data1.p.rapidapi.com/walkAndTransitScore?zpid=${zpid}`;
   try {
@@ -95,7 +114,7 @@ export const fetchScores = async (zpid: string): Promise<{
     });
     if (!response.ok) return {};
     const data = await response.json();
-    
+
     return {
       walkScore: extractNumericValue(data.walkScore?.walkscore),
       walkScoreDesc: data.walkScore?.description,
@@ -110,9 +129,65 @@ export const fetchScores = async (zpid: string): Promise<{
   }
 };
 
+export const fetchPropertyComps = async (zpid: string): Promise<PropertyComp[]> => {
+  const url = `https://us-housing-market-data1.p.rapidapi.com/propertyComps?zpid=${zpid}`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-host': RAPID_API_HOST,
+        'x-rapidapi-key': RAPID_API_KEY,
+      },
+      cache: 'no-store'
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+
+    // The API might return an array or an object with a props/property field
+    let comps: any[] = [];
+    if (Array.isArray(data)) comps = data;
+    else if (data.comps && Array.isArray(data.comps)) comps = data.comps;
+    else if (data.props?.comps && Array.isArray(data.props.comps)) comps = data.props.comps;
+
+    return comps.map((c: any) => {
+      const price = extractNumericValue(c.price);
+      const livingArea = extractNumericValue(c.livingAreaValue || c.livingArea);
+      const ppsf = price > 0 && livingArea > 0 ? Math.round(price / livingArea) : undefined;
+
+      return {
+        zpid: String(c.zpid),
+        address: formatAddress(c.address),
+        price: price,
+        listPrice: extractNumericValue(c.listPrice || c.originalPrice),
+        bedrooms: extractNumericValue(c.bedrooms),
+        bathrooms: extractNumericValue(c.bathrooms),
+        livingAreaValue: livingArea,
+        yearBuilt: extractNumericValue(c.yearBuilt),
+        distance: extractNumericValue(c.distance),
+        daysOnMarket: extractNumericValue(c.daysOnMarket || c.daysOnZillow),
+        status: c.homeStatus || c.statusText || c.status,
+        images: Array.isArray(c.images) ? c.images : [c.imgSrc].filter(Boolean),
+        homeType: c.homeType,
+        lastSoldPrice: extractNumericValue(c.lastSoldPrice || c.last_sold_price),
+        lastSoldDate: c.lastSoldDate || c.last_sold_date,
+        lotAreaValue: extractNumericValue(c.lotAreaValue),
+        lotAreaUnit: c.lotAreaUnit,
+        lotSize: c.lotAreaValue ? `${c.lotAreaValue} ${c.lotAreaUnit || 'sqft'}` : undefined,
+        garageSpaces: extractNumericValue(c.garageSpaces),
+        pricePerSqFt: ppsf,
+        description: c.description || c.hsh_notes,
+        hoaFees: extractNumericValue(c.hoaFee || c.monthlyHoaFee)
+      };
+    }).slice(0, 6); // Limit to top 6 comps
+  } catch (e) {
+    console.error("Failed to fetch property comps", e);
+    return [];
+  }
+};
+
 export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<string[]> => {
   const url = `https://us-housing-market-data1.p.rapidapi.com/images?zpid=${zpid}`;
-  
+
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const response = await fetch(url, {
@@ -133,7 +208,7 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
       }
 
       const data = await response.json();
-      
+
       let images: any[] = [];
       if (Array.isArray(data)) {
         images = data;
@@ -168,10 +243,10 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
  * Combined fetch that ensures all sub-data is retrieved before returning
  */
 export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boolean = false, onStep?: (step: string) => void): Promise<PropertyData> => {
-  const url = isZpid 
+  const url = isZpid
     ? `https://us-housing-market-data1.p.rapidapi.com/property?zpid=${addressOrZpid}`
     : `https://us-housing-market-data1.p.rapidapi.com/property?address=${encodeURIComponent(addressOrZpid)}`;
-  
+
   onStep?.("Fetching property facts...");
   const response = await fetch(url, {
     method: 'GET',
@@ -184,11 +259,12 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
 
   const data = await response.json();
   if (!response.ok) throw new Error(`Property API error: ${response.status}`);
-  
+
   const rawZpid = isZpid ? addressOrZpid : (data.zpid || data.props?.zpid || (data.properties && data.properties[0]?.zpid));
 
   const mappedData: PropertyData = {
-    address: data.address || data.props?.address || addressOrZpid,
+    address: formatAddress(data.address || data.props?.address || addressOrZpid),
+    city: typeof data.address === 'object' ? data.address.city : (data.props?.address?.city || undefined),
     zpid: rawZpid ? String(rawZpid) : undefined,
     homeStatus: data.homeStatus || data.props?.homeStatus || "OFF_MARKET",
     homeType: data.homeType || data.props?.homeType || "SINGLE_FAMILY",
@@ -207,6 +283,12 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
     heatRiskScore: extractNumericValue(data.climate?.heatRiskScore),
     description: data.description || data.props?.description || "No description available.",
     schools: Array.isArray(data.schools) ? data.schools : (data.props?.schools || []),
+    listedDate: data.onMarketDate || data.listedDate || data.props?.onMarketDate || data.daysOnZillow || 0,
+    priceHistory: (Array.isArray(data.priceHistory) ? data.priceHistory : (data.props?.priceHistory || [])).map((item: any) => ({
+      date: item.date || "N/A",
+      price: extractNumericValue(item.price),
+      event: item.event || "Price Change"
+    })),
     resoFacts: {
       flooring: safeStringify(data.resoFacts?.flooring),
       foundationDetails: safeStringify(data.resoFacts?.foundationDetails),
@@ -249,7 +331,11 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
     onStep?.("Fetching image gallery...");
     const images = await fetchPropertyImages(mappedData.zpid);
     mappedData.images = images;
-    
+
+    onStep?.("Fetching comparable sales...");
+    const comps = await fetchPropertyComps(mappedData.zpid);
+    mappedData.comps = comps;
+
     await savePropertyToCloud(mappedData.zpid, mappedData);
   }
 

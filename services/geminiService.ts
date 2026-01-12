@@ -9,9 +9,13 @@ import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis
 import { getImageQualityAnalysisPrompt, imageQualityAnalysisSchema } from "../prompts/imageQualityAnalysis";
 import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompts/investmentResearch";
 import { biddingStrategyPrompt } from "../prompts/biddingStrategy";
+import { APP_CONFIG } from "../config";
 
-// Set to gemini-2.5-flash everywhere as requested.
-export const GEMINI_MODEL = 'gemini-2.5-flash';
+// Use config for model selection
+export const GEMINI_MODEL = APP_CONFIG.models.default;
+export const BIDDING_MODEL = APP_CONFIG.models.bidding_strategy;
+
+const groundingTool = { googleSearch: {} };
 
 // Custom error to pass raw response back for logging
 export class AiResponseError extends Error {
@@ -216,7 +220,8 @@ export const analyzeCommunityPulse = async (property: PropertyData): Promise<Com
       model: GEMINI_MODEL,
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }]
+        tools: [groundingTool],
+        temperature: 1.0
       }
     });
 
@@ -289,7 +294,8 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
       model: GEMINI_MODEL,
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }],
+        tools: [groundingTool],
+        temperature: 1.0,
         // Reduced thinking budget for faster overall generation time
         thinkingConfig: { thinkingBudget: 4000 }
       }
@@ -364,7 +370,8 @@ export const analyzeInvestmentResearch = async (property: PropertyData): Promise
       model: GEMINI_MODEL,
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }]
+        tools: [groundingTool],
+        temperature: 1.0
         // Note: JSON schema is incompatible with Tool Use, so we rely on extractJson
       }
     });
@@ -384,10 +391,11 @@ export const analyzeBiddingStrategy = async (property: PropertyData): Promise<Bi
   try {
     const ai = getAi();
     const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
+      model: BIDDING_MODEL,
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }]
+        tools: [groundingTool],
+        temperature: 1.0
       }
     });
 

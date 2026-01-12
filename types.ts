@@ -12,33 +12,34 @@ export interface UserProfile {
 export interface PropertyData {
   zpid?: string;
   address: string;
+  city?: string;
   homeStatus?: string;
   homeType?: string;
-  livingAreaValue?: number;
-  bedrooms?: number;
-  bathrooms?: number;
-  yearBuilt?: number;
+  livingAreaValue?: number | null;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  yearBuilt?: number | null;
   lotSize?: string;
   description?: string;
-  price?: number;
-  zestimate?: number;
-  rentZestimate?: number;
-  propertyTaxRate?: number;
-  annualHomeownersInsurance?: number;
-  windRiskScore?: number;
-  floodRiskScore?: number;
-  fireRiskScore?: number;
-  heatRiskScore?: number;
-  walkScore?: number;
+  price?: number | null;
+  zestimate?: number | null;
+  rentZestimate?: number | null;
+  propertyTaxRate?: number | null;
+  annualHomeownersInsurance?: number | null;
+  windRiskScore?: number | null;
+  floodRiskScore?: number | null;
+  fireRiskScore?: number | null;
+  heatRiskScore?: number | null;
+  walkScore?: number | null;
   walkScoreDesc?: string;
-  transitScore?: number;
+  transitScore?: number | null;
   transitScoreDesc?: string;
-  bikeScore?: number;
+  bikeScore?: number | null;
   bikeScoreDesc?: string;
   schools?: School[];
   nearbyHomes?: any[];
   homeInsights?: any;
-  timeOnZillow?: number;
+  timeOnZillow?: number | null;
   resoFacts?: ResoFacts;
   images?: string[];
   coordinates?: {
@@ -47,10 +48,44 @@ export interface PropertyData {
   };
   mapZoomIn?: string;
   mapZoomOut?: string;
+  listedDate?: string | number;
+  comps?: PropertyComp[];
+  priceHistory?: PriceHistoryItem[];
   // AI fields for cloud caching
   analysis?: AIAnalysisResult;
   visual_analysis?: CustomAIAnalysisResult;
   comprehensive_analysis?: ComprehensiveAnalysisResult;
+}
+
+export interface PropertyComp {
+  zpid: string;
+  address: string;
+  price?: number | null;
+  listPrice?: number | null;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  livingAreaValue?: number | null;
+  yearBuilt?: number | null;
+  distance?: number | null;
+  daysOnMarket?: number | null;
+  status?: string;
+  images?: string[];
+  homeType?: string;
+  lastSoldPrice?: number | null;
+  lastSoldDate?: string;
+  lotSize?: string;
+  lotAreaValue?: number | null;
+  lotAreaUnit?: string;
+  garageSpaces?: number | null;
+  pricePerSqFt?: number | null;
+  description?: string;
+  hoaFees?: number | null;
+}
+
+export interface PriceHistoryItem {
+  date: string;
+  price: number | null;
+  event: string;
 }
 
 export interface RadarGeocodeResponse {
@@ -217,11 +252,10 @@ export interface InvestmentResearchResult {
 export interface BiddingStrategyResult {
   property_specifics: {
     days_on_market: string;
-    listing_history: string[];
+    listing_history: string[] | string;
     price_changes: string;
   };
   zip_code_benchmarks: {
-    median_sale_to_list_ratio: string;
     median_days_on_market: string;
   };
   inventory_pressure: {

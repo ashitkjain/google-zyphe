@@ -25,6 +25,7 @@ import {
   getInvestmentResearchFromCloud,
   deleteUserAccount
 } from './services/firebaseService';
+import { APP_CONFIG } from './config';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import PropertyHeader from './components/PropertyHeader';
 import PropertyFacts from './components/PropertyFacts';
@@ -292,13 +293,16 @@ const App: React.FC = () => {
         addLog('Cloud Cache', { type: 'request' }, { zpid: propertyData.zpid, task: 'visual_analysis' });
         const cached = await getVisualAnalysisFromCloud(propertyData.zpid);
         if (cached) {
-          // Check for separate image quality cache
-          const qualityCached = await getImageQualityAnalysisFromCloud(propertyData.zpid);
-          if (qualityCached) cached.image_quality_analysis = qualityCached;
+          // Use config-driven cache pre-fetching
+          if (APP_CONFIG.caching.image_quality) {
+            const qualityCached = await getImageQualityAnalysisFromCloud(propertyData.zpid);
+            if (qualityCached) cached.image_quality_analysis = qualityCached;
+          }
 
-          // Check for separate investment research cache
-          const investmentCached = await getInvestmentResearchFromCloud(propertyData.zpid);
-          if (investmentCached) cached.investment_research = investmentCached;
+          if (APP_CONFIG.caching.investment_research) {
+            const investmentCached = await getInvestmentResearchFromCloud(propertyData.zpid);
+            if (investmentCached) cached.investment_research = investmentCached;
+          }
 
 
 
