@@ -97,10 +97,11 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
             {isFavorited && (
               <button
                 onClick={onToggleFavorite}
-                className="w-12 h-12 rounded-xl flex items-center justify-center transition-all bg-white text-slate-300 border border-slate-200 hover:text-rose-500 hover:bg-rose-50 shadow-sm"
+                className="h-12 px-4 rounded-xl flex items-center justify-center gap-2 transition-all bg-white text-slate-400 border border-slate-200 hover:text-rose-500 hover:bg-rose-50 shadow-sm group"
                 title="Remove from Favorites"
               >
                 <i className="fa-solid fa-trash-can text-lg"></i>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-300 group-hover:text-rose-500">Remove</span>
               </button>
             )}
           </div>

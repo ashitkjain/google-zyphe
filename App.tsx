@@ -43,12 +43,17 @@ import PreloadManager from './components/PreloadManager';
 import ChatInterface from './components/ChatInterface';
 import Logo from './components/Logo';
 import AuthModal from './components/AuthModal';
+import AddClientModal from './components/AddClientModal';
 
 type ViewMode = 'main' | 'visual-report' | 'comprehensive-report';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [addClientModalOpen, setAddClientModalOpen] = useState(false);
+  const [inviteData, setInviteData] = useState<{
+    email: string, name: string, role: any, realtorId: string, realtorName: string
+  } | null>(null);
   const [cloudHistory, setCloudHistory] = useState<any[]>([]);
 
   const [searchHistory, setSearchHistory] = useState<{ address: string, timestamp: number }[]>([]);
@@ -83,6 +88,23 @@ const App: React.FC = () => {
     }
     return () => clearInterval(interval);
   }, [loading, propertyData]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') === 'invite') {
+      const email = params.get('email') || '';
+      const name = params.get('name') || '';
+      const role = params.get('role') as any || 'buyer';
+      const realtorId = params.get('realtorId') || '';
+      const realtorName = params.get('realtorName') || '';
+
+      setInviteData({ email, name, role, realtorId, realtorName });
+      setAuthModalOpen(true);
+
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     if (!auth) return;
@@ -491,7 +513,15 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
-      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} inviteData={inviteData} />
+      {currentUser && (
+        <AddClientModal
+          isOpen={addClientModalOpen}
+          onClose={() => setAddClientModalOpen(false)}
+          realtorName={currentUser.displayName}
+          realtorId={currentUser.uid}
+        />
+      )}
 
       {currentUser && (
         <div className="bg-slate-900 text-white py-2 px-4 shadow-inner border-b border-white/5 relative z-[60]">
@@ -504,18 +534,29 @@ const App: React.FC = () => {
               <span className="hidden sm:inline opacity-40">{currentUser.role} Account</span>
             </div>
             <div className="flex items-center gap-6">
+              {currentUser.role === 'realtor' && (
+                <button
+                  onClick={() => setAddClientModalOpen(true)}
+                  className="flex items-center gap-2 bg-indigo-500/10 text-indigo-400 px-4 py-1.5 rounded-lg hover:bg-indigo-500/20 transition-all border border-indigo-500/20"
+                >
+                  <i className="fa-solid fa-user-plus text-xs"></i>
+                  Add Client
+                </button>
+              )}
+              <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
               <button onClick={handleDeleteAccount} className="text-rose-600 hover:text-rose-400 transition-colors border-r border-white/10 pr-6">Delete Account</button>
               <button onClick={handleSignOut} className="text-white/60 hover:text-white transition-colors flex items-center gap-2">Sign Out</button>
             </div>
           </div>
         </div>
-      )}
+      )
+      }
 
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50 py-3 shadow-sm backdrop-blur-md bg-white/90">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <Logo size={120} className="scale-75 md:scale-90 origin-left" onClick={() => setViewMode('main')} />
-            <div className="flex-1 max-w-2xl relative" ref={historyRef}>
+            <div className="flex-1 max-w-3xl relative" ref={historyRef}>
               <div className="flex items-center gap-4">
                 <form onSubmit={(e) => { e.preventDefault(); performSearch(address); }} className="flex-1 relative z-50">
                   <div className="relative group">
@@ -525,7 +566,7 @@ const App: React.FC = () => {
                       onFocus={() => setShowHistory(true)}
                       onChange={(e) => setAddress(e.target.value)}
                       placeholder="Enter property address..."
-                      className="w-full pl-12 pr-44 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all"
+                      className="w-full pl-12 pr-44 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all text-xs font-medium"
                     />
                     <i className="fa-solid fa-house-laptop absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -620,13 +661,25 @@ const App: React.FC = () => {
                     <span>Sign In</span>
                   </button>
                 ) : (
-                  <button
-                    onClick={() => setShowHistory(true)}
-                    className="flex items-center gap-2 bg-white border border-slate-200 px-6 py-3 rounded-2xl text-[10px] font-black uppercase text-slate-700 hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap"
-                  >
-                    <i className="fa-solid fa-heart text-rose-500"></i>
-                    <span>Favorites ({favorites.length})</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowHistory(true)}
+                      className="flex items-center gap-2 bg-white border border-slate-200 px-6 py-3 rounded-2xl text-[10px] font-black uppercase text-slate-700 hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap"
+                    >
+                      <i className="fa-solid fa-heart text-rose-500"></i>
+                      <span>Favorites ({favorites.length})</span>
+                    </button>
+                    {isFavorited && (
+                      <button
+                        onClick={(e) => { e.preventDefault(); handleToggleFavorite(); }}
+                        className="flex items-center gap-2 bg-rose-50 border border-rose-100 px-4 py-3 rounded-2xl text-[10px] font-black uppercase text-rose-500 hover:bg-rose-100 transition-all shadow-sm shadow-rose-100 animate-in fade-in slide-in-from-right-2"
+                        title="Remove from favorites"
+                      >
+                        <i className="fa-solid fa-trash-can text-xs"></i>
+                        <span>Remove</span>
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -720,7 +773,7 @@ const App: React.FC = () => {
         )}
       </main>
       {propertyData && <ChatInterface property={propertyData} visual={customAnalysis} comprehensive={comprehensiveAnalysis} />}
-    </div>
+    </div >
   );
 };
 

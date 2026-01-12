@@ -18,21 +18,38 @@ import Logo from './Logo';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  inviteData?: {
+    email: string;
+    name: string;
+    role: 'buyer' | 'seller';
+    realtorId: string;
+    realtorName: string;
+  } | null;
 }
 
-const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
+const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
+  const [isLogin, setIsLogin] = useState(!inviteData);
+  const [email, setEmail] = useState(inviteData?.email || '');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [name, setName] = useState(inviteData?.name || '');
   const [address, setAddress] = useState('');
-  const [role, setRole] = useState<'buyer' | 'seller' | 'realtor'>('buyer');
+  const [role, setRole] = useState<'buyer' | 'seller' | 'realtor'>(inviteData?.role || 'buyer');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorLink, setErrorLink] = useState<{ url: string, label: string } | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
   const [resetMode, setResetMode] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+
+  // Sync state when inviteData changes or when modal opens
+  React.useEffect(() => {
+    if (inviteData && isOpen) {
+      setIsLogin(false); // Force Sign Up mode for invites
+      setEmail(inviteData.email || '');
+      setName(inviteData.name || '');
+      setRole(inviteData.role || 'buyer');
+    }
+  }, [inviteData, isOpen]);
 
   if (!isOpen) return null;
 
@@ -139,6 +156,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
           email: user.email || '',
           displayName: user.displayName || 'User',
           role: role,
+          realtorId: inviteData?.realtorId,
           createdAt: new Date()
         });
       } else {
@@ -184,6 +202,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
           displayName: name,
           role,
           address: address || null,
+          realtorId: inviteData?.realtorId,
           createdAt: new Date()
         });
 
@@ -221,7 +240,9 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
           <p className="text-slate-500 text-sm font-medium mt-1">
             {resetMode
               ? 'Enter your email to receive a reset link.'
-              : (isLogin ? 'Access your saved property insights.' : 'Start your intelligent property journey.')}
+              : (inviteData
+                ? `Join as a client of ${inviteData.realtorName}`
+                : (isLogin ? 'Access your saved property insights.' : 'Start your intelligent property journey.'))}
           </p>
         </div>
 
@@ -272,11 +293,12 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 <button
                   key={r.id}
                   type="button"
-                  onClick={() => setRole(r.id as any)}
+                  onClick={() => !inviteData && setRole(r.id as any)}
+                  disabled={!!inviteData}
                   className={`py-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${role === r.id
                     ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
                     : 'border-slate-100 text-slate-400 hover:border-slate-200'
-                    }`}
+                    } ${inviteData ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <i className={`fa-solid ${r.icon} text-xs`}></i>
                   <span className="text-[9px] font-black uppercase tracking-widest">{r.label}</span>
@@ -322,7 +344,8 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all"
+                    disabled={!!inviteData}
+                    className={`w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all ${inviteData ? 'opacity-60 cursor-not-allowed' : ''}`}
                     placeholder="John Doe"
                   />
                 </div>
@@ -407,7 +430,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose }) => {
             >
               {resetMode
                 ? "Back to Sign In"
-                : (isLogin ? "Don't have an account? Create one" : "Already have an account? Sign in")}
+                : (isLogin ? "Don't have an account? Create one" : (inviteData ? "" : "Already have an account? Sign in"))}
             </button>
           </div>
         </div>

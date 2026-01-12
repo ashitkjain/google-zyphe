@@ -12,6 +12,7 @@ import {
   orderBy,
   limit,
   serverTimestamp,
+  addDoc,
   // Firestore, // Removed as type might cause issues with some bundlers
   deleteDoc,
   writeBatch
@@ -80,6 +81,10 @@ import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, User
  *     match /user_activity/{activityId} {
  *       allow create: if true;
  *       allow read, update, delete: if false; 
+ *     }
+ *
+ *     match /mail/{mailId} {
+ *       allow create: if request.auth != null;
  *     }
  *   }
  * }
@@ -350,6 +355,24 @@ export const getVisualAnalysisFromCloud = async (zpid: string): Promise<CustomAI
   } catch (error) {
     handleFirestoreError(error, "getVisualAnalysisFromCloud");
     return null;
+  }
+};
+
+export const sendInviteEmail = async (email: string, subject: string, html: string) => {
+  if (!db) return { success: false, error: "Database not initialized" };
+  try {
+    const mailCol = collection(db, "mail");
+    await addDoc(mailCol, {
+      to: email,
+      message: {
+        subject: subject,
+        html: html,
+      }
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error queueing email:", error);
+    return { success: false, error: (error as Error).message };
   }
 };
 

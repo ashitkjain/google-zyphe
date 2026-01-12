@@ -58,10 +58,11 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
             {isFavorited && (
               <button
                 onClick={() => onToggleFavorite && onToggleFavorite()}
-                className="w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-sm cursor-pointer bg-slate-50 text-slate-300 border border-slate-100 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-200"
+                className="h-12 px-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer bg-slate-50 text-slate-400 border border-slate-100 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-200 group"
                 title="Remove from Favorites"
               >
                 <i className="fa-solid fa-trash-can text-lg"></i>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-rose-500">Remove from favorites</span>
               </button>
             )}
           </div>

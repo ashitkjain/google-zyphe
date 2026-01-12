@@ -6,6 +6,7 @@ export interface UserProfile {
   displayName: string;
   role: 'buyer' | 'seller' | 'realtor';
   address?: string;
+  realtorId?: string;
   createdAt: any;
 }
 
