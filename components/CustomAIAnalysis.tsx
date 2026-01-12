@@ -172,22 +172,24 @@ const CustomAIAnalysis: React.FC<Props> = ({
     }
   };
 
-  const handleRunBiddingStrategy = async () => {
+  const handleRunBiddingStrategy = async (force = false) => {
     if (!analysis || !zpid || biddingLoading) return;
 
     setTimer(0);
     setBiddingLoading(true);
-    addLog('Cloud Cache', { type: 'request' }, { zpid, task: 'bidding_strategy' });
 
     try {
-      const cached = await getBiddingStrategyFromCloud(zpid);
-      if (cached) {
-        addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'bidding_strategy', zpid });
-        onUpdateAnalysis({ ...analysis, bidding_strategy: cached });
-        setBiddingLoading(false);
-        return;
+      if (!force) {
+        addLog('Cloud Cache', { type: 'request' }, { zpid, task: 'bidding_strategy' });
+        const cached = await getBiddingStrategyFromCloud(zpid);
+        if (cached) {
+          addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'bidding_strategy', zpid });
+          onUpdateAnalysis({ ...analysis, bidding_strategy: cached });
+          setBiddingLoading(false);
+          return;
+        }
+        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'bidding_strategy', zpid });
       }
-      addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'bidding_strategy', zpid });
 
       addLog('Gemini AI', { type: 'request' }, { task: 'bidding_strategy', zpid });
 
@@ -463,7 +465,16 @@ const CustomAIAnalysis: React.FC<Props> = ({
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 max-w-5xl mx-auto space-y-8">
       <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
         <div className="space-y-4">
-          <div className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">BIDDING STRATEGY REPORT</div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+            <div className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">BIDDING STRATEGY REPORT</div>
+            <button
+              onClick={() => handleRunBiddingStrategy(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-100 transition-all active:scale-95"
+            >
+              <i className="fa-solid fa-rotate"></i>
+              Refresh Strategy
+            </button>
+          </div>
           <p className="text-gray-800 font-sans font-normal text-[13px] leading-[1.625]">{data.negotiation_strategy.leverage_analysis}</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
