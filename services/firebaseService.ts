@@ -260,26 +260,28 @@ export const getUserViewHistory = async (uid: string, maxItems = 6) => {
 
 export const toggleFavorite = async (uid: string, property: PropertyData) => {
   if (!db || !property.zpid) return { success: false, error: 'Database or ZPID missing' };
+
   try {
-    const favRef = doc(db, `users/${uid}/favorites`, property.zpid);
+    const zpidStr = String(property.zpid);
+    const favRef = doc(db, "users", uid, "favorites", zpidStr);
     const favSnap = await getDoc(favRef);
 
     if (favSnap.exists()) {
       await deleteDoc(favRef);
       return { success: true, favorited: false };
     } else {
-      await setDoc(favRef, {
-        zpid: property.zpid,
-        address: property.address,
+      const sanitizedProperty = {
+        zpid: zpidStr,
+        address: property.address || 'Unknown Address',
         price: property.price || property.zestimate || null,
         images: property.images || [],
         timestamp: serverTimestamp()
-      });
+      };
+      await setDoc(favRef, sanitizedProperty);
       return { success: true, favorited: true };
     }
-  } catch (err) {
-    console.error("Error toggling favorite:", err);
-    return { success: false, error: String(err) };
+  } catch (err: any) {
+    return { success: false, error: err.message || String(err) };
   }
 };
 
@@ -290,8 +292,7 @@ export const getUserFavorites = async (uid: string) => {
     const q = query(favCol, orderBy("timestamp", "desc"));
     const snap = await getDocs(q);
     return snap.docs.map(doc => doc.data());
-  } catch (error) {
-    console.error("Error getting favorites:", error);
+  } catch (error: any) {
     return [];
   }
 };

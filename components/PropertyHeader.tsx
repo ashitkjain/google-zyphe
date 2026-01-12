@@ -4,9 +4,12 @@ import { PropertyData } from '../types';
 
 interface Props {
   data: PropertyData;
+  isFavorited?: boolean;
+  onToggleFavorite?: () => void;
+  onRunAnalysis?: () => void;
 }
 
-const PropertyHeader: React.FC<Props> = ({ data }) => {
+const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, onRunAnalysis }) => {
   const formatCurrency = (val?: number) => val ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val) : 'N/A';
 
   const coreSpecs = [
@@ -40,7 +43,50 @@ const PropertyHeader: React.FC<Props> = ({ data }) => {
   );
 
   return (
-    <div className="bg-white p-8 md:p-10 rounded-t-[2.5rem] border-x border-t border-slate-100 shadow-sm">
+    <div className="bg-white p-8 md:p-10 rounded-t-[2.5rem] border-x border-t border-slate-100 shadow-sm space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-50 pb-8">
+        <div className="flex items-center gap-4">
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">{data.address}</h2>
+          <div className="flex items-center gap-2 ml-2">
+            <button
+              onClick={() => onToggleFavorite && onToggleFavorite()}
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-sm cursor-pointer ${isFavorited ? 'bg-rose-50 text-rose-500 border border-rose-100 shadow-rose-100' : 'bg-slate-50 text-slate-300 border border-slate-100 hover:text-rose-400 hover:bg-rose-50/50 hover:border-rose-200'}`}
+              title={isFavorited ? "Remove from Favorites" : "Add to Favorites"}
+            >
+              <i className={`${isFavorited ? 'fa-solid' : 'fa-regular'} fa-heart text-xl`}></i>
+            </button>
+            {isFavorited && (
+              <button
+                onClick={() => onToggleFavorite && onToggleFavorite()}
+                className="w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-sm cursor-pointer bg-slate-50 text-slate-300 border border-slate-100 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-200"
+                title="Remove from Favorites"
+              >
+                <i className="fa-solid fa-trash-can text-lg"></i>
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">List Price</div>
+            <div className="text-2xl font-black text-indigo-600">{formatCurrency(data.price)}</div>
+          </div>
+          <button
+            onClick={onRunAnalysis}
+            className="hidden sm:block bg-indigo-700 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-indigo-800 transition-all active:scale-95"
+          >
+            View Visual AI Analysis
+          </button>
+        </div>
+      </div>
+
+      <button
+        onClick={onRunAnalysis}
+        className="sm:hidden w-full bg-indigo-700 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-xl"
+      >
+        View Visual AI Analysis
+      </button>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-16 gap-y-10">
         {/* Physical Specs */}
         <div className="space-y-5">

@@ -115,14 +115,6 @@ const App: React.FC = () => {
 
         if (profile) {
           setCurrentUser(profile);
-          try {
-            const history = await getUserViewHistory(user.uid);
-            setCloudHistory(history);
-            const favs = await getUserFavorites(user.uid);
-            setFavorites(favs);
-          } catch (e) {
-            console.warn("Could not retrieve cloud data:", e);
-          }
         } else {
           // Fallback to localStorage role if available, otherwise default to buyer
           const pendingRole = (localStorage.getItem('zyphe_pending_role') as any) || 'buyer';
@@ -135,6 +127,17 @@ const App: React.FC = () => {
             role: pendingRole,
             createdAt: new Date()
           });
+        }
+
+        // Fetch cloud data regardless of profile existence as long as we have a UID
+        try {
+          const history = await getUserViewHistory(user.uid);
+          setCloudHistory(history);
+          const favs = await getUserFavorites(user.uid);
+          console.log("[Auth] Loaded favorites for user:", favs.length);
+          setFavorites(favs);
+        } catch (e) {
+          console.warn("Could not retrieve cloud data:", e);
         }
       } else {
         setCurrentUser(null);
@@ -430,20 +433,60 @@ const App: React.FC = () => {
   };
 
   const handleToggleFavorite = async () => {
-    if (!currentUser) {
-      setAuthModalOpen(true);
-      return;
-    }
-    if (!propertyData || !propertyData.zpid) return;
+    if (!currentUser || !propertyData || !propertyData.zpid) return;
 
-    const res = await toggleFavorite(currentUser.uid, propertyData);
-    if (res.success) {
-      const updatedFavs = await getUserFavorites(currentUser.uid);
-      setFavorites(updatedFavs);
+    const currentZpid = String(propertyData.zpid);
+    const wasFavorited = favorites.some(f => String(f.zpid) === currentZpid);
+
+    // Optimistic Update
+    setFavorites(prev => {
+      if (wasFavorited) {
+        return prev.filter(f => String(f.zpid) !== currentZpid);
+      } else {
+        return [{
+          zpid: currentZpid,
+          address: propertyData.address,
+          price: propertyData.price || propertyData.zestimate || null,
+          images: propertyData.images || [],
+          timestamp: Date.now()
+        }, ...prev];
+      }
+    });
+
+    try {
+      const res = await toggleFavorite(currentUser.uid, propertyData);
+      if (!res.success) {
+        // Rollback on failure
+        const refreshed = await getUserFavorites(currentUser.uid);
+        setFavorites(refreshed);
+      }
+    } catch (err) {
+      const refreshed = await getUserFavorites(currentUser.uid);
+      setFavorites(refreshed);
+    }
+  };
+  const handleRemoveFavoriteItem = async (e: React.MouseEvent, item: any) => {
+    e.stopPropagation();
+    if (!currentUser || !item.zpid) return;
+
+    // Optimistic Update
+    setFavorites(prev => prev.filter(f => String(f.zpid) !== String(item.zpid)));
+
+    try {
+      const res = await toggleFavorite(currentUser.uid, item);
+      if (!res.success) {
+        const refreshed = await getUserFavorites(currentUser.uid);
+        setFavorites(refreshed);
+      }
+    } catch (err) {
+      const refreshed = await getUserFavorites(currentUser.uid);
+      setFavorites(refreshed);
     }
   };
 
-  const isFavorited = propertyData?.zpid ? favorites.some(f => f.zpid === propertyData.zpid) : false;
+  const isFavorited = (propertyData?.zpid && favorites.length > 0)
+    ? favorites.some(f => String(f.zpid) === String(propertyData.zpid))
+    : false;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -482,10 +525,22 @@ const App: React.FC = () => {
                       onFocus={() => setShowHistory(true)}
                       onChange={(e) => setAddress(e.target.value)}
                       placeholder="Enter property address..."
-                      className="w-full pl-12 pr-28 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all"
+                      className="w-full pl-12 pr-44 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all"
                     />
                     <i className="fa-solid fa-house-laptop absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                    <button type="submit" disabled={loading} className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-700 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-200">Analyze</button>
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                      {propertyData && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleFavorite(); }}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isFavorited ? 'bg-rose-50 text-rose-500 shadow-inner' : 'bg-slate-200/50 text-slate-400 hover:text-rose-400 hover:bg-rose-50'}`}
+                          title={isFavorited ? "Remove from Favorites" : "Add to Favorites"}
+                        >
+                          <i className={`${isFavorited ? 'fa-solid' : 'fa-regular'} fa-heart text-sm`}></i>
+                        </button>
+                      )}
+                      <button type="submit" disabled={loading} className="bg-indigo-700 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-200">Analyze</button>
+                    </div>
                   </div>
 
                   {showHistory && (searchHistory.length > 0 || cloudHistory.length > 0 || favorites.length > 0) && (
@@ -536,14 +591,22 @@ const App: React.FC = () => {
                               Favorites
                             </div>
                             {favorites.map((item: any, idx) => (
-                              <button
-                                key={`fav-${idx}`}
-                                onClick={() => handleHistoryItemClick(item.address)}
-                                className="w-full text-left px-4 py-3 rounded-xl hover:bg-rose-50/50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between group"
-                              >
-                                <span className="truncate">{item.address}</span>
-                                <i className="fa-solid fa-heart -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all text-rose-500 text-xs"></i>
-                              </button>
+                              <div key={`fav-wrapper-${idx}`} className="group relative">
+                                <button
+                                  onClick={() => handleHistoryItemClick(item.address)}
+                                  className="w-full text-left px-4 py-3 rounded-xl hover:bg-rose-50/50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between"
+                                >
+                                  <span className="truncate pr-8">{item.address}</span>
+                                  <i className="fa-solid fa-heart text-rose-500 text-xs"></i>
+                                </button>
+                                <button
+                                  onClick={(e) => handleRemoveFavoriteItem(e, item)}
+                                  className="absolute right-10 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all"
+                                  title="Remove from favorites"
+                                >
+                                  <i className="fa-solid fa-trash-can text-xs"></i>
+                                </button>
+                              </div>
                             ))}
                           </div>
                         )}
@@ -551,10 +614,18 @@ const App: React.FC = () => {
                     </div>
                   )}
                 </form>
-                {!currentUser && (
+                {!currentUser ? (
                   <button onClick={() => setAuthModalOpen(true)} className="flex items-center gap-2 bg-white border border-slate-200 px-6 py-3 rounded-2xl text-xs font-black uppercase text-slate-700 hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap">
                     <i className="fa-solid fa-user-circle text-lg text-indigo-600"></i>
                     <span>Sign In</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowHistory(true)}
+                    className="flex items-center gap-2 bg-white border border-slate-200 px-6 py-3 rounded-2xl text-[10px] font-black uppercase text-slate-700 hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap"
+                  >
+                    <i className="fa-solid fa-heart text-rose-500"></i>
+                    <span>Favorites ({favorites.length})</span>
                   </button>
                 )}
               </div>
@@ -575,21 +646,13 @@ const App: React.FC = () => {
         ) : viewMode === 'main' ? (
           propertyData ? (
             <div className="space-y-10">
-              <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-xl flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-2xl font-black">{propertyData.address}</h2>
-                  <button
-                    onClick={handleToggleFavorite}
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isFavorited ? 'bg-rose-50 text-rose-500 shadow-inner' : 'bg-slate-50 text-slate-300 hover:text-rose-400 hover:bg-rose-50/50'}`}
-                    title={isFavorited ? "Remove from Favorites" : "Add to Favorites"}
-                  >
-                    <i className={`${isFavorited ? 'fa-solid' : 'fa-regular'} fa-heart text-xl`}></i>
-                  </button>
-                </div>
-                <button onClick={() => handleRunCustomAnalysis(false)} className="bg-indigo-700 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase shadow-xl">View Visual AI Analysis</button>
-              </div>
+              <PropertyHeader
+                data={propertyData}
+                isFavorited={isFavorited}
+                onToggleFavorite={handleToggleFavorite}
+                onRunAnalysis={() => handleRunCustomAnalysis(false)}
+              />
               <PropertyImages images={propertyData.images} loading={imagesLoading} />
-              <PropertyHeader data={propertyData} />
               <PropertyFacts facts={propertyData.resoFacts} />
               <MobilityScores data={propertyData} />
               <SchoolScores data={propertyData} />
@@ -640,9 +703,17 @@ const App: React.FC = () => {
               }
             }}
             addLog={addLog}
+            isFavorited={isFavorited}
+            onToggleFavorite={handleToggleFavorite}
           />
         ) : (
-          <ComprehensiveAnalysis analysis={comprehensiveAnalysis} loading={comprehensiveLoading} onBack={() => setViewMode('visual-report')} />
+          <ComprehensiveAnalysis
+            analysis={comprehensiveAnalysis}
+            loading={comprehensiveLoading}
+            onBack={() => setViewMode('visual-report')}
+            isFavorited={isFavorited}
+            onToggleFavorite={handleToggleFavorite}
+          />
         )}
         {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
           <SystemLogs logs={logs} />

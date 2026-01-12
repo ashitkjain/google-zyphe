@@ -7,9 +7,11 @@ interface Props {
   loading: boolean;
   onBack: () => void;
   address?: string;
+  isFavorited?: boolean;
+  onToggleFavorite?: () => void;
 }
 
-const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, address }) => {
+const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, address, isFavorited, onToggleFavorite }) => {
   const [seconds, setSeconds] = useState(0);
 
   useEffect(() => {
@@ -84,6 +86,24 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
           Back to Visual Analysis
         </button>
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onToggleFavorite}
+              className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shadow-sm ${isFavorited ? 'bg-rose-50 text-rose-500 border border-rose-100' : 'bg-white text-slate-300 border border-slate-200 hover:text-rose-400 hover:bg-rose-50/50'}`}
+              title={isFavorited ? "Remove from Favorites" : "Add to Favorites"}
+            >
+              <i className={`${isFavorited ? 'fa-solid' : 'fa-regular'} fa-heart text-xl`}></i>
+            </button>
+            {isFavorited && (
+              <button
+                onClick={onToggleFavorite}
+                className="w-12 h-12 rounded-xl flex items-center justify-center transition-all bg-white text-slate-300 border border-slate-200 hover:text-rose-500 hover:bg-rose-50 shadow-sm"
+                title="Remove from Favorites"
+              >
+                <i className="fa-solid fa-trash-can text-lg"></i>
+              </button>
+            )}
+          </div>
           <button
             onClick={() => window.print()}
             className="w-12 h-12 flex items-center justify-center bg-white border border-gray-200 rounded-xl hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
@@ -128,7 +148,7 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 

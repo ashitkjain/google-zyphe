@@ -20,6 +20,8 @@ interface Props {
   propertyData?: any;
   onUpdateAnalysis: (updated: CustomAIAnalysisResult) => void;
   addLog: (service: string, meta: { type: 'request' | 'response' | 'error' | 'info' }, content: any) => void;
+  isFavorited?: boolean;
+  onToggleFavorite?: () => void;
 }
 
 type TabType = 'interior' | 'rooms' | 'exterior' | 'neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding';
@@ -38,7 +40,9 @@ const CustomAIAnalysis: React.FC<Props> = ({
   zpid,
   propertyData,
   onUpdateAnalysis,
-  addLog
+  addLog,
+  isFavorited,
+  onToggleFavorite
 }) => {
   const role = (userRole as 'buyer' | 'seller' | 'realtor') || 'buyer';
   const allowedTabs = (APP_CONFIG as any).roleTabs[role] || (APP_CONFIG as any).roleTabs.buyer;
@@ -658,13 +662,38 @@ const CustomAIAnalysis: React.FC<Props> = ({
   return (
     <div className="space-y-8 pb-20 relative">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-700 shadow-sm hover:shadow-md hover:bg-gray-50 transition-all group w-fit"
-        >
-          <i className="fa-solid fa-arrow-left transition-transform group-hover:-translate-x-1"></i>
-          Back to Overview
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-700 shadow-sm hover:shadow-md hover:bg-gray-50 transition-all group w-fit"
+          >
+            <i className="fa-solid fa-arrow-left transition-transform group-hover:-translate-x-1"></i>
+            Back
+          </button>
+          <div className="h-10 w-px bg-gray-200 hidden sm:block"></div>
+          <div>
+            <h2 className="text-xl font-black text-gray-900 tracking-tight leading-none">{analysis.report_title || 'Visual AI Report'}</h2>
+            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">Intelligence Protocol v2.5.0</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onToggleFavorite}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all shadow-sm ${isFavorited ? 'bg-rose-50 text-rose-500 border border-rose-100' : 'bg-white text-slate-300 border border-slate-200 hover:text-rose-400 hover:bg-rose-50/50'}`}
+              title={isFavorited ? "Remove from Favorites" : "Add to Favorites"}
+            >
+              <i className={`${isFavorited ? 'fa-solid' : 'fa-regular'} fa-heart text-lg`}></i>
+            </button>
+            {isFavorited && (
+              <button
+                onClick={onToggleFavorite}
+                className="w-10 h-10 rounded-xl flex items-center justify-center transition-all bg-white text-slate-300 border border-slate-200 hover:text-rose-500 hover:bg-rose-50 shadow-sm"
+                title="Remove from Favorites"
+              >
+                <i className="fa-solid fa-trash-can text-base"></i>
+              </button>
+            )}
+          </div>
+        </div>
         <div className="flex flex-wrap items-center gap-4">
           <button onClick={onRefresh} className="flex items-center gap-3 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm hover:shadow-md hover:bg-slate-50 active:scale-95 transition-all group shadow-indigo-100"><i className="fa-solid fa-rotate group-hover:rotate-180 transition-transform duration-500"></i> Refresh Analysis</button>
           <button onClick={onRunComprehensive} className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-indigo-700 to-gray-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-[1.05] active:scale-95 transition-all group"><i className="fa-solid fa-file-invoice-dollar text-sm"></i> {comprehensiveResult ? 'Full Narrative Report' : 'Generate Full Report'}</button>
