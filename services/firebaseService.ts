@@ -71,6 +71,9 @@ import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, User
  *       match /viewHistory/{zpid} {
  *         allow read, write: if request.auth != null && request.auth.uid == userId;
  *       }
+ *       match /favorites/{zpid} {
+ *         allow read, write: if request.auth != null && request.auth.uid == userId;
+ *       }
  *     }
  * 
  *     // 3. ANONYMOUS LOGGING
@@ -251,6 +254,44 @@ export const getUserViewHistory = async (uid: string, maxItems = 6) => {
     return snap.docs.map(doc => doc.data());
   } catch (error) {
     handleFirestoreError(error, "getUserViewHistory");
+    return [];
+  }
+};
+
+export const toggleFavorite = async (uid: string, property: PropertyData) => {
+  if (!db || !property.zpid) return { success: false, error: 'Database or ZPID missing' };
+  try {
+    const favRef = doc(db, `users/${uid}/favorites`, property.zpid);
+    const favSnap = await getDoc(favRef);
+
+    if (favSnap.exists()) {
+      await deleteDoc(favRef);
+      return { success: true, favorited: false };
+    } else {
+      await setDoc(favRef, {
+        zpid: property.zpid,
+        address: property.address,
+        price: property.price || property.zestimate || null,
+        images: property.images || [],
+        timestamp: serverTimestamp()
+      });
+      return { success: true, favorited: true };
+    }
+  } catch (err) {
+    console.error("Error toggling favorite:", err);
+    return { success: false, error: String(err) };
+  }
+};
+
+export const getUserFavorites = async (uid: string) => {
+  if (!db) return [];
+  try {
+    const favCol = collection(db, "users", uid, "favorites");
+    const q = query(favCol, orderBy("timestamp", "desc"));
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => doc.data());
+  } catch (error) {
+    console.error("Error getting favorites:", error);
     return [];
   }
 };

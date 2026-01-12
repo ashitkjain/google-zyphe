@@ -23,7 +23,9 @@ import {
   verifyFirestoreConnection,
   getImageQualityAnalysisFromCloud,
   getInvestmentResearchFromCloud,
-  deleteUserAccount
+  deleteUserAccount,
+  toggleFavorite,
+  getUserFavorites
 } from './services/firebaseService';
 import { APP_CONFIG } from './config';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -50,6 +52,7 @@ const App: React.FC = () => {
   const [cloudHistory, setCloudHistory] = useState<any[]>([]);
 
   const [searchHistory, setSearchHistory] = useState<{ address: string, timestamp: number }[]>([]);
+  const [favorites, setFavorites] = useState<any[]>([]);
 
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
@@ -115,8 +118,10 @@ const App: React.FC = () => {
           try {
             const history = await getUserViewHistory(user.uid);
             setCloudHistory(history);
+            const favs = await getUserFavorites(user.uid);
+            setFavorites(favs);
           } catch (e) {
-            console.warn("Could not retrieve cloud history:", e);
+            console.warn("Could not retrieve cloud data:", e);
           }
         } else {
           // Fallback to localStorage role if available, otherwise default to buyer
@@ -134,6 +139,7 @@ const App: React.FC = () => {
       } else {
         setCurrentUser(null);
         setCloudHistory([]);
+        setFavorites([]);
       }
     });
     return () => unsubscribe();
@@ -423,6 +429,22 @@ const App: React.FC = () => {
     }
   };
 
+  const handleToggleFavorite = async () => {
+    if (!currentUser) {
+      setAuthModalOpen(true);
+      return;
+    }
+    if (!propertyData || !propertyData.zpid) return;
+
+    const res = await toggleFavorite(currentUser.uid, propertyData);
+    if (res.success) {
+      const updatedFavs = await getUserFavorites(currentUser.uid);
+      setFavorites(updatedFavs);
+    }
+  };
+
+  const isFavorited = propertyData?.zpid ? favorites.some(f => f.zpid === propertyData.zpid) : false;
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
@@ -466,7 +488,7 @@ const App: React.FC = () => {
                     <button type="submit" disabled={loading} className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-700 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-200">Analyze</button>
                   </div>
 
-                  {showHistory && (searchHistory.length > 0 || cloudHistory.length > 0) && (
+                  {showHistory && (searchHistory.length > 0 || cloudHistory.length > 0 || favorites.length > 0) && (
                     <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                       <div className="max-h-[300px] overflow-y-auto p-2">
                         {searchHistory.length > 0 && (
@@ -506,6 +528,25 @@ const App: React.FC = () => {
                             ))}
                           </div>
                         )}
+
+                        {favorites.length > 0 && (
+                          <div>
+                            <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-rose-500 uppercase tracking-widest flex items-center gap-2 border-t border-gray-100 mt-2 pt-4">
+                              <i className="fa-solid fa-heart"></i>
+                              Favorites
+                            </div>
+                            {favorites.map((item: any, idx) => (
+                              <button
+                                key={`fav-${idx}`}
+                                onClick={() => handleHistoryItemClick(item.address)}
+                                className="w-full text-left px-4 py-3 rounded-xl hover:bg-rose-50/50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between group"
+                              >
+                                <span className="truncate">{item.address}</span>
+                                <i className="fa-solid fa-heart -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all text-rose-500 text-xs"></i>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -535,7 +576,16 @@ const App: React.FC = () => {
           propertyData ? (
             <div className="space-y-10">
               <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-xl flex justify-between items-center">
-                <h2 className="text-2xl font-black">{propertyData.address}</h2>
+                <div className="flex items-center gap-4">
+                  <h2 className="text-2xl font-black">{propertyData.address}</h2>
+                  <button
+                    onClick={handleToggleFavorite}
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isFavorited ? 'bg-rose-50 text-rose-500 shadow-inner' : 'bg-slate-50 text-slate-300 hover:text-rose-400 hover:bg-rose-50/50'}`}
+                    title={isFavorited ? "Remove from Favorites" : "Add to Favorites"}
+                  >
+                    <i className={`${isFavorited ? 'fa-solid' : 'fa-regular'} fa-heart text-xl`}></i>
+                  </button>
+                </div>
                 <button onClick={() => handleRunCustomAnalysis(false)} className="bg-indigo-700 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase shadow-xl">View Visual AI Analysis</button>
               </div>
               <PropertyImages images={propertyData.images} loading={imagesLoading} />
