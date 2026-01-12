@@ -578,6 +578,7 @@ const App: React.FC = () => {
             userRole={currentUser?.role}
             propertyImages={propertyData?.images}
             zpid={propertyData?.zpid}
+            propertyData={propertyData}
             onUpdateAnalysis={async (updated) => {
               setCustomAnalysis(updated);
               if (propertyData?.zpid) {

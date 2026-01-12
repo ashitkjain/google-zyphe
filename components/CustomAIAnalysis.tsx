@@ -16,6 +16,7 @@ interface Props {
   userRole?: string;
   propertyImages?: string[];
   zpid?: string;
+  propertyData?: any;
   onUpdateAnalysis: (updated: CustomAIAnalysisResult) => void;
   addLog: (service: string, meta: { type: 'request' | 'response' | 'error' | 'info' }, content: any) => void;
 }
@@ -34,6 +35,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
   userRole,
   propertyImages = [],
   zpid,
+  propertyData,
   onUpdateAnalysis,
   addLog
 }) => {
@@ -189,13 +191,13 @@ const CustomAIAnalysis: React.FC<Props> = ({
 
       addLog('Gemini AI', { type: 'request' }, { task: 'bidding_strategy', zpid });
 
-      const mockPropertyData: any = {
+      // Use actual property data if available, otherwise fallback to basic context
+      const contextData = propertyData || {
         address: analysis.report_title || "This Property",
-        zpid,
-        price: analysis.image_quality_analysis?.overall_score?.score ? 500000 : undefined // Dummy since we need propertyData
+        zpid
       };
 
-      const result = await analyzeBiddingStrategy(mockPropertyData);
+      const result = await analyzeBiddingStrategy(contextData);
 
       onUpdateAnalysis({ ...analysis, bidding_strategy: result });
       addLog('Gemini AI', { type: 'response' }, { task: 'bidding_strategy', zpid, data: result });
