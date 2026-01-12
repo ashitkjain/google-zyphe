@@ -296,8 +296,6 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
       config: {
         tools: [groundingTool],
         temperature: 1.0,
-        // Reduced thinking budget for faster overall generation time
-        thinkingConfig: { thinkingBudget: 4000 }
       }
     });
 

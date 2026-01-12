@@ -40,7 +40,7 @@ export const getCommunityPulsePrompt = (property: PropertyData) => `
       "sources": []
     },
     "safety_and_concerns": {
-      "summary": "<safety perception, crime concerns, red flags, recurring warnings>",
+      "summary": "<safety perception, crime concerns, red flags, recurring warnings, environmental and infrastructure risks: industrial proximity, light pollution, drainage issues, or significant public works projects>",
       "sources": []
     },
     "schools_family_friendliness": {
@@ -66,13 +66,13 @@ const sectionSchema = {
   type: Type.OBJECT,
   properties: {
     summary: { type: Type.STRING, description: "Detailed summary of resident sentiment and feedback." },
-    points: { 
-      type: Type.ARRAY, 
+    points: {
+      type: Type.ARRAY,
       items: { type: Type.STRING },
       description: "3-5 key highlight points for this section."
     },
-    sources: { 
-      type: Type.ARRAY, 
+    sources: {
+      type: Type.ARRAY,
       items: { type: Type.STRING },
       description: "List of source names used for this section."
     }

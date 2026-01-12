@@ -703,16 +703,6 @@ const CustomAIAnalysis: React.FC<Props> = ({
                     <div className="space-y-3"><div className="text-xl font-black text-gray-400 uppercase tracking-widest">Condition & Finish</div><p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{home_interior.condition_and_finish}</p></div>
                   </div>
                 </div>
-                {home_interior.suggested_lifestyle && (
-                  <div className="bg-indigo-700 text-white rounded-[3rem] p-10 md:p-12 shadow-xl shadow-indigo-100 flex flex-col md:flex-row items-center gap-10">
-                    <div className="w-20 h-20 bg-white/10 backdrop-blur-md rounded-[2rem] flex items-center justify-center flex-shrink-0 border border-white/20"><i className="fa-solid fa-user-astronaut text-3xl"></i></div>
-                    <div className="flex-1 text-center md:text-left">
-                      <div className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-200 mb-2">AI-Driven Suggested Lifestyle</div>
-                      <h4 className="text-2xl font-black mb-4 tracking-tight">Best Suited for: <span className="text-indigo-200 italic">{home_interior.suggested_lifestyle.buyer_type}</span></h4>
-                      <p className="text-indigo-50 font-sans font-normal text-[13px] leading-[1.625] opacity-90">{home_interior.suggested_lifestyle.lifestyle}</p>
-                    </div>
-                  </div>
-                )}
               </>
             )}
           </section>
@@ -770,12 +760,12 @@ const CustomAIAnalysis: React.FC<Props> = ({
           <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
             {community_pulse ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <PulseCard title="Residents" data={community_pulse.what_residents_like} icon="fa-face-smile" color="indigo" />
-                <PulseCard title="Concerns" data={community_pulse.common_complaints} icon="fa-comment-slash" color="slate" />
-                <PulseCard title="Safety" data={community_pulse.safety_and_concerns} icon="fa-shield-halved" color="indigo" />
-                <PulseCard title="Families" data={community_pulse.schools_family_friendliness} icon="fa-children" color="indigo" />
-                <PulseCard title="Lifestyle" data={community_pulse.lifestyle_convenience} icon="fa-bolt-lightning" color="indigo" />
-                <PulseCard title="Investors" data={community_pulse.investment_insights} icon="fa-chart-line" color="indigo" />
+                <PulseCard title="Resident Highlights" data={community_pulse.what_residents_like} icon="fa-monument" color="indigo" />
+                <PulseCard title="Common Complaints" data={community_pulse.common_complaints} icon="fa-wind" color="slate" />
+                <PulseCard title="Safety & Environment" data={community_pulse.safety_and_concerns} icon="fa-shield-halved" color="indigo" />
+                <PulseCard title="Schools & Education" data={community_pulse.schools_family_friendliness} icon="fa-graduation-cap" color="indigo" />
+                <PulseCard title="Transit & Lifestyle" data={community_pulse.lifestyle_convenience} icon="fa-train-subway" color="indigo" />
+                <PulseCard title="Investment Sentiment" data={community_pulse.investment_insights} icon="fa-chart-line" color="indigo" />
               </div>
             ) : <EmptyState section="Community Pulse" />}
           </section>

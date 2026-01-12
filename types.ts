@@ -287,10 +287,6 @@ export interface CustomAIAnalysisResult {
     spatial_flow: string;
     staging_and_furnishings: string;
     condition_and_finish: string;
-    suggested_lifestyle: {
-      lifestyle: string;
-      buyer_type: string;
-    };
   };
   room_highlights: Array<{
     room_name: string;
@@ -327,14 +323,7 @@ export interface ComprehensiveAnalysisResult {
     climate_resilience: string;
     additional_considerations: string;
   };
-  lifestyle_fit: {
-    families: string;
-    professionals: string;
-    retirees: string;
-    investors: string;
-  };
   risks_considerations: string;
-  buyer_recommendation: string;
 }
 
 export interface LogEntry {

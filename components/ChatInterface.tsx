@@ -164,15 +164,14 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar bg-slate-50/30">
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
-                <div className={`max-w-[85%] px-5 py-3.5 rounded-2xl text-sm leading-relaxed ${
-                  m.role === 'user' 
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
-                  : 'bg-white border border-slate-100 text-slate-700 shadow-sm'
-                }`}>
+                <div className={`max-w-[85%] px-5 py-3.5 rounded-2xl text-sm leading-relaxed ${m.role === 'user'
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                    : 'bg-white border border-slate-100 text-slate-700 shadow-sm'
+                  }`}>
                   {m.content.split('\n').map((line, idx) => (
                     <p key={idx} className={idx > 0 ? 'mt-2' : ''}>
                       {line.split(/(\*\*.*?\*\*)/).map((part, pidx) => (
-                        part.startsWith('**') && part.endsWith('**') 
+                        part.startsWith('**') && part.endsWith('**')
                           ? <strong key={pidx} className="font-bold">{part.slice(2, -2)}</strong>
                           : part
                       ))}
@@ -194,18 +193,18 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
 
           {/* Context Indicators / Suggestions */}
           <div className="px-6 py-4 bg-white border-t border-slate-100">
-             <div className="flex overflow-x-auto gap-2 no-scrollbar pb-1">
-               {suggestions.map((s, i) => (
-                 <button 
-                  key={i} 
+            <div className="flex overflow-x-auto gap-2 no-scrollbar pb-1">
+              {suggestions.map((s, i) => (
+                <button
+                  key={i}
                   onClick={() => handleSendMessage(s.label)}
                   className="flex-shrink-0 px-4 py-2 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-xl text-[10px] font-black tracking-tight text-slate-500 hover:text-indigo-600 transition-all flex items-center gap-2"
-                 >
-                   <i className={`fa-solid ${s.icon} text-[10px]`}></i>
-                   {s.label}
-                 </button>
-               ))}
-             </div>
+                >
+                  <i className={`fa-solid ${s.icon} text-[10px]`}></i>
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Input Area */}
@@ -218,14 +217,14 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
               <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">v2.4 Intelligence</span>
             </div>
             <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="relative">
-              <input 
+              <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask the concierge anything..."
                 className="w-full pl-5 pr-14 py-4 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all shadow-inner"
               />
-              <button 
+              <button
                 type="submit"
                 disabled={!input.trim() || loading}
                 className="absolute right-2 top-2 bottom-2 w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
@@ -239,7 +238,7 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
 
       {/* Toggle Button Container */}
       <div className="flex flex-col items-center">
-        <button 
+        <button
           onClick={() => setIsOpen(!isOpen)}
           className="w-16 h-16 bg-gradient-to-r from-indigo-700 to-gray-900 text-white rounded-[1.5rem] flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all group relative border border-white/20"
         >
@@ -248,7 +247,7 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
             <span className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 border-4 border-slate-50 rounded-full animate-pulse"></span>
           )}
         </button>
-        
+
         {/* Help Labels */}
         <div className="mt-3 flex flex-col items-end px-1">
           <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Concierge</span>

@@ -24,11 +24,7 @@ export const getPropertyImagesPrompt = (property: PropertyData) => `
     "lighting": "Analysis of natural and artificial lighting quality and placement.",
     "spatial_flow": "Description of the layout (open concept, defined spaces) and how it affects the home's flow.",
     "staging_and_furnishings": "How the furnishings support the scale, function, and appeal of the space.",
-    "condition_and_finish": "Expert opinion on the home's overall condition and finish quality (e.g., turnkey, dated, high-end).",
-    "suggested_lifestyle": {
-      "lifestyle": "[e.g., entertaining, relaxed family life, luxury retreat]",
-      "buyer_type": "[e.g., families, young professionals, downsizers]"
-    }
+    "condition_and_finish": "Expert opinion on the home's overall condition and finish quality (e.g., turnkey, dated, high-end)."
   },
   "room_highlights": [
     {
@@ -69,8 +65,6 @@ Quality of natural light, window placement, and artificial lighting
 Spatial flow and layout—open concept, defined spaces, or hybrid
 How staging or furnishings support scale, function, and emotional appeal
 Condition and finish quality—noting if the home feels turnkey, dated, or high-end
-What lifestyle the home suggests (entertaining, relaxed family life, luxury retreat)
-The likely buyer type (e.g., families, young professionals, downsizers)
 Write this in a natural, emotionally resonant tone suitable for a real estate listing or brochure.
 
 📌 Room & Feature Highlights
@@ -121,17 +115,9 @@ export const propertyImagesSchema = {
         lighting: { type: Type.STRING, description: "Analysis of natural light quality and artificial fixture placement." },
         spatial_flow: { type: Type.STRING, description: "Layout description (open vs defined) and how it affects movement." },
         staging_and_furnishings: { type: Type.STRING, description: "How furnishings support scale and functional appeal." },
-        condition_and_finish: { type: Type.STRING, description: "Turnkey vs dated assessment and finish quality." },
-        suggested_lifestyle: {
-          type: Type.OBJECT,
-          properties: {
-            lifestyle: { type: Type.STRING, description: "e.g., entertaining, luxury retreat" },
-            buyer_type: { type: Type.STRING, description: "e.g., families, young professionals, downsizers" }
-          },
-          required: ["lifestyle", "buyer_type"]
-        }
+        condition_and_finish: { type: Type.STRING, description: "Turnkey vs dated assessment and finish quality." }
       },
-      required: ["overall_description", "design_style", "color_and_materials", "lighting", "spatial_flow", "staging_and_furnishings", "condition_and_finish", "suggested_lifestyle"]
+      required: ["overall_description", "design_style", "color_and_materials", "lighting", "spatial_flow", "staging_and_furnishings", "condition_and_finish"]
     },
     room_highlights: {
       type: Type.ARRAY,

@@ -36,7 +36,7 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
           </div>
         </div>
         <h2 className="text-4xl font-black text-gray-900 mb-6 tracking-tight">Drafting Comprehensive Intelligence...</h2>
-        
+
         <div className="mb-10">
           <span className="px-6 py-3 bg-indigo-50 border border-indigo-100 rounded-full text-sm font-black text-indigo-600 uppercase tracking-[0.2em] shadow-sm inline-flex items-center gap-3">
             <i className="fa-solid fa-stopwatch animate-bounce"></i>
@@ -76,7 +76,7 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
   return (
     <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-6 duration-1000 pb-20">
       <div className="flex items-center justify-between mb-8 sticky top-24 z-40 bg-gray-50/80 backdrop-blur-md py-4">
-        <button 
+        <button
           onClick={onBack}
           className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-xl font-black text-[10px] uppercase tracking-widest text-gray-700 shadow-sm hover:bg-gray-50 active:scale-95 transition-all group w-fit"
         >
@@ -84,7 +84,7 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
           Back to Visual Analysis
         </button>
         <div className="flex items-center gap-3">
-          <button 
+          <button
             onClick={() => window.print()}
             className="w-12 h-12 flex items-center justify-center bg-white border border-gray-200 rounded-xl hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
           >
@@ -117,38 +117,6 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
           </div>
         </div>
 
-        <div className="bg-white rounded-[3rem] p-10 md:p-16 border border-gray-100 shadow-sm mt-10">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl font-black text-gray-900 mb-3 tracking-tight">Lifestyle Suitability Assessment</h2>
-            <p className="text-gray-400 font-black text-[9px] uppercase tracking-[0.3em]">AI-Driven Compatibility Score</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            {[
-              { title: 'Families & Education', content: analysis.lifestyle_fit?.families, color: 'indigo', icon: 'fa-children' },
-              { title: 'Professionals & Remote Work', content: analysis.lifestyle_fit?.professionals, color: 'indigo', icon: 'fa-laptop-code' },
-              { title: 'Retirees & Accessibility', content: analysis.lifestyle_fit?.retirees, color: 'indigo', icon: 'fa-wheelchair' },
-              { title: 'Investors & Wealth Growth', content: analysis.lifestyle_fit?.investors, color: 'indigo', icon: 'fa-chart-line' },
-            ].map((item, idx) => (
-              <div 
-                key={idx} 
-                className="space-y-4 p-8 rounded-[2rem] transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl border border-transparent cursor-default bg-slate-50/50 hover:border-indigo-100"
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-indigo-600`}>
-                    <i className={`fa-solid ${item.icon} text-lg`}></i>
-                  </div>
-                  <h4 className="font-black text-gray-900 text-[11px] uppercase tracking-wider">{item.title}</h4>
-                </div>
-                <p className="text-gray-700 text-sm font-sans font-medium leading-relaxed text-justify">{renderContent(item.content)}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-8">
-          <SectionCard title="Intelligence Verdict" icon="fa-gavel" content={analysis.buyer_recommendation} colorClass="text-gray-900 font-black italic text-sm" />
-        </div>
 
         <div className="pt-20 flex flex-col items-center gap-6">
           <div className="h-px bg-gray-200 w-full max-w-sm"></div>
