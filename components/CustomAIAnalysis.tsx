@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { CustomAIAnalysisResult, CommunityPulseSection, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, ImageQualityPoint, ImageQualityCategory, InvestmentResearchResult } from '../types';
-import { analyzeImageQuality, analyzeInvestmentResearch, AiResponseError } from '../services/geminiService';
-import { saveImageQualityAnalysisToCloud, getImageQualityAnalysisFromCloud, saveInvestmentResearchToCloud, getInvestmentResearchFromCloud } from '../services/firebaseService';
+import { CustomAIAnalysisResult, CommunityPulseSection, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, ImageQualityPoint, ImageQualityCategory, InvestmentResearchResult, BiddingStrategyResult } from '../types';
+import { analyzeImageQuality, analyzeInvestmentResearch, analyzeBiddingStrategy, AiResponseError } from '../services/geminiService';
+import { saveImageQualityAnalysisToCloud, getImageQualityAnalysisFromCloud, saveInvestmentResearchToCloud, getInvestmentResearchFromCloud, saveBiddingStrategyToCloud, getBiddingStrategyFromCloud } from '../services/firebaseService';
 
 interface Props {
   analysis: CustomAIAnalysisResult | null;
@@ -20,7 +20,7 @@ interface Props {
   addLog: (service: string, meta: { type: 'request' | 'response' | 'error' | 'info' }, content: any) => void;
 }
 
-type TabType = 'interior' | 'rooms' | 'exterior' | 'neighborhood' | 'pulse' | 'quality' | 'investment';
+type TabType = 'interior' | 'rooms' | 'exterior' | 'neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding';
 
 const CustomAIAnalysis: React.FC<Props> = ({
   analysis,
@@ -41,6 +41,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
   const [timer, setTimer] = useState(0);
   const [qualityLoading, setQualityLoading] = useState(false);
   const [investmentLoading, setInvestmentLoading] = useState(false);
+  const [biddingLoading, setBiddingLoading] = useState(false);
 
   // Hover preview state
   const [hoveredImage, setHoveredImage] = useState<string | null>(null);
@@ -49,13 +50,13 @@ const CustomAIAnalysis: React.FC<Props> = ({
 
   useEffect(() => {
     let interval: number;
-    if (loading || qualityLoading || investmentLoading) {
+    if (loading || qualityLoading || investmentLoading || biddingLoading) {
       interval = window.setInterval(() => {
         setTimer(t => t + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [loading, qualityLoading, investmentLoading]);
+  }, [loading, qualityLoading, investmentLoading, biddingLoading]);
 
   // Auto-trigger Picture Quality Audit when tab is selected
   useEffect(() => {
@@ -70,6 +71,13 @@ const CustomAIAnalysis: React.FC<Props> = ({
       handleRunInvestmentResearch();
     }
   }, [activeTab, analysis?.investment_research, investmentLoading]);
+
+  // Auto-trigger Bidding Strategy when tab is selected
+  useEffect(() => {
+    if (activeTab === 'bidding' && !analysis?.bidding_strategy && !biddingLoading) {
+      handleRunBiddingStrategy();
+    }
+  }, [activeTab, analysis?.bidding_strategy, biddingLoading]);
 
   const handleRunQualityAnalysis = async () => {
     if (!analysis || analysis.image_quality_analysis || !propertyImages.length || qualityLoading) {
@@ -162,6 +170,48 @@ const CustomAIAnalysis: React.FC<Props> = ({
     }
   };
 
+  const handleRunBiddingStrategy = async () => {
+    if (!analysis || !zpid || biddingLoading) return;
+
+    setTimer(0);
+    setBiddingLoading(true);
+    addLog('Cloud Cache', { type: 'request' }, { zpid, task: 'bidding_strategy' });
+
+    try {
+      const cached = await getBiddingStrategyFromCloud(zpid);
+      if (cached) {
+        addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'bidding_strategy', zpid });
+        onUpdateAnalysis({ ...analysis, bidding_strategy: cached });
+        setBiddingLoading(false);
+        return;
+      }
+      addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'bidding_strategy', zpid });
+
+      addLog('Gemini AI', { type: 'request' }, { task: 'bidding_strategy', zpid });
+
+      const mockPropertyData: any = {
+        address: analysis.report_title || "This Property",
+        zpid,
+        price: analysis.image_quality_analysis?.overall_score?.score ? 500000 : undefined // Dummy since we need propertyData
+      };
+
+      const result = await analyzeBiddingStrategy(mockPropertyData);
+
+      onUpdateAnalysis({ ...analysis, bidding_strategy: result });
+      addLog('Gemini AI', { type: 'response' }, { task: 'bidding_strategy', zpid, data: result });
+
+      const saveRes = await saveBiddingStrategyToCloud(zpid, result);
+      if (!saveRes.success) {
+        addLog('System', { type: 'error' }, { message: "Bidding Cache Save Failed", error: saveRes.error });
+      }
+    } catch (err: any) {
+      console.error("Bidding Strategy Failed:", err);
+      addLog('System', { type: 'error' }, { message: "Bidding Strategy Failed", error: err.message || err });
+    } finally {
+      setBiddingLoading(false);
+    }
+  };
+
   const clearPreviewTimer = () => {
     if (previewTimerRef.current) {
       window.clearTimeout(previewTimerRef.current);
@@ -205,7 +255,8 @@ const CustomAIAnalysis: React.FC<Props> = ({
     neighborhood,
     community_pulse,
     image_quality_analysis,
-    investment_research
+    investment_research,
+    bidding_strategy
   } = analysis;
 
   const tabs = [
@@ -216,6 +267,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
     { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
     { id: 'quality', label: 'Picture Quality Audit', icon: 'fa-camera-rotate' },
     { id: 'investment', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
+    { id: 'bidding', label: 'Bidding Strategy', icon: 'fa-gavel' },
   ];
 
   const getCleanDomain = (src: string) => {
@@ -405,6 +457,79 @@ const CustomAIAnalysis: React.FC<Props> = ({
     </div>
   );
 
+  const BiddingView = ({ data }: { data: BiddingStrategyResult }) => (
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 max-w-5xl mx-auto space-y-8">
+      <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
+        <div className="space-y-4">
+          <div className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">BIDDING STRATEGY REPORT</div>
+          <p className="text-gray-800 font-sans font-normal text-[13px] leading-[1.625]">{data.negotiation_strategy.leverage_analysis}</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+            <div className="px-6 py-4 bg-white rounded-2xl border border-gray-100 flex flex-col shadow-sm">
+              <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest mb-2">Inventory Pressure</span>
+              <span className="text-sm font-medium text-gray-800 leading-relaxed font-sans">{data.inventory_pressure.market_category} (<span className="text-indigo-600 font-black">{data.inventory_pressure.months_of_supply}</span>)</span>
+            </div>
+            <div className="px-6 py-4 bg-white rounded-2xl border border-gray-100 flex flex-col shadow-sm">
+              <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest mb-2">Offer Velocity</span>
+              <span className="text-sm font-medium text-gray-800 leading-relaxed font-sans">{data.offer_velocity.velocity_status}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 pt-12 border-t border-gray-100">
+          <div className="space-y-3">
+            <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Property DOM</div>
+            <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.property_specifics.days_on_market}</p>
+            <div className="mt-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Listing History</span>
+              <ul className="space-y-1">
+                {data.property_specifics.listing_history.map((h, i) => (
+                  <li key={i} className="text-[11px] font-bold text-gray-600 list-disc list-inside font-sans">{h}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-xl font-black text-gray-400 uppercase tracking-widest">ZIP Benchmarks</div>
+            <div className="space-y-4 mt-2">
+              <div className="flex flex-col border-l-2 border-indigo-100 pl-4 py-1">
+                <div className="text-[10px] text-indigo-500 font-black uppercase tracking-widest">Sale-to-List</div>
+                <div className="text-sm font-bold text-gray-900 font-sans">{data.zip_code_benchmarks.median_sale_to_list_ratio}</div>
+              </div>
+              <div className="flex flex-col border-l-2 border-indigo-100 pl-4 py-1">
+                <div className="text-[10px] text-indigo-500 font-black uppercase tracking-widest">Median DOM</div>
+                <div className="text-sm font-bold text-gray-900 font-sans">{data.zip_code_benchmarks.median_days_on_market}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Offer Tactics</div>
+            <div className="space-y-2">
+              {data.negotiation_strategy.suggested_offer_tactics.map((t, i) => (
+                <div key={i} className="px-3 py-2 bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase rounded-lg border border-indigo-100 flex items-center gap-2">
+                  <i className="fa-solid fa-check-double text-[8px]"></i>
+                  {t}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-12 border-t border-gray-100">
+          <div className="bg-indigo-700 rounded-[2.5rem] p-8 md:p-10 text-white shadow-xl shadow-indigo-100 flex flex-col md:flex-row items-center gap-8">
+            <div className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center flex-shrink-0 border border-white/20"><i className="fa-solid fa-calculator text-2xl"></i></div>
+            <div className="flex-1">
+              <div className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-200 mb-2">Calculated Negotiation Strategy</div>
+              <p className="text-indigo-50 font-sans font-normal text-[13px] leading-[1.625] opacity-90">{data.negotiation_strategy.calculated_discount_strategy}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const EmptyState = ({ section }: { section: string }) => (
     <div className="p-20 bg-white/50 rounded-[2rem] text-center border-2 border-dashed border-gray-200 flex flex-col items-center justify-center">
       <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6 text-gray-400">
@@ -580,6 +705,21 @@ const CustomAIAnalysis: React.FC<Props> = ({
                 <p className="text-indigo-700/70 text-lg font-medium">Scouring STR data and historicals for 2026.</p>
               </div>
             ) : !investment_research ? <EmptyState section="Investment Research" /> : <InvestmentView data={investment_research} />}
+          </section>
+        )}
+        {activeTab === 'bidding' && (
+          <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {biddingLoading ? (
+              <div className="bg-indigo-50 border border-indigo-100 rounded-[3rem] p-12 text-center my-10 shadow-sm flex flex-col items-center justify-center min-h-[50vh]">
+                <div className="w-20 h-20 mb-8 relative">
+                  <div className="absolute inset-0 border-4 border-indigo-200 rounded-full"></div>
+                  <div className="absolute inset-0 border-t-4 border-indigo-600 rounded-full animate-spin"></div>
+                  <div className="absolute inset-0 flex items-center justify-center"><i className="fa-solid fa-gavel text-indigo-600 text-2xl animate-pulse"></i></div>
+                </div>
+                <h3 className="text-3xl font-black text-indigo-900 mb-4 tracking-tight">Strategizing Offer...</h3>
+                <p className="text-indigo-700/70 text-lg font-medium">Analyzing DOM benchmarks and inventory pressure.</p>
+              </div>
+            ) : !bidding_strategy ? <EmptyState section="Bidding Strategy" /> : <BiddingView data={bidding_strategy} />}
           </section>
         )}
       </div>

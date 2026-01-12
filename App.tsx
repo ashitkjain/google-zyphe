@@ -23,6 +23,7 @@ import {
   verifyFirestoreConnection,
   getImageQualityAnalysisFromCloud,
   getInvestmentResearchFromCloud,
+  getBiddingStrategyFromCloud,
   deleteUserAccount
 } from './services/firebaseService';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -299,6 +300,10 @@ const App: React.FC = () => {
           // Check for separate investment research cache
           const investmentCached = await getInvestmentResearchFromCloud(propertyData.zpid);
           if (investmentCached) cached.investment_research = investmentCached;
+
+          // Check for separate bidding strategy cache
+          const biddingCached = await getBiddingStrategyFromCloud(propertyData.zpid);
+          if (biddingCached) cached.bidding_strategy = biddingCached;
 
           addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', data: cached });
           setCustomAnalysis(cached);

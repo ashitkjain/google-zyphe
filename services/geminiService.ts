@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, InvestmentResearchResult } from "../types";
+import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, InvestmentResearchResult, BiddingStrategyResult } from "../types";
 import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/propertyAnalysis";
 import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/neighborhoodAnalysis";
 import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/communityPulse";
@@ -8,6 +8,7 @@ import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/proper
 import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis";
 import { getImageQualityAnalysisPrompt, imageQualityAnalysisSchema } from "../prompts/imageQualityAnalysis";
 import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompts/investmentResearch";
+import { biddingStrategyPrompt } from "../prompts/biddingStrategy";
 
 // Set to gemini-2.5-flash everywhere as requested.
 export const GEMINI_MODEL = 'gemini-2.5-flash';
@@ -369,6 +370,28 @@ export const analyzeInvestmentResearch = async (property: PropertyData): Promise
     });
 
     return extractJson<InvestmentResearchResult>(response.text);
+  } catch (error: any) {
+    if (error instanceof AiResponseError) {
+      error.prompt = prompt;
+      throw error;
+    }
+    throw new AiResponseError(error.message, "Raw API Error", prompt);
+  }
+};
+
+export const analyzeBiddingStrategy = async (property: PropertyData): Promise<BiddingStrategyResult> => {
+  const prompt = biddingStrategyPrompt(property);
+  try {
+    const ai = getAi();
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }]
+      }
+    });
+
+    return extractJson<BiddingStrategyResult>(response.text);
   } catch (error: any) {
     if (error instanceof AiResponseError) {
       error.prompt = prompt;

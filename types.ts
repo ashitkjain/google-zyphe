@@ -214,6 +214,32 @@ export interface InvestmentResearchResult {
   }>;
 }
 
+export interface BiddingStrategyResult {
+  property_specifics: {
+    days_on_market: string;
+    listing_history: string[];
+    price_changes: string;
+  };
+  zip_code_benchmarks: {
+    median_sale_to_list_ratio: string;
+    median_days_on_market: string;
+  };
+  inventory_pressure: {
+    months_of_supply: string;
+    market_category: 'Strong Seller' | 'Balanced' | 'Buyer-Friendly' | string;
+    pressure_analysis: string;
+  };
+  offer_velocity: {
+    velocity_status: string;
+    recent_offer_trends: string;
+  };
+  negotiation_strategy: {
+    leverage_analysis: string;
+    suggested_offer_tactics: string[];
+    calculated_discount_strategy: string;
+  };
+}
+
 export interface CustomAIAnalysisResult {
   report_title: string;
   home_interior: {
@@ -254,6 +280,7 @@ export interface CustomAIAnalysisResult {
   community_pulse?: CommunityPulseResult;
   image_quality_analysis?: ImageQualityAnalysisResult;
   investment_research?: InvestmentResearchResult;
+  bidding_strategy?: BiddingStrategyResult;
 }
 
 export interface ComprehensiveAnalysisResult {

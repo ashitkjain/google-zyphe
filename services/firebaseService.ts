@@ -24,7 +24,7 @@ import {
   deleteUser,
   sendPasswordResetEmail
 } from "firebase/auth";
-import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult, InvestmentResearchResult } from "../types";
+import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult, InvestmentResearchResult, BiddingStrategyResult } from "../types";
 
 /**
  * FIRESTORE SECURITY RULES (REQUIRED):
@@ -56,6 +56,11 @@ import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, User
  *     }
  *
  *     match /market_research/{zpid} {
+ *       allow read: if true;
+ *       allow write: if request.auth != null;
+ *     }
+ * 
+ *     match /bidding_strategy/{zpid} {
  *       allow read: if true;
  *       allow write: if request.auth != null;
  *     }
@@ -391,6 +396,34 @@ export const getInvestmentResearchFromCloud = async (zpid: string): Promise<Inve
     return docSnap.exists() ? (docSnap.data() as InvestmentResearchResult) : null;
   } catch (error) {
     handleFirestoreError(error, "getInvestmentResearchFromCloud");
+    return null;
+  }
+};
+
+export const saveBiddingStrategyToCloud = async (zpid: string, strategy: BiddingStrategyResult) => {
+  if (!db) return { success: false, error: "Database not initialized" };
+  try {
+    const user = auth?.currentUser;
+    console.log(`[Firestore] Saving bidding strategy for ZPID: "${zpid}". Auth: ${user ? user.email : 'GUEST'}`);
+    const docRef = doc(db, "bidding_strategy", zpid);
+    await setDoc(docRef, {
+      ...sanitizeForFirestore(strategy),
+      timestamp: serverTimestamp()
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: handleFirestoreError(error, "saveBiddingStrategyToCloud") as string };
+  }
+};
+
+export const getBiddingStrategyFromCloud = async (zpid: string): Promise<BiddingStrategyResult | null> => {
+  if (!db) return null;
+  try {
+    const docRef = doc(db, "bidding_strategy", zpid);
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists() ? (docSnap.data() as BiddingStrategyResult) : null;
+  } catch (error) {
+    handleFirestoreError(error, "getBiddingStrategyFromCloud");
     return null;
   }
 };
