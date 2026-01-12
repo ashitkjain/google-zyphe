@@ -212,6 +212,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
       }
       onClose();
     } catch (err: any) {
+      console.error("Auth submit error:", err);
       handleFirebaseError(err);
     } finally {
       setLoading(false);
@@ -344,8 +345,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    disabled={!!inviteData}
-                    className={`w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all ${inviteData ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    className="w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all"
                     placeholder="John Doe"
                   />
                 </div>

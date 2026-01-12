@@ -30,9 +30,9 @@ const AddClientModal: React.FC<Props> = ({ isOpen, onClose, realtorName, realtor
         const params = new URLSearchParams({
             mode: 'invite',
             realtorId: realtorId,
-            realtorName: encodeURIComponent(realtorName),
+            realtorName: realtorName,
             email: email,
-            name: encodeURIComponent(name),
+            name: name,
             role: role
         });
 
