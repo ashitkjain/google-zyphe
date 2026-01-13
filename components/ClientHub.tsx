@@ -1,7 +1,11 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, updateFunnelStage, seedMockData, getLeads, getTasks, getTemplates, updateLead } from '../services/firebaseService';
+import { getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, updateFunnelStage, seedMockData, getLeads, getTasks, getTemplates, updateLead, activateLeadToCollection } from '../services/firebaseService';
 import { UserProfile, Lead, LeadNote, Transaction, CRMTask, ActivityNote, CommMessage, CommThread, CommTemplate, FunnelStage, LeadHealth } from '../types';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+
+const TypedDraggable = Draggable as any;
+const TypedDroppable = Droppable as any;
 import Logo from './Logo';
 import LeadsList from './LeadsList';
 
@@ -10,7 +14,7 @@ interface Props {
     onBack: () => void;
 }
 
-type HubTab = 'clients' | 'leads' | 'properties' | 'pipelines' | 'tasks' | 'comms';
+type HubTab = 'clients' | 'leads' | 'properties' | 'selling' | 'buying' | 'tasks' | 'comms';
 
 
 
@@ -44,397 +48,94 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
             setLoadingData(true);
 
             // 1. Fetch Existing Data
-            let _leads = await getLeads(realtorId);
+            const _incoming = await getLeads(realtorId, ['leads']);
+            const _buyers = await getLeads(realtorId, ['buyers']);
+            const _sellers = await getLeads(realtorId, ['sellers']);
+            let _leads = [..._incoming, ..._buyers, ..._sellers];
             let _tasks = await getTasks(realtorId);
             let _templates = await getTemplates(realtorId);
 
             // 2. Define Mock Data (Always available for potential seeding)
             console.log("[ClientHub] Seeding initial mock data...");
             const initialLeads: Lead[] = [
+                // --- Incoming Pool (leads collection) ---
                 {
-                    id: 'mock_1',
-                    name: 'Sarah Miller',
-                    email: 'sarah.m@gmail.com',
-                    phone: '(555) 123-4567',
-                    preferredContactMethod: 'Text',
-                    source: 'Zillow',
-                    leadType: 'Buyer',
-                    connectionType: 'Live Connection',
-                    status: 'Active',
-                    receivedAt: new Date(Date.now() - 7200000), // 2 hours ago
-                    slaUrgency: 'high',
-                    preApprovalStatus: true,
-                    timeframe: '1-3 months',
-                    funnelStage: 'Inquiry',
-                    health: 'Active',
-                    propertyAddress: '123 Luxury Way, Beverly Hills',
-                    price: 4250000,
-                    propertyType: 'Single Family',
-                    bedrooms: 4,
-                    bathrooms: 3.5,
-                    sqft: 3200,
-                    message: "I'd like to see this home tomorrow at 5 PM",
-                    tourRequestDate: new Date(Date.now() + 86400000),
-                    tourRequestTime: '5:00 PM',
-                    isMock: true
-                },
-                {
-                    id: 'mock_2',
-                    name: 'David Chen',
-                    email: 'd.chen@outlook.com',
-                    phone: '(555) 987-6543',
-                    preferredContactMethod: 'Call',
-                    source: 'Zillow',
-                    leadType: 'Buyer',
-                    connectionType: 'Direct Lead',
-                    status: 'Connected',
-                    receivedAt: new Date(Date.now() - 3600000),
-                    slaUrgency: 'medium',
-                    funnelStage: 'Nurture',
-                    health: 'Stale',
-                    message: "Is this property still available? I'm interested in the modern features shown in the photos.",
-                    isMock: true
-                },
-                {
-                    id: 'mock_4',
-                    name: 'Elena Rodriguez',
-                    email: 'elena.rodriguez@gmail.com',
-                    phone: '(555) 444-3322',
-                    preferredContactMethod: 'Text',
-                    source: 'Zillow',
-                    leadType: 'Buyer',
-                    connectionType: 'Direct Lead',
-                    status: 'New',
-                    receivedAt: new Date(Date.now() - 300000),
-                    slaUrgency: 'high',
-                    funnelStage: 'Inquiry',
-                    health: 'Active',
-                    propertyAddress: '789 Sunset Blvd, Hollywood',
-                    price: 1150000,
-                    message: "Found this on Zillow. I have a pre-approval letter and would like to schedule a virtual tour this weekend.",
-                    tourRequestDate: new Date(Date.now() + 172800000),
-                    tourRequestTime: '10:00 AM',
-                    isMock: true
-                },
-                {
-                    id: 'mock_3',
-                    name: 'Michael Ross',
-                    email: 'mross@legal.com',
-                    phone: '(555) 555-0199',
-                    preferredContactMethod: 'Email',
-                    source: 'Website',
-                    leadType: 'Seller',
-                    connectionType: 'Nurture',
-                    status: 'New',
-                    receivedAt: new Date(Date.now() - 18000000),
-                    slaUrgency: 'low',
-                    funnelStage: 'Nurture',
-                    health: 'Dormant',
-                    message: "Looking for an expert to list my condo in Santa Monica.",
-                    isMock: true
-                },
-                {
-                    id: 'mock_5',
-                    name: 'James Wilson',
-                    email: 'j.wilson@example.com',
-                    phone: '(555) 222-3344',
-                    preferredContactMethod: 'Email',
-                    source: 'Zillow',
-                    leadType: 'Buyer',
-                    connectionType: 'Direct Lead',
-                    status: 'Qualified',
-                    receivedAt: new Date(Date.now() - 86400000 * 2),
-                    slaUrgency: 'medium',
-                    funnelStage: 'Nurture',
-                    health: 'Active',
-                    message: "Looking for a 3bd condo in downtown with a view.",
-                    timeframe: '3-6 months',
-                    maxPrice: 850000,
-                    isMock: true
-                },
-                {
-                    id: 'mock_6',
-                    name: 'Linda Martinez',
-                    email: 'linda.m@example.com',
-                    phone: '(555) 333-4455',
-                    preferredContactMethod: 'Call',
-                    source: 'Referral',
-                    leadType: 'Seller',
-                    connectionType: 'Live Connection',
-                    status: 'Appointment Scheduled',
-                    receivedAt: new Date(Date.now() - 86400000 * 3),
-                    slaUrgency: 'high',
-                    funnelStage: 'Active',
-                    health: 'Active',
-                    message: "Meeting scheduled for listing consultation next Tuesday.",
-                    propertyAddress: '456 Maple Dr, Suburbia',
-                    price: 650000,
-                    isMock: true
-                },
-                {
-                    id: 'mock_7',
-                    name: 'Robert Taylor',
-                    email: 'rtaylor@example.com',
-                    phone: '(555) 444-5566',
-                    preferredContactMethod: 'Email',
-                    source: 'Website',
-                    leadType: 'Seller',
-                    connectionType: 'Live Connection',
-                    status: 'Listing Agreement Sent/Signed',
-                    receivedAt: new Date(Date.now() - 86400000 * 5),
-                    slaUrgency: 'high',
-                    funnelStage: 'UnderContract',
-                    health: 'Active',
-                    message: "Listing agreement sent for digest signature. Waiting for return.",
-                    propertyAddress: '789 Oak Ln, Countryside',
-                    price: 925000,
-                    isMock: true
-                },
-                {
-                    id: 'mock_8',
-                    name: 'Patricia Anderson',
-                    email: 'patricia.a@example.com',
-                    phone: '(555) 555-6677',
-                    preferredContactMethod: 'Text',
-                    source: 'Zillow',
-                    leadType: 'Buyer',
-                    connectionType: 'Nurture',
-                    status: 'Closed-Won',
-                    receivedAt: new Date(Date.now() - 86400000 * 30),
-                    slaUrgency: 'low',
-                    funnelStage: 'Closed',
-                    health: 'Dormant',
-                    message: "Closed on 123 Pine St. Sending thank you gift.",
-                    propertyAddress: '123 Pine St, Cityville',
-                    price: 550000,
-                    closedAt: new Date(Date.now() - 86400000 * 5), // Closed 5 days ago
-                    isMock: true
-                },
-                {
-                    id: 'mock_9',
-                    name: 'John Doe',
-                    email: 'johndoe@example.com',
-                    phone: '(555) 666-7788',
-                    preferredContactMethod: 'Call',
-                    source: 'Facebook',
-                    leadType: 'Buyer',
-                    connectionType: 'Direct Lead',
-                    status: 'Attempted to Contact',
-                    receivedAt: new Date(Date.now() - 86400000),
-                    slaUrgency: 'medium',
-                    funnelStage: 'Inquiry',
-                    health: 'Stale',
-                    message: "Left voicemail. No response yet.",
-                    isMock: true
-                },
-                {
-                    id: 'mock_10',
-                    name: 'Ethan Smith',
-                    email: 'ethan.s@example.com',
-                    phone: '(555) 777-8899',
-                    preferredContactMethod: 'Text',
-                    source: 'Zillow',
-                    leadType: 'Buyer',
-                    connectionType: 'Direct Lead',
-                    status: 'Active',
-                    receivedAt: new Date(Date.now() - 3600000 * 2),
-                    slaUrgency: 'high',
-                    funnelStage: 'Active',
-                    health: 'Active',
-                    message: "Looking for a home with a large backyard.",
-                    isMock: true
-                },
-                {
-                    id: 'mock_11',
-                    name: 'Olivia Brown',
-                    email: 'olivia.b@example.com',
-                    phone: '(555) 888-9900',
-                    preferredContactMethod: 'Email',
-                    source: 'Website',
-                    leadType: 'Seller',
-                    connectionType: 'Live Connection',
-                    status: 'Qualified',
-                    receivedAt: new Date(Date.now() - 14400000),
-                    slaUrgency: 'medium',
-                    funnelStage: 'Nurture',
-                    health: 'Active',
-                    message: "Thinking about selling in the spring.",
-                    isMock: true
-                },
-                {
-                    id: 'mock_12',
-                    name: 'Noah Garcia',
-                    email: 'noah.g@example.com',
-                    phone: '(555) 999-0011',
-                    preferredContactMethod: 'Call',
-                    source: 'Referral',
-                    leadType: 'Buyer',
-                    connectionType: 'Direct Lead',
-                    status: 'Active',
-                    receivedAt: new Date(Date.now() - 86400000),
-                    slaUrgency: 'high',
-                    funnelStage: 'Active',
-                    health: 'Active',
-                    message: "Ready to move in 30 days.",
-                    isMock: true
-                },
-                {
-                    id: 'mock_13',
-                    name: 'Ava Martinez',
-                    email: 'ava.m@example.com',
-                    phone: '(555) 000-1122',
-                    preferredContactMethod: 'Text',
-                    source: 'Facebook',
-                    leadType: 'Buyer',
-                    connectionType: 'Nurture',
-                    status: 'Qualified',
-                    receivedAt: new Date(Date.now() - 86400000 * 1.5),
-                    slaUrgency: 'medium',
-                    funnelStage: 'Active',
-                    health: 'Active',
-                    message: "Interested in new construction homes.",
-                    isMock: true
-                },
-                {
-                    id: 'mock_14',
-                    name: 'William Davis',
-                    email: 'william.d@example.com',
-                    phone: '(555) 111-2233',
-                    preferredContactMethod: 'Email',
-                    source: 'Website',
-                    leadType: 'Buyer',
-                    connectionType: 'Direct Lead',
-                    status: 'Active',
-                    receivedAt: new Date(Date.now() - 7200000),
-                    slaUrgency: 'high',
-                    funnelStage: 'Active',
-                    health: 'Active',
-                    message: "Wants to see the luxury listing on Hilltop.",
-                    isMock: true
-                },
-                // --- Bucket: NEW (5 New Leads) ---
-                {
-                    id: 'mock_15', name: 'Alice Cooper', email: 'alice.c@example.com', phone: '(555) 123-0001',
+                    id: 'mock_1', name: 'Alice Cooper', email: 'alice.c@example.com', phone: '(555) 123-0001',
                     preferredContactMethod: 'Email', source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead',
                     status: 'New', receivedAt: new Date(Date.now() - 600000), slaUrgency: 'high', funnelStage: 'Inquiry',
-                    health: 'Active', message: "New inquiry from Zillow for the downtown condo.", isMock: true
+                    health: 'Active', message: "New inquiry from Zillow for the downtown condo.", isMock: true, collectionName: 'leads',
+                    minPrice: 400000, maxPrice: 600000
                 },
                 {
-                    id: 'mock_16', name: 'Bob Marley', email: 'bob.m@example.com', phone: '(555) 123-0002',
+                    id: 'mock_2', name: 'Bob Marley', email: 'bob.m@example.com', phone: '(555) 123-0002',
                     preferredContactMethod: 'Text', source: 'Website', leadType: 'Buyer', connectionType: 'Direct Lead',
                     status: 'New', receivedAt: new Date(Date.now() - 3600000), slaUrgency: 'high', funnelStage: 'Inquiry',
-                    health: 'Active', message: "Just registered on the website.", isMock: true
+                    health: 'Active', message: "Just registered on the website.", isMock: true, collectionName: 'leads',
+                    minPrice: 800000, maxPrice: 1200000
+                },
+
+                // --- Buying Pipeline (buyers collection) ---
+                {
+                    id: 'mock_buy_1', name: 'Sarah Miller', email: 'sarah.m@gmail.com', phone: '(555) 123-4567',
+                    source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 7200000),
+                    slaUrgency: 'high', funnelStage: 'Nurture', health: 'Active', minPrice: 3800000, maxPrice: 4500000,
+                    propertyAddress: '123 Luxury Way, Beverly Hills', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
                 },
                 {
-                    id: 'mock_17', name: 'Charlie Day', email: 'charlie.d@example.com', phone: '(555) 123-0003',
-                    preferredContactMethod: 'Call', source: 'Facebook', leadType: 'Seller', connectionType: 'Direct Lead',
-                    status: 'New', receivedAt: new Date(Date.now() - 7200000), slaUrgency: 'medium', funnelStage: 'Inquiry',
-                    health: 'Active', message: "Facebook lead interested in a home valuation.", isMock: true
+                    id: 'mock_buy_2', name: 'David Chen', email: 'd.chen@outlook.com', phone: '(555) 987-6543',
+                    source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 3600000),
+                    slaUrgency: 'medium', funnelStage: 'Active', health: 'Active', minPrice: 1100000, maxPrice: 1400000,
+                    propertyAddress: '789 Sunset Blvd, Hollywood', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
                 },
                 {
-                    id: 'mock_18', name: 'Diana Ross', email: 'diana.r@example.com', phone: '(555) 123-0004',
-                    preferredContactMethod: 'Text', source: 'Referral', leadType: 'Buyer', connectionType: 'Live Connection',
-                    status: 'New', receivedAt: new Date(Date.now() - 14400000), slaUrgency: 'high', funnelStage: 'Inquiry',
-                    health: 'Active', message: "Referred by a past client.", isMock: true
+                    id: 'mock_buy_3', name: 'James Wilson', email: 'j.wilson@example.com', phone: '(555) 222-3344',
+                    source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 2),
+                    slaUrgency: 'medium', funnelStage: 'Offer', health: 'Active', minPrice: 750000, maxPrice: 900000,
+                    propertyAddress: 'Downtown Loft #4B', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
                 },
                 {
-                    id: 'mock_19', name: 'Edward Norton', email: 'edward.n@example.com', phone: '(555) 123-0005',
-                    preferredContactMethod: 'Email', source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'New', receivedAt: new Date(Date.now() - 86400000), slaUrgency: 'medium', funnelStage: 'Inquiry',
-                    health: 'Active', message: "Interested in a tour this weekend.", isMock: true
-                },
-                // --- Bucket: ACTIVE (5 New Active Leads) ---
-                {
-                    id: 'mock_20', name: 'Fiona Apple', email: 'fiona.a@example.com', phone: '(555) 234-0001',
-                    preferredContactMethod: 'Email', source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'Qualified', receivedAt: new Date(Date.now() - 86400000 * 5), slaUrgency: 'medium', funnelStage: 'Nurture',
-                    health: 'Active', message: "Prefers modern kitchens.", isMock: true
+                    id: 'mock_buy_4', name: 'Patricia Anderson', email: 'patricia.a@example.com', phone: '(555) 555-6677',
+                    source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 30),
+                    slaUrgency: 'low', funnelStage: 'UnderContract', health: 'Active', minPrice: 500000, maxPrice: 600000,
+                    propertyAddress: '123 Pine St, Cityville', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
                 },
                 {
-                    id: 'mock_21', name: 'George Harrison', email: 'george.h@example.com', phone: '(555) 234-0002',
-                    preferredContactMethod: 'Call', source: 'Website', leadType: 'Seller', connectionType: 'Live Connection',
-                    status: 'Connected', receivedAt: new Date(Date.now() - 86400000 * 10), slaUrgency: 'medium', funnelStage: 'Active',
-                    health: 'Active', message: "Discussing listing price.", isMock: true
+                    id: 'mock_buy_5', name: 'Noah Garcia', email: 'noah.g@example.com', phone: '(555) 999-0011',
+                    source: 'Referral', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000),
+                    slaUrgency: 'high', funnelStage: 'Closed', health: 'Active', minPrice: 700000, maxPrice: 800000,
+                    propertyAddress: '456 Oak Ln, Suburbia', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
+                },
+
+                // --- Selling Pipeline (sellers collection) ---
+                {
+                    id: 'mock_sell_1', name: 'Michael Ross', email: 'mross@legal.com', phone: '(555) 555-0199',
+                    source: 'Website', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 18000000),
+                    slaUrgency: 'low', funnelStage: 'Nurture', health: 'Active', price: 1250000,
+                    propertyAddress: 'Santa Monica Beachfront Condo', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
                 },
                 {
-                    id: 'mock_22', name: 'Hannah Montana', email: 'hannah.m@example.com', phone: '(555) 234-0003',
-                    preferredContactMethod: 'Text', source: 'Referral', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'Attempted to Contact', receivedAt: new Date(Date.now() - 86400000 * 2), slaUrgency: 'high', funnelStage: 'Inquiry',
-                    health: 'Stale', message: "Called twice, no answer.", isMock: true
+                    id: 'mock_sell_2', name: 'Linda Martinez', email: 'linda.m@example.com', phone: '(555) 333-4455',
+                    source: 'Referral', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 3),
+                    slaUrgency: 'high', funnelStage: 'Active', health: 'Active', price: 650000,
+                    propertyAddress: '456 Maple Dr, Suburbia', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
                 },
                 {
-                    id: 'mock_23', name: 'Ian Wright', email: 'ian.w@example.com', phone: '(555) 234-0004',
-                    preferredContactMethod: 'Call', source: 'Facebook', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'Appointment Scheduled', receivedAt: new Date(Date.now() - 86400000 * 4), slaUrgency: 'high', funnelStage: 'Active',
-                    health: 'Active', message: "Showing scheduled for Saturday.", isMock: true
+                    id: 'mock_sell_3', name: 'Robert Taylor', email: 'rtaylor@example.com', phone: '(555) 444-5566',
+                    source: 'Website', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 5),
+                    slaUrgency: 'high', funnelStage: 'Offer', health: 'Active', price: 925000,
+                    propertyAddress: '789 Oak Ln, Countryside', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
                 },
                 {
-                    id: 'mock_24', name: 'Justin Bieber', email: 'justin.b@example.com', phone: '(555) 234-0005',
-                    preferredContactMethod: 'Text', source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'Listing Agreement Sent/Signed', receivedAt: new Date(Date.now() - 86400000 * 7), slaUrgency: 'high', funnelStage: 'Active',
-                    health: 'Active', message: "Papers signed, moving to contract.", isMock: true
-                },
-                // --- Bucket: CLOSED (5 New Closed Leads) ---
-                {
-                    id: 'mock_25', name: 'Kelly Clarkson', email: 'kelly.c@example.com', phone: '(555) 345-0001',
-                    preferredContactMethod: 'Email', source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'Closed-Won', receivedAt: new Date(Date.now() - 86400000 * 60), closedAt: new Date(Date.now() - 86400000 * 10),
-                    slaUrgency: 'low', funnelStage: 'Closed', health: 'Dormant', message: "Deal closed successfully!", isMock: true
+                    id: 'mock_sell_4', name: 'Olivia Brown', email: 'olivia.b@example.com', phone: '(555) 888-9900',
+                    source: 'Website', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 14400000),
+                    slaUrgency: 'medium', funnelStage: 'UnderContract', health: 'Active', price: 450000,
+                    propertyAddress: 'Garden Villa #12', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
                 },
                 {
-                    id: 'mock_26', name: 'Liam Neeson', email: 'liam.n@example.com', phone: '(555) 345-0002',
-                    preferredContactMethod: 'Call', source: 'Website', leadType: 'Seller', connectionType: 'Live Connection',
-                    status: 'Closed-Lost', receivedAt: new Date(Date.now() - 86400000 * 45), closedAt: new Date(Date.now() - 86400000 * 20),
-                    slaUrgency: 'low', funnelStage: 'Closed', health: 'Dormant', message: "Decided not to sell.", isMock: true
-                },
-                {
-                    id: 'mock_27', name: 'Megan Fox', email: 'megan.f@example.com', phone: '(555) 345-0003',
-                    preferredContactMethod: 'Text', source: 'Referral', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'Closed-Won', receivedAt: new Date(Date.now() - 86400000 * 90), closedAt: new Date(Date.now() - 86400000 * 5),
-                    slaUrgency: 'low', funnelStage: 'Closed', health: 'Dormant', message: "Happy new homeowner.", isMock: true
-                },
-                {
-                    id: 'mock_28', name: 'Nick Jonas', email: 'nick.j@example.com', phone: '(555) 345-0004',
-                    preferredContactMethod: 'Call', source: 'Facebook', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'Closed-Won', receivedAt: new Date(Date.now() - 86400000 * 30), closedAt: new Date(Date.now() - 86400000 * 2),
-                    slaUrgency: 'low', funnelStage: 'Closed', health: 'Dormant', message: "Quick cash close.", isMock: true
-                },
-                {
-                    id: 'mock_29', name: 'Oprah Winfrey', email: 'oprah.w@example.com', phone: '(555) 345-0005',
-                    preferredContactMethod: 'Email', source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'Closed-Lost', receivedAt: new Date(Date.now() - 86400000 * 70), closedAt: new Date(Date.now() - 86400000 * 15),
-                    slaUrgency: 'low', funnelStage: 'Closed', health: 'Dormant', message: "Bought with another agent.", isMock: true
-                },
-                // --- Bucket: ARCHIVED (5 New Archived Leads) ---
-                {
-                    id: 'mock_30', name: 'Peter Parker', email: 'peter.p@example.com', phone: '(555) 456-0001',
-                    preferredContactMethod: 'Text', source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'Archived', receivedAt: new Date(Date.now() - 86400000 * 120), archivedAt: new Date(Date.now() - 86400000 * 30),
-                    slaUrgency: 'low', funnelStage: 'Inquiry', health: 'Dormant', message: "Unsubscribed.", isMock: true
-                },
-                {
-                    id: 'mock_31', name: 'Quentin Tarantino', email: 'quentin.t@example.com', phone: '(555) 456-0002',
-                    preferredContactMethod: 'Email', source: 'Website', leadType: 'Seller', connectionType: 'Live Connection',
-                    status: 'Archived', receivedAt: new Date(Date.now() - 86400000 * 150), archivedAt: new Date(Date.now() - 86400000 * 40),
-                    slaUrgency: 'low', funnelStage: 'Inquiry', health: 'Dormant', message: "Moved out of state.", isMock: true
-                },
-                {
-                    id: 'mock_32', name: 'Rihanna', email: 'rihanna@example.com', phone: '(555) 456-0003',
-                    preferredContactMethod: 'Call', source: 'Facebook', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'Archived', receivedAt: new Date(Date.now() - 86400000 * 200), archivedAt: new Date(Date.now() - 86400000 * 50),
-                    slaUrgency: 'low', funnelStage: 'Inquiry', health: 'Dormant', message: "Not interested anymore.", isMock: true
-                },
-                {
-                    id: 'mock_33', name: 'Steve Jobs', email: 'steve.j@example.com', phone: '(555) 456-0004',
-                    preferredContactMethod: 'Text', source: 'Referral', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'Archived', receivedAt: new Date(Date.now() - 86400000 * 180), archivedAt: new Date(Date.now() - 86400000 * 60),
-                    slaUrgency: 'low', funnelStage: 'Inquiry', health: 'Dormant', message: "Invalid phone number.", isMock: true
-                },
-                {
-                    id: 'mock_34', name: 'Taylor Swift', email: 'taylor.s@example.com', phone: '(555) 456-0005',
-                    preferredContactMethod: 'Email', source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'Archived', receivedAt: new Date(Date.now() - 86400000 * 250), archivedAt: new Date(Date.now() - 86400000 * 70),
-                    slaUrgency: 'low', funnelStage: 'Inquiry', health: 'Dormant', message: "Too many spam calls.", isMock: true
+                    id: 'mock_sell_5', name: 'Charlie Day', email: 'charlie.d@example.com', phone: '(555) 123-0003',
+                    source: 'Facebook', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 7200000),
+                    slaUrgency: 'medium', funnelStage: 'Closed', health: 'Active', price: 320000,
+                    propertyAddress: 'Modern Loft A', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
                 }
             ];
 
@@ -450,16 +151,21 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
                 { id: 'tpl_3', name: 'Viewing Scheduled', content: "Confirmation: We're set to view {{address}} at {{time}}. I'll meet you at the front entrance. See you soon!", channel: 'SMS', category: 'Viewing', isMock: true }
             ];
 
-            // Check if we need to seed (if any mock leads are missing)
-            const existingIds = new Set(_leads.map(l => l.id));
-            const shouldSeed = initialLeads.some(l => !existingIds.has(l.id));
+            // Check if we need to seed (if any mock leads are missing OR in wrong collection)
+            const shouldSeed = initialLeads.some(l => {
+                const existing = _leads.find(ex => ex.id === l.id);
+                return !existing || (l.collectionName && existing.collectionName !== l.collectionName);
+            });
 
             if (shouldSeed) {
                 console.log("[ClientHub] Missing mock data detected. Seeding...");
                 await seedMockData(realtorId, initialLeads, initialTasks, initialTemplates);
 
                 // Re-fetch after seeding
-                _leads = await getLeads(realtorId);
+                const _newLeads = await getLeads(realtorId, ['leads']);
+                const _newBuyers = await getLeads(realtorId, ['buyers']);
+                const _newSellers = await getLeads(realtorId, ['sellers']);
+                _leads = [..._newLeads, ..._newBuyers, ..._newSellers];
                 _tasks = await getTasks(realtorId);
                 _templates = await getTemplates(realtorId);
             }
@@ -561,11 +267,32 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
         // Handle Archive/Activate Logic
         const currentLead = leads.find(l => l.id === leadId);
         if (currentLead) {
+            // Activating: Move to buyers/sellers collection
+            if (updates.activatedAt && currentLead.status === 'New') {
+                const updatedLead = { ...currentLead, ...updates };
+                setIsSavingLead(true);
+                const success = await activateLeadToCollection(updatedLead);
+                if (success) {
+                    setLeads(prev => prev.map(l => l.id === leadId ? {
+                        ...l,
+                        ...updates,
+                        funnelStage: 'Nurture',
+                        status: 'Active',
+                        collectionName: currentLead.leadType === 'Seller' ? 'sellers' : 'buyers'
+                    } : l));
+                    setEditingLead(null);
+                } else {
+                    alert('Failed to activate lead. Please try again.');
+                }
+                setIsSavingLead(false);
+                return;
+            }
+
             // Archiving
             if (updates.status === 'Archived' && currentLead.status !== 'Archived') {
                 updates.archivedAt = new Date();
             }
-            // Activating
+            // Activating (backup if triggered otherwise)
             else if (currentLead.status === 'Archived' && updates.status && updates.status !== 'Archived') {
                 updates.activatedAt = new Date();
             }
@@ -574,6 +301,13 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
                 updates.closedAt = new Date();
             }
         }
+
+        // Determine collection
+        const lead = currentLead || leads.find(l => l.id === leadId);
+        let collectionName = lead?.collectionName || 'leads';
+
+        // If status changed to Archived or New, it mostly stays in the same table, 
+        // but if we ever want to move back, we'd handle it here.
 
         // Optimistic Update
         const previousLeads = [...leads];
@@ -587,7 +321,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
         setEditingLead(null); // Close overlay if open
 
         setIsSavingLead(true);
-        const success = await updateLead(leadId, updates);
+        const success = await updateLead(leadId, updates, collectionName);
         if (!success) {
             // Revert on failure
             setLeads(previousLeads);
@@ -596,7 +330,30 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
         setIsSavingLead(false);
     };
 
-    const handleCreateLead = () => {
+    const handleDragEnd = async (result: DropResult) => {
+        const { destination, source, draggableId } = result;
+
+        if (!destination) return;
+        if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+
+        const newStage = destination.droppableId as FunnelStage;
+        const leadId = draggableId;
+        const lead = leads.find(l => l.id === leadId);
+        if (!lead) return;
+
+        // Optimistically update the UI
+        setLeads(prev => prev.map(l => l.id === leadId ? { ...l, funnelStage: newStage } : l));
+
+        // Persist to database (in the correct collection)
+        const collectionName = lead.leadType === 'Seller' ? 'sellers' : 'buyers';
+        const success = await updateLead(leadId, { funnelStage: newStage }, collectionName);
+        if (!success) {
+            console.error("Failed to update lead stage");
+            setLeads(leads);
+        }
+    };
+
+    const handleCreateLead = (initialUpdates?: Partial<Lead>) => {
         const newLead: Lead = {
             id: `lead_${Date.now()}`,
             name: '',
@@ -609,7 +366,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
             connectionType: 'Direct Lead',
             slaUrgency: 'medium',
             funnelStage: 'Inquiry',
-            health: 'Active'
+            health: 'Active',
+            ...initialUpdates
         };
         setEditingLead(newLead);
         setNewNote('');
@@ -619,7 +377,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
 
     const tabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'leads', label: 'Leads', icon: 'fa-bullseye' },
-        { id: 'pipelines', label: 'Pipelines', icon: 'fa-route' },
+        { id: 'buying', label: 'Buying', icon: 'fa-cart-shopping' },
+        { id: 'selling', label: 'Selling', icon: 'fa-route' },
         { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
         { id: 'properties', label: 'Properties', icon: 'fa-house-chimney' },
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
@@ -1009,55 +768,141 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
                     </div>
                 )}
 
-                {/* Pipelines Tab */}
-                {activeTab === 'pipelines' && (
+                {/* Pipeline Tabs (Buying & Selling) */}
+                {(activeTab === 'buying' || activeTab === 'selling') && (
                     <div className="flex-1 flex flex-col h-full bg-[#F8FAFC] overflow-hidden">
                         <div className="p-10 bg-white border-b border-slate-200/60 flex items-center justify-between shadow-sm relative z-20">
-                            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Deal Pipelines</h2>
-                            <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1">
-                                {['Buyers', 'Sellers'].map((sub) => (
-                                    <button key={sub} className={`px-8 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${sub === 'Buyers' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                                        {sub}
-                                    </button>
-                                ))}
+                            <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+                                {activeTab === 'buying' ? 'Buying Pipeline' : 'Selling Pipeline'}
+                            </h2>
+                            <div className="flex items-center gap-3">
+                                <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest ${activeTab === 'buying' ? 'bg-indigo-50 text-indigo-600' : 'bg-rose-50 text-rose-600'}`}>
+                                    {activeTab === 'buying' ? 'Buyers' : 'Sellers'}
+                                </span>
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-x-auto p-10 flex gap-8 whitespace-nowrap scrollbar-thin scrollbar-thumb-indigo-100">
-                            {[
-                                { stage: 'Leads', color: 'slate', cards: ['Sarah Miller', 'David Chen'] },
-                                { stage: 'Showing', color: 'indigo', cards: ['Elena Rodriguez'] },
-                                { stage: 'Offers', color: 'rose', cards: ['Michael Ross'] },
-                                { stage: 'Contract', color: 'emerald', cards: ['Jessica Park'] },
-                                { stage: 'Closed', color: 'amber', cards: ['The Garcias'] },
-                            ].map((col, i) => (
-                                <div key={i} className="min-w-[320px] max-w-[320px] flex flex-col gap-6">
-                                    <div className="flex items-center justify-between px-2">
-                                        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-3">
-                                            <div className={`w-1.5 h-1.5 rounded-full bg-${col.color}-500`}></div>
-                                            {col.stage}
-                                        </h3>
-                                        <span className="text-[10px] font-bold text-slate-300">{col.cards.length}</span>
-                                    </div>
-                                    <div className="flex-1 space-y-4">
-                                        {col.cards.map((card, j) => (
-                                            <div key={j} className="bg-white p-6 rounded-[2rem] border border-slate-200/60 shadow-sm hover:shadow-xl hover:scale-[1.02] cursor-grab active:cursor-grabbing transition-all border-l-4" style={{ borderColor: `var(--color-${col.color}-500)` }}>
-                                                <div className="font-bold text-slate-900 text-sm mb-2">{card}</div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex -space-x-2">
-                                                        <div className="w-6 h-6 rounded-full bg-slate-50 border border-white text-[8px] flex items-center justify-center font-bold text-slate-400 shadow-sm">AI</div>
-                                                    </div>
-                                                    <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">Next: Call</div>
+                        <DragDropContext onDragEnd={handleDragEnd}>
+                            <div className="flex-1 overflow-x-auto p-10 flex gap-8 whitespace-nowrap scrollbar-thin scrollbar-thumb-indigo-100">
+                                {[
+                                    { stage: 'Nurture', label: 'Nurture', color: '#f59e0b', icon: 'fa-leaf' },
+                                    { stage: 'Active', label: activeTab === 'buying' ? 'Active Search' : 'Showing', color: '#6366f1', icon: 'fa-house-fire' },
+                                    { stage: 'Offer', label: 'Offer', color: '#f43f5e', icon: 'fa-file-invoice-dollar' },
+                                    { stage: 'UnderContract', label: 'Contract', color: '#10b981', icon: 'fa-handshake' },
+                                    { stage: 'Closed', label: 'Closed', color: '#94a3b8', icon: 'fa-flag-checkered' },
+                                ].map((col) => (
+                                    <div key={col.stage} className="min-w-[320px] max-w-[320px] flex flex-col gap-6">
+                                        <div className="flex items-center justify-between px-2">
+                                            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-3">
+                                                <div className={`w-1.5 h-1.5 rounded-full`} style={{ backgroundColor: col.color }}></div>
+                                                <i className={`fa-solid ${col.icon} text-slate-300 mr-1`}></i>
+                                                {col.label}
+                                            </h3>
+                                            <span className="text-[10px] font-bold text-slate-300">
+                                                {leads.filter(l => l.funnelStage === col.stage && l.collectionName === (activeTab === 'buying' ? 'buyers' : 'sellers')).length}
+                                            </span>
+                                        </div>
+
+                                        <TypedDroppable droppableId={col.stage} type="LEAD">
+                                            {(provided, snapshot) => (
+                                                <div
+                                                    {...provided.droppableProps}
+                                                    ref={provided.innerRef}
+                                                    className={`flex-1 flex flex-col gap-4 rounded-[2.5rem] p-2 transition-colors ${snapshot.isDraggingOver ? 'bg-indigo-50/50 outline-2 outline-dashed outline-indigo-200' : ''}`}
+                                                    style={{ minHeight: '100px' }}
+                                                >
+                                                    {leads
+                                                        .filter(l => l.funnelStage === col.stage && l.collectionName === (activeTab === 'buying' ? 'buyers' : 'sellers'))
+                                                        .map((lead, index) => (
+                                                            <TypedDraggable key={lead.id} draggableId={lead.id} index={index}>
+                                                                {(provided, snapshot) => (
+                                                                    <div
+                                                                        ref={provided.innerRef}
+                                                                        {...provided.draggableProps}
+                                                                        {...provided.dragHandleProps}
+                                                                        className={`bg-white p-6 rounded-[2rem] border border-slate-200/60 shadow-sm hover:shadow-xl transition-all border-l-4 group ${snapshot.isDragging ? 'shadow-2xl scale-105 rotate-2 z-50 ring-4 ring-indigo-500/20' : ''}`}
+                                                                        style={{
+                                                                            ...provided.draggableProps.style,
+                                                                            borderLeftColor: col.color
+                                                                        }}
+                                                                        onClick={() => setEditingLead(lead)}
+                                                                    >
+                                                                        <div className="flex justify-between items-start mb-3">
+                                                                            <div className="font-bold text-slate-900 text-sm">{lead.name}</div>
+                                                                            {lead.slaUrgency === 'high' && (
+                                                                                <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" title="High Urgency"></div>
+                                                                            )}
+                                                                        </div>
+
+                                                                        {lead.propertyAddress && activeTab !== 'buying' && (
+                                                                            <div className="text-[10px] text-slate-500 font-medium mb-1 truncate flex items-center gap-1.5 gray-400">
+                                                                                <i className="fa-solid fa-location-dot opacity-30 text-[8px]"></i>
+                                                                                {lead.propertyAddress}
+                                                                            </div>
+                                                                        )}
+
+                                                                        <div className="flex flex-col gap-1 mb-3">
+                                                                            {lead.email && (
+                                                                                <div className="text-[10px] text-slate-400 flex items-center gap-1.5 truncate">
+                                                                                    <i className="fa-solid fa-envelope opacity-30 text-[8px]"></i>
+                                                                                    {lead.email}
+                                                                                </div>
+                                                                            )}
+                                                                            {lead.phone && (
+                                                                                <div className="text-[10px] text-slate-400 flex items-center gap-1.5 truncate">
+                                                                                    <i className="fa-solid fa-phone opacity-30 text-[8px]"></i>
+                                                                                    {lead.phone}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+
+                                                                        <div className="flex items-center justify-between mt-auto">
+                                                                            <div className="flex -space-x-1.5">
+                                                                                <div className="w-6 h-6 rounded-full bg-slate-50 border border-white text-[8px] flex items-center justify-center font-black text-slate-400 shadow-sm group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                                                                    {lead.name[0]}
+                                                                                </div>
+                                                                                {lead.health === 'Active' && (
+                                                                                    <div className="w-6 h-6 rounded-full bg-emerald-50 border border-white flex items-center justify-center shadow-sm">
+                                                                                        <i className="fa-solid fa-bolt text-emerald-500 text-[8px]"></i>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                            <div className="flex items-center gap-3">
+                                                                                {activeTab === 'buying' ? (
+                                                                                    (lead.minPrice || lead.maxPrice) && (
+                                                                                        <div className="text-[10px] font-black text-slate-900">
+                                                                                            {lead.minPrice ? `$${(lead.minPrice / 1000).toFixed(0)}k` : '?'} - {lead.maxPrice ? `$${(lead.maxPrice / 1000).toFixed(0)}k` : '?'}
+                                                                                        </div>
+                                                                                    )
+                                                                                ) : (
+                                                                                    lead.price && (
+                                                                                        <div className="text-[10px] font-black text-slate-900">${(lead.price / 1000).toFixed(0)}k</div>
+                                                                                    )
+                                                                                )}
+                                                                                <div className="text-[9px] font-black uppercase tracking-widest text-slate-300 group-hover:text-indigo-400 transition-colors">
+                                                                                    <i className="fa-solid fa-chevron-right text-[7px]"></i>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </TypedDraggable>
+                                                        ))}
+                                                    {provided.placeholder}
+                                                    <button
+                                                        onClick={() => handleCreateLead({ funnelStage: col.stage as FunnelStage, leadType: activeTab === 'buying' ? 'Buyer' : 'Seller', status: 'Active' })}
+                                                        className="w-full py-4 border-2 border-dashed border-slate-200 rounded-[2rem] text-[10px] font-black uppercase tracking-widest text-slate-300 hover:border-indigo-300 hover:text-indigo-500 hover:bg-slate-50 transition-all group/btn mt-2"
+                                                    >
+                                                        <i className="fa-solid fa-plus mr-2 group-hover/btn:scale-110 transition-transform"></i>
+                                                        Add {activeTab === 'buying' ? 'Buyer' : 'Seller'}
+                                                    </button>
                                                 </div>
-                                            </div>
-                                        ))}
-                                        <button className="w-full py-4 border-2 border-dashed border-slate-200 rounded-[2rem] text-[10px] font-black uppercase tracking-widest text-slate-300 hover:border-indigo-300 hover:text-indigo-500 transition-all">
-                                            + Add Potential
-                                        </button>
+                                            )}
+                                        </TypedDroppable>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        </DragDropContext>
                     </div>
                 )}
 
@@ -1432,15 +1277,38 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
 
                                 {/* Property Specs Row */}
                                 <div className="grid grid-cols-4 gap-4 col-span-2">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Price ($)</label>
-                                        <input
-                                            type="number"
-                                            defaultValue={editingLead.price}
-                                            onChange={(e) => setEditingLead({ ...editingLead, price: Number(e.target.value) })}
-                                            className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
-                                        />
-                                    </div>
+                                    {(editingLead.collectionName === 'buyers' || editingLead.leadType === 'Buyer') ? (
+                                        <>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Min Price ($)</label>
+                                                <input
+                                                    type="number"
+                                                    defaultValue={editingLead.minPrice}
+                                                    onChange={(e) => setEditingLead({ ...editingLead, minPrice: Number(e.target.value) })}
+                                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Max Price ($)</label>
+                                                <input
+                                                    type="number"
+                                                    defaultValue={editingLead.maxPrice}
+                                                    onChange={(e) => setEditingLead({ ...editingLead, maxPrice: Number(e.target.value) })}
+                                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                                />
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Price ($)</label>
+                                            <input
+                                                type="number"
+                                                defaultValue={editingLead.price}
+                                                onChange={(e) => setEditingLead({ ...editingLead, price: Number(e.target.value) })}
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                            />
+                                        </div>
+                                    )}
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Beds</label>
                                         <input

@@ -206,7 +206,7 @@ const LeadsList: React.FC<InternalProps> = ({ leads, onUpdateLead, onViewLead, o
             if (viewMode === 'archived') return l.status === 'Archived';
             // Default to Active: Everything else
             return !['New', 'Archived', 'Closed-Won', 'Closed-Lost'].includes(l.status);
-        });
+        }).filter(l => l.collectionName === 'leads');
 
 
 
