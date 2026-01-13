@@ -7,7 +7,172 @@ export interface UserProfile {
   role: 'buyer' | 'seller' | 'realtor';
   address?: string;
   realtorId?: string;
-  createdAt: any;
+  phoneNumber?: string;
+  assignedTo?: string; // For team scaling
+  smsConsent?: boolean;
+  smsConsentTimestamp?: any;
+  funnelStage?: FunnelStage;
+  health?: LeadHealth;
+  conversionDate?: any; // Date they moved from Lead to Client
+  isMock?: boolean;
+  createdAt?: any;
+}
+
+export type LeadSource = 'Zillow' | 'Realtor.com' | 'Facebook' | 'Website' | 'Manual' | 'Referral';
+export type LeadStatus = 'New' | 'Qualified' | 'Attempted to Contact' | 'Connected' | 'Appointment Scheduled' | 'Listing Agreement Sent/Signed' | 'Active' | 'Closed-Won' | 'Closed-Lost' | 'Archived';
+
+export type FunnelStage =
+  | 'Inquiry'      // Initial lead
+  | 'Nurture'      // Long-term follow-up
+  | 'Active'       // Currently viewing homes
+  | 'Offer'        // Signed an offer
+  | 'UnderContract'// Escrow
+  | 'Closed'       // Success
+  | 'Lost';        // No longer interested
+
+export type LeadHealth = 'Active' | 'Stale' | 'Dormant' | 'Responsive';
+
+export type LeadType = 'Buyer' | 'Seller' | 'Rental' | 'Mortgage';
+export type ConnectionType = 'Direct Lead' | 'Live Connection' | 'Nurture';
+
+export interface LeadNote {
+  id: string;
+  content: string;
+  timestamp: any;
+  author?: string;
+}
+
+export interface Lead {
+  id: string;
+  // 1. Contact Information
+  name: string;
+  email: string;
+  phone: string;
+  preferredContactMethod?: 'Call' | 'Text' | 'Email';
+
+  // 2. Readiness & Context
+  message?: string;
+  preApprovalStatus?: boolean;
+  timeframe?: string;
+  hasHomeToSell?: boolean;
+  tourRequestDate?: any;
+  tourRequestTime?: string;
+
+  // 3. Property Details (Subject Property)
+  propertyAddress?: string;
+  zpid?: string;
+  price?: number;
+  propertyType?: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  sqft?: number;
+  maxPrice?: number;
+
+  daysOnZillow?: number;
+  mlsNumber?: string;
+
+  // 4. System Metadata & Source
+  source: LeadSource; // e.g. Zillow, Trulia, etc.
+  leadType: LeadType;
+  connectionType: ConnectionType;
+  status: LeadStatus;
+  receivedAt: any;
+  lastTouch?: any;
+  slaUrgency: 'low' | 'medium' | 'high';
+  assignedTo?: string;
+  channel?: 'Email' | 'API' | 'Manual' | 'CRM' | 'Others';
+  lastUpdated?: any;
+  tags?: string[];
+  notes?: string; // Kept for backward compat / latest note
+  notesLog?: LeadNote[];
+  smsConsent?: boolean;
+  smsConsentTimestamp?: any;
+  funnelStage: FunnelStage;
+  health: LeadHealth;
+  isMock?: boolean;
+  archivedAt?: any;
+  activatedAt?: any;
+  closedAt?: any;
+}
+
+export interface JourneyEvent {
+  id: string;
+  clientId: string;
+  fromStage: FunnelStage;
+  toStage: FunnelStage;
+  timestamp: any;
+  reason?: string;
+  realtorId: string;
+}
+
+export interface Transaction {
+  id: string;
+  clientId: string;
+  address: string;
+  price: number;
+  status: 'Pre-Listing' | 'Active' | 'Under Contract' | 'Closed' | 'Cancelled';
+  commission?: number;
+  closeDate?: any;
+  checklist: CRMTask[];
+}
+
+export interface CRMTask {
+  id: string;
+  clientId?: string;
+  realtorId: string;
+  title: string;
+  description?: string;
+  dueDate: any;
+  status: 'Pending' | 'Completed';
+  priority: 'Low' | 'Normal' | 'High' | 'Urgent';
+  type: 'Call' | 'Email' | 'Showing' | 'Follow-up' | 'Closing';
+  isMock?: boolean;
+}
+
+export interface ActivityNote {
+  id: string;
+  clientId: string;
+  authorId: string;
+  content: string;
+  timestamp: any;
+  type: 'Note' | 'Email' | 'Call' | 'SMS' | 'System';
+}
+
+export type CommChannel = 'SMS' | 'Email' | 'Call';
+
+export interface CommMessage {
+  id: string;
+  threadId: string;
+  senderId: string;   // Maps to User.uid or Realtor.uid
+  receiverId: string; // Maps to User.uid or Realtor.uid
+  content: string;
+  timestamp: any;
+  channel: CommChannel;
+  status: 'sent' | 'delivered' | 'read' | 'failed';
+  providerId?: string; // e.g. Telnyx Message ID
+  recordingUrl?: string; // For call logs/voicemail drops
+  attachments?: string[];
+  clientId?: string;   // Direct mapping to the consumer
+  realtorId?: string;  // Direct mapping to the agent
+}
+
+export interface CommThread {
+  id: string;
+  clientId: string;
+  realtorId: string;
+  lastMessage?: string;
+  lastTimestamp?: any;
+  channel: CommChannel;
+  unreadCount: number;
+}
+
+export interface CommTemplate {
+  id: string;
+  name: string;
+  content: string;
+  channel: CommChannel;
+  category: 'Follow-up' | 'Introduction' | 'Viewing' | 'Closing';
+  isMock?: boolean;
 }
 
 export interface PropertyData {

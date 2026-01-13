@@ -44,7 +44,7 @@ import ChatInterface from './components/ChatInterface';
 import Logo from './components/Logo';
 import AuthModal from './components/AuthModal';
 import AddClientModal from './components/AddClientModal';
-import ClientDashboard from './components/ClientDashboard';
+import ClientHub from './components/ClientHub';
 
 type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard';
 
@@ -435,8 +435,11 @@ const App: React.FC = () => {
       return;
     }
 
-    const confirmed = window.confirm("WARNING: All your data and saved analysis will be permanently deleted. Are you absolutely sure?");
-    if (!confirmed) return;
+    const input = window.prompt("WARNING: All your data and saved analysis will be permanently deleted.\n\nType DELETE to confirm.");
+    if (input !== 'DELETE') {
+      if (input !== null) alert("Account deletion cancelled. You must type DELETE exactly.");
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -565,7 +568,7 @@ const App: React.FC = () => {
                     className="flex items-center gap-2 bg-indigo-500/20 text-white px-4 py-1.5 rounded-lg hover:bg-indigo-500/30 transition-all border border-indigo-400/30"
                   >
                     <i className="fa-solid fa-chart-line text-xs"></i>
-                    Client Dashboard
+                    ClientHub
                   </button>
                 </>
               )}
@@ -717,7 +720,7 @@ const App: React.FC = () => {
         {error && <div className="bg-rose-50 border border-rose-100 text-rose-700 p-4 rounded-2xl mb-8">{error}</div>}
 
         {viewMode === 'dashboard' && currentUser?.role === 'realtor' ? (
-          <ClientDashboard realtorId={currentUser.uid} onBack={() => setViewMode('main')} />
+          <ClientHub realtorId={currentUser.uid} onBack={() => setViewMode('main')} />
         ) : loading && !propertyData ? (
           <div className="flex flex-col items-center justify-center py-32 text-slate-400">
             <Logo size={220} className="animate-pulse" />

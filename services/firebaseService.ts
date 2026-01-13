@@ -25,7 +25,7 @@ import {
   deleteUser,
   sendPasswordResetEmail
 } from "firebase/auth";
-import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult, InvestmentResearchResult } from "../types";
+import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult, InvestmentResearchResult, CommMessage, FunnelStage, LeadHealth, Lead, CRMTask, CommTemplate } from "../types";
 
 /**
  * FIRESTORE SECURITY RULES (REQUIRED):
@@ -535,6 +535,161 @@ export const verifyFirestoreConnection = async () => {
     return { success: true, message: `Firestore verified. Status: ${authStatus}. Collection 'system_test' updated.` };
   } catch (error: any) {
     return { success: false, message: `${error.message}. Auth was: ${authStatus}` };
+  }
+};
+
+export const updateSmsConsent = async (uid: string, consent: boolean, isLead = false) => {
+  if (!db) return false;
+  try {
+    const docRef = doc(db, isLead ? "leads" : "users", uid);
+    await setDoc(docRef, {
+      smsConsent: consent,
+      smsConsentTimestamp: serverTimestamp()
+    }, { merge: true });
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "updateSmsConsent");
+    return false;
+  }
+};
+
+export const updateFunnelStage = async (id: string, stage: FunnelStage, reason?: string, isLead = false) => {
+  if (!db) return false;
+  try {
+    const docRef = doc(db, isLead ? "leads" : "users", id);
+    const snap = await getDoc(docRef);
+    const oldStage = snap.exists() ? (snap.data().funnelStage as FunnelStage) : 'Inquiry';
+
+    await setDoc(docRef, {
+      funnelStage: stage,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    // Log Journey Event
+    const journeyCol = collection(db, "journey_events");
+    await addDoc(journeyCol, {
+      clientId: id,
+      fromStage: oldStage,
+      toStage: stage,
+      timestamp: serverTimestamp(),
+      reason: reason || 'Manual Update',
+      realtorId: auth?.currentUser?.uid || 'unknown'
+    });
+
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "updateFunnelStage");
+    return false;
+  }
+};
+
+export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMTask[], templates: CommTemplate[]) => {
+  if (!db) return false;
+  try {
+    const batch = writeBatch(db);
+
+    // Seed Leads
+    leads.forEach(lead => {
+      const docRef = doc(collection(db, "leads"), lead.id);
+      batch.set(docRef, { ...lead, isMock: true, realtorId }, { merge: true });
+    });
+
+    // Seed Tasks
+    tasks.forEach(task => {
+      const docRef = doc(collection(db, "tasks"), task.id);
+      batch.set(docRef, { ...task, isMock: true, realtorId }, { merge: true });
+    });
+
+    // Seed Templates
+    templates.forEach(template => {
+      const docRef = doc(collection(db, "templates"), template.id);
+      batch.set(docRef, { ...template, isMock: true, realtorId }, { merge: true });
+    });
+
+    await batch.commit();
+    console.log("[Seeding] Mock data successfully committed to Firestore.");
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "seedMockData");
+    return false;
+  }
+};
+
+export const updateLead = async (leadId: string, updates: Partial<Lead>) => {
+  if (!db) return false;
+  try {
+    const docRef = doc(db, "leads", leadId);
+    await setDoc(docRef, {
+      ...updates,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "updateLead");
+    return false;
+  }
+};
+
+export const getLeads = async (realtorId: string) => {
+  if (!db) return [];
+  try {
+    const q = query(collection(db, "leads"), where("realtorId", "==", realtorId));
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Lead));
+  } catch (error) {
+    handleFirestoreError(error, "getLeads");
+    return [];
+  }
+};
+
+export const getTasks = async (realtorId: string) => {
+  if (!db) return [];
+  try {
+    const q = query(collection(db, "tasks"), where("realtorId", "==", realtorId));
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CRMTask));
+  } catch (error) {
+    handleFirestoreError(error, "getTasks");
+    return [];
+  }
+};
+
+export const getTemplates = async (realtorId: string) => {
+  if (!db) return [];
+  try {
+    const q = query(collection(db, "templates"), where("realtorId", "==", realtorId));
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CommTemplate));
+  } catch (error) {
+    handleFirestoreError(error, "getTemplates");
+    return [];
+  }
+};
+
+export const persistCommMessage = async (message: Partial<CommMessage>, clientId?: string) => {
+  if (!db) return null;
+  try {
+    const messagesCol = collection(db, "messages");
+    const docRef = await addDoc(messagesCol, {
+      ...message,
+      timestamp: serverTimestamp()
+    });
+
+    // Auto-log to Activity Timeline
+    if (clientId) {
+      const activityCol = collection(db, "users", clientId, "activity");
+      await addDoc(activityCol, {
+        type: 'SMS',
+        content: message.content,
+        timestamp: serverTimestamp(),
+        authorId: message.senderId
+      });
+    }
+
+    return docRef.id;
+  } catch (error) {
+    handleFirestoreError(error, "persistCommMessage");
+    return null;
   }
 };
 

@@ -33,6 +33,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
   const [email, setEmail] = useState(inviteData?.email || '');
   const [password, setPassword] = useState('');
   const [name, setName] = useState(inviteData?.name || '');
+  const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [role, setRole] = useState<'buyer' | 'seller' | 'realtor'>(inviteData?.role || 'buyer');
   const [loading, setLoading] = useState(false);
@@ -182,6 +183,10 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
       setError("Password must be at least 6 characters.");
       return;
     }
+    if (!isLogin && !phone) {
+      setError("Phone number is required.");
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -203,6 +208,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
           displayName: name,
           role,
           address: address || null,
+          phoneNumber: phone,
           realtorId: inviteData?.realtorId,
           createdAt: new Date()
         });
@@ -374,6 +380,18 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
                     onChange={(e) => setName(e.target.value)}
                     className="w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all"
                     placeholder="John Doe"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Phone Number</label>
+                  <input
+                    type="tel"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all"
+                    placeholder="(555) 000-0000"
                   />
                 </div>
 
