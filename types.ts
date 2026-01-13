@@ -14,6 +14,8 @@ export interface UserProfile {
   funnelStage?: FunnelStage;
   health?: LeadHealth;
   conversionDate?: any; // Date they moved from Lead to Client
+  minPrice?: number;
+  maxPrice?: number;
   isMock?: boolean;
   createdAt?: any;
 }
@@ -62,6 +64,7 @@ export interface Lead {
   propertyAddress?: string;
   zpid?: string;
   price?: number;
+  minPrice?: number;
   propertyType?: string;
   bedrooms?: number;
   bathrooms?: number;
@@ -93,6 +96,7 @@ export interface Lead {
   archivedAt?: any;
   activatedAt?: any;
   closedAt?: any;
+  collectionName?: string;
 }
 
 export interface JourneyEvent {

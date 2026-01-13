@@ -590,7 +590,8 @@ export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMT
 
     // Seed Leads
     leads.forEach(lead => {
-      const docRef = doc(collection(db, "leads"), lead.id);
+      const targetColl = lead.collectionName || "leads";
+      const docRef = doc(collection(db, targetColl), lead.id);
       batch.set(docRef, { ...lead, isMock: true, realtorId }, { merge: true });
     });
 
@@ -615,27 +616,62 @@ export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMT
   }
 };
 
-export const updateLead = async (leadId: string, updates: Partial<Lead>) => {
+export const updateLead = async (leadId: string, updates: Partial<Lead>, collectionName: string = 'leads') => {
   if (!db) return false;
   try {
-    const docRef = doc(db, "leads", leadId);
+    const docRef = doc(db, collectionName, leadId);
     await setDoc(docRef, {
       ...updates,
       updatedAt: serverTimestamp()
     }, { merge: true });
     return true;
   } catch (error) {
-    handleFirestoreError(error, "updateLead");
+    handleFirestoreError(error, `updateLead (${collectionName})`);
     return false;
   }
 };
 
-export const getLeads = async (realtorId: string) => {
+export const activateLeadToCollection = async (lead: Lead) => {
+  if (!db) return false;
+  try {
+    const batch = writeBatch(db);
+    const oldRef = doc(db, "leads", lead.id);
+    const targetCollection = lead.leadType === 'Seller' ? 'sellers' : 'buyers';
+    const newRef = doc(db, targetCollection, lead.id);
+
+    const updatedLead = {
+      ...lead,
+      status: 'Active', // Or whatever is appropriate for "activated"
+      funnelStage: 'Nurture',
+      activatedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    batch.set(newRef, sanitizeForFirestore(updatedLead));
+    batch.delete(oldRef);
+
+    await batch.commit();
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "activateLeadToCollection");
+    return false;
+  }
+};
+
+export const getLeads = async (realtorId: string, collectionNames: string[] = ['leads']) => {
   if (!db) return [];
   try {
-    const q = query(collection(db, "leads"), where("realtorId", "==", realtorId));
-    const snap = await getDocs(q);
-    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Lead));
+    const allLeads: Lead[] = [];
+    for (const name of collectionNames) {
+      const q = query(collection(db, name), where("realtorId", "==", realtorId));
+      const snap = await getDocs(q);
+      allLeads.push(...snap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        collectionName: name
+      } as Lead)));
+    }
+    return allLeads;
   } catch (error) {
     handleFirestoreError(error, "getLeads");
     return [];

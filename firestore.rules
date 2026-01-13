@@ -75,6 +75,14 @@ service cloud.firestore {
       allow read, write: if isRealtor() && (resource == null || resource.data.realtorId == request.auth.uid);
     }
 
+    match /buyers/{leadId} {
+      allow read, write: if isRealtor() && (resource == null || resource.data.realtorId == request.auth.uid);
+    }
+
+    match /sellers/{leadId} {
+      allow read, write: if isRealtor() && (resource == null || resource.data.realtorId == request.auth.uid);
+    }
+
     match /tasks/{taskId} {
       // Realtors manage their own tasks
       allow read, write: if isRealtor() && (resource == null || resource.data.realtorId == request.auth.uid);
