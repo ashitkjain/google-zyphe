@@ -300,21 +300,13 @@ const LeadsList: React.FC<InternalProps> = ({ leads, onUpdateLead, onViewLead, o
                             <div className="mt-4">
                                 {viewMode === 'new' && (
                                     <div className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                                        Incoming Pool
+
                                         <span className="text-sm font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full uppercase tracking-widest">
                                             {filteredLeads.length} Items
                                         </span>
                                     </div>
                                 )}
-                                {viewMode === 'active' && (
-                                    <div className="text-2xl font-black text-slate-900 tracking-tight">Active Pipeline</div>
-                                )}
-                                {viewMode === 'closed' && (
-                                    <div className="text-2xl font-black text-slate-900 tracking-tight">Closed Transactions <span className="text-sm font-bold text-slate-400 ml-2">(Last 3 Months)</span></div>
-                                )}
-                                {viewMode === 'archived' && (
-                                    <div className="text-2xl font-black text-slate-900 tracking-tight">Archive Library</div>
-                                )}
+
                             </div>
                         </div>
                     </div>
@@ -483,7 +475,8 @@ const LeadsList: React.FC<InternalProps> = ({ leads, onUpdateLead, onViewLead, o
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {filteredLeads.map((lead, index) => (
-                            <tr key={lead.id} className="hover:bg-slate-50 group text-slate-700 text-xs transition-colors">
+                            <tr key={lead.id} className={`group text-slate-700 text-xs transition-colors ${viewMode === 'closed' && lead.status === 'Closed-Won' ? 'bg-emerald-50/50 hover:bg-emerald-100/50' : viewMode === 'closed' && lead.status === 'Closed-Lost' ? 'bg-rose-50/50 hover:bg-rose-100/50' : 'hover:bg-slate-50'
+                                }`}>
                                 <td className="px-4 py-3 border-b border-slate-100 text-center text-slate-400 opacity-50">
                                     {index + 1}
                                 </td>

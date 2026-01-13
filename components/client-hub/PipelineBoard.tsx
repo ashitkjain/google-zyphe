@@ -6,7 +6,8 @@ const TypedDraggable = Draggable as any;
 const TypedDroppable = Droppable as any;
 
 interface PipelineBoardProps {
-    activeTab: 'buying' | 'selling';
+    subTab: 'buying' | 'selling';
+    setSubTab: (tab: 'buying' | 'selling') => void;
     leads: Lead[];
     setEditingLead: (lead: Lead) => void;
     handleDragEnd: (result: DropResult) => void;
@@ -14,7 +15,8 @@ interface PipelineBoardProps {
 }
 
 const PipelineBoard: React.FC<PipelineBoardProps> = ({
-    activeTab,
+    subTab,
+    setSubTab,
     leads,
     setEditingLead,
     handleDragEnd,
@@ -22,7 +24,7 @@ const PipelineBoard: React.FC<PipelineBoardProps> = ({
 }) => {
     const columns = [
         { stage: 'Nurture', label: 'Nurture', color: '#f59e0b', icon: 'fa-leaf' },
-        { stage: 'Active', label: activeTab === 'buying' ? 'Active Search' : 'Showing', color: '#6366f1', icon: 'fa-house-fire' },
+        { stage: 'Active', label: subTab === 'buying' ? 'Active Search' : 'Showing', color: '#6366f1', icon: 'fa-house-fire' },
         { stage: 'Offer', label: 'Offer', color: '#f43f5e', icon: 'fa-file-invoice-dollar' },
         { stage: 'UnderContract', label: 'Contract', color: '#10b981', icon: 'fa-handshake' },
         { stage: 'Closed', label: 'Closed', color: '#94a3b8', icon: 'fa-flag-checkered' },
@@ -31,13 +33,22 @@ const PipelineBoard: React.FC<PipelineBoardProps> = ({
     return (
         <div className="flex-1 flex flex-col h-full bg-[#F8FAFC] overflow-hidden">
             <div className="p-10 bg-white border-b border-slate-200/60 flex items-center justify-between shadow-sm relative z-20">
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight">
-                    {activeTab === 'buying' ? 'Buyer Pipeline' : 'Seller Pipeline'}
-                </h2>
-                <div className="flex items-center gap-3">
-                    <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest ${activeTab === 'buying' ? 'bg-indigo-50 text-indigo-600' : 'bg-rose-50 text-rose-600'}`}>
-                        {activeTab === 'buying' ? 'Buyers' : 'Sellers'}
-                    </span>
+                <div className="flex items-center gap-6">
+
+                    <div className="flex bg-slate-100 p-1 rounded-xl">
+                        <button
+                            onClick={() => setSubTab('buying')}
+                            className={`px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${subTab === 'buying' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            Buyers
+                        </button>
+                        <button
+                            onClick={() => setSubTab('selling')}
+                            className={`px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${subTab === 'selling' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            Sellers
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -52,7 +63,7 @@ const PipelineBoard: React.FC<PipelineBoardProps> = ({
                                     {col.label}
                                 </h3>
                                 <span className="text-[10px] font-bold text-slate-300">
-                                    {leads.filter(l => l.funnelStage === col.stage && l.collectionName === (activeTab === 'buying' ? 'buyers' : 'sellers')).length}
+                                    {leads.filter(l => l.funnelStage === col.stage && l.collectionName === (subTab === 'buying' ? 'buyers' : 'sellers')).length}
                                 </span>
                             </div>
 
@@ -65,7 +76,7 @@ const PipelineBoard: React.FC<PipelineBoardProps> = ({
                                         style={{ minHeight: '100px' }}
                                     >
                                         {leads
-                                            .filter(l => l.funnelStage === col.stage && l.collectionName === (activeTab === 'buying' ? 'buyers' : 'sellers'))
+                                            .filter(l => l.funnelStage === col.stage && l.collectionName === (subTab === 'buying' ? 'buyers' : 'sellers'))
                                             .map((lead, index) => (
                                                 <TypedDraggable key={lead.id} draggableId={lead.id} index={index}>
                                                     {(provided: any, snapshot: any) => (
@@ -87,7 +98,7 @@ const PipelineBoard: React.FC<PipelineBoardProps> = ({
                                                                 )}
                                                             </div>
 
-                                                            {lead.propertyAddress && activeTab !== 'buying' && (
+                                                            {lead.propertyAddress && subTab !== 'buying' && (
                                                                 <div className="text-[10px] text-slate-500 font-medium mb-1 truncate flex items-center gap-1.5 gray-400">
                                                                     <i className="fa-solid fa-location-dot opacity-30 text-[8px]"></i>
                                                                     {lead.propertyAddress}
@@ -121,7 +132,7 @@ const PipelineBoard: React.FC<PipelineBoardProps> = ({
                                                                     )}
                                                                 </div>
                                                                 <div className="flex items-center gap-3">
-                                                                    {activeTab === 'buying' ? (
+                                                                    {subTab === 'buying' ? (
                                                                         (lead.minPrice || lead.maxPrice) && (
                                                                             <div className="text-[10px] font-black text-slate-900">
                                                                                 {lead.minPrice ? `$${(lead.minPrice / 1000).toFixed(0)}k` : '?'} - {lead.maxPrice ? `$${(lead.maxPrice / 1000).toFixed(0)}k` : '?'}
@@ -143,11 +154,11 @@ const PipelineBoard: React.FC<PipelineBoardProps> = ({
                                             ))}
                                         {provided.placeholder}
                                         <button
-                                            onClick={() => handleCreateLead({ funnelStage: col.stage as FunnelStage, leadType: activeTab === 'buying' ? 'Buyer' : 'Seller', status: 'Active' })}
+                                            onClick={() => handleCreateLead({ funnelStage: col.stage as FunnelStage, leadType: subTab === 'buying' ? 'Buyer' : 'Seller', status: 'Active' })}
                                             className="w-full py-4 border-2 border-dashed border-slate-200 rounded-[2rem] text-[10px] font-black uppercase tracking-widest text-slate-300 hover:border-indigo-300 hover:text-indigo-500 hover:bg-slate-50 transition-all group/btn mt-2"
                                         >
                                             <i className="fa-solid fa-plus mr-2 group-hover/btn:scale-110 transition-transform"></i>
-                                            Add {activeTab === 'buying' ? 'Buyer' : 'Seller'}
+                                            Add {subTab === 'buying' ? 'Buyer' : 'Seller'}
                                         </button>
                                     </div>
                                 )}

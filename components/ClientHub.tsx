@@ -18,10 +18,11 @@ interface Props {
     onBack: () => void;
 }
 
-type HubTab = 'clients' | 'leads' | 'properties' | 'selling' | 'buying' | 'tasks' | 'comms';
+type HubTab = 'clients' | 'leads' | 'properties' | 'pipeline' | 'tasks' | 'comms';
 
 const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
     const [activeTab, setActiveTab] = useState<HubTab>('leads');
+    const [pipelineSubTab, setPipelineSubTab] = useState<'buying' | 'selling'>('buying');
     const [clients, setClients] = useState<UserProfile[]>([]);
     const [selectedClient, setSelectedClient] = useState<UserProfile | null>(null);
     const [clientActivity, setClientActivity] = useState<{ favorites: any[], views: any[] }>({ favorites: [], views: [] });
@@ -353,8 +354,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
 
     const tabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'leads', label: 'Leads', icon: 'fa-bullseye' },
-        { id: 'buying', label: 'Buyer Pipeline', icon: 'fa-cart-shopping' },
-        { id: 'selling', label: 'Seller Pipeline', icon: 'fa-route' },
+        { id: 'pipeline', label: 'Pipeline', icon: 'fa-diagram-project' },
         { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
         { id: 'properties', label: 'Properties', icon: 'fa-house-chimney' },
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
@@ -393,10 +393,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-white/5 rounded-2xl border border-white/10">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">AI Integration Active</span>
-                    </div>
+
                     <button
                         onClick={onBack}
                         className="group flex items-center gap-2 text-white font-black uppercase tracking-widest text-[10px] bg-indigo-600 px-6 py-3 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
@@ -428,9 +425,10 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
                     />
                 )}
 
-                {(activeTab === 'buying' || activeTab === 'selling') && (
+                {activeTab === 'pipeline' && (
                     <PipelineBoard
-                        activeTab={activeTab}
+                        subTab={pipelineSubTab}
+                        setSubTab={setPipelineSubTab}
                         leads={leads}
                         setEditingLead={setEditingLead}
                         handleDragEnd={handleDragEnd}
