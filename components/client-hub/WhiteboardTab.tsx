@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-type Tool = 'select' | 'note' | 'text' | 'pen' | 'sticker' | 'eraser';
+type Tool = 'select' | 'note' | 'text' | 'pen' | 'sticker' | 'eraser' | 'arrow';
 type NoteColor = 'yellow' | 'blue' | 'green' | 'pink' | 'purple';
 
 interface BoardItem {
@@ -14,6 +14,7 @@ interface BoardItem {
     height?: number;
     rotation?: number;
     stickerType?: string;
+    fontSize?: number;
 }
 
 interface Path {
@@ -21,6 +22,7 @@ interface Path {
     points: { x: number; y: number }[];
     color: string;
     width: number;
+    type?: 'freehand' | 'arrow';
 }
 
 const WhiteboardTab: React.FC = () => {
@@ -32,7 +34,7 @@ const WhiteboardTab: React.FC = () => {
         return saved ? JSON.parse(saved) : [
             { id: '1', type: 'note', x: 200, y: 150, content: 'Welcome to the Whiteboard!', color: 'yellow', rotation: -2, width: 200, height: 200 },
             { id: '2', type: 'note', x: 500, y: 100, content: 'Brainstorm stats here...', color: 'blue', rotation: 3, width: 200, height: 200 },
-            { id: '3', type: 'text', x: 350, y: 350, content: 'What are your tips & tricks on staying productive in WFH setting?', width: 500 },
+            { id: '3', type: 'text', x: 350, y: 350, content: 'What are your tips & tricks on staying productive in WFH setting?', width: 500, fontSize: 24 },
         ];
     });
 
@@ -58,6 +60,10 @@ const WhiteboardTab: React.FC = () => {
     const [draggingId, setDraggingId] = useState<string | null>(null);
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
+    // Resizing State
+    const [resizingId, setResizingId] = useState<string | null>(null);
+    const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, w: 0, h: 0 });
+
     const canvasRef = useRef<HTMLDivElement>(null);
     const svgRef = useRef<SVGSVGElement>(null);
 
@@ -69,6 +75,17 @@ const WhiteboardTab: React.FC = () => {
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
                 setCurrentPath([{ x, y }]);
+            }
+            return;
+        }
+
+        if (activeTool === 'arrow') {
+            setIsDrawing(true);
+            const rect = svgRef.current?.getBoundingClientRect();
+            if (rect) {
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                setCurrentPath([{ x, y }, { x, y }]);
             }
             return;
         }
@@ -104,7 +121,8 @@ const WhiteboardTab: React.FC = () => {
                     type: 'text',
                     x,
                     y,
-                    content: 'Type here...'
+                    content: 'Type here...',
+                    fontSize: 24
                 };
                 setItems(prev => [...prev, newItem]);
                 setActiveTool('select'); // Switch back to select
@@ -120,6 +138,24 @@ const WhiteboardTab: React.FC = () => {
 
         if (activeTool === 'pen' && isDrawing) {
             setCurrentPath(prev => [...prev, { x, y }]);
+            setCurrentPath(prev => [...prev, { x, y }]);
+            return;
+        }
+
+        if (activeTool === 'arrow' && isDrawing) {
+            setCurrentPath(prev => [prev[0], { x, y }]);
+            return;
+        }
+
+        if (resizingId) {
+            const dx = e.clientX - resizeStart.x;
+            const dy = e.clientY - resizeStart.y;
+            setItems(prev => prev.map(item =>
+                item.id === resizingId
+                    ? { ...item, width: Math.max(100, resizeStart.w + dx), height: Math.max(50, resizeStart.h + dy) }
+                    : item
+            ));
+            return;
         }
 
         if (draggingId) {
@@ -143,8 +179,35 @@ const WhiteboardTab: React.FC = () => {
                 }]);
             }
             setCurrentPath([]);
+            setCurrentPath([]);
+        }
+        if (activeTool === 'arrow' && isDrawing) {
+            setIsDrawing(false);
+            if (currentPath.length === 2 && (currentPath[0].x !== currentPath[1].x || currentPath[0].y !== currentPath[1].y)) {
+                setPaths(prev => [...prev, {
+                    id: Date.now().toString(),
+                    points: currentPath,
+                    color: '#000',
+                    width: 3,
+                    type: 'arrow'
+                }]);
+            }
+            setCurrentPath([]);
         }
         setDraggingId(null);
+        setResizingId(null);
+    };
+
+    const startResize = (e: React.MouseEvent, item: BoardItem) => {
+        e.stopPropagation();
+        e.preventDefault();
+        setResizingId(item.id);
+        setResizeStart({
+            x: e.clientX,
+            y: e.clientY,
+            w: item.width || (item.type === 'note' ? 192 : 300),
+            h: item.height || (item.type === 'note' ? 192 : 100)
+        });
     };
 
     const startDrag = (e: React.MouseEvent, item: BoardItem) => {
@@ -161,6 +224,16 @@ const WhiteboardTab: React.FC = () => {
 
     const updateItemContent = (id: string, content: string) => {
         setItems(prev => prev.map(item => item.id === id ? { ...item, content } : item));
+    };
+
+    const updateItemFontSize = (id: string, delta: number) => {
+        setItems(prev => prev.map(item => {
+            if (item.id === id) {
+                const newSize = Math.max(12, Math.min(96, (item.fontSize || 24) + delta));
+                return { ...item, fontSize: newSize };
+            }
+            return item;
+        }));
     };
 
     const deleteItem = (id: string) => {
@@ -187,20 +260,11 @@ const WhiteboardTab: React.FC = () => {
                 <ToolButton icon="fa-font" tool="text" active={activeTool} onClick={() => setActiveTool('text')} />
                 <ToolButton icon="fa-note-sticky" tool="note" active={activeTool} onClick={() => setActiveTool('note')} />
                 <ToolButton icon="fa-pen" tool="pen" active={activeTool} onClick={() => setActiveTool('pen')} />
+                <ToolButton icon="fa-arrow-right-long" tool="arrow" active={activeTool} onClick={() => setActiveTool('arrow')} label="Arrow" />
                 <ToolButton icon="fa-eraser" tool="eraser" active={activeTool} onClick={() => setActiveTool('eraser')} />
                 <ToolButton icon="fa-icons" tool="sticker" active={activeTool} onClick={() => setActiveTool('select')} label="Sticker" disabled />
-                <div className="h-px bg-slate-100 my-1"></div>
-                <button className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Clear Board" onClick={() => {
-                    if (confirm('Are you sure you want to clear the whiteboard?')) {
-                        setItems([]);
-                        setPaths([]);
-                        sessionStorage.removeItem('zyphe_wb_items');
-                        sessionStorage.removeItem('zyphe_wb_paths');
-                    }
-                }}>
-                    <i className="fa-solid fa-trash-can"></i>
-                </button>
             </div>
+
 
             {/* Canvas Area */}
             <div
@@ -217,35 +281,68 @@ const WhiteboardTab: React.FC = () => {
             >
                 {/* SVG Layer for Drawings */}
                 <svg ref={svgRef} className="absolute inset-0 w-full h-full pointer-events-none z-10">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#000" />
+                        </marker>
+                    </defs>
                     {paths.map(path => (
                         <React.Fragment key={path.id}>
                             {/* Eraser Hitbox */}
                             {activeTool === 'eraser' && (
+                                path.type === 'arrow' ? (
+                                    <line
+                                        x1={path.points[0].x}
+                                        y1={path.points[0].y}
+                                        x2={path.points[1].x}
+                                        y2={path.points[1].y}
+                                        stroke="transparent"
+                                        strokeWidth={20}
+                                        className="cursor-cell"
+                                        style={{ pointerEvents: 'all' }}
+                                        onClick={(e) => { e.stopPropagation(); deletePath(path.id); }}
+                                        onMouseEnter={(e) => { if (e.buttons === 1) deletePath(path.id); }}
+                                    />
+                                ) : (
+                                    <polyline
+                                        points={path.points.map(p => `${p.x},${p.y}`).join(' ')}
+                                        fill="none"
+                                        stroke="transparent"
+                                        strokeWidth={20}
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        className="cursor-cell"
+                                        style={{ pointerEvents: 'all' }}
+                                        onClick={(e) => { e.stopPropagation(); deletePath(path.id); }}
+                                        onMouseEnter={(e) => { if (e.buttons === 1) deletePath(path.id); }}
+                                    />
+                                )
+                            )}
+                            {path.type === 'arrow' ? (
+                                <line
+                                    x1={path.points[0].x}
+                                    y1={path.points[0].y}
+                                    x2={path.points[1].x}
+                                    y2={path.points[1].y}
+                                    stroke={path.color}
+                                    strokeWidth={path.width}
+                                    markerEnd="url(#arrowhead)"
+                                    style={{ opacity: activeTool === 'eraser' ? 0.3 : 1, transition: 'opacity 0.2s' }}
+                                />
+                            ) : (
                                 <polyline
                                     points={path.points.map(p => `${p.x},${p.y}`).join(' ')}
                                     fill="none"
-                                    stroke="transparent"
-                                    strokeWidth={20}
+                                    stroke={path.color}
+                                    strokeWidth={path.width}
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
-                                    className="cursor-cell"
-                                    style={{ pointerEvents: 'all' }}
-                                    onClick={(e) => { e.stopPropagation(); deletePath(path.id); }}
-                                    onMouseEnter={(e) => { if (e.buttons === 1) deletePath(path.id); }}
+                                    style={{ opacity: activeTool === 'eraser' ? 0.3 : 1, transition: 'opacity 0.2s' }}
                                 />
                             )}
-                            <polyline
-                                points={path.points.map(p => `${p.x},${p.y}`).join(' ')}
-                                fill="none"
-                                stroke={path.color}
-                                strokeWidth={path.width}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                style={{ opacity: activeTool === 'eraser' ? 0.3 : 1, transition: 'opacity 0.2s' }}
-                            />
                         </React.Fragment>
                     ))}
-                    {currentPath.length > 0 && (
+                    {currentPath.length > 0 && activeTool === 'pen' && (
                         <polyline
                             points={currentPath.map(p => `${p.x},${p.y}`).join(' ')}
                             fill="none"
@@ -253,6 +350,17 @@ const WhiteboardTab: React.FC = () => {
                             strokeWidth="3"
                             strokeLinecap="round"
                             strokeLinejoin="round"
+                        />
+                    )}
+                    {currentPath.length > 0 && activeTool === 'arrow' && (
+                        <line
+                            x1={currentPath[0].x}
+                            y1={currentPath[0].y}
+                            x2={currentPath[1].x}
+                            y2={currentPath[1].y}
+                            stroke="#000"
+                            strokeWidth="3"
+                            markerEnd="url(#arrowhead)"
                         />
                     )}
                 </svg>
@@ -278,17 +386,13 @@ const WhiteboardTab: React.FC = () => {
 
                         {item.type === 'note' && (
                             <div
-                                className={`p-4 shadow-lg ${getColorClass(item.color || 'yellow')} flex flex-col justify-start relative transition-shadow hover:shadow-2xl resize-both overflow-hidden`}
+                                className={`p-4 shadow-lg ${getColorClass(item.color || 'yellow')} flex flex-col justify-start relative transition-shadow hover:shadow-2xl overflow-hidden`}
                                 style={{
-                                    width: item.width || 192, // w-48 is 192px
+                                    width: item.width || 192,
                                     height: item.height || 192,
                                     boxShadow: '2px 4px 12px rgba(0,0,0,0.1), 0 0 2px rgba(0,0,0,0.05)',
                                     minWidth: '100px',
                                     minHeight: '100px'
-                                }}
-                                onMouseUp={(e) => {
-                                    const target = e.currentTarget;
-                                    setItems(prev => prev.map(i => i.id === item.id ? { ...i, width: target.clientWidth, height: target.clientHeight } : i));
                                 }}
                             >
                                 <textarea
@@ -298,38 +402,67 @@ const WhiteboardTab: React.FC = () => {
                                     onChange={(e) => updateItemContent(item.id, e.target.value)}
                                     onClick={(e) => e.stopPropagation()}
                                 />
+                                <div
+                                    className="absolute bottom-1 right-1 w-6 h-6 cursor-se-resize z-50 opacity-20 hover:opacity-100 flex items-end justify-end p-1"
+                                    onMouseDown={(e) => startResize(e, item)}
+                                >
+                                    <i className="fa-solid fa-caret-down -rotate-45 text-slate-800"></i>
+                                </div>
                             </div>
                         )}
 
                         {item.type === 'text' && (
                             <div
-                                className="resize-both overflow-hidden bg-white/50 rounded-lg p-2 focus-within:bg-white focus-within:shadow-sm border border-transparent focus-within:border-slate-200 transition-colors"
+                                className="bg-white/50 rounded-lg p-2 focus-within:bg-white focus-within:shadow-sm border border-transparent focus-within:border-slate-200 transition-colors relative group/text"
                                 style={{
                                     width: item.width || 300,
                                     height: item.height || 'auto',
                                     minWidth: '150px',
                                     minHeight: '50px'
                                 }}
-                                onMouseUp={(e) => {
-                                    // Capture resize end
-                                    const target = e.currentTarget;
-                                    setItems(prev => prev.map(i => i.id === item.id ? { ...i, width: target.clientWidth, height: target.clientHeight } : i));
-                                }}
                             >
                                 <textarea
-                                    className="w-full h-full bg-transparent resize-none border-none focus:ring-0 text-slate-900 font-bold text-2xl placeholder-slate-300 leading-tight text-center"
+                                    className="w-full h-full bg-transparent resize-none border-none focus:ring-0 text-slate-900 font-bold placeholder-slate-300 leading-tight text-center"
                                     value={item.content}
                                     placeholder="Type Text..."
-                                    style={{ height: '100%' }}
+                                    style={{ height: '100%', fontSize: item.fontSize || 24 }}
                                     onChange={(e) => updateItemContent(item.id, e.target.value)}
                                     onClick={(e) => e.stopPropagation()}
                                 />
+                                {/* Resize Handle */}
+                                <div
+                                    className="absolute bottom-1 right-1 w-6 h-6 cursor-se-resize z-50 opacity-0 group-hover/text:opacity-50 hover:!opacity-100 flex items-end justify-end p-1"
+                                    onMouseDown={(e) => startResize(e, item)}
+                                >
+                                    <i className="fa-solid fa-caret-down -rotate-45 text-slate-400"></i>
+                                </div>
+
+                                {/* Font Size Controls */}
+                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 flex gap-1 opacity-0 group-hover/text:opacity-100 transition-opacity z-50 bg-white shadow-sm border border-slate-100 rounded-lg p-1">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); updateItemFontSize(item.id, -4); }}
+                                        className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-50 rounded text-xs"
+                                        title="Decrease Font Size"
+                                    >
+                                        <i className="fa-solid fa-minus"></i>
+                                    </button>
+                                    <div className="flex items-center justify-center w-6 text-[10px] font-bold text-slate-400 select-none">
+                                        {item.fontSize || 24}
+                                    </div>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); updateItemFontSize(item.id, 4); }}
+                                        className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-50 rounded text-xs"
+                                        title="Increase Font Size"
+                                    >
+                                        <i className="fa-solid fa-plus"></i>
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
                 ))}
             </div>
-        </div>
+        </div >
     );
 };
 
