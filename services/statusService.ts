@@ -1,6 +1,7 @@
 import { StatusOption } from '../types';
 
 export const DEFAULT_SELLER_STATUSES: StatusOption[] = [
+    { label: 'New', description: 'Fresh inquiry from lead source', isDefault: true },
     { label: 'Qualified', description: 'Meets our seller criteria', isDefault: true },
     { label: 'Meeting Fixed', description: 'Property inspection and discussion with the seller', isDefault: true },
     { label: 'Listing Agreement Sent', description: 'Seller needs to e-sign the agreement', isDefault: true },
@@ -13,6 +14,7 @@ export const DEFAULT_SELLER_STATUSES: StatusOption[] = [
 ];
 
 export const DEFAULT_BUYER_STATUSES: StatusOption[] = [
+    { label: 'New', description: 'Fresh inquiry from lead source', isDefault: true },
     { label: 'Qualified', description: 'Meets our buyer criteria', isDefault: true },
     { label: 'Meeting Fixed', description: 'Discussion with the buyer', isDefault: true },
     { label: 'Buyer Broker Agreement Sent', description: 'Buyer needs to e-sign the agreement', isDefault: true },
