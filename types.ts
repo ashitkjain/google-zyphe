@@ -1,5 +1,11 @@
 
 
+export interface StatusOption {
+  label: string;
+  description: string;
+  isDefault?: boolean;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -19,10 +25,16 @@ export interface UserProfile {
   isMock?: boolean;
   createdAt?: any;
   kyc?: KYCData;
+  settings?: {
+    leadStatuses?: {
+      buyer: StatusOption[];
+      seller: StatusOption[];
+    }
+  };
 }
 
-export type LeadSource = 'Zillow' | 'Realtor.com' | 'Facebook' | 'Website' | 'Manual' | 'Referral';
-export type LeadStatus = 'New' | 'Qualified' | 'Attempted to Contact' | 'Connected' | 'Appointment Scheduled' | 'Listing Agreement Sent/Signed' | 'Active' | 'Closed-Won' | 'Closed-Lost' | 'Archived';
+export type LeadSource = 'Zillow' | 'Realtor.com' | 'Facebook' | 'Website' | 'Manual' | 'Referral' | 'Instagram' | 'Google' | 'Direct';
+export type LeadStatus = string; // Changed from union to string to support custom statuses
 
 export type FunnelStage =
   | 'Inquiry'      // Initial lead
@@ -99,7 +111,9 @@ export interface KYCData {
 export interface Lead {
   id: string;
   // 1. Contact Information
-  name: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl?: string;
   email: string;
   phone: string;
   preferredContactMethod?: 'Call' | 'Text' | 'Email';
@@ -111,6 +125,26 @@ export interface Lead {
   hasHomeToSell?: boolean;
   tourRequestDate?: any;
   tourRequestTime?: string;
+
+  // Lead Context from UI requirements (Buyer & Seller)
+  isAlsoBuying?: boolean;
+  isAlsoSelling?: boolean;
+  gender?: string;
+  existingAgentName?: string;
+  reasonForSelling?: string;
+  homeValueNeeded?: boolean;
+  mostImportantToSeller?: string;
+  sellWhen?: string;
+  occupancyStatus?: string;
+  expectedPrice?: number;
+
+  // Buyer specific context
+  dealStage?: string;
+  leaseEndDate?: any;
+  preQualified?: boolean;
+  budgetRange?: string;
+  preferredNeighborhood?: string;
+  dealStatus?: 'Won' | 'Lost' | string;
 
   // 3. Property Details (Subject Property)
   propertyAddress?: string;
@@ -138,7 +172,7 @@ export interface Lead {
   channel?: 'Email' | 'API' | 'Manual' | 'CRM' | 'Others';
   lastUpdated?: any;
   tags?: string[];
-  notes?: string; // Kept for backward compat / latest note
+  notes?: string;
   notesLog?: LeadNote[];
   smsConsent?: boolean;
   smsConsentTimestamp?: any;

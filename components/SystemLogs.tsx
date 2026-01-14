@@ -58,7 +58,7 @@ const SystemLogs: React.FC<Props> = ({ logs }) => {
             </div>
             <span className="text-gray-400 text-xs font-bold">prop-intel-terminal — v1.0.4</span>
           </div>
-          <div className="p-5 max-h-[600px] overflow-y-auto space-y-5 no-scrollbar">
+          <div className="p-5 max-h-[600px] overflow-y-auto space-y-5">
             {logs.map((log, idx) => {
               const isError = log.type === 'error';
               const isExpanded = expandedLogs.has(idx);
@@ -102,21 +102,6 @@ const SystemLogs: React.FC<Props> = ({ logs }) => {
           </div>
         </div>
       )}
-      <style>{`
-        .no-scrollbar::-webkit-scrollbar {
-          width: 8px;
-        }
-        .no-scrollbar::-webkit-scrollbar-track {
-          background: #111827;
-        }
-        .no-scrollbar::-webkit-scrollbar-thumb {
-          background: #374151;
-          border-radius: 4px;
-        }
-        .no-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #4b5563;
-        }
-      `}</style>
     </div>
   );
 };

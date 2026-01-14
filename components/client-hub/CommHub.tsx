@@ -1,5 +1,5 @@
 import React, { RefObject } from 'react';
-import { CommMessage, UserProfile, CommTemplate } from '../../types';
+import { CommMessage, UserProfile, CommTemplate, Lead } from '../../types';
 
 interface CommHubProps {
     messages: CommMessage[];
@@ -34,6 +34,12 @@ const CommHub: React.FC<CommHubProps> = ({
     handleGrantConsent,
     templates
 }) => {
+    const getClientName = (client: UserProfile | Lead | null) => {
+        if (!client) return 'Client';
+        if ('displayName' in client) return client.displayName;
+        return `${client.firstName} ${client.lastName}`;
+    };
+
     return (
         <div className="flex-1 flex flex-col h-full bg-[#F8FAFC] overflow-hidden">
             <div className="p-10 bg-white border-b border-slate-200/60 flex items-center justify-between shadow-sm relative z-20">
@@ -78,7 +84,7 @@ const CommHub: React.FC<CommHubProps> = ({
                                     <div className="flex-1">
                                         <h4 className="text-sm font-black text-amber-900 uppercase tracking-widest mb-1">SMS Consent Required</h4>
                                         <p className="text-xs font-bold text-amber-700 leading-relaxed">
-                                            Federal regulations require explicit consent before sending SMS. Would you like to record {selectedClient?.displayName}'s consent for recording and messaging?
+                                            Federal regulations require explicit consent before sending SMS. Would you like to record {getClientName(selectedClient)}'s consent for recording and messaging?
                                         </p>
                                         <div className="flex gap-3 mt-4">
                                             <button

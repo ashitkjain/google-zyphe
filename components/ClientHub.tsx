@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, updateFunnelStage, seedMockData, getLeads, getTasks, getTemplates, updateLead, activateLeadToCollection, addPipelineNote, getPipelineNotes, updatePipelineNote, deletePipelineNote, saveUserProfile } from '../services/firebaseService';
+import { getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, updateFunnelStage, seedMockData, getLeads, getTasks, getTemplates, updateLead, activateLeadToCollection, addPipelineNote, getPipelineNotes, updatePipelineNote, deletePipelineNote, saveUserProfile, getUserProfile } from '../services/firebaseService';
 import { UserProfile, Lead, LeadNote, CRMTask, CommMessage, CommTemplate, FunnelStage, PipelineNote, LeadStatus } from '../types';
 import { DropResult } from '@hello-pangea/dnd';
 import Logo from './Logo';
@@ -13,6 +13,9 @@ import TaskBoard from './client-hub/TaskBoard';
 import CommHub from './client-hub/CommHub';
 import PropertiesPortfolio from './client-hub/PropertiesPortfolio';
 import KYCModal from './client-hub/KYCModal';
+import StatusSettings from './client-hub/StatusSettings';
+import { StatusOption } from '../types';
+import { isTerminalStatus } from '../services/statusService';
 
 interface Props {
     realtorId: string;
@@ -21,7 +24,7 @@ interface Props {
     onBack: () => void;
 }
 
-type HubTab = 'clients' | 'leads' | 'pipeline' | 'tasks' | 'comms';
+type HubTab = 'clients' | 'leads' | 'pipeline' | 'tasks' | 'comms' | 'settings';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack }) => {
     const [activeTab, setActiveTab] = useState<HubTab>('leads');
@@ -31,6 +34,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     const [clientActivity, setClientActivity] = useState<{ favorites: any[], views: any[] }>({ favorites: [], views: [] });
     const [loadingClients, setLoadingClients] = useState(true);
     const [loadingActivity, setLoadingActivity] = useState(false);
+    const [realtorProfile, setRealtorProfile] = useState<UserProfile | null>(null);
 
     // Communication Hub State
     const [messages, setMessages] = useState<CommMessage[]>([]);
@@ -79,14 +83,14 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             const initialLeads: Lead[] = [
                 // --- Incoming Pool (leads collection) ---
                 {
-                    id: 'mock_1', name: 'Alice Cooper', email: 'alice.c@example.com', phone: '(555) 123-0001',
+                    id: 'mock_1', firstName: 'Alice', lastName: 'Cooper', email: 'alice.c@example.com', phone: '(555) 123-0001',
                     preferredContactMethod: 'Email', source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead',
                     status: 'New', receivedAt: new Date(Date.now() - 600000), slaUrgency: 'high', funnelStage: 'Inquiry',
                     health: 'Active', message: "New inquiry from Zillow for the downtown condo.", isMock: true, collectionName: 'leads',
                     minPrice: 400000, maxPrice: 600000
                 },
                 {
-                    id: 'mock_2', name: 'Bob Marley', email: 'bob.m@example.com', phone: '(555) 123-0002',
+                    id: 'mock_2', firstName: 'Bob', lastName: 'Marley', email: 'bob.m@example.com', phone: '(555) 123-0002',
                     preferredContactMethod: 'Text', source: 'Website', leadType: 'Buyer', connectionType: 'Direct Lead',
                     status: 'New', receivedAt: new Date(Date.now() - 3600000), slaUrgency: 'high', funnelStage: 'Inquiry',
                     health: 'Active', message: "Just registered on the website.", isMock: true, collectionName: 'leads',
@@ -95,7 +99,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
                 // --- Buying Pipeline (buyers collection) ---
                 {
-                    id: 'mock_buy_1', name: 'Sarah Miller', email: 'sarah.m@gmail.com', phone: '(555) 123-4567',
+                    id: 'mock_buy_1', firstName: 'Sarah', lastName: 'Miller', email: 'sarah.m@gmail.com', phone: '(555) 123-4567',
                     source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 7200000),
                     slaUrgency: 'high', funnelStage: 'Nurture', health: 'Active', minPrice: 3800000, maxPrice: 4500000,
                     propertyAddress: '123 Luxury Way, Beverly Hills', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead',
@@ -127,7 +131,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     }
                 },
                 {
-                    id: 'mock_buy_2', name: 'David Chen', email: 'd.chen@outlook.com', phone: '(555) 987-6543',
+                    id: 'mock_buy_2', firstName: 'David', lastName: 'Chen', email: 'd.chen@outlook.com', phone: '(555) 987-6543',
                     source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 3600000),
                     slaUrgency: 'medium', funnelStage: 'Active', health: 'Active', minPrice: 1100000, maxPrice: 1400000,
                     propertyAddress: '789 Sunset Blvd, Hollywood', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead',
@@ -159,19 +163,19 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     }
                 },
                 {
-                    id: 'mock_buy_3', name: 'James Wilson', email: 'j.wilson@example.com', phone: '(555) 222-3344',
+                    id: 'mock_buy_3', firstName: 'James', lastName: 'Wilson', email: 'j.wilson@example.com', phone: '(555) 222-3344',
                     source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 2),
                     slaUrgency: 'medium', funnelStage: 'Offer', health: 'Active', minPrice: 750000, maxPrice: 900000,
                     propertyAddress: 'Downtown Loft #4B', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
                 },
                 {
-                    id: 'mock_buy_4', name: 'Patricia Anderson', email: 'patricia.a@example.com', phone: '(555) 555-6677',
+                    id: 'mock_buy_4', firstName: 'Patricia', lastName: 'Anderson', email: 'patricia.a@example.com', phone: '(555) 555-6677',
                     source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 30),
                     slaUrgency: 'low', funnelStage: 'UnderContract', health: 'Active', minPrice: 500000, maxPrice: 600000,
                     propertyAddress: '123 Pine St, Cityville', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
                 },
                 {
-                    id: 'mock_buy_5', name: 'Noah Garcia', email: 'noah.g@example.com', phone: '(555) 999-0011',
+                    id: 'mock_buy_5', firstName: 'Noah', lastName: 'Garcia', email: 'noah.g@example.com', phone: '(555) 999-0011',
                     source: 'Referral', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000),
                     slaUrgency: 'high', funnelStage: 'Closed', health: 'Active', minPrice: 700000, maxPrice: 800000,
                     propertyAddress: '456 Oak Ln, Suburbia', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
@@ -179,34 +183,90 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
                 // --- Selling Pipeline (sellers collection) ---
                 {
-                    id: 'mock_sell_1', name: 'Michael Ross', email: 'mross@legal.com', phone: '(555) 555-0199',
+                    id: 'mock_sell_1', firstName: 'Michael', lastName: 'Ross', email: 'mross@legal.com', phone: '(555) 555-0199',
                     source: 'Website', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 18000000),
                     slaUrgency: 'low', funnelStage: 'Nurture', health: 'Active', price: 1250000,
                     propertyAddress: 'Santa Monica Beachfront Condo', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
                 },
                 {
-                    id: 'mock_sell_2', name: 'Linda Martinez', email: 'linda.m@example.com', phone: '(555) 333-4455',
+                    id: 'mock_sell_2', firstName: 'Linda', lastName: 'Martinez', email: 'linda.m@example.com', phone: '(555) 333-4455',
                     source: 'Referral', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 3),
                     slaUrgency: 'high', funnelStage: 'Active', health: 'Active', price: 650000,
                     propertyAddress: '456 Maple Dr, Suburbia', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
                 },
                 {
-                    id: 'mock_sell_3', name: 'Robert Taylor', email: 'rtaylor@example.com', phone: '(555) 444-5566',
+                    id: 'mock_sell_3', firstName: 'Robert', lastName: 'Taylor', email: 'rtaylor@example.com', phone: '(555) 444-5566',
                     source: 'Website', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 5),
                     slaUrgency: 'high', funnelStage: 'Offer', health: 'Active', price: 925000,
                     propertyAddress: '789 Oak Ln, Countryside', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
                 },
                 {
-                    id: 'mock_sell_4', name: 'Olivia Brown', email: 'olivia.b@example.com', phone: '(555) 888-9900',
+                    id: 'mock_sell_4', firstName: 'Olivia', lastName: 'Brown', email: 'olivia.b@example.com', phone: '(555) 888-9900',
                     source: 'Website', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 14400000),
                     slaUrgency: 'medium', funnelStage: 'UnderContract', health: 'Active', price: 450000,
                     propertyAddress: 'Garden Villa #12', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
                 },
                 {
-                    id: 'mock_sell_5', name: 'Charlie Day', email: 'charlie.d@example.com', phone: '(555) 123-0003',
+                    id: 'mock_sell_5', firstName: 'Charlie', lastName: 'Day', email: 'charlie.d@example.com', phone: '(555) 123-0003',
                     source: 'Facebook', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 7200000),
                     slaUrgency: 'medium', funnelStage: 'Closed', health: 'Active', price: 320000,
                     propertyAddress: 'Modern Loft A', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
+                },
+                // --- Additional Mock Leads ---
+                {
+                    id: 'mock_3', firstName: 'Frank', lastName: 'Sinatra', email: 'frank.s@classic.com', phone: '(555) 555-1234',
+                    preferredContactMethod: 'Call', source: 'Instagram', leadType: 'Buyer', connectionType: 'Direct Lead',
+                    status: 'New', receivedAt: new Date(Date.now() - 86400000 * 2), slaUrgency: 'medium', funnelStage: 'Inquiry',
+                    health: 'Active', message: "Looking for a mid-century modern home.", isMock: true, collectionName: 'leads',
+                    minPrice: 900000, maxPrice: 1500000
+                },
+                {
+                    id: 'mock_4', firstName: 'Marilyn', lastName: 'Monroe', email: 'marilyn.m@hollywood.com', phone: '(555) 555-5678',
+                    preferredContactMethod: 'Text', source: 'Google', leadType: 'Seller', connectionType: 'Direct Lead',
+                    status: 'New', receivedAt: new Date(Date.now() - 86400000 * 5), slaUrgency: 'low', funnelStage: 'Inquiry',
+                    health: 'Active', message: "Interested in selling my bungalow.", isMock: true, collectionName: 'leads'
+                },
+                {
+                    id: 'mock_buy_6', firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', phone: '(555) 000-1111',
+                    source: 'Referral', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 10),
+                    slaUrgency: 'medium', funnelStage: 'Nurture', health: 'Active', minPrice: 500000, maxPrice: 700000,
+                    propertyAddress: '456 Elm St, Springfield', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
+                },
+                {
+                    id: 'mock_buy_7', firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@example.com', phone: '(555) 000-2222',
+                    source: 'Website', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 15),
+                    slaUrgency: 'high', funnelStage: 'Offer', health: 'Active', minPrice: 1200000, maxPrice: 1500000,
+                    propertyAddress: '789 Maple Ave, Oakwood', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
+                },
+                {
+                    id: 'mock_sell_6', firstName: 'Bruce', lastName: 'Wayne', email: 'bruce.wayne@waynecorp.com', phone: '(555) 999-9999',
+                    source: 'Direct', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 4),
+                    slaUrgency: 'high', funnelStage: 'Nurture', health: 'Active', price: 5000000,
+                    propertyAddress: 'Wayne Manor, Gotham', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
+                },
+                {
+                    id: 'mock_sell_7', firstName: 'Clark', lastName: 'Kent', email: 'clark.kent@dailyplanet.com', phone: '(555) 888-8888',
+                    source: 'Referral', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 8),
+                    slaUrgency: 'medium', funnelStage: 'Active', health: 'Active', price: 300000,
+                    propertyAddress: '123 Farm Lane, Smallville', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
+                },
+                {
+                    id: 'mock_5', firstName: 'Elton', lastName: 'John', email: 'elton.j@rocketman.com', phone: '(555) 444-3333',
+                    source: 'Referral', leadType: 'Buyer', status: 'New', receivedAt: new Date(Date.now() - 3600000 * 2),
+                    slaUrgency: 'medium', funnelStage: 'Inquiry', health: 'Active', isMock: true, collectionName: 'leads',
+                    connectionType: 'Direct Lead'
+                },
+                {
+                    id: 'mock_buy_8', firstName: 'Peter', lastName: 'Parker', email: 'peter.p@dailybugle.com', phone: '(555) 111-2222',
+                    source: 'Instagram', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 3),
+                    slaUrgency: 'high', funnelStage: 'Inquiry', health: 'Active', propertyAddress: '20 Ingram St, Queens',
+                    isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
+                },
+                {
+                    id: 'mock_sell_8', firstName: 'Tony', lastName: 'Stark', email: 'tony@starkindustries.com', phone: '(555) 333-4444',
+                    source: 'Direct', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 1),
+                    slaUrgency: 'high', funnelStage: 'Offer', health: 'Active', price: 10000000,
+                    propertyAddress: 'Stark Tower, NYC', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
                 }
             ];
 
@@ -272,6 +332,14 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             });
         };
         initializeHubData();
+    }, [realtorId]);
+
+    useEffect(() => {
+        const fetchRealtorProfile = async () => {
+            const profile = await getUserProfile(realtorId);
+            setRealtorProfile(profile);
+        };
+        fetchRealtorProfile();
     }, [realtorId]);
 
     useEffect(() => {
@@ -379,7 +447,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                 updates.activatedAt = new Date();
             }
             // Closing
-            if (['Closed-Won', 'Closed-Lost'].includes(updates.status || '') && !['Closed-Won', 'Closed-Lost'].includes(currentLead.status)) {
+            if (isTerminalStatus(updates.status || '', currentLead.leadType, realtorProfile?.settings) && !isTerminalStatus(currentLead.status, currentLead.leadType, realtorProfile?.settings)) {
                 updates.closedAt = new Date();
             }
         }
@@ -533,7 +601,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     const handleCreateLead = (initialUpdates?: Partial<Lead>) => {
         const newLead: Lead = {
             id: `lead_${Date.now()}`,
-            name: '',
+            firstName: '',
+            lastName: '',
             email: '',
             phone: '',
             status: 'New',
@@ -556,6 +625,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
         { id: 'comms', label: 'Connect', icon: 'fa-comments' },
+        { id: 'settings', label: 'Statuses', icon: 'fa-sliders' },
     ];
 
     const handleSaveKYC = async (updates: any) => {
@@ -584,6 +654,33 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             handleUpdateLead(leadId, updates);
         }
         setKycLead(null);
+    };
+
+    const handleUpdateStatuses = async (buyerStatuses: StatusOption[], sellerStatuses: StatusOption[]) => {
+        const success = await saveUserProfile(realtorId, {
+            settings: {
+                leadStatuses: {
+                    buyer: buyerStatuses,
+                    seller: sellerStatuses
+                }
+            }
+        });
+
+        if (success === true) {
+            setRealtorProfile(prev => prev ? {
+                ...prev,
+                settings: {
+                    ...prev.settings,
+                    leadStatuses: {
+                        buyer: buyerStatuses,
+                        seller: sellerStatuses
+                    }
+                }
+            } : null);
+            alert("Settings saved successfully.");
+        } else {
+            alert("Failed to save settings.");
+        }
     };
 
     return (
@@ -667,6 +764,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                         handleUpdateNote={handleUpdatePipelineNote}
                         handleDeleteNote={handleDeletePipelineNote}
                         handleDragEnd={handleDragEnd}
+                        realtorSettings={realtorProfile?.settings}
                     />
                 )}
 
@@ -705,6 +803,13 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                         handleGrantConsent={handleGrantConsent}
                         templates={templates}
                     />
+                )}                {activeTab === 'settings' && (
+                    <StatusSettings
+                        realtorId={realtorId}
+                        onUpdateStatuses={handleUpdateStatuses}
+                        initialBuyerStatuses={realtorProfile?.settings?.leadStatuses?.buyer}
+                        initialSellerStatuses={realtorProfile?.settings?.leadStatuses?.seller}
+                    />
                 )}
 
 
@@ -720,6 +825,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     isSavingLead={isSavingLead}
                     newNote={newNote}
                     setNewNote={setNewNote}
+                    realtorSettings={realtorProfile?.settings}
                 />
             )}
 
@@ -741,12 +847,29 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                 .animate-bounce-slow {
                   animation: bounce-slow 4s infinite;
                 }
-                .no-scrollbar::-webkit-scrollbar {
-                  display: none;
+                /* Custom Scrollbar Styling */
+                ::-webkit-scrollbar {
+                  width: 10px;
+                  height: 12px;
                 }
-                .no-scrollbar {
-                  -ms-overflow-style: none;
-                  scrollbar-width: none;
+                ::-webkit-scrollbar-track {
+                  background: #f8fafc;
+                  border: 1px solid #e2e8f0;
+                  border-radius: 12px;
+                }
+                ::-webkit-scrollbar-thumb {
+                  background: #94a3b8;
+                  border-radius: 12px;
+                  border: 3px solid #f8fafc;
+                }
+                ::-webkit-scrollbar-thumb:hover {
+                  background: #475569;
+                }
+
+                /* Firefox */
+                * {
+                  scrollbar-width: thin;
+                  scrollbar-color: #94a3b8 #f8fafc;
                 }
               `}} />
         </div>

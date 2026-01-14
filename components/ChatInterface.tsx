@@ -161,12 +161,12 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
           </div>
 
           {/* Messages Area */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar bg-slate-50/30">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/30">
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
                 <div className={`max-w-[85%] px-5 py-3.5 rounded-2xl text-sm leading-relaxed ${m.role === 'user'
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                    : 'bg-white border border-slate-100 text-slate-700 shadow-sm'
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                  : 'bg-white border border-slate-100 text-slate-700 shadow-sm'
                   }`}>
                   {m.content.split('\n').map((line, idx) => (
                     <p key={idx} className={idx > 0 ? 'mt-2' : ''}>
@@ -193,7 +193,7 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
 
           {/* Context Indicators / Suggestions */}
           <div className="px-6 py-4 bg-white border-t border-slate-100">
-            <div className="flex overflow-x-auto gap-2 no-scrollbar pb-1">
+            <div className="flex overflow-x-auto gap-2 pb-1">
               {suggestions.map((s, i) => (
                 <button
                   key={i}
@@ -255,10 +255,6 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
         </div>
       </div>
 
-      <style>{`
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
     </div>
   );
 };

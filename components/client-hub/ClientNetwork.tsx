@@ -236,7 +236,7 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 space-y-2">
                     {loadingClients && networkTab === 'on-zyphe' ? (
                         <div className="p-12 text-center text-slate-200">
                             <i className="fa-solid fa-circle-notch fa-spin text-3xl"></i>
@@ -338,7 +338,7 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 lg:p-6 xl:p-10 no-scrollbar">
+                        <div className="flex-1 overflow-y-auto p-4 lg:p-6 xl:p-10">
                             {/* Premium AI Persona Section */}
                             <div className="bg-indigo-900 rounded-[3rem] p-10 mb-10 text-white relative overflow-hidden shadow-2xl">
                                 <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
@@ -689,7 +689,7 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                                             style={{ width: `${(selectedClient.kyc.documentChecklist?.filter(i => i.status === 'Signed').length || 0) / (selectedClient.kyc.documentChecklist?.length || 1) * 100}%` }}
                                                         ></div>
                                                     </div>
-                                                    <div className="grid gap-1.5 max-h-[120px] overflow-y-auto no-scrollbar pt-2">
+                                                    <div className="grid gap-1.5 max-h-[120px] overflow-y-auto pt-2">
                                                         {selectedClient.kyc.documentChecklist?.map((item, idx) => (
                                                             <div key={idx} className="flex items-center gap-2 text-[10px]">
                                                                 <i className={`fa-solid ${item.status === 'Signed' ? 'fa-circle-check text-emerald-500' : item.status === 'Pending' ? 'fa-circle-dot text-amber-500' : 'fa-circle-xmark text-slate-300'}`}></i>

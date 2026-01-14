@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Lead, LeadNote } from '../../types';
+import { Lead, LeadNote, UserProfile } from '../../types';
+import { getStatusOptions, getStatusDefinitions } from '../../services/statusService';
 
 interface EditLeadModalProps {
     editingLead: Lead;
@@ -9,6 +10,7 @@ interface EditLeadModalProps {
     isSavingLead: boolean;
     newNote: string;
     setNewNote: (note: string) => void;
+    realtorSettings?: UserProfile['settings'];
 }
 
 const EditLeadModal: React.FC<EditLeadModalProps> = ({
@@ -18,15 +20,16 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
     handleUpdateLead,
     isSavingLead,
     newNote,
-    setNewNote
+    setNewNote,
+    realtorSettings
 }) => {
     const [showStatusInfo, setShowStatusInfo] = useState(false);
 
     const onSave = () => {
         if (editingLead) {
             // Mandatory Validation
-            if (!editingLead.name.trim() || !editingLead.phone.trim()) {
-                alert("Name and Phone Number are mandatory fields.");
+            if (!editingLead.firstName.trim() || !editingLead.lastName.trim() || !editingLead.phone.trim()) {
+                alert("First Name, Last Name, and Phone Number are mandatory fields.");
                 return;
             }
 
@@ -57,7 +60,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                     <div>
                         <h3 className="text-2xl font-black text-slate-900">{leads.some(l => l.id === editingLead.id) ? 'Edit Lead Data' : 'Create New Lead'}</h3>
                         <p className="text-sm text-slate-500 font-medium">
-                            {leads.some(l => l.id === editingLead.id) ? `Update profile for ${editingLead.name}` : 'Enter basic contact and property details'}
+                            {leads.some(l => l.id === editingLead.id) ? `Update profile for ${editingLead.firstName} ${editingLead.lastName}` : 'Enter basic contact and property details'}
                         </p>
                     </div>
                     <button onClick={() => setEditingLead(null)} className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center transition-all text-slate-400">
@@ -67,15 +70,27 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
                 <div className="flex-1 overflow-y-auto p-8 space-y-6">
                     <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Full Name <span className="text-red-500">*</span></label>
-                            <input
-                                type="text"
-                                value={editingLead.name}
-                                onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })}
-                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
-                                placeholder="John Doe"
-                            />
+                        <div className="grid grid-cols-2 gap-4 col-span-2">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">First Name <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    value={editingLead.firstName}
+                                    onChange={(e) => setEditingLead({ ...editingLead, firstName: e.target.value })}
+                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                    placeholder="John"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Last Name <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    value={editingLead.lastName}
+                                    onChange={(e) => setEditingLead({ ...editingLead, lastName: e.target.value })}
+                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                    placeholder="Doe"
+                                />
+                            </div>
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Email Address</label>
@@ -117,21 +132,18 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                         <button onClick={() => setShowStatusInfo(false)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
                                     </div>
                                     <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                                        {[
-                                            ["New", "Leads added to the system but not yet engaged."],
-                                            ["Qualified", "Prospect meets criteria and is actively looking to buy/sell."],
-                                            ["Attempted to Contact", "Agent has tried to reach out (call, email)."],
-                                            ["Connected", "Successful initial contact made, prospect is aware and responding."],
-                                            ["Appointment Scheduled", "A specific meeting or showing is booked."],
-                                            ["Listing Agreement Sent/Signed", "For sellers, formal agreement is in process or completed."],
-                                            ["Active", "Actively working with them on a transaction."],
-                                            ["Closed-Won", "The deal is finalized."],
-                                            ["Closed-Lost", "The lead is no longer viable, with reasons tracked."],
-                                            ["Archived", "Not currently working; may be unsubscribed from marketing."]
-                                        ].map(([status, desc]) => (
-                                            <div key={status} className="text-xs">
+                                        <div className="text-[10px] font-black text-indigo-500 uppercase mb-2">Buyer Statuses</div>
+                                        {Object.entries(getStatusDefinitions('Buyer', realtorSettings)).map(([status, desc]) => (
+                                            <div key={`buyer-${status}`} className="text-xs mb-2">
                                                 <div className="font-bold text-indigo-900 mb-0.5">{status}</div>
-                                                <div className="text-slate-500 leading-snug">{desc}</div>
+                                                <div className="text-slate-500 leading-snug">{desc as string}</div>
+                                            </div>
+                                        ))}
+                                        <div className="text-[10px] font-black text-emerald-500 uppercase mt-4 mb-2">Seller Statuses</div>
+                                        {Object.entries(getStatusDefinitions('Seller', realtorSettings)).map(([status, desc]) => (
+                                            <div key={`seller-${status}`} className="text-xs mb-2">
+                                                <div className="font-bold text-emerald-900 mb-0.5">{status}</div>
+                                                <div className="text-slate-500 leading-snug">{desc as string}</div>
                                             </div>
                                         ))}
                                     </div>
@@ -143,8 +155,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                 onChange={(e) => setEditingLead({ ...editingLead, status: e.target.value as any })}
                                 className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none appearance-none"
                             >
-                                {['New', 'Qualified', 'Attempted to Contact', 'Connected', 'Appointment Scheduled', 'Listing Agreement Sent/Signed', 'Active', 'Closed-Won', 'Closed-Lost', 'Archived'].map(s => (
-                                    <option key={s} value={s}>{s}</option>
+                                {getStatusOptions(editingLead.leadType, realtorSettings).map((o: any) => (
+                                    <option key={o.label} value={o.label}>{o.label}</option>
                                 ))}
                             </select>
                         </div>

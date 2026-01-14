@@ -10,7 +10,7 @@ interface KYCModalProps {
 const KYCModal: React.FC<KYCModalProps> = ({ lead, onClose, onSave }) => {
     // Type Helper
     const isUser = (c: UserProfile | Lead): c is UserProfile => 'uid' in c;
-    const getName = () => isUser(lead) ? lead.displayName : lead.name;
+    const getName = () => isUser(lead) ? lead.displayName : `${lead.firstName} ${lead.lastName}`;
     const getPhone = () => isUser(lead) ? lead.phoneNumber : lead.phone;
     const getSource = () => isUser(lead) ? 'Zyphe Platform' : lead.source;
 
@@ -27,7 +27,8 @@ const KYCModal: React.FC<KYCModalProps> = ({ lead, onClose, onSave }) => {
     });
 
     const [basicInfo, setBasicInfo] = useState({
-        name: isUser(lead) ? lead.displayName : lead.name,
+        firstName: isUser(lead) ? (lead.displayName || '').split(' ')[0] : lead.firstName,
+        lastName: isUser(lead) ? (lead.displayName || '').split(' ').slice(1).join(' ') : lead.lastName,
         email: lead.email,
         phone: isUser(lead) ? lead.phoneNumber || '' : lead.phone || '',
         minPrice: lead.minPrice || 0,
@@ -102,11 +103,20 @@ const KYCModal: React.FC<KYCModalProps> = ({ lead, onClose, onSave }) => {
                                 </h4>
                                 <div className="grid grid-cols-3 gap-6">
                                     <div className="space-y-1.5">
-                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Full Name</label>
+                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-1">First Name</label>
                                         <input
                                             type="text"
-                                            value={basicInfo.name}
-                                            onChange={(e) => handleBasicChange('name', e.target.value)}
+                                            value={basicInfo.firstName}
+                                            onChange={(e) => handleBasicChange('firstName', e.target.value)}
+                                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Last Name</label>
+                                        <input
+                                            type="text"
+                                            value={basicInfo.lastName}
+                                            onChange={(e) => handleBasicChange('lastName', e.target.value)}
                                             className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
                                         />
                                     </div>
