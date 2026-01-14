@@ -75,7 +75,9 @@ const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('main');
   const [showPreload, setShowPreload] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const historyRef = useRef<HTMLDivElement>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
 
   const sessionId = useMemo(() => Math.random().toString(36).substring(2, 15), []);
 
@@ -191,6 +193,9 @@ const App: React.FC = () => {
     const handleClickOutside = (event: MouseEvent) => {
       if (historyRef.current && !historyRef.current.contains(event.target as Node)) {
         setShowHistory(false);
+      }
+      if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
+        setShowSettings(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -535,24 +540,20 @@ const App: React.FC = () => {
           <div className="max-w-7xl mx-auto flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em]">
             <div className="flex items-center gap-3">
               {currentUser.role === 'realtor' ? (
-                <>
-                  <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-amber-400/90 to-amber-600/90 rounded-full text-slate-900 text-[8px] shadow-lg shadow-amber-900/20">
-                    <i className="fa-solid fa-crown text-[10px]"></i>
-                    <span>Professional Realtor Mode</span>
-                  </div>
-                  <span className="opacity-20">|</span>
-                  <span className="text-indigo-300 tracking-[0.3em] font-black">{currentUser.displayName}</span>
-                </>
+                <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-amber-400/90 to-amber-600/90 rounded-full text-slate-900 text-[8px] shadow-lg shadow-amber-900/20">
+                  <i className="fa-solid fa-crown text-[10px]"></i>
+                  <span>Professional Realtor Mode</span>
+                </div>
               ) : (
                 <>
                   <span className="opacity-40">Intelligence Access:</span>
-                  <span className="text-indigo-400">{currentUser.displayName}</span>
                   <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] border border-indigo-500/30">PRO</span>
                   <span className="hidden sm:inline opacity-20">|</span>
                   <span className="hidden sm:inline opacity-40">{currentUser.role} Account</span>
                 </>
               )}
             </div>
+
             <div className="flex items-center gap-6">
               {currentUser.role === 'realtor' && (
                 <>
@@ -572,9 +573,49 @@ const App: React.FC = () => {
                   </button>
                 </>
               )}
+
               <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
-              <button onClick={handleDeleteAccount} className="text-rose-600 hover:text-rose-400 transition-colors border-r border-white/10 pr-6">Delete Account</button>
-              <button onClick={handleSignOut} className="text-white hover:text-white/80 transition-colors flex items-center gap-2">Sign Out</button>
+
+              <div className="relative" ref={settingsRef}>
+                <div className="flex flex-col items-end gap-1">
+                  <span className={`${currentUser.role === 'realtor' ? 'text-indigo-300' : 'text-indigo-400'} tracking-[0.3em] font-black`}>
+                    {currentUser.displayName}
+                  </span>
+                  <button
+                    onClick={() => setShowSettings(!showSettings)}
+                    className="flex items-center gap-2 text-white/60 hover:text-white transition-colors text-[8px]"
+                  >
+                    <span>SETTINGS</span>
+                    <i className={`fa-solid fa-chevron-down transition-transform duration-300 ${showSettings ? 'rotate-180' : ''}`}></i>
+                  </button>
+                </div>
+
+                {showSettings && (
+                  <div className="absolute top-full right-0 mt-3 w-48 bg-slate-900 border border-white/10 rounded-xl shadow-2xl py-2 z-[70] animate-in fade-in slide-in-from-top-2 duration-200">
+                    <button
+                      onClick={() => {
+                        setShowSettings(false);
+                        handleDeleteAccount();
+                      }}
+                      className="w-full text-left px-4 py-2 text-rose-500 hover:bg-rose-500/10 transition-colors flex items-center gap-2"
+                    >
+                      <i className="fa-solid fa-trash-can text-[10px]"></i>
+                      <span>Delete Account</span>
+                    </button>
+                    <div className="my-1 border-t border-white/5"></div>
+                    <button
+                      onClick={() => {
+                        setShowSettings(false);
+                        handleSignOut();
+                      }}
+                      className="w-full text-left px-4 py-2 text-white/70 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
+                    >
+                      <i className="fa-solid fa-right-from-bracket text-[10px]"></i>
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -616,9 +657,36 @@ const App: React.FC = () => {
                   {showHistory && (searchHistory.length > 0 || cloudHistory.length > 0 || favorites.length > 0) && (
                     <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                       <div className="max-h-[300px] overflow-y-auto p-2">
+                        {favorites.length > 0 && (
+                          <div className="mb-2">
+                            <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-rose-500 uppercase tracking-widest flex items-center gap-2">
+                              <i className="fa-solid fa-heart"></i>
+                              Favorites
+                            </div>
+                            {favorites.map((item: any, idx) => (
+                              <div key={`fav-wrapper-${idx}`} className="group relative">
+                                <button
+                                  onClick={() => handleHistoryItemClick(item.address)}
+                                  className="w-full text-left px-4 py-3 rounded-xl hover:bg-rose-50/50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between"
+                                >
+                                  <span className="truncate pr-8">{item.address}</span>
+                                  <i className="fa-solid fa-heart text-rose-500 text-xs"></i>
+                                </button>
+                                <button
+                                  onClick={(e) => handleRemoveFavoriteItem(e, item)}
+                                  className="absolute right-10 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all"
+                                  title="Remove from favorites"
+                                >
+                                  <i className="fa-solid fa-trash-can text-xs"></i>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         {searchHistory.length > 0 && (
                           <div className="mb-2">
-                            <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                            <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-indigo-400 uppercase tracking-widest flex items-center gap-2 border-t border-gray-100 mt-2 pt-4 first:border-t-0 first:mt-0 first:pt-2">
                               <i className="fa-solid fa-clock-rotate-left"></i>
                               Recent Searches
                             </div>
@@ -650,33 +718,6 @@ const App: React.FC = () => {
                                 <span className="truncate">{item.address}</span>
                                 <i className="fa-solid fa-cloud-arrow-down -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all text-indigo-500 text-xs"></i>
                               </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {favorites.length > 0 && (
-                          <div>
-                            <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-rose-500 uppercase tracking-widest flex items-center gap-2 border-t border-gray-100 mt-2 pt-4">
-                              <i className="fa-solid fa-heart"></i>
-                              Favorites
-                            </div>
-                            {favorites.map((item: any, idx) => (
-                              <div key={`fav-wrapper-${idx}`} className="group relative">
-                                <button
-                                  onClick={() => handleHistoryItemClick(item.address)}
-                                  className="w-full text-left px-4 py-3 rounded-xl hover:bg-rose-50/50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between"
-                                >
-                                  <span className="truncate pr-8">{item.address}</span>
-                                  <i className="fa-solid fa-heart text-rose-500 text-xs"></i>
-                                </button>
-                                <button
-                                  onClick={(e) => handleRemoveFavoriteItem(e, item)}
-                                  className="absolute right-10 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all"
-                                  title="Remove from favorites"
-                                >
-                                  <i className="fa-solid fa-trash-can text-xs"></i>
-                                </button>
-                              </div>
                             ))}
                           </div>
                         )}

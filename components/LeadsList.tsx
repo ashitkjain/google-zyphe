@@ -39,6 +39,20 @@ const LeadsList: React.FC<InternalProps> = ({ leads, onUpdateLead, onViewLead, o
         source: '',
     });
 
+    const [displayModes, setDisplayModes] = useState<Record<string, 'list' | 'gallery'>>({
+        today: 'gallery',
+        week: 'list',
+        month: 'list',
+        year: 'list',
+        older: 'list'
+    });
+
+    const currentDisplayMode = displayModes[viewMode] || 'list';
+
+    const toggleDisplayMode = (mode: 'list' | 'gallery') => {
+        setDisplayModes(prev => ({ ...prev, [viewMode]: mode }));
+    };
+
     // Inline Editing State
     const [editingCell, setEditingCell] = useState<{ id: string, field: keyof Lead } | null>(null);
     const [editValue, setEditValue] = useState<string>('');
@@ -182,13 +196,50 @@ const LeadsList: React.FC<InternalProps> = ({ leads, onUpdateLead, onViewLead, o
         );
     };
 
-    const getTimeStats = useMemo(() => {
+    const dateRanges = useMemo(() => {
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const startOfWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         const startOfMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
         const startOfYear = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
 
+        const formatDate = (d: Date, includeYear = false) => {
+            return d.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: includeYear ? 'numeric' : undefined
+            });
+        };
+
+        const yesterday = new Date(startOfToday);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        const weekEnd = new Date(startOfToday);
+        weekEnd.setDate(weekEnd.getDate() - 1);
+
+        const monthEnd = new Date(startOfWeek);
+        monthEnd.setDate(monthEnd.getDate() - 1);
+
+        const yearEnd = new Date(startOfMonth);
+        yearEnd.setDate(yearEnd.getDate() - 1);
+
+        return {
+            startOfToday,
+            startOfWeek,
+            startOfMonth,
+            startOfYear,
+            labels: {
+                today: formatDate(startOfToday),
+                week: `${formatDate(startOfWeek)} - ${formatDate(weekEnd)}`,
+                month: `${formatDate(startOfMonth)} - ${formatDate(monthEnd)}`,
+                year: `${formatDate(startOfYear, true)} - ${formatDate(yearEnd, true)}`,
+                older: `Before ${formatDate(startOfYear, true)}`
+            }
+        };
+    }, []);
+
+    const getTimeStats = useMemo(() => {
+        const { startOfToday, startOfWeek, startOfMonth, startOfYear } = dateRanges;
         const validLeads = leads.filter(l =>
             !['Closed-Won', 'Closed-Lost', 'Archived'].includes(l.status) &&
             l.collectionName === 'leads'
@@ -216,14 +267,10 @@ const LeadsList: React.FC<InternalProps> = ({ leads, onUpdateLead, onViewLead, o
                 return d < startOfYear;
             }).length
         };
-    }, [leads]);
+    }, [leads, dateRanges]);
 
     const filteredLeads = useMemo(() => {
-        const now = new Date();
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const startOfWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-        const startOfYear = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+        const { startOfToday, startOfWeek, startOfMonth, startOfYear } = dateRanges;
 
         let result = leads.filter(l => {
             if (['Closed-Won', 'Closed-Lost', 'Archived'].includes(l.status)) return false;
@@ -291,53 +338,51 @@ const LeadsList: React.FC<InternalProps> = ({ leads, onUpdateLead, onViewLead, o
                     <div className="flex items-center gap-4">
                         <div>
                             <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm relative overflow-hidden">
-                                <button
-                                    onClick={() => setViewMode('today')}
-                                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 relative z-10 ${viewMode === 'today' ? 'text-indigo-600 bg-white shadow-xl shadow-indigo-500/10' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    New
-                                    {getTimeStats.today > 0 && viewMode !== 'today' && (
-                                        <span className="ml-2 px-1.5 py-0.5 bg-indigo-100 text-indigo-600 rounded-full text-[10px] animate-pulse">
-                                            {getTimeStats.today}
-                                        </span>
-                                    )}
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('week')}
-                                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 relative z-10 ${viewMode === 'week' ? 'text-indigo-600 bg-white shadow-xl shadow-indigo-500/10' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    Past Week
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('month')}
-                                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 relative z-10 ${viewMode === 'month' ? 'text-indigo-600 bg-white shadow-xl shadow-indigo-500/10' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    Past Month
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('year')}
-                                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 relative z-10 ${viewMode === 'year' ? 'text-indigo-600 bg-white shadow-xl shadow-indigo-500/10' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    Past Year
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('older')}
-                                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 relative z-10 ${viewMode === 'older' ? 'text-indigo-600 bg-white shadow-xl shadow-indigo-500/10' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    Older
-                                </button>
+                                {[
+                                    { id: 'today', label: 'New', subtitle: dateRanges.labels.today, count: getTimeStats.today },
+                                    { id: 'week', label: 'Past Week', subtitle: dateRanges.labels.week, count: getTimeStats.week },
+                                    { id: 'month', label: 'Past Month', subtitle: dateRanges.labels.month, count: getTimeStats.month },
+                                    { id: 'year', label: 'Past Year', subtitle: dateRanges.labels.year, count: getTimeStats.year },
+                                    { id: 'older', label: 'Older', subtitle: dateRanges.labels.older, count: getTimeStats.older }
+                                ].map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setViewMode(tab.id as any)}
+                                        className={`px-6 py-2 rounded-xl transition-all duration-300 relative z-10 flex flex-col items-center min-w-[120px] ${viewMode === tab.id ? 'text-indigo-600 bg-white shadow-xl shadow-indigo-500/10' : 'text-slate-400 hover:text-slate-600'
+                                            }`}
+                                    >
+                                        <div className="text-[10px] font-black uppercase tracking-widest leading-tight">
+                                            {tab.label} {tab.count > 0 && `(${tab.count})`}
+                                        </div>
+                                        <div className="text-[8px] font-bold opacity-60 uppercase tracking-tighter mt-0.5">
+                                            {tab.subtitle}
+                                        </div>
+                                        {tab.id === 'today' && getTimeStats.today > 0 && viewMode !== 'today' && (
+                                            <div className="absolute top-1 right-2 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></div>
+                                        )}
+                                    </button>
+                                ))}
                             </div>
                         </div>
                     </div>
                 </div>
-                <div className="mt-4">
-                    {viewMode === 'today' && (
-                        <div className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                            <span className="text-sm font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full uppercase tracking-widest">
-                                {filteredLeads.length} Items Today
-                            </span>
-                        </div>
-                    )}
+                <div className="mt-4 flex items-center justify-end">
+                    <div className="flex bg-slate-100 p-1 rounded-xl items-center">
+                        <button
+                            onClick={() => toggleDisplayMode('list')}
+                            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            <i className="fa-solid fa-list-ul"></i>
+                            List
+                        </button>
+                        <button
+                            onClick={() => toggleDisplayMode('gallery')}
+                            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            <i className="fa-solid fa-table-cells-large"></i>
+                            Gallery
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -413,116 +458,201 @@ const LeadsList: React.FC<InternalProps> = ({ leads, onUpdateLead, onViewLead, o
                 </div>
             )}
 
-            {/* Table */}
-            <div className="flex-1 overflow-auto bg-white shadow-sm border border-slate-200/60 rounded-2xl mx-6 mb-6">
-                <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        <tr>
-                            <th className="w-12 px-4 py-3 border-b border-slate-200/60 bg-slate-50 text-center">#</th>
-                            <th className="w-10 px-4 py-3 border-b border-slate-200/60 bg-slate-50">
-                                <input type="checkbox" onChange={handleSelectAll} checked={selectedIds.size === filteredLeads.length && filteredLeads.length > 0} className="rounded border-slate-300" />
-                            </th>
-                            <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('name')}>
-                                Name {sortField === 'name' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                            </th>
-                            <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('propertyAddress')}>
-                                Property {sortField === 'propertyAddress' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                            </th>
-                            <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('phone')}>
-                                Phone {sortField === 'phone' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                            </th>
-                            <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('email')}>
-                                Email {sortField === 'email' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                            </th>
-                            <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100 group relative">
-                                <div className="flex items-center gap-1" onClick={() => handleSort('status')}>
-                                    Lead Status {sortField === 'status' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                    <div
-                                        className="inline-flex self-center ml-1 text-slate-400 hover:text-indigo-600 transition-colors"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setShowStatusInfo(!showStatusInfo);
-                                        }}
-                                    >
-                                        <i className="fa-solid fa-circle-info"></i>
-                                    </div>
-                                </div>
-                                {showStatusInfo && (
-                                    <div className="absolute top-full left-0 w-80 bg-white shadow-xl rounded-xl border border-slate-200 p-4 z-50 mt-2 text-left cursor-default" onClick={e => e.stopPropagation()}>
-                                        <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
-                                            <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wide">Status Definitions</h4>
-                                            <button onClick={() => setShowStatusInfo(false)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
+            {/* Table or Gallery */}
+            <div className="flex-1 overflow-auto bg-white mb-6">
+                {currentDisplayMode === 'list' ? (
+                    <div className="shadow-sm border border-slate-200/60 rounded-2xl mx-6">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                <tr>
+                                    <th className="w-12 px-4 py-3 border-b border-slate-200/60 bg-slate-50 text-center">#</th>
+                                    <th className="w-10 px-4 py-3 border-b border-slate-200/60 bg-slate-50">
+                                        <input type="checkbox" onChange={handleSelectAll} checked={selectedIds.size === filteredLeads.length && filteredLeads.length > 0} className="rounded border-slate-300" />
+                                    </th>
+                                    <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('name')}>
+                                        Name {sortField === 'name' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                    </th>
+                                    <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('propertyAddress')}>
+                                        Property {sortField === 'propertyAddress' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                    </th>
+                                    <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('phone')}>
+                                        Phone {sortField === 'phone' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                    </th>
+                                    <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('email')}>
+                                        Email {sortField === 'email' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                    </th>
+                                    <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100 group relative">
+                                        <div className="flex items-center gap-1" onClick={() => handleSort('status')}>
+                                            Lead Status {sortField === 'status' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                            <div
+                                                className="inline-flex self-center ml-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setShowStatusInfo(!showStatusInfo);
+                                                }}
+                                            >
+                                                <i className="fa-solid fa-circle-info"></i>
+                                            </div>
                                         </div>
-                                        <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                                            {Object.entries(STATUS_DEFINITIONS).map(([status, desc]) => (
-                                                <div key={status} className="text-xs">
-                                                    <div className="font-bold text-indigo-900 mb-0.5">{status}</div>
-                                                    <div className="text-slate-500 leading-snug">{desc}</div>
+                                        {showStatusInfo && (
+                                            <div className="absolute top-full left-0 w-80 bg-white shadow-xl rounded-xl border border-slate-200 p-4 z-50 mt-2 text-left cursor-default" onClick={e => e.stopPropagation()}>
+                                                <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+                                                    <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wide">Status Definitions</h4>
+                                                    <button onClick={() => setShowStatusInfo(false)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </th>
-                            <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('source')}>
-                                Lead Source {sortField === 'source' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                            </th>
-                            <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('assignedTo')}>
-                                Assigned To {sortField === 'assignedTo' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                            </th>
-                            <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50">Message</th>
-                            <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50">Notes</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {filteredLeads.map((lead, index) => (
-                            <tr key={lead.id} className="group text-slate-700 text-xs transition-colors hover:bg-slate-50">
-                                <td className="px-4 py-3 border-b border-slate-100 text-center text-slate-400 opacity-50">
-                                    {index + 1}
-                                </td>
-                                <td className="px-4 py-3 border-b border-slate-100">
+                                                <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                                                    {Object.entries(STATUS_DEFINITIONS).map(([status, desc]) => (
+                                                        <div key={status} className="text-xs">
+                                                            <div className="font-bold text-indigo-900 mb-0.5">{status}</div>
+                                                            <div className="text-slate-500 leading-snug">{desc}</div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </th>
+                                    <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('source')}>
+                                        Lead Source {sortField === 'source' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                    </th>
+                                    <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('assignedTo')}>
+                                        Assigned To {sortField === 'assignedTo' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                    </th>
+                                    <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50">Message</th>
+                                    <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50">Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {filteredLeads.map((lead, index) => (
+                                    <tr key={lead.id} className="group text-slate-700 text-xs transition-colors hover:bg-slate-50">
+                                        <td className="px-4 py-3 border-b border-slate-100 text-center text-slate-400 opacity-50">
+                                            {index + 1}
+                                        </td>
+                                        <td className="px-4 py-3 border-b border-slate-100">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.has(lead.id)}
+                                                onChange={() => handleSelectOne(lead.id)}
+                                                className="rounded border-slate-300"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-3 border-b border-slate-100 font-semibold text-indigo-600 transition-colors">
+                                            {renderCell(lead, 'name', 'text', [], () => onViewLead(lead))}
+                                        </td>
+                                        <td className="px-4 py-3 border-b border-slate-100 max-w-[200px] truncate" title={lead.propertyAddress}>
+                                            {lead.propertyAddress || <span className="text-slate-300 italic">--</span>}
+                                        </td>
+                                        <td className="px-4 py-3 border-b border-slate-100">
+                                            {renderCell(lead, 'phone')}
+                                        </td>
+                                        <td className="px-4 py-3 border-b border-slate-100 text-indigo-600">
+                                            {renderCell(lead, 'email')}
+                                        </td>
+                                        <td className="px-4 py-3 border-b border-slate-100">
+                                            {renderCell(lead, 'status', 'select', STATUS_OPTIONS)}
+                                        </td>
+                                        <td className="px-4 py-3 border-b border-slate-100">
+                                            {renderCell(lead, 'source')}
+                                        </td>
+                                        <td className="px-4 py-3 border-b border-slate-100">
+                                            {renderCell(lead, 'assignedTo')}
+                                        </td>
+                                        <td className="px-4 py-3 border-b border-slate-100 max-w-[200px]" title={lead.message}>
+                                            <div className="truncate text-slate-500 italic">
+                                                {lead.message || <span className="opacity-0">-</span>}
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 border-b border-slate-100 max-w-[150px]" title={lead.notes}>
+                                            <div className="truncate text-slate-500 text-xs">
+                                                {lead.notes || <span className="opacity-0">-</span>}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-6">
+                        {filteredLeads.map((lead) => (
+                            <div
+                                key={lead.id}
+                                className="bg-white p-6 rounded-[2rem] border border-slate-200/60 shadow-sm hover:shadow-xl transition-all border-l-4 group relative cursor-pointer"
+                                style={{ borderLeftColor: lead.status === 'New' ? '#6366f1' : '#94a3b8' }}
+                                onDoubleClick={() => onViewLead(lead)}
+                            >
+                                <div className="absolute top-4 right-4">
                                     <input
                                         type="checkbox"
                                         checked={selectedIds.has(lead.id)}
-                                        onChange={() => handleSelectOne(lead.id)}
+                                        onChange={(e) => { e.stopPropagation(); handleSelectOne(lead.id); }}
                                         className="rounded border-slate-300"
                                     />
-                                </td>
-                                <td className="px-4 py-3 border-b border-slate-100 font-semibold text-indigo-600 transition-colors">
-                                    {renderCell(lead, 'name', 'text', [], () => onViewLead(lead))}
-                                </td>
-                                <td className="px-4 py-3 border-b border-slate-100 max-w-[200px] truncate" title={lead.propertyAddress}>
-                                    {lead.propertyAddress || <span className="text-slate-300 italic">--</span>}
-                                </td>
-                                <td className="px-4 py-3 border-b border-slate-100">
-                                    {renderCell(lead, 'phone')}
-                                </td>
-                                <td className="px-4 py-3 border-b border-slate-100 text-indigo-600">
-                                    {renderCell(lead, 'email')}
-                                </td>
-                                <td className="px-4 py-3 border-b border-slate-100">
-                                    {renderCell(lead, 'status', 'select', STATUS_OPTIONS)}
-                                </td>
-                                <td className="px-4 py-3 border-b border-slate-100">
-                                    {renderCell(lead, 'source')}
-                                </td>
-                                <td className="px-4 py-3 border-b border-slate-100">
-                                    {renderCell(lead, 'assignedTo')}
-                                </td>
-                                <td className="px-4 py-3 border-b border-slate-100 max-w-[200px]" title={lead.message}>
-                                    <div className="truncate text-slate-500 italic">
-                                        {lead.message || <span className="opacity-0">-</span>}
+                                </div>
+
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors" onClick={() => onViewLead(lead)}>
+                                        {lead.name}
                                     </div>
-                                </td>
-                                <td className="px-4 py-3 border-b border-slate-100 max-w-[150px]" title={lead.notes}>
-                                    <div className="truncate text-slate-500 text-xs">
-                                        {lead.notes || <span className="opacity-0">-</span>}
+                                </div>
+
+                                {lead.propertyAddress && (
+                                    <div className="text-[10px] text-slate-500 font-medium mb-1 truncate flex items-center gap-1.5">
+                                        <i className="fa-solid fa-location-dot opacity-30 text-[8px]"></i>
+                                        {lead.propertyAddress}
                                     </div>
-                                </td>
-                            </tr>
+                                )}
+
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4 text-[10px] text-slate-400">
+                                    {lead.email && (
+                                        <div className="flex items-center gap-1.5 truncate max-w-[140px]">
+                                            <i className="fa-solid fa-envelope opacity-30 text-[8px]"></i>
+                                            {lead.email}
+                                        </div>
+                                    )}
+                                    {lead.phone && (
+                                        <div className="flex items-center gap-1.5 truncate">
+                                            <i className="fa-solid fa-phone opacity-30 text-[8px]"></i>
+                                            {lead.phone}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center gap-2 mb-4">
+                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${lead.status === 'New' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-500'}`}>
+                                        {lead.status}
+                                    </span>
+                                    <span className="text-[8px] text-slate-300 font-medium uppercase tracking-widest">{lead.source}</span>
+                                </div>
+
+                                {lead.notes && (
+                                    <div className="mb-4 bg-slate-50/50 p-3 rounded-xl border border-slate-100 shadow-inner">
+                                        <p className="text-[10px] text-slate-500 line-clamp-3 leading-relaxed italic">"{lead.notes}"</p>
+                                    </div>
+                                )}
+
+                                <div className="flex items-center justify-between mt-auto pt-3 border-t border-slate-50 relative">
+                                    <div className="flex flex-col gap-1.5">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[7px] font-black text-slate-300 uppercase tracking-tighter">Created:</span>
+                                            <span className="text-[8px] text-slate-500 font-bold uppercase tracking-tighter">
+                                                {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleDateString() : new Date(lead.receivedAt).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-indigo-400">
+                                            <span className="text-[7px] font-black uppercase tracking-tighter">Last Follow Up:</span>
+                                            <span className="text-[8px] font-bold uppercase tracking-tighter">
+                                                {lead.lastTouch?.toDate ? lead.lastTouch.toDate().toLocaleDateString() : lead.lastTouch ? new Date(lead.lastTouch).toLocaleDateString() : 'None'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="w-6 h-6 rounded-full bg-slate-50 border border-white text-[8px] flex items-center justify-center font-black text-slate-400 shadow-sm">
+                                        {lead.name[0]}
+                                    </div>
+                                </div>
+                            </div>
                         ))}
-                    </tbody>
-                </table>
+                    </div>
+                )}
                 {filteredLeads.length === 0 && (
                     <div className="p-10 text-center text-slate-400">
                         No leads found matching current filter.
