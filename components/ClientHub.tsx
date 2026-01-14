@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, updateFunnelStage, seedMockData, getLeads, getTasks, getTemplates, updateLead, activateLeadToCollection, addPipelineNote, getPipelineNotes, updatePipelineNote, deletePipelineNote } from '../services/firebaseService';
+import { getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, updateFunnelStage, seedMockData, getLeads, getTasks, getTemplates, updateLead, activateLeadToCollection, addPipelineNote, getPipelineNotes, updatePipelineNote, deletePipelineNote, saveUserProfile } from '../services/firebaseService';
 import { UserProfile, Lead, LeadNote, CRMTask, CommMessage, CommTemplate, FunnelStage, PipelineNote, LeadStatus } from '../types';
 import { DropResult } from '@hello-pangea/dnd';
 import Logo from './Logo';
@@ -12,6 +12,7 @@ import EditLeadModal from './client-hub/EditLeadModal';
 import TaskBoard from './client-hub/TaskBoard';
 import CommHub from './client-hub/CommHub';
 import PropertiesPortfolio from './client-hub/PropertiesPortfolio';
+import KYCModal from './client-hub/KYCModal';
 
 interface Props {
     realtorId: string;
@@ -40,12 +41,23 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
     const [templates, setTemplates] = useState<CommTemplate[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [editingLead, setEditingLead] = useState<Lead | null>(null);
+    const [kycLead, setKycLead] = useState<Lead | null>(null);
     const [newNote, setNewNote] = useState('');
     const [isSavingLead, setIsSavingLead] = useState(false);
 
     // Pipeline Notes State
     const [pipelineNotes, setPipelineNotes] = useState<PipelineNote[]>([]);
     const [pendingNote, setPendingNote] = useState<{ leadId: string, color: string } | null>(null);
+
+    useEffect(() => {
+        // Global listener for KYC modal
+        (window as any).dispatchKYCEvent = (lead: Lead) => {
+            setKycLead(lead);
+        };
+        return () => {
+            (window as any).dispatchKYCEvent = undefined;
+        };
+    }, []);
 
     useEffect(() => {
         const initializeHubData = async () => {
@@ -84,13 +96,65 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
                     id: 'mock_buy_1', name: 'Sarah Miller', email: 'sarah.m@gmail.com', phone: '(555) 123-4567',
                     source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 7200000),
                     slaUrgency: 'high', funnelStage: 'Nurture', health: 'Active', minPrice: 3800000, maxPrice: 4500000,
-                    propertyAddress: '123 Luxury Way, Beverly Hills', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
+                    propertyAddress: '123 Luxury Way, Beverly Hills', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead',
+                    kyc: {
+                        dealBreakers: ['No pool', 'Under 3 car garage', 'Power lines nearby', 'Busy street'],
+                        neighborhoodTargets: ['Beverly Hills', 'Bel Air', 'Holmby Hills'],
+                        schoolDistricts: ['Beverly Hills Unified (BHUSD)', 'Los Angeles Unified (LAUSD)'],
+                        isAllCash: true,
+                        lenderName: 'JP Morgan Private Banking',
+                        lenderContact: 'Marcus Goldman (212) 555-0987',
+                        birthdays: 'Sarah: May 12th | Husband: Dec 4th',
+                        homeAnniversary: 'October 15th',
+                        familyPetsDetails: 'Two Golden Retrievers (Max & Bella). Looking for a large fenced backyard.',
+                        communicationPreferenceNotes: 'Prefers WhatsApp for quick updates. Formal documents via Email only. No calls after 7 PM.',
+                        leadScore: 98,
+                        nurtureDetail: 'Hot',
+                        slaMinutesTarget: 15,
+                        transactionStage: 'Inspection',
+                        inspectionDeadline: '2026-01-20',
+                        appraisalDeadline: '2026-01-25',
+                        loanCommitmentDeadline: '2026-02-01',
+                        documentChecklist: [
+                            { id: '1', name: 'Identity Verification (Passport)', status: 'Signed' },
+                            { id: '2', name: 'Proof of Funds (Bank Statement)', status: 'Signed' },
+                            { id: '3', name: 'Buyer Broker Agreement', status: 'Signed' },
+                            { id: '4', name: 'Initial Escrow Deposit', status: 'Pending' },
+                            { id: '5', name: 'Advisory Disclosures', status: 'Missing' }
+                        ]
+                    }
                 },
                 {
                     id: 'mock_buy_2', name: 'David Chen', email: 'd.chen@outlook.com', phone: '(555) 987-6543',
                     source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 3600000),
                     slaUrgency: 'medium', funnelStage: 'Active', health: 'Active', minPrice: 1100000, maxPrice: 1400000,
-                    propertyAddress: '789 Sunset Blvd, Hollywood', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
+                    propertyAddress: '789 Sunset Blvd, Hollywood', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead',
+                    kyc: {
+                        dealBreakers: ['No freeway noise', 'Must have view', 'Small kitchen', 'No natural light'],
+                        neighborhoodTargets: ['Hollywood Hills', 'Silver Lake', 'Echo Park'],
+                        schoolDistricts: ['LAUSD Central'],
+                        isAllCash: false,
+                        lenderName: 'Rocket Mortgage',
+                        lenderContact: 'Jason Wang (800) 555-1212',
+                        birthdays: 'August 19th',
+                        homeAnniversary: 'N/A (First time buyer)',
+                        familyPetsDetails: 'Single, has a Siamese cat named Luna.',
+                        communicationPreferenceNotes: 'Text message is best. Emails for long documents. Avoid calls during market hours (9-4).',
+                        leadScore: 82,
+                        nurtureDetail: 'Warm',
+                        slaMinutesTarget: 30,
+                        transactionStage: 'Under Contract',
+                        inspectionDeadline: '2026-01-20',
+                        appraisalDeadline: '2026-01-24',
+                        loanCommitmentDeadline: '2026-01-30',
+                        documentChecklist: [
+                            { id: '1', name: 'Buyer Broker Agreement', status: 'Signed' },
+                            { id: '2', name: 'Initial Deposit Received', status: 'Signed' },
+                            { id: '3', name: 'Loan Application Submitted', status: 'Signed' },
+                            { id: '4', name: 'Inspection Report Review', status: 'Pending' },
+                            { id: '5', name: 'HOA Document Review', status: 'Pending' }
+                        ]
+                    }
                 },
                 {
                     id: 'mock_buy_3', name: 'James Wilson', email: 'j.wilson@example.com', phone: '(555) 222-3344',
@@ -156,10 +220,13 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
                 { id: 'tpl_3', name: 'Viewing Scheduled', content: "Confirmation: We're set to view {{address}} at {{time}}. I'll meet you at the front entrance. See you soon!", channel: 'SMS', category: 'Viewing', isMock: true }
             ];
 
-            // Check if we need to seed (if any mock leads are missing OR in wrong collection)
+            // Check if we need to seed (if any mock leads are missing, in wrong collection, or missing KYC data)
             const shouldSeed = initialLeads.some(l => {
                 const existing = _leads.find(ex => ex.id === l.id);
-                return !existing || (l.collectionName && existing.collectionName !== l.collectionName);
+                if (!existing) return true;
+                if (l.collectionName && existing.collectionName !== l.collectionName) return true;
+                if (l.kyc && !existing.kyc) return true; // New check for KYC data
+                return false;
             });
 
             if (shouldSeed) {
@@ -175,11 +242,32 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
                 _templates = await getTemplates(realtorId);
             }
 
-            setLeads(_leads);
+            // Forced Merge: Ensure local state has mock data even if Firestore is slightly behind 
+            // This is safer for development UX
+            const finalLeads = _leads.map(lead => {
+                if (lead.isMock) {
+                    const mockTemplate = initialLeads.find(l => l.id === lead.id);
+                    if (mockTemplate) {
+                        return { ...lead, ...mockTemplate };
+                    }
+                }
+                return lead;
+            });
+
+            setLeads(finalLeads);
             setTasks(_tasks);
             setTemplates(_templates);
-            setPipelineNotes(_notes);
             setLoadingData(false);
+
+            // Refresh selectedClient to ensure it has the latest data (including KYC)
+            setSelectedClient(prev => {
+                if (!prev) return null;
+                const prevId = 'uid' in prev ? (prev as any).uid : (prev as any).id;
+                const updated = finalLeads.find(l => l.id === prevId);
+                // For users, they might be in the 'clients' state (which we haven't updated here as it's separate)
+                // but since Sarah is a lead, this will work for her.
+                return updated || prev;
+            });
         };
         initializeHubData();
     }, [realtorId]);
@@ -468,6 +556,34 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
         { id: 'comms', label: 'Connect', icon: 'fa-comments' },
     ];
 
+    const handleSaveKYC = async (updates: any) => {
+        if (!kycLead) return;
+        const _isUser = 'uid' in kycLead;
+
+        if (_isUser) {
+            // Mapping back normalized fields for UserProfile
+            const normalizedUpdates = { ...updates };
+            if (updates.name) {
+                normalizedUpdates.displayName = updates.name;
+                delete normalizedUpdates.name;
+            }
+            if (updates.phone) {
+                normalizedUpdates.phoneNumber = updates.phone;
+                delete normalizedUpdates.phone;
+            }
+
+            // Update UserProfile
+            const uid = (kycLead as UserProfile).uid;
+            setClients(prev => prev.map(c => c.uid === uid ? { ...c, ...normalizedUpdates } : c));
+            await saveUserProfile(uid, normalizedUpdates);
+        } else {
+            // Update Lead
+            const leadId = (kycLead as Lead).id;
+            handleUpdateLead(leadId, updates);
+        }
+        setKycLead(null);
+    };
+
     return (
         <div className="fixed inset-0 z-[100] bg-[#F8FAFC] flex flex-col animate-in fade-in duration-500 font-sans selection:bg-indigo-100 selection:text-indigo-900">
             {/* Top Header / Tab Bar */}
@@ -518,6 +634,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
                         manualContacts={leads}
                         selectedClient={selectedClient}
                         setSelectedClient={setSelectedClient}
+                        onUpdateKYC={handleSaveKYC}
                         clientActivity={clientActivity}
                         loadingClients={loadingClients}
                         loadingActivity={loadingActivity}
@@ -591,6 +708,15 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
                     isSavingLead={isSavingLead}
                     newNote={newNote}
                     setNewNote={setNewNote}
+                />
+            )}
+
+            {/* KYC Modal */}
+            {kycLead && (
+                <KYCModal
+                    lead={kycLead}
+                    onClose={() => setKycLead(null)}
+                    onSave={handleSaveKYC}
                 />
             )}
 

@@ -18,6 +18,7 @@ export interface UserProfile {
   maxPrice?: number;
   isMock?: boolean;
   createdAt?: any;
+  kyc?: KYCData;
 }
 
 export type LeadSource = 'Zillow' | 'Realtor.com' | 'Facebook' | 'Website' | 'Manual' | 'Referral';
@@ -42,6 +43,57 @@ export interface LeadNote {
   content: string;
   timestamp: any;
   author?: string;
+}
+
+export interface ShortlistedProperty {
+  id: string;
+  address: string;
+  price: number;
+  isHot?: boolean;
+}
+
+export interface ActivityEvent {
+  id: string;
+  address: string; // Or "Phone Call", "Office Meeting"
+  timestamp: any;
+  viewCount?: number;
+  type: 'Property View' | 'Meeting' | 'Call' | 'Other';
+}
+
+export interface DocumentChecklistItem {
+  id: string;
+  name: string;
+  status: 'Signed' | 'Pending' | 'Missing';
+}
+
+export interface KYCData {
+  // 1. Client Profiles & Preferences
+  dealBreakers?: string[];
+  neighborhoodTargets?: string[];
+  schoolDistricts?: string[];
+  lenderName?: string;
+  lenderContact?: string;
+  isAllCash?: boolean;
+  birthdays?: string; // Flexible format for now
+  homeAnniversary?: string;
+  familyPetsDetails?: string;
+  communicationPreferenceNotes?: string;
+
+  // 2. Lead Management
+  leadScore?: number;
+  nurtureDetail?: 'Cold' | 'Warm' | 'Hot';
+  slaMinutesTarget?: number;
+
+  // 3. Transaction Pipeline
+  transactionStage?: 'Listing' | 'Under Contract' | 'Inspection' | 'Appraisal' | 'Closing';
+  inspectionDeadline?: any;
+  appraisalDeadline?: any;
+  loanCommitmentDeadline?: any;
+  documentChecklist?: DocumentChecklistItem[];
+
+  // 4. Manual Agent Entries
+  shortlist?: ShortlistedProperty[];
+  activityFeed?: ActivityEvent[];
 }
 
 export interface Lead {
@@ -97,6 +149,7 @@ export interface Lead {
   activatedAt?: any;
   closedAt?: any;
   collectionName?: string;
+  kyc?: KYCData;
 }
 
 export interface JourneyEvent {

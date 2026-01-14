@@ -306,9 +306,9 @@ const PipelineBoard: React.FC<PipelineBoardProps> = ({
                                                             }}
                                                         >
                                                             <div className="flex justify-between items-start mb-3">
-                                                                <div className="font-bold text-slate-900 text-sm">{lead.name}</div>
+                                                                <div className="font-bold text-slate-900 text-sm truncate">{lead.name}</div>
                                                                 {lead.slaUrgency === 'high' && (
-                                                                    <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" title="High Urgency"></div>
+                                                                    <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse mt-1.5" title="High Urgency"></div>
                                                                 )}
                                                             </div>
 
