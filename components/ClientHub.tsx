@@ -486,6 +486,13 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
                         onUpdateLead={(id, updates) => handleUpdateLead(id, updates)}
                         onViewLead={(lead) => setEditingLead(lead)}
                         onCreateLead={handleCreateLead}
+                        notes={pipelineNotes}
+                        pendingNote={pendingNote}
+                        setPendingNote={setPendingNote}
+                        handleSaveNote={handleSavePipelineNote}
+                        handleUpdateNote={handleUpdatePipelineNote}
+                        handleDeleteNote={handleDeletePipelineNote}
+                        handleDragEnd={handleDragEnd}
                     />
                 )}
 
