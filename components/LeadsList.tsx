@@ -28,7 +28,7 @@ const LeadsList: React.FC<InternalProps> = ({ leads, onUpdateLead, onViewLead, o
         "Archived": "Not currently working; may be unsubscribed from marketing."
     };
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-    const [viewMode, setViewMode] = useState<'new' | 'active' | 'closed' | 'archived'>('new');
+    const [viewMode, setViewMode] = useState<'today' | 'week' | 'month' | 'year' | 'older'>('today');
     const [showFilters, setShowFilters] = useState(false);
     const [showStatusInfo, setShowStatusInfo] = useState(false);
     const [columnFilters, setColumnFilters] = useState({
@@ -182,42 +182,69 @@ const LeadsList: React.FC<InternalProps> = ({ leads, onUpdateLead, onViewLead, o
         );
     };
 
-    const stats = useMemo(() => {
+    const getTimeStats = useMemo(() => {
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+        const startOfYear = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+
+        const validLeads = leads.filter(l =>
+            !['Closed-Won', 'Closed-Lost', 'Archived'].includes(l.status) &&
+            l.collectionName === 'leads'
+        );
+
         return {
-            total: leads.length,
-            new: leads.filter(l => l.status === 'New').length,
-            active: leads.filter(l => !['New', 'Archived', 'Closed-Won', 'Closed-Lost'].includes(l.status)).length,
-            converted: leads.filter(l => ['Closed-Won', 'Closed-Lost'].includes(l.status)).length
+            today: validLeads.filter(l => {
+                const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
+                return d >= startOfToday;
+            }).length,
+            week: validLeads.filter(l => {
+                const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
+                return d >= startOfWeek && d < startOfToday;
+            }).length,
+            month: validLeads.filter(l => {
+                const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
+                return d >= startOfMonth && d < startOfWeek;
+            }).length,
+            year: validLeads.filter(l => {
+                const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
+                return d >= startOfYear && d < startOfMonth;
+            }).length,
+            older: validLeads.filter(l => {
+                const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
+                return d < startOfYear;
+            }).length
         };
     }, [leads]);
 
     const filteredLeads = useMemo(() => {
-        // 1. Bucket Categorization (Strict Separation)
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+        const startOfYear = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+
         let result = leads.filter(l => {
-            if (viewMode === 'new') return l.status === 'New';
-            if (viewMode === 'closed') {
-                if (!['Closed-Won', 'Closed-Lost'].includes(l.status)) return false;
-                if (!l.closedAt) return true; // Show if no date (fallback)
-                const closedDate = new Date(l.closedAt);
-                const threeMonthsAgo = new Date();
-                threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-                return closedDate >= threeMonthsAgo;
-            }
-            if (viewMode === 'archived') return l.status === 'Archived';
-            // Default to Active: Everything else
-            return !['New', 'Archived', 'Closed-Won', 'Closed-Lost'].includes(l.status);
-        }).filter(l => l.collectionName === 'leads');
+            if (['Closed-Won', 'Closed-Lost', 'Archived'].includes(l.status)) return false;
+            if (l.collectionName !== 'leads') return false;
 
+            const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
 
+            if (viewMode === 'today') return d >= startOfToday;
+            if (viewMode === 'week') return d >= startOfWeek && d < startOfToday;
+            if (viewMode === 'month') return d >= startOfMonth && d < startOfWeek;
+            if (viewMode === 'year') return d >= startOfYear && d < startOfMonth;
+            if (viewMode === 'older') return d < startOfYear;
+            return false;
+        });
 
-        // 3. Apply Column Filters (Name, Phone, etc.) - Apply to BOTH views
         if (columnFilters.name) result = result.filter(l => l.name.toLowerCase().includes(columnFilters.name.toLowerCase()));
         if (columnFilters.phone) result = result.filter(l => l.phone.toLowerCase().includes(columnFilters.phone.toLowerCase()));
         if (columnFilters.email) result = result.filter(l => l.email.toLowerCase().includes(columnFilters.email.toLowerCase()));
         if (columnFilters.status) result = result.filter(l => l.status === columnFilters.status);
         if (columnFilters.source) result = result.filter(l => l.source === columnFilters.source);
 
-        // 4. Sorting
         return result.sort((a, b) => {
             const aVal = a[sortField];
             const bVal = b[sortField];
@@ -259,66 +286,65 @@ const LeadsList: React.FC<InternalProps> = ({ leads, onUpdateLead, onViewLead, o
 
     return (
         <div className="flex flex-col h-full bg-white text-sm font-sans">
-            {/* Summary Header - "Without Jazz" */}
             <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-4">
-
-
                         <div>
                             <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm relative overflow-hidden">
                                 <button
-                                    onClick={() => setViewMode('new')}
-                                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 relative z-10 ${viewMode === 'new' ? 'text-indigo-600 bg-white shadow-xl shadow-indigo-500/10' : 'text-slate-400 hover:text-slate-600'}`}
+                                    onClick={() => setViewMode('today')}
+                                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 relative z-10 ${viewMode === 'today' ? 'text-indigo-600 bg-white shadow-xl shadow-indigo-500/10' : 'text-slate-400 hover:text-slate-600'}`}
                                 >
                                     New
-                                    {stats.new > 0 && viewMode !== 'new' && (
+                                    {getTimeStats.today > 0 && viewMode !== 'today' && (
                                         <span className="ml-2 px-1.5 py-0.5 bg-indigo-100 text-indigo-600 rounded-full text-[10px] animate-pulse">
-                                            {stats.new}
+                                            {getTimeStats.today}
                                         </span>
                                     )}
                                 </button>
                                 <button
-                                    onClick={() => setViewMode('active')}
-                                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 relative z-10 ${viewMode === 'active' ? 'text-indigo-600 bg-white shadow-xl shadow-indigo-500/10' : 'text-slate-400 hover:text-slate-600'}`}
+                                    onClick={() => setViewMode('week')}
+                                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 relative z-10 ${viewMode === 'week' ? 'text-indigo-600 bg-white shadow-xl shadow-indigo-500/10' : 'text-slate-400 hover:text-slate-600'}`}
                                 >
-                                    Active
+                                    Past Week
                                 </button>
                                 <button
-                                    onClick={() => setViewMode('closed')}
-                                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 relative z-10 ${viewMode === 'closed' ? 'text-indigo-600 bg-white shadow-xl shadow-indigo-500/10' : 'text-slate-400 hover:text-slate-600'}`}
+                                    onClick={() => setViewMode('month')}
+                                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 relative z-10 ${viewMode === 'month' ? 'text-indigo-600 bg-white shadow-xl shadow-indigo-500/10' : 'text-slate-400 hover:text-slate-600'}`}
                                 >
-                                    Closed
+                                    Past Month
                                 </button>
                                 <button
-                                    onClick={() => setViewMode('archived')}
-                                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 relative z-10 ${viewMode === 'archived' ? 'text-indigo-600 bg-white shadow-xl shadow-indigo-500/10' : 'text-slate-400 hover:text-slate-600'}`}
+                                    onClick={() => setViewMode('year')}
+                                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 relative z-10 ${viewMode === 'year' ? 'text-indigo-600 bg-white shadow-xl shadow-indigo-500/10' : 'text-slate-400 hover:text-slate-600'}`}
                                 >
-                                    Archived
+                                    Past Year
                                 </button>
-                            </div>
-                            <div className="mt-4">
-                                {viewMode === 'new' && (
-                                    <div className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-
-                                        <span className="text-sm font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full uppercase tracking-widest">
-                                            {filteredLeads.length} Items
-                                        </span>
-                                    </div>
-                                )}
-
+                                <button
+                                    onClick={() => setViewMode('older')}
+                                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 relative z-10 ${viewMode === 'older' ? 'text-indigo-600 bg-white shadow-xl shadow-indigo-500/10' : 'text-slate-400 hover:text-slate-600'}`}
+                                >
+                                    Older
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
-
-
+                <div className="mt-4">
+                    {viewMode === 'today' && (
+                        <div className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                            <span className="text-sm font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full uppercase tracking-widest">
+                                {filteredLeads.length} Items Today
+                            </span>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Toolbar */}
             <div className="px-6 py-2 border-b border-slate-200 bg-white flex items-center justify-between">
                 <div className="flex items-center gap-1 text-slate-400">
-                    {viewMode === 'new' && (
+                    {viewMode === 'today' && (
                         <button
                             className="px-3 py-1.5 bg-indigo-600 text-white rounded flex items-center gap-2 text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-sm"
                             onClick={onCreateLead}
@@ -327,32 +353,17 @@ const LeadsList: React.FC<InternalProps> = ({ leads, onUpdateLead, onViewLead, o
                             New Lead
                         </button>
                     )}
-                    {(viewMode === 'new' || viewMode === 'active') ? (
-                        <button
-                            className={`px-3 py-1.5 rounded flex items-center gap-2 text-xs font-semibold transition-colors ${selectedIds.size > 0 ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'text-slate-300 cursor-not-allowed'}`}
-                            onClick={handleBulkArchive}
-                            disabled={selectedIds.size === 0}
-                        >
-                            <i className="fa-solid fa-box-archive"></i>
-                            Archive Selected {selectedIds.size > 0 && `(${selectedIds.size})`}
-                        </button>
-                    ) : (
-                        <button
-                            className={`px-3 py-1.5 rounded flex items-center gap-2 text-xs font-semibold transition-colors ${selectedIds.size > 0 ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'text-slate-300 cursor-not-allowed'}`}
-                            onClick={handleBulkActivate}
-                            disabled={selectedIds.size === 0}
-                        >
-                            <i className="fa-solid fa-bolt-lightning"></i>
-                            Activate Selected {selectedIds.size > 0 && `(${selectedIds.size})`}
-                        </button>
-                    )}
-                    {viewMode === 'closed' && (
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Read Only Archive</div>
-                    )}
+                    <button
+                        className={`px-3 py-1.5 rounded flex items-center gap-2 text-xs font-semibold transition-colors ${selectedIds.size > 0 ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'text-slate-300 cursor-not-allowed'}`}
+                        onClick={handleBulkArchive}
+                        disabled={selectedIds.size === 0}
+                    >
+                        <i className="fa-solid fa-box-archive"></i>
+                        Archive Selected {selectedIds.size > 0 && `(${selectedIds.size})`}
+                    </button>
                     <div className="h-4 w-px bg-slate-200 mx-2"></div>
                     <button className={`p-2 hover:bg-slate-100 rounded ${showFilters ? 'bg-slate-100 text-indigo-600' : ''}`} onClick={() => setShowFilters(!showFilters)}><i className="fa-solid fa-filter"></i></button>
                 </div>
-
             </div>
 
             {/* Filter Bar */}
@@ -407,16 +418,13 @@ const LeadsList: React.FC<InternalProps> = ({ leads, onUpdateLead, onViewLead, o
                 <table className="w-full text-left border-collapse">
                     <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-bold text-slate-500 uppercase tracking-wider">
                         <tr>
-                            <th className="w-12 px-4 py-3 border-b border-slate-200/60 bg-slate-50 text-center">
-                                #
-                            </th>
+                            <th className="w-12 px-4 py-3 border-b border-slate-200/60 bg-slate-50 text-center">#</th>
                             <th className="w-10 px-4 py-3 border-b border-slate-200/60 bg-slate-50">
                                 <input type="checkbox" onChange={handleSelectAll} checked={selectedIds.size === filteredLeads.length && filteredLeads.length > 0} className="rounded border-slate-300" />
                             </th>
                             <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('name')}>
                                 Name {sortField === 'name' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                             </th>
-
                             <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('propertyAddress')}>
                                 Property {sortField === 'propertyAddress' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                             </th>
@@ -426,57 +434,49 @@ const LeadsList: React.FC<InternalProps> = ({ leads, onUpdateLead, onViewLead, o
                             <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('email')}>
                                 Email {sortField === 'email' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                             </th>
-                            {!(viewMode === 'new' || viewMode === 'archived') && (
-                                <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100 group relative">
-                                    <div className="flex items-center gap-1" onClick={() => handleSort('status')}>
-                                        Lead Status {sortField === 'status' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                        <div
-                                            className="inline-flex self-center ml-1 text-slate-400 hover:text-indigo-600 transition-colors"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setShowStatusInfo(!showStatusInfo);
-                                            }}
-                                        >
-                                            <i className="fa-solid fa-circle-info"></i>
+                            <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100 group relative">
+                                <div className="flex items-center gap-1" onClick={() => handleSort('status')}>
+                                    Lead Status {sortField === 'status' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                    <div
+                                        className="inline-flex self-center ml-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowStatusInfo(!showStatusInfo);
+                                        }}
+                                    >
+                                        <i className="fa-solid fa-circle-info"></i>
+                                    </div>
+                                </div>
+                                {showStatusInfo && (
+                                    <div className="absolute top-full left-0 w-80 bg-white shadow-xl rounded-xl border border-slate-200 p-4 z-50 mt-2 text-left cursor-default" onClick={e => e.stopPropagation()}>
+                                        <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+                                            <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wide">Status Definitions</h4>
+                                            <button onClick={() => setShowStatusInfo(false)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
+                                        </div>
+                                        <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                                            {Object.entries(STATUS_DEFINITIONS).map(([status, desc]) => (
+                                                <div key={status} className="text-xs">
+                                                    <div className="font-bold text-indigo-900 mb-0.5">{status}</div>
+                                                    <div className="text-slate-500 leading-snug">{desc}</div>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
-                                    {showStatusInfo && (
-                                        <div className="absolute top-full left-0 w-80 bg-white shadow-xl rounded-xl border border-slate-200 p-4 z-50 mt-2 text-left cursor-default" onClick={e => e.stopPropagation()}>
-                                            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
-                                                <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wide">Status Definitions</h4>
-                                                <button onClick={() => setShowStatusInfo(false)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
-                                            </div>
-                                            <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                                                {Object.entries(STATUS_DEFINITIONS).map(([status, desc]) => (
-                                                    <div key={status} className="text-xs">
-                                                        <div className="font-bold text-indigo-900 mb-0.5">{status}</div>
-                                                        <div className="text-slate-500 leading-snug">{desc}</div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </th>
-                            )}
+                                )}
+                            </th>
                             <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('source')}>
                                 Lead Source {sortField === 'source' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                             </th>
                             <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('assignedTo')}>
                                 Assigned To {sortField === 'assignedTo' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                             </th>
-
-                            <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50">
-                                Message
-                            </th>
-                            <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50">
-                                Notes
-                            </th>
+                            <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50">Message</th>
+                            <th className="px-4 py-3 border-b border-slate-200/60 bg-slate-50">Notes</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {filteredLeads.map((lead, index) => (
-                            <tr key={lead.id} className={`group text-slate-700 text-xs transition-colors ${viewMode === 'closed' && lead.status === 'Closed-Won' ? 'bg-emerald-50/50 hover:bg-emerald-100/50' : viewMode === 'closed' && lead.status === 'Closed-Lost' ? 'bg-rose-50/50 hover:bg-rose-100/50' : 'hover:bg-slate-50'
-                                }`}>
+                            <tr key={lead.id} className="group text-slate-700 text-xs transition-colors hover:bg-slate-50">
                                 <td className="px-4 py-3 border-b border-slate-100 text-center text-slate-400 opacity-50">
                                     {index + 1}
                                 </td>
@@ -491,7 +491,6 @@ const LeadsList: React.FC<InternalProps> = ({ leads, onUpdateLead, onViewLead, o
                                 <td className="px-4 py-3 border-b border-slate-100 font-semibold text-indigo-600 transition-colors">
                                     {renderCell(lead, 'name', 'text', [], () => onViewLead(lead))}
                                 </td>
-
                                 <td className="px-4 py-3 border-b border-slate-100 max-w-[200px] truncate" title={lead.propertyAddress}>
                                     {lead.propertyAddress || <span className="text-slate-300 italic">--</span>}
                                 </td>
@@ -501,18 +500,15 @@ const LeadsList: React.FC<InternalProps> = ({ leads, onUpdateLead, onViewLead, o
                                 <td className="px-4 py-3 border-b border-slate-100 text-indigo-600">
                                     {renderCell(lead, 'email')}
                                 </td>
-                                {!(viewMode === 'new' || viewMode === 'archived') && (
-                                    <td className="px-4 py-3 border-b border-slate-100">
-                                        {renderCell(lead, 'status', 'select', STATUS_OPTIONS)}
-                                    </td>
-                                )}
+                                <td className="px-4 py-3 border-b border-slate-100">
+                                    {renderCell(lead, 'status', 'select', STATUS_OPTIONS)}
+                                </td>
                                 <td className="px-4 py-3 border-b border-slate-100">
                                     {renderCell(lead, 'source')}
                                 </td>
                                 <td className="px-4 py-3 border-b border-slate-100">
                                     {renderCell(lead, 'assignedTo')}
                                 </td>
-
                                 <td className="px-4 py-3 border-b border-slate-100 max-w-[200px]" title={lead.message}>
                                     <div className="truncate text-slate-500 italic">
                                         {lead.message || <span className="opacity-0">-</span>}
@@ -533,7 +529,7 @@ const LeadsList: React.FC<InternalProps> = ({ leads, onUpdateLead, onViewLead, o
                     </div>
                 )}
             </div>
-        </div >
+        </div>
     );
 };
 
