@@ -5,26 +5,20 @@ type NoteColor = 'yellow' | 'blue' | 'green' | 'red';
 
 interface BoardItem {
     id: string;
-    type: 'note' | 'text' | 'sticker';
-    x: number;
-    y: number;
+    type: 'note' | 'text' | 'sticker' | 'pen' | 'arrow';
+    x?: number;
+    y?: number;
     content?: string;
     color?: NoteColor;
     width?: number;
     height?: number;
     rotation?: number;
-    stickerType?: string;
-
     fontSize?: number;
     reaction?: string;
-}
-
-interface Path {
-    id: string;
-    points: { x: number; y: number }[];
-    color: string;
-    width: number;
-    type?: 'freehand' | 'arrow';
+    // Path specific
+    points?: { x: number; y: number }[];
+    stroke?: string;
+    strokeWidth?: number;
 }
 
 const WhiteboardTab: React.FC = () => {
@@ -35,27 +29,17 @@ const WhiteboardTab: React.FC = () => {
 
     // Initialize from Session Storage or Default
     const [items, setItems] = useState<BoardItem[]>(() => {
-        const saved = sessionStorage.getItem('zyphe_wb_items');
+        const saved = sessionStorage.getItem('zyphe_wb_items_v2');
         return saved ? JSON.parse(saved) : [
             { id: '1', type: 'note', x: 200, y: 150, content: 'Welcome to the Whiteboard!', color: 'yellow', rotation: -2, width: 200, height: 200 },
-            { id: '2', type: 'note', x: 500, y: 100, content: 'Brainstorm stats here...', color: 'blue', rotation: 3, width: 200, height: 200 },
-            { id: '3', type: 'text', x: 350, y: 350, content: 'What are your tips & tricks on staying productive in WFH setting?', width: 500, fontSize: 24 },
+            { id: '2', type: 'text', x: 350, y: 350, content: 'Items stack in creation order now!', width: 500, fontSize: 24 },
         ];
-    });
-
-    const [paths, setPaths] = useState<Path[]>(() => {
-        const saved = sessionStorage.getItem('zyphe_wb_paths');
-        return saved ? JSON.parse(saved) : [];
     });
 
     // Persist to Session Storage
     useEffect(() => {
-        sessionStorage.setItem('zyphe_wb_items', JSON.stringify(items));
+        sessionStorage.setItem('zyphe_wb_items_v2', JSON.stringify(items));
     }, [items]);
-
-    useEffect(() => {
-        sessionStorage.setItem('zyphe_wb_paths', JSON.stringify(paths));
-    }, [paths]);
 
     // Drawing State
     const [isDrawing, setIsDrawing] = useState(false);
@@ -181,25 +165,25 @@ const WhiteboardTab: React.FC = () => {
         if (activeTool === 'pen' && isDrawing) {
             setIsDrawing(false);
             if (currentPath.length > 1) {
-                setPaths(prev => [...prev, {
+                setItems(prev => [...prev, {
                     id: Date.now().toString(),
+                    type: 'pen',
                     points: currentPath,
-                    color: penColor,
-                    width: 3
+                    stroke: penColor,
+                    strokeWidth: 3
                 }]);
             }
-            setCurrentPath([]);
             setCurrentPath([]);
         }
         if (activeTool === 'arrow' && isDrawing) {
             setIsDrawing(false);
             if (currentPath.length === 2 && (currentPath[0].x !== currentPath[1].x || currentPath[0].y !== currentPath[1].y)) {
-                setPaths(prev => [...prev, {
+                setItems(prev => [...prev, {
                     id: Date.now().toString(),
+                    type: 'arrow',
                     points: currentPath,
-                    color: penColor,
-                    width: 3,
-                    type: 'arrow'
+                    stroke: penColor,
+                    strokeWidth: 3
                 }]);
             }
             setCurrentPath([]);
@@ -222,6 +206,7 @@ const WhiteboardTab: React.FC = () => {
 
     const startDrag = (e: React.MouseEvent, item: BoardItem) => {
         if (activeTool !== 'select') return;
+        if (!item.x || !item.y) return; // Prevent dragging of paths
         e.stopPropagation();
         setDraggingId(item.id);
         const rect = canvasRef.current?.getBoundingClientRect();
@@ -254,9 +239,7 @@ const WhiteboardTab: React.FC = () => {
         setItems(prev => prev.filter(item => item.id !== id));
     };
 
-    const deletePath = (id: string) => {
-        setPaths(prev => prev.filter(p => p.id !== id));
-    };
+
 
     const handleToolClick = (tool: Tool) => {
         if (activeTool === tool) {
@@ -343,8 +326,8 @@ const WhiteboardTab: React.FC = () => {
                     backgroundSize: '20px 20px'
                 }}
             >
-                {/* SVG Layer for Drawings */}
-                <svg ref={svgRef} className="absolute inset-0 w-full h-full pointer-events-none z-10">
+                {/* Global Defs SVG (for Arrowheads) - Always at bottom */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
                     <defs>
                         {['#000000', '#ef4444', '#22c55e', '#3b82f6', '#eab308'].map(color => (
                             <marker
@@ -360,62 +343,192 @@ const WhiteboardTab: React.FC = () => {
                             </marker>
                         ))}
                     </defs>
-                    {paths.map(path => (
-                        <React.Fragment key={path.id}>
-                            {/* Eraser Hitbox */}
-                            {activeTool === 'eraser' && (
-                                path.type === 'arrow' ? (
+                </svg>
+
+                {/* Unified Items Layer - Rendered in Creation Order */}
+                {items.map(item => {
+                    // Render Path/Arrow
+                    if (item.type === 'pen' || item.type === 'arrow') {
+                        if (!item.points || item.points.length < 1) return null;
+                        if (item.type === 'arrow' && item.points.length < 2) return null;
+                        return (
+                            <svg key={item.id} className="absolute inset-0 w-full h-full pointer-events-none">
+                                {activeTool === 'eraser' && (
+                                    item.type === 'arrow' ? (
+                                        <line
+                                            x1={item.points![0].x}
+                                            y1={item.points![0].y}
+                                            x2={item.points![1].x}
+                                            y2={item.points![1].y}
+                                            stroke="transparent"
+                                            strokeWidth={20}
+                                            className="cursor-cell"
+                                            style={{ pointerEvents: 'all' }}
+                                            onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
+                                            onMouseEnter={(e) => { if (e.buttons === 1) deleteItem(item.id); }}
+                                        />
+                                    ) : (
+                                        <polyline
+                                            points={item.points!.map(p => `${p.x},${p.y}`).join(' ')}
+                                            fill="none"
+                                            stroke="transparent"
+                                            strokeWidth={20}
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            className="cursor-cell"
+                                            style={{ pointerEvents: 'all' }}
+                                            onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
+                                            onMouseEnter={(e) => { if (e.buttons === 1) deleteItem(item.id); }}
+                                        />
+                                    )
+                                )}
+                                {item.type === 'arrow' ? (
                                     <line
-                                        x1={path.points[0].x}
-                                        y1={path.points[0].y}
-                                        x2={path.points[1].x}
-                                        y2={path.points[1].y}
-                                        stroke="transparent"
-                                        strokeWidth={20}
-                                        className="cursor-cell"
-                                        style={{ pointerEvents: 'all' }}
-                                        onClick={(e) => { e.stopPropagation(); deletePath(path.id); }}
-                                        onMouseEnter={(e) => { if (e.buttons === 1) deletePath(path.id); }}
+                                        x1={item.points![0].x}
+                                        y1={item.points![0].y}
+                                        x2={item.points![1].x}
+                                        y2={item.points![1].y}
+                                        stroke={item.stroke}
+                                        strokeWidth={item.strokeWidth}
+                                        markerEnd={`url(#arrowhead-${item.stroke?.replace('#', '')})`}
+                                        style={{ opacity: activeTool === 'eraser' ? 0.3 : 1, transition: 'opacity 0.2s' }}
                                     />
                                 ) : (
                                     <polyline
-                                        points={path.points.map(p => `${p.x},${p.y}`).join(' ')}
+                                        points={item.points!.map(p => `${p.x},${p.y}`).join(' ')}
                                         fill="none"
-                                        stroke="transparent"
-                                        strokeWidth={20}
+                                        stroke={item.stroke}
+                                        strokeWidth={item.strokeWidth}
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
-                                        className="cursor-cell"
-                                        style={{ pointerEvents: 'all' }}
-                                        onClick={(e) => { e.stopPropagation(); deletePath(path.id); }}
-                                        onMouseEnter={(e) => { if (e.buttons === 1) deletePath(path.id); }}
+                                        style={{ opacity: activeTool === 'eraser' ? 0.3 : 1, transition: 'opacity 0.2s' }}
                                     />
-                                )
+                                )}
+                            </svg>
+                        );
+                    }
+
+                    // Render Notes/Text
+                    return (
+                        <div
+                            key={item.id}
+                            className={`absolute group top-0 left-0 transition-transform ${activeTool === 'select' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                            style={{
+                                transform: `translate(${item.x}px, ${item.y}px) rotate(${item.rotation || 0}deg)`,
+                                zIndex: 'auto' // Let DOM order dictate zIndex
+                            }}
+                            onMouseDown={(e) => startDrag(e, item)}
+                        >
+                            {/* Delete Button (visible on hover) */}
+                            <button
+                                className="absolute -bottom-3 -left-3 w-6 h-6 bg-white rounded-full shadow-md text-slate-400 hover:text-red-500 hover:scale-110 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-50 text-xs border border-slate-100"
+                                onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
+                                title="Delete"
+                            >
+                                <i className="fa-solid fa-xmark"></i>
+                            </button>
+
+                            {/* Reaction Picker (Note Only) */}
+                            {item.type === 'note' && (
+                                <div className="absolute -top-9 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-50 bg-white shadow-sm border border-slate-100 rounded-full px-2 py-1 items-center">
+                                    {['🔥', '👍', '👎', '💯', '❤️', '✅', '❌', '😢', '😊', '⚡', '🚗'].map(emoji => (
+                                        <button
+                                            key={emoji}
+                                            className={`hover:scale-125 transition-transform text-sm ${item.reaction === emoji ? 'scale-125 bg-slate-100 rounded-full' : ''}`}
+                                            onClick={(e) => { e.stopPropagation(); updateItemReaction(item.id, emoji); }}
+                                        >
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
                             )}
-                            {path.type === 'arrow' ? (
-                                <line
-                                    x1={path.points[0].x}
-                                    y1={path.points[0].y}
-                                    x2={path.points[1].x}
-                                    y2={path.points[1].y}
-                                    stroke={path.color}
-                                    strokeWidth={path.width}
-                                    markerEnd={`url(#arrowhead-${path.color.replace('#', '')})`}
-                                    style={{ opacity: activeTool === 'eraser' ? 0.3 : 1, transition: 'opacity 0.2s' }}
-                                />
-                            ) : (
-                                <polyline
-                                    points={path.points.map(p => `${p.x},${p.y}`).join(' ')}
-                                    fill="none"
-                                    stroke={path.color}
-                                    strokeWidth={path.width}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    style={{ opacity: activeTool === 'eraser' ? 0.3 : 1, transition: 'opacity 0.2s' }}
-                                />
+
+                            {item.type === 'note' && (
+                                <div
+                                    className={`p-4 shadow-lg ${getColorClass(item.color || 'yellow')} flex flex-col justify-start relative transition-shadow hover:shadow-2xl`}
+                                    style={{
+                                        width: item.width || 192,
+                                        height: item.height || 192,
+                                        boxShadow: '2px 4px 12px rgba(0,0,0,0.1), 0 0 2px rgba(0,0,0,0.05)',
+                                        minWidth: '100px',
+                                        minHeight: '100px'
+                                    }}
+                                >
+                                    {item.reaction && (
+                                        <div className="absolute -top-4 -right-4 text-3xl filter drop-shadow-sm transform rotate-12 z-20 animate-in zoom-in duration-200 cursor-default select-none pointer-events-none">
+                                            {item.reaction}
+                                        </div>
+                                    )}
+                                    <textarea
+                                        className="w-full h-full bg-transparent resize-none border-none focus:ring-0 text-slate-800 font-medium text-lg placeholder-black/20 leading-snug post-it-font"
+                                        value={item.content}
+                                        placeholder="Write something..."
+                                        onChange={(e) => updateItemContent(item.id, e.target.value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                    />
+                                    <div
+                                        className="absolute bottom-1 right-1 w-6 h-6 cursor-se-resize z-50 opacity-20 hover:opacity-100 flex items-end justify-end p-1"
+                                        onMouseDown={(e) => startResize(e, item)}
+                                    >
+                                        <i className="fa-solid fa-caret-down -rotate-45 text-slate-800"></i>
+                                    </div>
+                                </div>
                             )}
-                        </React.Fragment>
-                    ))}
+
+                            {item.type === 'text' && (
+                                <div
+                                    className="bg-white/50 rounded-lg p-2 focus-within:bg-white focus-within:shadow-sm border border-transparent focus-within:border-slate-200 transition-colors relative group/text"
+                                    style={{
+                                        width: item.width || 300,
+                                        height: item.height || 'auto',
+                                        minWidth: '150px',
+                                        minHeight: '50px'
+                                    }}
+                                >
+                                    <textarea
+                                        className="w-full h-full bg-transparent resize-none border-none focus:ring-0 text-slate-900 font-bold placeholder-slate-300 leading-tight text-center"
+                                        value={item.content}
+                                        placeholder="Type Text..."
+                                        style={{ height: '100%', fontSize: item.fontSize || 24 }}
+                                        onChange={(e) => updateItemContent(item.id, e.target.value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                    />
+                                    {/* Resize Handle */}
+                                    <div
+                                        className="absolute bottom-1 right-1 w-6 h-6 cursor-se-resize z-50 opacity-0 group-hover/text:opacity-50 hover:!opacity-100 flex items-end justify-end p-1"
+                                        onMouseDown={(e) => startResize(e, item)}
+                                    >
+                                        <i className="fa-solid fa-caret-down -rotate-45 text-slate-400"></i>
+                                    </div>
+
+                                    {/* Font Size Controls */}
+                                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 flex gap-1 opacity-0 group-hover/text:opacity-100 transition-opacity z-50 bg-white shadow-sm border border-slate-100 rounded-lg p-1">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); updateItemFontSize(item.id, -4); }}
+                                            className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-50 rounded text-xs"
+                                            title="Decrease Font Size"
+                                        >
+                                            <i className="fa-solid fa-minus"></i>
+                                        </button>
+                                        <div className="flex items-center justify-center w-6 text-[10px] font-bold text-slate-400 select-none">
+                                            {item.fontSize || 24}
+                                        </div>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); updateItemFontSize(item.id, 4); }}
+                                            className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-50 rounded text-xs"
+                                            title="Increase Font Size"
+                                        >
+                                            <i className="fa-solid fa-plus"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+
+                {/* Current Drawing (Always on top during creation) */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none z-50">
                     {currentPath.length > 0 && activeTool === 'pen' && (
                         <polyline
                             points={currentPath.map(p => `${p.x},${p.y}`).join(' ')}
@@ -439,124 +552,6 @@ const WhiteboardTab: React.FC = () => {
                         />
                     )}
                 </svg>
-
-                {/* Items Layer */}
-                {items.map(item => (
-                    <div
-                        key={item.id}
-                        className={`absolute group top-0 left-0 transition-transform ${activeTool === 'select' ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                        style={{
-                            transform: `translate(${item.x}px, ${item.y}px) rotate(${item.rotation || 0}deg)`,
-                            zIndex: 20
-                        }}
-                        onMouseDown={(e) => startDrag(e, item)}
-                    >
-                        {/* Delete Button (visible on hover) */}
-                        <button
-                            className="absolute -bottom-3 -right-3 w-6 h-6 bg-white rounded-full shadow-md text-slate-400 hover:text-red-500 hover:scale-110 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-50 text-xs border border-slate-100"
-                            onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
-                            title="Delete"
-                        >
-                            <i className="fa-solid fa-xmark"></i>
-                        </button>
-
-                        {/* Reaction Picker (Note Only) */}
-                        {item.type === 'note' && (
-                            <div className="absolute -top-9 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-50 bg-white shadow-sm border border-slate-100 rounded-full px-2 py-1 items-center">
-                                {['🔥', '👍', '👎', '💯', '❤️', '✅', '❌', '😢', '😊', '⚡', '🚗'].map(emoji => (
-                                    <button
-                                        key={emoji}
-                                        className={`hover:scale-125 transition-transform text-sm ${item.reaction === emoji ? 'scale-125 bg-slate-100 rounded-full' : ''}`}
-                                        onClick={(e) => { e.stopPropagation(); updateItemReaction(item.id, emoji); }}
-                                    >
-                                        {emoji}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-
-                        {item.type === 'note' && (
-                            <div
-                                className={`p-4 shadow-lg ${getColorClass(item.color || 'yellow')} flex flex-col justify-start relative transition-shadow hover:shadow-2xl`}
-                                style={{
-                                    width: item.width || 192,
-                                    height: item.height || 192,
-                                    boxShadow: '2px 4px 12px rgba(0,0,0,0.1), 0 0 2px rgba(0,0,0,0.05)',
-                                    minWidth: '100px',
-                                    minHeight: '100px'
-                                }}
-                            >
-                                {item.reaction && (
-                                    <div className="absolute -top-4 -right-4 text-3xl filter drop-shadow-sm transform rotate-12 z-20 animate-in zoom-in duration-200 cursor-default select-none pointer-events-none">
-                                        {item.reaction}
-                                    </div>
-                                )}
-                                <textarea
-                                    className="w-full h-full bg-transparent resize-none border-none focus:ring-0 text-slate-800 font-medium text-lg placeholder-black/20 leading-snug post-it-font"
-                                    value={item.content}
-                                    placeholder="Write something..."
-                                    onChange={(e) => updateItemContent(item.id, e.target.value)}
-                                    onClick={(e) => e.stopPropagation()}
-                                />
-                                <div
-                                    className="absolute bottom-1 right-1 w-6 h-6 cursor-se-resize z-50 opacity-20 hover:opacity-100 flex items-end justify-end p-1"
-                                    onMouseDown={(e) => startResize(e, item)}
-                                >
-                                    <i className="fa-solid fa-caret-down -rotate-45 text-slate-800"></i>
-                                </div>
-                            </div>
-                        )}
-
-                        {item.type === 'text' && (
-                            <div
-                                className="bg-white/50 rounded-lg p-2 focus-within:bg-white focus-within:shadow-sm border border-transparent focus-within:border-slate-200 transition-colors relative group/text"
-                                style={{
-                                    width: item.width || 300,
-                                    height: item.height || 'auto',
-                                    minWidth: '150px',
-                                    minHeight: '50px'
-                                }}
-                            >
-                                <textarea
-                                    className="w-full h-full bg-transparent resize-none border-none focus:ring-0 text-slate-900 font-bold placeholder-slate-300 leading-tight text-center"
-                                    value={item.content}
-                                    placeholder="Type Text..."
-                                    style={{ height: '100%', fontSize: item.fontSize || 24 }}
-                                    onChange={(e) => updateItemContent(item.id, e.target.value)}
-                                    onClick={(e) => e.stopPropagation()}
-                                />
-                                {/* Resize Handle */}
-                                <div
-                                    className="absolute bottom-1 right-1 w-6 h-6 cursor-se-resize z-50 opacity-0 group-hover/text:opacity-50 hover:!opacity-100 flex items-end justify-end p-1"
-                                    onMouseDown={(e) => startResize(e, item)}
-                                >
-                                    <i className="fa-solid fa-caret-down -rotate-45 text-slate-400"></i>
-                                </div>
-
-                                {/* Font Size Controls */}
-                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 flex gap-1 opacity-0 group-hover/text:opacity-100 transition-opacity z-50 bg-white shadow-sm border border-slate-100 rounded-lg p-1">
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); updateItemFontSize(item.id, -4); }}
-                                        className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-50 rounded text-xs"
-                                        title="Decrease Font Size"
-                                    >
-                                        <i className="fa-solid fa-minus"></i>
-                                    </button>
-                                    <div className="flex items-center justify-center w-6 text-[10px] font-bold text-slate-400 select-none">
-                                        {item.fontSize || 24}
-                                    </div>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); updateItemFontSize(item.id, 4); }}
-                                        className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-50 rounded text-xs"
-                                        title="Increase Font Size"
-                                    >
-                                        <i className="fa-solid fa-plus"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                ))}
             </div>
         </div >
     );
