@@ -24,7 +24,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
     const [activeTab, setActiveTab] = useState<HubTab>('leads');
     const [pipelineSubTab, setPipelineSubTab] = useState<'buying' | 'selling'>('buying');
     const [clients, setClients] = useState<UserProfile[]>([]);
-    const [selectedClient, setSelectedClient] = useState<UserProfile | null>(null);
+    const [selectedClient, setSelectedClient] = useState<UserProfile | Lead | null>(null);
     const [clientActivity, setClientActivity] = useState<{ favorites: any[], views: any[] }>({ favorites: [], views: [] });
     const [loadingClients, setLoadingClients] = useState(true);
     const [loadingActivity, setLoadingActivity] = useState(false);
@@ -193,7 +193,11 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
 
     useEffect(() => {
         const fetchActivity = async () => {
-            if (!selectedClient) return;
+            if (!selectedClient || !('uid' in selectedClient)) {
+                setClientActivity({ favorites: [], views: [] });
+                setMessages([]);
+                return;
+            }
             setLoadingActivity(true);
             const data = await getClientActivity(selectedClient.uid);
             setClientActivity(data);
@@ -217,7 +221,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
     }, [messages]);
 
     const handleSendMessage = async () => {
-        if (!newMessage.trim() || !selectedClient) return;
+        if (!newMessage.trim() || !selectedClient || !('uid' in selectedClient)) return;
 
         const msg: Partial<CommMessage> = {
             threadId: 't1',
@@ -238,7 +242,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
     };
 
     const handleGrantConsent = async () => {
-        if (!selectedClient) return;
+        if (!selectedClient || !('uid' in selectedClient)) return;
         const success = await updateSmsConsent(selectedClient.uid, true);
         if (success) {
             setSelectedClient({ ...selectedClient, smsConsent: true });
@@ -408,6 +412,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
                 {activeTab === 'clients' && (
                     <ClientNetwork
                         clients={clients}
+                        manualContacts={leads}
                         selectedClient={selectedClient}
                         setSelectedClient={setSelectedClient}
                         clientActivity={clientActivity}
@@ -448,7 +453,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
                         activeChannel={activeChannel}
                         setActiveChannel={setActiveChannel}
                         scrollRef={scrollRef}
-                        selectedClient={selectedClient}
+                        selectedClient={selectedClient as UserProfile}
                         realtorId={realtorId}
                         handleSendMessage={handleSendMessage}
                         handleGrantConsent={handleGrantConsent}
