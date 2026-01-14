@@ -15,6 +15,7 @@ import {
   addDoc,
   // Firestore, // Removed as type might cause issues with some bundlers
   deleteDoc,
+  updateDoc,
   writeBatch,
   increment
 } from "firebase/firestore";
@@ -25,7 +26,7 @@ import {
   deleteUser,
   sendPasswordResetEmail
 } from "firebase/auth";
-import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult, InvestmentResearchResult, CommMessage, FunnelStage, LeadHealth, Lead, CRMTask, CommTemplate } from "../types";
+import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult, InvestmentResearchResult, CommMessage, FunnelStage, LeadHealth, Lead, CRMTask, CommTemplate, PipelineNote } from "../types";
 
 /**
  * FIRESTORE SECURITY RULES (REQUIRED):
@@ -699,6 +700,53 @@ export const getTemplates = async (realtorId: string) => {
   } catch (error) {
     handleFirestoreError(error, "getTemplates");
     return [];
+  }
+};
+
+export const addPipelineNote = async (note: Partial<PipelineNote>) => {
+  if (!db) return null;
+  try {
+    const docRef = await addDoc(collection(db, "notes"), sanitizeForFirestore(note));
+    return docRef.id;
+  } catch (error) {
+    handleFirestoreError(error, "addPipelineNote");
+    return null;
+  }
+};
+
+export const getPipelineNotes = async (realtorId: string) => {
+  if (!db) return [];
+  try {
+    const q = query(collection(db, "notes"), where("realtorId", "==", realtorId));
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PipelineNote));
+  } catch (error) {
+    handleFirestoreError(error, "getPipelineNotes");
+    return [];
+  }
+};
+
+export const updatePipelineNote = async (noteId: string, updates: Partial<PipelineNote>) => {
+  if (!db) return false;
+  try {
+    const noteRef = doc(db, "notes", noteId);
+    await updateDoc(noteRef, sanitizeForFirestore(updates));
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "updatePipelineNote");
+    return false;
+  }
+};
+
+export const deletePipelineNote = async (noteId: string) => {
+  if (!db) return false;
+  try {
+    const noteRef = doc(db, "notes", noteId);
+    await deleteDoc(noteRef);
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "deletePipelineNote");
+    return false;
   }
 };
 

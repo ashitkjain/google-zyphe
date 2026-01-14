@@ -133,6 +133,17 @@ export interface CRMTask {
   isMock?: boolean;
 }
 
+export interface PipelineNote {
+  id: string;
+  leadId: string;
+  realtorId: string;
+  content: string;
+  color: string;
+  timestamp: any;
+  isDone?: boolean;
+  isUrgent?: boolean;
+}
+
 export interface ActivityNote {
   id: string;
   clientId: string;

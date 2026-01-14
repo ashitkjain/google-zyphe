@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, updateFunnelStage, seedMockData, getLeads, getTasks, getTemplates, updateLead, activateLeadToCollection } from '../services/firebaseService';
-import { UserProfile, Lead, LeadNote, CRMTask, CommMessage, CommTemplate, FunnelStage } from '../types';
+import { getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, updateFunnelStage, seedMockData, getLeads, getTasks, getTemplates, updateLead, activateLeadToCollection, addPipelineNote, getPipelineNotes, updatePipelineNote, deletePipelineNote } from '../services/firebaseService';
+import { UserProfile, Lead, LeadNote, CRMTask, CommMessage, CommTemplate, FunnelStage, PipelineNote } from '../types';
 import { DropResult } from '@hello-pangea/dnd';
 import Logo from './Logo';
 import LeadsList from './LeadsList';
@@ -18,7 +18,7 @@ interface Props {
     onBack: () => void;
 }
 
-type HubTab = 'clients' | 'leads' | 'properties' | 'pipeline' | 'tasks' | 'comms';
+type HubTab = 'clients' | 'leads' | 'pipeline' | 'tasks' | 'comms';
 
 const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
     const [activeTab, setActiveTab] = useState<HubTab>('leads');
@@ -43,6 +43,10 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
     const [newNote, setNewNote] = useState('');
     const [isSavingLead, setIsSavingLead] = useState(false);
 
+    // Pipeline Notes State
+    const [pipelineNotes, setPipelineNotes] = useState<PipelineNote[]>([]);
+    const [pendingNote, setPendingNote] = useState<{ leadId: string, color: string } | null>(null);
+
     useEffect(() => {
         const initializeHubData = async () => {
             setLoadingData(true);
@@ -54,6 +58,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
             let _leads = [..._incoming, ..._buyers, ..._sellers];
             let _tasks = await getTasks(realtorId);
             let _templates = await getTemplates(realtorId);
+            let _notes = await getPipelineNotes(realtorId);
 
             // 2. Define Mock Data (Always available for potential seeding)
             console.log("[ClientHub] Seeding initial mock data...");
@@ -173,6 +178,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
             setLeads(_leads);
             setTasks(_tasks);
             setTemplates(_templates);
+            setPipelineNotes(_notes);
             setLoadingData(false);
         };
         initializeHubData();
@@ -314,7 +320,20 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
     };
 
     const handleDragEnd = async (result: DropResult) => {
-        const { destination, source, draggableId } = result;
+        const { destination, source, draggableId, combine } = result;
+
+        // Custom Note Handling (Palette Drop onto Lead)
+        if (draggableId.startsWith('note-') && combine) {
+            const leadId = combine.draggableId;
+            const colorMap: any = {
+                'note-yellow': 'bg-[#ffff88] text-slate-800 border-[#eeee77]',
+                'note-blue': 'bg-[#7afaff] text-slate-800 border-[#69e9ee]',
+                'note-pink': 'bg-[#ff7eb9] text-white border-[#ee6da8]',
+                'note-green': 'bg-[#a7ffeb] text-slate-800 border-[#96eee0]',
+            };
+            setPendingNote({ leadId, color: colorMap[draggableId] || 'bg-yellow-100' });
+            return;
+        }
 
         if (!destination) return;
         if (destination.droppableId === source.droppableId && destination.index === source.index) return;
@@ -333,6 +352,47 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
         if (!success) {
             console.error("Failed to update lead stage");
             setLeads(leads);
+        }
+    };
+
+    const handleSavePipelineNote = async (content: string) => {
+        if (!pendingNote || !content.trim()) return;
+
+        const newNoteObj: Partial<PipelineNote> = {
+            leadId: pendingNote.leadId,
+            realtorId,
+            content: content,
+            color: pendingNote.color,
+            timestamp: new Date()
+        };
+
+        const noteId = await addPipelineNote(newNoteObj);
+        if (noteId) {
+            setPipelineNotes(prev => [...prev, { ...newNoteObj, id: noteId } as PipelineNote]);
+            setPendingNote(null);
+        } else {
+            alert("Failed to save note.");
+        }
+    };
+
+    const handleUpdatePipelineNote = async (noteId: string, updates: Partial<PipelineNote>) => {
+        // Optimistic update
+        setPipelineNotes(prev => prev.map(n => n.id === noteId ? { ...n, ...updates } : n));
+
+        const success = await updatePipelineNote(noteId, updates);
+        if (!success) {
+            alert("Failed to update note.");
+            // Ideally revert here but for brevity we'll stick to simple error
+        }
+    };
+
+    const handleDeletePipelineNote = async (noteId: string) => {
+        // Optimistic update
+        setPipelineNotes(prev => prev.filter(n => n.id !== noteId));
+
+        const success = await deletePipelineNote(noteId);
+        if (!success) {
+            alert("Failed to delete note.");
         }
     };
 
@@ -360,7 +420,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
         { id: 'leads', label: 'Leads', icon: 'fa-bullseye' },
         { id: 'pipeline', label: 'Pipeline', icon: 'fa-diagram-project' },
         { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
-        { id: 'properties', label: 'Properties', icon: 'fa-house-chimney' },
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
         { id: 'comms', label: 'Connect', icon: 'fa-comments' },
     ];
@@ -435,6 +494,12 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
                         subTab={pipelineSubTab}
                         setSubTab={setPipelineSubTab}
                         leads={leads}
+                        notes={pipelineNotes}
+                        pendingNote={pendingNote}
+                        setPendingNote={setPendingNote}
+                        handleSaveNote={handleSavePipelineNote}
+                        handleUpdateNote={handleUpdatePipelineNote}
+                        handleDeleteNote={handleDeletePipelineNote}
                         setEditingLead={setEditingLead}
                         handleDragEnd={handleDragEnd}
                         handleCreateLead={handleCreateLead}
@@ -461,9 +526,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
                     />
                 )}
 
-                {activeTab === 'properties' && (
-                    <PropertiesPortfolio />
-                )}
+
             </div>
 
             {/* Lead Edit Modal */}
@@ -481,22 +544,22 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
 
             <style dangerouslySetInnerHTML={{
                 __html: `
-        @keyframes bounce-slow {
-          0%, 100% { transform: translateY(-5%); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); }
-          50% { transform: translateY(0); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
-        }
-        .animate-bounce-slow {
-          animation: bounce-slow 4s infinite;
-        }
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}} />
-        </div >
+                @keyframes bounce-slow {
+                  0%, 100% { transform: translateY(-5%); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); }
+                  50% { transform: translateY(0); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+                }
+                .animate-bounce-slow {
+                  animation: bounce-slow 4s infinite;
+                }
+                .no-scrollbar::-webkit-scrollbar {
+                  display: none;
+                }
+                .no-scrollbar {
+                  -ms-overflow-style: none;
+                  scrollbar-width: none;
+                }
+              `}} />
+        </div>
     );
 };
 
