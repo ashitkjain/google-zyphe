@@ -323,8 +323,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
         const { destination, source, draggableId, combine } = result;
 
         // Custom Note Handling (Palette Drop onto Lead)
-        if (draggableId.startsWith('note-') && combine) {
-            const leadId = combine.draggableId;
+        if (draggableId.startsWith('note-') && destination && destination.droppableId !== 'palette') {
+            const leadId = destination.droppableId;
             const colorMap: any = {
                 'note-yellow': 'bg-[#ffff88] text-slate-800 border-[#eeee77]',
                 'note-blue': 'bg-[#7afaff] text-slate-800 border-[#69e9ee]',

@@ -495,7 +495,7 @@ const LeadsList: React.FC<InternalProps> = ({
                             <div className="h-8 w-px bg-slate-200"></div>
 
                             {/* Post-it Palette */}
-                            <TypedDroppable droppableId="palette" direction="horizontal" type="LEAD" isDropDisabled={true}>
+                            <TypedDroppable droppableId="palette" direction="horizontal" type="POSTIT_PALETTE" isDropDisabled={true}>
                                 {(provided: any) => (
                                     <div
                                         ref={provided.innerRef}
@@ -741,7 +741,7 @@ const LeadsList: React.FC<InternalProps> = ({
                             </table>
                         </div>
                     ) : (
-                        <TypedDroppable droppableId="gallery-grid" type="LEAD" isCombineEnabled={true}>
+                        <TypedDroppable droppableId="gallery-grid" type="LEAD" isCombineEnabled={false}>
                             {(provided: any, snapshot: any) => (
                                 <div
                                     {...provided.droppableProps}
@@ -755,164 +755,175 @@ const LeadsList: React.FC<InternalProps> = ({
                                                     ref={provided.innerRef}
                                                     {...provided.draggableProps}
                                                     {...provided.dragHandleProps}
-                                                    className={`bg-white p-6 rounded-[2rem] border border-slate-200/60 shadow-sm hover:shadow-xl transition-all border-l-4 group relative cursor-pointer flex flex-col ${snapshot.isDragging ? 'shadow-2xl scale-105 rotate-1 z-50 ring-4 ring-indigo-500/10' : ''} ${snapshot.combineTargetFor ? 'ring-4 ring-indigo-500 ring-offset-2 scale-105' : ''}`}
+                                                    className={`bg-white p-6 rounded-[2rem] border border-slate-200/60 shadow-sm hover:shadow-xl transition-all border-l-4 group relative cursor-pointer flex flex-col ${snapshot.isDragging ? 'shadow-2xl scale-105 rotate-1 z-50 ring-4 ring-indigo-500/10' : ''}`}
                                                     style={{
                                                         ...provided.draggableProps.style,
                                                         borderLeftColor: lead.status === 'New' ? '#6366f1' : '#94a3b8'
                                                     }}
                                                     onDoubleClick={() => onViewLead(lead)}
                                                 >
-                                                    <div className="absolute top-4 right-4 flex items-center gap-2">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedIds.has(lead.id)}
-                                                            onChange={(e) => { e.stopPropagation(); handleSelectOne(lead.id); }}
-                                                            className="rounded border-slate-300"
-                                                        />
-                                                    </div>
-
-                                                    <div className="flex justify-between items-start mb-3">
-                                                        <div className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors" onClick={() => onViewLead(lead)}>
-                                                            {lead.name}
-                                                        </div>
-                                                    </div>
-
-                                                    {lead.propertyAddress && (
-                                                        <div className="text-[10px] text-slate-500 font-medium mb-1 truncate flex items-center gap-1.5">
-                                                            <i className="fa-solid fa-location-dot opacity-30 text-[8px]"></i>
-                                                            {lead.propertyAddress}
-                                                        </div>
-                                                    )}
-
-                                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4 text-[10px] text-slate-400">
-                                                        {lead.email && (
-                                                            <div className="flex items-center gap-1.5 truncate max-w-[140px]">
-                                                                <i className="fa-solid fa-envelope opacity-30 text-[8px]"></i>
-                                                                {lead.email}
-                                                            </div>
-                                                        )}
-                                                        {lead.phone && (
-                                                            <div className="flex items-center gap-1.5 truncate">
-                                                                <i className="fa-solid fa-phone opacity-30 text-[8px]"></i>
-                                                                {lead.phone}
-                                                            </div>
-                                                        )}
-                                                    </div>
-
-                                                    <div className="flex items-center gap-2 mb-4">
-                                                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${lead.status === 'New' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-500'}`}>
-                                                            {lead.status}
-                                                        </span>
-                                                        <span className="text-[8px] text-slate-300 font-medium uppercase tracking-widest">{lead.source}</span>
-                                                    </div>
-
-                                                    {/* Render Post-its */}
-                                                    <div className="flex flex-wrap gap-4 mb-4 relative min-h-[40px] empty:hidden" onClick={(e) => e.stopPropagation()}>
-                                                        {notes.filter(n => n.leadId === lead.id && !n.isDone).map((note, i) => (
+                                                    <TypedDroppable droppableId={lead.id} type="POSTIT_PALETTE">
+                                                        {(noteProvided: any, noteSnapshot: any) => (
                                                             <div
-                                                                key={note.id}
-                                                                onClick={() => { if (!editNoteId) { setEditNoteId(note.id); setEditContent(note.content); } }}
-                                                                className={`p-3 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[9px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-110 hover:z-10 group/note flex flex-col relative cursor-pointer post-it-container ${note.color} ${i % 2 === 0 ? 'rotate-2' : '-rotate-3'} hover:rotate-0 ${note.isDone ? 'line-through' : ''} ${deletingNoteId === note.id ? 'animate-fly-away' : ''} ${celebratingNoteId === note.id ? 'animate-shake' : ''} ${isFlyingUpId === note.id ? 'animate-fly-up' : ''} ${note.isUrgent ? 'urgent-glow' : ''}`}
-                                                                style={{
-                                                                    boxShadow: '2px 2px 5px rgba(0,0,0,0.1)',
-                                                                    ...((deletingNoteId === note.id || isFlyingUpId === note.id) && deleteCoords ? {
-                                                                        '--start-top': `${deleteCoords.top}px`,
-                                                                        '--start-left': `${deleteCoords.left}px`
-                                                                    } as any : {})
-                                                                }}
+                                                                ref={noteProvided.innerRef}
+                                                                {...noteProvided.droppableProps}
+                                                                className={`flex-1 flex flex-col min-h-[150px] ${noteSnapshot.isDraggingOver ? 'bg-indigo-50/50 rounded-2xl' : ''}`}
                                                             >
-                                                                <div className="w-full h-1 bg-black/5 absolute top-0 left-0"></div>
+                                                                <div className="absolute top-4 right-4 flex items-center gap-2">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={selectedIds.has(lead.id)}
+                                                                        onChange={(e) => { e.stopPropagation(); handleSelectOne(lead.id); }}
+                                                                        className="rounded border-slate-300"
+                                                                    />
+                                                                </div>
 
-                                                                {note.isUrgent && (
-                                                                    <div className="absolute top-1 right-1 animate-fire z-10">
-                                                                        <i className="fa-solid fa-fire text-orange-500 text-[10px]"></i>
+                                                                <div className="flex justify-between items-start mb-3">
+                                                                    <div className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors" onClick={() => onViewLead(lead)}>
+                                                                        {lead.name}
+                                                                    </div>
+                                                                </div>
+
+                                                                {lead.propertyAddress && (
+                                                                    <div className="text-[10px] text-slate-500 font-medium mb-1 truncate flex items-center gap-1.5">
+                                                                        <i className="fa-solid fa-location-dot opacity-30 text-[8px]"></i>
+                                                                        {lead.propertyAddress}
                                                                     </div>
                                                                 )}
 
-                                                                {!editNoteId && (
-                                                                    <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover/note:opacity-100 transition-opacity z-30">
-                                                                        <button
-                                                                            onClick={(e) => onDoneToggle(e, note)}
-                                                                            className={`w-5 h-5 rounded-full ${note.isDone ? 'bg-emerald-500' : 'bg-slate-800'} text-white flex items-center justify-center hover:scale-110 transition-transform shadow-md`}
-                                                                        >
-                                                                            <i className="fa-solid fa-circle-check text-[7px]"></i>
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={(e) => { e.stopPropagation(); handleUpdateNote(note.id, { isUrgent: !note.isUrgent }); }}
-                                                                            className={`w-5 h-5 rounded-full ${note.isUrgent ? 'bg-orange-600' : 'bg-slate-800'} text-white flex items-center justify-center hover:scale-110 transition-transform shadow-md`}
-                                                                        >
-                                                                            <i className="fa-solid fa-fire text-[7px]"></i>
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={(e) => onDeleteClick(e, note.id)}
-                                                                            className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center hover:scale-110 transition-transform shadow-md"
-                                                                        >
-                                                                            <i className="fa-solid fa-trash text-[7px]"></i>
-                                                                        </button>
-                                                                    </div>
-                                                                )}
-
-                                                                <div className="flex-1 overflow-hidden">
-                                                                    {editNoteId === note.id ? (
-                                                                        <textarea
-                                                                            autoFocus
-                                                                            value={editContent}
-                                                                            onChange={(e) => setEditContent(e.target.value)}
-                                                                            onBlur={() => {
-                                                                                handleUpdateNote(note.id, { content: editContent, timestamp: new Date() });
-                                                                                setEditNoteId(null);
-                                                                            }}
-                                                                            className="w-full h-full bg-transparent border-none outline-none resize-none post-it-font text-[9px] font-bold p-0 post-it-edit"
-                                                                        />
-                                                                    ) : (
-                                                                        note.content
+                                                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4 text-[10px] text-slate-400">
+                                                                    {lead.email && (
+                                                                        <div className="flex items-center gap-1.5 truncate max-w-[140px]">
+                                                                            <i className="fa-solid fa-envelope opacity-30 text-[8px]"></i>
+                                                                            {lead.email}
+                                                                        </div>
+                                                                    )}
+                                                                    {lead.phone && (
+                                                                        <div className="flex items-center gap-1.5 truncate">
+                                                                            <i className="fa-solid fa-phone opacity-30 text-[8px]"></i>
+                                                                            {lead.phone}
+                                                                        </div>
                                                                     )}
                                                                 </div>
-                                                                <div className="text-[7px] opacity-40 mt-1 uppercase tracking-tighter shrink-0">
-                                                                    {note.timestamp?.toDate ? note.timestamp.toDate().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(note.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                                                </div>
-                                                            </div>
-                                                        ))}
 
-                                                        {/* Inline Draft Post-it */}
-                                                        {pendingNote?.leadId === lead.id && (
-                                                            <div className={`p-3 pt-4 w-24 h-24 rounded-sm border-t border-black/5 shadow-2xl z-20 scale-110 -rotate-2 relative post-it-container ${pendingNote.color}`}>
-                                                                <div className="w-full h-1 bg-black/5 absolute top-0 left-0"></div>
-                                                                <textarea
-                                                                    autoFocus
-                                                                    placeholder="Type note..."
-                                                                    value={draftContent}
-                                                                    onChange={(e) => setDraftContent(e.target.value)}
-                                                                    onBlur={() => {
-                                                                        if (draftContent.trim()) handleSaveNote(draftContent);
-                                                                        setPendingNote(null);
-                                                                        setDraftContent('');
-                                                                    }}
-                                                                    className="w-full h-full bg-transparent border-none outline-none resize-none post-it-font text-[9px] font-bold post-it-placeholder placeholder:text-black/20 post-it-draft"
-                                                                />
+                                                                <div className="flex items-center gap-2 mb-4">
+                                                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${lead.status === 'New' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-500'}`}>
+                                                                        {lead.status}
+                                                                    </span>
+                                                                    <span className="text-[8px] text-slate-300 font-medium uppercase tracking-widest">{lead.source}</span>
+                                                                </div>
+
+                                                                {/* Render Post-its */}
+                                                                <div className="flex flex-wrap gap-4 mb-4 relative min-h-[40px] empty:hidden" onClick={(e) => e.stopPropagation()}>
+                                                                    {notes.filter(n => n.leadId === lead.id && !n.isDone).map((note, i) => (
+                                                                        <div
+                                                                            key={note.id}
+                                                                            onClick={() => { if (!editNoteId) { setEditNoteId(note.id); setEditContent(note.content); } }}
+                                                                            className={`p-3 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[9px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-110 hover:z-10 group/note flex flex-col relative cursor-pointer post-it-container ${note.color} ${i % 2 === 0 ? 'rotate-2' : '-rotate-3'} hover:rotate-0 ${note.isDone ? 'line-through' : ''} ${deletingNoteId === note.id ? 'animate-fly-away' : ''} ${celebratingNoteId === note.id ? 'animate-shake' : ''} ${isFlyingUpId === note.id ? 'animate-fly-up' : ''} ${note.isUrgent ? 'urgent-glow' : ''}`}
+                                                                            style={{
+                                                                                boxShadow: '2px 2px 5px rgba(0,0,0,0.1)',
+                                                                                ...((deletingNoteId === note.id || isFlyingUpId === note.id) && deleteCoords ? {
+                                                                                    '--start-top': `${deleteCoords.top}px`,
+                                                                                    '--start-left': `${deleteCoords.left}px`
+                                                                                } as any : {})
+                                                                            }}
+                                                                        >
+                                                                            <div className="w-full h-1 bg-black/5 absolute top-0 left-0"></div>
+
+                                                                            {note.isUrgent && (
+                                                                                <div className="absolute top-1 right-1 animate-fire z-10">
+                                                                                    <i className="fa-solid fa-fire text-orange-500 text-[10px]"></i>
+                                                                                </div>
+                                                                            )}
+
+                                                                            {!editNoteId && (
+                                                                                <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover/note:opacity-100 transition-opacity z-30">
+                                                                                    <button
+                                                                                        onClick={(e) => onDoneToggle(e, note)}
+                                                                                        className={`w-5 h-5 rounded-full ${note.isDone ? 'bg-emerald-500' : 'bg-slate-800'} text-white flex items-center justify-center hover:scale-110 transition-transform shadow-md`}
+                                                                                    >
+                                                                                        <i className="fa-solid fa-circle-check text-[7px]"></i>
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={(e) => { e.stopPropagation(); handleUpdateNote(note.id, { isUrgent: !note.isUrgent }); }}
+                                                                                        className={`w-5 h-5 rounded-full ${note.isUrgent ? 'bg-orange-600' : 'bg-slate-800'} text-white flex items-center justify-center hover:scale-110 transition-transform shadow-md`}
+                                                                                    >
+                                                                                        <i className="fa-solid fa-fire text-[7px]"></i>
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={(e) => onDeleteClick(e, note.id)}
+                                                                                        className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center hover:scale-110 transition-transform shadow-md"
+                                                                                    >
+                                                                                        <i className="fa-solid fa-trash text-[7px]"></i>
+                                                                                    </button>
+                                                                                </div>
+                                                                            )}
+
+                                                                            <div className="flex-1 overflow-hidden">
+                                                                                {editNoteId === note.id ? (
+                                                                                    <textarea
+                                                                                        autoFocus
+                                                                                        value={editContent}
+                                                                                        onChange={(e) => setEditContent(e.target.value)}
+                                                                                        onBlur={() => {
+                                                                                            handleUpdateNote(note.id, { content: editContent, timestamp: new Date() });
+                                                                                            setEditNoteId(null);
+                                                                                        }}
+                                                                                        className="w-full h-full bg-transparent border-none outline-none resize-none post-it-font text-[9px] font-bold p-0 post-it-edit"
+                                                                                    />
+                                                                                ) : (
+                                                                                    note.content
+                                                                                )}
+                                                                            </div>
+                                                                            <div className="text-[7px] opacity-40 mt-1 uppercase tracking-tighter shrink-0">
+                                                                                {note.timestamp?.toDate ? note.timestamp.toDate().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(note.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+
+                                                                    {/* Inline Draft Post-it */}
+                                                                    {pendingNote?.leadId === lead.id && (
+                                                                        <div className={`p-3 pt-4 w-24 h-24 rounded-sm border-t border-black/5 shadow-2xl z-20 scale-110 -rotate-2 relative post-it-container ${pendingNote.color}`}>
+                                                                            <div className="w-full h-1 bg-black/5 absolute top-0 left-0"></div>
+                                                                            <textarea
+                                                                                autoFocus
+                                                                                placeholder="Type note..."
+                                                                                value={draftContent}
+                                                                                onChange={(e) => setDraftContent(e.target.value)}
+                                                                                onBlur={() => {
+                                                                                    if (draftContent.trim()) handleSaveNote(draftContent);
+                                                                                    setPendingNote(null);
+                                                                                    setDraftContent('');
+                                                                                }}
+                                                                                className="w-full h-full bg-transparent border-none outline-none resize-none post-it-font text-[9px] font-bold post-it-placeholder placeholder:text-black/20 post-it-draft"
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="flex items-center justify-between mt-auto pt-3 border-t border-slate-50 relative">
+                                                                    <div className="flex flex-col gap-1.5">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-[7px] font-black text-slate-300 uppercase tracking-tighter">Created:</span>
+                                                                            <span className="text-[8px] text-slate-500 font-bold uppercase tracking-tighter">
+                                                                                {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleDateString() : new Date(lead.receivedAt).toLocaleDateString()}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2 text-indigo-400">
+                                                                            <span className="text-[7px] font-black uppercase tracking-tighter">Last Follow Up:</span>
+                                                                            <span className="text-[8px] font-bold uppercase tracking-tighter">
+                                                                                {lead.lastTouch?.toDate ? lead.lastTouch.toDate().toLocaleDateString() : lead.lastTouch ? new Date(lead.lastTouch).toLocaleDateString() : 'None'}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="w-6 h-6 rounded-full bg-slate-50 border border-white text-[8px] flex items-center justify-center font-black text-slate-400 shadow-sm">
+                                                                        {lead.name[0]}
+                                                                    </div>
+                                                                </div>
+                                                                {noteProvided.placeholder}
                                                             </div>
                                                         )}
-                                                    </div>
-
-                                                    <div className="flex items-center justify-between mt-auto pt-3 border-t border-slate-50 relative">
-                                                        <div className="flex flex-col gap-1.5">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-[7px] font-black text-slate-300 uppercase tracking-tighter">Created:</span>
-                                                                <span className="text-[8px] text-slate-500 font-bold uppercase tracking-tighter">
-                                                                    {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleDateString() : new Date(lead.receivedAt).toLocaleDateString()}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2 text-indigo-400">
-                                                                <span className="text-[7px] font-black uppercase tracking-tighter">Last Follow Up:</span>
-                                                                <span className="text-[8px] font-bold uppercase tracking-tighter">
-                                                                    {lead.lastTouch?.toDate ? lead.lastTouch.toDate().toLocaleDateString() : lead.lastTouch ? new Date(lead.lastTouch).toLocaleDateString() : 'None'}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="w-6 h-6 rounded-full bg-slate-50 border border-white text-[8px] flex items-center justify-center font-black text-slate-400 shadow-sm">
-                                                            {lead.name[0]}
-                                                        </div>
-                                                    </div>
+                                                    </TypedDroppable>
                                                 </div>
                                             )}
                                         </TypedDraggable>
