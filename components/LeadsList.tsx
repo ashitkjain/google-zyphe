@@ -51,19 +51,23 @@ const LeadGalleryItem: React.FC<{
     deleteCoords: any,
     deletingNoteId: string | null,
     celebratingNoteId: string | null,
-    isFlyingUpId: string | null
+    isFlyingUpId: string | null,
+    onArchive: (id: string) => void,
+    onActivate: (id: string) => void
 }> = ({
     lead, index, onViewLead, selectedIds, handleSelectOne, notes,
     editNoteId, setEditNoteId, editContent, setEditContent, handleUpdateNote,
     onDoneToggle, onDeleteClick, pendingNote, draftContent, setDraftContent,
-    handleSaveNote, setPendingNote, deleteCoords, deletingNoteId, celebratingNoteId, isFlyingUpId
+    handleSaveNote, setPendingNote, deleteCoords, deletingNoteId, celebratingNoteId, isFlyingUpId,
+    onArchive, onActivate
 }) => (
         <div
-            className={`bg-white p-6 rounded-[2rem] border border-slate-200/60 shadow-sm hover:shadow-xl transition-all border-l-4 group relative cursor-pointer flex flex-col`}
+            className={`bg-white p-6 rounded-[2rem] border border-slate-200/60 shadow-sm hover:shadow-xl transition-all border-l-4 group relative cursor-pointer flex flex-col ${selectedIds.has(lead.id) ? 'ring-2 ring-indigo-500 ring-offset-2 bg-indigo-50/10' : ''}`}
             style={{
                 borderLeftColor: lead.leadType === 'Seller' ? '#10b981' : '#6366f1'
             }}
-            onDoubleClick={() => onViewLead(lead)}
+            onClick={(e) => { handleSelectOne(lead.id); }}
+            onDoubleClick={(e) => { e.stopPropagation(); onViewLead(lead); }}
         >
             <TypedDroppable droppableId={lead.id} type="POSTIT_PALETTE">
                 {(noteProvided: any, noteSnapshot: any) => (
@@ -72,13 +76,23 @@ const LeadGalleryItem: React.FC<{
                         {...noteProvided.droppableProps}
                         className={`flex-1 flex flex-col min-h-[150px] ${noteSnapshot.isDraggingOver ? 'bg-indigo-50/50 rounded-2xl' : ''}`}
                     >
-                        <div className="absolute top-4 right-4 flex items-center gap-2">
-                            <input
-                                type="checkbox"
-                                checked={selectedIds.has(lead.id)}
-                                onChange={(e) => { e.stopPropagation(); handleSelectOne(lead.id); }}
-                                className="rounded border-slate-300"
-                            />
+                        <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
+                            <div className="flex items-center gap-1 mr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onArchive(lead.id); }}
+                                    className="w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 flex items-center justify-center transition-all shadow-sm"
+                                    title="Archive"
+                                >
+                                    <i className="fa-solid fa-box-archive text-[10px]"></i>
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onActivate(lead.id); }}
+                                    className="w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-indigo-500 hover:border-indigo-200 hover:bg-indigo-50 flex items-center justify-center transition-all shadow-sm"
+                                    title="Activate"
+                                >
+                                    <i className="fa-solid fa-bolt text-[10px]"></i>
+                                </button>
+                            </div>
                         </div>
 
                         <div className="flex justify-between items-center mb-3">
@@ -89,9 +103,6 @@ const LeadGalleryItem: React.FC<{
                                     </div>
                                     <div className="flex items-center gap-1.5 shrink-0">
                                         <span className="text-[7.5px] text-slate-400 font-bold uppercase tracking-widest bg-slate-100 rounded-[3px] px-1 py-0.5">{lead.source}</span>
-                                        <span className={`px-1.5 py-0.5 rounded-[3px] text-[7.5px] font-black uppercase tracking-wider ${lead.leadType === 'Seller' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/50' : 'bg-blue-50 text-blue-600 border border-blue-200/50'}`}>
-                                            {lead.leadType}
-                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -113,7 +124,7 @@ const LeadGalleryItem: React.FC<{
 
 
                         {/* Render Post-its */}
-                        <div className="flex flex-wrap gap-4 mb-4 relative min-h-[40px] empty:hidden" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex flex-wrap gap-4 mb-4 relative min-h-[40px] empty:hidden" onClick={(e) => { e.stopPropagation(); handleSelectOne(lead.id); }}>
                             {notes.filter(n => n.leadId === lead.id && !n.isDone).map((note, i) => (
                                 <div
                                     key={note.id}
@@ -266,6 +277,84 @@ const LeadsList: React.FC<InternalProps> = ({
         source: '',
     });
     const [activeTab, setActiveTab] = useState<'Buyer' | 'Seller'>('Buyer');
+    const [showColumnSelector, setShowColumnSelector] = useState(false);
+
+    const availableBuyerColumns = [
+        { id: 'status', label: 'Lead Status' },
+        { id: 'phone', label: 'Contact Info' },
+        { id: 'isAlsoSelling', label: 'Also Selling?' },
+        { id: 'preQualified', label: 'Pre-qualified?' },
+        { id: 'budgetRange', label: 'Budget Range' },
+        { id: 'preferredNeighborhood', label: 'Preferred Neighborhood' },
+        { id: 'source', label: 'Source' },
+        { id: 'receivedAt', label: 'Date Created' },
+        { id: 'lastTouch', label: 'Last Follow Up' },
+        { id: 'message', label: 'Message' },
+        { id: 'timeframe', label: 'Timeframe' },
+        { id: 'leaseEndDate', label: 'Lease End Date' },
+        { id: 'propertyAddress', label: 'Inquired Property' },
+        { id: 'tags', label: 'Tags' },
+        { id: 'funnelStage', label: 'Pipeline Stage' },
+        { id: 'notes', label: 'Comments / Notes' }
+    ];
+
+    const availableSellerColumns = [
+        { id: 'status', label: 'Lead Status' },
+        { id: 'phone', label: 'Contact Info' },
+        { id: 'isAlsoBuying', label: 'Also Buying?' },
+        { id: 'homeValueNeeded', label: 'Home Value Needed?' },
+        { id: 'mostImportantToSeller', label: 'Most Important to Seller' },
+        { id: 'sellWhen', label: 'Sell When?' },
+        { id: 'propertyType', label: 'Property Type' },
+        { id: 'occupancyStatus', label: 'Occupancy Status' },
+        { id: 'expectedPrice', label: 'Expected Price' },
+        { id: 'propertyAddress', label: 'Property Address' },
+        { id: 'reasonForSelling', label: 'Reason for Selling' },
+        { id: 'existingAgentName', label: 'Existing Agent?' },
+        { id: 'source', label: 'Source' },
+        { id: 'receivedAt', label: 'Date Created' },
+        { id: 'lastTouch', label: 'Last Follow Up' },
+        { id: 'message', label: 'Message' },
+        { id: 'tags', label: 'Tags' },
+        { id: 'funnelStage', label: 'Pipeline Stage' },
+        { id: 'notes', label: 'Comments / Notes' }
+    ];
+
+    // Default visible columns (preserving previous default view)
+    const defaultBuyerVisible = ['status', 'phone', 'isAlsoSelling', 'preQualified', 'budgetRange', 'preferredNeighborhood', 'source', 'receivedAt', 'notes'];
+    const defaultSellerVisible = ['status', 'phone', 'isAlsoBuying', 'homeValueNeeded', 'mostImportantToSeller', 'sellWhen', 'propertyType', 'occupancyStatus', 'expectedPrice', 'propertyAddress', 'source', 'receivedAt'];
+
+    const [visibleColumns, setVisibleColumns] = useState({
+        Buyer: new Set(defaultBuyerVisible),
+        Seller: new Set(defaultSellerVisible)
+    });
+
+    const toggleColumn = (type: 'Buyer' | 'Seller', colId: string) => {
+        setVisibleColumns(prev => {
+            const newSet = new Set(prev[type]);
+            if (newSet.has(colId)) newSet.delete(colId);
+            else newSet.add(colId);
+            return { ...prev, [type]: newSet };
+        });
+    };
+
+    const columnSelectorRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (columnSelectorRef.current && !columnSelectorRef.current.contains(event.target as Node)) {
+                setShowColumnSelector(false);
+            }
+        };
+
+        if (showColumnSelector) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showColumnSelector]);
 
     const [viewMode, setViewMode] = useState<'today' | 'week' | 'month' | 'year' | 'older'>('today'); // Legacy for displayModes mapping
 
@@ -417,12 +506,19 @@ const LeadsList: React.FC<InternalProps> = ({
                         <select
                             autoFocus
                             className="bg-white border border-indigo-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
+                            defaultValue={value}
+                            onChange={(e) => {
+                                const newValue = e.target.value;
+                                onUpdateLead(lead.id, { [field]: newValue });
+                                setEditingCell(null);
+                            }}
                             onClick={e => e.stopPropagation()}
+                            onBlur={() => setEditingCell(null)}
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter') saveEditing(e as any);
-                                if (e.key === 'Escape') cancelEditing(e as any);
+                                if (e.key === 'Escape') {
+                                    e.stopPropagation();
+                                    setEditingCell(null);
+                                }
                             }}
                         >
                             {options.map(opt => (
@@ -430,20 +526,22 @@ const LeadsList: React.FC<InternalProps> = ({
                             ))}
                         </select>
                     ) : (
-                        <input
-                            autoFocus
-                            type="text"
-                            className="bg-white border border-indigo-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') saveEditing(e as any);
-                                if (e.key === 'Escape') cancelEditing(e as any);
-                            }}
-                        />
+                        <>
+                            <input
+                                autoFocus
+                                type="text"
+                                className="bg-white border border-indigo-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') saveEditing(e as any);
+                                    if (e.key === 'Escape') cancelEditing(e as any);
+                                }}
+                            />
+                            <button onClick={saveEditing} className="text-emerald-500 hover:text-emerald-700 bg-emerald-50 p-1 rounded flex-shrink-0"><i className="fa-solid fa-check"></i></button>
+                            <button onClick={cancelEditing} className="text-red-400 hover:text-red-600 bg-red-50 p-1 rounded flex-shrink-0"><i className="fa-solid fa-xmark"></i></button>
+                        </>
                     )}
-                    <button onClick={saveEditing} className="text-emerald-500 hover:text-emerald-700 bg-emerald-50 p-1 rounded flex-shrink-0"><i className="fa-solid fa-check"></i></button>
-                    <button onClick={cancelEditing} className="text-red-400 hover:text-red-600 bg-red-50 p-1 rounded flex-shrink-0"><i className="fa-solid fa-xmark"></i></button>
                 </div>
             );
         }
@@ -707,7 +805,7 @@ const LeadsList: React.FC<InternalProps> = ({
             `}} />
 
             <DragDropContext onDragEnd={handleDragEnd}>
-                <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex-shrink-0 w-full">
+                <div className="bg-slate-50 border-b border-slate-200 px-4 py-2 flex-shrink-0 w-full">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             {/* Tab Switcher */}
@@ -739,57 +837,97 @@ const LeadsList: React.FC<InternalProps> = ({
                             <div className="h-6 w-px bg-slate-200"></div>
                             <div className="flex items-center gap-1 text-slate-400">
 
-                                <button className={`p-2 hover:bg-slate-100 rounded ${showFilters ? 'bg-slate-100 text-indigo-600' : ''}`} onClick={() => setShowFilters(!showFilters)}><i className="fa-solid fa-filter"></i></button>
+                                <div className="relative" ref={columnSelectorRef}>
+                                    <button
+                                        className={`w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors ${showColumnSelector ? 'bg-slate-100 text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                        onClick={() => setShowColumnSelector(!showColumnSelector)}
+                                        title="Select Columns"
+                                    >
+                                        <i className="fa-solid fa-table-columns text-lg"></i>
+                                    </button>
+                                    {showColumnSelector && (
+                                        <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-200 p-4 w-64 z-50 animate-in fade-in zoom-in-95 duration-200">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Visible Columns</div>
+                                                <button onClick={() => setShowColumnSelector(false)} className="text-slate-400 hover:text-slate-600">
+                                                    <i className="fa-solid fa-xmark"></i>
+                                                </button>
+                                            </div>
+                                            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                                                {(activeTab === 'Buyer' ? availableBuyerColumns : availableSellerColumns).map(col => (
+                                                    <label key={col.id} className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={visibleColumns[activeTab].has(col.id)}
+                                                            onChange={() => toggleColumn(activeTab, col.id)}
+                                                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                        />
+                                                        {col.label}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                <button
+                                    className={`w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors ${showFilters ? 'bg-slate-100 text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                    onClick={() => setShowFilters(!showFilters)}
+                                    title="Filter Leads"
+                                >
+                                    <i className="fa-solid fa-filter text-lg"></i>
+                                </button>
                             </div>
                         </div>
 
 
 
                         {/* Post-it Palette */}
-                        <TypedDroppable droppableId="palette" direction="horizontal" type="POSTIT_PALETTE" isDropDisabled={true}>
-                            {(provided: any) => (
-                                <div
-                                    ref={provided.innerRef}
-                                    {...provided.droppableProps}
-                                    className="flex items-center gap-4"
-                                >
-                                    <div className="text-[9px] font-black uppercase tracking-wider text-slate-400">Post it:</div>
-                                    <div className="flex items-center gap-4">
-                                        {noteTypes.map((note, index) => (
-                                            <TypedDraggable key={note.id} draggableId={note.id} index={index}>
-                                                {(provided: any, snapshot: any) => (
-                                                    <div className="relative group note-palette-item">
-                                                        {!snapshot.isDragging && (
-                                                            <>
-                                                                <div className={`absolute inset-0 translate-x-1 translate-y-1 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow}`}></div>
-                                                            </>
-                                                        )}
+                        {currentDisplayMode === 'gallery' && (
+                            <TypedDroppable droppableId="palette" direction="horizontal" type="POSTIT_PALETTE" isDropDisabled={true}>
+                                {(provided: any) => (
+                                    <div
+                                        ref={provided.innerRef}
+                                        {...provided.droppableProps}
+                                        className="flex items-center gap-4"
+                                    >
+                                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400">Post it:</div>
+                                        <div className="flex items-center gap-4">
+                                            {noteTypes.map((note, index) => (
+                                                <TypedDraggable key={note.id} draggableId={note.id} index={index}>
+                                                    {(provided: any, snapshot: any) => (
+                                                        <div className="relative group note-palette-item">
+                                                            {!snapshot.isDragging && (
+                                                                <>
+                                                                    <div className={`absolute inset-0 translate-x-1 translate-y-1 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow}`}></div>
+                                                                </>
+                                                            )}
 
-                                                        <div
-                                                            ref={provided.innerRef}
-                                                            {...provided.draggableProps}
-                                                            {...provided.dragHandleProps}
-                                                            className={`w-8 h-8 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-1 hover:-rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl' : ''}`}
-                                                        >
-                                                            <div className="w-full h-1 bg-black/5 absolute top-0"></div>
-                                                            <i className="fa-solid fa-note-sticky opacity-20 text-[10px]"></i>
+                                                            <div
+                                                                ref={provided.innerRef}
+                                                                {...provided.draggableProps}
+                                                                {...provided.dragHandleProps}
+                                                                className={`w-8 h-8 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-1 hover:-rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl' : ''}`}
+                                                            >
+                                                                <div className="w-full h-1 bg-black/5 absolute top-0"></div>
+                                                                <i className="fa-solid fa-note-sticky opacity-20 text-[10px]"></i>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                )}
-                                            </TypedDraggable>
-                                        ))}
+                                                    )}
+                                                </TypedDraggable>
+                                            ))}
+                                        </div>
+                                        {provided.placeholder}
                                     </div>
-                                    {provided.placeholder}
-                                </div>
-                            )}
-                        </TypedDroppable>
+                                )}
+                            </TypedDroppable>
+                        )}
                     </div>
                 </div>
 
                 {/* Filter Bar */}
                 {
                     showFilters && (
-                        <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 grid grid-cols-5 gap-4 flex-shrink-0 w-full">
+                        <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 grid grid-cols-5 gap-2 flex-shrink-0 w-full">
                             <input
                                 type="text"
                                 placeholder="Filter Name..."
@@ -836,10 +974,10 @@ const LeadsList: React.FC<InternalProps> = ({
                 }
 
                 {/* Content Area */}
-                <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white mb-6 space-y-12 py-6">
+                <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white mb-0 space-y-4 py-4">
                     {/* Buyer Section */}
                     {activeTab === 'Buyer' && (
-                        <section className="px-6 animate-in fade-in slide-in-from-left-4 duration-300">
+                        <section className="px-4 animate-in fade-in slide-in-from-left-4 duration-300">
                             <div className="flex items-center justify-start mb-4 border-b border-slate-100 pb-3">
 
                                 {/* Time Selector for Buyers */}
@@ -866,36 +1004,43 @@ const LeadsList: React.FC<InternalProps> = ({
                                         </button>
                                     ))}
                                 </div>
-                                <div className="flex bg-slate-100/50 p-1 rounded-xl items-center ml-4">
+                                <div className="ml-4 flex flex-col justify-center">
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-red-50 text-black hover:bg-red-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
+                                            onClick={handleBulkArchive}
+                                            disabled={selectedIds.size === 0}
+                                        >
+                                            <i className="fa-solid fa-box-archive"></i>
+                                            Archive {selectedIds.size > 0 && `(${selectedIds.size})`}
+                                        </button>
+                                        <button
+                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-indigo-50 text-black hover:bg-indigo-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
+                                            onClick={handleBulkActivate}
+                                            disabled={selectedIds.size === 0}
+                                        >
+                                            <i className="fa-solid fa-bolt"></i>
+                                            Activate {selectedIds.size > 0 && `(${selectedIds.size})`}
+                                        </button>
+                                    </div>
+                                    <div className="text-[9px] text-slate-400 font-medium text-center mt-1">
+                                        Select the checkbox to archive or activate
+                                    </div>
+                                </div>
+                                <div className="ml-auto flex bg-slate-100/50 p-1 rounded-2xl items-center">
                                     <button
                                         onClick={() => toggleDisplayMode('list')}
-                                        className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                        className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                                     >
                                         <i className="fa-solid fa-list-ul"></i>
+                                        List
                                     </button>
                                     <button
                                         onClick={() => toggleDisplayMode('gallery')}
-                                        className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                        className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                                     >
                                         <i className="fa-solid fa-table-cells-large"></i>
-                                    </button>
-                                </div>
-                                <div className="ml-auto flex items-center gap-2">
-                                    <button
-                                        className={`px-3 py-1.5 rounded flex items-center gap-2 text-xs font-semibold transition-colors ${selectedIds.size > 0 ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'text-slate-300 cursor-not-allowed'}`}
-                                        onClick={handleBulkArchive}
-                                        disabled={selectedIds.size === 0}
-                                    >
-                                        <i className="fa-solid fa-box-archive"></i>
-                                        Archive {selectedIds.size > 0 && `(${selectedIds.size})`}
-                                    </button>
-                                    <button
-                                        className={`px-3 py-1.5 rounded flex items-center gap-2 text-xs font-semibold transition-colors ${selectedIds.size > 0 ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100' : 'text-slate-300 cursor-not-allowed'}`}
-                                        onClick={handleBulkActivate}
-                                        disabled={selectedIds.size === 0}
-                                    >
-                                        <i className="fa-solid fa-bolt"></i>
-                                        Activate {selectedIds.size > 0 && `(${selectedIds.size})`}
+                                        Gallery
                                     </button>
                                 </div>
                             </div>
@@ -903,49 +1048,69 @@ const LeadsList: React.FC<InternalProps> = ({
                             {filteredBuyerLeads.length > 0 ? (
                                 currentDisplayMode === 'list' ? (
                                     <div className="shadow-sm border border-slate-200/60 rounded-2xl overflow-x-auto overflow-y-auto max-h-[600px] w-full pb-6">
-                                        <table className="w-full text-left border-collapse min-w-[1600px]">
+                                        <table className="w-full text-left border-collapse min-w-full">
                                             <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500">
                                                 <tr>
-                                                    <th className="w-12 px-4 py-4 border-b border-slate-200/60 bg-slate-50 text-center">#</th>
-                                                    <th className="w-10 px-4 py-4 border-b border-slate-200/60 bg-slate-50">
+                                                    <th className="w-12 px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">#</th>
+                                                    <th className="w-10 px-2 py-3 border-b border-slate-200/60 bg-slate-50">
                                                         <input type="checkbox" onChange={(e) => handleSelectAll(filteredBuyerLeads, e.target.checked)} checked={filteredBuyerLeads.length > 0 && filteredBuyerLeads.every(l => selectedIds.has(l.id))} className="rounded border-slate-300" />
                                                     </th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Profile Picture</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('firstName')}>
+                                                    <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Profile Picture</th>
+                                                    <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('firstName')}>
                                                         Full Name {sortField === 'firstName' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                     </th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('status')}>
-                                                        Lead Status {sortField === 'status' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                    </th>
+                                                    {visibleColumns.Buyer.has('status') && (
+                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('status')}>
+                                                            Lead Status {sortField === 'status' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                        </th>
+                                                    )}
 
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('email')}>
-                                                        Email {sortField === 'email' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                    </th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('phone')}>
-                                                        Phone Number {sortField === 'phone' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                    </th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 text-center">Also Selling?</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 text-center">Pre-qualified?</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Budget Range</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Preferred Neighborhood</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('source')}>
-                                                        Source {sortField === 'source' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                    </th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('receivedAt')}>
-                                                        Date Created {sortField === 'receivedAt' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                    </th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Comments / Notes</th>
+                                                    {visibleColumns.Buyer.has('phone') && (
+                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('phone')}>
+                                                            Contact Info {sortField === 'phone' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                        </th>
+                                                    )}
+                                                    {visibleColumns.Buyer.has('isAlsoSelling') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Also Selling?</th>}
+                                                    {visibleColumns.Buyer.has('preQualified') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Pre-qualified?</th>}
+                                                    {visibleColumns.Buyer.has('budgetRange') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Budget Range</th>}
+                                                    {visibleColumns.Buyer.has('preferredNeighborhood') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Preferred Neighborhood</th>}
+                                                    {visibleColumns.Buyer.has('source') && (
+                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('source')}>
+                                                            Source {sortField === 'source' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                        </th>
+                                                    )}
+                                                    {visibleColumns.Buyer.has('receivedAt') && (
+                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('receivedAt')}>
+                                                            Date Created {sortField === 'receivedAt' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                        </th>
+                                                    )}
+                                                    {visibleColumns.Buyer.has('lastTouch') && (
+                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('lastTouch')}>
+                                                            Last Follow Up {sortField === 'lastTouch' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                        </th>
+                                                    )}
+                                                    {visibleColumns.Buyer.has('message') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Message</th>}
+                                                    {visibleColumns.Buyer.has('timeframe') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Timeframe</th>}
+                                                    {visibleColumns.Buyer.has('leaseEndDate') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Lease End Date</th>}
+                                                    {visibleColumns.Buyer.has('propertyAddress') && (
+                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('propertyAddress')}>
+                                                            Inquired Property {sortField === 'propertyAddress' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                        </th>
+                                                    )}
+                                                    {visibleColumns.Buyer.has('tags') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Tags</th>}
+                                                    {visibleColumns.Buyer.has('funnelStage') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Pipeline Stage</th>}
+                                                    {visibleColumns.Buyer.has('notes') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Comments / Notes</th>}
 
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
                                                 {filteredBuyerLeads.map((lead, index) => (
                                                     <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80">
-                                                        <td className="px-4 py-3 border-b border-slate-100 text-center text-slate-400 font-bold opacity-50">{index + 1}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100">
+                                                        <td className="px-2 py-2 border-b border-slate-100 text-center text-slate-400 font-bold opacity-50">{index + 1}</td>
+                                                        <td className="px-2 py-2 border-b border-slate-100">
                                                             <input type="checkbox" checked={selectedIds.has(lead.id)} onChange={() => handleSelectOne(lead.id)} className="rounded border-slate-300" />
                                                         </td>
-                                                        <td className="px-4 py-3 border-b border-slate-100">
+                                                        <td className="px-2 py-2 border-b border-slate-100">
                                                             <div className="w-8 h-8 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shadow-sm">
                                                                 {lead.avatarUrl ? (
                                                                     <img src={lead.avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -954,34 +1119,132 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 )}
                                                             </div>
                                                         </td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 font-bold text-slate-900 cursor-pointer hover:underline" onClick={() => onViewLead(lead)}>
+                                                        <td className="px-2 py-2 border-b border-slate-100 font-bold text-slate-900 cursor-pointer hover:underline" onClick={() => onViewLead(lead)}>
                                                             {lead.firstName} {lead.lastName}
                                                         </td>
-                                                        <td className="px-4 py-3 border-b border-slate-100">
-                                                            {renderCell(lead, 'status', 'select', getStatusOptions(lead.leadType, realtorSettings).map((o: any) => o.label))}
-                                                        </td>
+                                                        {visibleColumns.Buyer.has('status') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100">
+                                                                {renderCell(lead, 'status', 'select', getStatusOptions(lead.leadType, realtorSettings).map((o: any) => o.label))}
+                                                            </td>
+                                                        )}
 
-                                                        <td className="px-4 py-3 border-b border-slate-100 text-blue-600 font-medium">{renderCell(lead, 'email')}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 font-medium text-slate-600">{renderCell(lead, 'phone')}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 text-center">
-                                                            <div className="flex justify-center">
-                                                                <input type="checkbox" checked={lead.isAlsoSelling || false} readOnly className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 text-center font-semibold">
-                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${lead.preQualified ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'}`}>
-                                                                {lead.preQualified ? 'Yes' : 'No'}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 font-medium">{renderCell(lead, 'budgetRange' as any)}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 font-medium underline text-indigo-600/80 decoration-indigo-200 underline-offset-4">{renderCell(lead, 'preferredNeighborhood' as any)}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 text-[10px] text-slate-400 font-semibold whitespace-nowrap uppercase">
-                                                            {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(lead.receivedAt).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                                        </td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 min-w-[200px] text-xs text-slate-600 line-clamp-2" title={lead.notes}>
-                                                            {renderCell(lead, 'notes')}
-                                                        </td>
+                                                        {visibleColumns.Buyer.has('phone') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100">
+                                                                <div className="flex flex-col">
+                                                                    <div className="text-xs font-semibold text-slate-700 leading-tight mb-0.5">{renderCell(lead, 'phone')}</div>
+                                                                    <div className="text-[10px] text-blue-600 font-medium leading-tight">{renderCell(lead, 'email')}</div>
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Buyer.has('isAlsoSelling') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-center">
+                                                                <div
+                                                                    className="flex justify-center cursor-pointer"
+                                                                    onClick={(e) => startEditing(e, lead.id, 'isAlsoSelling', lead.isAlsoSelling ? 'Yes' : 'No')}
+                                                                >
+                                                                    {editingCell?.id === lead.id && editingCell?.field === 'isAlsoSelling' ? (
+                                                                        <div onClick={e => e.stopPropagation()}>
+                                                                            <select
+                                                                                autoFocus
+                                                                                className="bg-white border border-indigo-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-20"
+                                                                                defaultValue={lead.isAlsoSelling ? 'Yes' : 'No'}
+                                                                                onChange={(e) => {
+                                                                                    const val = e.target.value === 'Yes';
+                                                                                    onUpdateLead(lead.id, { isAlsoSelling: val });
+                                                                                    setEditingCell(null);
+                                                                                }}
+                                                                                onBlur={() => setEditingCell(null)}
+                                                                                onClick={e => e.stopPropagation()}
+                                                                            >
+                                                                                <option value="Yes">Yes</option>
+                                                                                <option value="No">No</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    ) : (
+                                                                        lead.isAlsoSelling ? (
+                                                                            <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
+                                                                        ) : (
+                                                                            <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
+                                                                        )
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Buyer.has('preQualified') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-center font-semibold">
+                                                                <div
+                                                                    className="flex justify-center cursor-pointer"
+                                                                    onClick={(e) => startEditing(e, lead.id, 'preQualified', lead.preQualified ? 'Yes' : 'No')}
+                                                                >
+                                                                    {editingCell?.id === lead.id && editingCell?.field === 'preQualified' ? (
+                                                                        <div onClick={e => e.stopPropagation()}>
+                                                                            <select
+                                                                                autoFocus
+                                                                                className="bg-white border border-indigo-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-20"
+                                                                                defaultValue={lead.preQualified ? 'Yes' : 'No'}
+                                                                                onChange={(e) => {
+                                                                                    const val = e.target.value === 'Yes';
+                                                                                    onUpdateLead(lead.id, { preQualified: val });
+                                                                                    setEditingCell(null);
+                                                                                }}
+                                                                                onBlur={() => setEditingCell(null)}
+                                                                                onClick={e => e.stopPropagation()}
+                                                                            >
+                                                                                <option value="Yes">Yes</option>
+                                                                                <option value="No">No</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    ) : (
+                                                                        lead.preQualified ? (
+                                                                            <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
+                                                                        ) : (
+                                                                            <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
+                                                                        )
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Buyer.has('budgetRange') && <td className="px-2 py-2 border-b border-slate-100 font-medium">{renderCell(lead, 'budgetRange' as any)}</td>}
+                                                        {visibleColumns.Buyer.has('preferredNeighborhood') && <td className="px-2 py-2 border-b border-slate-100 font-medium underline text-indigo-600/80 decoration-indigo-200 underline-offset-4">{renderCell(lead, 'preferredNeighborhood' as any)}</td>}
+                                                        {visibleColumns.Buyer.has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
+                                                        {visibleColumns.Buyer.has('receivedAt') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-[10px] text-slate-400 font-semibold whitespace-nowrap uppercase">
+                                                                {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(lead.receivedAt).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Buyer.has('lastTouch') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-[10px] text-slate-500 font-medium whitespace-nowrap">
+                                                                {lead.lastTouch ? (lead.lastTouch?.toDate ? lead.lastTouch.toDate().toLocaleDateString() : new Date(lead.lastTouch).toLocaleDateString()) : '--'}
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Buyer.has('message') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-600 max-w-[200px] truncate" title={lead.message}>
+                                                                {lead.message || '--'}
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Buyer.has('timeframe') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.timeframe || '--'}</td>}
+                                                        {visibleColumns.Buyer.has('leaseEndDate') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-[10px] text-slate-500 font-medium">
+                                                                {lead.leaseEndDate ? (lead.leaseEndDate?.toDate ? lead.leaseEndDate.toDate().toLocaleDateString() : new Date(lead.leaseEndDate).toLocaleDateString()) : '--'}
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Buyer.has('propertyAddress') && <td className="px-2 py-2 border-b border-slate-100 font-medium underline text-indigo-600/80 decoration-indigo-200 underline-offset-4 text-xs">{lead.propertyAddress || '--'}</td>}
+                                                        {visibleColumns.Buyer.has('tags') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100">
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {lead.tags?.map((tag, i) => (
+                                                                        <span key={i} className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-medium border border-slate-200">{tag}</span>
+                                                                    ))}
+                                                                    {(!lead.tags || lead.tags.length === 0) && <span className="text-xs text-slate-300">--</span>}
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Buyer.has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.funnelStage || '--'}</td>}
+                                                        {visibleColumns.Buyer.has('notes') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 min-w-[200px] text-xs text-slate-600 line-clamp-2" title={lead.notes}>
+                                                                {renderCell(lead, 'notes')}
+                                                            </td>
+                                                        )}
 
                                                     </tr>
                                                 ))}
@@ -1015,6 +1278,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 deletingNoteId={deletingNoteId}
                                                 celebratingNoteId={celebratingNoteId}
                                                 isFlyingUpId={isFlyingUpId}
+                                                onArchive={(id) => onUpdateLead(id, { status: 'Archived' })}
+                                                onActivate={(id) => onUpdateLead(id, { status: 'New' })}
                                             />
                                         ))}
                                     </div>
@@ -1029,7 +1294,7 @@ const LeadsList: React.FC<InternalProps> = ({
 
                     {/* Seller Section */}
                     {activeTab === 'Seller' && (
-                        <section className="px-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                        <section className="px-4 animate-in fade-in slide-in-from-right-4 duration-300">
                             <div className="flex items-center justify-start mb-4 border-b border-slate-100 pb-3">
 
                                 {/* Time Selector for Sellers */}
@@ -1056,36 +1321,43 @@ const LeadsList: React.FC<InternalProps> = ({
                                         </button>
                                     ))}
                                 </div>
-                                <div className="flex bg-slate-100/50 p-1 rounded-xl items-center ml-4">
+                                <div className="ml-4 flex flex-col justify-center">
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-red-50 text-black hover:bg-red-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
+                                            onClick={handleBulkArchive}
+                                            disabled={selectedIds.size === 0}
+                                        >
+                                            <i className="fa-solid fa-box-archive"></i>
+                                            Archive {selectedIds.size > 0 && `(${selectedIds.size})`}
+                                        </button>
+                                        <button
+                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-indigo-50 text-black hover:bg-indigo-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
+                                            onClick={handleBulkActivate}
+                                            disabled={selectedIds.size === 0}
+                                        >
+                                            <i className="fa-solid fa-bolt"></i>
+                                            Activate {selectedIds.size > 0 && `(${selectedIds.size})`}
+                                        </button>
+                                    </div>
+                                    <div className="text-[9px] text-slate-400 font-medium text-center mt-1">
+                                        Select the checkbox to archive or activate
+                                    </div>
+                                </div>
+                                <div className="ml-auto flex bg-slate-100/50 p-1 rounded-2xl items-center">
                                     <button
                                         onClick={() => toggleDisplayMode('list')}
-                                        className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                        className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                                     >
                                         <i className="fa-solid fa-list-ul"></i>
+                                        List
                                     </button>
                                     <button
                                         onClick={() => toggleDisplayMode('gallery')}
-                                        className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                        className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                                     >
                                         <i className="fa-solid fa-table-cells-large"></i>
-                                    </button>
-                                </div>
-                                <div className="ml-auto flex items-center gap-2">
-                                    <button
-                                        className={`px-3 py-1.5 rounded flex items-center gap-2 text-xs font-semibold transition-colors ${selectedIds.size > 0 ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'text-slate-300 cursor-not-allowed'}`}
-                                        onClick={handleBulkArchive}
-                                        disabled={selectedIds.size === 0}
-                                    >
-                                        <i className="fa-solid fa-box-archive"></i>
-                                        Archive {selectedIds.size > 0 && `(${selectedIds.size})`}
-                                    </button>
-                                    <button
-                                        className={`px-3 py-1.5 rounded flex items-center gap-2 text-xs font-semibold transition-colors ${selectedIds.size > 0 ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100' : 'text-slate-300 cursor-not-allowed'}`}
-                                        onClick={handleBulkActivate}
-                                        disabled={selectedIds.size === 0}
-                                    >
-                                        <i className="fa-solid fa-bolt"></i>
-                                        Activate {selectedIds.size > 0 && `(${selectedIds.size})`}
+                                        Gallery
                                     </button>
                                 </div>
                             </div>
@@ -1093,52 +1365,70 @@ const LeadsList: React.FC<InternalProps> = ({
                             {filteredSellerLeads.length > 0 ? (
                                 currentDisplayMode === 'list' ? (
                                     <div className="shadow-sm border border-slate-200/60 rounded-2xl overflow-x-auto overflow-y-auto max-h-[600px] w-full pb-6">
-                                        <table className="w-full text-left border-collapse min-w-[2000px]">
+                                        <table className="w-full text-left border-collapse min-w-full">
                                             <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500">
                                                 <tr>
-                                                    <th className="w-12 px-4 py-4 border-b border-slate-200/60 bg-slate-50 text-center">#</th>
-                                                    <th className="w-10 px-4 py-4 border-b border-slate-200/60 bg-slate-50">
+                                                    <th className="w-12 px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">#</th>
+                                                    <th className="w-10 px-2 py-3 border-b border-slate-200/60 bg-slate-50">
                                                         <input type="checkbox" onChange={(e) => handleSelectAll(filteredSellerLeads, e.target.checked)} checked={filteredSellerLeads.length > 0 && filteredSellerLeads.every(l => selectedIds.has(l.id))} className="rounded border-slate-300" />
                                                     </th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Profile Picture</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('firstName')}>
+                                                    <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Profile Picture</th>
+                                                    <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('firstName')}>
                                                         Full Name {sortField === 'firstName' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                     </th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('status')}>
-                                                        Lead Status {sortField === 'status' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                    </th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('email')}>
-                                                        Email {sortField === 'email' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                    </th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('phone')}>
-                                                        Phone Number {sortField === 'phone' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                    </th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 text-center">Also Buying?</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 text-center">Home Value Needed?</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Most Important to Seller</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Sell When?</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Property Type</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Occupancy Status</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Expected Price</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('propertyAddress')}>
-                                                        Property Address {sortField === 'propertyAddress' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                    </th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('source')}>
-                                                        Source {sortField === 'source' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                    </th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('receivedAt')}>
-                                                        Date Created {sortField === 'receivedAt' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                    </th>
+                                                    {visibleColumns.Seller.has('status') && (
+                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('status')}>
+                                                            Lead Status {sortField === 'status' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                        </th>
+                                                    )}
+                                                    {visibleColumns.Seller.has('phone') && (
+                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('phone')}>
+                                                            Contact Info {sortField === 'phone' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                        </th>
+                                                    )}
+                                                    {visibleColumns.Seller.has('isAlsoBuying') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Also Buying?</th>}
+                                                    {visibleColumns.Seller.has('homeValueNeeded') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Home Value Needed?</th>}
+                                                    {visibleColumns.Seller.has('mostImportantToSeller') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Most Important to Seller</th>}
+                                                    {visibleColumns.Seller.has('sellWhen') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Sell When?</th>}
+                                                    {visibleColumns.Seller.has('propertyType') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Property Type</th>}
+                                                    {visibleColumns.Seller.has('occupancyStatus') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Occupancy Status</th>}
+                                                    {visibleColumns.Seller.has('expectedPrice') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Expected Price</th>}
+                                                    {visibleColumns.Seller.has('propertyAddress') && (
+                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('propertyAddress')}>
+                                                            Property Address {sortField === 'propertyAddress' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                        </th>
+                                                    )}
+                                                    {visibleColumns.Seller.has('source') && (
+                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('source')}>
+                                                            Source {sortField === 'source' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                        </th>
+                                                    )}
+                                                    {visibleColumns.Seller.has('receivedAt') && (
+                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('receivedAt')}>
+                                                            Date Created {sortField === 'receivedAt' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                        </th>
+                                                    )}
+                                                    {visibleColumns.Seller.has('reasonForSelling') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Reason for Selling</th>}
+                                                    {visibleColumns.Seller.has('existingAgentName') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Existing Agent?</th>}
+                                                    {visibleColumns.Seller.has('lastTouch') && (
+                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('lastTouch')}>
+                                                            Last Follow Up {sortField === 'lastTouch' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                        </th>
+                                                    )}
+                                                    {visibleColumns.Seller.has('message') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Message</th>}
+                                                    {visibleColumns.Seller.has('tags') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Tags</th>}
+                                                    {visibleColumns.Seller.has('funnelStage') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Pipeline Stage</th>}
+                                                    {visibleColumns.Seller.has('notes') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Comments / Notes</th>}
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
                                                 {filteredSellerLeads.map((lead, index) => (
                                                     <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80">
-                                                        <td className="px-4 py-3 border-b border-slate-100 text-center text-slate-400 font-bold opacity-50">{index + 1}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100">
+                                                        <td className="px-2 py-2 border-b border-slate-100 text-center text-slate-400 font-bold opacity-50">{index + 1}</td>
+                                                        <td className="px-2 py-2 border-b border-slate-100">
                                                             <input type="checkbox" checked={selectedIds.has(lead.id)} onChange={() => handleSelectOne(lead.id)} className="rounded border-slate-300" />
                                                         </td>
-                                                        <td className="px-4 py-3 border-b border-slate-100">
+                                                        <td className="px-2 py-2 border-b border-slate-100">
                                                             <div className="w-8 h-8 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shadow-sm">
                                                                 {lead.avatarUrl ? (
                                                                     <img src={lead.avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -1147,36 +1437,134 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 )}
                                                             </div>
                                                         </td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 font-bold text-slate-900 cursor-pointer hover:underline" onClick={() => onViewLead(lead)}>
+                                                        <td className="px-2 py-2 border-b border-slate-100 font-bold text-slate-900 cursor-pointer hover:underline" onClick={() => onViewLead(lead)}>
                                                             {lead.firstName} {lead.lastName}
                                                         </td>
-                                                        <td className="px-4 py-3 border-b border-slate-100">
-                                                            {renderCell(lead, 'status', 'select', getStatusOptions(lead.leadType, realtorSettings).map((o: any) => o.label))}
-                                                        </td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 text-blue-600 font-medium">{renderCell(lead, 'email')}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 font-medium text-slate-600">{renderCell(lead, 'phone')}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 text-center">
-                                                            <div className="flex justify-center">
-                                                                <input type="checkbox" checked={lead.isAlsoBuying || false} readOnly className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 text-center font-semibold">
-                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${lead.homeValueNeeded ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'}`}>
-                                                                {lead.homeValueNeeded ? 'Yes' : 'No'}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 font-medium">{renderCell(lead, 'mostImportantToSeller' as any)}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 font-medium whitespace-nowrap">{renderCell(lead, 'sellWhen' as any)}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 font-medium">{renderCell(lead, 'propertyType' as any)}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 font-medium">{renderCell(lead, 'occupancyStatus' as any)}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 font-black text-slate-900">
-                                                            {lead.expectedPrice ? `$${lead.expectedPrice.toLocaleString()}` : '--'}
-                                                        </td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 max-w-[250px] truncate font-medium underline text-indigo-600/80 decoration-indigo-200 underline-offset-4">{lead.propertyAddress || '--'}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 text-[10px] text-slate-400 font-semibold whitespace-nowrap uppercase">
-                                                            {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(lead.receivedAt).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                                        </td>
+                                                        {visibleColumns.Seller.has('status') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100">
+                                                                {renderCell(lead, 'status', 'select', getStatusOptions(lead.leadType, realtorSettings).map((o: any) => o.label))}
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Seller.has('phone') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100">
+                                                                <div className="flex flex-col">
+                                                                    <div className="text-xs font-semibold text-slate-700 leading-tight mb-0.5">{renderCell(lead, 'phone')}</div>
+                                                                    <div className="text-[10px] text-blue-600 font-medium leading-tight">{renderCell(lead, 'email')}</div>
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Seller.has('isAlsoBuying') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-center">
+                                                                <div
+                                                                    className="flex justify-center cursor-pointer"
+                                                                    onClick={(e) => startEditing(e, lead.id, 'isAlsoBuying', lead.isAlsoBuying ? 'Yes' : 'No')}
+                                                                >
+                                                                    {editingCell?.id === lead.id && editingCell?.field === 'isAlsoBuying' ? (
+                                                                        <div onClick={e => e.stopPropagation()}>
+                                                                            <select
+                                                                                autoFocus
+                                                                                className="bg-white border border-indigo-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-20"
+                                                                                defaultValue={lead.isAlsoBuying ? 'Yes' : 'No'}
+                                                                                onChange={(e) => {
+                                                                                    const val = e.target.value === 'Yes';
+                                                                                    onUpdateLead(lead.id, { isAlsoBuying: val });
+                                                                                    setEditingCell(null);
+                                                                                }}
+                                                                                onBlur={() => setEditingCell(null)}
+                                                                                onClick={e => e.stopPropagation()}
+                                                                            >
+                                                                                <option value="Yes">Yes</option>
+                                                                                <option value="No">No</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    ) : (
+                                                                        lead.isAlsoBuying ? (
+                                                                            <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
+                                                                        ) : (
+                                                                            <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
+                                                                        )
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Seller.has('homeValueNeeded') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-center font-semibold">
+                                                                <div
+                                                                    className="flex justify-center cursor-pointer"
+                                                                    onClick={(e) => startEditing(e, lead.id, 'homeValueNeeded', lead.homeValueNeeded ? 'Yes' : 'No')}
+                                                                >
+                                                                    {editingCell?.id === lead.id && editingCell?.field === 'homeValueNeeded' ? (
+                                                                        <div onClick={e => e.stopPropagation()}>
+                                                                            <select
+                                                                                autoFocus
+                                                                                className="bg-white border border-indigo-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-20"
+                                                                                defaultValue={lead.homeValueNeeded ? 'Yes' : 'No'}
+                                                                                onChange={(e) => {
+                                                                                    const val = e.target.value === 'Yes';
+                                                                                    onUpdateLead(lead.id, { homeValueNeeded: val });
+                                                                                    setEditingCell(null);
+                                                                                }}
+                                                                                onBlur={() => setEditingCell(null)}
+                                                                                onClick={e => e.stopPropagation()}
+                                                                            >
+                                                                                <option value="Yes">Yes</option>
+                                                                                <option value="No">No</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    ) : (
+                                                                        lead.homeValueNeeded ? (
+                                                                            <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
+                                                                        ) : (
+                                                                            <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
+                                                                        )
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Seller.has('mostImportantToSeller') && <td className="px-2 py-2 border-b border-slate-100 font-medium">{renderCell(lead, 'mostImportantToSeller' as any)}</td>}
+                                                        {visibleColumns.Seller.has('sellWhen') && <td className="px-2 py-2 border-b border-slate-100 font-medium whitespace-nowrap">{renderCell(lead, 'sellWhen' as any)}</td>}
+                                                        {visibleColumns.Seller.has('propertyType') && <td className="px-2 py-2 border-b border-slate-100 font-medium">{renderCell(lead, 'propertyType' as any)}</td>}
+                                                        {visibleColumns.Seller.has('occupancyStatus') && <td className="px-2 py-2 border-b border-slate-100 font-medium">{renderCell(lead, 'occupancyStatus' as any)}</td>}
+                                                        {visibleColumns.Seller.has('expectedPrice') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 font-black text-slate-900">
+                                                                {lead.expectedPrice ? `$${lead.expectedPrice.toLocaleString()}` : '--'}
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Seller.has('propertyAddress') && <td className="px-2 py-2 border-b border-slate-100 max-w-[250px] truncate font-medium underline text-indigo-600/80 decoration-indigo-200 underline-offset-4">{lead.propertyAddress || '--'}</td>}
+                                                        {visibleColumns.Seller.has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
+                                                        {visibleColumns.Seller.has('receivedAt') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-[10px] text-slate-400 font-semibold whitespace-nowrap uppercase">
+                                                                {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(lead.receivedAt).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Seller.has('reasonForSelling') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.reasonForSelling || '--'}</td>}
+                                                        {visibleColumns.Seller.has('existingAgentName') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.existingAgentName || '--'}</td>}
+                                                        {visibleColumns.Seller.has('lastTouch') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-[10px] text-slate-500 font-medium whitespace-nowrap">
+                                                                {lead.lastTouch ? (lead.lastTouch?.toDate ? lead.lastTouch.toDate().toLocaleDateString() : new Date(lead.lastTouch).toLocaleDateString()) : '--'}
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Seller.has('message') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-600 max-w-[200px] truncate" title={lead.message}>
+                                                                {lead.message || '--'}
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Seller.has('tags') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100">
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {lead.tags?.map((tag, i) => (
+                                                                        <span key={i} className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-medium border border-slate-200">{tag}</span>
+                                                                    ))}
+                                                                    {(!lead.tags || lead.tags.length === 0) && <span className="text-xs text-slate-300">--</span>}
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Seller.has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.funnelStage || '--'}</td>}
+                                                        {visibleColumns.Seller.has('notes') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 min-w-[200px] text-xs text-slate-600 line-clamp-2" title={lead.notes}>
+                                                                {renderCell(lead, 'notes')}
+                                                            </td>
+                                                        )}
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -1209,6 +1597,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 deletingNoteId={deletingNoteId}
                                                 celebratingNoteId={celebratingNoteId}
                                                 isFlyingUpId={isFlyingUpId}
+                                                onArchive={(id) => onUpdateLead(id, { status: 'Archived' })}
+                                                onActivate={(id) => onUpdateLead(id, { status: 'New' })}
                                             />
                                         ))}
                                     </div>
