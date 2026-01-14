@@ -208,12 +208,12 @@ const LeadGalleryItem: React.FC<{
                                         {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleDateString() : new Date(lead.receivedAt).toLocaleDateString()}
                                     </span>
                                 </div>
-                                <div className="flex items-center gap-2 text-indigo-400">
-                                    <span className="text-[9px] font-black uppercase tracking-tighter">Last Follow Up:</span>
-                                    <span className="text-[10px] font-bold uppercase tracking-tighter">
-                                        {lead.lastTouch?.toDate ? lead.lastTouch.toDate().toLocaleDateString() : lead.lastTouch ? new Date(lead.lastTouch).toLocaleDateString() : 'None'}
-                                    </span>
-                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 text-indigo-400">
+                                <span className="text-[9px] font-black uppercase tracking-tighter">Last Follow Up:</span>
+                                <span className="text-[10px] font-bold uppercase tracking-tighter">
+                                    {lead.lastTouch?.toDate ? lead.lastTouch.toDate().toLocaleDateString() : lead.lastTouch ? new Date(lead.lastTouch).toLocaleDateString() : 'None'}
+                                </span>
                             </div>
                         </div>
                         {noteProvided.placeholder}
@@ -277,16 +277,20 @@ const LeadsList: React.FC<InternalProps> = ({
         older: 'list'
     });
 
-    const currentDisplayMode = displayModes[buyerViewMode] || displayModes[sellerViewMode] || 'list'; // Use buyer/seller mode as fallback
+    const currentDisplayMode = activeTab === 'Buyer' ? displayModes[buyerViewMode] : displayModes[sellerViewMode];
 
     const toggleDisplayMode = (mode: 'list' | 'gallery') => {
-        // Update both if we share the layout preference
+        const targetViewMode = activeTab === 'Buyer' ? buyerViewMode : sellerViewMode;
         setDisplayModes(prev => ({
             ...prev,
-            [buyerViewMode]: mode,
-            [sellerViewMode]: mode
+            [targetViewMode]: mode
         }));
     };
+
+    // Clear selection on view change
+    useEffect(() => {
+        setSelectedIds(new Set());
+    }, [activeTab, buyerViewMode, sellerViewMode]);
 
     // Inline Editing State
     const [editingCell, setEditingCell] = useState<{ id: string, field: keyof Lead } | null>(null);
@@ -734,136 +738,102 @@ const LeadsList: React.FC<InternalProps> = ({
 
                             <div className="h-6 w-px bg-slate-200"></div>
                             <div className="flex items-center gap-1 text-slate-400">
-                                <button
-                                    className={`px-3 py-1.5 rounded flex items-center gap-2 text-xs font-semibold transition-colors ${selectedIds.size > 0 ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'text-slate-300 cursor-not-allowed'}`}
-                                    onClick={handleBulkArchive}
-                                    disabled={selectedIds.size === 0}
-                                >
-                                    <i className="fa-solid fa-box-archive"></i>
-                                    Archive Selected {selectedIds.size > 0 && `(${selectedIds.size})`}
-                                </button>
 
-                                <button
-                                    className={`px-3 py-1.5 rounded flex items-center gap-2 text-xs font-semibold transition-colors ${selectedIds.size > 0 ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100' : 'text-slate-300 cursor-not-allowed'}`}
-                                    onClick={handleBulkActivate}
-                                    disabled={selectedIds.size === 0}
-                                >
-                                    <i className="fa-solid fa-bolt"></i>
-                                    Activate Selected {selectedIds.size > 0 && `(${selectedIds.size})`}
-                                </button>
-                                <div className="h-4 w-px bg-slate-200 mx-2"></div>
                                 <button className={`p-2 hover:bg-slate-100 rounded ${showFilters ? 'bg-slate-100 text-indigo-600' : ''}`} onClick={() => setShowFilters(!showFilters)}><i className="fa-solid fa-filter"></i></button>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-4">
-                            <div className="flex bg-slate-200/50 p-1 rounded-xl items-center">
-                                <button
-                                    onClick={() => toggleDisplayMode('list')}
-                                    className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+
+
+                        {/* Post-it Palette */}
+                        <TypedDroppable droppableId="palette" direction="horizontal" type="POSTIT_PALETTE" isDropDisabled={true}>
+                            {(provided: any) => (
+                                <div
+                                    ref={provided.innerRef}
+                                    {...provided.droppableProps}
+                                    className="flex items-center gap-4"
                                 >
-                                    <i className="fa-solid fa-list-ul"></i>
-                                    List
-                                </button>
-                                <button
-                                    onClick={() => toggleDisplayMode('gallery')}
-                                    className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    <i className="fa-solid fa-table-cells-large"></i>
-                                    Gallery
-                                </button>
-                            </div>
+                                    <div className="text-[9px] font-black uppercase tracking-wider text-slate-400">Post it:</div>
+                                    <div className="flex items-center gap-4">
+                                        {noteTypes.map((note, index) => (
+                                            <TypedDraggable key={note.id} draggableId={note.id} index={index}>
+                                                {(provided: any, snapshot: any) => (
+                                                    <div className="relative group note-palette-item">
+                                                        {!snapshot.isDragging && (
+                                                            <>
+                                                                <div className={`absolute inset-0 translate-x-1 translate-y-1 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow}`}></div>
+                                                            </>
+                                                        )}
 
-                            <div className="h-8 w-px bg-slate-200 mx-2"></div>
-
-                            {/* Post-it Palette */}
-                            <TypedDroppable droppableId="palette" direction="horizontal" type="POSTIT_PALETTE" isDropDisabled={true}>
-                                {(provided: any) => (
-                                    <div
-                                        ref={provided.innerRef}
-                                        {...provided.droppableProps}
-                                        className="flex items-center gap-4"
-                                    >
-                                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400">Post it:</div>
-                                        <div className="flex items-center gap-4">
-                                            {noteTypes.map((note, index) => (
-                                                <TypedDraggable key={note.id} draggableId={note.id} index={index}>
-                                                    {(provided: any, snapshot: any) => (
-                                                        <div className="relative group note-palette-item">
-                                                            {!snapshot.isDragging && (
-                                                                <>
-                                                                    <div className={`absolute inset-0 translate-x-1 translate-y-1 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow}`}></div>
-                                                                </>
-                                                            )}
-
-                                                            <div
-                                                                ref={provided.innerRef}
-                                                                {...provided.draggableProps}
-                                                                {...provided.dragHandleProps}
-                                                                className={`w-8 h-8 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-1 hover:-rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl' : ''}`}
-                                                            >
-                                                                <div className="w-full h-1 bg-black/5 absolute top-0"></div>
-                                                                <i className="fa-solid fa-note-sticky opacity-20 text-[10px]"></i>
-                                                            </div>
+                                                        <div
+                                                            ref={provided.innerRef}
+                                                            {...provided.draggableProps}
+                                                            {...provided.dragHandleProps}
+                                                            className={`w-8 h-8 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-1 hover:-rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl' : ''}`}
+                                                        >
+                                                            <div className="w-full h-1 bg-black/5 absolute top-0"></div>
+                                                            <i className="fa-solid fa-note-sticky opacity-20 text-[10px]"></i>
                                                         </div>
-                                                    )}
-                                                </TypedDraggable>
-                                            ))}
-                                        </div>
-                                        {provided.placeholder}
+                                                    </div>
+                                                )}
+                                            </TypedDraggable>
+                                        ))}
                                     </div>
-                                )}
-                            </TypedDroppable>
-                        </div>
+                                    {provided.placeholder}
+                                </div>
+                            )}
+                        </TypedDroppable>
                     </div>
                 </div>
 
                 {/* Filter Bar */}
-                {showFilters && (
-                    <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 grid grid-cols-5 gap-4 flex-shrink-0 w-full">
-                        <input
-                            type="text"
-                            placeholder="Filter Name..."
-                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                            value={columnFilters.name}
-                            onChange={(e) => setColumnFilters({ ...columnFilters, name: e.target.value })}
-                        />
-                        <input
-                            type="text"
-                            placeholder="Filter Phone..."
-                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                            value={columnFilters.phone}
-                            onChange={(e) => setColumnFilters({ ...columnFilters, phone: e.target.value })}
-                        />
-                        <input
-                            type="text"
-                            placeholder="Filter Email..."
-                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                            value={columnFilters.email}
-                            onChange={(e) => setColumnFilters({ ...columnFilters, email: e.target.value })}
-                        />
-                        <select
-                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                            value={columnFilters.status}
-                            onChange={(e) => setColumnFilters({ ...columnFilters, status: e.target.value })}
-                        >
-                            <option value="">All Statuses</option>
-                            {STATUS_OPTIONS.map(s => (
-                                <option key={s} value={s}>{s}</option>
-                            ))}
-                        </select>
-                        <select
-                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                            value={columnFilters.source}
-                            onChange={(e) => setColumnFilters({ ...columnFilters, source: e.target.value })}
-                        >
-                            <option value="">All Sources</option>
-                            {Array.from(new Set(leads.map(l => l.source))).map(s => (
-                                <option key={s} value={s}>{s}</option>
-                            ))}
-                        </select>
-                    </div>
-                )}
+                {
+                    showFilters && (
+                        <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 grid grid-cols-5 gap-4 flex-shrink-0 w-full">
+                            <input
+                                type="text"
+                                placeholder="Filter Name..."
+                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                value={columnFilters.name}
+                                onChange={(e) => setColumnFilters({ ...columnFilters, name: e.target.value })}
+                            />
+                            <input
+                                type="text"
+                                placeholder="Filter Phone..."
+                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                value={columnFilters.phone}
+                                onChange={(e) => setColumnFilters({ ...columnFilters, phone: e.target.value })}
+                            />
+                            <input
+                                type="text"
+                                placeholder="Filter Email..."
+                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                value={columnFilters.email}
+                                onChange={(e) => setColumnFilters({ ...columnFilters, email: e.target.value })}
+                            />
+                            <select
+                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                value={columnFilters.status}
+                                onChange={(e) => setColumnFilters({ ...columnFilters, status: e.target.value })}
+                            >
+                                <option value="">All Statuses</option>
+                                {STATUS_OPTIONS.map(s => (
+                                    <option key={s} value={s}>{s}</option>
+                                ))}
+                            </select>
+                            <select
+                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                value={columnFilters.source}
+                                onChange={(e) => setColumnFilters({ ...columnFilters, source: e.target.value })}
+                            >
+                                <option value="">All Sources</option>
+                                {Array.from(new Set(leads.map(l => l.source))).map(s => (
+                                    <option key={s} value={s}>{s}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )
+                }
 
                 {/* Content Area */}
                 <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white mb-6 space-y-12 py-6">
@@ -895,6 +865,38 @@ const LeadsList: React.FC<InternalProps> = ({
                                             </div>
                                         </button>
                                     ))}
+                                </div>
+                                <div className="flex bg-slate-100/50 p-1 rounded-xl items-center ml-4">
+                                    <button
+                                        onClick={() => toggleDisplayMode('list')}
+                                        className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                    >
+                                        <i className="fa-solid fa-list-ul"></i>
+                                    </button>
+                                    <button
+                                        onClick={() => toggleDisplayMode('gallery')}
+                                        className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                    >
+                                        <i className="fa-solid fa-table-cells-large"></i>
+                                    </button>
+                                </div>
+                                <div className="ml-auto flex items-center gap-2">
+                                    <button
+                                        className={`px-3 py-1.5 rounded flex items-center gap-2 text-xs font-semibold transition-colors ${selectedIds.size > 0 ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'text-slate-300 cursor-not-allowed'}`}
+                                        onClick={handleBulkArchive}
+                                        disabled={selectedIds.size === 0}
+                                    >
+                                        <i className="fa-solid fa-box-archive"></i>
+                                        Archive {selectedIds.size > 0 && `(${selectedIds.size})`}
+                                    </button>
+                                    <button
+                                        className={`px-3 py-1.5 rounded flex items-center gap-2 text-xs font-semibold transition-colors ${selectedIds.size > 0 ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100' : 'text-slate-300 cursor-not-allowed'}`}
+                                        onClick={handleBulkActivate}
+                                        disabled={selectedIds.size === 0}
+                                    >
+                                        <i className="fa-solid fa-bolt"></i>
+                                        Activate {selectedIds.size > 0 && `(${selectedIds.size})`}
+                                    </button>
                                 </div>
                             </div>
 
@@ -1054,6 +1056,38 @@ const LeadsList: React.FC<InternalProps> = ({
                                         </button>
                                     ))}
                                 </div>
+                                <div className="flex bg-slate-100/50 p-1 rounded-xl items-center ml-4">
+                                    <button
+                                        onClick={() => toggleDisplayMode('list')}
+                                        className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                    >
+                                        <i className="fa-solid fa-list-ul"></i>
+                                    </button>
+                                    <button
+                                        onClick={() => toggleDisplayMode('gallery')}
+                                        className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                    >
+                                        <i className="fa-solid fa-table-cells-large"></i>
+                                    </button>
+                                </div>
+                                <div className="ml-auto flex items-center gap-2">
+                                    <button
+                                        className={`px-3 py-1.5 rounded flex items-center gap-2 text-xs font-semibold transition-colors ${selectedIds.size > 0 ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'text-slate-300 cursor-not-allowed'}`}
+                                        onClick={handleBulkArchive}
+                                        disabled={selectedIds.size === 0}
+                                    >
+                                        <i className="fa-solid fa-box-archive"></i>
+                                        Archive {selectedIds.size > 0 && `(${selectedIds.size})`}
+                                    </button>
+                                    <button
+                                        className={`px-3 py-1.5 rounded flex items-center gap-2 text-xs font-semibold transition-colors ${selectedIds.size > 0 ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100' : 'text-slate-300 cursor-not-allowed'}`}
+                                        onClick={handleBulkActivate}
+                                        disabled={selectedIds.size === 0}
+                                    >
+                                        <i className="fa-solid fa-bolt"></i>
+                                        Activate {selectedIds.size > 0 && `(${selectedIds.size})`}
+                                    </button>
+                                </div>
                             </div>
 
                             {filteredSellerLeads.length > 0 ? (
@@ -1080,15 +1114,10 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         Phone Number {sortField === 'phone' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                     </th>
                                                     <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 text-center">Also Buying?</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Gender</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Existing Agent Name</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Reason for Selling</th>
                                                     <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 text-center">Home Value Needed?</th>
                                                     <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Most Important to Seller</th>
                                                     <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Sell When?</th>
                                                     <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Property Type</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 text-center">Bedrooms</th>
-                                                    <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 text-center">Bathrooms</th>
                                                     <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Occupancy Status</th>
                                                     <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50">Expected Price</th>
                                                     <th className="px-4 py-4 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('propertyAddress')}>
@@ -1131,9 +1160,6 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 <input type="checkbox" checked={lead.isAlsoBuying || false} readOnly className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
                                                             </div>
                                                         </td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 font-medium">{renderCell(lead, 'gender' as any)}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 font-medium">{renderCell(lead, 'existingAgentName' as any)}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 font-medium">{renderCell(lead, 'reasonForSelling' as any)}</td>
                                                         <td className="px-4 py-3 border-b border-slate-100 text-center font-semibold">
                                                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${lead.homeValueNeeded ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'}`}>
                                                                 {lead.homeValueNeeded ? 'Yes' : 'No'}
@@ -1142,8 +1168,6 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         <td className="px-4 py-3 border-b border-slate-100 font-medium">{renderCell(lead, 'mostImportantToSeller' as any)}</td>
                                                         <td className="px-4 py-3 border-b border-slate-100 font-medium whitespace-nowrap">{renderCell(lead, 'sellWhen' as any)}</td>
                                                         <td className="px-4 py-3 border-b border-slate-100 font-medium">{renderCell(lead, 'propertyType' as any)}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 text-center font-bold text-slate-600">{renderCell(lead, 'bedrooms' as any)}</td>
-                                                        <td className="px-4 py-3 border-b border-slate-100 text-center font-bold text-slate-600">{renderCell(lead, 'bathrooms' as any)}</td>
                                                         <td className="px-4 py-3 border-b border-slate-100 font-medium">{renderCell(lead, 'occupancyStatus' as any)}</td>
                                                         <td className="px-4 py-3 border-b border-slate-100 font-black text-slate-900">
                                                             {lead.expectedPrice ? `$${lead.expectedPrice.toLocaleString()}` : '--'}

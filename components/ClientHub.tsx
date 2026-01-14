@@ -81,283 +81,67 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             // 2. Define Mock Data (Always available for potential seeding)
             console.log("[ClientHub] Seeding initial mock data...");
             const initialLeads: Lead[] = [
-                // --- Incoming Pool (leads collection) ---
+                // --- NEW BUYER LEADS ---
+                // Today (New)
                 {
-                    id: 'mock_1', firstName: 'Alice', lastName: 'Cooper', email: 'alice.c@example.com', phone: '(555) 123-0001',
-                    preferredContactMethod: 'Email', source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead',
+                    id: 'clean_buy_1', firstName: 'Alice', lastName: 'New', email: 'alice.new@example.com', phone: '(555) 001-0001',
+                    source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead',
                     status: 'New', receivedAt: new Date(), slaUrgency: 'high', funnelStage: 'Inquiry',
-                    health: 'Active', message: "New inquiry from Zillow for the downtown condo.", isMock: true, collectionName: 'leads',
-                    minPrice: 400000, maxPrice: 600000
+                    health: 'Active', message: "Interested in the downtown loft.", isMock: true, collectionName: 'leads',
+                    minPrice: 400000, maxPrice: 500000
                 },
+                // Past Week (3 days ago)
                 {
-                    id: 'mock_2', firstName: 'Bob', lastName: 'Marley', email: 'bob.m@example.com', phone: '(555) 123-0002',
-                    preferredContactMethod: 'Text', source: 'Website', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'New', receivedAt: new Date(Date.now() - 3600000), slaUrgency: 'high', funnelStage: 'Inquiry',
-                    health: 'Active', message: "Just registered on the website.", isMock: true, collectionName: 'leads',
-                    minPrice: 800000, maxPrice: 1200000
-                },
-
-                // --- Buying Pipeline (buyers collection) ---
-                {
-                    id: 'mock_buy_1', firstName: 'Sarah', lastName: 'Miller', email: 'sarah.m@gmail.com', phone: '(555) 123-4567',
-                    source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 7200000),
-                    slaUrgency: 'high', funnelStage: 'Nurture', health: 'Active', minPrice: 3800000, maxPrice: 4500000,
-                    propertyAddress: '123 Luxury Way, Beverly Hills', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead',
-                    kyc: {
-                        dealBreakers: ['No pool', 'Under 3 car garage', 'Power lines nearby', 'Busy street'],
-                        neighborhoodTargets: ['Beverly Hills', 'Bel Air', 'Holmby Hills'],
-                        schoolDistricts: ['Beverly Hills Unified (BHUSD)', 'Los Angeles Unified (LAUSD)'],
-                        isAllCash: true,
-                        lenderName: 'JP Morgan Private Banking',
-                        lenderContact: 'Marcus Goldman (212) 555-0987',
-                        birthdays: 'Sarah: May 12th | Husband: Dec 4th',
-                        homeAnniversary: 'October 15th',
-                        familyPetsDetails: 'Two Golden Retrievers (Max & Bella). Looking for a large fenced backyard.',
-                        communicationPreferenceNotes: 'Prefers WhatsApp for quick updates. Formal documents via Email only. No calls after 7 PM.',
-                        leadScore: 98,
-                        nurtureDetail: 'Hot',
-                        slaMinutesTarget: 15,
-                        transactionStage: 'Inspection',
-                        inspectionDeadline: '2026-01-20',
-                        appraisalDeadline: '2026-01-25',
-                        loanCommitmentDeadline: '2026-02-01',
-                        documentChecklist: [
-                            { id: '1', name: 'Identity Verification (Passport)', status: 'Signed' },
-                            { id: '2', name: 'Proof of Funds (Bank Statement)', status: 'Signed' },
-                            { id: '3', name: 'Buyer Broker Agreement', status: 'Signed' },
-                            { id: '4', name: 'Initial Escrow Deposit', status: 'Pending' },
-                            { id: '5', name: 'Advisory Disclosures', status: 'Missing' }
-                        ]
-                    }
-                },
-                {
-                    id: 'mock_buy_2', firstName: 'David', lastName: 'Chen', email: 'd.chen@outlook.com', phone: '(555) 987-6543',
-                    source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 3600000),
-                    slaUrgency: 'medium', funnelStage: 'Active', health: 'Active', minPrice: 1100000, maxPrice: 1400000,
-                    propertyAddress: '789 Sunset Blvd, Hollywood', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead',
-                    kyc: {
-                        dealBreakers: ['No freeway noise', 'Must have view', 'Small kitchen', 'No natural light'],
-                        neighborhoodTargets: ['Hollywood Hills', 'Silver Lake', 'Echo Park'],
-                        schoolDistricts: ['LAUSD Central'],
-                        isAllCash: false,
-                        lenderName: 'Rocket Mortgage',
-                        lenderContact: 'Jason Wang (800) 555-1212',
-                        birthdays: 'August 19th',
-                        homeAnniversary: 'N/A (First time buyer)',
-                        familyPetsDetails: 'Single, has a Siamese cat named Luna.',
-                        communicationPreferenceNotes: 'Text message is best. Emails for long documents. Avoid calls during market hours (9-4).',
-                        leadScore: 82,
-                        nurtureDetail: 'Warm',
-                        slaMinutesTarget: 30,
-                        transactionStage: 'Under Contract',
-                        inspectionDeadline: '2026-01-20',
-                        appraisalDeadline: '2026-01-24',
-                        loanCommitmentDeadline: '2026-01-30',
-                        documentChecklist: [
-                            { id: '1', name: 'Buyer Broker Agreement', status: 'Signed' },
-                            { id: '2', name: 'Initial Deposit Received', status: 'Signed' },
-                            { id: '3', name: 'Loan Application Submitted', status: 'Signed' },
-                            { id: '4', name: 'Inspection Report Review', status: 'Pending' },
-                            { id: '5', name: 'HOA Document Review', status: 'Pending' }
-                        ]
-                    }
-                },
-                {
-                    id: 'mock_buy_3', firstName: 'James', lastName: 'Wilson', email: 'j.wilson@example.com', phone: '(555) 222-3344',
-                    source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 2),
-                    slaUrgency: 'medium', funnelStage: 'Offer', health: 'Active', minPrice: 750000, maxPrice: 900000,
-                    propertyAddress: 'Downtown Loft #4B', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_buy_4', firstName: 'Patricia', lastName: 'Anderson', email: 'patricia.a@example.com', phone: '(555) 555-6677',
-                    source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 30),
-                    slaUrgency: 'low', funnelStage: 'UnderContract', health: 'Active', minPrice: 500000, maxPrice: 600000,
-                    propertyAddress: '123 Pine St, Cityville', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_buy_5', firstName: 'Noah', lastName: 'Garcia', email: 'noah.g@example.com', phone: '(555) 999-0011',
-                    source: 'Referral', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000),
-                    slaUrgency: 'high', funnelStage: 'Closed', health: 'Active', minPrice: 700000, maxPrice: 800000,
-                    propertyAddress: '456 Oak Ln, Suburbia', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
+                    id: 'clean_buy_2', firstName: 'Bob', lastName: 'Week', email: 'bob.week@example.com', phone: '(555) 001-0002',
+                    source: 'Website', leadType: 'Buyer', connectionType: 'Direct Lead',
+                    status: 'New', receivedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+                    slaUrgency: 'medium', funnelStage: 'Inquiry', health: 'Active', isMock: true, collectionName: 'leads'
                 },
 
-                // --- Selling Pipeline (sellers collection) ---
+                // --- NEW SELLER LEADS ---
+                // Today (New)
                 {
-                    id: 'mock_sell_1', firstName: 'Michael', lastName: 'Ross', email: 'mross@legal.com', phone: '(555) 555-0199',
-                    source: 'Website', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 18000000),
-                    slaUrgency: 'low', funnelStage: 'Nurture', health: 'Active', price: 1250000,
-                    propertyAddress: 'Santa Monica Beachfront Condo', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
+                    id: 'clean_sell_1', firstName: 'Charlie', lastName: 'Seller', email: 'charlie.sell@example.com', phone: '(555) 002-0001',
+                    source: 'Referral', leadType: 'Seller', connectionType: 'Direct Lead',
+                    status: 'New', receivedAt: new Date(), slaUrgency: 'high', funnelStage: 'Inquiry',
+                    health: 'Active', message: "Thinking of selling my condo.", isMock: true, collectionName: 'leads',
+                    price: 600000, propertyAddress: '123 Market St'
+                },
+                // Past Week (5 days ago)
+                {
+                    id: 'clean_sell_2', firstName: 'Dana', lastName: 'Listing', email: 'dana.list@example.com', phone: '(555) 002-0002',
+                    source: 'Facebook', leadType: 'Seller', connectionType: 'Direct Lead',
+                    status: 'New', receivedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+                    slaUrgency: 'low', funnelStage: 'Inquiry', health: 'Active', isMock: true, collectionName: 'leads'
+                },
+
+                // --- ACTIVE PIPELINE BUYERS ---
+                {
+                    id: 'clean_pipe_buy_1', firstName: 'Evan', lastName: 'Active', email: 'evan.active@example.com', phone: '(555) 003-0001',
+                    source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+                    slaUrgency: 'high', funnelStage: 'Nurture', health: 'Active', minPrice: 800000, maxPrice: 950000,
+                    propertyAddress: 'Looking in Suburbs', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
                 },
                 {
-                    id: 'mock_sell_2', firstName: 'Linda', lastName: 'Martinez', email: 'linda.m@example.com', phone: '(555) 333-4455',
-                    source: 'Referral', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 3),
-                    slaUrgency: 'high', funnelStage: 'Active', health: 'Active', price: 650000,
-                    propertyAddress: '456 Maple Dr, Suburbia', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
+                    id: 'clean_pipe_buy_2', firstName: 'Fiona', lastName: 'Offer', email: 'fiona.offer@example.com', phone: '(555) 003-0002',
+                    source: 'Referral', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
+                    slaUrgency: 'medium', funnelStage: 'Offer', health: 'Active', minPrice: 1200000, maxPrice: 1500000,
+                    propertyAddress: '789 Luxury Ln', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
                 },
+
+                // --- ACTIVE PIPELINE SELLERS ---
                 {
-                    id: 'mock_sell_3', firstName: 'Robert', lastName: 'Taylor', email: 'rtaylor@example.com', phone: '(555) 444-5566',
-                    source: 'Website', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 5),
-                    slaUrgency: 'high', funnelStage: 'Offer', health: 'Active', price: 925000,
-                    propertyAddress: '789 Oak Ln, Countryside', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
+                    id: 'clean_pipe_sell_1', firstName: 'George', lastName: 'Staging', email: 'george.stage@example.com', phone: '(555) 004-0001',
+                    source: 'Website', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+                    slaUrgency: 'medium', funnelStage: 'Active', health: 'Active', price: 750000,
+                    propertyAddress: '456 Garden Ave', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
                 },
+
+                // --- ARCHIVED ---
                 {
-                    id: 'mock_sell_4', firstName: 'Olivia', lastName: 'Brown', email: 'olivia.b@example.com', phone: '(555) 888-9900',
-                    source: 'Website', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 14400000),
-                    slaUrgency: 'medium', funnelStage: 'UnderContract', health: 'Active', price: 450000,
-                    propertyAddress: 'Garden Villa #12', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_sell_5', firstName: 'Charlie', lastName: 'Day', email: 'charlie.d@example.com', phone: '(555) 123-0003',
-                    source: 'Facebook', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 7200000),
-                    slaUrgency: 'medium', funnelStage: 'Closed', health: 'Active', price: 320000,
-                    propertyAddress: 'Modern Loft A', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
-                },
-                // --- Additional Mock Leads ---
-                {
-                    id: 'mock_3', firstName: 'Frank', lastName: 'Sinatra', email: 'frank.s@classic.com', phone: '(555) 555-1234',
-                    preferredContactMethod: 'Call', source: 'Instagram', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'New', receivedAt: new Date(Date.now() - 86400000 * 2), slaUrgency: 'medium', funnelStage: 'Inquiry',
-                    health: 'Active', message: "Looking for a mid-century modern home.", isMock: true, collectionName: 'leads',
-                    minPrice: 900000, maxPrice: 1500000
-                },
-                {
-                    id: 'mock_4', firstName: 'Marilyn', lastName: 'Monroe', email: 'marilyn.m@hollywood.com', phone: '(555) 555-5678',
-                    preferredContactMethod: 'Text', source: 'Google', leadType: 'Seller', connectionType: 'Direct Lead',
-                    status: 'New', receivedAt: new Date(Date.now() - 86400000 * 5), slaUrgency: 'low', funnelStage: 'Inquiry',
-                    health: 'Active', message: "Interested in selling my bungalow.", isMock: true, collectionName: 'leads'
-                },
-                {
-                    id: 'mock_buy_6', firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', phone: '(555) 000-1111',
-                    source: 'Referral', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 10),
-                    slaUrgency: 'medium', funnelStage: 'Nurture', health: 'Active', minPrice: 500000, maxPrice: 700000,
-                    propertyAddress: '456 Elm St, Springfield', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_buy_7', firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@example.com', phone: '(555) 000-2222',
-                    source: 'Website', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 15),
-                    slaUrgency: 'high', funnelStage: 'Offer', health: 'Active', minPrice: 1200000, maxPrice: 1500000,
-                    propertyAddress: '789 Maple Ave, Oakwood', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_sell_6', firstName: 'Bruce', lastName: 'Wayne', email: 'bruce.wayne@waynecorp.com', phone: '(555) 999-9999',
-                    source: 'Direct', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 4),
-                    slaUrgency: 'high', funnelStage: 'Nurture', health: 'Active', price: 5000000,
-                    propertyAddress: 'Wayne Manor, Gotham', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_sell_7', firstName: 'Clark', lastName: 'Kent', email: 'clark.kent@dailyplanet.com', phone: '(555) 888-8888',
-                    source: 'Referral', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 8),
-                    slaUrgency: 'medium', funnelStage: 'Active', health: 'Active', price: 300000,
-                    propertyAddress: '123 Farm Lane, Smallville', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_5', firstName: 'Elton', lastName: 'John', email: 'elton.j@rocketman.com', phone: '(555) 444-3333',
-                    source: 'Referral', leadType: 'Buyer', status: 'New', receivedAt: new Date(Date.now() - 3600000 * 2),
-                    slaUrgency: 'medium', funnelStage: 'Inquiry', health: 'Active', isMock: true, collectionName: 'leads',
-                    connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_6', firstName: 'Arthur', lastName: 'Curry', email: 'aquaman@atlantis.com', phone: '(555) 000-7777',
-                    source: 'Website', leadType: 'Buyer', status: 'New', receivedAt: new Date(),
-                    slaUrgency: 'high', funnelStage: 'Inquiry', health: 'Active', isMock: true, collectionName: 'leads',
-                    connectionType: 'Direct Lead', message: "Need a house with a REALLY big aquarium."
-                },
-                {
-                    id: 'mock_7', firstName: 'Barry', lastName: 'Allen', email: 'flash@centralcity.gov', phone: '(555) 999-9999',
-                    source: 'Google', leadType: 'Buyer', status: 'New', receivedAt: new Date(Date.now() - 600000),
-                    slaUrgency: 'high', funnelStage: 'Inquiry', health: 'Active', isMock: true, collectionName: 'leads',
-                    connectionType: 'Direct Lead', message: "I need to close on a house... fast."
-                },
-                {
-                    id: 'mock_8', firstName: 'Victor', lastName: 'Stone', email: 'cyborg@starlabs.com', phone: '(555) 101-0101',
-                    source: 'Direct', leadType: 'Buyer', status: 'New', receivedAt: new Date(Date.now() - 86400000),
-                    slaUrgency: 'medium', funnelStage: 'Inquiry', health: 'Active', isMock: true, collectionName: 'leads',
-                    connectionType: 'Direct Lead', message: "Looking for a smart home with ultra-high-speed fiber."
-                },
-                {
-                    id: 'mock_9', firstName: 'Kara', lastName: 'Danvers', email: 'supergirl@catco.com', phone: '(555) 111-0000',
-                    source: 'Instagram', leadType: 'Seller', status: 'New', receivedAt: new Date(),
-                    slaUrgency: 'low', funnelStage: 'Inquiry', health: 'Active', isMock: true, collectionName: 'leads',
-                    connectionType: 'Direct Lead', message: "Considering selling my loft in Midvale."
-                },
-                {
-                    id: 'mock_10', firstName: 'Billy', lastName: 'Batson', email: 'shazam@fawcett.com', phone: '(555) 777-7777',
-                    source: 'Facebook', leadType: 'Buyer', status: 'New', receivedAt: new Date(Date.now() - 3600000 * 12),
-                    slaUrgency: 'medium', funnelStage: 'Inquiry', health: 'Active', isMock: true, collectionName: 'leads',
-                    connectionType: 'Direct Lead', message: "Just looking for a place near a good wizard shop."
-                },
-                {
-                    id: 'mock_buy_8', firstName: 'Peter', lastName: 'Parker', email: 'peter.p@dailybugle.com', phone: '(555) 111-2222',
-                    source: 'Instagram', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 3),
-                    slaUrgency: 'high', funnelStage: 'Inquiry', health: 'Active', propertyAddress: '20 Ingram St, Queens',
-                    isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_sell_8', firstName: 'Tony', lastName: 'Stark', email: 'tony@starkindustries.com', phone: '(555) 333-4444',
-                    source: 'Direct', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 1),
-                    slaUrgency: 'high', funnelStage: 'Offer', health: 'Active', price: 10000000,
-                    propertyAddress: 'Stark Tower, NYC', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
-                },
-                // --- Brand New Mock Data ---
-                {
-                    id: 'mock_buy_9', firstName: 'Diana', lastName: 'Prince', email: 'diana.p@themyscira.com', phone: '(555) 001-2024',
-                    source: 'Direct', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 2),
-                    slaUrgency: 'high', funnelStage: 'Nurture', health: 'Active', minPrice: 2000000, maxPrice: 3000000,
-                    propertyAddress: 'Museum Distict, DC', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_buy_10', firstName: 'Steve', lastName: 'Rogers', email: 'cap@avengers.org', phone: '(555) 194-1111',
-                    source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 5),
-                    slaUrgency: 'medium', funnelStage: 'Active', health: 'Active', minPrice: 500000, maxPrice: 750000,
-                    propertyAddress: '73rd St, Brooklyn', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_buy_11', firstName: 'Natasha', lastName: 'Romanoff', email: 'nat@blackwidow.com', phone: '(555) 007-9999',
-                    source: 'Referral', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 1),
-                    slaUrgency: 'high', funnelStage: 'Offer', health: 'Active', minPrice: 3000000, maxPrice: 5000000,
-                    propertyAddress: 'Red Room Blvd, Moscow (Relocating)', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_buy_12', firstName: 'Clint', lastName: 'Barton', email: 'hawkeye@arrows.com', phone: '(555) 321-4321',
-                    source: 'Website', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 4),
-                    slaUrgency: 'low', funnelStage: 'UnderContract', health: 'Active', minPrice: 800000, maxPrice: 1200000,
-                    propertyAddress: 'Farmhouse Lane, Iowa', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_buy_13', firstName: 'Wanda', lastName: 'Maximoff', email: 'wanda@scarlet.com', phone: '(555) 666-0666',
-                    source: 'Facebook', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 3600000 * 5),
-                    slaUrgency: 'high', funnelStage: 'Inquiry', health: 'Active', minPrice: 900000, maxPrice: 1400000,
-                    propertyAddress: '616 Westview Dr, NJ', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_sell_9', firstName: 'Scott', lastName: 'Lang', email: 'antman@pym.com', phone: '(555) 123-4321',
-                    source: 'Website', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 7),
-                    slaUrgency: 'medium', funnelStage: 'Nurture', health: 'Active', price: 450000,
-                    propertyAddress: 'Quantum Way, SF', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_sell_10', firstName: 'Hope', lastName: 'Van Dyne', email: 'wasp@pym.com', phone: '(555) 987-1234',
-                    source: 'Referral', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 3),
-                    slaUrgency: 'high', funnelStage: 'Active', health: 'Active', price: 1800000,
-                    propertyAddress: 'Pym Labs HQ, SF', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_sell_11', firstName: 'Stephen', lastName: 'Strange', email: 'sorcerer@supreme.com', phone: '(555) 777-8888',
-                    source: 'Direct', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 2),
-                    slaUrgency: 'low', funnelStage: 'UnderContract', health: 'Active', price: 6500000,
-                    propertyAddress: '177A Bleecker St, NYC', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_sell_12', firstName: 'T\'Challa', lastName: 'Udaku', email: 'king@wakanda.gov', phone: '(555) 100-0100',
-                    source: 'Direct', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 86400000 * 1),
-                    slaUrgency: 'high', funnelStage: 'Offer', health: 'Active', price: 15000000,
-                    propertyAddress: 'Golden City Palace, Wakanda', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
-                },
-                {
-                    id: 'mock_sell_13', firstName: 'Peter', lastName: 'Quill', email: 'star-lord@guardians.com', phone: '(555) 000-4444',
-                    source: 'Instagram', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 3600000 * 12),
-                    slaUrgency: 'low', funnelStage: 'Inquiry', health: 'Active', price: 250000,
-                    propertyAddress: 'The Milano (Mobile Property)', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
+                    id: 'clean_archived_1', firstName: 'Harry', lastName: 'Old', email: 'harry.old@example.com', phone: '(555) 999-9999',
+                    source: 'Zillow', leadType: 'Buyer', status: 'Archived', receivedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
+                    slaUrgency: 'low', funnelStage: 'Inquiry', health: 'Dormant', isMock: true, collectionName: 'leads', connectionType: 'Direct Lead'
                 }
             ];
 
