@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { saveWhiteboard, getWhiteboard, auth } from '../../services/firebaseService';
 
 type Tool = 'select' | 'note' | 'text' | 'pen' | 'sticker' | 'eraser' | 'arrow';
 type NoteColor = 'yellow' | 'blue' | 'green' | 'red';
@@ -21,25 +22,105 @@ interface BoardItem {
     strokeWidth?: number;
 }
 
-const WhiteboardTab: React.FC = () => {
+interface Props {
+    userId: string;
+}
+
+const WhiteboardTab: React.FC<Props> = ({ userId }) => {
     const [activeTool, setActiveTool] = useState<Tool>('select');
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [selectedColor, setSelectedColor] = useState<NoteColor>('yellow');
     const [penColor, setPenColor] = useState<string>('#000000');
+    const [isSaving, setIsSaving] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
-    // Initialize from Session Storage or Default
+    // Initialize Items State from SessionStorage for instant tab switching
     const [items, setItems] = useState<BoardItem[]>(() => {
-        const saved = sessionStorage.getItem('zyphe_wb_items_v2');
-        return saved ? JSON.parse(saved) : [
-            { id: '1', type: 'note', x: 200, y: 150, content: 'Welcome to the Whiteboard!', color: 'yellow', rotation: -2, width: 200, height: 200 },
-            { id: '2', type: 'text', x: 350, y: 350, content: 'Items stack in creation order now!', width: 500, fontSize: 24 },
-        ];
+        const cached = typeof window !== 'undefined' ? sessionStorage.getItem(`wb_cache_${userId}`) : null;
+        return cached ? JSON.parse(cached) : [];
     });
 
-    // Persist to Session Storage
+    // Ref for cleanup persistence
+    const itemsRef = useRef<BoardItem[]>(items);
+    useEffect(() => { itemsRef.current = items; }, [items]);
+
+    // Sync session storage on change
     useEffect(() => {
-        sessionStorage.setItem('zyphe_wb_items_v2', JSON.stringify(items));
-    }, [items]);
+        if (items.length > 0) {
+            sessionStorage.setItem(`wb_cache_${userId}`, JSON.stringify(items));
+        }
+    }, [items, userId]);
+
+
+    // Load from Firebase on Mount
+    useEffect(() => {
+        let mounted = true;
+        const loadBoard = async () => {
+            const effectiveId = auth?.currentUser?.uid || userId;
+            if (!effectiveId) {
+                setIsLoading(false);
+                return;
+            }
+            console.log(`[Whiteboard] Loading board for user ${effectiveId}...`);
+            const data = await getWhiteboard(effectiveId);
+            if (mounted) {
+                if (data && Array.isArray(data)) {
+                    console.log(`[Whiteboard] Loaded ${data.length} items.`);
+                    setItems(data);
+                } else {
+                    console.log("[Whiteboard] No existing board found or data format invalid.");
+                }
+                setIsLoading(false);
+            }
+        };
+        loadBoard();
+        return () => { mounted = false; };
+    }, [userId]);
+
+    const handleSave = async () => {
+        // Prioritize actual Auth UID for persistence to satisfy Firestore rules
+        const effectiveId = auth?.currentUser?.uid || userId;
+
+        if (!effectiveId) {
+            console.warn("[Whiteboard] Cannot save: No valid ID available.");
+            return;
+        }
+        setIsSaving(true);
+        setSaveStatus('idle');
+        console.log(`[Whiteboard] Attempting to save board for user ${effectiveId} (prop: ${userId}) with ${items.length} items...`);
+
+        try {
+            const result = await saveWhiteboard(effectiveId, items);
+            if (result.success) {
+                console.log("[Whiteboard] Save successful.");
+                setSaveStatus('success');
+                setTimeout(() => setSaveStatus('idle'), 3000);
+            } else {
+                console.error("[Whiteboard] Save failed:", result.error);
+                setSaveStatus('error');
+                alert(`Save failed: ${result.error}`);
+            }
+        } catch (err) {
+            console.error("[Whiteboard] Unexpected error during save:", err);
+            setSaveStatus('error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // Auto-save roughly when items change (debounced would be better, but let's stick to manual + unmount)
+    useEffect(() => {
+        return () => {
+            // Best effort save on unmount if there are items
+            const effectiveId = auth?.currentUser?.uid || userId;
+            if (effectiveId && itemsRef.current.length > 0) {
+                saveWhiteboard(effectiveId, itemsRef.current);
+            }
+        };
+    }, [userId]);
+
+
 
     // Drawing State
     const [isDrawing, setIsDrawing] = useState(false);
@@ -54,7 +135,6 @@ const WhiteboardTab: React.FC = () => {
     const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, w: 0, h: 0 });
 
     const canvasRef = useRef<HTMLDivElement>(null);
-    const svgRef = useRef<SVGSVGElement>(null);
 
     const handleMouseDown = (e: React.MouseEvent) => {
         // Close color picker on interaction
@@ -64,7 +144,7 @@ const WhiteboardTab: React.FC = () => {
 
         if (activeTool === 'pen') {
             setIsDrawing(true);
-            const rect = svgRef.current?.getBoundingClientRect();
+            const rect = canvasRef.current?.getBoundingClientRect();
             if (rect) {
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
@@ -75,7 +155,7 @@ const WhiteboardTab: React.FC = () => {
 
         if (activeTool === 'arrow') {
             setIsDrawing(true);
-            const rect = svgRef.current?.getBoundingClientRect();
+            const rect = canvasRef.current?.getBoundingClientRect();
             if (rect) {
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
@@ -312,6 +392,49 @@ const WhiteboardTab: React.FC = () => {
                 <ToolButton icon="fa-icons" tool="sticker" active={activeTool} onClick={() => handleToolClick('select')} label="Sticker" disabled />
             </div>
 
+            {/* Top Right Save Controls */}
+            <div className="absolute top-6 right-6 z-50 flex items-center gap-3">
+                {saveStatus === 'success' && (
+                    <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100 animate-in fade-in slide-in-from-right-4 duration-300">
+                        <i className="fa-solid fa-circle-check text-xs"></i>
+                        <span className="text-[10px] font-black uppercase tracking-widest">Saved Successfully</span>
+                    </div>
+                )}
+                {saveStatus === 'error' && (
+                    <div className="flex items-center gap-2 text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full border border-rose-100 animate-in fade-in slide-in-from-right-4 duration-300">
+                        <i className="fa-solid fa-circle-xmark text-xs"></i>
+                        <span className="text-[10px] font-black uppercase tracking-widest">Save Failed</span>
+                    </div>
+                )}
+                <button
+                    onClick={handleSave}
+                    disabled={isSaving || isLoading}
+                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                    {isSaving ? (
+                        <>
+                            <i className="fa-solid fa-circle-notch fa-spin"></i>
+                            Saving...
+                        </>
+                    ) : (
+                        <>
+                            <i className="fa-solid fa-cloud-arrow-up"></i>
+                            Confirm & Save
+                        </>
+                    )}
+                </button>
+            </div>
+
+            {/* Loading Overlay */}
+            {isLoading && (
+                <div className="absolute inset-0 z-[60] bg-white/80 backdrop-blur-sm flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-3">
+                        <i className="fa-solid fa-circle-notch fa-spin text-3xl text-indigo-600"></i>
+                        <span className="text-slate-500 font-medium animate-pulse">Loading Whiteboard...</span>
+                    </div>
+                </div>
+            )}
+
 
             {/* Canvas Area */}
             <div
@@ -539,7 +662,7 @@ const WhiteboardTab: React.FC = () => {
                             strokeLinejoin="round"
                         />
                     )}
-                    {currentPath.length > 0 && activeTool === 'arrow' && (
+                    {currentPath.length > 1 && activeTool === 'arrow' && (
                         <line
                             x1={currentPath[0].x}
                             y1={currentPath[0].y}

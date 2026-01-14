@@ -459,26 +459,36 @@ const LeadsList: React.FC<InternalProps> = ({
         }
     };
 
+    const [confirmModal, setConfirmModal] = useState<{ show: boolean; title: string; message: string; onConfirm: () => void } | null>(null);
+
     const handleBulkArchive = () => {
         if (selectedIds.size === 0) return;
-        if (selectedIds.size === 1) {
-            const id = Array.from(selectedIds)[0];
-            onUpdateLead(id, { status: 'Archived' });
-            setSelectedIds(new Set());
-            return;
-        }
-        if (window.confirm(`Are you sure you want to archive ${selectedIds.size} leads?`)) {
+
+        const executeArchive = () => {
             selectedIds.forEach(id => {
                 onUpdateLead(id, { status: 'Archived' });
             });
             setSelectedIds(new Set());
+            setConfirmModal(null);
+        };
+
+        if (selectedIds.size === 1) {
+            executeArchive();
+            return;
         }
+
+        setConfirmModal({
+            show: true,
+            title: 'Confirm Bulk Archive',
+            message: `Are you sure you want to archive ${selectedIds.size} selected leads?`,
+            onConfirm: executeArchive
+        });
     };
 
     const handleBulkActivate = () => {
         if (selectedIds.size === 0) return;
 
-        if (window.confirm(`Are you sure you want to activate ${selectedIds.size} leads? They will be moved to the appropriate pipeline.`)) {
+        const executeActivate = () => {
             selectedIds.forEach(id => {
                 const lead = leads.find(l => l.id === id);
                 if (lead) {
@@ -486,7 +496,15 @@ const LeadsList: React.FC<InternalProps> = ({
                 }
             });
             setSelectedIds(new Set());
-        }
+            setConfirmModal(null);
+        };
+
+        setConfirmModal({
+            show: true,
+            title: 'Confirm Bulk Activation',
+            message: `Are you sure you want to activate ${selectedIds.size} selected leads? They will be moved to the appropriate pipeline.`,
+            onConfirm: executeActivate
+        });
     };
 
     const cancelEditing = (e: React.MouseEvent) => {
@@ -1624,7 +1642,34 @@ const LeadsList: React.FC<InternalProps> = ({
                     )
                 }
             </DragDropContext >
-        </div >
+            {/* Custom Confirmation Modal */}
+            {confirmModal && confirmModal.show && (
+                <div className="fixed inset-0 z-[1000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6">
+                    <div className="bg-white max-w-sm w-full rounded-[2rem] shadow-2xl p-8 animate-in zoom-in duration-200">
+                        <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 mb-6 border border-amber-100 mx-auto">
+                            <i className="fa-solid fa-triangle-exclamation text-2xl"></i>
+                        </div>
+                        <h3 className="text-xl font-black text-slate-900 text-center mb-2">{confirmModal.title}</h3>
+                        <p className="text-sm text-slate-500 text-center font-medium leading-relaxed mb-8">{confirmModal.message}</p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setConfirmModal(null)}
+                                className="flex-1 px-6 py-4 rounded-2xl bg-slate-50 text-slate-400 font-bold text-xs uppercase tracking-widest hover:bg-slate-100 transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                id="confirm-bulk-action"
+                                onClick={confirmModal.onConfirm}
+                                className="flex-1 px-6 py-4 rounded-2xl bg-indigo-600 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                            >
+                                Confirm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
 

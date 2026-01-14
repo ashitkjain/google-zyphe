@@ -675,7 +675,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                 )}
 
                 {activeTab === 'whiteboard' && (
-                    <WhiteboardTab />
+                    <WhiteboardTab userId={realtorId} />
                 )}
 
             </div>

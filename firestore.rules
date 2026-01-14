@@ -113,7 +113,12 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
     }
 
-    // 5. SYSTEM & LOGGING
+    // 5. WHITEBOARD
+    match /whiteboards/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // 6. SYSTEM & LOGGING
     match /user_activity/{activityId} {
       allow create: if true;
       allow read, update, delete: if false; 

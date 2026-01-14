@@ -782,4 +782,30 @@ export const persistCommMessage = async (message: Partial<CommMessage>, clientId
   }
 };
 
+export const saveWhiteboard = async (userId: string, items: any[]) => {
+  if (!db) return { success: false, error: "Database not initialized" };
+  try {
+    const docRef = doc(db, "whiteboards", userId);
+    await setDoc(docRef, {
+      items: sanitizeForFirestore(items),
+      updatedAt: serverTimestamp()
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: handleFirestoreError(error, "saveWhiteboard") as string };
+  }
+};
+
+export const getWhiteboard = async (userId: string) => {
+  if (!db) return null;
+  try {
+    const docRef = doc(db, "whiteboards", userId);
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists() ? docSnap.data().items : null;
+  } catch (error) {
+    handleFirestoreError(error, "getWhiteboard");
+    return null;
+  }
+};
+
 console.log(`[Firebase] Initialized for Project: ${firebaseConfig.projectId}`);
