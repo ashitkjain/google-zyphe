@@ -577,16 +577,25 @@ const App: React.FC = () => {
               <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
 
               <div className="relative" ref={settingsRef}>
-                <div className="flex flex-col items-end gap-1">
-                  <span className={`${currentUser.role === 'realtor' ? 'text-indigo-300' : 'text-indigo-400'} tracking-[0.3em] font-black`}>
-                    {currentUser.displayName}
-                  </span>
+                <div className="flex items-center gap-4">
+                  <div className="flex flex-col items-end">
+                    <span className={`${currentUser.role === 'realtor' ? 'text-indigo-300' : 'text-indigo-400'} tracking-[0.3em] font-black uppercase text-[10px]`}>
+                      {currentUser.displayName}
+                    </span>
+                    <button
+                      onClick={handleSignOut}
+                      className="flex items-center gap-2 text-[10px] font-black text-white transition-colors tracking-widest mt-0.5 group/signout cursor-pointer"
+                    >
+                      <i className="fa-solid fa-right-from-bracket text-[11px] group-hover/signout:-translate-x-0.5 transition-transform text-white"></i>
+                      SIGN OUT
+                    </button>
+                  </div>
                   <button
                     onClick={() => setShowSettings(!showSettings)}
-                    className="flex items-center gap-2 text-white/60 hover:text-white transition-colors text-[8px]"
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${showSettings ? 'bg-white/10 text-white' : 'text-white hover:bg-white/5 shadow-inner'}`}
+                    title="Account Settings"
                   >
-                    <span>SETTINGS</span>
-                    <i className={`fa-solid fa-chevron-down transition-transform duration-300 ${showSettings ? 'rotate-180' : ''}`}></i>
+                    <i className={`fa-solid fa-gear text-lg transition-transform duration-700 ${showSettings ? 'rotate-180' : ''}`}></i>
                   </button>
                 </div>
 
@@ -601,17 +610,6 @@ const App: React.FC = () => {
                     >
                       <i className="fa-solid fa-trash-can text-[10px]"></i>
                       <span>Delete Account</span>
-                    </button>
-                    <div className="my-1 border-t border-white/5"></div>
-                    <button
-                      onClick={() => {
-                        setShowSettings(false);
-                        handleSignOut();
-                      }}
-                      className="w-full text-left px-4 py-2 text-white/70 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
-                    >
-                      <i className="fa-solid fa-right-from-bracket text-[10px]"></i>
-                      <span>Sign Out</span>
                     </button>
                   </div>
                 )}
@@ -760,8 +758,25 @@ const App: React.FC = () => {
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-10">
         {error && <div className="bg-rose-50 border border-rose-100 text-rose-700 p-4 rounded-2xl mb-8">{error}</div>}
 
-        {viewMode === 'dashboard' && currentUser?.role === 'realtor' ? (
-          <ClientHub realtorId={currentUser.uid} onBack={() => setViewMode('main')} />
+        {viewMode === 'dashboard' ? (
+          currentUser?.role === 'realtor' ? (
+            <ClientHub
+              realtorId={currentUser.uid}
+              realtorName={currentUser.displayName}
+              onSignOut={async () => {
+                await signOut(auth);
+                setViewMode('main');
+              }}
+              onBack={() => setViewMode('main')}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-32 text-slate-400">
+              <i className="fa-solid fa-lock text-6xl mb-6 text-slate-200"></i>
+              <h2 className="text-2xl font-black text-slate-900">Restricted Access</h2>
+              <p className="text-sm font-medium mt-2">The Client Hub is reserved for Realtor Pro accounts only.</p>
+              <button onClick={() => setViewMode('main')} className="mt-8 bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold uppercase text-[10px] tracking-widest shadow-lg shadow-indigo-200">Return to Search</button>
+            </div>
+          )
         ) : loading && !propertyData ? (
           <div className="flex flex-col items-center justify-center py-32 text-slate-400">
             <Logo size={220} className="animate-pulse" />

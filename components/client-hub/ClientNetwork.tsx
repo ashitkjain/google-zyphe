@@ -504,13 +504,7 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                             {selectedClient.kyc && (
                                 <div className="mt-12 space-y-8">
                                     <div className="flex items-center justify-between px-2">
-                                        <div className="flex flex-col gap-1">
-                                            <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-900 flex items-center gap-3">
-                                                <div className="w-2 h-2 rounded-full bg-indigo-600"></div>
-                                                Complete KYC Intelligence
-                                            </h3>
-                                            <p className="text-[10px] text-slate-500 font-medium ml-5">Comprehensive data from client profiling and behavioral analysis</p>
-                                        </div>
+                                        {/* KYC Header removed */}
                                     </div>
 
                                     <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">

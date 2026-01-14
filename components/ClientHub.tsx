@@ -16,12 +16,14 @@ import KYCModal from './client-hub/KYCModal';
 
 interface Props {
     realtorId: string;
+    realtorName: string;
+    onSignOut: () => void;
     onBack: () => void;
 }
 
 type HubTab = 'clients' | 'leads' | 'pipeline' | 'tasks' | 'comms';
 
-const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
+const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack }) => {
     const [activeTab, setActiveTab] = useState<HubTab>('leads');
     const [pipelineSubTab, setPipelineSubTab] = useState<'buying' | 'selling'>('buying');
     const [clients, setClients] = useState<UserProfile[]>([]);
@@ -615,11 +617,21 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
                     </nav>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-8">
+                    <div className="flex flex-col items-end">
+                        <span className="text-white font-black text-sm tracking-tight">{realtorName}</span>
+                        <button
+                            onClick={onSignOut}
+                            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white transition-colors mt-0.5 group/signout cursor-pointer"
+                        >
+                            <i className="fa-solid fa-right-from-bracket text-[10px] text-white group-hover/signout:-translate-x-0.5 transition-all"></i>
+                            Sign Out
+                        </button>
+                    </div>
 
                     <button
                         onClick={onBack}
-                        className="group flex items-center gap-2 text-white font-black uppercase tracking-widest text-[10px] bg-indigo-600 px-6 py-3 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
+                        className="group flex items-center gap-2 text-white font-black uppercase tracking-widest text-[10px] bg-indigo-600 px-6 py-3 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 border border-indigo-500/30"
                     >
                         <i className="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
                         Exit Hub
