@@ -500,7 +500,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         { id: 'pipeline', label: 'Pipeline', icon: 'fa-diagram-project' },
         { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
-        { id: 'comms', label: 'Connect', icon: 'fa-comments' },
         { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
         { id: 'settings', label: 'Statuses', icon: 'fa-sliders' },
     ];
@@ -666,21 +665,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     <TaskBoard tasks={tasks} />
                 )}
 
-                {activeTab === 'comms' && (
-                    <CommHub
-                        messages={messages}
-                        newMessage={newMessage}
-                        setNewMessage={setNewMessage}
-                        activeChannel={activeChannel}
-                        setActiveChannel={setActiveChannel}
-                        scrollRef={scrollRef}
-                        selectedClient={selectedClient as UserProfile}
-                        realtorId={realtorId}
-                        handleSendMessage={handleSendMessage}
-                        handleGrantConsent={handleGrantConsent}
-                        templates={templates}
-                    />
-                )}                {activeTab === 'settings' && (
+                {activeTab === 'settings' && (
                     <StatusSettings
                         realtorId={realtorId}
                         onUpdateStatuses={handleUpdateStatuses}
@@ -693,31 +678,34 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     <WhiteboardTab />
                 )}
 
-
             </div>
 
             {/* Lead Edit Modal */}
-            {editingLead && (
-                <EditLeadModal
-                    editingLead={editingLead}
-                    setEditingLead={setEditingLead}
-                    leads={leads}
-                    handleUpdateLead={handleUpdateLead}
-                    isSavingLead={isSavingLead}
-                    newNote={newNote}
-                    setNewNote={setNewNote}
-                    realtorSettings={realtorProfile?.settings}
-                />
-            )}
+            {
+                editingLead && (
+                    <EditLeadModal
+                        editingLead={editingLead}
+                        setEditingLead={setEditingLead}
+                        leads={leads}
+                        handleUpdateLead={handleUpdateLead}
+                        isSavingLead={isSavingLead}
+                        newNote={newNote}
+                        setNewNote={setNewNote}
+                        realtorSettings={realtorProfile?.settings}
+                    />
+                )
+            }
 
             {/* KYC Modal */}
-            {kycLead && (
-                <KYCModal
-                    lead={kycLead}
-                    onClose={() => setKycLead(null)}
-                    onSave={handleSaveKYC}
-                />
-            )}
+            {
+                kycLead && (
+                    <KYCModal
+                        lead={kycLead}
+                        onClose={() => setKycLead(null)}
+                        onSave={handleSaveKYC}
+                    />
+                )
+            }
 
             <style dangerouslySetInnerHTML={{
                 __html: `
@@ -753,7 +741,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                   scrollbar-color: #94a3b8 #f8fafc;
                 }
               `}} />
-        </div>
+        </div >
     );
 };
 

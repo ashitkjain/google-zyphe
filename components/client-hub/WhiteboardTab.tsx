@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 
 type Tool = 'select' | 'note' | 'text' | 'pen' | 'sticker' | 'eraser' | 'arrow';
-type NoteColor = 'yellow' | 'blue' | 'green' | 'pink' | 'purple';
+type NoteColor = 'yellow' | 'blue' | 'green' | 'red';
 
 interface BoardItem {
     id: string;
@@ -14,7 +14,9 @@ interface BoardItem {
     height?: number;
     rotation?: number;
     stickerType?: string;
+
     fontSize?: number;
+    reaction?: string;
 }
 
 interface Path {
@@ -27,6 +29,8 @@ interface Path {
 
 const WhiteboardTab: React.FC = () => {
     const [activeTool, setActiveTool] = useState<Tool>('select');
+    const [selectedColor, setSelectedColor] = useState<NoteColor>('yellow');
+    const [penColor, setPenColor] = useState<string>('#000000');
 
     // Initialize from Session Storage or Default
     const [items, setItems] = useState<BoardItem[]>(() => {
@@ -101,7 +105,7 @@ const WhiteboardTab: React.FC = () => {
                     type: 'note',
                     x,
                     y,
-                    color: 'yellow',
+                    color: selectedColor,
                     content: 'New Note',
                     rotation: Math.random() * 6 - 3
                 };
@@ -174,7 +178,7 @@ const WhiteboardTab: React.FC = () => {
                 setPaths(prev => [...prev, {
                     id: Date.now().toString(),
                     points: currentPath,
-                    color: '#000',
+                    color: penColor,
                     width: 3
                 }]);
             }
@@ -187,7 +191,7 @@ const WhiteboardTab: React.FC = () => {
                 setPaths(prev => [...prev, {
                     id: Date.now().toString(),
                     points: currentPath,
-                    color: '#000',
+                    color: penColor,
                     width: 3,
                     type: 'arrow'
                 }]);
@@ -236,6 +240,10 @@ const WhiteboardTab: React.FC = () => {
         }));
     };
 
+    const updateItemReaction = (id: string, reaction: string) => {
+        setItems(prev => prev.map(item => item.id === id ? { ...item, reaction: item.reaction === reaction ? undefined : reaction } : item));
+    };
+
     const deleteItem = (id: string) => {
         setItems(prev => prev.filter(item => item.id !== id));
     };
@@ -259,8 +267,45 @@ const WhiteboardTab: React.FC = () => {
                 <ToolButton icon="fa-arrow-pointer" tool="select" active={activeTool} onClick={() => setActiveTool('select')} />
                 <ToolButton icon="fa-font" tool="text" active={activeTool} onClick={() => setActiveTool('text')} />
                 <ToolButton icon="fa-note-sticky" tool="note" active={activeTool} onClick={() => setActiveTool('note')} />
+                {activeTool === 'note' && (
+                    <div className="flex flex-col gap-1.5 p-1.5 bg-slate-50 rounded-lg border border-slate-100 items-center animate-in fade-in slide-in-from-left-4 duration-200">
+                        {(['yellow', 'blue', 'green', 'red'] as NoteColor[]).map(color => (
+                            <button
+                                key={color}
+                                className={`w-6 h-6 rounded-full border-2 ${selectedColor === color ? 'border-indigo-600 scale-110 shadow-sm' : 'border-transparent hover:scale-110'} transition-all`}
+                                style={{ backgroundColor: getColorInHex(color) }}
+                                onClick={(e) => { e.stopPropagation(); setSelectedColor(color); }}
+                                title={color.charAt(0).toUpperCase() + color.slice(1)}
+                            />
+                        ))}
+                    </div>
+                )}
                 <ToolButton icon="fa-pen" tool="pen" active={activeTool} onClick={() => setActiveTool('pen')} />
+                {activeTool === 'pen' && (
+                    <div className="flex flex-col gap-1.5 p-1.5 bg-slate-50 rounded-lg border border-slate-100 items-center animate-in fade-in slide-in-from-left-4 duration-200">
+                        {['#000000', '#ef4444', '#22c55e', '#3b82f6', '#eab308'].map(color => (
+                            <button
+                                key={color}
+                                className={`w-5 h-5 rounded-full border-2 ${penColor === color ? 'border-indigo-600 scale-110' : 'border-transparent hover:scale-110'} transition-all`}
+                                style={{ backgroundColor: color }}
+                                onClick={(e) => { e.stopPropagation(); setPenColor(color); }}
+                            />
+                        ))}
+                    </div>
+                )}
                 <ToolButton icon="fa-arrow-right-long" tool="arrow" active={activeTool} onClick={() => setActiveTool('arrow')} label="Arrow" />
+                {activeTool === 'arrow' && (
+                    <div className="flex flex-col gap-1.5 p-1.5 bg-slate-50 rounded-lg border border-slate-100 items-center animate-in fade-in slide-in-from-left-4 duration-200">
+                        {['#000000', '#ef4444', '#22c55e', '#3b82f6', '#eab308'].map(color => (
+                            <button
+                                key={color}
+                                className={`w-5 h-5 rounded-full border-2 ${penColor === color ? 'border-indigo-600 scale-110' : 'border-transparent hover:scale-110'} transition-all`}
+                                style={{ backgroundColor: color }}
+                                onClick={(e) => { e.stopPropagation(); setPenColor(color); }}
+                            />
+                        ))}
+                    </div>
+                )}
                 <ToolButton icon="fa-eraser" tool="eraser" active={activeTool} onClick={() => setActiveTool('eraser')} />
                 <ToolButton icon="fa-icons" tool="sticker" active={activeTool} onClick={() => setActiveTool('select')} label="Sticker" disabled />
             </div>
@@ -282,9 +327,19 @@ const WhiteboardTab: React.FC = () => {
                 {/* SVG Layer for Drawings */}
                 <svg ref={svgRef} className="absolute inset-0 w-full h-full pointer-events-none z-10">
                     <defs>
-                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                            <polygon points="0 0, 10 3.5, 0 7" fill="#000" />
-                        </marker>
+                        {['#000000', '#ef4444', '#22c55e', '#3b82f6', '#eab308'].map(color => (
+                            <marker
+                                key={color}
+                                id={`arrowhead-${color.replace('#', '')}`}
+                                markerWidth="10"
+                                markerHeight="7"
+                                refX="9"
+                                refY="3.5"
+                                orient="auto"
+                            >
+                                <polygon points="0 0, 10 3.5, 0 7" fill={color} />
+                            </marker>
+                        ))}
                     </defs>
                     {paths.map(path => (
                         <React.Fragment key={path.id}>
@@ -326,7 +381,7 @@ const WhiteboardTab: React.FC = () => {
                                     y2={path.points[1].y}
                                     stroke={path.color}
                                     strokeWidth={path.width}
-                                    markerEnd="url(#arrowhead)"
+                                    markerEnd={`url(#arrowhead-${path.color.replace('#', '')})`}
                                     style={{ opacity: activeTool === 'eraser' ? 0.3 : 1, transition: 'opacity 0.2s' }}
                                 />
                             ) : (
@@ -346,7 +401,7 @@ const WhiteboardTab: React.FC = () => {
                         <polyline
                             points={currentPath.map(p => `${p.x},${p.y}`).join(' ')}
                             fill="none"
-                            stroke="#000"
+                            stroke={penColor}
                             strokeWidth="3"
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -358,9 +413,10 @@ const WhiteboardTab: React.FC = () => {
                             y1={currentPath[0].y}
                             x2={currentPath[1].x}
                             y2={currentPath[1].y}
-                            stroke="#000"
+
+                            stroke={penColor}
                             strokeWidth="3"
-                            markerEnd="url(#arrowhead)"
+                            markerEnd={`url(#arrowhead-${penColor.replace('#', '')})`}
                         />
                     )}
                 </svg>
@@ -380,13 +436,29 @@ const WhiteboardTab: React.FC = () => {
                         <button
                             className="absolute -top-3 -right-3 w-6 h-6 bg-white rounded-full shadow-md text-slate-400 hover:text-red-500 hover:scale-110 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-50 text-xs border border-slate-100"
                             onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
+                            title="Delete"
                         >
                             <i className="fa-solid fa-xmark"></i>
                         </button>
 
+                        {/* Reaction Picker (Note Only) */}
+                        {item.type === 'note' && (
+                            <div className="absolute -top-9 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-50 bg-white shadow-sm border border-slate-100 rounded-full px-2 py-1 items-center">
+                                {['🔥', '👍', '👎', '💯', '❤️', '😢', '😭', '⚡', '🚗'].map(emoji => (
+                                    <button
+                                        key={emoji}
+                                        className={`hover:scale-125 transition-transform text-sm ${item.reaction === emoji ? 'scale-125 bg-slate-100 rounded-full' : ''}`}
+                                        onClick={(e) => { e.stopPropagation(); updateItemReaction(item.id, emoji); }}
+                                    >
+                                        {emoji}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
                         {item.type === 'note' && (
                             <div
-                                className={`p-4 shadow-lg ${getColorClass(item.color || 'yellow')} flex flex-col justify-start relative transition-shadow hover:shadow-2xl overflow-hidden`}
+                                className={`p-4 shadow-lg ${getColorClass(item.color || 'yellow')} flex flex-col justify-start relative transition-shadow hover:shadow-2xl`}
                                 style={{
                                     width: item.width || 192,
                                     height: item.height || 192,
@@ -395,6 +467,11 @@ const WhiteboardTab: React.FC = () => {
                                     minHeight: '100px'
                                 }}
                             >
+                                {item.reaction && (
+                                    <div className="absolute -top-4 -right-4 text-3xl filter drop-shadow-sm transform rotate-12 z-20 animate-in zoom-in duration-200 cursor-default select-none pointer-events-none">
+                                        {item.reaction}
+                                    </div>
+                                )}
                                 <textarea
                                     className="w-full h-full bg-transparent resize-none border-none focus:ring-0 text-slate-800 font-medium text-lg placeholder-black/20 leading-snug post-it-font"
                                     value={item.content}
@@ -483,9 +560,17 @@ const getColorClass = (color: NoteColor) => {
     switch (color) {
         case 'blue': return 'bg-[#c7eeff]';
         case 'green': return 'bg-[#d1f7c4]';
-        case 'pink': return 'bg-[#ffe2f5]';
-        case 'purple': return 'bg-[#e7d9ff]';
+        case 'red': return 'bg-[#ffcdd2]';
         default: return 'bg-[#fff59d]'; // Yellow
+    }
+};
+
+const getColorInHex = (color: NoteColor) => {
+    switch (color) {
+        case 'blue': return '#c7eeff';
+        case 'green': return '#d1f7c4';
+        case 'red': return '#ffcdd2';
+        default: return '#fff59d'; // Yellow
     }
 };
 
