@@ -17,6 +17,7 @@ interface InternalProps {
     onUpdateLead: (id: string, updates: Partial<Lead>) => void;
     onViewLead: (lead: Lead) => void;
     onCreateLead: (initialUpdates?: Partial<Lead>) => void;
+    onActivateLead: (lead: Lead) => void;
     notes: PipelineNote[];
     pendingNote: { leadId: string, color: string } | null;
     setPendingNote: (note: { leadId: string, color: string } | null) => void;
@@ -31,6 +32,7 @@ const LeadsList: React.FC<InternalProps> = ({
     onUpdateLead,
     onViewLead,
     onCreateLead,
+    onActivateLead,
     notes,
     pendingNote,
     setPendingNote,
@@ -179,35 +181,14 @@ const LeadsList: React.FC<InternalProps> = ({
     const handleBulkActivate = () => {
         if (selectedIds.size === 0) return;
 
-        const processActivation = () => {
+        if (window.confirm(`Are you sure you want to activate ${selectedIds.size} leads? They will be moved to the appropriate pipeline.`)) {
             selectedIds.forEach(id => {
                 const lead = leads.find(l => l.id === id);
                 if (lead) {
-                    const activationNote = {
-                        id: crypto.randomUUID(),
-                        content: 'Lead activated',
-                        timestamp: new Date().toISOString(),
-                        author: 'User'
-                    };
-
-                    onUpdateLead(id, {
-                        status: 'New',
-                        activatedAt: new Date(),
-                        notes: 'Lead activated',
-                        notesLog: [...(lead.notesLog || []), activationNote]
-                    });
+                    onActivateLead(lead);
                 }
             });
             setSelectedIds(new Set());
-        };
-
-        if (selectedIds.size === 1) {
-            processActivation();
-            return;
-        }
-
-        if (window.confirm(`Are you sure you want to activate ${selectedIds.size} leads?`)) {
-            processActivation();
         }
     };
 
@@ -329,7 +310,7 @@ const LeadsList: React.FC<InternalProps> = ({
     const getTimeStats = useMemo(() => {
         const { startOfToday, startOfWeek, startOfMonth, startOfYear } = dateRanges;
         const validLeads = leads.filter(l =>
-            !['Closed-Won', 'Closed-Lost', 'Archived'].includes(l.status) &&
+            ['New', 'Qualified', 'Attempted to Contact'].includes(l.status) &&
             l.collectionName === 'leads'
         );
 
@@ -361,7 +342,7 @@ const LeadsList: React.FC<InternalProps> = ({
         const { startOfToday, startOfWeek, startOfMonth, startOfYear } = dateRanges;
 
         let result = leads.filter(l => {
-            if (['Closed-Won', 'Closed-Lost', 'Archived'].includes(l.status)) return false;
+            if (!['New', 'Qualified', 'Attempted to Contact'].includes(l.status)) return false;
             if (l.collectionName !== 'leads') return false;
 
             const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
@@ -575,6 +556,15 @@ const LeadsList: React.FC<InternalProps> = ({
                             <i className="fa-solid fa-box-archive"></i>
                             Archive Selected {selectedIds.size > 0 && `(${selectedIds.size})`}
                         </button>
+
+                        <button
+                            className={`px-3 py-1.5 rounded flex items-center gap-2 text-xs font-semibold transition-colors ${selectedIds.size > 0 ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100' : 'text-slate-300 cursor-not-allowed'}`}
+                            onClick={handleBulkActivate}
+                            disabled={selectedIds.size === 0}
+                        >
+                            <i className="fa-solid fa-bolt"></i>
+                            Activate Selected {selectedIds.size > 0 && `(${selectedIds.size})`}
+                        </button>
                         <div className="h-4 w-px bg-slate-200 mx-2"></div>
                         <button className={`p-2 hover:bg-slate-100 rounded ${showFilters ? 'bg-slate-100 text-indigo-600' : ''}`} onClick={() => setShowFilters(!showFilters)}><i className="fa-solid fa-filter"></i></button>
                     </div>
@@ -705,15 +695,20 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 />
                                             </td>
                                             <td className="px-4 py-3 border-b border-slate-100 font-semibold text-indigo-600 transition-colors">
-                                                {renderCell(lead, 'name', 'text', [], () => onViewLead(lead))}
+                                                <div className="flex flex-col gap-1">
+                                                    {renderCell(lead, 'name', 'text', [], () => onViewLead(lead))}
+                                                    <span className={`w-fit px-1 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter ${lead.leadType === 'Seller' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                                                        {lead.leadType}
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td className="px-4 py-3 border-b border-slate-100 max-w-[200px] truncate" title={lead.propertyAddress}>
                                                 {lead.propertyAddress || <span className="text-slate-300 italic">--</span>}
                                             </td>
-                                            <td className="px-4 py-3 border-b border-slate-100">
+                                            <td className="px-4 py-3 border-b border-slate-100 text-slate-900">
                                                 {renderCell(lead, 'phone')}
                                             </td>
-                                            <td className="px-4 py-3 border-b border-slate-100 text-indigo-600">
+                                            <td className="px-4 py-3 border-b border-slate-100 text-slate-900">
                                                 {renderCell(lead, 'email')}
                                             </td>
                                             <td className="px-4 py-3 border-b border-slate-100">
@@ -758,7 +753,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                     className={`bg-white p-6 rounded-[2rem] border border-slate-200/60 shadow-sm hover:shadow-xl transition-all border-l-4 group relative cursor-pointer flex flex-col ${snapshot.isDragging ? 'shadow-2xl scale-105 rotate-1 z-50 ring-4 ring-indigo-500/10' : ''}`}
                                                     style={{
                                                         ...provided.draggableProps.style,
-                                                        borderLeftColor: lead.status === 'New' ? '#6366f1' : '#94a3b8'
+                                                        borderLeftColor: lead.leadType === 'Seller' ? '#10b981' : '#6366f1'
                                                     }}
                                                     onDoubleClick={() => onViewLead(lead)}
                                                 >
@@ -778,20 +773,25 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                     />
                                                                 </div>
 
-                                                                <div className="flex justify-between items-start mb-3">
-                                                                    <div className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors" onClick={() => onViewLead(lead)}>
-                                                                        {lead.name}
+                                                                <div className="flex justify-between items-center mb-3">
+                                                                    <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                                                                        <div className="flex items-center justify-between gap-3 w-full">
+                                                                            <div className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors uppercase tracking-tight truncate" onClick={() => onViewLead(lead)}>
+                                                                                {lead.name}
+                                                                            </div>
+                                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                                                <span className="text-[7.5px] text-slate-400 font-bold uppercase tracking-widest bg-slate-100 rounded-[3px] px-1 py-0.5">{lead.source}</span>
+                                                                                <span className={`px-1.5 py-0.5 rounded-[3px] text-[7.5px] font-black uppercase tracking-wider ${lead.leadType === 'Seller' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/50' : 'bg-blue-50 text-blue-600 border border-blue-200/50'}`}>
+                                                                                    {lead.leadType}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
 
-                                                                {lead.propertyAddress && (
-                                                                    <div className="text-[10px] text-slate-500 font-medium mb-1 truncate flex items-center gap-1.5">
-                                                                        <i className="fa-solid fa-location-dot opacity-30 text-[8px]"></i>
-                                                                        {lead.propertyAddress}
-                                                                    </div>
-                                                                )}
 
-                                                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4 text-[10px] text-slate-400">
+
+                                                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4 text-[10px] text-slate-900 font-medium">
                                                                     {lead.email && (
                                                                         <div className="flex items-center gap-1.5 truncate max-w-[140px]">
                                                                             <i className="fa-solid fa-envelope opacity-30 text-[8px]"></i>
@@ -806,12 +806,6 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                     )}
                                                                 </div>
 
-                                                                <div className="flex items-center gap-2 mb-4">
-                                                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${lead.status === 'New' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-500'}`}>
-                                                                        {lead.status}
-                                                                    </span>
-                                                                    <span className="text-[8px] text-slate-300 font-medium uppercase tracking-widest">{lead.source}</span>
-                                                                </div>
 
                                                                 {/* Render Post-its */}
                                                                 <div className="flex flex-wrap gap-4 mb-4 relative min-h-[40px] empty:hidden" onClick={(e) => e.stopPropagation()}>
@@ -904,20 +898,17 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 <div className="flex items-center justify-between mt-auto pt-3 border-t border-slate-50 relative">
                                                                     <div className="flex flex-col gap-1.5">
                                                                         <div className="flex items-center gap-2">
-                                                                            <span className="text-[7px] font-black text-slate-300 uppercase tracking-tighter">Created:</span>
-                                                                            <span className="text-[8px] text-slate-500 font-bold uppercase tracking-tighter">
+                                                                            <span className="text-[9px] font-black text-slate-300 uppercase tracking-tighter">Created:</span>
+                                                                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">
                                                                                 {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleDateString() : new Date(lead.receivedAt).toLocaleDateString()}
                                                                             </span>
                                                                         </div>
                                                                         <div className="flex items-center gap-2 text-indigo-400">
-                                                                            <span className="text-[7px] font-black uppercase tracking-tighter">Last Follow Up:</span>
-                                                                            <span className="text-[8px] font-bold uppercase tracking-tighter">
+                                                                            <span className="text-[9px] font-black uppercase tracking-tighter">Last Follow Up:</span>
+                                                                            <span className="text-[10px] font-bold uppercase tracking-tighter">
                                                                                 {lead.lastTouch?.toDate ? lead.lastTouch.toDate().toLocaleDateString() : lead.lastTouch ? new Date(lead.lastTouch).toLocaleDateString() : 'None'}
                                                                             </span>
                                                                         </div>
-                                                                    </div>
-                                                                    <div className="w-6 h-6 rounded-full bg-slate-50 border border-white text-[8px] flex items-center justify-center font-black text-slate-400 shadow-sm">
-                                                                        {lead.name[0]}
                                                                     </div>
                                                                 </div>
                                                                 {noteProvided.placeholder}

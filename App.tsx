@@ -569,7 +569,7 @@ const App: React.FC = () => {
                     className="flex items-center gap-2 bg-indigo-500/20 text-white px-4 py-1.5 rounded-lg hover:bg-indigo-500/30 transition-all border border-indigo-400/30"
                   >
                     <i className="fa-solid fa-chart-line text-xs"></i>
-                    ClientHub
+                    Client Hub
                   </button>
                 </>
               )}

@@ -649,7 +649,12 @@ export const activateLeadToCollection = async (lead: Lead) => {
     };
 
     batch.set(newRef, sanitizeForFirestore(updatedLead));
-    batch.delete(oldRef);
+
+    // Instead of deleting, update the status in the main leads pool to 'Connected'
+    batch.update(oldRef, {
+      status: 'Connected',
+      updatedAt: serverTimestamp()
+    });
 
     await batch.commit();
     return true;

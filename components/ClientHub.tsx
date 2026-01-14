@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, updateFunnelStage, seedMockData, getLeads, getTasks, getTemplates, updateLead, activateLeadToCollection, addPipelineNote, getPipelineNotes, updatePipelineNote, deletePipelineNote } from '../services/firebaseService';
-import { UserProfile, Lead, LeadNote, CRMTask, CommMessage, CommTemplate, FunnelStage, PipelineNote } from '../types';
+import { UserProfile, Lead, LeadNote, CRMTask, CommMessage, CommTemplate, FunnelStage, PipelineNote, LeadStatus } from '../types';
 import { DropResult } from '@hello-pangea/dnd';
 import Logo from './Logo';
 import LeadsList from './LeadsList';
@@ -355,6 +355,50 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
         }
     };
 
+    const handleActivateLead = async (lead: Lead) => {
+        const targetCollection = lead.leadType === 'Seller' ? 'sellers' : 'buyers';
+
+        setLeads(prev => {
+            // 1. Update the original 'leads' collection record to 'Connected'
+            const updatedLeads = prev.map(l =>
+                (l.id === lead.id && l.collectionName === 'leads')
+                    ? { ...l, status: 'Connected' as LeadStatus }
+                    : l
+            );
+
+            // 2. Add or update the record for the target collection (pipeline)
+            const existsInPipeline = prev.some(l => l.id === lead.id && l.collectionName === targetCollection);
+
+            if (existsInPipeline) {
+                return updatedLeads.map(l =>
+                    (l.id === lead.id && l.collectionName === targetCollection)
+                        ? { ...l, status: 'Active', funnelStage: 'Nurture', activatedAt: new Date() }
+                        : l
+                );
+            }
+
+            const newPipelineLead: Lead = {
+                ...lead,
+                id: lead.id,
+                status: 'Active',
+                funnelStage: 'Nurture',
+                collectionName: targetCollection,
+                activatedAt: new Date(),
+                receivedAt: lead.receivedAt
+            };
+
+            return [...updatedLeads, newPipelineLead];
+        });
+
+        const success = await activateLeadToCollection(lead);
+        if (!success) {
+            alert("Failed to activate lead.");
+            // Re-fetch to be safe
+            const allLeads = await getLeads(realtorId, ['leads', 'buyers', 'sellers']);
+            setLeads(allLeads);
+        }
+    };
+
     const handleSavePipelineNote = async (content: string) => {
         if (!pendingNote || !content.trim()) return;
 
@@ -486,6 +530,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, onBack }) => {
                         onUpdateLead={(id, updates) => handleUpdateLead(id, updates)}
                         onViewLead={(lead) => setEditingLead(lead)}
                         onCreateLead={handleCreateLead}
+                        onActivateLead={handleActivateLead}
                         notes={pipelineNotes}
                         pendingNote={pendingNote}
                         setPendingNote={setPendingNote}
