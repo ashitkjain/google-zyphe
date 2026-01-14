@@ -16,6 +16,7 @@ import KYCModal from './client-hub/KYCModal';
 import StatusSettings from './client-hub/StatusSettings';
 import { StatusOption } from '../types';
 import { isTerminalStatus } from '../services/statusService';
+import WhiteboardTab from './client-hub/WhiteboardTab';
 
 interface Props {
     realtorId: string;
@@ -24,7 +25,7 @@ interface Props {
     onBack: () => void;
 }
 
-type HubTab = 'clients' | 'leads' | 'pipeline' | 'tasks' | 'comms' | 'settings';
+type HubTab = 'clients' | 'leads' | 'pipeline' | 'tasks' | 'comms' | 'settings' | 'whiteboard';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack }) => {
     const [activeTab, setActiveTab] = useState<HubTab>('leads');
@@ -500,6 +501,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
         { id: 'comms', label: 'Connect', icon: 'fa-comments' },
+        { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
         { id: 'settings', label: 'Statuses', icon: 'fa-sliders' },
     ];
 
@@ -685,6 +687,10 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                         initialBuyerStatuses={realtorProfile?.settings?.leadStatuses?.buyer}
                         initialSellerStatuses={realtorProfile?.settings?.leadStatuses?.seller}
                     />
+                )}
+
+                {activeTab === 'whiteboard' && (
+                    <WhiteboardTab />
                 )}
 
 
