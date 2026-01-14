@@ -29,6 +29,7 @@ interface Path {
 
 const WhiteboardTab: React.FC = () => {
     const [activeTool, setActiveTool] = useState<Tool>('select');
+    const [showColorPicker, setShowColorPicker] = useState(false);
     const [selectedColor, setSelectedColor] = useState<NoteColor>('yellow');
     const [penColor, setPenColor] = useState<string>('#000000');
 
@@ -72,6 +73,11 @@ const WhiteboardTab: React.FC = () => {
     const svgRef = useRef<SVGSVGElement>(null);
 
     const handleMouseDown = (e: React.MouseEvent) => {
+        // Close color picker on interaction
+        if (showColorPicker && !((e.target as HTMLElement).closest('button'))) {
+            setShowColorPicker(false);
+        }
+
         if (activeTool === 'pen') {
             setIsDrawing(true);
             const rect = svgRef.current?.getBoundingClientRect();
@@ -252,6 +258,19 @@ const WhiteboardTab: React.FC = () => {
         setPaths(prev => prev.filter(p => p.id !== id));
     };
 
+    const handleToolClick = (tool: Tool) => {
+        if (activeTool === tool) {
+            setShowColorPicker(!showColorPicker);
+        } else {
+            setActiveTool(tool);
+            if (['note', 'pen', 'arrow'].includes(tool)) {
+                setShowColorPicker(true);
+            } else {
+                setShowColorPicker(false);
+            }
+        }
+    };
+
     return (
         <div className="w-full h-[calc(100vh-100px)] bg-[#fdfaf5] relative overflow-hidden flex font-sans text-slate-900 border-t border-slate-200">
             <style dangerouslySetInnerHTML={{
@@ -264,50 +283,50 @@ const WhiteboardTab: React.FC = () => {
             `}} />
             {/* Toolbar */}
             <div className="absolute left-6 top-6 flex flex-col bg-white shadow-xl rounded-2xl p-2 gap-2 z-50 border border-slate-100">
-                <ToolButton icon="fa-arrow-pointer" tool="select" active={activeTool} onClick={() => setActiveTool('select')} />
-                <ToolButton icon="fa-font" tool="text" active={activeTool} onClick={() => setActiveTool('text')} />
-                <ToolButton icon="fa-note-sticky" tool="note" active={activeTool} onClick={() => setActiveTool('note')} />
-                {activeTool === 'note' && (
+                <ToolButton icon="fa-arrow-pointer" tool="select" active={activeTool} onClick={() => handleToolClick('select')} />
+                <ToolButton icon="fa-font" tool="text" active={activeTool} onClick={() => handleToolClick('text')} />
+                <ToolButton icon="fa-note-sticky" tool="note" active={activeTool} onClick={() => handleToolClick('note')} />
+                {activeTool === 'note' && showColorPicker && (
                     <div className="flex flex-col gap-1.5 p-1.5 bg-slate-50 rounded-lg border border-slate-100 items-center animate-in fade-in slide-in-from-left-4 duration-200">
                         {(['yellow', 'blue', 'green', 'red'] as NoteColor[]).map(color => (
                             <button
                                 key={color}
                                 className={`w-6 h-6 rounded-full border-2 ${selectedColor === color ? 'border-indigo-600 scale-110 shadow-sm' : 'border-transparent hover:scale-110'} transition-all`}
                                 style={{ backgroundColor: getColorInHex(color) }}
-                                onClick={(e) => { e.stopPropagation(); setSelectedColor(color); }}
+                                onClick={(e) => { e.stopPropagation(); setSelectedColor(color); setShowColorPicker(false); }}
                                 title={color.charAt(0).toUpperCase() + color.slice(1)}
                             />
                         ))}
                     </div>
                 )}
-                <ToolButton icon="fa-pen" tool="pen" active={activeTool} onClick={() => setActiveTool('pen')} />
-                {activeTool === 'pen' && (
+                <ToolButton icon="fa-pen" tool="pen" active={activeTool} onClick={() => handleToolClick('pen')} />
+                {activeTool === 'pen' && showColorPicker && (
                     <div className="flex flex-col gap-1.5 p-1.5 bg-slate-50 rounded-lg border border-slate-100 items-center animate-in fade-in slide-in-from-left-4 duration-200">
                         {['#000000', '#ef4444', '#22c55e', '#3b82f6', '#eab308'].map(color => (
                             <button
                                 key={color}
                                 className={`w-5 h-5 rounded-full border-2 ${penColor === color ? 'border-indigo-600 scale-110' : 'border-transparent hover:scale-110'} transition-all`}
                                 style={{ backgroundColor: color }}
-                                onClick={(e) => { e.stopPropagation(); setPenColor(color); }}
+                                onClick={(e) => { e.stopPropagation(); setPenColor(color); setShowColorPicker(false); }}
                             />
                         ))}
                     </div>
                 )}
-                <ToolButton icon="fa-arrow-right-long" tool="arrow" active={activeTool} onClick={() => setActiveTool('arrow')} label="Arrow" />
-                {activeTool === 'arrow' && (
+                <ToolButton icon="fa-arrow-right-long" tool="arrow" active={activeTool} onClick={() => handleToolClick('arrow')} label="Arrow" />
+                {activeTool === 'arrow' && showColorPicker && (
                     <div className="flex flex-col gap-1.5 p-1.5 bg-slate-50 rounded-lg border border-slate-100 items-center animate-in fade-in slide-in-from-left-4 duration-200">
                         {['#000000', '#ef4444', '#22c55e', '#3b82f6', '#eab308'].map(color => (
                             <button
                                 key={color}
                                 className={`w-5 h-5 rounded-full border-2 ${penColor === color ? 'border-indigo-600 scale-110' : 'border-transparent hover:scale-110'} transition-all`}
                                 style={{ backgroundColor: color }}
-                                onClick={(e) => { e.stopPropagation(); setPenColor(color); }}
+                                onClick={(e) => { e.stopPropagation(); setPenColor(color); setShowColorPicker(false); }}
                             />
                         ))}
                     </div>
                 )}
-                <ToolButton icon="fa-eraser" tool="eraser" active={activeTool} onClick={() => setActiveTool('eraser')} />
-                <ToolButton icon="fa-icons" tool="sticker" active={activeTool} onClick={() => setActiveTool('select')} label="Sticker" disabled />
+                <ToolButton icon="fa-eraser" tool="eraser" active={activeTool} onClick={() => handleToolClick('eraser')} />
+                <ToolButton icon="fa-icons" tool="sticker" active={activeTool} onClick={() => handleToolClick('select')} label="Sticker" disabled />
             </div>
 
 
@@ -434,7 +453,7 @@ const WhiteboardTab: React.FC = () => {
                     >
                         {/* Delete Button (visible on hover) */}
                         <button
-                            className="absolute -top-3 -right-3 w-6 h-6 bg-white rounded-full shadow-md text-slate-400 hover:text-red-500 hover:scale-110 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-50 text-xs border border-slate-100"
+                            className="absolute -bottom-3 -right-3 w-6 h-6 bg-white rounded-full shadow-md text-slate-400 hover:text-red-500 hover:scale-110 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-50 text-xs border border-slate-100"
                             onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
                             title="Delete"
                         >
@@ -444,7 +463,7 @@ const WhiteboardTab: React.FC = () => {
                         {/* Reaction Picker (Note Only) */}
                         {item.type === 'note' && (
                             <div className="absolute -top-9 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-50 bg-white shadow-sm border border-slate-100 rounded-full px-2 py-1 items-center">
-                                {['🔥', '👍', '👎', '💯', '❤️', '😢', '😭', '⚡', '🚗'].map(emoji => (
+                                {['🔥', '👍', '👎', '💯', '❤️', '✅', '❌', '😢', '😊', '⚡', '🚗'].map(emoji => (
                                     <button
                                         key={emoji}
                                         className={`hover:scale-125 transition-transform text-sm ${item.reaction === emoji ? 'scale-125 bg-slate-100 rounded-full' : ''}`}
