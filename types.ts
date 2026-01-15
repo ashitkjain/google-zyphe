@@ -119,6 +119,7 @@ export interface Lead {
   avatarUrl?: string;
   email: string;
   phone: string;
+  homeAddress?: string;
   preferredContactMethod?: 'Call' | 'Text' | 'Email';
 
   // 2. Readiness & Context
@@ -188,6 +189,7 @@ export interface Lead {
   closedAt?: any;
   collectionName?: string;
   kyc?: KYCData;
+  clientId?: string;
 }
 
 export interface JourneyEvent {

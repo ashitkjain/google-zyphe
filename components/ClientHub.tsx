@@ -24,7 +24,11 @@ interface Props {
     onBack: () => void;
 }
 
-type HubTab = 'clients' | 'leads' | 'tasks' | 'comms' | 'settings' | 'whiteboard' | 'closing';
+const generateClientID = () => {
+    return 'C-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+};
+
+type HubTab = 'clients' | 'leads' | 'tasks' | 'comms' | 'settings' | 'whiteboard' | 'closing' | 'status_settings';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack }) => {
     const [activeTab, setActiveTab] = useState<HubTab>('leads');
@@ -228,6 +232,12 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             if (isTerminalStatus(updates.status || '', currentLead.leadType, realtorProfile?.settings) && !isTerminalStatus(currentLead.status, currentLead.leadType, realtorProfile?.settings)) {
                 updates.closedAt = new Date();
             }
+
+            // Ensure ClientID exists
+            if (!currentLead.clientId && !updates.clientId) {
+                updates.clientId = generateClientID();
+                console.log(`[ClientHub] Assigned ClientID to existing lead during update: ${updates.clientId}`);
+            }
         }
 
         const lead = currentLead || leads.find(l => l.id === leadId);
@@ -409,6 +419,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     const handleCreateLead = (initialUpdates?: Partial<Lead>) => {
         const newLead: Lead = {
             id: `lead_${Date.now()}`,
+            clientId: generateClientID(),
             firstName: '',
             lastName: '',
             email: '',
@@ -572,6 +583,19 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                         handleDeleteNote={handleDeletePipelineNote}
                         handleDragEnd={handleDragEnd}
                         realtorSettings={realtorProfile?.settings}
+                        onUpdateAvatar={async (leadId, file) => {
+                            // Mock upload simulation as requested
+                            console.log('Simulating upload for file:', file.name);
+                            // Generate a new random avatar URL to simulate the "downloaded" photo
+                            const randomId = Math.floor(Math.random() * 1000);
+                            const newAvatarUrl = `https://i.pravatar.cc/150?img=${randomId}&u=${Date.now()}`; // Add timestamp to force refresh if same ID
+
+                            // Update the lead
+                            const lead = leads.find(l => l.id === leadId);
+                            if (lead) {
+                                await handleUpdateLead(leadId, { avatarUrl: newAvatarUrl });
+                            }
+                        }}
                     />
                 )}
 

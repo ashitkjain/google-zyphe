@@ -31,6 +31,7 @@ interface LeadGalleryItemProps {
     onActivate: (id: string) => void;
     visibleColumns: Set<string>;
     activeTab: 'Buyer' | 'Seller';
+    onUpdateAvatar: (leadId: string, file: File) => void;
 }
 
 const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
@@ -38,8 +39,23 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
     editNoteId, setEditNoteId, editContent, setEditContent, handleUpdateNote,
     onDoneToggle, onDeleteClick, pendingNote, draftContent, setDraftContent,
     handleSaveNote, setPendingNote, deleteCoords, deletingNoteId, celebratingNoteId, isFlyingUpId,
-    onArchive, onActivate, visibleColumns, activeTab
+    onArchive, onActivate, visibleColumns, activeTab, onUpdateAvatar
 }) => {
+    // ... helper functions ...
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const handleAvatarClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            onUpdateAvatar(lead.id, e.target.files[0]);
+        }
+    };
+
+    // ... renderValue and COLUMN_METADATA ...
     const renderValue = (field: string) => {
         const val = (lead as any)[field];
         if (field === 'receivedAt' || field === 'lastTouch' || field === 'leaseEndDate') {
@@ -155,7 +171,17 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
 
                         <div className="flex items-start gap-4 mb-4">
                             {/* Profile Picture / Avatar (Bigger) */}
-                            <div className="w-14 h-14 rounded-2xl bg-slate-50 flex-shrink-0 border-2 border-white shadow-sm overflow-hidden flex items-center justify-center">
+                            <div
+                                className="w-14 h-14 rounded-2xl bg-slate-50 flex-shrink-0 border-2 border-white shadow-sm overflow-hidden flex items-center justify-center relative group/avatar cursor-pointer"
+                                onClick={handleAvatarClick}
+                            >
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={handleFileChange}
+                                />
                                 {lead.avatarUrl ? (
                                     <img src={lead.avatarUrl} alt="" className="w-full h-full object-cover" />
                                 ) : (
@@ -163,6 +189,9 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                         {lead.firstName?.charAt(0) || ''}{lead.lastName?.charAt(0) || ''}
                                     </div>
                                 )}
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]">
+                                    <i className="fa-solid fa-camera text-white text-xs drop-shadow-md"></i>
+                                </div>
                             </div>
 
                             <div className="flex flex-col flex-1 min-w-0 pt-0.5">

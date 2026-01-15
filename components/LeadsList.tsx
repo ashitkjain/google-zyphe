@@ -23,7 +23,8 @@ const LeadsList: React.FC<InternalProps> = ({
     handleUpdateNote,
     handleDeleteNote,
     handleDragEnd,
-    realtorSettings
+    realtorSettings,
+    onUpdateAvatar
 }) => {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [sortField, setSortField] = useState<keyof Lead>('receivedAt');
@@ -846,6 +847,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-24">
                                         {filteredBuyerLeads.map((lead, index) => (
                                             <LeadGalleryItem
+                                                onUpdateAvatar={onUpdateAvatar}
                                                 key={lead.id}
                                                 lead={lead}
                                                 index={index}
@@ -1187,6 +1189,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-24">
                                         {filteredSellerLeads.map((lead, index) => (
                                             <LeadGalleryItem
+                                                onUpdateAvatar={onUpdateAvatar}
                                                 key={lead.id}
                                                 lead={lead}
                                                 index={index + filteredBuyerLeads.length}

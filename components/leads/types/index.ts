@@ -15,6 +15,7 @@ export interface InternalProps {
     handleDeleteNote: (noteId: string) => void;
     handleDragEnd: (result: DropResult) => void;
     realtorSettings?: UserProfile['settings'];
+    onUpdateAvatar: (leadId: string, file: File) => void;
 }
 
 export type ViewMode = 'past6Months' | 'older';
