@@ -195,17 +195,25 @@ const LeadGalleryItem: React.FC<{
 
                                     <div className="flex flex-col gap-0.5 text-[12px] text-slate-400 font-bold whitespace-nowrap overflow-hidden">
                                         {lead.email && (
-                                            <div className={`flex items-center gap-1.5 pr-2 min-w-0 ${(lead.preferredContactMethod || '').toLowerCase() === 'email' ? 'border border-indigo-500 rounded px-2 py-0.5 bg-indigo-50 -ml-2' : ''}`}>
+                                            <div className="flex items-center gap-1.5 pr-2 min-w-0 pb-1">
                                                 <i className="fa-solid fa-envelope opacity-30 text-[8px] flex-shrink-0"></i>
                                                 <span className="truncate">{lead.email}</span>
-                                                {(lead.preferredContactMethod || '').toLowerCase() === 'email' && <i className="fa-solid fa-star text-[8px] text-indigo-600 ml-auto flex-shrink-0"></i>}
+                                                {(lead.preferredContactMethod || '').toLowerCase() === 'email' && (
+                                                    <span className="text-[9px] text-indigo-400 font-medium italic whitespace-nowrap flex-shrink-0">
+                                                        - preferred
+                                                    </span>
+                                                )}
                                             </div>
                                         )}
                                         {lead.phone && (
-                                            <div className={`flex items-center gap-1.5 pr-2 min-w-0 ${['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) ? 'border border-indigo-500 rounded px-2 py-0.5 bg-indigo-50 -ml-2' : ''}`}>
+                                            <div className="flex items-center gap-1.5 pr-2 min-w-0">
                                                 <i className="fa-solid fa-phone opacity-30 text-[8px] flex-shrink-0"></i>
                                                 <span className="truncate">{lead.phone}</span>
-                                                {['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) && <span className="text-[8px] font-black uppercase tracking-wider text-indigo-600 ml-auto flex-shrink-0">{lead.preferredContactMethod}</span>}
+                                                {['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) && (
+                                                    <span className="text-[9px] text-indigo-400 font-medium italic whitespace-nowrap flex-shrink-0">
+                                                        - preferred {(lead.preferredContactMethod || '').toLowerCase() === 'call' ? 'call' : 'text'}
+                                                    </span>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -1225,13 +1233,21 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         {visibleColumns.Buyer.has('phone') && (
                                                             <td className="px-2 py-2 border-b border-slate-100">
                                                                 <div className="flex flex-col">
-                                                                    <div className={`text-xs font-semibold text-slate-700 leading-tight mb-0.5 flex items-center justify-between gap-2 ${['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) ? 'border border-indigo-500 rounded px-2 py-0.5 bg-indigo-50 -ml-2 w-full max-w-[180px]' : ''}`}>
+                                                                    <div className="text-xs font-semibold text-slate-700 leading-tight mb-0.5 flex items-center gap-2">
                                                                         <span>{renderCell(lead, 'phone')}</span>
-                                                                        {['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) && <span className="text-[8px] font-black uppercase tracking-wider text-indigo-600 flex-shrink-0">{lead.preferredContactMethod}</span>}
+                                                                        {['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) && (
+                                                                            <span className="text-[9px] text-slate-400 font-medium italic whitespace-nowrap flex-shrink-0">
+                                                                                preferred - {(lead.preferredContactMethod || '').toLowerCase() === 'call' ? 'call' : 'text'}
+                                                                            </span>
+                                                                        )}
                                                                     </div>
-                                                                    <div className={`text-[10px] text-blue-600 font-medium leading-tight flex items-center justify-between gap-2 ${(lead.preferredContactMethod || '').toLowerCase() === 'email' ? 'border border-indigo-500 rounded px-2 py-0.5 bg-indigo-50 -ml-2 w-full max-w-[180px]' : ''}`}>
+                                                                    <div className="text-[10px] text-blue-600 font-medium leading-tight flex items-center gap-2">
                                                                         <span className="truncate">{renderCell(lead, 'email')}</span>
-                                                                        {(lead.preferredContactMethod || '').toLowerCase() === 'email' && <i className="fa-solid fa-star text-[8px] text-indigo-600 flex-shrink-0"></i>}
+                                                                        {(lead.preferredContactMethod || '').toLowerCase() === 'email' && (
+                                                                            <span className="text-[9px] text-slate-400 font-medium italic whitespace-nowrap flex-shrink-0">
+                                                                                preferred
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             </td>
@@ -1634,13 +1650,21 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         {visibleColumns.Seller.has('phone') && (
                                                             <td className="px-2 py-2 border-b border-slate-100">
                                                                 <div className="flex flex-col">
-                                                                    <div className={`text-xs font-semibold text-slate-700 leading-tight mb-0.5 flex items-center justify-between gap-2 ${['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) ? 'border border-emerald-500 rounded px-2 py-0.5 bg-emerald-50 -ml-2 w-full max-w-[180px]' : ''}`}>
+                                                                    <div className="text-xs font-semibold text-slate-700 leading-tight mb-0.5 flex items-center gap-2">
                                                                         <span>{renderCell(lead, 'phone')}</span>
-                                                                        {['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) && <span className="text-[8px] font-black uppercase tracking-wider text-emerald-600 flex-shrink-0">{lead.preferredContactMethod}</span>}
+                                                                        {['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) && (
+                                                                            <span className="text-[9px] text-slate-400 font-medium italic whitespace-nowrap flex-shrink-0">
+                                                                                preferred - {(lead.preferredContactMethod || '').toLowerCase() === 'call' ? 'call' : 'text'}
+                                                                            </span>
+                                                                        )}
                                                                     </div>
-                                                                    <div className={`text-[10px] text-blue-600 font-medium leading-tight flex items-center justify-between gap-2 ${(lead.preferredContactMethod || '').toLowerCase() === 'email' ? 'border border-emerald-500 rounded px-2 py-0.5 bg-emerald-50 -ml-2 w-full max-w-[180px]' : ''}`}>
+                                                                    <div className="text-[10px] text-blue-600 font-medium leading-tight flex items-center gap-2">
                                                                         <span className="truncate">{renderCell(lead, 'email')}</span>
-                                                                        {(lead.preferredContactMethod || '').toLowerCase() === 'email' && <i className="fa-solid fa-star text-[8px] text-emerald-600 flex-shrink-0"></i>}
+                                                                        {(lead.preferredContactMethod || '').toLowerCase() === 'email' && (
+                                                                            <span className="text-[9px] text-slate-400 font-medium italic whitespace-nowrap flex-shrink-0">
+                                                                                preferred
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             </td>
