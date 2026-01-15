@@ -69,14 +69,18 @@ const LeadGalleryItem: React.FC<{
                 const date = val?.toDate ? val.toDate() : (val ? new Date(val) : null);
                 if (!date) return '--';
                 if (field === 'receivedAt') {
-                    return date.toLocaleString([], {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        timeZoneName: 'short'
-                    });
+                    const now = new Date();
+                    const diffMs = Math.max(0, now.getTime() - date.getTime());
+                    const d = Math.floor(diffMs / 86400000);
+                    const h = Math.floor((diffMs % 86400000) / 3600000);
+                    const s = Math.floor((diffMs % 60000) / 1000);
+
+                    const parts = [];
+                    if (d > 0) parts.push(`${d}d`);
+                    if (h > 0) parts.push(`${h}h`);
+                    if (s > 0) parts.push(`${s}s`);
+
+                    return parts.length > 0 ? parts.join(' ') : 'Just now';
                 }
                 return date.toLocaleDateString();
             }
@@ -108,7 +112,7 @@ const LeadGalleryItem: React.FC<{
             expectedPrice: { label: 'Price', icon: 'fa-money-bill-wave', color: 'text-emerald-600' },
             preferredNeighborhood: { label: 'Neighborhood', icon: 'fa-map-location-dot', color: 'text-indigo-600' },
             source: { label: 'Source', icon: 'fa-globe', color: 'text-slate-400' },
-            receivedAt: { label: 'Created', icon: 'fa-calendar-plus', color: 'text-slate-400' },
+            receivedAt: { label: 'Age', icon: 'fa-calendar-plus', color: 'text-slate-400' },
             lastTouch: { label: 'Follow Up', icon: 'fa-clock-rotate-left', color: 'text-indigo-400' },
             message: { label: 'Message', icon: 'fa-comment' },
             timeframe: { label: 'Timeframe', icon: 'fa-hourglass-half' },
@@ -128,13 +132,22 @@ const LeadGalleryItem: React.FC<{
 
         return (
             <div
-                className={`bg-white p-4 rounded-[2rem] border border-slate-200/60 shadow-sm hover:shadow-xl transition-all border-l-4 group relative cursor-pointer flex flex-col ${selectedIds.has(lead.id) ? 'ring-2 ring-indigo-500 ring-offset-2 bg-indigo-50/10' : ''}`}
+                className={`bg-white p-4 rounded-[2rem] border transition-all border-l-4 group relative cursor-pointer flex flex-col ${selectedIds.has(lead.id)
+                        ? 'ring-4 ring-indigo-500/50 border-indigo-200 bg-indigo-50/30 shadow-2xl scale-[1.02] z-10'
+                        : 'border-slate-200/60 shadow-sm hover:shadow-xl hover:scale-[1.01]'
+                    }`}
                 style={{
                     borderLeftColor: lead.leadType === 'Seller' ? '#10b981' : '#6366f1'
                 }}
                 onClick={(e) => { handleSelectOne(lead.id); }}
                 onDoubleClick={(e) => { e.stopPropagation(); onViewLead(lead); }}
             >
+                {/* Selection Badge */}
+                {selectedIds.has(lead.id) && (
+                    <div className="absolute -top-2 -right-2 w-8 h-8 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg animate-in zoom-in duration-200 z-30 ring-4 ring-white">
+                        <i className="fa-solid fa-check text-sm"></i>
+                    </div>
+                )}
                 <TypedDroppable droppableId={lead.id} type="POSTIT_PALETTE">
                     {(noteProvided: any, noteSnapshot: any) => (
                         <div
@@ -161,7 +174,7 @@ const LeadGalleryItem: React.FC<{
                                 </div>
                             </div>
 
-                            <div className="flex items-start gap-3.5 mb-2">
+                            <div className="flex items-start gap-4 mb-4">
                                 {/* Profile Picture / Avatar (Bigger) */}
                                 <div className="w-14 h-14 rounded-2xl bg-slate-50 flex-shrink-0 border-2 border-white shadow-sm overflow-hidden flex items-center justify-center">
                                     {lead.avatarUrl ? (
@@ -174,11 +187,11 @@ const LeadGalleryItem: React.FC<{
                                 </div>
 
                                 <div className="flex flex-col flex-1 min-w-0 pt-0.5">
-                                    <div className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors uppercase tracking-tight truncate leading-tight mb-0.5" onClick={() => onViewLead(lead)}>
+                                    <div className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors tracking-tight truncate leading-tight mb-0.5" onClick={() => onViewLead(lead)}>
                                         {lead.firstName} {lead.lastName}
                                     </div>
 
-                                    <div className="flex flex-col gap-0 text-[9.5px] text-slate-400 font-bold whitespace-nowrap overflow-hidden">
+                                    <div className="flex flex-col gap-0.5 text-[12px] text-slate-400 font-bold whitespace-nowrap overflow-hidden">
                                         {lead.email && (
                                             <div className="flex items-center gap-1.5 truncate">
                                                 <i className="fa-solid fa-envelope opacity-30 text-[8px]"></i>
@@ -196,15 +209,20 @@ const LeadGalleryItem: React.FC<{
                             </div>
 
                             {/* Price Range & Neighborhood */}
-                            <div className="flex flex-col gap-0.5 mb-2">
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-4">
                                 {Array.from(visibleColumns).filter(colId => !['phone', 'email', 'firstName', 'lastName', 'message', 'notes'].includes(colId as string)).map((colId: any) => {
                                     const meta = COLUMN_METADATA[colId as string];
                                     if (!meta) return null;
+                                    const displayLabel = meta.label
+                                        .replace(/[^a-zA-Z0-9\s]/g, '')
+                                        .split(' ')
+                                        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                                        .join(' ') + (meta.label.includes('?') ? '?' : '');
+
                                     return (
-                                        <div key={colId as string} className={`flex items-center gap-2 text-[10.5px] font-bold ${meta.color || 'text-slate-500'} leading-none`}>
-                                            <i className={`fa-solid ${meta.icon} opacity-40 text-[9px] w-3 text-center`}></i>
-                                            <span className="opacity-40 uppercase tracking-tighter w-20 shrink-0 whitespace-nowrap">{meta.label}:</span>
-                                            <span className="truncate">{renderValue(colId as string)}</span>
+                                        <div key={colId as string} className="grid grid-cols-[auto_1fr] gap-x-1.5 text-[14px] font-bold text-slate-900 leading-tight min-w-0 items-start">
+                                            <span className="whitespace-nowrap">{displayLabel}:</span>
+                                            <span className="font-medium break-words">{renderValue(colId as string)}</span>
                                         </div>
                                     );
                                 })}
@@ -213,12 +231,12 @@ const LeadGalleryItem: React.FC<{
 
                             {/* User Message */}
                             {lead.message && (
-                                <div className="mt-1 bg-indigo-50/30 p-3 rounded-2xl border border-indigo-100/50 flex flex-col gap-1 relative overflow-hidden group/msg">
-                                    <div className="text-[9px] font-black text-indigo-400/60 uppercase tracking-widest flex items-center gap-1.5">
-                                        <i className="fa-solid fa-comment-dots text-[8px]"></i>
+                                <div className="mt-2 bg-indigo-50/30 p-3 rounded-2xl border border-indigo-100/50 flex flex-col gap-1.5 relative overflow-hidden group/msg">
+                                    <div className="text-[14px] font-medium text-slate-900 tracking-widest flex items-center gap-1.5 opacity-60">
+                                        <i className="fa-solid fa-comment-dots text-[8px] opacity-30"></i>
                                         Inquiry Message
                                     </div>
-                                    <div className="text-[10.5px] text-slate-600 font-bold leading-[1.3] italic">
+                                    <div className="text-[14px] text-indigo-600 font-bold leading-[1.3] italic">
                                         "{lead.message}"
                                     </div>
                                 </div>
@@ -230,7 +248,7 @@ const LeadGalleryItem: React.FC<{
                                     <div
                                         key={note.id}
                                         onClick={() => { if (!editNoteId) { setEditNoteId(note.id); setEditContent(note.content); } }}
-                                        className={`p-2.5 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[9px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-110 hover:z-10 group/note flex flex-col relative cursor-pointer post-it-container ${note.color || 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]'} ${i % 2 === 0 ? 'rotate-2' : '-rotate-2'} hover:rotate-0 ${note.isDone ? 'line-through opacity-50' : ''} ${deletingNoteId === note.id ? 'animate-fly-away' : ''} ${celebratingNoteId === note.id ? 'animate-shake' : ''} ${isFlyingUpId === note.id ? 'animate-fly-up' : ''} ${note.isUrgent ? 'urgent-glow' : ''}`}
+                                        className={`p-2.5 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[12px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-110 hover:z-10 group/note flex flex-col relative cursor-pointer post-it-container ${note.color || 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]'} ${i % 2 === 0 ? 'rotate-2' : '-rotate-2'} hover:rotate-0 ${note.isDone ? 'line-through opacity-50' : ''} ${deletingNoteId === note.id ? 'animate-fly-away' : ''} ${celebratingNoteId === note.id ? 'animate-shake' : ''} ${isFlyingUpId === note.id ? 'animate-fly-up' : ''} ${note.isUrgent ? 'urgent-glow' : ''}`}
                                         style={{
                                             ...((deletingNoteId === note.id || isFlyingUpId === note.id) && deleteCoords ? {
                                                 '--start-top': `${deleteCoords.top}px`,
@@ -253,7 +271,10 @@ const LeadGalleryItem: React.FC<{
                                             />
                                         ) : (
                                             <>
-                                                <div className="text-slate-800 line-clamp-5 leading-tight">{note.content}</div>
+                                                <div className="text-[7px] opacity-40 mb-1 font-sans leading-none uppercase tracking-tighter">
+                                                    {new Date(note.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                </div>
+                                                <div className="text-slate-800 line-clamp-4 leading-tight">{note.content}</div>
                                                 <div className="absolute top-1 right-1 opacity-0 group-hover/note:opacity-100 transition-opacity flex gap-1 bg-white/20 rounded-full px-1 backdrop-blur-sm">
                                                     <button
                                                         onClick={(e) => onDoneToggle(e, note)}
@@ -299,9 +320,10 @@ const LeadGalleryItem: React.FC<{
 
                             {noteProvided.placeholder}
                         </div>
-                    )}
-                </TypedDroppable>
-            </div>
+                    )
+                    }
+                </TypedDroppable >
+            </div >
         );
     };
 

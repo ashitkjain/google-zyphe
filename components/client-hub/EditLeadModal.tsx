@@ -457,10 +457,10 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                     [...editingLead.notesLog].reverse().map((note, i) => (
                                         <div
                                             key={note.id}
-                                            className={`p-4 pt-5 w-32 h-32 rounded-sm border-t border-black/5 text-[10px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-105 group/note flex flex-col relative ${note.color || 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]'} ${i % 2 === 0 ? 'rotate-1' : '-rotate-1'} hover:rotate-0`}
+                                            className={`p-4 pt-5 w-32 h-32 rounded-sm border-t border-black/5 text-[12px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-105 group/note flex flex-col relative ${note.color || 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]'} ${i % 2 === 0 ? 'rotate-1' : '-rotate-1'} hover:rotate-0`}
                                         >
-                                            <div className="flex justify-between text-[7px] opacity-40 mb-1 font-sans">
-                                                <span>{new Date(note.timestamp).toLocaleDateString()}</span>
+                                            <div className="flex justify-between text-[7px] opacity-40 mb-1 font-sans uppercase tracking-tighter">
+                                                <span>{new Date(note.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                                                 <span>{note.author || 'System'}</span>
                                             </div>
                                             <div className="text-slate-800 line-clamp-6 leading-tight flex-1">{note.content}</div>

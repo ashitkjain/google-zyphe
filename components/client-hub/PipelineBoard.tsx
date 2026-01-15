@@ -340,7 +340,7 @@ const PipelineBoard: React.FC<PipelineBoardProps> = ({
                                                                     <div
                                                                         key={note.id}
                                                                         onClick={() => { if (!editNoteId) { setEditNoteId(note.id); setEditContent(note.content); } }}
-                                                                        className={`p-3 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[9px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-110 hover:z-10 group/note flex flex-col relative cursor-pointer post-it-container ${note.color} ${i % 2 === 0 ? 'rotate-2' : '-rotate-3'} hover:rotate-0 ${note.isDone ? 'line-through' : ''} ${deletingNoteId === note.id ? 'animate-fly-away' : ''} ${celebratingNoteId === note.id ? 'animate-shake' : ''} ${isFlyingUpId === note.id ? 'animate-fly-up' : ''} ${note.isUrgent ? 'urgent-glow' : ''}`}
+                                                                        className={`p-3 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[12px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-110 hover:z-10 group/note flex flex-col relative cursor-pointer post-it-container ${note.color} ${i % 2 === 0 ? 'rotate-2' : '-rotate-3'} hover:rotate-0 ${note.isDone ? 'line-through' : ''} ${deletingNoteId === note.id ? 'animate-fly-away' : ''} ${celebratingNoteId === note.id ? 'animate-shake' : ''} ${isFlyingUpId === note.id ? 'animate-fly-up' : ''} ${note.isUrgent ? 'urgent-glow' : ''}`}
                                                                         style={{
                                                                             boxShadow: '2px 2px 5px rgba(0,0,0,0.1)',
                                                                             ...((deletingNoteId === note.id || isFlyingUpId === note.id) && deleteCoords ? {
@@ -382,7 +382,10 @@ const PipelineBoard: React.FC<PipelineBoardProps> = ({
                                                                             </div>
                                                                         )}
 
-                                                                        <div className="flex-1 overflow-hidden">
+                                                                        <div className="flex-1 overflow-hidden flex flex-col">
+                                                                            <div className="text-[7px] opacity-40 mb-1 font-sans uppercase tracking-tighter leading-none">
+                                                                                {note.timestamp?.toDate ? note.timestamp.toDate().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(note.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                                            </div>
                                                                             {editNoteId === note.id ? (
                                                                                 <textarea
                                                                                     autoFocus
@@ -399,14 +402,11 @@ const PipelineBoard: React.FC<PipelineBoardProps> = ({
                                                                                         handleUpdateNote(note.id, { content: editContent, timestamp: new Date() });
                                                                                         setEditNoteId(null);
                                                                                     }}
-                                                                                    className="w-full h-full bg-transparent border-none outline-none resize-none post-it-font text-[9px] font-bold p-0 post-it-edit"
+                                                                                    className="w-full h-full bg-transparent border-none outline-none resize-none post-it-font text-[12px] font-bold p-0 post-it-edit"
                                                                                 />
                                                                             ) : (
-                                                                                note.content
+                                                                                <div className="text-[12px] font-bold post-it-font leading-tight">{note.content}</div>
                                                                             )}
-                                                                        </div>
-                                                                        <div className="text-[7px] opacity-40 mt-1 uppercase tracking-tighter shrink-0">
-                                                                            {note.timestamp?.toDate ? note.timestamp.toDate().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(note.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                                         </div>
                                                                     </div>
                                                                 ))}
