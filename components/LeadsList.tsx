@@ -914,49 +914,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                 <i className="fa-solid fa-plus"></i>
                             </button>
 
-                            <div className="h-6 w-px bg-slate-200"></div>
-                            <div className="flex items-center gap-1 text-slate-400">
 
-                                <div className="relative" ref={columnSelectorRef}>
-                                    <button
-                                        className={`w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors ${showColumnSelector ? 'bg-slate-100 text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-                                        onClick={() => setShowColumnSelector(!showColumnSelector)}
-                                        title="Select Columns"
-                                    >
-                                        <i className="fa-solid fa-table-columns text-lg"></i>
-                                    </button>
-                                    {showColumnSelector && (
-                                        <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-200 p-4 w-64 z-50 animate-in fade-in zoom-in-95 duration-200">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Visible Columns</div>
-                                                <button onClick={() => setShowColumnSelector(false)} className="text-slate-400 hover:text-slate-600">
-                                                    <i className="fa-solid fa-xmark"></i>
-                                                </button>
-                                            </div>
-                                            <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                                                {(activeTab === 'Buyer' ? availableBuyerColumns : availableSellerColumns).map(col => (
-                                                    <label key={col.id} className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={visibleColumns[activeTab].has(col.id)}
-                                                            onChange={() => toggleColumn(activeTab, col.id)}
-                                                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                                        />
-                                                        {col.label}
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                                <button
-                                    className={`w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors ${showFilters ? 'bg-slate-100 text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-                                    onClick={() => setShowFilters(!showFilters)}
-                                    title="Filter Funnel"
-                                >
-                                    <i className="fa-solid fa-filter text-lg"></i>
-                                </button>
-                            </div>
                         </div>
 
 
@@ -965,53 +923,7 @@ const LeadsList: React.FC<InternalProps> = ({
                 </div>
 
                 {/* Filter Bar */}
-                {
-                    showFilters && (
-                        <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 grid grid-cols-5 gap-2 flex-shrink-0 w-full">
-                            <input
-                                type="text"
-                                placeholder="Filter Name..."
-                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                value={columnFilters.name}
-                                onChange={(e) => setColumnFilters({ ...columnFilters, name: e.target.value })}
-                            />
-                            <input
-                                type="text"
-                                placeholder="Filter Phone..."
-                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                value={columnFilters.phone}
-                                onChange={(e) => setColumnFilters({ ...columnFilters, phone: e.target.value })}
-                            />
-                            <input
-                                type="text"
-                                placeholder="Filter Email..."
-                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                value={columnFilters.email}
-                                onChange={(e) => setColumnFilters({ ...columnFilters, email: e.target.value })}
-                            />
-                            <select
-                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                value={columnFilters.status}
-                                onChange={(e) => setColumnFilters({ ...columnFilters, status: e.target.value })}
-                            >
-                                <option value="">All Statuses</option>
-                                {STATUS_OPTIONS.map(s => (
-                                    <option key={s} value={s}>{s}</option>
-                                ))}
-                            </select>
-                            <select
-                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                value={columnFilters.source}
-                                onChange={(e) => setColumnFilters({ ...columnFilters, source: e.target.value })}
-                            >
-                                <option value="">All Sources</option>
-                                {Array.from(new Set(leads.map(l => l.source))).map(s => (
-                                    <option key={s} value={s}>{s}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )
-                }
+
 
                 {/* Content Area */}
                 <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white mb-0 space-y-4 py-4">
@@ -1124,23 +1036,103 @@ const LeadsList: React.FC<InternalProps> = ({
                                     </div>
 
                                     {/* View Mode Toggle - Far Right */}
-                                    <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm">
-                                        <button
-                                            onClick={() => toggleDisplayMode('list')}
-                                            className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                        >
-                                            <i className="fa-solid fa-list-ul"></i>
-                                            List
-                                        </button>
-                                        <button
-                                            onClick={() => toggleDisplayMode('gallery')}
-                                            className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                        >
-                                            <i className="fa-solid fa-table-cells-large"></i>
-                                            Gallery
-                                        </button>
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-1 text-slate-400">
+                                            <div className="relative" ref={columnSelectorRef}>
+                                                <button
+                                                    className={`w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors ${showColumnSelector ? 'bg-slate-100 text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                                    onClick={() => setShowColumnSelector(!showColumnSelector)}
+                                                    title="Select Columns"
+                                                >
+                                                    <i className="fa-solid fa-table-columns text-lg"></i>
+                                                </button>
+                                                {showColumnSelector && (
+                                                    <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-200 p-4 w-64 z-50 animate-in fade-in zoom-in-95 duration-200">
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Visible Columns</div>
+                                                            <button onClick={() => setShowColumnSelector(false)} className="text-slate-400 hover:text-slate-600">
+                                                                <i className="fa-solid fa-xmark"></i>
+                                                            </button>
+                                                        </div>
+                                                        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                                                            {availableBuyerColumns.map(col => (
+                                                                <label key={col.id} className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={visibleColumns['Buyer'].has(col.id)}
+                                                                        onChange={() => toggleColumn('Buyer', col.id)}
+                                                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                                    />
+                                                                    {col.label}
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <button
+                                                className={`w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors ${showFilters ? 'bg-slate-100 text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                                onClick={() => setShowFilters(!showFilters)}
+                                                title="Filter Funnel"
+                                            >
+                                                <i className="fa-solid fa-filter text-lg"></i>
+                                            </button>
+                                        </div>
+                                        <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm">
+                                            <button
+                                                onClick={() => toggleDisplayMode('list')}
+                                                className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                <i className="fa-solid fa-list-ul"></i>
+                                                List
+                                            </button>
+                                            <button
+                                                onClick={() => toggleDisplayMode('gallery')}
+                                                className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                <i className="fa-solid fa-table-cells-large"></i>
+                                                Gallery
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
+                                {
+                                    showFilters && (
+                                        <div className="mt-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-5 gap-2 flex-shrink-0 w-full animate-in slide-in-from-top-2">
+                                            <input
+                                                type="text"
+                                                placeholder="Filter Name..."
+                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                                value={columnFilters.name}
+                                                onChange={(e) => setColumnFilters({ ...columnFilters, name: e.target.value })}
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Filter Phone..."
+                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                                value={columnFilters.phone}
+                                                onChange={(e) => setColumnFilters({ ...columnFilters, phone: e.target.value })}
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Filter Email..."
+                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                                value={columnFilters.email}
+                                                onChange={(e) => setColumnFilters({ ...columnFilters, email: e.target.value })}
+                                            />
+                                            <select
+                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                                value={columnFilters.status}
+                                                onChange={(e) => setColumnFilters({ ...columnFilters, status: e.target.value })}
+                                            >
+                                                <option value="">All Statuses</option>
+                                                {STATUS_OPTIONS.map(s => (
+                                                    <option key={s} value={s}>{s}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )
+                                }
                             </div>
 
                             {filteredBuyerLeads.length > 0 ? (
@@ -1543,23 +1535,104 @@ const LeadsList: React.FC<InternalProps> = ({
                                     </div>
 
                                     {/* View Mode Toggle - Far Right */}
-                                    <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm">
-                                        <button
-                                            onClick={() => toggleDisplayMode('list')}
-                                            className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                        >
-                                            <i className="fa-solid fa-list-ul"></i>
-                                            List
-                                        </button>
-                                        <button
-                                            onClick={() => toggleDisplayMode('gallery')}
-                                            className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                        >
-                                            <i className="fa-solid fa-table-cells-large"></i>
-                                            Gallery
-                                        </button>
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-1 text-slate-400">
+                                            <div className="relative" ref={columnSelectorRef}>
+                                                <button
+                                                    className={`w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors ${showColumnSelector ? 'bg-slate-100 text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                                    onClick={() => setShowColumnSelector(!showColumnSelector)}
+                                                    title="Select Columns"
+                                                >
+                                                    <i className="fa-solid fa-table-columns text-lg"></i>
+                                                </button>
+                                                {showColumnSelector && (
+                                                    <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-200 p-4 w-64 z-50 animate-in fade-in zoom-in-95 duration-200">
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Visible Columns</div>
+                                                            <button onClick={() => setShowColumnSelector(false)} className="text-slate-400 hover:text-slate-600">
+                                                                <i className="fa-solid fa-xmark"></i>
+                                                            </button>
+                                                        </div>
+                                                        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                                                            {availableSellerColumns.map(col => (
+                                                                <label key={col.id} className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={visibleColumns['Seller'].has(col.id)}
+                                                                        onChange={() => toggleColumn('Seller', col.id)}
+                                                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                                    />
+                                                                    {col.label}
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <button
+                                                className={`w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors ${showFilters ? 'bg-slate-100 text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                                onClick={() => setShowFilters(!showFilters)}
+                                                title="Filter Funnel"
+                                            >
+                                                <i className="fa-solid fa-filter text-lg"></i>
+                                            </button>
+                                        </div>
+                                        <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm">
+                                            <button
+                                                onClick={() => toggleDisplayMode('list')}
+                                                className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                <i className="fa-solid fa-list-ul"></i>
+                                                List
+                                            </button>
+                                            <button
+                                                onClick={() => toggleDisplayMode('gallery')}
+                                                className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                <i className="fa-solid fa-table-cells-large"></i>
+                                                Gallery
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
+                                {
+                                    showFilters && (
+                                        <div className="mt-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-5 gap-2 flex-shrink-0 w-full animate-in slide-in-from-top-2">
+                                            <input
+                                                type="text"
+                                                placeholder="Filter Name..."
+                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                                value={columnFilters.name}
+                                                onChange={(e) => setColumnFilters({ ...columnFilters, name: e.target.value })}
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Filter Phone..."
+                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                                value={columnFilters.phone}
+                                                onChange={(e) => setColumnFilters({ ...columnFilters, phone: e.target.value })}
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Filter Email..."
+                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                                value={columnFilters.email}
+                                                onChange={(e) => setColumnFilters({ ...columnFilters, email: e.target.value })}
+                                            />
+                                            <select
+                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                                value={columnFilters.status}
+                                                onChange={(e) => setColumnFilters({ ...columnFilters, status: e.target.value })}
+                                            >
+                                                <option value="">All Statuses</option>
+                                                {STATUS_OPTIONS.map(s => (
+                                                    <option key={s} value={s}>{s}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )
+                                }
+
                             </div>
 
                             {filteredSellerLeads.length > 0 ? (
