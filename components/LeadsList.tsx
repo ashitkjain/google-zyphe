@@ -1124,7 +1124,7 @@ const LeadsList: React.FC<InternalProps> = ({
 
                             {filteredBuyerLeads.length > 0 ? (
                                 currentDisplayMode === 'list' ? (
-                                    <div className="shadow-sm border border-slate-200/60 rounded-2xl overflow-x-auto overflow-y-auto max-h-[600px] w-full pb-6">
+                                    <div className="overflow-x-auto w-full pb-6">
                                         <table className="w-full text-left border-collapse min-w-full">
                                             <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500">
                                                 <tr>
@@ -1149,7 +1149,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                     )}
                                                     {visibleColumns.Buyer.has('isAlsoSelling') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Also Selling?</th>}
                                                     {visibleColumns.Buyer.has('preQualified') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Pre-qualified?</th>}
-                                                    {visibleColumns.Buyer.has('budgetRange') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Budget Range</th>}
+                                                    {visibleColumns.Buyer.has('budgetRange') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Budget</th>}
                                                     {visibleColumns.Buyer.has('preferredNeighborhood') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Preferred Neighborhood</th>}
                                                     {visibleColumns.Buyer.has('source') && (
                                                         <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('source')}>
@@ -1182,7 +1182,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
                                                 {filteredBuyerLeads.map((lead, index) => (
-                                                    <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80">
+                                                    <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80" onDoubleClick={() => onViewLead(lead)}>
                                                         <td className="px-2 py-2 border-b border-slate-100 text-center text-slate-400 font-bold opacity-50">{index + 1}</td>
                                                         <td className="px-2 py-2 border-b border-slate-100">
                                                             <input type="checkbox" checked={selectedIds.has(lead.id)} onChange={() => handleSelectOne(lead.id)} className="rounded border-slate-300" />
@@ -1291,17 +1291,17 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         {visibleColumns.Buyer.has('preferredNeighborhood') && <td className="px-2 py-2 border-b border-slate-100 font-medium underline text-indigo-600/80 decoration-indigo-200 underline-offset-4">{renderCell(lead, 'preferredNeighborhood' as any)}</td>}
                                                         {visibleColumns.Buyer.has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
                                                         {visibleColumns.Buyer.has('receivedAt') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-[10px] text-slate-400 font-semibold whitespace-nowrap uppercase">
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-semibold whitespace-nowrap uppercase">
                                                                 {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }) : new Date(lead.receivedAt).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}
                                                             </td>
                                                         )}
                                                         {visibleColumns.Buyer.has('lastTouch') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-[10px] text-slate-500 font-medium whitespace-nowrap">
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-medium whitespace-nowrap">
                                                                 {lead.lastTouch ? (lead.lastTouch?.toDate ? lead.lastTouch.toDate().toLocaleDateString() : new Date(lead.lastTouch).toLocaleDateString()) : '--'}
                                                             </td>
                                                         )}
                                                         {visibleColumns.Buyer.has('message') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-600 max-w-[200px] truncate" title={lead.message}>
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-600 max-w-[200px] whitespace-normal" title={lead.message}>
                                                                 {lead.message || '--'}
                                                             </td>
                                                         )}
@@ -1510,7 +1510,7 @@ const LeadsList: React.FC<InternalProps> = ({
 
                             {filteredSellerLeads.length > 0 ? (
                                 currentDisplayMode === 'list' ? (
-                                    <div className="shadow-sm border border-slate-200/60 rounded-2xl overflow-x-auto overflow-y-auto max-h-[600px] w-full pb-6">
+                                    <div className="overflow-x-auto w-full pb-6">
                                         <table className="w-full text-left border-collapse min-w-full">
                                             <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500">
                                                 <tr>
@@ -1569,7 +1569,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
                                                 {filteredSellerLeads.map((lead, index) => (
-                                                    <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80">
+                                                    <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80" onDoubleClick={() => onViewLead(lead)}>
                                                         <td className="px-2 py-2 border-b border-slate-100 text-center text-slate-400 font-bold opacity-50">{index + 1}</td>
                                                         <td className="px-2 py-2 border-b border-slate-100">
                                                             <input type="checkbox" checked={selectedIds.has(lead.id)} onChange={() => handleSelectOne(lead.id)} className="rounded border-slate-300" />
@@ -1682,22 +1682,22 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 {lead.expectedPrice ? `$${lead.expectedPrice.toLocaleString()}` : '--'}
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Seller.has('propertyAddress') && <td className="px-2 py-2 border-b border-slate-100 max-w-[250px] truncate font-medium underline text-indigo-600/80 decoration-indigo-200 underline-offset-4">{lead.propertyAddress || '--'}</td>}
+                                                        {visibleColumns.Seller.has('propertyAddress') && <td className="px-2 py-2 border-b border-slate-100 max-w-[250px] whitespace-normal font-medium underline text-indigo-600/80 decoration-indigo-200 underline-offset-4">{lead.propertyAddress || '--'}</td>}
                                                         {visibleColumns.Seller.has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
                                                         {visibleColumns.Seller.has('receivedAt') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-[10px] text-slate-400 font-semibold whitespace-nowrap uppercase">
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-semibold whitespace-nowrap uppercase">
                                                                 {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }) : new Date(lead.receivedAt).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}
                                                             </td>
                                                         )}
                                                         {visibleColumns.Seller.has('reasonForSelling') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.reasonForSelling || '--'}</td>}
                                                         {visibleColumns.Seller.has('existingAgentName') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.existingAgentName || '--'}</td>}
                                                         {visibleColumns.Seller.has('lastTouch') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-[10px] text-slate-500 font-medium whitespace-nowrap">
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-medium whitespace-nowrap">
                                                                 {lead.lastTouch ? (lead.lastTouch?.toDate ? lead.lastTouch.toDate().toLocaleDateString() : new Date(lead.lastTouch).toLocaleDateString()) : '--'}
                                                             </td>
                                                         )}
                                                         {visibleColumns.Seller.has('message') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-600 max-w-[200px] truncate" title={lead.message}>
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-600 max-w-[200px] whitespace-normal" title={lead.message}>
                                                                 {lead.message || '--'}
                                                             </td>
                                                         )}

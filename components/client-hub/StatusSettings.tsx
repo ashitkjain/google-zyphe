@@ -1,6 +1,10 @@
+
 import React, { useState } from 'react';
 import { LeadType, StatusOption } from '../../types';
 import { DEFAULT_SELLER_STATUSES, DEFAULT_BUYER_STATUSES } from '../../services/statusService';
+// Import required Firestore components
+import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
+import { db_instance } from '../../services/firebaseService'; // Ensure this path is correct
 
 interface StatusSettingsProps {
     realtorId: string;
@@ -19,6 +23,104 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
     const [sellerStatuses, setSellerStatuses] = useState<StatusOption[]>(initialSellerStatuses || DEFAULT_SELLER_STATUSES);
     const [searchQuery, setSearchQuery] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [isMigrating, setIsMigrating] = useState(false); // State for migration indicator
+
+    const handleResetPipeline = async () => {
+        if (!confirm("Are you sure? This will DELETE all current pipeline data (buyers/sellers) and re-migrate from leads.")) return;
+
+        setIsMigrating(true);
+        console.log("[Migration] Starting pipeline migration...");
+        const db = db_instance;
+        if (!db) {
+            alert("Database not initialized");
+            setIsMigrating(false);
+            return;
+        }
+
+        try {
+            const batch = writeBatch(db);
+            let operationCount = 0;
+            const BATCH_LIMIT = 450;
+
+            const commitBatch = async () => {
+                if (operationCount > 0) {
+                    console.log(`[Migration] Committing batch of ${operationCount} operations...`);
+                    await batch.commit();
+                    operationCount = 0;
+                }
+            };
+
+            // 1. DELETE ALL DATA
+            const buyersRef = collection(db, "buyers");
+            const buyersSnap = await getDocs(buyersRef);
+            console.log(`Found ${buyersSnap.size} buyer documents to delete.`);
+            for (const docSnapshot of buyersSnap.docs) {
+                batch.delete(docSnapshot.ref);
+                operationCount++;
+                if (operationCount >= BATCH_LIMIT) await commitBatch();
+            }
+
+            const sellersRef = collection(db, "sellers");
+            const sellersSnap = await getDocs(sellersRef);
+            console.log(`Found ${sellersSnap.size} seller documents to delete.`);
+            for (const docSnapshot of sellersSnap.docs) {
+                batch.delete(docSnapshot.ref);
+                operationCount++;
+                if (operationCount >= BATCH_LIMIT) await commitBatch();
+            }
+
+            await commitBatch();
+            console.log("Cleanup complete. Starting migration from 'leads'...");
+
+            // 2. FETCH LEADS using client SDK (no filtering to keep logic simple for now)
+            const leadsRef = collection(db, "leads");
+            const leadsSnap = await getDocs(leadsRef);
+            const leads = leadsSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+
+            // 3. MIGRATE
+            const potentialBuyers = leads.filter(l => l.leadType === 'Buyer').slice(0, 5);
+            const potentialSellers = leads.filter(l => l.leadType === 'Seller').slice(0, 5);
+
+            const newBatch = writeBatch(db);
+
+            for (const lead of potentialBuyers) {
+                const newDocRef = doc(db, "buyers", lead.id);
+                const sourceDocRef = doc(db, "leads", lead.id);
+
+                newBatch.set(newDocRef, {
+                    ...lead,
+                    status: 'Active',
+                    funnelStage: 'Nurture',
+                    activatedAt: new Date(),
+                    realtorId: lead.realtorId || realtorId
+                });
+                newBatch.update(sourceDocRef, { status: 'Connected' });
+            }
+
+            for (const lead of potentialSellers) {
+                const newDocRef = doc(db, "sellers", lead.id);
+                const sourceDocRef = doc(db, "leads", lead.id);
+
+                newBatch.set(newDocRef, {
+                    ...lead,
+                    status: 'Active',
+                    funnelStage: 'Nurture',
+                    activatedAt: new Date(),
+                    realtorId: lead.realtorId || realtorId
+                });
+                newBatch.update(sourceDocRef, { status: 'Connected' });
+            }
+
+            await newBatch.commit();
+            alert("Migration successful! logical pipeline reset complete.");
+
+        } catch (error: any) {
+            console.error("Migration failed:", error);
+            alert(`Migration failed: ${error.message}`);
+        } finally {
+            setIsMigrating(false);
+        }
+    };
 
     const handleAddStatus = (type: LeadType) => {
         const newStatus: StatusOption = { label: '', description: '', isDefault: false };
@@ -98,7 +200,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                             onChange={(e) => handleUpdateStatus(type, index, { label: e.target.value })}
                                             placeholder="Status Label"
                                             className="w-full bg-transparent font-bold text-slate-900 focus:outline-none focus:text-indigo-600 px-0 py-1"
-                                            disabled={status.isDefault && false} // Allowing edit even if default as per image
+                                            disabled={status.isDefault && false}
                                         />
                                     </td>
                                     <td className="px-6 py-4">
@@ -173,6 +275,21 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                             Changing status labels will update all existing leads instantly. Custom statuses will appear in the "Lead Status" dropdown across the Client Hub and Pipeline boards.
                         </p>
                     </div>
+                </div>
+
+                <div className="mt-8 pt-8 border-t border-slate-200">
+                    <h3 className="text-lg font-bold text-rose-600 mb-4">Danger Zone</h3>
+                    <button
+                        onClick={handleResetPipeline}
+                        disabled={isMigrating}
+                        className="bg-white border-2 border-rose-100 text-rose-600 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-rose-50 hover:border-rose-200 transition-all active:scale-95 flex items-center gap-2"
+                    >
+                        {isMigrating ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-radiation"></i>}
+                        Reset & Migrate Pipeline Data
+                    </button>
+                    <p className="text-slate-400 text-[10px] mt-2 font-medium">
+                        This handles the schema migration request: clears 'buyers'/'sellers' collections and migrates a subset of leads from 'leads' collection while activating them. Use with caution.
+                    </p>
                 </div>
             </div>
         </div>

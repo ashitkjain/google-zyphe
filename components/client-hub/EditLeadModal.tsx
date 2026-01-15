@@ -555,8 +555,9 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                 ))}
                             </select>
                         </div>
-                        <div className="col-span-2 text-xs text-slate-400 text-right">
-                            Last Updated: {editingLead.lastUpdated ? new Date(editingLead.lastUpdated).toLocaleString() : 'Never'}
+                        <div className="col-span-2 text-xs text-slate-400 text-right flex flex-col gap-0.5">
+                            <div>Created At: {editingLead.receivedAt ? (editingLead.receivedAt?.toDate ? editingLead.receivedAt.toDate().toLocaleString() : new Date(editingLead.receivedAt).toLocaleString()) : 'Unknown'}</div>
+                            <div>Last Updated: {editingLead.lastUpdated ? (editingLead.lastUpdated?.toDate ? editingLead.lastUpdated.toDate().toLocaleString() : new Date(editingLead.lastUpdated).toLocaleString()) : 'Never'}</div>
                         </div>
                     </div>
                 </div>

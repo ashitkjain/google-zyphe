@@ -456,7 +456,7 @@ const PipelineBoard: React.FC<PipelineBoardProps> = ({
                                                             <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-50">
                                                                 <div className="flex -space-x-1.5">
                                                                     <div className="w-6 h-6 rounded-full bg-slate-50 border border-white text-[8px] flex items-center justify-center font-black text-slate-400 shadow-sm group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                                                        {lead.name[0]}
+                                                                        {(lead.firstName || lead.name || '?')[0]}
                                                                     </div>
                                                                     {lead.health === 'Active' && (
                                                                         <div className="w-6 h-6 rounded-full bg-emerald-50 border border-white flex items-center justify-center shadow-sm">
