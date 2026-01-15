@@ -89,14 +89,23 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead',
                     status: 'New', receivedAt: new Date(), slaUrgency: 'high', funnelStage: 'Inquiry',
                     health: 'Active', message: "Interested in the downtown loft.", isMock: true, collectionName: 'leads',
-                    minPrice: 400000, maxPrice: 500000
+                    minPrice: 400000, maxPrice: 500000, budgetRange: "$400k - $500k",
+                    isAlsoSelling: true, preQualified: true, preferredNeighborhood: 'Downtown',
+                    tags: ['Priority', 'Loft-Lover'], notes: 'Very motivated to find a place by next month.',
+                    notesLog: [
+                        { id: 'm1', content: 'Very motivated to find a place by next month.', timestamp: new Date(), author: 'Realtor', color: 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]' },
+                        { id: 'm2', content: 'Scheduled a call for tomorrow at 10 AM.', timestamp: new Date(), author: 'Realtor', color: 'bg-[#7afaff] text-slate-800 border-[#69e9ee] shadow-[5px_5px_7px_rgba(33,33,33,.1)]' }
+                    ]
                 },
                 // Past Week (3 days ago)
                 {
                     id: 'clean_buy_2', firstName: 'Bob', lastName: 'Week', email: 'bob.week@example.com', phone: '(555) 001-0002',
                     source: 'Website', leadType: 'Buyer', connectionType: 'Direct Lead',
                     status: 'New', receivedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-                    slaUrgency: 'medium', funnelStage: 'Inquiry', health: 'Active', isMock: true, collectionName: 'leads'
+                    slaUrgency: 'medium', funnelStage: 'Inquiry', health: 'Active', isMock: true, collectionName: 'leads',
+                    minPrice: 600000, maxPrice: 750000, budgetRange: "$600k - $750k",
+                    isAlsoSelling: false, preQualified: false, preferredNeighborhood: 'Westside',
+                    tags: ['First-Time-Buyer'], notes: 'Waiting for pre-approval letter.'
                 },
 
                 // --- NEW SELLER LEADS ---
@@ -106,43 +115,64 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     source: 'Referral', leadType: 'Seller', connectionType: 'Direct Lead',
                     status: 'New', receivedAt: new Date(), slaUrgency: 'high', funnelStage: 'Inquiry',
                     health: 'Active', message: "Thinking of selling my condo.", isMock: true, collectionName: 'leads',
-                    price: 600000, propertyAddress: '123 Market St'
+                    price: 600000, expectedPrice: 625000, propertyAddress: '123 Market St',
+                    isAlsoBuying: true, homeValueNeeded: true, mostImportantToSeller: 'Max Profit',
+                    sellWhen: '3-6 Months', propertyType: 'Condo', occupancyStatus: 'Owner Occupied',
+                    reasonForSelling: 'Upsizing', tags: ['High-Value', 'Referral'], notes: 'Wants to sell before buying a new house.',
+                    notesLog: [
+                        { id: 'm3', content: 'Wants to sell before buying a new house.', timestamp: new Date(), author: 'Realtor', color: 'bg-[#ff7eb9] text-white border-[#ee6da8] shadow-[5px_5px_7px_rgba(33,33,33,.1)]' }
+                    ]
                 },
                 // Past Week (5 days ago)
                 {
                     id: 'clean_sell_2', firstName: 'Dana', lastName: 'Listing', email: 'dana.list@example.com', phone: '(555) 002-0002',
                     source: 'Facebook', leadType: 'Seller', connectionType: 'Direct Lead',
                     status: 'New', receivedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-                    slaUrgency: 'low', funnelStage: 'Inquiry', health: 'Active', isMock: true, collectionName: 'leads'
+                    slaUrgency: 'low', funnelStage: 'Inquiry', health: 'Active', isMock: true, collectionName: 'leads',
+                    price: 450000, expectedPrice: 475000, propertyAddress: '456 Oak Ave',
+                    isAlsoBuying: false, homeValueNeeded: false, mostImportantToSeller: 'Speed of Sale',
+                    sellWhen: 'ASAP', propertyType: 'Single Family', occupancyStatus: 'Vacant',
+                    reasonForSelling: 'Relocation', tags: ['Relocating'], notes: 'Needs a quick sale due to job move.'
                 },
 
                 // --- ACTIVE PIPELINE BUYERS ---
                 {
                     id: 'clean_pipe_buy_1', firstName: 'Evan', lastName: 'Active', email: 'evan.active@example.com', phone: '(555) 003-0001',
                     source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+                    lastTouch: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
                     slaUrgency: 'high', funnelStage: 'Nurture', health: 'Active', minPrice: 800000, maxPrice: 950000,
-                    propertyAddress: 'Looking in Suburbs', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
+                    budgetRange: "$800k - $950k", propertyAddress: 'Looking in Suburbs', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead',
+                    isAlsoSelling: true, preQualified: true, preferredNeighborhood: 'North Hills',
+                    tags: ['Nurture', 'High-Budget'], notes: 'Actively touring properties.'
                 },
                 {
                     id: 'clean_pipe_buy_2', firstName: 'Fiona', lastName: 'Offer', email: 'fiona.offer@example.com', phone: '(555) 003-0002',
                     source: 'Referral', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
+                    lastTouch: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
                     slaUrgency: 'medium', funnelStage: 'Offer', health: 'Active', minPrice: 1200000, maxPrice: 1500000,
-                    propertyAddress: '789 Luxury Ln', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead'
+                    budgetRange: "$1.2M - $1.5M", propertyAddress: '789 Luxury Ln', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead',
+                    isAlsoSelling: false, preQualified: true, preferredNeighborhood: 'The Heights',
+                    tags: ['Offer-Stage', 'Luxury'], notes: 'Offer submitted for 789 Luxury Ln.'
                 },
 
                 // --- ACTIVE PIPELINE SELLERS ---
                 {
                     id: 'clean_pipe_sell_1', firstName: 'George', lastName: 'Staging', email: 'george.stage@example.com', phone: '(555) 004-0001',
                     source: 'Website', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
-                    slaUrgency: 'medium', funnelStage: 'Active', health: 'Active', price: 750000,
-                    propertyAddress: '456 Garden Ave', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead'
+                    lastTouch: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+                    slaUrgency: 'medium', funnelStage: 'Active', health: 'Active', price: 750000, expectedPrice: 775000,
+                    propertyAddress: '456 Garden Ave', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead',
+                    isAlsoBuying: true, homeValueNeeded: true, mostImportantToSeller: 'Terms',
+                    sellWhen: '1-3 Months', propertyType: 'Single Family', occupancyStatus: 'Tenant Occupied',
+                    reasonForSelling: 'Retiring', tags: ['Active-Listing'], notes: 'House is being staged right now.'
                 },
 
                 // --- ARCHIVED ---
                 {
                     id: 'clean_archived_1', firstName: 'Harry', lastName: 'Old', email: 'harry.old@example.com', phone: '(555) 999-9999',
                     source: 'Zillow', leadType: 'Buyer', status: 'Archived', receivedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
-                    slaUrgency: 'low', funnelStage: 'Inquiry', health: 'Dormant', isMock: true, collectionName: 'leads', connectionType: 'Direct Lead'
+                    slaUrgency: 'low', funnelStage: 'Inquiry', health: 'Dormant', isMock: true, collectionName: 'leads', connectionType: 'Direct Lead',
+                    isAlsoSelling: false, preQualified: false, tags: ['Archived'], notes: 'No longer looking in this area.'
                 }
             ];
 
@@ -446,7 +476,22 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
         const noteId = await addPipelineNote(newNoteObj);
         if (noteId) {
-            setPipelineNotes(prev => [...prev, { ...newNoteObj, id: noteId } as PipelineNote]);
+            const finalNote = { ...newNoteObj, id: noteId } as PipelineNote;
+            setPipelineNotes(prev => [...prev, finalNote]);
+
+            // Sync with Lead's notesLog
+            const lead = leads.find(l => l.id === pendingNote.leadId);
+            if (lead) {
+                const updatedNotesLog = [...(lead.notesLog || []), {
+                    id: noteId,
+                    content: content,
+                    timestamp: new Date(),
+                    author: realtorName,
+                    color: pendingNote.color
+                }];
+                handleUpdateLead(lead.id, { notesLog: updatedNotesLog });
+            }
+
             setPendingNote(null);
         } else {
             alert("Failed to save note.");
@@ -457,14 +502,33 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         // Optimistic update
         setPipelineNotes(prev => prev.map(n => n.id === noteId ? { ...n, ...updates } : n));
 
+        // Sync with Lead's notesLog
+        const note = pipelineNotes.find(n => n.id === noteId);
+        if (note) {
+            const lead = leads.find(l => l.id === note.leadId);
+            if (lead && lead.notesLog) {
+                const updatedNotesLog = lead.notesLog.map(n => n.id === noteId ? { ...n, ...updates } : n);
+                handleUpdateLead(lead.id, { notesLog: updatedNotesLog });
+            }
+        }
+
         const success = await updatePipelineNote(noteId, updates);
         if (!success) {
             alert("Failed to update note.");
-            // Ideally revert here but for brevity we'll stick to simple error
         }
     };
 
     const handleDeletePipelineNote = async (noteId: string) => {
+        // Sync with Lead's notesLog first
+        const note = pipelineNotes.find(n => n.id === noteId);
+        if (note) {
+            const lead = leads.find(l => l.id === note.leadId);
+            if (lead && lead.notesLog) {
+                const updatedNotesLog = lead.notesLog.filter(n => n.id !== noteId);
+                handleUpdateLead(lead.id, { notesLog: updatedNotesLog });
+            }
+        }
+
         // Optimistic update
         setPipelineNotes(prev => prev.filter(n => n.id !== noteId));
 

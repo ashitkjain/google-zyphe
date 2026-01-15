@@ -24,6 +24,14 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
     realtorSettings
 }) => {
     const [showStatusInfo, setShowStatusInfo] = useState(false);
+    const [noteColor, setNoteColor] = useState('bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]');
+
+    const noteTypes = [
+        { id: 'note-yellow', color: 'bg-[#ffff88] text-slate-800 border-[#eeee77]', shadow: 'shadow-[5px_5px_7px_rgba(33,33,33,.1)]' },
+        { id: 'note-blue', color: 'bg-[#7afaff] text-slate-800 border-[#69e9ee]', shadow: 'shadow-[5px_5px_7px_rgba(33,33,33,.1)]' },
+        { id: 'note-pink', color: 'bg-[#ff7eb9] text-white border-[#ee6da8]', shadow: 'shadow-[5px_5px_7px_rgba(33,33,33,.1)]' },
+        { id: 'note-green', color: 'bg-[#a7ffeb] text-slate-800 border-[#96eee0]', shadow: 'shadow-[5px_5px_7px_rgba(33,33,33,.1)]' },
+    ];
 
     const onSave = () => {
         if (editingLead) {
@@ -41,7 +49,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                     id: crypto.randomUUID(),
                     content: newNote.trim(),
                     timestamp: new Date().toISOString(),
-                    author: 'User'
+                    author: 'User',
+                    color: noteColor
                 };
                 updatedLead.notesLog = [...(updatedLead.notesLog || []), noteEntry];
                 updatedLead.notes = newNote.trim(); // Update latest note for list view
@@ -243,14 +252,25 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                     </div>
                                 </>
                             ) : (
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Price ($)</label>
-                                    <input
-                                        type="number"
-                                        defaultValue={editingLead.price}
-                                        onChange={(e) => setEditingLead({ ...editingLead, price: Number(e.target.value) })}
-                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
-                                    />
+                                <div className="space-y-2 col-span-2 grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">List Price ($)</label>
+                                        <input
+                                            type="number"
+                                            defaultValue={editingLead.price}
+                                            onChange={(e) => setEditingLead({ ...editingLead, price: Number(e.target.value) })}
+                                            className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Expected Price ($)</label>
+                                        <input
+                                            type="number"
+                                            defaultValue={editingLead.expectedPrice}
+                                            onChange={(e) => setEditingLead({ ...editingLead, expectedPrice: Number(e.target.value) })}
+                                            className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                        />
+                                    </div>
                                 </div>
                             )}
                             <div className="space-y-2">
@@ -271,26 +291,130 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                     className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Sq Ft</label>
-                                <input
-                                    type="number"
-                                    defaultValue={editingLead.sqft}
-                                    onChange={(e) => setEditingLead({ ...editingLead, sqft: Number(e.target.value) })}
-                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
-                                />
-                            </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Lead Readiness / Timeframe</label>
-                            <input
-                                type="text"
-                                placeholder="e.g. 1-3 months"
-                                defaultValue={editingLead.timeframe}
-                                onChange={(e) => setEditingLead({ ...editingLead, timeframe: e.target.value })}
-                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
-                            />
+                        {/* Additional Lead Context */}
+                        <div className="col-span-2 pt-4 border-t border-slate-100">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 mb-4 ml-1">Lead Context & Preferences</h4>
+                            <div className="grid grid-cols-2 gap-6">
+                                {(editingLead.leadType === 'Buyer' || editingLead.leadType === 'Rental') ? (
+                                    <>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Preferred Neighborhood</label>
+                                            <input
+                                                type="text"
+                                                defaultValue={editingLead.preferredNeighborhood}
+                                                onChange={(e) => setEditingLead({ ...editingLead, preferredNeighborhood: e.target.value })}
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                                placeholder="e.g. Downtown, Westside"
+                                            />
+                                        </div>
+                                        <div className="flex gap-4 items-center h-full pt-4">
+                                            <label className="flex items-center gap-2 cursor-pointer group">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={editingLead.isAlsoSelling}
+                                                    onChange={(e) => setEditingLead({ ...editingLead, isAlsoSelling: e.target.checked })}
+                                                    className="w-5 h-5 rounded-lg border-slate-200 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                />
+                                                <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Also Selling?</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer group">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={editingLead.preQualified}
+                                                    onChange={(e) => setEditingLead({ ...editingLead, preQualified: e.target.checked })}
+                                                    className="w-5 h-5 rounded-lg border-slate-200 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                                />
+                                                <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Pre-qualified?</span>
+                                            </label>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Sell When?</label>
+                                            <input
+                                                type="text"
+                                                defaultValue={editingLead.sellWhen}
+                                                onChange={(e) => setEditingLead({ ...editingLead, sellWhen: e.target.value })}
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                                placeholder="e.g. ASAP, 3-6 months"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Occupancy Status</label>
+                                            <input
+                                                type="text"
+                                                defaultValue={editingLead.occupancyStatus}
+                                                onChange={(e) => setEditingLead({ ...editingLead, occupancyStatus: e.target.value })}
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                                placeholder="e.g. Owner Occupied, Tenant"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Most Important to Seller</label>
+                                            <input
+                                                type="text"
+                                                defaultValue={editingLead.mostImportantToSeller}
+                                                onChange={(e) => setEditingLead({ ...editingLead, mostImportantToSeller: e.target.value })}
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                                placeholder="e.g. Speed, Profit, Terms"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Reason For Selling</label>
+                                            <input
+                                                type="text"
+                                                defaultValue={editingLead.reasonForSelling}
+                                                onChange={(e) => setEditingLead({ ...editingLead, reasonForSelling: e.target.value })}
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                                placeholder="e.g. Relocation, Upsizing"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Existing Agent?</label>
+                                            <input
+                                                type="text"
+                                                defaultValue={editingLead.existingAgentName}
+                                                onChange={(e) => setEditingLead({ ...editingLead, existingAgentName: e.target.value })}
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                                placeholder="e.g. None, John Smith"
+                                            />
+                                        </div>
+                                        <div className="flex gap-4 items-center h-full pt-4">
+                                            <label className="flex items-center gap-2 cursor-pointer group">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={editingLead.isAlsoBuying}
+                                                    onChange={(e) => setEditingLead({ ...editingLead, isAlsoBuying: e.target.checked })}
+                                                    className="w-5 h-5 rounded-lg border-slate-200 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                />
+                                                <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Also Buying?</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer group">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={editingLead.homeValueNeeded}
+                                                    onChange={(e) => setEditingLead({ ...editingLead, homeValueNeeded: e.target.checked })}
+                                                    className="w-5 h-5 rounded-lg border-slate-200 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                                />
+                                                <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Home Value Needed?</span>
+                                            </label>
+                                        </div>
+                                    </>
+                                )}
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Lead Readiness / Timeframe</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. 1-3 months"
+                                        defaultValue={editingLead.timeframe}
+                                        onChange={(e) => setEditingLead({ ...editingLead, timeframe: e.target.value })}
+                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div className="space-y-2">
@@ -301,30 +425,75 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                             className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none min-h-[80px]"
                         />
                     </div>
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Notes Log</label>
-                        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 max-h-48 overflow-y-auto space-y-3">
-                            {editingLead.notesLog && editingLead.notesLog.length > 0 ? (
-                                editingLead.notesLog.map((note) => (
-                                    <div key={note.id} className="bg-white p-3 rounded-lg border border-slate-100 text-xs shadow-sm">
-                                        <div className="flex justify-between text-slate-400 text-[10px] mb-1">
-                                            <span>{new Date(note.timestamp).toLocaleString()}</span>
-                                            <span>{note.author || 'System'}</span>
-                                        </div>
-                                        <div className="text-slate-700 whitespace-pre-wrap">{note.content}</div>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="text-center text-slate-400 italic text-xs py-4">No notes recorded yet.</div>
-                            )}
+                    <div className="space-y-4 pt-4 border-t border-slate-100">
+                        <style dangerouslySetInnerHTML={{
+                            __html: `
+                            @import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap');
+                            .post-it-font {
+                                font-family: 'Architects Daughter', cursive;
+                                line-height: 1.2;
+                            }
+                            `}} />
+                        <div className="flex items-center justify-between ml-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Notes Log</label>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-300">New Note Color:</span>
+                                <div className="flex gap-1.5">
+                                    {noteTypes.map((type) => (
+                                        <button
+                                            key={type.id}
+                                            onClick={() => setNoteColor(`${type.color} ${type.shadow}`)}
+                                            className={`w-4 h-4 rounded-full border border-black/5 transition-all hover:scale-125 ${type.color} ${noteColor.includes(type.color) ? 'ring-2 ring-indigo-500 ring-offset-2 scale-110' : 'opacity-60'}`}
+                                            title={type.id.replace('note-', '')}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
                         </div>
-                        <textarea
-                            value={newNote}
-                            onChange={(e) => setNewNote(e.target.value)}
-                            rows={2}
-                            className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none resize-none mt-2"
-                            placeholder="Add a new note..."
-                        />
+
+                        <div className="bg-slate-50 border border-slate-100 rounded-[2.5rem] p-6 max-h-[400px] overflow-y-auto">
+                            <div className="flex flex-wrap gap-4">
+                                {editingLead.notesLog && editingLead.notesLog.length > 0 ? (
+                                    [...editingLead.notesLog].reverse().map((note, i) => (
+                                        <div
+                                            key={note.id}
+                                            className={`p-4 pt-5 w-32 h-32 rounded-sm border-t border-black/5 text-[10px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-105 group/note flex flex-col relative ${note.color || 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]'} ${i % 2 === 0 ? 'rotate-1' : '-rotate-1'} hover:rotate-0`}
+                                        >
+                                            <div className="flex justify-between text-[7px] opacity-40 mb-1 font-sans">
+                                                <span>{new Date(note.timestamp).toLocaleDateString()}</span>
+                                                <span>{note.author || 'System'}</span>
+                                            </div>
+                                            <div className="text-slate-800 line-clamp-6 leading-tight flex-1">{note.content}</div>
+
+                                            <button
+                                                onClick={() => {
+                                                    const updatedNotesLog = editingLead.notesLog?.filter(n => n.id !== note.id);
+                                                    setEditingLead({ ...editingLead, notesLog: updatedNotesLog });
+                                                }}
+                                                className="absolute top-1 right-1 opacity-0 group-hover/note:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1"
+                                            >
+                                                <i className="fa-solid fa-trash-can text-[8px]"></i>
+                                            </button>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="w-full text-center text-slate-300 italic text-xs py-8">No notes recorded yet. Add one below!</div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="relative">
+                            <textarea
+                                value={newNote}
+                                onChange={(e) => setNewNote(e.target.value)}
+                                rows={3}
+                                className={`w-full px-6 py-5 rounded-[2rem] text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none resize-none border-t border-black/5 post-it-font ${noteColor}`}
+                                placeholder="Type a new post-it note..."
+                            />
+                            <div className="absolute top-2 right-4 flex items-center gap-1 opacity-20">
+                                <i className="fa-solid fa-note-sticky text-xs"></i>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="space-y-2">

@@ -55,6 +55,9 @@ export interface LeadNote {
   content: string;
   timestamp: any;
   author?: string;
+  color?: string;
+  isDone?: boolean;
+  isUrgent?: boolean;
 }
 
 export interface ShortlistedProperty {

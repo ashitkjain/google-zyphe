@@ -224,6 +224,79 @@ const LeadGalleryItem: React.FC<{
                                 </div>
                             )}
 
+                            {/* Post-it Notes */}
+                            <div className="flex flex-wrap gap-3 mt-4 relative min-h-[40px]" onClick={(e) => e.stopPropagation()}>
+                                {(lead.notesLog || []).filter(n => !n.isDone).map((note, i) => (
+                                    <div
+                                        key={note.id}
+                                        onClick={() => { if (!editNoteId) { setEditNoteId(note.id); setEditContent(note.content); } }}
+                                        className={`p-2.5 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[9px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-110 hover:z-10 group/note flex flex-col relative cursor-pointer post-it-container ${note.color || 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]'} ${i % 2 === 0 ? 'rotate-2' : '-rotate-2'} hover:rotate-0 ${note.isDone ? 'line-through opacity-50' : ''} ${deletingNoteId === note.id ? 'animate-fly-away' : ''} ${celebratingNoteId === note.id ? 'animate-shake' : ''} ${isFlyingUpId === note.id ? 'animate-fly-up' : ''} ${note.isUrgent ? 'urgent-glow' : ''}`}
+                                        style={{
+                                            ...((deletingNoteId === note.id || isFlyingUpId === note.id) && deleteCoords ? {
+                                                '--start-top': `${deleteCoords.top}px`,
+                                                '--start-left': `${deleteCoords.left}px`
+                                            } as any : {})
+                                        }}
+                                    >
+                                        {editNoteId === note.id ? (
+                                            <textarea
+                                                autoFocus
+                                                className="w-full h-full bg-transparent border-none outline-none resize-none post-it-edit"
+                                                value={editContent}
+                                                onChange={(e) => setEditContent(e.target.value)}
+                                                onBlur={() => {
+                                                    if (editContent.trim() && editContent !== note.content) {
+                                                        handleUpdateNote(note.id, { content: editContent });
+                                                    }
+                                                    setEditNoteId(null);
+                                                }}
+                                            />
+                                        ) : (
+                                            <>
+                                                <div className="text-slate-800 line-clamp-5 leading-tight">{note.content}</div>
+                                                <div className="absolute top-1 right-1 opacity-0 group-hover/note:opacity-100 transition-opacity flex gap-1 bg-white/20 rounded-full px-1 backdrop-blur-sm">
+                                                    <button
+                                                        onClick={(e) => onDoneToggle(e, note)}
+                                                        className="text-slate-600 hover:text-emerald-600 transition-colors p-0.5"
+                                                        title="Complete"
+                                                    >
+                                                        <i className="fa-solid fa-check text-[10px]"></i>
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => onDeleteClick(e, note.id)}
+                                                        className="text-slate-600 hover:text-red-500 transition-colors p-0.5"
+                                                        title="Delete"
+                                                    >
+                                                        <i className="fa-solid fa-trash-can text-[10px]"></i>
+                                                    </button>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                ))}
+
+                                {/* Pending Note (Draft) */}
+                                {pendingNote && pendingNote.leadId === lead.id && (
+                                    <div className={`p-2.5 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[9px] font-bold post-it-font whitespace-normal shadow-xl transition-all rotate-3 scale-105 z-20 flex flex-col relative post-it-container ${pendingNote.color}`}>
+                                        <textarea
+                                            autoFocus
+                                            className="w-full h-full bg-transparent border-none outline-none resize-none post-it-draft"
+                                            placeholder="Write note..."
+                                            value={draftContent}
+                                            onChange={(e) => setDraftContent(e.target.value)}
+                                            onBlur={() => {
+                                                if (draftContent.trim()) {
+                                                    handleSaveNote(draftContent);
+                                                } else {
+                                                    setPendingNote(null);
+                                                }
+                                                setDraftContent('');
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
                             {noteProvided.placeholder}
                         </div>
                     )}
@@ -1179,11 +1252,11 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                             </select>
                                                                         </div>
                                                                     ) : (
-                                                                        lead.isAlsoSelling ? (
+                                                                        lead.isAlsoSelling === true ? (
                                                                             <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        ) : (
+                                                                        ) : lead.isAlsoSelling === false ? (
                                                                             <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        )
+                                                                        ) : null
                                                                     )}
                                                                 </div>
                                                             </td>
@@ -1213,11 +1286,11 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                             </select>
                                                                         </div>
                                                                     ) : (
-                                                                        lead.preQualified ? (
+                                                                        lead.preQualified === true ? (
                                                                             <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        ) : (
+                                                                        ) : lead.preQualified === false ? (
                                                                             <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        )
+                                                                        ) : null
                                                                     )}
                                                                 </div>
                                                             </td>
@@ -1540,11 +1613,11 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                             </select>
                                                                         </div>
                                                                     ) : (
-                                                                        lead.isAlsoBuying ? (
+                                                                        lead.isAlsoBuying === true ? (
                                                                             <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        ) : (
+                                                                        ) : lead.isAlsoBuying === false ? (
                                                                             <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        )
+                                                                        ) : null
                                                                     )}
                                                                 </div>
                                                             </td>
@@ -1574,11 +1647,11 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                             </select>
                                                                         </div>
                                                                     ) : (
-                                                                        lead.homeValueNeeded ? (
+                                                                        lead.homeValueNeeded === true ? (
                                                                             <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        ) : (
+                                                                        ) : lead.homeValueNeeded === false ? (
                                                                             <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        )
+                                                                        ) : null
                                                                     )}
                                                                 </div>
                                                             </td>
