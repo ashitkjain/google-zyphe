@@ -178,6 +178,7 @@ export interface Lead {
   lastUpdated?: any;
   tags?: string[];
   notes?: string;
+  stageLastChangedAt?: any;
   notesLog?: LeadNote[];
   smsConsent?: boolean;
   smsConsentTimestamp?: any;

@@ -7,7 +7,7 @@ import LeadGalleryItem from './leads/LeadGalleryItem';
 import LeadsHeader from './leads/LeadsHeader';
 import LeadsViewControls from './leads/LeadsViewControls';
 import { noteTypes } from './leads/PostItPalette';
-import { availableBuyerColumns, availableSellerColumns, defaultBuyerVisible, defaultSellerVisible } from './leads/constants';
+import { availableBuyerColumns, availableSellerColumns, defaultBuyerVisible, defaultSellerVisible, stageDefaultColumns } from './leads/constants';
 
 
 const LeadsList: React.FC<InternalProps> = ({
@@ -26,6 +26,23 @@ const LeadsList: React.FC<InternalProps> = ({
     realtorSettings,
     onUpdateAvatar
 }) => {
+    const formatLeadAge = (dateInput: any) => {
+        if (!dateInput) return '--';
+        const date = dateInput.toDate ? dateInput.toDate() : new Date(dateInput);
+        const now = new Date();
+        const diffMs = Math.max(0, now.getTime() - date.getTime());
+        const d = Math.floor(diffMs / 86400000);
+        const h = Math.floor((diffMs % 86400000) / 3600000);
+        const m = Math.floor((diffMs % 3600000) / 60000);
+
+        const parts = [];
+        if (d > 0) parts.push(`${d}d`);
+        if (h > 0) parts.push(`${h}h`);
+        if (m > 0 || parts.length === 0) parts.push(`${m}m`);
+
+        return parts.join(' ');
+    };
+
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [sortField, setSortField] = useState<keyof Lead>('receivedAt');
 
@@ -56,33 +73,6 @@ const LeadsList: React.FC<InternalProps> = ({
 
 
 
-    const [visibleColumns, setVisibleColumns] = useState({
-        Buyer: new Set(defaultBuyerVisible),
-        Seller: new Set(defaultSellerVisible)
-    });
-
-    const toggleColumn = (type: 'Buyer' | 'Seller', colId: string) => {
-        setVisibleColumns(prev => {
-            const newSet = new Set(prev[type]);
-            if (newSet.has(colId)) newSet.delete(colId);
-            else newSet.add(colId);
-            return { ...prev, [type]: newSet };
-        });
-    };
-
-    // Force sync visible columns if defaults change (handles Hot Reload state preservation)
-    useEffect(() => {
-        setVisibleColumns(prev => {
-            const missingBuyer = defaultBuyerVisible.some(c => !prev.Buyer.has(c));
-            if (missingBuyer) {
-                return {
-                    ...prev,
-                    Buyer: new Set([...Array.from(prev.Buyer), ...defaultBuyerVisible])
-                };
-            }
-            return prev;
-        });
-    }, [defaultBuyerVisible.length]); // Dep on length change or just run once? Defaults are const. Length change is safe proxy.
 
     const columnSelectorRef = useRef<HTMLDivElement>(null);
 
@@ -115,6 +105,34 @@ const LeadsList: React.FC<InternalProps> = ({
         past6Months: 'gallery',
         older: 'list'
     });
+
+    const [visibleColumns, setVisibleColumns] = useState<Record<string, Set<string>>>(() => {
+        const initial: Record<string, Set<string>> = {};
+        (['Buyer', 'Seller'] as const).forEach(type => {
+            Object.entries(stageDefaultColumns[type]).forEach(([stage, views]) => {
+                Object.entries(views).forEach(([mode, cols]) => {
+                    initial[`${type}-${stage}-${mode}`] = new Set(cols as string[]);
+                });
+            });
+        });
+        return initial;
+    });
+
+    const toggleColumn = (type: 'Buyer' | 'Seller', colId: string) => {
+        const stage = type === 'Buyer' ? buyerFunnelCategory : sellerFunnelCategory;
+        const mode = type === 'Buyer' ? displayModes[buyerViewMode] : displayModes[sellerViewMode];
+        const key = `${type}-${stage}-${mode}`;
+
+        setVisibleColumns(prev => {
+            const newSet = new Set(prev[key] || []);
+            if (newSet.has(colId)) newSet.delete(colId);
+            else newSet.add(colId);
+            return { ...prev, [key]: newSet };
+        });
+    };
+
+    const buyerVisibleColumns = visibleColumns[`Buyer-${buyerFunnelCategory}-${displayModes[buyerViewMode]}`] || new Set();
+    const sellerVisibleColumns = visibleColumns[`Seller-${sellerFunnelCategory}-${displayModes[sellerViewMode]}`] || new Set();
 
     const currentDisplayMode = activeTab === 'Buyer' ? displayModes[buyerViewMode] : displayModes[sellerViewMode];
 
@@ -403,14 +421,20 @@ const LeadsList: React.FC<InternalProps> = ({
             let aVal = a[sortField] as any;
             let bVal = b[sortField] as any;
 
-            if (sortField === 'firstName') {
-                aVal = `${a.firstName} ${a.lastName}`;
-                bVal = `${b.firstName} ${b.lastName}`;
+            // Normalize Date/Timestamp fields for reliable comparison
+            const isDateField = ['receivedAt', 'lastUpdated', 'lastTouch', 'leaseEndDate'].includes(sortField as string);
+            if (isDateField) {
+                const getVal = (v: any) => v?.toDate ? v.toDate().getTime() : (v ? new Date(v).getTime() : 0);
+                aVal = getVal(aVal);
+                bVal = getVal(bVal);
+            } else if (sortField === 'firstName') {
+                aVal = `${a.firstName} ${a.lastName}`.toLowerCase();
+                bVal = `${b.firstName} ${b.lastName}`.toLowerCase();
             }
 
             if (aVal === bVal) return 0;
-            if (aVal === undefined || aVal === null) return 1;
-            if (bVal === undefined || bVal === null) return -1;
+            if (aVal === undefined || aVal === null || aVal === 0) return 1;
+            if (bVal === undefined || bVal === null || bVal === 0) return -1;
 
             const comparison = aVal > bVal ? 1 : -1;
             return sortDirection === 'asc' ? comparison : -comparison;
@@ -442,11 +466,23 @@ const LeadsList: React.FC<InternalProps> = ({
         if (columnFilters.source) result = result.filter(l => l.source === columnFilters.source);
 
         return result.sort((a, b) => {
-            const aVal = a[sortField];
-            const bVal = b[sortField];
+            let aVal = a[sortField] as any;
+            let bVal = b[sortField] as any;
+
+            // Normalize Date/Timestamp fields for reliable comparison
+            const isDateField = ['receivedAt', 'lastUpdated', 'lastTouch', 'leaseEndDate'].includes(sortField as string);
+            if (isDateField) {
+                const getVal = (v: any) => v?.toDate ? v.toDate().getTime() : (v ? new Date(v).getTime() : 0);
+                aVal = getVal(aVal);
+                bVal = getVal(bVal);
+            } else if (sortField === 'firstName') {
+                aVal = `${a.firstName} ${a.lastName}`.toLowerCase();
+                bVal = `${b.firstName} ${b.lastName}`.toLowerCase();
+            }
+
             if (aVal === bVal) return 0;
-            if (!aVal) return 1;
-            if (!bVal) return -1;
+            if (aVal === undefined || aVal === null || aVal === 0) return 1;
+            if (bVal === undefined || bVal === null || bVal === 0) return -1;
 
             const comparison = aVal > bVal ? 1 : -1;
             return sortDirection === 'asc' ? comparison : -comparison;
@@ -554,7 +590,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                 setDisplayMode={(mode) => setDisplayModes(prev => ({ ...prev, [buyerViewMode]: mode }))}
                                 columnSelectorRef={columnSelectorRef}
                                 availableColumns={availableBuyerColumns}
-                                visibleColumns={visibleColumns.Buyer}
+                                visibleColumns={buyerVisibleColumns}
                                 onToggleColumn={(colId) => toggleColumn('Buyer', colId)}
                             />
                             {
@@ -609,50 +645,50 @@ const LeadsList: React.FC<InternalProps> = ({
                                                     <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('firstName')}>
                                                         Full Name {sortField === 'firstName' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                     </th>
-                                                    {visibleColumns.Buyer.has('funnelStage') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Funnel Stage</th>}
-                                                    {visibleColumns.Buyer.has('status') && (
+                                                    {buyerVisibleColumns.has('funnelStage') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Funnel Stage</th>}
+                                                    {buyerVisibleColumns.has('status') && (
                                                         <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('status')}>
                                                             Lead Status {sortField === 'status' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                         </th>
                                                     )}
 
-                                                    {visibleColumns.Buyer.has('phone') && (
+                                                    {buyerVisibleColumns.has('phone') && (
                                                         <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('phone')}>
                                                             Contact Info {sortField === 'phone' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                         </th>
                                                     )}
-                                                    {visibleColumns.Buyer.has('callCount') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Call Tracker</th>}
-                                                    {visibleColumns.Buyer.has('lastUpdated') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Last Updated On</th>}
-                                                    {visibleColumns.Buyer.has('isAlsoSelling') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Also Selling?</th>}
-                                                    {visibleColumns.Buyer.has('preQualified') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Pre-qualified?</th>}
-                                                    {visibleColumns.Buyer.has('budgetRange') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Budget</th>}
-                                                    {visibleColumns.Buyer.has('preferredNeighborhood') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Preferred Neighborhood</th>}
-                                                    {visibleColumns.Buyer.has('source') && (
+                                                    {buyerVisibleColumns.has('callCount') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Call Tracker</th>}
+                                                    {buyerVisibleColumns.has('lastUpdated') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Last Updated On</th>}
+                                                    {buyerVisibleColumns.has('isAlsoSelling') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Also Selling?</th>}
+                                                    {buyerVisibleColumns.has('preQualified') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Pre-qualified?</th>}
+                                                    {buyerVisibleColumns.has('budgetRange') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Budget</th>}
+                                                    {buyerVisibleColumns.has('preferredNeighborhood') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Preferred Neighborhood</th>}
+                                                    {buyerVisibleColumns.has('source') && (
                                                         <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('source')}>
                                                             Source {sortField === 'source' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                         </th>
                                                     )}
-                                                    {visibleColumns.Buyer.has('receivedAt') && (
+                                                    {buyerVisibleColumns.has('receivedAt') && (
                                                         <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('receivedAt')}>
-                                                            Date Created {sortField === 'receivedAt' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                            Time in {buyerFunnelCategory} {sortField === 'receivedAt' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                         </th>
                                                     )}
-                                                    {visibleColumns.Buyer.has('lastTouch') && (
+                                                    {buyerVisibleColumns.has('lastTouch') && (
                                                         <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('lastTouch')}>
                                                             Last Follow Up {sortField === 'lastTouch' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                         </th>
                                                     )}
-                                                    {visibleColumns.Buyer.has('message') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Message</th>}
-                                                    {visibleColumns.Buyer.has('timeframe') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Timeframe</th>}
-                                                    {visibleColumns.Buyer.has('leaseEndDate') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Lease End Date</th>}
-                                                    {visibleColumns.Buyer.has('propertyAddress') && (
+                                                    {buyerVisibleColumns.has('message') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Message</th>}
+                                                    {buyerVisibleColumns.has('timeframe') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Timeframe</th>}
+                                                    {buyerVisibleColumns.has('leaseEndDate') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Lease End Date</th>}
+                                                    {buyerVisibleColumns.has('propertyAddress') && (
                                                         <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('propertyAddress')}>
                                                             Inquired Property {sortField === 'propertyAddress' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                         </th>
                                                     )}
-                                                    {visibleColumns.Buyer.has('tags') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Tags</th>}
+                                                    {buyerVisibleColumns.has('tags') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Tags</th>}
 
-                                                    {visibleColumns.Buyer.has('notes') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Call Notes</th>}
+                                                    {buyerVisibleColumns.has('notes') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Call Notes</th>}
 
                                                 </tr>
                                             </thead>
@@ -675,14 +711,14 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         <td className="px-2 py-2 border-b border-slate-100 font-bold text-slate-900 cursor-pointer hover:underline" onClick={() => onViewLead(lead)}>
                                                             {lead.firstName} {lead.lastName}
                                                         </td>
-                                                        {visibleColumns.Buyer.has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs text-indigo-500 uppercase tracking-tighter">{lead.funnelStage || '--'}</td>}
-                                                        {visibleColumns.Buyer.has('status') && (
+                                                        {buyerVisibleColumns.has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs text-indigo-500 uppercase tracking-tighter">{lead.funnelStage || '--'}</td>}
+                                                        {buyerVisibleColumns.has('status') && (
                                                             <td className="px-2 py-2 border-b border-slate-100">
                                                                 {renderCell(lead, 'status', 'select', getStatusOptions(lead.leadType, realtorSettings).map((o: any) => o.label))}
                                                             </td>
                                                         )}
 
-                                                        {visibleColumns.Buyer.has('phone') && (
+                                                        {buyerVisibleColumns.has('phone') && (
                                                             <td className="px-2 py-2 border-b border-slate-100">
                                                                 <div className="flex flex-col">
                                                                     <div className="text-xs font-semibold text-slate-700 leading-tight mb-0.5 flex items-center gap-2">
@@ -704,19 +740,19 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 </div>
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Buyer.has('callCount') && (
+                                                        {buyerVisibleColumns.has('callCount') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 text-center">
                                                                 <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-full text-xs font-bold border border-slate-200">
                                                                     {lead.callCount || 0}
                                                                 </span>
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Buyer.has('lastUpdated') && (
+                                                        {buyerVisibleColumns.has('lastUpdated') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-500 font-medium whitespace-nowrap">
                                                                 {lead.lastUpdated ? (lead.lastUpdated?.toDate ? lead.lastUpdated.toDate().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(lead.lastUpdated).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '--'}
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Buyer.has('isAlsoSelling') && (
+                                                        {buyerVisibleColumns.has('isAlsoSelling') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 text-center">
                                                                 <div
                                                                     className="flex justify-center cursor-pointer"
@@ -750,7 +786,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 </div>
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Buyer.has('preQualified') && (
+                                                        {buyerVisibleColumns.has('preQualified') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 text-center font-semibold">
                                                                 <div
                                                                     className="flex justify-center cursor-pointer"
@@ -784,32 +820,32 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 </div>
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Buyer.has('budgetRange') && <td className="px-2 py-2 border-b border-slate-100 font-medium">{renderCell(lead, 'budgetRange' as any)}</td>}
-                                                        {visibleColumns.Buyer.has('preferredNeighborhood') && <td className="px-2 py-2 border-b border-slate-100 font-medium underline text-indigo-600/80 decoration-indigo-200 underline-offset-4">{renderCell(lead, 'preferredNeighborhood' as any)}</td>}
-                                                        {visibleColumns.Buyer.has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
-                                                        {visibleColumns.Buyer.has('receivedAt') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-semibold whitespace-nowrap uppercase">
-                                                                {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }) : new Date(lead.receivedAt).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}
+                                                        {buyerVisibleColumns.has('budgetRange') && <td className="px-2 py-2 border-b border-slate-100 font-medium">{renderCell(lead, 'budgetRange' as any)}</td>}
+                                                        {buyerVisibleColumns.has('preferredNeighborhood') && <td className="px-2 py-2 border-b border-slate-100 font-medium underline text-indigo-600/80 decoration-indigo-200 underline-offset-4">{renderCell(lead, 'preferredNeighborhood' as any)}</td>}
+                                                        {buyerVisibleColumns.has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
+                                                        {buyerVisibleColumns.has('receivedAt') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-bold whitespace-nowrap uppercase">
+                                                                {formatLeadAge(lead.stageLastChangedAt || lead.receivedAt)}
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Buyer.has('lastTouch') && (
+                                                        {buyerVisibleColumns.has('lastTouch') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-medium whitespace-nowrap">
                                                                 {lead.lastTouch ? (lead.lastTouch?.toDate ? lead.lastTouch.toDate().toLocaleDateString() : new Date(lead.lastTouch).toLocaleDateString()) : '--'}
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Buyer.has('message') && (
+                                                        {buyerVisibleColumns.has('message') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-600 max-w-[200px] whitespace-normal" title={lead.message}>
                                                                 {lead.message || '--'}
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Buyer.has('timeframe') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.timeframe || '--'}</td>}
-                                                        {visibleColumns.Buyer.has('leaseEndDate') && (
+                                                        {buyerVisibleColumns.has('timeframe') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.timeframe || '--'}</td>}
+                                                        {buyerVisibleColumns.has('leaseEndDate') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 text-[10px] text-slate-500 font-medium">
                                                                 {lead.leaseEndDate ? (lead.leaseEndDate?.toDate ? lead.leaseEndDate.toDate().toLocaleDateString() : new Date(lead.leaseEndDate).toLocaleDateString()) : '--'}
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Buyer.has('propertyAddress') && <td className="px-2 py-2 border-b border-slate-100 font-medium underline text-indigo-600/80 decoration-indigo-200 underline-offset-4 text-xs">{lead.propertyAddress || '--'}</td>}
-                                                        {visibleColumns.Buyer.has('tags') && (
+                                                        {buyerVisibleColumns.has('propertyAddress') && <td className="px-2 py-2 border-b border-slate-100 font-medium underline text-indigo-600/80 decoration-indigo-200 underline-offset-4 text-xs">{lead.propertyAddress || '--'}</td>}
+                                                        {buyerVisibleColumns.has('tags') && (
                                                             <td className="px-2 py-2 border-b border-slate-100">
                                                                 <div className="flex flex-wrap gap-1">
                                                                     {lead.tags?.map((tag, i) => (
@@ -819,7 +855,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 </div>
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Buyer.has('notes') && (
+                                                        {buyerVisibleColumns.has('notes') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 min-w-[200px] max-w-[300px]">
                                                                 <div className="flex flex-col gap-1 max-h-[80px] overflow-y-auto custom-scrollbar">
                                                                     {(lead.notesLog || []).length > 0 ? (
@@ -873,8 +909,9 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 isFlyingUpId={isFlyingUpId}
                                                 onArchive={(id) => onUpdateLead(id, { status: 'Archived' })}
                                                 onActivate={(id) => onUpdateLead(id, { status: 'New' })}
-                                                visibleColumns={visibleColumns.Buyer}
+                                                visibleColumns={buyerVisibleColumns}
                                                 activeTab="Buyer"
+                                                stage={buyerFunnelCategory}
                                             />
                                         ))}
                                     </div>
@@ -908,7 +945,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                 setDisplayMode={(mode) => setDisplayModes(prev => ({ ...prev, [sellerViewMode]: mode }))}
                                 columnSelectorRef={columnSelectorRef}
                                 availableColumns={availableSellerColumns}
-                                visibleColumns={visibleColumns.Seller}
+                                visibleColumns={sellerVisibleColumns}
                                 onToggleColumn={(colId) => toggleColumn('Seller', colId)}
                             />
                             {
@@ -962,50 +999,50 @@ const LeadsList: React.FC<InternalProps> = ({
                                                     <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('firstName')}>
                                                         Full Name {sortField === 'firstName' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                     </th>
-                                                    {visibleColumns.Seller.has('funnelStage') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Funnel Stage</th>}
-                                                    {visibleColumns.Seller.has('status') && (
+                                                    {sellerVisibleColumns.has('funnelStage') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Funnel Stage</th>}
+                                                    {sellerVisibleColumns.has('status') && (
                                                         <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('status')}>
                                                             Lead Status {sortField === 'status' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                         </th>
                                                     )}
-                                                    {visibleColumns.Seller.has('phone') && (
+                                                    {sellerVisibleColumns.has('phone') && (
                                                         <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('phone')}>
                                                             Contact Info {sortField === 'phone' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                         </th>
                                                     )}
-                                                    {visibleColumns.Seller.has('isAlsoBuying') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Also Buying?</th>}
-                                                    {visibleColumns.Seller.has('homeValueNeeded') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Home Value Needed?</th>}
-                                                    {visibleColumns.Seller.has('mostImportantToSeller') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Most Important to Seller</th>}
-                                                    {visibleColumns.Seller.has('sellWhen') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Sell When?</th>}
-                                                    {visibleColumns.Seller.has('propertyType') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Property Type</th>}
-                                                    {visibleColumns.Seller.has('occupancyStatus') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Occupancy Status</th>}
-                                                    {visibleColumns.Seller.has('expectedPrice') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Expected Price</th>}
-                                                    {visibleColumns.Seller.has('propertyAddress') && (
+                                                    {sellerVisibleColumns.has('isAlsoBuying') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Also Buying?</th>}
+                                                    {sellerVisibleColumns.has('homeValueNeeded') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Home Value Needed?</th>}
+                                                    {sellerVisibleColumns.has('mostImportantToSeller') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Most Important to Seller</th>}
+                                                    {sellerVisibleColumns.has('sellWhen') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Sell When?</th>}
+                                                    {sellerVisibleColumns.has('propertyType') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Property Type</th>}
+                                                    {sellerVisibleColumns.has('occupancyStatus') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Occupancy Status</th>}
+                                                    {sellerVisibleColumns.has('expectedPrice') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Expected Price</th>}
+                                                    {sellerVisibleColumns.has('propertyAddress') && (
                                                         <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('propertyAddress')}>
                                                             Property Address {sortField === 'propertyAddress' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                         </th>
                                                     )}
-                                                    {visibleColumns.Seller.has('source') && (
+                                                    {sellerVisibleColumns.has('source') && (
                                                         <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('source')}>
                                                             Source {sortField === 'source' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                         </th>
                                                     )}
-                                                    {visibleColumns.Seller.has('receivedAt') && (
+                                                    {sellerVisibleColumns.has('receivedAt') && (
                                                         <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('receivedAt')}>
-                                                            Date Created {sortField === 'receivedAt' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                            Time in {sellerFunnelCategory} {sortField === 'receivedAt' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                         </th>
                                                     )}
-                                                    {visibleColumns.Seller.has('reasonForSelling') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Reason for Selling</th>}
-                                                    {visibleColumns.Seller.has('existingAgentName') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Existing Agent?</th>}
-                                                    {visibleColumns.Seller.has('lastTouch') && (
+                                                    {sellerVisibleColumns.has('reasonForSelling') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Reason for Selling</th>}
+                                                    {sellerVisibleColumns.has('existingAgentName') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Existing Agent?</th>}
+                                                    {sellerVisibleColumns.has('lastTouch') && (
                                                         <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('lastTouch')}>
                                                             Last Follow Up {sortField === 'lastTouch' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                         </th>
                                                     )}
-                                                    {visibleColumns.Seller.has('message') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Message</th>}
-                                                    {visibleColumns.Seller.has('tags') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Tags</th>}
+                                                    {sellerVisibleColumns.has('message') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Message</th>}
+                                                    {sellerVisibleColumns.has('tags') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Tags</th>}
 
-                                                    {visibleColumns.Seller.has('notes') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Comments / Notes</th>}
+                                                    {sellerVisibleColumns.has('notes') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Comments / Notes</th>}
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
@@ -1027,13 +1064,13 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         <td className="px-2 py-2 border-b border-slate-100 font-bold text-slate-900 cursor-pointer hover:underline" onClick={() => onViewLead(lead)}>
                                                             {lead.firstName} {lead.lastName}
                                                         </td>
-                                                        {visibleColumns.Seller.has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs text-emerald-500 uppercase tracking-tighter">{lead.funnelStage || '--'}</td>}
-                                                        {visibleColumns.Seller.has('status') && (
+                                                        {sellerVisibleColumns.has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs text-emerald-500 uppercase tracking-tighter">{lead.funnelStage || '--'}</td>}
+                                                        {sellerVisibleColumns.has('status') && (
                                                             <td className="px-2 py-2 border-b border-slate-100">
                                                                 {renderCell(lead, 'status', 'select', getStatusOptions(lead.leadType, realtorSettings).map((o: any) => o.label))}
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Seller.has('phone') && (
+                                                        {sellerVisibleColumns.has('phone') && (
                                                             <td className="px-2 py-2 border-b border-slate-100">
                                                                 <div className="flex flex-col">
                                                                     <div className="text-xs font-semibold text-slate-700 leading-tight mb-0.5 flex items-center gap-2">
@@ -1055,7 +1092,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 </div>
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Seller.has('isAlsoBuying') && (
+                                                        {sellerVisibleColumns.has('isAlsoBuying') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 text-center">
                                                                 <div
                                                                     className="flex justify-center cursor-pointer"
@@ -1089,7 +1126,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 </div>
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Seller.has('homeValueNeeded') && (
+                                                        {sellerVisibleColumns.has('homeValueNeeded') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 text-center font-semibold">
                                                                 <div
                                                                     className="flex justify-center cursor-pointer"
@@ -1123,35 +1160,35 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 </div>
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Seller.has('mostImportantToSeller') && <td className="px-2 py-2 border-b border-slate-100 font-medium">{renderCell(lead, 'mostImportantToSeller' as any)}</td>}
-                                                        {visibleColumns.Seller.has('sellWhen') && <td className="px-2 py-2 border-b border-slate-100 font-medium whitespace-nowrap">{renderCell(lead, 'sellWhen' as any)}</td>}
-                                                        {visibleColumns.Seller.has('propertyType') && <td className="px-2 py-2 border-b border-slate-100 font-medium">{renderCell(lead, 'propertyType' as any)}</td>}
-                                                        {visibleColumns.Seller.has('occupancyStatus') && <td className="px-2 py-2 border-b border-slate-100 font-medium">{renderCell(lead, 'occupancyStatus' as any)}</td>}
-                                                        {visibleColumns.Seller.has('expectedPrice') && (
+                                                        {sellerVisibleColumns.has('mostImportantToSeller') && <td className="px-2 py-2 border-b border-slate-100 font-medium">{renderCell(lead, 'mostImportantToSeller' as any)}</td>}
+                                                        {sellerVisibleColumns.has('sellWhen') && <td className="px-2 py-2 border-b border-slate-100 font-medium whitespace-nowrap">{renderCell(lead, 'sellWhen' as any)}</td>}
+                                                        {sellerVisibleColumns.has('propertyType') && <td className="px-2 py-2 border-b border-slate-100 font-medium">{renderCell(lead, 'propertyType' as any)}</td>}
+                                                        {sellerVisibleColumns.has('occupancyStatus') && <td className="px-2 py-2 border-b border-slate-100 font-medium">{renderCell(lead, 'occupancyStatus' as any)}</td>}
+                                                        {sellerVisibleColumns.has('expectedPrice') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 font-black text-slate-900">
                                                                 {lead.expectedPrice ? `$${lead.expectedPrice.toLocaleString()}` : '--'}
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Seller.has('propertyAddress') && <td className="px-2 py-2 border-b border-slate-100 max-w-[250px] whitespace-normal font-medium underline text-indigo-600/80 decoration-indigo-200 underline-offset-4">{lead.propertyAddress || '--'}</td>}
-                                                        {visibleColumns.Seller.has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
-                                                        {visibleColumns.Seller.has('receivedAt') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-semibold whitespace-nowrap uppercase">
-                                                                {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }) : new Date(lead.receivedAt).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}
+                                                        {sellerVisibleColumns.has('propertyAddress') && <td className="px-2 py-2 border-b border-slate-100 max-w-[250px] whitespace-normal font-medium underline text-indigo-600/80 decoration-indigo-200 underline-offset-4">{lead.propertyAddress || '--'}</td>}
+                                                        {sellerVisibleColumns.has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
+                                                        {sellerVisibleColumns.has('receivedAt') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-bold whitespace-nowrap uppercase">
+                                                                {formatLeadAge(lead.stageLastChangedAt || lead.receivedAt)}
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Seller.has('reasonForSelling') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.reasonForSelling || '--'}</td>}
-                                                        {visibleColumns.Seller.has('existingAgentName') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.existingAgentName || '--'}</td>}
-                                                        {visibleColumns.Seller.has('lastTouch') && (
+                                                        {sellerVisibleColumns.has('reasonForSelling') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.reasonForSelling || '--'}</td>}
+                                                        {sellerVisibleColumns.has('existingAgentName') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.existingAgentName || '--'}</td>}
+                                                        {sellerVisibleColumns.has('lastTouch') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-medium whitespace-nowrap">
                                                                 {lead.lastTouch ? (lead.lastTouch?.toDate ? lead.lastTouch.toDate().toLocaleDateString() : new Date(lead.lastTouch).toLocaleDateString()) : '--'}
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Seller.has('message') && (
+                                                        {sellerVisibleColumns.has('message') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-600 max-w-[200px] whitespace-normal" title={lead.message}>
                                                                 {lead.message || '--'}
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Seller.has('tags') && (
+                                                        {sellerVisibleColumns.has('tags') && (
                                                             <td className="px-2 py-2 border-b border-slate-100">
                                                                 <div className="flex flex-wrap gap-1">
                                                                     {lead.tags?.map((tag, i) => (
@@ -1161,8 +1198,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 </div>
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Seller.has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.funnelStage || '--'}</td>}
-                                                        {visibleColumns.Seller.has('notes') && (
+                                                        {sellerVisibleColumns.has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.funnelStage || '--'}</td>}
+                                                        {sellerVisibleColumns.has('notes') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 min-w-[200px] max-w-[300px]">
                                                                 <div className="flex flex-col gap-1 max-h-[80px] overflow-y-auto custom-scrollbar">
                                                                     {(lead.notesLog || []).length > 0 ? (
@@ -1215,8 +1252,9 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 isFlyingUpId={isFlyingUpId}
                                                 onArchive={(id) => onUpdateLead(id, { status: 'Archived' })}
                                                 onActivate={(id) => onUpdateLead(id, { status: 'New' })}
-                                                visibleColumns={visibleColumns.Seller}
+                                                visibleColumns={sellerVisibleColumns}
                                                 activeTab="Seller"
+                                                stage={sellerFunnelCategory}
                                             />
                                         ))}
                                     </div>

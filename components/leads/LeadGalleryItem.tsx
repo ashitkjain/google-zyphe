@@ -32,6 +32,7 @@ interface LeadGalleryItemProps {
     visibleColumns: Set<string>;
     activeTab: 'Buyer' | 'Seller';
     onUpdateAvatar: (leadId: string, file: File) => void;
+    stage: string;
 }
 
 const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
@@ -39,7 +40,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
     editNoteId, setEditNoteId, editContent, setEditContent, handleUpdateNote,
     onDoneToggle, onDeleteClick, pendingNote, draftContent, setDraftContent,
     handleSaveNote, setPendingNote, deleteCoords, deletingNoteId, celebratingNoteId, isFlyingUpId,
-    onArchive, onActivate, visibleColumns, activeTab, onUpdateAvatar
+    onArchive, onActivate, visibleColumns, activeTab, onUpdateAvatar, stage
 }) => {
     // ... helper functions ...
     const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -57,7 +58,11 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
 
     // ... renderValue and COLUMN_METADATA ...
     const renderValue = (field: string) => {
-        const val = (lead as any)[field];
+        let val = (lead as any)[field];
+        if (field === 'receivedAt' && lead.stageLastChangedAt) {
+            val = lead.stageLastChangedAt;
+        }
+
         if (field === 'receivedAt' || field === 'lastTouch' || field === 'leaseEndDate') {
             const date = val?.toDate ? val.toDate() : (val ? new Date(val) : null);
             if (!date) return '--';
@@ -66,14 +71,14 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                 const diffMs = Math.max(0, now.getTime() - date.getTime());
                 const d = Math.floor(diffMs / 86400000);
                 const h = Math.floor((diffMs % 86400000) / 3600000);
-                const s = Math.floor((diffMs % 60000) / 1000);
+                const m = Math.floor((diffMs % 3600000) / 60000);
 
                 const parts = [];
                 if (d > 0) parts.push(`${d}d`);
                 if (h > 0) parts.push(`${h}h`);
-                if (s > 0) parts.push(`${s}s`);
+                if (m > 0 || parts.length === 0) parts.push(`${m}m`);
 
-                return parts.length > 0 ? parts.join(' ') : 'Just now';
+                return parts.join(' ');
             }
             return date.toLocaleDateString();
         }
@@ -105,7 +110,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
         expectedPrice: { label: 'Price', icon: 'fa-money-bill-wave', color: 'text-emerald-600' },
         preferredNeighborhood: { label: 'Neighborhood', icon: 'fa-map-location-dot', color: 'text-indigo-600' },
         source: { label: 'Source', icon: 'fa-globe', color: 'text-slate-400' },
-        receivedAt: { label: 'Age', icon: 'fa-calendar-plus', color: 'text-slate-400' },
+        receivedAt: { label: `Time in ${stage}`, icon: 'fa-calendar-plus', color: 'text-slate-400' },
         lastTouch: { label: 'Follow Up', icon: 'fa-clock-rotate-left', color: 'text-indigo-400' },
         message: { label: 'Message', icon: 'fa-comment' },
         timeframe: { label: 'Timeframe', icon: 'fa-hourglass-half' },

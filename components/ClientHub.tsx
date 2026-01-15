@@ -219,7 +219,13 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         if (currentLead) {
             // Automatically sync funnelStage if status is changing
             if (updates.status && updates.status !== currentLead.status) {
-                updates.funnelStage = getFunnelStageForStatus(updates.status, currentLead.leadType, realtorProfile?.settings) as any;
+                const newStage = getFunnelStageForStatus(updates.status, currentLead.leadType, realtorProfile?.settings) as any;
+                if (newStage !== currentLead.funnelStage) {
+                    updates.funnelStage = newStage;
+                    updates.stageLastChangedAt = new Date();
+                }
+            } else if (updates.funnelStage && updates.funnelStage !== currentLead.funnelStage) {
+                updates.stageLastChangedAt = new Date();
             }
 
             // Archiving
@@ -295,12 +301,12 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         if (!lead) return;
 
         // Optimistically update the UI
-        setLeads(prev => prev.map(l => l.id === leadId ? { ...l, funnelStage: newStage } : l));
+        setLeads(prev => prev.map(l => l.id === leadId ? { ...l, funnelStage: newStage, stageLastChangedAt: new Date() } : l));
 
         // Persist to database (in the correct collection)
         // All leads are now in the 'leads' collection
         const collectionName = 'leads';
-        const success = await updateLead(leadId, { funnelStage: newStage }, collectionName);
+        const success = await updateLead(leadId, { funnelStage: newStage, stageLastChangedAt: new Date() }, collectionName);
         if (!success) {
             console.error("Failed to update lead stage");
             setLeads(leads);

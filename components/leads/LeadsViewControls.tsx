@@ -140,7 +140,7 @@ const LeadsViewControls: React.FC<LeadsViewControlsProps> = ({
                                                     onChange={() => onToggleColumn(col.id)}
                                                     className={`rounded border-slate-300 ${activeTab === 'Buyer' ? 'text-indigo-600 focus:ring-indigo-500' : 'text-emerald-600 focus:ring-emerald-500'}`}
                                                 />
-                                                {col.label}
+                                                {col.id === 'receivedAt' ? `Time in ${activeFunnelCategory}` : col.label}
                                             </label>
                                         ))}
                                     </div>

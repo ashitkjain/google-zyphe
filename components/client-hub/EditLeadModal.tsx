@@ -364,6 +364,38 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 },
                 { key: 'message', label: 'User Message', type: 'textarea', colSpan: 2 }
             ]
+        },
+        {
+            title: 'System Information',
+            id: 'metadata',
+            fields: [
+                {
+                    key: 'receivedAt',
+                    label: 'Created At',
+                    colSpan: 1,
+                    render: (props) => (
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Created At</label>
+                            <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm font-medium text-slate-500 cursor-not-allowed">
+                                {props.lead.receivedAt?.toDate ? props.lead.receivedAt.toDate().toLocaleString() : props.lead.receivedAt ? new Date(props.lead.receivedAt).toLocaleString() : '--'}
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    key: 'lastUpdated',
+                    label: 'Last Updated',
+                    colSpan: 1,
+                    render: (props) => (
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Last Updated</label>
+                            <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm font-medium text-slate-500 cursor-not-allowed">
+                                {props.lead.lastUpdated?.toDate ? props.lead.lastUpdated.toDate().toLocaleString() : props.lead.lastUpdated ? new Date(props.lead.lastUpdated).toLocaleString() : '--'}
+                            </div>
+                        </div>
+                    )
+                }
+            ]
         }
     ];
 
