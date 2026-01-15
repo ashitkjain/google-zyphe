@@ -53,186 +53,184 @@ const LeadGalleryItem: React.FC<{
     celebratingNoteId: string | null,
     isFlyingUpId: string | null,
     onArchive: (id: string) => void,
-    onActivate: (id: string) => void
+    onActivate: (id: string) => void,
+    visibleColumns: Set<string>,
+    activeTab: 'Buyer' | 'Seller'
 }> = ({
     lead, index, onViewLead, selectedIds, handleSelectOne, notes,
     editNoteId, setEditNoteId, editContent, setEditContent, handleUpdateNote,
     onDoneToggle, onDeleteClick, pendingNote, draftContent, setDraftContent,
     handleSaveNote, setPendingNote, deleteCoords, deletingNoteId, celebratingNoteId, isFlyingUpId,
-    onArchive, onActivate
-}) => (
-        <div
-            className={`bg-white p-6 rounded-[2rem] border border-slate-200/60 shadow-sm hover:shadow-xl transition-all border-l-4 group relative cursor-pointer flex flex-col ${selectedIds.has(lead.id) ? 'ring-2 ring-indigo-500 ring-offset-2 bg-indigo-50/10' : ''}`}
-            style={{
-                borderLeftColor: lead.leadType === 'Seller' ? '#10b981' : '#6366f1'
-            }}
-            onClick={(e) => { handleSelectOne(lead.id); }}
-            onDoubleClick={(e) => { e.stopPropagation(); onViewLead(lead); }}
-        >
-            <TypedDroppable droppableId={lead.id} type="POSTIT_PALETTE">
-                {(noteProvided: any, noteSnapshot: any) => (
-                    <div
-                        ref={noteProvided.innerRef}
-                        {...noteProvided.droppableProps}
-                        className={`flex-1 flex flex-col min-h-[150px] ${noteSnapshot.isDraggingOver ? 'bg-indigo-50/50 rounded-2xl' : ''}`}
-                    >
-                        <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
-                            <div className="flex items-center gap-1 mr-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onArchive(lead.id); }}
-                                    className="w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 flex items-center justify-center transition-all shadow-sm"
-                                    title="Archive"
-                                >
-                                    <i className="fa-solid fa-box-archive text-[10px]"></i>
-                                </button>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onActivate(lead.id); }}
-                                    className="w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-indigo-500 hover:border-indigo-200 hover:bg-indigo-50 flex items-center justify-center transition-all shadow-sm"
-                                    title="Activate"
-                                >
-                                    <i className="fa-solid fa-bolt text-[10px]"></i>
-                                </button>
-                            </div>
-                        </div>
+    onArchive, onActivate, visibleColumns, activeTab
+}) => {
+        const renderValue = (field: string) => {
+            const val = (lead as any)[field];
+            if (field === 'receivedAt' || field === 'lastTouch' || field === 'leaseEndDate') {
+                const date = val?.toDate ? val.toDate() : (val ? new Date(val) : null);
+                if (!date) return '--';
+                if (field === 'receivedAt') {
+                    return date.toLocaleString([], {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZoneName: 'short'
+                    });
+                }
+                return date.toLocaleDateString();
+            }
+            if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+            if (field === 'expectedPrice' || field === 'price' || field === 'budgetRange') {
+                const min = lead.minPrice;
+                const max = lead.maxPrice;
 
-                        <div className="flex justify-between items-center mb-3">
-                            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-3 w-full">
-                                    <div className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors uppercase tracking-tight truncate" onClick={() => onViewLead(lead)}>
+                if (field === 'budgetRange') {
+                    if (min && max) return `$${(min / 1000).toFixed(0)}k - $${(max / 1000).toFixed(0)}k`;
+                    if (min) return `Above $${(min / 1000).toFixed(0)}k`;
+                    if (max) return `Under $${(max / 1000).toFixed(0)}k`;
+                    return '--';
+                }
+
+                const priceVal = val || (field === 'expectedPrice' ? lead.expectedPrice : lead.price);
+                return priceVal ? `$${(priceVal / 1000).toFixed(0)}k` : '--';
+            }
+            if (Array.isArray(val)) return val.join(', ') || '--';
+            return val || '--';
+        };
+
+        const COLUMN_METADATA: Record<string, { label: string, icon: string, color?: string }> = {
+            status: { label: 'Status', icon: 'fa-signal', color: 'text-indigo-600' },
+            isAlsoSelling: { label: 'Also Selling?', icon: 'fa-house-user' },
+            isAlsoBuying: { label: 'Also Buying?', icon: 'fa-cart-shopping' },
+            preQualified: { label: 'Pre-qualified?', icon: 'fa-certificate', color: 'text-emerald-600' },
+            budgetRange: { label: 'Budget', icon: 'fa-tag', color: 'text-emerald-600' },
+            expectedPrice: { label: 'Price', icon: 'fa-money-bill-wave', color: 'text-emerald-600' },
+            preferredNeighborhood: { label: 'Neighborhood', icon: 'fa-map-location-dot', color: 'text-indigo-600' },
+            source: { label: 'Source', icon: 'fa-globe', color: 'text-slate-400' },
+            receivedAt: { label: 'Created', icon: 'fa-calendar-plus', color: 'text-slate-400' },
+            lastTouch: { label: 'Follow Up', icon: 'fa-clock-rotate-left', color: 'text-indigo-400' },
+            message: { label: 'Message', icon: 'fa-comment' },
+            timeframe: { label: 'Timeframe', icon: 'fa-hourglass-half' },
+            leaseEndDate: { label: 'Lease End', icon: 'fa-file-signature' },
+            propertyAddress: { label: 'Property', icon: 'fa-location-dot', color: 'text-indigo-600' },
+            tags: { label: 'Tags', icon: 'fa-tags' },
+            funnelStage: { label: 'Stage', icon: 'fa-filter' },
+            notes: { label: 'Notes', icon: 'fa-clipboard-list' },
+            homeValueNeeded: { label: 'Home Value?', icon: 'fa-calculator' },
+            mostImportantToSeller: { label: 'Priority', icon: 'fa-star' },
+            sellWhen: { label: 'When?', icon: 'fa-calendar-days' },
+            propertyType: { label: 'Type', icon: 'fa-building' },
+            occupancyStatus: { label: 'Occupancy', icon: 'fa-key' },
+            reasonForSelling: { label: 'Reason', icon: 'fa-info-circle' },
+            existingAgentName: { label: 'Agent', icon: 'fa-user-tie' }
+        };
+
+        return (
+            <div
+                className={`bg-white p-4 rounded-[2rem] border border-slate-200/60 shadow-sm hover:shadow-xl transition-all border-l-4 group relative cursor-pointer flex flex-col ${selectedIds.has(lead.id) ? 'ring-2 ring-indigo-500 ring-offset-2 bg-indigo-50/10' : ''}`}
+                style={{
+                    borderLeftColor: lead.leadType === 'Seller' ? '#10b981' : '#6366f1'
+                }}
+                onClick={(e) => { handleSelectOne(lead.id); }}
+                onDoubleClick={(e) => { e.stopPropagation(); onViewLead(lead); }}
+            >
+                <TypedDroppable droppableId={lead.id} type="POSTIT_PALETTE">
+                    {(noteProvided: any, noteSnapshot: any) => (
+                        <div
+                            ref={noteProvided.innerRef}
+                            {...noteProvided.droppableProps}
+                            className={`flex-1 flex flex-col min-h-[130px] ${noteSnapshot.isDraggingOver ? 'bg-indigo-50/50 rounded-2xl' : ''}`}
+                        >
+                            <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
+                                <div className="flex items-center gap-1 mr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); onArchive(lead.id); }}
+                                        className="w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 flex items-center justify-center transition-all shadow-sm"
+                                        title="Archive"
+                                    >
+                                        <i className="fa-solid fa-box-archive text-[10px]"></i>
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); onActivate(lead.id); }}
+                                        className="w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-indigo-500 hover:border-indigo-200 hover:bg-indigo-50 flex items-center justify-center transition-all shadow-sm"
+                                        title="Activate"
+                                    >
+                                        <i className="fa-solid fa-bolt text-[10px]"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="flex items-start gap-3.5 mb-2">
+                                {/* Profile Picture / Avatar (Bigger) */}
+                                <div className="w-14 h-14 rounded-2xl bg-slate-50 flex-shrink-0 border-2 border-white shadow-sm overflow-hidden flex items-center justify-center">
+                                    {lead.avatarUrl ? (
+                                        <img src={lead.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="text-indigo-400/60 font-black text-sm uppercase">
+                                            {lead.firstName[0]}{lead.lastName[0]}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex flex-col flex-1 min-w-0 pt-0.5">
+                                    <div className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors uppercase tracking-tight truncate leading-tight mb-0.5" onClick={() => onViewLead(lead)}>
                                         {lead.firstName} {lead.lastName}
                                     </div>
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                        <span className="text-[7.5px] text-slate-400 font-bold uppercase tracking-widest bg-slate-100 rounded-[3px] px-1 py-0.5">{lead.source}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4 text-[10px] text-slate-900 font-medium">
-                            {lead.email && (
-                                <div className="flex items-center gap-1.5 truncate max-w-[140px]">
-                                    <i className="fa-solid fa-envelope opacity-30 text-[8px]"></i>
-                                    {lead.email}
-                                </div>
-                            )}
-                            {lead.phone && (
-                                <div className="flex items-center gap-1.5 truncate">
-                                    <i className="fa-solid fa-phone opacity-30 text-[8px]"></i>
-                                    {lead.phone}
-                                </div>
-                            )}
-                        </div>
 
-
-                        {/* Render Post-its */}
-                        <div className="flex flex-wrap gap-4 mb-4 relative min-h-[40px] empty:hidden" onClick={(e) => { e.stopPropagation(); handleSelectOne(lead.id); }}>
-                            {notes.filter(n => n.leadId === lead.id && !n.isDone).map((note, i) => (
-                                <div
-                                    key={note.id}
-                                    onClick={() => { if (!editNoteId) { setEditNoteId(note.id); setEditContent(note.content); } }}
-                                    className={`p-3 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[9px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-110 hover:z-10 group/note flex flex-col relative cursor-pointer post-it-container ${note.color} ${i % 2 === 0 ? 'rotate-2' : '-rotate-3'} hover:rotate-0 ${note.isDone ? 'line-through' : ''} ${deletingNoteId === note.id ? 'animate-fly-away' : ''} ${celebratingNoteId === note.id ? 'animate-shake' : ''} ${isFlyingUpId === note.id ? 'animate-fly-up' : ''} ${note.isUrgent ? 'urgent-glow' : ''}`}
-                                    style={{
-                                        boxShadow: '2px 2px 5px rgba(0,0,0,0.1)',
-                                        ...(((deletingNoteId === note.id || isFlyingUpId === note.id) && deleteCoords) ? {
-                                            '--start-top': `${deleteCoords.top}px`,
-                                            '--start-left': `${deleteCoords.left}px`
-                                        } as any : {})
-                                    }}
-                                >
-                                    <div className="w-full h-1 bg-black/5 absolute top-0 left-0"></div>
-
-                                    {note.isUrgent && (
-                                        <div className="absolute top-1 right-1 animate-fire z-10">
-                                            <i className="fa-solid fa-fire text-orange-500 text-[10px]"></i>
-                                        </div>
-                                    )}
-
-                                    {!editNoteId && (
-                                        <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover/note:opacity-100 transition-opacity z-30">
-                                            <button
-                                                onClick={(e) => onDoneToggle(e, note)}
-                                                className={`w-5 h-5 rounded-full ${note.isDone ? 'bg-emerald-500' : 'bg-slate-800'} text-white flex items-center justify-center hover:scale-110 transition-transform shadow-md`}
-                                            >
-                                                <i className="fa-solid fa-circle-check text-[7px]"></i>
-                                            </button>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleUpdateNote(note.id, { isUrgent: !note.isUrgent }); }}
-                                                className={`w-5 h-5 rounded-full ${note.isUrgent ? 'bg-orange-600' : 'bg-slate-800'} text-white flex items-center justify-center hover:scale-110 transition-transform shadow-md`}
-                                            >
-                                                <i className="fa-solid fa-fire text-[7px]"></i>
-                                            </button>
-                                            <button
-                                                onClick={(e) => onDeleteClick(e, note.id)}
-                                                className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center hover:scale-110 transition-transform shadow-md"
-                                            >
-                                                <i className="fa-solid fa-trash text-[7px]"></i>
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    <div className="flex-1 overflow-hidden">
-                                        {editNoteId === note.id ? (
-                                            <textarea
-                                                autoFocus
-                                                value={editContent}
-                                                onChange={(e) => setEditContent(e.target.value)}
-                                                onBlur={() => {
-                                                    handleUpdateNote(note.id, { content: editContent, timestamp: new Date() });
-                                                    setEditNoteId(null);
-                                                }}
-                                                className="w-full h-full bg-transparent border-none outline-none resize-none post-it-font text-[9px] font-bold p-0 post-it-edit"
-                                            />
-                                        ) : (
-                                            note.content
+                                    <div className="flex flex-col gap-0 text-[9.5px] text-slate-400 font-bold whitespace-nowrap overflow-hidden">
+                                        {lead.email && (
+                                            <div className="flex items-center gap-1.5 truncate">
+                                                <i className="fa-solid fa-envelope opacity-30 text-[8px]"></i>
+                                                {lead.email}
+                                            </div>
+                                        )}
+                                        {lead.phone && (
+                                            <div className="flex items-center gap-1.5 truncate">
+                                                <i className="fa-solid fa-phone opacity-30 text-[8px]"></i>
+                                                {lead.phone}
+                                            </div>
                                         )}
                                     </div>
-                                    <div className="text-[7px] opacity-40 mt-1 uppercase tracking-tighter shrink-0">
-                                        {note.timestamp?.toDate ? note.timestamp.toDate().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(note.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                            </div>
+
+                            {/* Price Range & Neighborhood */}
+                            <div className="flex flex-col gap-0.5 mb-2">
+                                {Array.from(visibleColumns).filter(colId => !['phone', 'email', 'firstName', 'lastName', 'message', 'notes'].includes(colId as string)).map((colId: any) => {
+                                    const meta = COLUMN_METADATA[colId as string];
+                                    if (!meta) return null;
+                                    return (
+                                        <div key={colId as string} className={`flex items-center gap-2 text-[10.5px] font-bold ${meta.color || 'text-slate-500'} leading-none`}>
+                                            <i className={`fa-solid ${meta.icon} opacity-40 text-[9px] w-3 text-center`}></i>
+                                            <span className="opacity-40 uppercase tracking-tighter w-20 shrink-0 whitespace-nowrap">{meta.label}:</span>
+                                            <span className="truncate">{renderValue(colId as string)}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+
+                            {/* User Message */}
+                            {lead.message && (
+                                <div className="mt-1 bg-indigo-50/30 p-3 rounded-2xl border border-indigo-100/50 flex flex-col gap-1 relative overflow-hidden group/msg">
+                                    <div className="text-[9px] font-black text-indigo-400/60 uppercase tracking-widest flex items-center gap-1.5">
+                                        <i className="fa-solid fa-comment-dots text-[8px]"></i>
+                                        Inquiry Message
+                                    </div>
+                                    <div className="text-[10.5px] text-slate-600 font-bold leading-[1.3] italic">
+                                        "{lead.message}"
                                     </div>
                                 </div>
-                            ))}
-
-                            {/* Inline Draft Post-it */}
-                            {pendingNote?.leadId === lead.id && (
-                                <div className={`p-3 pt-4 w-24 h-24 rounded-sm border-t border-black/5 shadow-2xl z-20 scale-110 -rotate-2 relative post-it-container ${pendingNote.color}`}>
-                                    <div className="w-full h-1 bg-black/5 absolute top-0 left-0"></div>
-                                    <textarea
-                                        autoFocus
-                                        placeholder="Type note..."
-                                        value={draftContent}
-                                        onChange={(e) => setDraftContent(e.target.value)}
-                                        onBlur={() => {
-                                            if (draftContent.trim()) handleSaveNote(draftContent);
-                                            setPendingNote(null);
-                                            setDraftContent('');
-                                        }}
-                                        className="w-full h-full bg-transparent border-none outline-none resize-none post-it-font text-[9px] font-bold post-it-placeholder placeholder:text-black/20 post-it-draft"
-                                    />
-                                </div>
                             )}
-                        </div>
 
-                        <div className="flex items-center justify-between mt-auto pt-3 border-t border-slate-50 relative">
-                            <div className="flex flex-col gap-1.5">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[9px] font-black text-slate-300 uppercase tracking-tighter">Created:</span>
-                                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">
-                                        {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleDateString() : new Date(lead.receivedAt).toLocaleDateString()}
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2 text-indigo-400">
-                                <span className="text-[9px] font-black uppercase tracking-tighter">Last Follow Up:</span>
-                                <span className="text-[10px] font-bold uppercase tracking-tighter">
-                                    {lead.lastTouch?.toDate ? lead.lastTouch.toDate().toLocaleDateString() : lead.lastTouch ? new Date(lead.lastTouch).toLocaleDateString() : 'None'}
-                                </span>
-                            </div>
+                            {noteProvided.placeholder}
                         </div>
-                        {noteProvided.placeholder}
-                    </div>
-                )}
-            </TypedDroppable>
-        </div>
-    );
+                    )}
+                </TypedDroppable>
+            </div>
+        );
+    };
 
 
 const LeadsList: React.FC<InternalProps> = ({
@@ -899,46 +897,6 @@ const LeadsList: React.FC<InternalProps> = ({
 
 
 
-                        {/* Post-it Palette */}
-                        {currentDisplayMode === 'gallery' && (
-                            <TypedDroppable droppableId="palette" direction="horizontal" type="POSTIT_PALETTE" isDropDisabled={true}>
-                                {(provided: any) => (
-                                    <div
-                                        ref={provided.innerRef}
-                                        {...provided.droppableProps}
-                                        className="flex items-center gap-4"
-                                    >
-                                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400">Post it:</div>
-                                        <div className="flex items-center gap-4">
-                                            {noteTypes.map((note, index) => (
-                                                <TypedDraggable key={note.id} draggableId={note.id} index={index}>
-                                                    {(provided: any, snapshot: any) => (
-                                                        <div className="relative group note-palette-item">
-                                                            {!snapshot.isDragging && (
-                                                                <>
-                                                                    <div className={`absolute inset-0 translate-x-1 translate-y-1 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow}`}></div>
-                                                                </>
-                                                            )}
-
-                                                            <div
-                                                                ref={provided.innerRef}
-                                                                {...provided.draggableProps}
-                                                                {...provided.dragHandleProps}
-                                                                className={`w-8 h-8 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-1 hover:-rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl' : ''}`}
-                                                            >
-                                                                <div className="w-full h-1 bg-black/5 absolute top-0"></div>
-                                                                <i className="fa-solid fa-note-sticky opacity-20 text-[10px]"></i>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </TypedDraggable>
-                                            ))}
-                                        </div>
-                                        {provided.placeholder}
-                                    </div>
-                                )}
-                            </TypedDroppable>
-                        )}
                     </div>
                 </div>
 
@@ -1022,28 +980,70 @@ const LeadsList: React.FC<InternalProps> = ({
                                         </button>
                                     ))}
                                 </div>
-                                <div className="ml-4 flex flex-col justify-center">
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-red-50 text-black hover:bg-red-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
-                                            onClick={handleBulkArchive}
-                                            disabled={selectedIds.size === 0}
-                                        >
-                                            <i className="fa-solid fa-box-archive"></i>
-                                            Archive {selectedIds.size > 0 && `(${selectedIds.size})`}
-                                        </button>
-                                        <button
-                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-indigo-50 text-black hover:bg-indigo-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
-                                            onClick={handleBulkActivate}
-                                            disabled={selectedIds.size === 0}
-                                        >
-                                            <i className="fa-solid fa-bolt"></i>
-                                            Activate {selectedIds.size > 0 && `(${selectedIds.size})`}
-                                        </button>
+                                <div className="ml-4 flex items-center">
+                                    <div className="flex flex-col items-center">
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-red-50 text-black hover:bg-red-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
+                                                onClick={handleBulkArchive}
+                                                disabled={selectedIds.size === 0}
+                                            >
+                                                <i className="fa-solid fa-box-archive"></i>
+                                                Archive {selectedIds.size > 0 && `(${selectedIds.size})`}
+                                            </button>
+                                            <button
+                                                className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-indigo-50 text-black hover:bg-indigo-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
+                                                onClick={handleBulkActivate}
+                                                disabled={selectedIds.size === 0}
+                                            >
+                                                <i className="fa-solid fa-bolt"></i>
+                                                Activate {selectedIds.size > 0 && `(${selectedIds.size})`}
+                                            </button>
+                                        </div>
+                                        <div className="text-[9px] text-slate-400 font-medium text-center mt-1">
+                                            Select the checkbox to archive or activate
+                                        </div>
                                     </div>
-                                    <div className="text-[9px] text-slate-400 font-medium text-center mt-1">
-                                        Select the checkbox to archive or activate
-                                    </div>
+
+                                    {/* Post-it Palette */}
+                                    {currentDisplayMode === 'gallery' && (
+                                        <div className="ml-4 pl-4 border-l border-slate-200 h-10 flex items-center text-left">
+                                            <TypedDroppable droppableId="palette-buyer" direction="horizontal" type="POSTIT_PALETTE" isDropDisabled={true}>
+                                                {(provided: any) => (
+                                                    <div
+                                                        ref={provided.innerRef}
+                                                        {...provided.droppableProps}
+                                                        className="flex items-center gap-2"
+                                                    >
+                                                        <div className="text-[8px] font-black uppercase tracking-wider text-slate-400">Add Note:</div>
+                                                        <div className="flex items-center gap-2">
+                                                            {noteTypes.map((note, index) => (
+                                                                <TypedDraggable key={note.id} draggableId={`${note.id}-buyer`} index={index}>
+                                                                    {(provided: any, snapshot: any) => (
+                                                                        <div className="relative group note-palette-item">
+                                                                            {!snapshot.isDragging && (
+                                                                                <div className={`absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow}`}></div>
+                                                                            )}
+                                                                            <div
+                                                                                ref={provided.innerRef}
+                                                                                {...provided.draggableProps}
+                                                                                {...provided.dragHandleProps}
+                                                                                className={`w-7 h-7 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-0.5 hover:-rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl' : ''}`}
+                                                                            >
+                                                                                <div className="w-full h-1 bg-black/5 absolute top-0"></div>
+                                                                                <i className="fa-solid fa-note-sticky opacity-20 text-[9px]"></i>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </TypedDraggable>
+                                                            ))}
+                                                        </div>
+                                                        {provided.placeholder}
+                                                    </div>
+                                                )}
+                                            </TypedDroppable>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="ml-auto flex bg-slate-100/50 p-1 rounded-2xl items-center">
                                     <button
@@ -1227,7 +1227,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         {visibleColumns.Buyer.has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
                                                         {visibleColumns.Buyer.has('receivedAt') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 text-[10px] text-slate-400 font-semibold whitespace-nowrap uppercase">
-                                                                {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(lead.receivedAt).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                                {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }) : new Date(lead.receivedAt).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}
                                                             </td>
                                                         )}
                                                         {visibleColumns.Buyer.has('lastTouch') && (
@@ -1298,6 +1298,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 isFlyingUpId={isFlyingUpId}
                                                 onArchive={(id) => onUpdateLead(id, { status: 'Archived' })}
                                                 onActivate={(id) => onUpdateLead(id, { status: 'New' })}
+                                                visibleColumns={visibleColumns.Buyer}
+                                                activeTab="Buyer"
                                             />
                                         ))}
                                     </div>
@@ -1339,28 +1341,70 @@ const LeadsList: React.FC<InternalProps> = ({
                                         </button>
                                     ))}
                                 </div>
-                                <div className="ml-4 flex flex-col justify-center">
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-red-50 text-black hover:bg-red-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
-                                            onClick={handleBulkArchive}
-                                            disabled={selectedIds.size === 0}
-                                        >
-                                            <i className="fa-solid fa-box-archive"></i>
-                                            Archive {selectedIds.size > 0 && `(${selectedIds.size})`}
-                                        </button>
-                                        <button
-                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-indigo-50 text-black hover:bg-indigo-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
-                                            onClick={handleBulkActivate}
-                                            disabled={selectedIds.size === 0}
-                                        >
-                                            <i className="fa-solid fa-bolt"></i>
-                                            Activate {selectedIds.size > 0 && `(${selectedIds.size})`}
-                                        </button>
+                                <div className="ml-4 flex items-center">
+                                    <div className="flex flex-col items-center">
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-red-50 text-black hover:bg-red-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
+                                                onClick={handleBulkArchive}
+                                                disabled={selectedIds.size === 0}
+                                            >
+                                                <i className="fa-solid fa-box-archive"></i>
+                                                Archive {selectedIds.size > 0 && `(${selectedIds.size})`}
+                                            </button>
+                                            <button
+                                                className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-indigo-50 text-black hover:bg-indigo-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
+                                                onClick={handleBulkActivate}
+                                                disabled={selectedIds.size === 0}
+                                            >
+                                                <i className="fa-solid fa-bolt"></i>
+                                                Activate {selectedIds.size > 0 && `(${selectedIds.size})`}
+                                            </button>
+                                        </div>
+                                        <div className="text-[9px] text-slate-400 font-medium text-center mt-1">
+                                            Select the checkbox to archive or activate
+                                        </div>
                                     </div>
-                                    <div className="text-[9px] text-slate-400 font-medium text-center mt-1">
-                                        Select the checkbox to archive or activate
-                                    </div>
+
+                                    {/* Post-it Palette */}
+                                    {currentDisplayMode === 'gallery' && (
+                                        <div className="ml-4 pl-4 border-l border-slate-200 h-10 flex items-center text-left">
+                                            <TypedDroppable droppableId="palette-seller" direction="horizontal" type="POSTIT_PALETTE" isDropDisabled={true}>
+                                                {(provided: any) => (
+                                                    <div
+                                                        ref={provided.innerRef}
+                                                        {...provided.droppableProps}
+                                                        className="flex items-center gap-2"
+                                                    >
+                                                        <div className="text-[8px] font-black uppercase tracking-wider text-slate-400">Add Note:</div>
+                                                        <div className="flex items-center gap-2">
+                                                            {noteTypes.map((note, index) => (
+                                                                <TypedDraggable key={note.id} draggableId={`${note.id}-seller`} index={index}>
+                                                                    {(provided: any, snapshot: any) => (
+                                                                        <div className="relative group note-palette-item">
+                                                                            {!snapshot.isDragging && (
+                                                                                <div className={`absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow}`}></div>
+                                                                            )}
+                                                                            <div
+                                                                                ref={provided.innerRef}
+                                                                                {...provided.draggableProps}
+                                                                                {...provided.dragHandleProps}
+                                                                                className={`w-7 h-7 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-0.5 hover:-rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl' : ''}`}
+                                                                            >
+                                                                                <div className="w-full h-1 bg-black/5 absolute top-0"></div>
+                                                                                <i className="fa-solid fa-note-sticky opacity-20 text-[9px]"></i>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </TypedDraggable>
+                                                            ))}
+                                                        </div>
+                                                        {provided.placeholder}
+                                                    </div>
+                                                )}
+                                            </TypedDroppable>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="ml-auto flex bg-slate-100/50 p-1 rounded-2xl items-center">
                                     <button
@@ -1552,7 +1596,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         {visibleColumns.Seller.has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
                                                         {visibleColumns.Seller.has('receivedAt') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 text-[10px] text-slate-400 font-semibold whitespace-nowrap uppercase">
-                                                                {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(lead.receivedAt).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                                {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }) : new Date(lead.receivedAt).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}
                                                             </td>
                                                         )}
                                                         {visibleColumns.Seller.has('reasonForSelling') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.reasonForSelling || '--'}</td>}
@@ -1617,6 +1661,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 isFlyingUpId={isFlyingUpId}
                                                 onArchive={(id) => onUpdateLead(id, { status: 'Archived' })}
                                                 onActivate={(id) => onUpdateLead(id, { status: 'New' })}
+                                                visibleColumns={visibleColumns.Seller}
+                                                activeTab="Seller"
                                             />
                                         ))}
                                     </div>
