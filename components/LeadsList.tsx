@@ -10,7 +10,20 @@ import { noteTypes } from './leads/PostItPalette';
 import { availableBuyerColumns, availableSellerColumns, defaultBuyerVisible, defaultSellerVisible } from './leads/constants';
 
 
-realtorSettings,
+const LeadsList: React.FC<InternalProps> = ({
+    leads,
+    onUpdateLead,
+    onViewLead,
+    onCreateLead,
+    onActivateLead,
+    notes,
+    pendingNote,
+    setPendingNote,
+    handleSaveNote,
+    handleUpdateNote,
+    handleDeleteNote,
+    handleDragEnd,
+    realtorSettings,
     onUpdateAvatar,
     onUpdateSettings
 }) => {
