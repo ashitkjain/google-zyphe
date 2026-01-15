@@ -101,6 +101,26 @@ const LeadsList: React.FC<InternalProps> = ({
             return newState;
         });
     };
+    const columnSelectorRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (columnSelectorRef.current && !columnSelectorRef.current.contains(event.target as Node)) {
+                setShowColumnSelector(false);
+            }
+        };
+
+        if (showColumnSelector) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showColumnSelector]);
+
+    const [buyerViewMode, setBuyerViewMode] = useState<'past6Months' | 'older'>('past6Months');
+    const [sellerViewMode, setSellerViewMode] = useState<'past6Months' | 'older'>('past6Months');
 
     // Display Mode Mapping (Default: Past 6 Months -> Gallery, Older -> List)
     const [viewMode, setViewMode] = useState<'past6Months' | 'older'>('past6Months'); // Legacy
