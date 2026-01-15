@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, updateFunnelStage, seedMockData, getLeads, getTasks, getTemplates, updateLead, addPipelineNote, getPipelineNotes, updatePipelineNote, deletePipelineNote, saveUserProfile, getUserProfile } from '../services/firebaseService';
+import { getLeads, getTasks, getTemplates, getPipelineNotes, seedMockData, saveUserProfile, getUserProfile, deleteUserAccount, resetPassword, updateLead, getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, addPipelineNote, updatePipelineNote, deletePipelineNote } from '../services/firebaseService';
+import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates } from '../services/mockDataService';
 import { UserProfile, Lead, LeadNote, CRMTask, CommMessage, CommTemplate, FunnelStage, PipelineNote, LeadStatus } from '../types';
 import { DropResult } from '@hello-pangea/dnd';
 import Logo from './Logo';
@@ -75,55 +76,9 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
             // 2. Define Mock Data (Always available for potential seeding)
             console.log("[ClientHub] Seeding initial mock data...");
-            const initialLeads: Lead[] = []; // DISABLED HARDCODED DATA
-            /*
-            const initialLeads: Lead[] = [
-                // --- NEW BUYER LEADS ---
-                // Today (New)
-                {
-                    id: 'clean_buy_1', firstName: 'Alice', lastName: 'New', email: 'alice.new@example.com', phone: '(555) 001-0001',
-                    source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'New', receivedAt: new Date(), slaUrgency: 'high', funnelStage: 'Leads',
-                    health: 'Active', message: "Interested in the downtown loft.", isMock: true, collectionName: 'leads',
-                    minPrice: 400000, maxPrice: 500000, budgetRange: "$400k - $500k",
-                    isAlsoSelling: true, preQualified: true, preferredNeighborhood: 'Downtown',
-                    tags: ['Priority', 'Loft-Lover'], notes: 'Very motivated to find a place by next month.',
-                    notesLog: [
-                        { id: 'm1', content: 'Very motivated to find a place by next month.', timestamp: new Date(), author: 'Realtor', color: 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]' },
-                        { id: 'm2', content: 'Scheduled a call for tomorrow at 10 AM.', timestamp: new Date(), author: 'Realtor', color: 'bg-[#7afaff] text-slate-800 border-[#69e9ee] shadow-[5px_5px_7px_rgba(33,33,33,.1)]' }
-                    ]
-                },
-                // Past Week (3 days ago)
-                {
-                    id: 'clean_buy_2', firstName: 'Bob', lastName: 'Week', email: 'bob.week@example.com', phone: '(555) 001-0002',
-                    source: 'Website', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'New', receivedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-                    slaUrgency: 'medium', funnelStage: 'Inquiry', health: 'Active', isMock: true, collectionName: 'leads',
-                    minPrice: 600000, maxPrice: 750000, budgetRange: "$600k - $750k",
-                    isAlsoSelling: false, preQualified: false, preferredNeighborhood: 'Westside',
-                    tags: ['First-Time-Buyer'], notes: 'Waiting for pre-approval letter.'
-                },
-                // ... (rest of old mock data commented out)
-                {
-                    id: 'clean_archived_1', firstName: 'Harry', lastName: 'Old', email: 'harry.old@example.com', phone: '(555) 999-9999',
-                    source: 'Zillow', leadType: 'Buyer', status: 'Archived', receivedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
-                    slaUrgency: 'low', funnelStage: 'Inquiry', health: 'Dormant', isMock: true, collectionName: 'leads', connectionType: 'Direct Lead',
-                    isAlsoSelling: false, preQualified: false, tags: ['Archived'], notes: 'No longer looking in this area.'
-                }
-            ];
-            */
-
-            const initialTasks: CRMTask[] = [
-                { id: 'mt_1', realtorId, title: 'Call Sarah Miller', description: 'Follow up on Zillow inquiry', dueDate: new Date(Date.now() + 3600000), status: 'Pending', priority: 'Urgent', type: 'Call', isMock: true },
-                { id: 'mt_2', realtorId, title: 'Send analysis to David', description: 'He liked the modern kitchen in Malibu house', dueDate: new Date(Date.now() + 7200000), status: 'Pending', priority: 'High', type: 'Email', isMock: true },
-                { id: 'mt_3', realtorId, title: 'Schedule showing', description: '456 Oak St for the Ross family', dueDate: new Date(Date.now() + 86400000), status: 'Pending', priority: 'Normal', type: 'Showing', isMock: true }
-            ];
-
-            const initialTemplates: CommTemplate[] = [
-                { id: 'tpl_1', name: 'Initial Introduction', content: "Hi {{name}}, this is {{realtor}} from Zyphe AI. I saw you were looking at several listings in the northwest suburbs. I'd love to help you find the perfect match!", channel: 'SMS', category: 'Introduction', isMock: true },
-                { id: 'tpl_2', name: 'Property Analysis Follow-up', content: "Hello {{name}}, following up on the AI analysis of {{address}}. Based on the data, this property is {{sentiment}}. Would you like to schedule a viewing?", channel: 'Email', category: 'Follow-up', isMock: true },
-                { id: 'tpl_3', name: 'Viewing Scheduled', content: "Confirmation: We're set to view {{address}} at {{time}}. I'll meet you at the front entrance. See you soon!", channel: 'SMS', category: 'Viewing', isMock: true }
-            ];
+            const initialLeads: Lead[] = getInitialMockLeads();
+            const initialTasks: CRMTask[] = getInitialMockTasks(realtorId);
+            const initialTemplates: CommTemplate[] = getInitialMockTemplates(realtorId);
 
             // Check if we need to seed (if any mock leads are missing, in wrong collection, or missing KYC data)
             const shouldSeed = initialLeads.some(l => {
@@ -159,6 +114,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             setLeads(finalLeads);
             setTasks(_tasks);
             setTemplates(_templates);
+            setPipelineNotes(_notes);
             setLoadingData(false);
 
             // Refresh selectedClient to ensure it has the latest data (including KYC)
@@ -389,9 +345,18 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         setPipelineNotes(prev => prev.map(n => n.id === noteId ? { ...n, ...updates } : n));
 
         // Sync with Lead's notesLog
+        let leadId: string | undefined;
         const note = pipelineNotes.find(n => n.id === noteId);
         if (note) {
-            const lead = leads.find(l => l.id === note.leadId);
+            leadId = note.leadId;
+        } else {
+            // Fallback: search leads' notesLog
+            const foundLead = leads.find(l => (l.notesLog || []).some(n => n.id === noteId));
+            if (foundLead) leadId = foundLead.id;
+        }
+
+        if (leadId) {
+            const lead = leads.find(l => l.id === leadId);
             if (lead && lead.notesLog) {
                 const updatedNotesLog = lead.notesLog.map(n => n.id === noteId ? { ...n, ...updates } : n);
                 handleUpdateLead(lead.id, { notesLog: updatedNotesLog });
@@ -409,10 +374,22 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     };
 
     const handleDeletePipelineNote = async (noteId: string) => {
-        // Sync with Lead's notesLog first
+        // Optimistic update for global state
+        setPipelineNotes(prev => prev.filter(n => n.id !== noteId));
+
+        // Sync with Lead's notesLog
+        let leadId: string | undefined;
         const note = pipelineNotes.find(n => n.id === noteId);
         if (note) {
-            const lead = leads.find(l => l.id === note.leadId);
+            leadId = note.leadId;
+        } else {
+            // Fallback: search leads' notesLog
+            const foundLead = leads.find(l => (l.notesLog || []).some(n => n.id === noteId));
+            if (foundLead) leadId = foundLead.id;
+        }
+
+        if (leadId) {
+            const lead = leads.find(l => l.id === leadId);
             if (lead && lead.notesLog) {
                 const updatedNotesLog = lead.notesLog.filter(n => n.id !== noteId);
                 handleUpdateLead(lead.id, { notesLog: updatedNotesLog });
@@ -422,9 +399,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                 }
             }
         }
-
-        // Optimistic update
-        setPipelineNotes(prev => prev.filter(n => n.id !== noteId));
 
         const success = await deletePipelineNote(noteId);
         if (!success) {

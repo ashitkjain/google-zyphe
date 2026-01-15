@@ -52,7 +52,14 @@ export const getStatusDefinitions = (type: 'Buyer' | 'Seller' | string, settings
 
 export const getFunnelStageForStatus = (status: string, leadType: 'Buyer' | 'Seller' | string, settings?: any) => {
     const options = getStatusOptions(leadType, settings);
-    const option = options.find((o: StatusOption) => o.label === status);
+    let option = options.find((o: StatusOption) => o.label === status);
+
+    // Fallback to defaults if not found in custom settings
+    if (!option && (leadType === 'Buyer' || leadType === 'Seller')) {
+        const defaults = leadType === 'Seller' ? DEFAULT_SELLER_STATUSES : DEFAULT_BUYER_STATUSES;
+        option = defaults.find((o: StatusOption) => o.label === status);
+    }
+
     return option?.funnelStage || 'Leads'; // Default to Leads if not found
 };
 

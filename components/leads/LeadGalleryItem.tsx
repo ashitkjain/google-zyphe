@@ -240,13 +240,10 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                 <div
                                     key={note.id}
                                     onClick={() => { if (!editNoteId) { setEditNoteId(note.id); setEditContent(note.content); } }}
-                                    className={`p-2.5 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[12px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-110 hover:z-10 group/note flex flex-col relative cursor-pointer post-it-container ${note.color || 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]'} ${i % 2 === 0 ? 'rotate-2' : '-rotate-2'} hover:rotate-0 ${note.isDone ? 'line-through opacity-50' : ''} ${deletingNoteId === note.id ? 'animate-fly-away' : ''} ${celebratingNoteId === note.id ? 'animate-shake' : ''} ${isFlyingUpId === note.id ? 'animate-fly-up' : ''} ${note.isUrgent ? 'urgent-glow' : ''}`}
+                                    className={`p-2.5 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[12px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-110 hover:z-10 group/note flex flex-col relative cursor-pointer post-it-container ${note.color || 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]'} ${i % 2 === 0 ? 'rotate-2' : '-rotate-2'} hover:rotate-0 ${note.isDone ? 'line-through opacity-50' : ''} ${celebratingNoteId === note.id ? 'animate-shake' : ''} ${note.isUrgent ? 'urgent-glow' : ''} ${(deletingNoteId === note.id || isFlyingUpId === note.id) ? 'opacity-0 pointer-events-none' : ''}`}
                                     style={{
-                                        ...((deletingNoteId === note.id || isFlyingUpId === note.id) && deleteCoords ? {
-                                            '--start-top': `${deleteCoords.top}px`,
-                                            '--start-left': `${deleteCoords.left}px`
-                                        } as any : {})
-                                    }}
+                                        '--rotation': i % 2 === 0 ? '2deg' : '-2deg'
+                                    } as React.CSSProperties}
                                 >
                                     {editNoteId === note.id ? (
                                         <textarea

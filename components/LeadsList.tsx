@@ -143,6 +143,21 @@ const LeadsList: React.FC<InternalProps> = ({
     const [celebratingNoteId, setCelebratingNoteId] = useState<string | null>(null);
     const [isFlyingUpId, setIsFlyingUpId] = useState<string | null>(null);
 
+    // Memos to find the note data for the animation clones
+    const animatingNoteData = useMemo(() => {
+        const id = deletingNoteId || isFlyingUpId;
+        if (!id) return null;
+        // Search in global notes first
+        let note = (notes || []).find(n => n.id === id);
+        if (note) return note;
+        // Fallback: search in leads' notesLog
+        for (const l of leads) {
+            const found = (l.notesLog || []).find(n => n.id === id);
+            if (found) return found;
+        }
+        return null;
+    }, [deletingNoteId, isFlyingUpId, notes, leads]);
+
     const onDoneToggle = (e: React.MouseEvent, note: PipelineNote) => {
         e.stopPropagation();
         if (note.isDone) {
@@ -1212,13 +1227,30 @@ const LeadsList: React.FC<InternalProps> = ({
                     )}
                 </div>
 
-                {/* Trash Bin for Fly-away Animation */}
+                {/* Trash Bin for Fly-away Animation & Flying Clones */}
                 {deletingNoteId && (
                     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[10000] flex flex-col items-center gap-2 pointer-events-none">
                         <div className="w-16 h-16 bg-rose-500 rounded-full flex items-center justify-center text-white shadow-2xl bin-active">
                             <i className="fa-solid fa-trash-can text-2xl"></i>
                         </div>
                         <span className="text-rose-600 font-bold text-xs uppercase tracking-widest bg-white px-3 py-1 rounded-full shadow-sm">Discarding...</span>
+                    </div>
+                )}
+
+                {/* The Floating Animation Clone */}
+                {(deletingNoteId || isFlyingUpId) && animatingNoteData && deleteCoords && (
+                    <div
+                        className={`p-2.5 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[12px] font-bold post-it-font whitespace-normal shadow-2xl flex flex-col fixed z-[10001] pointer-events-none ${animatingNoteData.color || 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]'} ${deletingNoteId ? 'animate-fly-away' : 'animate-fly-up'}`}
+                        style={{
+                            '--start-top': `${deleteCoords.top}px`,
+                            '--start-left': `${deleteCoords.left}px`,
+                            '--rotation': '0deg' // We'll just use 0deg for the clone to keep it simple or we could pass rotation
+                        } as React.CSSProperties}
+                    >
+                        <div className="text-[7px] opacity-40 mb-1 font-sans leading-none uppercase tracking-tighter">
+                            {new Date(animatingNoteData.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                        <div className="text-slate-800 line-clamp-4 leading-tight">{animatingNoteData.content}</div>
                     </div>
                 )}
             </DragDropContext>
