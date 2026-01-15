@@ -875,6 +875,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 onActivate={(id) => onUpdateLead(id, { status: 'New' })}
                                                 visibleColumns={visibleColumns.Buyer}
                                                 activeTab="Buyer"
+                                                onUpdateLead={onUpdateLead}
+                                                realtorSettings={realtorSettings}
                                             />
                                         ))}
                                     </div>
@@ -1217,6 +1219,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 onActivate={(id) => onUpdateLead(id, { status: 'New' })}
                                                 visibleColumns={visibleColumns.Seller}
                                                 activeTab="Seller"
+                                                onUpdateLead={onUpdateLead}
+                                                realtorSettings={realtorSettings}
                                             />
                                         ))}
                                     </div>

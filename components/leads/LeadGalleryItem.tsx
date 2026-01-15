@@ -1,6 +1,7 @@
 import React from 'react';
 import { Lead, PipelineNote } from '../../types';
 import { Droppable } from '@hello-pangea/dnd';
+import { getStatusOptions } from '../../services/statusService';
 
 const TypedDroppable = Droppable as any;
 
@@ -32,6 +33,8 @@ interface LeadGalleryItemProps {
     visibleColumns: Set<string>;
     activeTab: 'Buyer' | 'Seller';
     onUpdateAvatar: (leadId: string, file: File) => void;
+    onUpdateLead: (id: string, updates: Partial<Lead>) => void;
+    realtorSettings: any;
 }
 
 const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
@@ -39,8 +42,10 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
     editNoteId, setEditNoteId, editContent, setEditContent, handleUpdateNote,
     onDoneToggle, onDeleteClick, pendingNote, draftContent, setDraftContent,
     handleSaveNote, setPendingNote, deleteCoords, deletingNoteId, celebratingNoteId, isFlyingUpId,
-    onArchive, onActivate, visibleColumns, activeTab, onUpdateAvatar
+    onArchive, onActivate, visibleColumns, activeTab, onUpdateAvatar, onUpdateLead, realtorSettings
 }) => {
+    const [editingCell, setEditingCell] = React.useState<string | null>(null);
+    const [editValue, setEditValue] = React.useState<string>('');
     // ... helper functions ...
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -121,6 +126,105 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
         occupancyStatus: { label: 'Occupancy', icon: 'fa-key' },
         reasonForSelling: { label: 'Reason', icon: 'fa-info-circle' },
         existingAgentName: { label: 'Agent', icon: 'fa-user-tie' }
+    };
+
+    const startEditing = (e: React.MouseEvent, field: string, value: any) => {
+        e.stopPropagation();
+        setEditingCell(field);
+        setEditValue(value || '');
+    };
+
+    const saveEditing = (e: React.MouseEvent, field: string) => {
+        e.stopPropagation();
+        onUpdateLead(lead.id, { [field]: editValue });
+        setEditingCell(null);
+        setEditValue('');
+    };
+
+    const cancelEditing = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setEditingCell(null);
+        setEditValue('');
+    };
+
+    const renderEditableValue = (field: string) => {
+        const isEditing = editingCell === field;
+        const value = (lead as any)[field];
+
+        if (isEditing) {
+            if (field === 'status') {
+                const options = getStatusOptions(lead.leadType, realtorSettings).map((o: any) => o.label);
+
+                return (
+                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <select
+                            autoFocus
+                            className="bg-white border border-indigo-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full font-medium"
+                            defaultValue={value}
+                            onChange={(e) => {
+                                onUpdateLead(lead.id, { [field]: e.target.value });
+                                setEditingCell(null);
+                            }}
+                            onBlur={() => setEditingCell(null)}
+                        >
+                            {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                    </div>
+                );
+            }
+
+            if (typeof value === 'boolean') {
+                return (
+                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <select
+                            autoFocus
+                            className="bg-white border border-indigo-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full font-medium"
+                            defaultValue={value ? 'Yes' : 'No'}
+                            onChange={(e) => {
+                                onUpdateLead(lead.id, { [field]: e.target.value === 'Yes' });
+                                setEditingCell(null);
+                            }}
+                            onBlur={() => setEditingCell(null)}
+                        >
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                    <input
+                        autoFocus
+                        type="text"
+                        className="bg-white border border-indigo-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full font-medium"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveEditing(e as any, field);
+                            if (e.key === 'Escape') cancelEditing(e as any);
+                        }}
+                    />
+                    <button onClick={(e) => saveEditing(e, field)} className="text-emerald-500 hover:text-emerald-700 bg-emerald-50 p-0.5 rounded flex-shrink-0 text-[10px]"><i className="fa-solid fa-check"></i></button>
+                    <button onClick={cancelEditing} className="text-red-400 hover:text-red-600 bg-red-50 p-0.5 rounded flex-shrink-0 text-[10px]"><i className="fa-solid fa-xmark"></i></button>
+                </div>
+            );
+        }
+
+        return (
+            <div className="group/editable flex items-center justify-between gap-1 w-full min-h-[1.2rem]">
+                <span className="font-medium break-words" onClick={(e) => startEditing(e, field, value)}>
+                    {renderValue(field)}
+                </span>
+                <button
+                    onClick={(e) => startEditing(e, field, value)}
+                    className="opacity-0 group-hover/editable:opacity-100 hover:text-indigo-500 transition-opacity p-0.5"
+                >
+                    <i className="fa-solid fa-pencil text-slate-300 text-[9px]"></i>
+                </button>
+            </div>
+        );
     };
 
     return (
@@ -240,7 +344,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                 return (
                                     <div key={colId as string} className="grid grid-cols-[auto_1fr] gap-x-1.5 text-[14px] font-bold text-black leading-tight min-w-0 items-start">
                                         <span className="whitespace-nowrap">{displayLabel}:</span>
-                                        <span className="font-medium break-words">{renderValue(colId as string)}</span>
+                                        {renderEditableValue(colId as string)}
                                     </div>
                                 );
                             })}
