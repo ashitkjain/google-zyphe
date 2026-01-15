@@ -16,6 +16,7 @@ export interface InternalProps {
     handleDragEnd: (result: DropResult) => void;
     realtorSettings?: UserProfile['settings'];
     onUpdateAvatar: (leadId: string, file: File) => void;
+    onUpdateSettings: (settings: Partial<UserProfile['settings']>) => void;
 }
 
 export type ViewMode = 'past6Months' | 'older';

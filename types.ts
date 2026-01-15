@@ -30,7 +30,10 @@ export interface UserProfile {
     leadStatuses?: {
       buyer: StatusOption[];
       seller: StatusOption[];
-    }
+    };
+    columnSettings?: {
+      [key: string]: string[]; // Keyed by 'LeadType:FunnelStage' or just 'LeadType'
+    };
   };
 }
 
