@@ -133,8 +133,8 @@ const LeadGalleryItem: React.FC<{
         return (
             <div
                 className={`bg-white p-4 rounded-[2rem] border transition-all border-l-4 group relative cursor-pointer flex flex-col ${selectedIds.has(lead.id)
-                        ? 'ring-4 ring-indigo-500/50 border-indigo-200 bg-indigo-50/30 shadow-2xl scale-[1.02] z-10'
-                        : 'border-slate-200/60 shadow-sm hover:shadow-xl hover:scale-[1.01]'
+                    ? 'ring-4 ring-indigo-500/50 border-indigo-200 bg-indigo-50/30 shadow-2xl scale-[1.02] z-10'
+                    : 'border-slate-200/60 shadow-sm hover:shadow-xl hover:scale-[1.01]'
                     }`}
                 style={{
                     borderLeftColor: lead.leadType === 'Seller' ? '#10b981' : '#6366f1'
@@ -153,7 +153,7 @@ const LeadGalleryItem: React.FC<{
                         <div
                             ref={noteProvided.innerRef}
                             {...noteProvided.droppableProps}
-                            className={`flex-1 flex flex-col min-h-[130px] ${noteSnapshot.isDraggingOver ? 'bg-indigo-50/50 rounded-2xl' : ''}`}
+                            className={`flex-1 flex flex-col min-h-[130px] ${noteSnapshot.isDraggingOver ? 'bg-indigo-50/20' : ''}`}
                         >
                             <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
                                 <div className="flex items-center gap-1 mr-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -181,7 +181,7 @@ const LeadGalleryItem: React.FC<{
                                         <img src={lead.avatarUrl} alt="" className="w-full h-full object-cover" />
                                     ) : (
                                         <div className="text-indigo-400/60 font-black text-sm uppercase">
-                                            {lead.firstName[0]}{lead.lastName[0]}
+                                            {lead.firstName?.charAt(0) || ''}{lead.lastName?.charAt(0) || ''}
                                         </div>
                                     )}
                                 </div>
@@ -243,7 +243,10 @@ const LeadGalleryItem: React.FC<{
                             )}
 
                             {/* Post-it Notes */}
-                            <div className="flex flex-wrap gap-3 mt-4 relative min-h-[40px]" onClick={(e) => e.stopPropagation()}>
+                            <div
+                                className="flex flex-wrap gap-3 mt-4 relative min-h-[40px] flex-1 rounded-xl transition-colors"
+                                onClick={(e) => e.stopPropagation()}
+                            >
                                 {(lead.notesLog || []).filter(n => !n.isDone).map((note, i) => (
                                     <div
                                         key={note.id}
@@ -316,13 +319,11 @@ const LeadGalleryItem: React.FC<{
                                         />
                                     </div>
                                 )}
+                                {<div style={{ display: 'none' }}>{noteProvided.placeholder}</div>}
                             </div>
-
-                            {noteProvided.placeholder}
                         </div>
-                    )
-                    }
-                </TypedDroppable >
+                    )}
+                </TypedDroppable>
             </div >
         );
     };
@@ -358,8 +359,7 @@ const LeadsList: React.FC<InternalProps> = ({
         return getStatusDefinitions(lead.leadType, realtorSettings);
     };
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-    const [buyerViewMode, setBuyerViewMode] = useState<'today' | 'week' | 'month' | 'year' | 'older'>('today');
-    const [sellerViewMode, setSellerViewMode] = useState<'today' | 'week' | 'month' | 'year' | 'older'>('today');
+
     const [showFilters, setShowFilters] = useState(false);
     const [showStatusInfo, setShowStatusInfo] = useState(false);
     const [columnFilters, setColumnFilters] = useState({
@@ -388,7 +388,7 @@ const LeadsList: React.FC<InternalProps> = ({
         { id: 'propertyAddress', label: 'Inquired Property' },
         { id: 'tags', label: 'Tags' },
         { id: 'funnelStage', label: 'Pipeline Stage' },
-        { id: 'notes', label: 'Comments / Notes' }
+        { id: 'notes', label: 'Agent Notes' }
     ];
 
     const availableSellerColumns = [
@@ -410,7 +410,7 @@ const LeadsList: React.FC<InternalProps> = ({
         { id: 'message', label: 'Message' },
         { id: 'tags', label: 'Tags' },
         { id: 'funnelStage', label: 'Pipeline Stage' },
-        { id: 'notes', label: 'Comments / Notes' }
+        { id: 'notes', label: 'Agent Notes' }
     ];
 
     // Default visible columns (preserving previous default view)
@@ -449,13 +449,14 @@ const LeadsList: React.FC<InternalProps> = ({
         };
     }, [showColumnSelector]);
 
-    const [viewMode, setViewMode] = useState<'today' | 'week' | 'month' | 'year' | 'older'>('today'); // Legacy for displayModes mapping
+    const [buyerViewMode, setBuyerViewMode] = useState<'past6Months' | 'older'>('past6Months');
+    const [sellerViewMode, setSellerViewMode] = useState<'past6Months' | 'older'>('past6Months');
+
+    // Display Mode Mapping (Default: Past 6 Months -> Gallery, Older -> List)
+    const [viewMode, setViewMode] = useState<'past6Months' | 'older'>('past6Months'); // Legacy
 
     const [displayModes, setDisplayModes] = useState<Record<string, 'list' | 'gallery'>>({
-        today: 'gallery',
-        week: 'list',
-        month: 'list',
-        year: 'list',
+        past6Months: 'gallery',
         older: 'list'
     });
 
@@ -684,48 +685,19 @@ const LeadsList: React.FC<InternalProps> = ({
 
     const dateRanges = useMemo(() => {
         const now = new Date();
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const startOfWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-        const startOfYear = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-
-        const formatDate = (d: Date, includeYear = false) => {
-            return d.toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: includeYear ? 'numeric' : undefined
-            });
-        };
-
-        const yesterday = new Date(startOfToday);
-        yesterday.setDate(yesterday.getDate() - 1);
-
-        const weekEnd = new Date(startOfToday);
-        weekEnd.setDate(weekEnd.getDate() - 1);
-
-        const monthEnd = new Date(startOfWeek);
-        monthEnd.setDate(monthEnd.getDate() - 1);
-
-        const yearEnd = new Date(startOfMonth);
-        yearEnd.setDate(yearEnd.getDate() - 1);
+        const startOf6Months = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
 
         return {
-            startOfToday,
-            startOfWeek,
-            startOfMonth,
-            startOfYear,
+            startOf6Months,
             labels: {
-                today: formatDate(startOfToday),
-                week: `${formatDate(startOfWeek)} - ${formatDate(weekEnd)}`,
-                month: `${formatDate(startOfMonth)} - ${formatDate(monthEnd)}`,
-                year: `${formatDate(startOfYear, true)} - ${formatDate(yearEnd, true)}`,
-                older: `Before ${formatDate(startOfYear, true)}`
+                past6Months: `Past 6 Months`,
+                older: `Older than 6 Months`
             }
         };
     }, []);
 
     const timeStats = useMemo(() => {
-        const { startOfToday, startOfWeek, startOfMonth, startOfYear } = dateRanges;
+        const { startOf6Months } = dateRanges;
         const validLeads = leads.filter(l =>
             isNewLeadStatus(l.status, l.leadType, realtorSettings) &&
             l.collectionName === 'leads'
@@ -734,25 +706,13 @@ const LeadsList: React.FC<InternalProps> = ({
         const getStatsForType = (type: 'Buyer' | 'Seller') => {
             const typed = validLeads.filter(l => l.leadType === type);
             return {
-                today: typed.filter(l => {
+                past6Months: typed.filter(l => {
                     const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
-                    return d >= startOfToday;
-                }).length,
-                week: typed.filter(l => {
-                    const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
-                    return d >= startOfWeek && d < startOfToday;
-                }).length,
-                month: typed.filter(l => {
-                    const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
-                    return d >= startOfMonth && d < startOfWeek;
-                }).length,
-                year: typed.filter(l => {
-                    const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
-                    return d >= startOfYear && d < startOfMonth;
+                    return d >= startOf6Months;
                 }).length,
                 older: typed.filter(l => {
                     const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
-                    return d < startOfYear;
+                    return d < startOf6Months;
                 }).length
             };
         };
@@ -764,7 +724,7 @@ const LeadsList: React.FC<InternalProps> = ({
     }, [leads, dateRanges, realtorSettings]);
 
     const filteredBuyerLeads = useMemo(() => {
-        const { startOfToday, startOfWeek, startOfMonth, startOfYear } = dateRanges;
+        const { startOf6Months } = dateRanges;
 
         let result = leads.filter(l => {
             if (l.leadType !== 'Buyer' && l.leadType !== 'Rental' && l.leadType !== 'Mortgage') return false; // Default Buyers
@@ -776,11 +736,8 @@ const LeadsList: React.FC<InternalProps> = ({
 
             const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
 
-            if (buyerViewMode === 'today') return d >= startOfToday;
-            if (buyerViewMode === 'week') return d >= startOfWeek && d < startOfToday;
-            if (buyerViewMode === 'month') return d >= startOfMonth && d < startOfWeek;
-            if (buyerViewMode === 'year') return d >= startOfYear && d < startOfMonth;
-            if (buyerViewMode === 'older') return d < startOfYear;
+            if (buyerViewMode === 'past6Months') return d >= startOf6Months;
+            if (buyerViewMode === 'older') return d < startOf6Months;
             return false;
         });
 
@@ -809,7 +766,7 @@ const LeadsList: React.FC<InternalProps> = ({
     }, [leads, buyerViewMode, columnFilters, sortField, sortDirection, realtorSettings]);
 
     const filteredSellerLeads = useMemo(() => {
-        const { startOfToday, startOfWeek, startOfMonth, startOfYear } = dateRanges;
+        const { startOf6Months } = dateRanges;
 
         let result = leads.filter(l => {
             if (l.leadType !== 'Seller') return false;
@@ -818,11 +775,8 @@ const LeadsList: React.FC<InternalProps> = ({
 
             const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
 
-            if (sellerViewMode === 'today') return d >= startOfToday;
-            if (sellerViewMode === 'week') return d >= startOfWeek && d < startOfToday;
-            if (sellerViewMode === 'month') return d >= startOfMonth && d < startOfWeek;
-            if (sellerViewMode === 'year') return d >= startOfYear && d < startOfMonth;
-            if (sellerViewMode === 'older') return d < startOfYear;
+            if (sellerViewMode === 'past6Months') return d >= startOf6Months;
+            if (sellerViewMode === 'older') return d < startOf6Months;
             return false;
         });
 
@@ -1054,10 +1008,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                 {/* Time Selector for Buyers */}
                                 <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm relative overflow-hidden">
                                     {[
-                                        { id: 'today', label: 'New', subtitle: dateRanges.labels.today, count: timeStats.Buyer.today },
-                                        { id: 'week', label: 'Past Week', subtitle: dateRanges.labels.week, count: timeStats.Buyer.week },
-                                        { id: 'month', label: 'Past Month', subtitle: dateRanges.labels.month, count: timeStats.Buyer.month },
-                                        { id: 'year', label: 'Past Year', subtitle: dateRanges.labels.year, count: timeStats.Buyer.year },
+                                        { id: 'past6Months', label: 'Past 6 Months', subtitle: dateRanges.labels.past6Months, count: timeStats.Buyer.past6Months },
                                         { id: 'older', label: 'Older', subtitle: dateRanges.labels.older, count: timeStats.Buyer.older }
                                     ].map((tab) => (
                                         <button
@@ -1117,16 +1068,25 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                     {(provided: any, snapshot: any) => (
                                                                         <div className="relative group note-palette-item">
                                                                             {!snapshot.isDragging && (
-                                                                                <div className={`absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow}`}></div>
+                                                                                <>
+                                                                                    {/* Back Note */}
+                                                                                    <div className={`absolute inset-0 -translate-x-1 translate-y-1 rounded-sm border border-black/10 opacity-60 ${note.color} ${note.shadow} -rotate-3 transition-transform group-hover:-translate-x-2 group-hover:translate-y-2`}></div>
+                                                                                    {/* Middle Note */}
+                                                                                    <div className={`absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow} rotate-2 transition-transform group-hover:translate-x-1 group-hover:translate-y-1`}></div>
+                                                                                </>
                                                                             )}
                                                                             <div
                                                                                 ref={provided.innerRef}
                                                                                 {...provided.draggableProps}
                                                                                 {...provided.dragHandleProps}
-                                                                                className={`w-7 h-7 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-0.5 hover:-rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl' : ''}`}
+                                                                                className={`w-16 h-16 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-1 hover:rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl ring-2 ring-white/50' : 'relative z-10'} ${snapshot.isDropAnimating ? 'opacity-0 duration-0' : ''}`}
                                                                             >
-                                                                                <div className="w-full h-1 bg-black/5 absolute top-0"></div>
-                                                                                <i className="fa-solid fa-note-sticky opacity-20 text-[9px]"></i>
+                                                                                {/* Paperclip Effect */}
+                                                                                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-7 border-2 border-slate-400/80 rounded-full bg-slate-200/50 z-20 shadow-sm opacity-80 group-hover:opacity-100 transition-opacity">
+                                                                                    <div className="absolute inset-1 border-l border-slate-500/30 rounded-full"></div>
+                                                                                </div>
+                                                                                <div className="w-full h-1.5 bg-black/5 absolute top-0"></div>
+                                                                                <i className="fa-solid fa-note-sticky opacity-20 text-[18px]"></i>
                                                                             </div>
                                                                         </div>
                                                                     )}
@@ -1354,8 +1314,21 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         )}
                                                         {visibleColumns.Buyer.has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.funnelStage || '--'}</td>}
                                                         {visibleColumns.Buyer.has('notes') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 min-w-[200px] text-xs text-slate-600 line-clamp-2" title={lead.notes}>
-                                                                {renderCell(lead, 'notes')}
+                                                            <td className="px-2 py-2 border-b border-slate-100 min-w-[200px] max-w-[300px]">
+                                                                <div className="flex flex-col gap-1 max-h-[80px] overflow-y-auto custom-scrollbar">
+                                                                    {(lead.notesLog || []).length > 0 ? (
+                                                                        lead.notesLog!.map((note, i) => (
+                                                                            <div key={note.id || i} className="text-[11px] leading-tight text-slate-600">
+                                                                                <span className="opacity-50 text-[10px] mr-1">
+                                                                                    {note.timestamp?.toDate ? note.timestamp.toDate().toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(note.timestamp).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                                                </span>
+                                                                                {note.content}
+                                                                            </div>
+                                                                        ))
+                                                                    ) : (
+                                                                        <span className="text-xs text-slate-300">--</span>
+                                                                    )}
+                                                                </div>
                                                             </td>
                                                         )}
 
@@ -1415,10 +1388,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                 {/* Time Selector for Sellers */}
                                 <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm relative overflow-hidden">
                                     {[
-                                        { id: 'today', label: 'New', subtitle: dateRanges.labels.today, count: timeStats.Seller.today },
-                                        { id: 'week', label: 'Past Week', subtitle: dateRanges.labels.week, count: timeStats.Seller.week },
-                                        { id: 'month', label: 'Past Month', subtitle: dateRanges.labels.month, count: timeStats.Seller.month },
-                                        { id: 'year', label: 'Past Year', subtitle: dateRanges.labels.year, count: timeStats.Seller.year },
+                                        { id: 'past6Months', label: 'Past 6 Months', subtitle: dateRanges.labels.past6Months, count: timeStats.Seller.past6Months },
                                         { id: 'older', label: 'Older', subtitle: dateRanges.labels.older, count: timeStats.Seller.older }
                                     ].map((tab) => (
                                         <button
@@ -1478,16 +1448,25 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                     {(provided: any, snapshot: any) => (
                                                                         <div className="relative group note-palette-item">
                                                                             {!snapshot.isDragging && (
-                                                                                <div className={`absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow}`}></div>
+                                                                                <>
+                                                                                    {/* Back Note */}
+                                                                                    <div className={`absolute inset-0 -translate-x-1 translate-y-1 rounded-sm border border-black/10 opacity-60 ${note.color} ${note.shadow} -rotate-3 transition-transform group-hover:-translate-x-2 group-hover:translate-y-2`}></div>
+                                                                                    {/* Middle Note */}
+                                                                                    <div className={`absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow} rotate-2 transition-transform group-hover:translate-x-1 group-hover:translate-y-1`}></div>
+                                                                                </>
                                                                             )}
                                                                             <div
                                                                                 ref={provided.innerRef}
                                                                                 {...provided.draggableProps}
                                                                                 {...provided.dragHandleProps}
-                                                                                className={`w-7 h-7 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-0.5 hover:-rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl' : ''}`}
+                                                                                className={`w-16 h-16 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-1 hover:rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl ring-2 ring-white/50' : 'relative z-10'} ${snapshot.isDropAnimating ? 'opacity-0 duration-0' : ''}`}
                                                                             >
-                                                                                <div className="w-full h-1 bg-black/5 absolute top-0"></div>
-                                                                                <i className="fa-solid fa-note-sticky opacity-20 text-[9px]"></i>
+                                                                                {/* Paperclip Effect */}
+                                                                                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-7 border-2 border-slate-400/80 rounded-full bg-slate-200/50 z-20 shadow-sm opacity-80 group-hover:opacity-100 transition-opacity">
+                                                                                    <div className="absolute inset-1 border-l border-slate-500/30 rounded-full"></div>
+                                                                                </div>
+                                                                                <div className="w-full h-1.5 bg-black/5 absolute top-0"></div>
+                                                                                <i className="fa-solid fa-note-sticky opacity-20 text-[18px]"></i>
                                                                             </div>
                                                                         </div>
                                                                     )}
@@ -1718,8 +1697,21 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         )}
                                                         {visibleColumns.Seller.has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.funnelStage || '--'}</td>}
                                                         {visibleColumns.Seller.has('notes') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 min-w-[200px] text-xs text-slate-600 line-clamp-2" title={lead.notes}>
-                                                                {renderCell(lead, 'notes')}
+                                                            <td className="px-2 py-2 border-b border-slate-100 min-w-[200px] max-w-[300px]">
+                                                                <div className="flex flex-col gap-1 max-h-[80px] overflow-y-auto custom-scrollbar">
+                                                                    {(lead.notesLog || []).length > 0 ? (
+                                                                        lead.notesLog!.map((note, i) => (
+                                                                            <div key={note.id || i} className="text-[11px] leading-tight text-slate-600">
+                                                                                <span className="opacity-50 text-[10px] mr-1">
+                                                                                    {note.timestamp?.toDate ? note.timestamp.toDate().toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(note.timestamp).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                                                </span>
+                                                                                {note.content}
+                                                                            </div>
+                                                                        ))
+                                                                    ) : (
+                                                                        <span className="text-xs text-slate-300">--</span>
+                                                                    )}
+                                                                </div>
                                                             </td>
                                                         )}
                                                     </tr>

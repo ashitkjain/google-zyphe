@@ -384,18 +384,25 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     };
 
     const handleDragEnd = async (result: DropResult) => {
-        const { destination, source, draggableId, combine } = result;
+        const { destination, source, draggableId } = result;
 
         // Custom Note Handling (Palette Drop onto Lead)
-        if (draggableId.startsWith('note-') && destination && destination.droppableId !== 'palette') {
+        if (draggableId.startsWith('note-') && destination && destination.droppableId !== 'palette' && destination.droppableId !== 'palette-buyer' && destination.droppableId !== 'palette-seller') {
             const leadId = destination.droppableId;
+            // Extract base ID (e.g., 'note-yellow' from 'note-yellow-buyer')
+            const baseNoteId = draggableId.split('-').slice(0, 2).join('-');
+
             const colorMap: any = {
-                'note-yellow': 'bg-[#ffff88] text-slate-800 border-[#eeee77]',
-                'note-blue': 'bg-[#7afaff] text-slate-800 border-[#69e9ee]',
-                'note-pink': 'bg-[#ff7eb9] text-white border-[#ee6da8]',
-                'note-green': 'bg-[#a7ffeb] text-slate-800 border-[#96eee0]',
+                'note-yellow': 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]',
+                'note-blue': 'bg-[#7afaff] text-slate-800 border-[#69e9ee] shadow-[5px_5px_7px_rgba(33,33,33,.1)]',
+                'note-pink': 'bg-[#ff7eb9] text-white border-[#ee6da8] shadow-[5px_5px_7px_rgba(33,33,33,.1)]',
+                'note-green': 'bg-[#a7ffeb] text-slate-800 border-[#96eee0] shadow-[5px_5px_7px_rgba(33,33,33,.1)]',
             };
-            setPendingNote({ leadId, color: colorMap[draggableId] || 'bg-yellow-100' });
+
+            setPendingNote({
+                leadId,
+                color: colorMap[baseNoteId] || 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]'
+            });
             return;
         }
 

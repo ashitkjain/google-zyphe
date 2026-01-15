@@ -235,12 +235,14 @@ const PipelineBoard: React.FC<PipelineBoardProps> = ({
                                         {noteTypes.map((note, index) => (
                                             <TypedDraggable key={note.id} draggableId={note.id} index={index}>
                                                 {(provided: any, snapshot: any) => (
-                                                    <div className="relative group">
+                                                    <div className="relative group note-palette-item">
                                                         {/* Visual Stack Effect */}
                                                         {!snapshot.isDragging && (
                                                             <>
-                                                                <div className={`absolute inset-0 translate-x-1.5 translate-y-1.5 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow}`}></div>
-                                                                <div className={`absolute inset-0 translate-x-3 translate-y-3 rounded-sm border border-black/5 opacity-20 ${note.color} ${note.shadow}`}></div>
+                                                                {/* Back Note */}
+                                                                <div className={`absolute inset-0 -translate-x-1 translate-y-1 rounded-sm border border-black/10 opacity-60 ${note.color} ${note.shadow} -rotate-3 transition-transform group-hover:-translate-x-2 group-hover:translate-y-2`}></div>
+                                                                {/* Middle Note */}
+                                                                <div className={`absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow} rotate-2 transition-transform group-hover:translate-x-1 group-hover:translate-y-1`}></div>
                                                             </>
                                                         )}
 
@@ -248,10 +250,14 @@ const PipelineBoard: React.FC<PipelineBoardProps> = ({
                                                             ref={provided.innerRef}
                                                             {...provided.draggableProps}
                                                             {...provided.dragHandleProps}
-                                                            className={`w-14 h-14 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-1 hover:-rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl' : ''}`}
+                                                            className={`w-16 h-16 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-1 hover:rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl ring-2 ring-white/50' : 'relative z-10'}`}
                                                         >
-                                                            <div className="w-full h-2 bg-black/5 absolute top-0"></div>
-                                                            <i className="fa-solid fa-note-sticky opacity-20 text-xs"></i>
+                                                            {/* Paperclip Effect */}
+                                                            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-7 border-2 border-slate-400/80 rounded-full bg-slate-200/50 z-20 shadow-sm opacity-80 group-hover:opacity-100 transition-opacity">
+                                                                <div className="absolute inset-1 border-l border-slate-500/30 rounded-full"></div>
+                                                            </div>
+                                                            <div className="w-full h-1.5 bg-black/5 absolute top-0"></div>
+                                                            <i className="fa-solid fa-note-sticky opacity-20 text-[18px]"></i>
                                                         </div>
                                                     </div>
                                                 )}

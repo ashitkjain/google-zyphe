@@ -1,30 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zyphe AI - Intelligent Home Analysis</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg viewBox='0 0 100 100' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='houseGradient' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%234F46E5'/%3E%3Cstop offset='50%25' stop-color='%237C3AED'/%3E%3Cstop offset='100%25' stop-color='%234338CA'/%3E%3C/linearGradient%3E%3ClinearGradient id='chipGradient' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23EEF2FF'/%3E%3Cstop offset='100%25' stop-color='%23C7D2FE'/%3E%3C/linearGradient%3E%3Cfilter id='glow' x='-20%25' y='-20%25' width='140%25' height='140%25'%3E%3CfeGaussianBlur stdDeviation='2' result='blur'/%3E%3CfeComposite in='SourceGraphic' in2='blur' operator='over'/%3E%3C/filter%3E%3C/defs%3E%3Cpath d='M50 10L10 45V85C10 87.7614 12.2386 90 15 90H85C87.7614 90 90 87.7614 90 85V45L50 10Z' fill='url(%23houseGradient)'/%3E%3Cpath d='M68 25V35L75 41V25H68Z' fill='%234338CA' opacity='0.8'/%3E%3Crect x='32' y='48' width='36' height='36' rx='6' fill='url(%23chipGradient)' filter='url(%23glow)'/%3E%3Crect x='38' y='44' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='44' y='44' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='50' y='44' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='56' y='44' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='62' y='44' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='38' y='84' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='44' y='84' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='50' y='84' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='56' y='84' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='62' y='84' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='28' y='54' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='28' y='60' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='28' y='66' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='28' y='72' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='28' y='78' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='68' y='54' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='68' y='60' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='68' y='66' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='68' y='72' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='68' y='78' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Ctext x='50' y='71' text-anchor='middle' fill='%234F46E5' style='font-size: 18px; font-weight: 900; font-family: sans-serif'%3EAI%3C/text%3E%3C/svg%3E">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
-    <script>
-      // Safe environment shim with all expected keys to prevent ReferenceErrors or SyntaxErrors
-      window.process = window.process || { 
-        env: { 
-          API_KEY: "", 
-          RAPID_API_KEY: "", 
-          RADAR_API_KEY: "",
-          RAPID_API_HOST: ""
-        } 
-      };
-      
-      window.onerror = function(msg, url, lineNo, columnNo, error) {
-        const root = document.getElementById('root');
-        if (root) {
-          root.innerHTML = `
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zyphe AI - Intelligent Home Analysis</title>
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg viewBox='0 0 100 100' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='houseGradient' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%234F46E5'/%3E%3Cstop offset='50%25' stop-color='%237C3AED'/%3E%3Cstop offset='100%25' stop-color='%234338CA'/%3E%3C/linearGradient%3E%3ClinearGradient id='chipGradient' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23EEF2FF'/%3E%3Cstop offset='100%25' stop-color='%23C7D2FE'/%3E%3C/linearGradient%3E%3Cfilter id='glow' x='-20%25' y='-20%25' width='140%25' height='140%25'%3E%3CfeGaussianBlur stdDeviation='2' result='blur'/%3E%3CfeComposite in='SourceGraphic' in2='blur' operator='over'/%3E%3C/filter%3E%3C/defs%3E%3Cpath d='M50 10L10 45V85C10 87.7614 12.2386 90 15 90H85C87.7614 90 90 87.7614 90 85V45L50 10Z' fill='url(%23houseGradient)'/%3E%3Cpath d='M68 25V35L75 41V25H68Z' fill='%234338CA' opacity='0.8'/%3E%3Crect x='32' y='48' width='36' height='36' rx='6' fill='url(%23chipGradient)' filter='url(%23glow)'/%3E%3Crect x='38' y='44' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='44' y='44' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='50' y='44' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='56' y='44' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='62' y='44' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='38' y='84' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='44' y='84' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='50' y='84' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='56' y='84' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='62' y='84' width='2' height='4' rx='1' fill='%23C7D2FE'/%3E%3Crect x='28' y='54' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='28' y='60' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='28' y='66' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='28' y='72' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='28' y='78' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='68' y='54' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='68' y='60' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='68' y='66' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='68' y='72' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Crect x='68' y='78' width='4' height='2' rx='1' fill='%23C7D2FE'/%3E%3Ctext x='50' y='71' text-anchor='middle' fill='%234F46E5' style='font-size: 18px; font-weight: 900; font-family: sans-serif'%3EAI%3C/text%3E%3C/svg%3E">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap"
+    rel="stylesheet">
+  <script>
+    // Safe environment shim with all expected keys to prevent ReferenceErrors or SyntaxErrors
+    window.process = window.process || {
+      env: {
+        API_KEY: "",
+        RAPID_API_KEY: "",
+        RADAR_API_KEY: "",
+        RAPID_API_HOST: ""
+      }
+    };
+
+    window.onerror = function (msg, url, lineNo, columnNo, error) {
+      const root = document.getElementById('root');
+      if (root) {
+        root.innerHTML = `
             <div style="padding: 40px; font-family: sans-serif; max-width: 600px; margin: auto; text-align: center;">
               <h1 style="color: #e11d48; font-weight: 900; font-size: 24px;">Initialization Failed</h1>
               <p style="color: #4b5563; margin-top: 10px;">The Zyphe AI application encountered a loading error. This may be due to a script error or module conflict.</p>
@@ -35,28 +39,79 @@
               <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #4f46e5; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">Retry Loading</button>
             </div>
           `;
-        }
-        return false;
-      };
+      }
+      return false;
+    };
 
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['"Inter"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-              mono: ['"JetBrains Mono"', 'monospace'],
-            },
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Inter"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
           },
         },
+      },
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+      background-color: #f8fafc;
+    }
+
+    /* Post-it Delete Animation */
+    @keyframes flyAway {
+      0% {
+        transform: scale(1) rotate(0deg);
+        opacity: 1;
       }
-    </script>
-    <style>
-      body {
-        font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
-        background-color: #f8fafc;
+
+      20% {
+        transform: scale(1.1) rotate(-10deg);
       }
-    </style>
-<script type="importmap">
+
+      100% {
+        top: calc(100vh - 6rem);
+        left: 50%;
+        transform: translate(-50%, 0) scale(0.1) rotate(360deg);
+        opacity: 0;
+      }
+    }
+
+    .animate-fly-away {
+      position: fixed !important;
+      top: var(--start-top);
+      left: var(--start-left);
+      z-index: 9999 !important;
+      width: 6rem !important;
+      /* w-24 is 6rem */
+      height: 6rem !important;
+      /* h-24 is 6rem */
+      pointer-events: none;
+      animation: flyAway 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      margin: 0 !important;
+    }
+
+    .bin-active {
+      animation: pulse-red 1s infinite;
+    }
+
+    @keyframes pulse-red {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7);
+        transform: scale(1);
+      }
+
+      50% {
+        box-shadow: 0 0 0 10px rgba(244, 63, 94, 0);
+        transform: scale(1.1);
+      }
+    }
+  </style>
+  <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@19.0.0",
@@ -78,13 +133,17 @@
 }
 </script>
 </head>
+
 <body class="bg-slate-50 text-slate-900 antialiased font-sans">
-    <div id="root">
-        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: #4F46E5;">
-            <div style="font-weight: 900; font-size: 24px; letter-spacing: -0.05em; margin-bottom: 10px;">ZYPHE AI</div>
-            <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3em; opacity: 0.6;">Initializing Intelligence Suite...</div>
-        </div>
+  <div id="root">
+    <div
+      style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: #4F46E5;">
+      <div style="font-weight: 900; font-size: 24px; letter-spacing: -0.05em; margin-bottom: 10px;">ZYPHE AI</div>
+      <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3em; opacity: 0.6;">
+        Initializing Intelligence Suite...</div>
     </div>
-    <script type="module" src="./index.tsx"></script>
+  </div>
+  <script type="module" src="./index.tsx"></script>
 </body>
+
 </html>
