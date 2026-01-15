@@ -16,6 +16,7 @@ import { StatusOption } from '../types';
 import { isTerminalStatus, getFunnelStageForStatus, getStatusOptions } from '../services/statusService';
 import WhiteboardTab from './client-hub/WhiteboardTab';
 import ClosingDashboard from './client-hub/ClosingDashboard';
+import BestPracticesTab from './client-hub/BestPracticesTab';
 
 interface Props {
     realtorId: string;
@@ -28,7 +29,7 @@ const generateClientID = () => {
     return 'C-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 };
 
-type HubTab = 'clients' | 'leads' | 'tasks' | 'comms' | 'settings' | 'whiteboard' | 'closing' | 'status_settings';
+type HubTab = 'clients' | 'leads' | 'tasks' | 'comms' | 'settings' | 'whiteboard' | 'closing' | 'status_settings' | 'best_practices';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack }) => {
     const [activeTab, setActiveTab] = useState<HubTab>('leads');
@@ -445,6 +446,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
         { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
         { id: 'settings', label: 'Statuses', icon: 'fa-sliders' },
+        { id: 'best_practices', label: 'Best Practices', icon: 'fa-book-open' },
     ];
 
     const handleSaveKYC = async (updates: any) => {
@@ -619,6 +621,10 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
                 {activeTab === 'whiteboard' && (
                     <WhiteboardTab userId={realtorId} />
+                )}
+
+                {activeTab === 'best_practices' && (
+                    <BestPracticesTab />
                 )}
 
             </div>
