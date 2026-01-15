@@ -113,12 +113,23 @@ const LeadsList: React.FC<InternalProps> = ({
 
     const [displayModes, setDisplayModes] = useState<Record<string, 'list' | 'gallery'>>({
         past6Months: 'gallery',
-        older: 'list'
+        older: 'list',
+        Archived: 'list'
     });
 
-    const currentDisplayMode = activeTab === 'Buyer' ? displayModes[buyerViewMode] : displayModes[sellerViewMode];
+    const currentFunnelCategory = activeTab === 'Buyer' ? buyerFunnelCategory : sellerFunnelCategory;
+
+    const currentDisplayMode = useMemo(() => {
+        if (currentFunnelCategory === 'Archived') return displayModes.Archived || 'list';
+        const viewMode = activeTab === 'Buyer' ? buyerViewMode : sellerViewMode;
+        return displayModes[viewMode] || 'list';
+    }, [activeTab, currentFunnelCategory, buyerViewMode, sellerViewMode, displayModes]);
 
     const toggleDisplayMode = (mode: 'list' | 'gallery') => {
+        if (currentFunnelCategory === 'Archived') {
+            setDisplayModes(prev => ({ ...prev, Archived: mode }));
+            return;
+        }
         const targetViewMode = activeTab === 'Buyer' ? buyerViewMode : sellerViewMode;
         setDisplayModes(prev => ({
             ...prev,
@@ -550,8 +561,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                 setShowColumnSelector={setShowColumnSelector}
                                 showFilters={showFilters}
                                 setShowFilters={setShowFilters}
-                                displayMode={displayModes[buyerViewMode]}
-                                setDisplayMode={(mode) => setDisplayModes(prev => ({ ...prev, [buyerViewMode]: mode }))}
+                                displayMode={currentDisplayMode}
+                                setDisplayMode={toggleDisplayMode}
                                 columnSelectorRef={columnSelectorRef}
                                 availableColumns={availableBuyerColumns}
                                 visibleColumns={visibleColumns.Buyer}
@@ -906,8 +917,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                 setShowColumnSelector={setShowColumnSelector}
                                 showFilters={showFilters}
                                 setShowFilters={setShowFilters}
-                                displayMode={displayModes[sellerViewMode]}
-                                setDisplayMode={(mode) => setDisplayModes(prev => ({ ...prev, [sellerViewMode]: mode }))}
+                                displayMode={currentDisplayMode}
+                                setDisplayMode={toggleDisplayMode}
                                 columnSelectorRef={columnSelectorRef}
                                 availableColumns={availableSellerColumns}
                                 visibleColumns={visibleColumns.Seller}

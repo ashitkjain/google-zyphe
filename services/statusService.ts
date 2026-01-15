@@ -17,6 +17,7 @@ export const DEFAULT_SELLER_STATUSES: StatusOption[] = [
     { label: 'Not Selling Anymore', description: 'Seller has put the sale on hold or cancelled it', isDefault: true, funnelStage: 'Closed' },
     { label: 'Found A Buyer', description: 'Seller has found a buyer elsewhere or through another agent', isDefault: true, funnelStage: 'Closed' },
     { label: 'Not Interested', description: 'Seller is simply not interested', isDefault: true, funnelStage: 'Closed' },
+    { label: 'Archived', description: 'Lead archived for record keeping', isDefault: true, funnelStage: 'Archived' },
 ];
 
 export const DEFAULT_BUYER_STATUSES: StatusOption[] = [
@@ -36,6 +37,7 @@ export const DEFAULT_BUYER_STATUSES: StatusOption[] = [
     { label: 'Not Buying Anymore', description: 'Buyer has put the requirement on hold or cancelled it', isDefault: true, funnelStage: 'Closed' },
     { label: 'Found A Home', description: 'Buyer has found a home elsewhere or through another agent', isDefault: true, funnelStage: 'Closed' },
     { label: 'Not Interested', description: 'Buyer is simply not interested', isDefault: true, funnelStage: 'Closed' },
+    { label: 'Archived', description: 'Lead archived for record keeping', isDefault: true, funnelStage: 'Archived' },
 ];
 
 export const getStatusOptions = (type: 'Buyer' | 'Seller' | string, settings?: any) => {

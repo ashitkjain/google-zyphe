@@ -43,7 +43,8 @@ export type FunnelStage =
   | 'Active Search' // Currently viewing homes
   | 'Offer'         // Offer submitted
   | 'Contract'      // Under contract
-  | 'Closed';       // Deal finalized
+  | 'Closed'        // Deal finalized
+  | 'Archived';      // Hidden/Archived leads
 
 export type LeadHealth = 'Active' | 'Stale' | 'Dormant' | 'Responsive';
 
