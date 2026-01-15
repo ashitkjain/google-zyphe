@@ -110,7 +110,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                 if (lead.isMock) {
                     const mockTemplate = initialLeads.find(l => l.id === lead.id);
                     if (mockTemplate) {
-                        return { ...lead, ...mockTemplate };
+                        // MERGE: Firestore data (lead) should OVERWRITE template data (mockTemplate)
+                        return { ...mockTemplate, ...lead };
                     }
                 }
                 return lead;
@@ -247,26 +248,28 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             }
         }
 
-        const lead = currentLead || leads.find(l => l.id === leadId);
-        // All leads are now in the 'leads' collection
-        let collectionName = 'leads';
-
-        const previousLeads = [...leads];
+        // 1. Optimistically update local state
         const leadExists = leads.some(l => l.id === leadId);
         if (leadExists) {
             setLeads(prev => prev.map(l => l.id === leadId ? { ...l, ...updates } : l));
         } else {
             setLeads(prev => [{ ...updates, id: leadId } as Lead, ...prev]);
         }
-        setEditingLead(null);
+
+        // 2. Prepare for persistence
+        const collectionName = 'leads';
+        const previousLeads = [...leads];
 
         setIsSavingLead(true);
         const success = await updateLead(leadId, updates, collectionName);
+
         if (!success) {
             setLeads(previousLeads);
             alert('Failed to save changes. Please try again.');
         }
+
         setIsSavingLead(false);
+        setEditingLead(null); // Close modal only after save process completes (success or failure handled)
     };
 
     const handleDragEnd = async (result: DropResult) => {

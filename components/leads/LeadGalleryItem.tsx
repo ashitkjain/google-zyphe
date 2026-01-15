@@ -324,16 +324,30 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                         <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
                             {/* Contacted Status Leaves */}
                             {lead.initialContactIn30Mins === true && (
-                                <div className="flex items-center gap-1 bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm border border-emerald-100">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onUpdateLead(lead.id, { initialContactIn30Mins: false });
+                                    }}
+                                    className="flex items-center gap-1 bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm border border-emerald-100 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 transition-colors cursor-pointer"
+                                    title="Manually mark as missed"
+                                >
                                     <i className="fa-solid fa-leaf text-[8px]"></i>
                                     got it
-                                </div>
+                                </button>
                             )}
                             {lead.initialContactIn30Mins === false && (
-                                <div className="flex items-center gap-1 bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm border border-rose-100">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onUpdateLead(lead.id, { initialContactIn30Mins: true });
+                                    }}
+                                    className="flex items-center gap-1 bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm border border-rose-100 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-100 transition-colors cursor-pointer"
+                                    title="Manually mark as contacted"
+                                >
                                     <i className="fa-solid fa-leaf text-[8px]"></i>
                                     missed
-                                </div>
+                                </button>
                             )}
 
                             <div className="flex items-center gap-1 mr-2 opacity-0 group-hover:opacity-100 transition-opacity">

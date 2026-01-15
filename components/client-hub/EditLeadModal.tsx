@@ -455,7 +455,6 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 }
             }
             setNewNote('');
-            setEditingLead(null);
         }
     };
 
