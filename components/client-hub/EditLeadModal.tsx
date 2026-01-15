@@ -69,7 +69,9 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                     <div>
                         <h3 className="text-2xl font-black text-slate-900">{leads.some(l => l.id === editingLead.id) ? 'Edit Lead Data' : 'Create New Lead'}</h3>
                         <p className="text-sm text-slate-500 font-medium">
-                            {leads.some(l => l.id === editingLead.id) ? `Update profile for ${editingLead.firstName} ${editingLead.lastName}` : 'Enter basic contact and property details'}
+                            {leads.some(l => l.id === editingLead.id)
+                                ? (editingLead.firstName || editingLead.lastName ? `Update profile for ${editingLead.firstName || ''} ${editingLead.lastName || ''}` : 'Update lead details')
+                                : 'Enter basic contact and property details'}
                         </p>
                     </div>
                     <button onClick={() => setEditingLead(null)} className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center transition-all text-slate-400">
@@ -107,7 +109,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                 type="email"
                                 defaultValue={editingLead.email}
                                 onChange={(e) => setEditingLead({ ...editingLead, email: e.target.value })}
-                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                className={`w-full px-5 py-4 bg-slate-50 border rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none ${editingLead.preferredContactMethod === 'Email' ? 'border-indigo-500 ring-1 ring-indigo-500 bg-indigo-50/10' : 'border-slate-100'}`}
                             />
                         </div>
                         <div className="space-y-2">
@@ -116,7 +118,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                 type="text"
                                 value={editingLead.phone}
                                 onChange={(e) => setEditingLead({ ...editingLead, phone: e.target.value })}
-                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                className={`w-full px-5 py-4 bg-slate-50 border rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none ${['Text', 'Call'].includes(editingLead.preferredContactMethod || '') ? 'border-indigo-500 ring-1 ring-indigo-500 bg-indigo-50/10' : 'border-slate-100'}`}
                                 placeholder="(555) 000-0000"
                             />
                         </div>
@@ -184,10 +186,11 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                         <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Preferred Contact</label>
                             <select
-                                defaultValue={editingLead.preferredContactMethod || 'Text'}
+                                defaultValue={editingLead.preferredContactMethod || ''}
                                 onChange={(e) => setEditingLead({ ...editingLead, preferredContactMethod: e.target.value as any })}
                                 className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none appearance-none"
                             >
+                                <option value="">Select Method...</option>
                                 {['Call', 'Text', 'Email'].map(m => (
                                     <option key={m} value={m}>{m}</option>
                                 ))}

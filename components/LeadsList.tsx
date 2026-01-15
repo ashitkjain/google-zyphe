@@ -133,7 +133,9 @@ const LeadGalleryItem: React.FC<{
         return (
             <div
                 className={`bg-white p-4 rounded-[2rem] border transition-all border-l-4 group relative cursor-pointer flex flex-col ${selectedIds.has(lead.id)
-                    ? 'ring-4 ring-indigo-500/50 border-indigo-200 bg-indigo-50/30 shadow-2xl scale-[1.02] z-10'
+                    ? (lead.leadType === 'Seller'
+                        ? 'ring-4 ring-emerald-500/50 border-emerald-200 bg-emerald-50/30 shadow-2xl scale-[1.02] z-10'
+                        : 'ring-4 ring-indigo-500/50 border-indigo-200 bg-indigo-50/30 shadow-2xl scale-[1.02] z-10')
                     : 'border-slate-200/60 shadow-sm hover:shadow-xl hover:scale-[1.01]'
                     }`}
                 style={{
@@ -144,7 +146,7 @@ const LeadGalleryItem: React.FC<{
             >
                 {/* Selection Badge */}
                 {selectedIds.has(lead.id) && (
-                    <div className="absolute -top-2 -right-2 w-8 h-8 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg animate-in zoom-in duration-200 z-30 ring-4 ring-white">
+                    <div className={`absolute -top-2 -right-2 w-8 h-8 ${lead.leadType === 'Seller' ? 'bg-emerald-600' : 'bg-indigo-600'} text-white rounded-full flex items-center justify-center shadow-lg animate-in zoom-in duration-200 z-30 ring-4 ring-white`}>
                         <i className="fa-solid fa-check text-sm"></i>
                     </div>
                 )}
@@ -193,15 +195,17 @@ const LeadGalleryItem: React.FC<{
 
                                     <div className="flex flex-col gap-0.5 text-[12px] text-slate-400 font-bold whitespace-nowrap overflow-hidden">
                                         {lead.email && (
-                                            <div className="flex items-center gap-1.5 truncate">
-                                                <i className="fa-solid fa-envelope opacity-30 text-[8px]"></i>
-                                                {lead.email}
+                                            <div className={`flex items-center gap-1.5 pr-2 min-w-0 ${(lead.preferredContactMethod || '').toLowerCase() === 'email' ? 'border border-indigo-500 rounded px-2 py-0.5 bg-indigo-50 -ml-2' : ''}`}>
+                                                <i className="fa-solid fa-envelope opacity-30 text-[8px] flex-shrink-0"></i>
+                                                <span className="truncate">{lead.email}</span>
+                                                {(lead.preferredContactMethod || '').toLowerCase() === 'email' && <i className="fa-solid fa-star text-[8px] text-indigo-600 ml-auto flex-shrink-0"></i>}
                                             </div>
                                         )}
                                         {lead.phone && (
-                                            <div className="flex items-center gap-1.5 truncate">
-                                                <i className="fa-solid fa-phone opacity-30 text-[8px]"></i>
-                                                {lead.phone}
+                                            <div className={`flex items-center gap-1.5 pr-2 min-w-0 ${['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) ? 'border border-indigo-500 rounded px-2 py-0.5 bg-indigo-50 -ml-2' : ''}`}>
+                                                <i className="fa-solid fa-phone opacity-30 text-[8px] flex-shrink-0"></i>
+                                                <span className="truncate">{lead.phone}</span>
+                                                {['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) && <span className="text-[8px] font-black uppercase tracking-wider text-indigo-600 ml-auto flex-shrink-0">{lead.preferredContactMethod}</span>}
                                             </div>
                                         )}
                                     </div>
@@ -1204,8 +1208,14 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         {visibleColumns.Buyer.has('phone') && (
                                                             <td className="px-2 py-2 border-b border-slate-100">
                                                                 <div className="flex flex-col">
-                                                                    <div className="text-xs font-semibold text-slate-700 leading-tight mb-0.5">{renderCell(lead, 'phone')}</div>
-                                                                    <div className="text-[10px] text-blue-600 font-medium leading-tight">{renderCell(lead, 'email')}</div>
+                                                                    <div className={`text-xs font-semibold text-slate-700 leading-tight mb-0.5 flex items-center justify-between gap-2 ${['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) ? 'border border-indigo-500 rounded px-2 py-0.5 bg-indigo-50 -ml-2 w-full max-w-[180px]' : ''}`}>
+                                                                        <span>{renderCell(lead, 'phone')}</span>
+                                                                        {['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) && <span className="text-[8px] font-black uppercase tracking-wider text-indigo-600 flex-shrink-0">{lead.preferredContactMethod}</span>}
+                                                                    </div>
+                                                                    <div className={`text-[10px] text-blue-600 font-medium leading-tight flex items-center justify-between gap-2 ${(lead.preferredContactMethod || '').toLowerCase() === 'email' ? 'border border-indigo-500 rounded px-2 py-0.5 bg-indigo-50 -ml-2 w-full max-w-[180px]' : ''}`}>
+                                                                        <span className="truncate">{renderCell(lead, 'email')}</span>
+                                                                        {(lead.preferredContactMethod || '').toLowerCase() === 'email' && <i className="fa-solid fa-star text-[8px] text-indigo-600 flex-shrink-0"></i>}
+                                                                    </div>
                                                                 </div>
                                                             </td>
                                                         )}
@@ -1236,9 +1246,9 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                     ) : (
                                                                         lead.isAlsoSelling === true ? (
                                                                             <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        ) : lead.isAlsoSelling === false ? (
+                                                                        ) : (
                                                                             <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        ) : null
+                                                                        )
                                                                     )}
                                                                 </div>
                                                             </td>
@@ -1270,9 +1280,9 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                     ) : (
                                                                         lead.preQualified === true ? (
                                                                             <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        ) : lead.preQualified === false ? (
+                                                                        ) : (
                                                                             <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        ) : null
+                                                                        )
                                                                     )}
                                                                 </div>
                                                             </td>
@@ -1584,8 +1594,14 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         {visibleColumns.Seller.has('phone') && (
                                                             <td className="px-2 py-2 border-b border-slate-100">
                                                                 <div className="flex flex-col">
-                                                                    <div className="text-xs font-semibold text-slate-700 leading-tight mb-0.5">{renderCell(lead, 'phone')}</div>
-                                                                    <div className="text-[10px] text-blue-600 font-medium leading-tight">{renderCell(lead, 'email')}</div>
+                                                                    <div className={`text-xs font-semibold text-slate-700 leading-tight mb-0.5 flex items-center justify-between gap-2 ${['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) ? 'border border-emerald-500 rounded px-2 py-0.5 bg-emerald-50 -ml-2 w-full max-w-[180px]' : ''}`}>
+                                                                        <span>{renderCell(lead, 'phone')}</span>
+                                                                        {['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) && <span className="text-[8px] font-black uppercase tracking-wider text-emerald-600 flex-shrink-0">{lead.preferredContactMethod}</span>}
+                                                                    </div>
+                                                                    <div className={`text-[10px] text-blue-600 font-medium leading-tight flex items-center justify-between gap-2 ${(lead.preferredContactMethod || '').toLowerCase() === 'email' ? 'border border-emerald-500 rounded px-2 py-0.5 bg-emerald-50 -ml-2 w-full max-w-[180px]' : ''}`}>
+                                                                        <span className="truncate">{renderCell(lead, 'email')}</span>
+                                                                        {(lead.preferredContactMethod || '').toLowerCase() === 'email' && <i className="fa-solid fa-star text-[8px] text-emerald-600 flex-shrink-0"></i>}
+                                                                    </div>
                                                                 </div>
                                                             </td>
                                                         )}
@@ -1616,9 +1632,9 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                     ) : (
                                                                         lead.isAlsoBuying === true ? (
                                                                             <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        ) : lead.isAlsoBuying === false ? (
+                                                                        ) : (
                                                                             <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        ) : null
+                                                                        )
                                                                     )}
                                                                 </div>
                                                             </td>
@@ -1650,9 +1666,9 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                     ) : (
                                                                         lead.homeValueNeeded === true ? (
                                                                             <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        ) : lead.homeValueNeeded === false ? (
+                                                                        ) : (
                                                                             <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        ) : null
+                                                                        )
                                                                     )}
                                                                 </div>
                                                             </td>
