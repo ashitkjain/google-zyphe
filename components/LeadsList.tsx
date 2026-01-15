@@ -379,6 +379,8 @@ const LeadsList: React.FC<InternalProps> = ({
     const availableBuyerColumns = [
         { id: 'status', label: 'Lead Status' },
         { id: 'phone', label: 'Contact Info' },
+        { id: 'callCount', label: 'Call Tracker' },
+        { id: 'lastUpdated', label: 'Last Updated On' },
         { id: 'isAlsoSelling', label: 'Also Selling?' },
         { id: 'preQualified', label: 'Pre-qualified?' },
         { id: 'budgetRange', label: 'Budget Range' },
@@ -392,7 +394,7 @@ const LeadsList: React.FC<InternalProps> = ({
         { id: 'propertyAddress', label: 'Inquired Property' },
         { id: 'tags', label: 'Tags' },
         { id: 'funnelStage', label: 'Pipeline Stage' },
-        { id: 'notes', label: 'Agent Notes' }
+        { id: 'notes', label: 'Call Notes' }
     ];
 
     const availableSellerColumns = [
@@ -418,7 +420,7 @@ const LeadsList: React.FC<InternalProps> = ({
     ];
 
     // Default visible columns (preserving previous default view)
-    const defaultBuyerVisible = ['status', 'phone', 'isAlsoSelling', 'preQualified', 'budgetRange', 'preferredNeighborhood', 'source', 'receivedAt', 'notes'];
+    const defaultBuyerVisible = ['status', 'phone', 'callCount', 'lastUpdated', 'isAlsoSelling', 'preQualified', 'budgetRange', 'preferredNeighborhood', 'source', 'receivedAt', 'notes'];
     const defaultSellerVisible = ['status', 'phone', 'isAlsoBuying', 'homeValueNeeded', 'mostImportantToSeller', 'sellWhen', 'propertyType', 'occupancyStatus', 'expectedPrice', 'propertyAddress', 'source', 'receivedAt'];
 
     const [visibleColumns, setVisibleColumns] = useState({
@@ -434,6 +436,20 @@ const LeadsList: React.FC<InternalProps> = ({
             return { ...prev, [type]: newSet };
         });
     };
+
+    // Force sync visible columns if defaults change (handles Hot Reload state preservation)
+    useEffect(() => {
+        setVisibleColumns(prev => {
+            const missingBuyer = defaultBuyerVisible.some(c => !prev.Buyer.has(c));
+            if (missingBuyer) {
+                return {
+                    ...prev,
+                    Buyer: new Set([...Array.from(prev.Buyer), ...defaultBuyerVisible])
+                };
+            }
+            return prev;
+        });
+    }, [defaultBuyerVisible.length]); // Dep on length change or just run once? Defaults are const. Length change is safe proxy.
 
     const columnSelectorRef = useRef<HTMLDivElement>(null);
 
@@ -1147,6 +1163,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                                             Contact Info {sortField === 'phone' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                         </th>
                                                     )}
+                                                    {visibleColumns.Buyer.has('callCount') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Call Tracker</th>}
+                                                    {visibleColumns.Buyer.has('lastUpdated') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Last Updated On</th>}
                                                     {visibleColumns.Buyer.has('isAlsoSelling') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Also Selling?</th>}
                                                     {visibleColumns.Buyer.has('preQualified') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Pre-qualified?</th>}
                                                     {visibleColumns.Buyer.has('budgetRange') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Budget</th>}
@@ -1176,7 +1194,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                     )}
                                                     {visibleColumns.Buyer.has('tags') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Tags</th>}
                                                     {visibleColumns.Buyer.has('funnelStage') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Pipeline Stage</th>}
-                                                    {visibleColumns.Buyer.has('notes') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Comments / Notes</th>}
+                                                    {visibleColumns.Buyer.has('notes') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Call Notes</th>}
 
                                                 </tr>
                                             </thead>
@@ -1217,6 +1235,18 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                         {(lead.preferredContactMethod || '').toLowerCase() === 'email' && <i className="fa-solid fa-star text-[8px] text-indigo-600 flex-shrink-0"></i>}
                                                                     </div>
                                                                 </div>
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Buyer.has('callCount') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-center">
+                                                                <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-full text-xs font-bold border border-slate-200">
+                                                                    {lead.callCount || 0}
+                                                                </span>
+                                                            </td>
+                                                        )}
+                                                        {visibleColumns.Buyer.has('lastUpdated') && (
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-500 font-medium whitespace-nowrap">
+                                                                {lead.lastUpdated ? (lead.lastUpdated?.toDate ? lead.lastUpdated.toDate().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(lead.lastUpdated).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '--'}
                                                             </td>
                                                         )}
                                                         {visibleColumns.Buyer.has('isAlsoSelling') && (
@@ -1348,7 +1378,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                         </table>
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
                                         {filteredBuyerLeads.map((lead, index) => (
                                             <LeadGalleryItem
                                                 key={lead.id}
@@ -1736,7 +1766,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                         </table>
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
                                         {filteredSellerLeads.map((lead, index) => (
                                             <LeadGalleryItem
                                                 key={lead.id}

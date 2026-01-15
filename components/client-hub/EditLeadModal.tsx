@@ -11,6 +11,8 @@ interface EditLeadModalProps {
     newNote: string;
     setNewNote: (note: string) => void;
     realtorSettings?: UserProfile['settings'];
+    handleAddNote?: (leadId: string, content: string, color: string) => Promise<string | undefined>;
+    handleDeleteNote?: (noteId: string) => Promise<void>;
 }
 
 const EditLeadModal: React.FC<EditLeadModalProps> = ({
@@ -21,7 +23,9 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
     isSavingLead,
     newNote,
     setNewNote,
-    realtorSettings
+    realtorSettings,
+    handleAddNote,
+    handleDeleteNote
 }) => {
     const [showStatusInfo, setShowStatusInfo] = useState(false);
     const [noteColor, setNoteColor] = useState('bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]');
@@ -42,21 +46,37 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
             }
 
             const updatedLead = { ...editingLead };
+            const { notesLog, ...detailsToSave } = updatedLead;
 
-            // Handle New Note
-            if (newNote.trim()) {
-                const noteEntry: LeadNote = {
-                    id: crypto.randomUUID(),
-                    content: newNote.trim(),
-                    timestamp: new Date().toISOString(),
-                    author: 'User',
-                    color: noteColor
-                };
-                updatedLead.notesLog = [...(updatedLead.notesLog || []), noteEntry];
-                updatedLead.notes = newNote.trim(); // Update latest note for list view
+            const useUnifiedNotes = !!handleAddNote;
+
+            if (useUnifiedNotes) {
+                // Save profile changes (excluding notesLog to prevent overwrite)
+                handleUpdateLead(updatedLead.id, detailsToSave);
+
+                // Handle New Note (Live Add)
+                if (newNote.trim()) {
+                    // We must use await if we want to guarantee it saves before closing, 
+                    // but onSave here isn't async. We can just fire and forget or make onSave async.
+                    // Making it async is better.
+                    if (handleAddNote) handleAddNote(updatedLead.id, newNote.trim(), noteColor);
+                }
+            } else {
+                // Legacy Fallback
+                if (newNote.trim()) {
+                    const noteEntry: LeadNote = {
+                        id: crypto.randomUUID(),
+                        content: newNote.trim(),
+                        timestamp: new Date().toISOString(),
+                        author: 'User',
+                        color: noteColor
+                    };
+                    updatedLead.notesLog = [...(updatedLead.notesLog || []), noteEntry];
+                    updatedLead.notes = newNote.trim();
+                }
+                handleUpdateLead(updatedLead.id, updatedLead);
             }
 
-            handleUpdateLead(updatedLead.id, updatedLead);
             setNewNote(''); // Clear input
             setEditingLead(null);
         }
@@ -67,7 +87,11 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
             <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 <div className="p-8 border-b border-slate-100 flex items-center justify-between">
                     <div>
-                        <h3 className="text-2xl font-black text-slate-900">{leads.some(l => l.id === editingLead.id) ? 'Edit Lead Data' : 'Create New Lead'}</h3>
+                        <h3 className="text-2xl font-black text-slate-900">
+                            {leads.some(l => l.id === editingLead.id)
+                                ? (['buyers', 'sellers'].includes(editingLead.collectionName || '') ? 'Edit Client Data' : 'Edit Lead Data')
+                                : 'Create New Lead'}
+                        </h3>
                         <p className="text-sm text-slate-500 font-medium">
                             {leads.some(l => l.id === editingLead.id)
                                 ? (editingLead.firstName || editingLead.lastName ? `Update profile for ${editingLead.firstName || ''} ${editingLead.lastName || ''}` : 'Update lead details')
@@ -113,7 +137,9 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Phone Number <span className="text-red-500">*</span></label>
+                            <div className="flex justify-between items-end">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Phone Number <span className="text-red-500">*</span></label>
+                            </div>
                             <input
                                 type="text"
                                 value={editingLead.phone}
@@ -122,6 +148,38 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                 placeholder="(555) 000-0000"
                             />
                         </div>
+
+                        {/* Prominent Call Tracker Section */}
+                        <div className="col-span-2 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 flex items-center justify-between my-2">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shadow-sm border border-indigo-200">
+                                    <i className="fa-solid fa-phone-volume text-lg"></i>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Call Tracker</span>
+                                    <span className="text-sm font-bold text-indigo-900">
+                                        {editingLead.callCount === 1 ? '1 Call Made' : `${editingLead.callCount || 0} Calls Made`}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setEditingLead({ ...editingLead, callCount: Math.max(0, (editingLead.callCount || 0) - 1) })}
+                                    className="w-8 h-8 rounded-full bg-white border border-indigo-100 text-indigo-400 hover:text-indigo-600 hover:border-indigo-300 flex items-center justify-center transition-all shadow-sm"
+                                    title="Decrease Count"
+                                >
+                                    <i className="fa-solid fa-minus text-xs"></i>
+                                </button>
+                                <button
+                                    onClick={() => setEditingLead({ ...editingLead, callCount: (editingLead.callCount || 0) + 1 })}
+                                    className="w-8 h-8 rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 flex items-center justify-center transition-all border border-indigo-500"
+                                    title="Log Call (+1)"
+                                >
+                                    <i className="fa-solid fa-plus text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+
                         <div className="space-y-2 relative">
                             <div className="flex items-center gap-1">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Lead Status</label>
@@ -438,7 +496,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                             }
                             `}} />
                         <div className="flex items-center justify-between ml-1">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Notes Log</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Call Notes & Comments</label>
                             <div className="flex items-center gap-2">
                                 <span className="text-[8px] font-black uppercase tracking-widest text-slate-300">New Note Color:</span>
                                 <div className="flex gap-1.5">
@@ -469,9 +527,14 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                             <div className="text-slate-800 line-clamp-6 leading-tight flex-1">{note.content}</div>
 
                                             <button
-                                                onClick={() => {
-                                                    const updatedNotesLog = editingLead.notesLog?.filter(n => n.id !== note.id);
-                                                    setEditingLead({ ...editingLead, notesLog: updatedNotesLog });
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (handleDeleteNote) {
+                                                        handleDeleteNote(note.id);
+                                                    } else {
+                                                        const updatedNotesLog = editingLead.notesLog?.filter(n => n.id !== note.id);
+                                                        setEditingLead({ ...editingLead, notesLog: updatedNotesLog });
+                                                    }
                                                 }}
                                                 className="absolute top-1 right-1 opacity-0 group-hover/note:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1"
                                             >
@@ -574,7 +637,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                     </button>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

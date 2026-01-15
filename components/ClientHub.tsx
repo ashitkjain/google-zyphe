@@ -81,6 +81,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
             // 2. Define Mock Data (Always available for potential seeding)
             console.log("[ClientHub] Seeding initial mock data...");
+            const initialLeads: Lead[] = []; // DISABLED HARDCODED DATA
+            /*
             const initialLeads: Lead[] = [
                 // --- NEW BUYER LEADS ---
                 // Today (New)
@@ -107,67 +109,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     isAlsoSelling: false, preQualified: false, preferredNeighborhood: 'Westside',
                     tags: ['First-Time-Buyer'], notes: 'Waiting for pre-approval letter.'
                 },
-
-                // --- NEW SELLER LEADS ---
-                // Today (New)
-                {
-                    id: 'clean_sell_1', firstName: 'Charlie', lastName: 'Seller', email: 'charlie.sell@example.com', phone: '(555) 002-0001',
-                    source: 'Referral', leadType: 'Seller', connectionType: 'Direct Lead',
-                    status: 'New', receivedAt: new Date(), slaUrgency: 'high', funnelStage: 'Inquiry',
-                    health: 'Active', message: "Thinking of selling my condo.", isMock: true, collectionName: 'leads',
-                    price: 600000, expectedPrice: 625000, propertyAddress: '123 Market St',
-                    isAlsoBuying: true, homeValueNeeded: true, mostImportantToSeller: 'Max Profit',
-                    sellWhen: '3-6 Months', propertyType: 'Condo', occupancyStatus: 'Owner Occupied',
-                    reasonForSelling: 'Upsizing', tags: ['High-Value', 'Referral'], notes: 'Wants to sell before buying a new house.',
-                    notesLog: [
-                        { id: 'm3', content: 'Wants to sell before buying a new house.', timestamp: new Date(), author: 'Realtor', color: 'bg-[#ff7eb9] text-white border-[#ee6da8] shadow-[5px_5px_7px_rgba(33,33,33,.1)]' }
-                    ]
-                },
-                // Past Week (5 days ago)
-                {
-                    id: 'clean_sell_2', firstName: 'Dana', lastName: 'Listing', email: 'dana.list@example.com', phone: '(555) 002-0002',
-                    source: 'Facebook', leadType: 'Seller', connectionType: 'Direct Lead',
-                    status: 'New', receivedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-                    slaUrgency: 'low', funnelStage: 'Inquiry', health: 'Active', isMock: true, collectionName: 'leads',
-                    price: 450000, expectedPrice: 475000, propertyAddress: '456 Oak Ave',
-                    isAlsoBuying: false, homeValueNeeded: false, mostImportantToSeller: 'Speed of Sale',
-                    sellWhen: 'ASAP', propertyType: 'Single Family', occupancyStatus: 'Vacant',
-                    reasonForSelling: 'Relocation', tags: ['Relocating'], notes: 'Needs a quick sale due to job move.'
-                },
-
-                // --- ACTIVE PIPELINE BUYERS ---
-                {
-                    id: 'clean_pipe_buy_1', firstName: 'Evan', lastName: 'Active', email: 'evan.active@example.com', phone: '(555) 003-0001',
-                    source: 'Zillow', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
-                    lastTouch: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-                    slaUrgency: 'high', funnelStage: 'Nurture', health: 'Active', minPrice: 800000, maxPrice: 950000,
-                    budgetRange: "$800k - $950k", propertyAddress: 'Looking in Suburbs', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead',
-                    isAlsoSelling: true, preQualified: true, preferredNeighborhood: 'North Hills',
-                    tags: ['Nurture', 'High-Budget'], notes: 'Actively touring properties.'
-                },
-                {
-                    id: 'clean_pipe_buy_2', firstName: 'Fiona', lastName: 'Offer', email: 'fiona.offer@example.com', phone: '(555) 003-0002',
-                    source: 'Referral', leadType: 'Buyer', status: 'Active', receivedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
-                    lastTouch: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-                    slaUrgency: 'medium', funnelStage: 'Offer', health: 'Active', minPrice: 1200000, maxPrice: 1500000,
-                    budgetRange: "$1.2M - $1.5M", propertyAddress: '789 Luxury Ln', isMock: true, collectionName: 'buyers', connectionType: 'Direct Lead',
-                    isAlsoSelling: false, preQualified: true, preferredNeighborhood: 'The Heights',
-                    tags: ['Offer-Stage', 'Luxury'], notes: 'Offer submitted for 789 Luxury Ln.'
-                },
-
-                // --- ACTIVE PIPELINE SELLERS ---
-                {
-                    id: 'clean_pipe_sell_1', firstName: 'George', lastName: 'Staging', email: 'george.stage@example.com', phone: '(555) 004-0001',
-                    source: 'Website', leadType: 'Seller', status: 'Active', receivedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
-                    lastTouch: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-                    slaUrgency: 'medium', funnelStage: 'Active', health: 'Active', price: 750000, expectedPrice: 775000,
-                    propertyAddress: '456 Garden Ave', isMock: true, collectionName: 'sellers', connectionType: 'Direct Lead',
-                    isAlsoBuying: true, homeValueNeeded: true, mostImportantToSeller: 'Terms',
-                    sellWhen: '1-3 Months', propertyType: 'Single Family', occupancyStatus: 'Tenant Occupied',
-                    reasonForSelling: 'Retiring', tags: ['Active-Listing'], notes: 'House is being staged right now.'
-                },
-
-                // --- ARCHIVED ---
+                // ... (rest of old mock data commented out)
                 {
                     id: 'clean_archived_1', firstName: 'Harry', lastName: 'Old', email: 'harry.old@example.com', phone: '(555) 999-9999',
                     source: 'Zillow', leadType: 'Buyer', status: 'Archived', receivedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
@@ -175,6 +117,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     isAlsoSelling: false, preQualified: false, tags: ['Archived'], notes: 'No longer looking in this area.'
                 }
             ];
+            */
 
             const initialTasks: CRMTask[] = [
                 { id: 'mt_1', realtorId, title: 'Call Sarah Miller', description: 'Follow up on Zillow inquiry', dueDate: new Date(Date.now() + 3600000), status: 'Pending', priority: 'Urgent', type: 'Call', isMock: true },
@@ -470,14 +413,14 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         }
     };
 
-    const handleSavePipelineNote = async (content: string) => {
-        if (!pendingNote || !content.trim()) return;
+    const handleAddNote = async (leadId: string, content: string, color: string) => {
+        if (!content.trim()) return;
 
         const newNoteObj: Partial<PipelineNote> = {
-            leadId: pendingNote.leadId,
+            leadId: leadId,
             realtorId,
             content: content,
-            color: pendingNote.color,
+            color: color,
             timestamp: new Date()
         };
 
@@ -487,22 +430,30 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             setPipelineNotes(prev => [...prev, finalNote]);
 
             // Sync with Lead's notesLog
-            const lead = leads.find(l => l.id === pendingNote.leadId);
+            const lead = leads.find(l => l.id === leadId);
             if (lead) {
                 const updatedNotesLog = [...(lead.notesLog || []), {
                     id: noteId,
                     content: content,
                     timestamp: new Date(),
                     author: realtorName,
-                    color: pendingNote.color
+                    color: color
                 }];
-                handleUpdateLead(lead.id, { notesLog: updatedNotesLog });
-            }
+                handleUpdateLead(lead.id, { notesLog: updatedNotesLog, notes: content });
 
-            setPendingNote(null);
-        } else {
-            alert("Failed to save note.");
+                // Also update editingLead if it's the same lead
+                if (editingLead && editingLead.id === leadId) {
+                    setEditingLead({ ...editingLead, notesLog: updatedNotesLog, notes: content });
+                }
+            }
         }
+        return noteId;
+    };
+
+    const handleSavePipelineNote = async (content: string) => {
+        if (!pendingNote || !content.trim()) return;
+        await handleAddNote(pendingNote.leadId, content, pendingNote.color);
+        setPendingNote(null);
     };
 
     const handleUpdatePipelineNote = async (noteId: string, updates: Partial<PipelineNote>) => {
@@ -516,6 +467,10 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             if (lead && lead.notesLog) {
                 const updatedNotesLog = lead.notesLog.map(n => n.id === noteId ? { ...n, ...updates } : n);
                 handleUpdateLead(lead.id, { notesLog: updatedNotesLog });
+
+                if (editingLead && editingLead.id === lead.id) {
+                    setEditingLead({ ...editingLead, notesLog: updatedNotesLog });
+                }
             }
         }
 
@@ -533,6 +488,10 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             if (lead && lead.notesLog) {
                 const updatedNotesLog = lead.notesLog.filter(n => n.id !== noteId);
                 handleUpdateLead(lead.id, { notesLog: updatedNotesLog });
+
+                if (editingLead && editingLead.id === lead.id) {
+                    setEditingLead({ ...editingLead, notesLog: updatedNotesLog });
+                }
             }
         }
 
@@ -763,9 +722,12 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                         newNote={newNote}
                         setNewNote={setNewNote}
                         realtorSettings={realtorProfile?.settings}
+                        handleAddNote={handleAddNote}
+                        handleDeleteNote={handleDeletePipelineNote}
                     />
                 )
             }
+
 
             {/* KYC Modal */}
             {

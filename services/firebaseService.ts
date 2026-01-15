@@ -623,7 +623,8 @@ export const updateLead = async (leadId: string, updates: Partial<Lead>, collect
     const docRef = doc(db, collectionName, leadId);
     await setDoc(docRef, {
       ...updates,
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
+      lastUpdated: serverTimestamp()
     }, { merge: true });
     return true;
   } catch (error) {

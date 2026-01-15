@@ -159,6 +159,7 @@ export interface Lead {
   bathrooms?: number;
   sqft?: number;
   maxPrice?: number;
+  callCount?: number;
 
   daysOnZillow?: number;
   mlsNumber?: string;
