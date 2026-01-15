@@ -604,6 +604,23 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                                 await handleUpdateLead(leadId, { avatarUrl: newAvatarUrl });
                             }
                         }}
+                        onUpdateSettings={async (settings) => {
+                            const success = await saveUserProfile(realtorId, {
+                                settings: {
+                                    ...realtorProfile?.settings,
+                                    ...settings
+                                }
+                            });
+                            if (success) {
+                                setRealtorProfile(prev => prev ? {
+                                    ...prev,
+                                    settings: {
+                                        ...prev.settings,
+                                        ...settings
+                                    }
+                                } : null);
+                            }
+                        }}
                     />
                 )}
 

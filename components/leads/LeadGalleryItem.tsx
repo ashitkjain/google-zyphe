@@ -1,6 +1,7 @@
 import React from 'react';
 import { Lead, PipelineNote } from '../../types';
 import { Droppable } from '@hello-pangea/dnd';
+import { getStatusOptions } from '../../services/statusService';
 
 const TypedDroppable = Droppable as any;
 
@@ -33,6 +34,8 @@ interface LeadGalleryItemProps {
     activeTab: 'Buyer' | 'Seller';
     onUpdateAvatar: (leadId: string, file: File) => void;
     stage: string;
+    onUpdateLead: (id: string, updates: Partial<Lead>) => void;
+    realtorSettings: any;
 }
 
 const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
@@ -40,8 +43,10 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
     editNoteId, setEditNoteId, editContent, setEditContent, handleUpdateNote,
     onDoneToggle, onDeleteClick, pendingNote, draftContent, setDraftContent,
     handleSaveNote, setPendingNote, deleteCoords, deletingNoteId, celebratingNoteId, isFlyingUpId,
-    onArchive, onActivate, visibleColumns, activeTab, onUpdateAvatar, stage
+    onArchive, onActivate, visibleColumns, activeTab, onUpdateAvatar, stage, onUpdateLead, realtorSettings
 }) => {
+    const [editingCell, setEditingCell] = React.useState<string | null>(null);
+    const [editValue, setEditValue] = React.useState<string>('');
     // ... helper functions ...
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -55,6 +60,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
             onUpdateAvatar(lead.id, e.target.files[0]);
         }
     };
+    const getVisibleColumns = () => visibleColumns || new Set<string>();
 
     // ... renderValue and COLUMN_METADATA ...
     const renderValue = (field: string) => {
@@ -63,7 +69,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
             val = lead.stageLastChangedAt;
         }
 
-        if (field === 'receivedAt' || field === 'lastTouch' || field === 'leaseEndDate') {
+        if (field === 'receivedAt' || field === 'lastTouch' || field === 'leaseEndDate' || field === 'lastUpdated') {
             const date = val?.toDate ? val.toDate() : (val ? new Date(val) : null);
             if (!date) return '--';
             if (field === 'receivedAt') {
@@ -81,6 +87,19 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                 return parts.join(' ');
             }
             return date.toLocaleDateString();
+        }
+        if (field === 'isAlsoSelling' || field === 'isAlsoBuying' || field === 'preQualified' || field === 'homeValueNeeded') {
+            return (
+                <div
+                    className="w-8 h-6 bg-no-repeat bg-contain"
+                    style={{
+                        backgroundImage: 'url(/assets/checkmark-cross.png)',
+                        backgroundPosition: val === true ? '0% center' : '100% center',
+                        backgroundSize: '200% 100%',
+                        mixBlendMode: 'multiply'
+                    }}
+                ></div>
+            );
         }
         if (typeof val === 'boolean') return val ? 'Yes' : 'No';
         if (field === 'expectedPrice' || field === 'price' || field === 'budgetRange') {
@@ -102,30 +121,131 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
     };
 
     const COLUMN_METADATA: Record<string, { label: string, icon: string, color?: string }> = {
-        status: { label: 'Status', icon: 'fa-signal', color: 'text-indigo-600' },
+        status: { label: 'Lead Status', icon: 'fa-signal', color: 'text-indigo-600' },
         isAlsoSelling: { label: 'Also Selling?', icon: 'fa-house-user' },
         isAlsoBuying: { label: 'Also Buying?', icon: 'fa-cart-shopping' },
         preQualified: { label: 'Pre-qualified?', icon: 'fa-certificate', color: 'text-emerald-600' },
-        budgetRange: { label: 'Budget', icon: 'fa-tag', color: 'text-emerald-600' },
-        expectedPrice: { label: 'Price', icon: 'fa-money-bill-wave', color: 'text-emerald-600' },
+        budgetRange: { label: 'Budget Range', icon: 'fa-tag', color: 'text-emerald-600' },
+        expectedPrice: { label: 'Expected Price', icon: 'fa-money-bill-wave', color: 'text-emerald-600' },
         preferredNeighborhood: { label: 'Neighborhood', icon: 'fa-map-location-dot', color: 'text-indigo-600' },
         source: { label: 'Source', icon: 'fa-globe', color: 'text-slate-400' },
         receivedAt: { label: `Time in ${stage}`, icon: 'fa-calendar-plus', color: 'text-slate-400' },
-        lastTouch: { label: 'Follow Up', icon: 'fa-clock-rotate-left', color: 'text-indigo-400' },
+        lastTouch: { label: 'Last Follow Up', icon: 'fa-clock-rotate-left', color: 'text-indigo-400' },
         message: { label: 'Message', icon: 'fa-comment' },
         timeframe: { label: 'Timeframe', icon: 'fa-hourglass-half' },
-        leaseEndDate: { label: 'Lease End', icon: 'fa-file-signature' },
-        propertyAddress: { label: 'Property', icon: 'fa-location-dot', color: 'text-indigo-600' },
+        leaseEndDate: { label: 'Lease End Date', icon: 'fa-file-signature' },
+        propertyAddress: { label: 'Property Address', icon: 'fa-location-dot', color: 'text-indigo-600' },
         tags: { label: 'Tags', icon: 'fa-tags' },
-        funnelStage: { label: 'Stage', icon: 'fa-filter' },
+        funnelStage: { label: 'Pipeline Stage', icon: 'fa-filter' },
         notes: { label: 'Notes', icon: 'fa-clipboard-list' },
-        homeValueNeeded: { label: 'Home Value?', icon: 'fa-calculator' },
+        homeValueNeeded: { label: 'Home Value Needed?', icon: 'fa-calculator' },
         mostImportantToSeller: { label: 'Priority', icon: 'fa-star' },
-        sellWhen: { label: 'When?', icon: 'fa-calendar-days' },
-        propertyType: { label: 'Type', icon: 'fa-building' },
-        occupancyStatus: { label: 'Occupancy', icon: 'fa-key' },
-        reasonForSelling: { label: 'Reason', icon: 'fa-info-circle' },
-        existingAgentName: { label: 'Agent', icon: 'fa-user-tie' }
+        sellWhen: { label: 'Sell When?', icon: 'fa-calendar-days' },
+        propertyType: { label: 'Property Type', icon: 'fa-building' },
+        occupancyStatus: { label: 'Occupancy Status', icon: 'fa-key' },
+        reasonForSelling: { label: 'Reason for Selling', icon: 'fa-info-circle' },
+        existingAgentName: { label: 'Existing Agent?', icon: 'fa-user-tie' },
+        callCount: { label: 'Call Tracker', icon: 'fa-phone-volume' },
+        lastUpdated: { label: 'Last Updated On', icon: 'fa-pen-to-square' }
+    };
+
+    const startEditing = (e: React.MouseEvent, field: string, value: any) => {
+        e.stopPropagation();
+        setEditingCell(field);
+        setEditValue(value || '');
+    };
+
+    const saveEditing = (e: React.MouseEvent, field: string) => {
+        e.stopPropagation();
+        onUpdateLead(lead.id, { [field]: editValue });
+        setEditingCell(null);
+        setEditValue('');
+    };
+
+    const cancelEditing = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setEditingCell(null);
+        setEditValue('');
+    };
+
+    const renderEditableValue = (field: string) => {
+        const isEditing = editingCell === field;
+        const value = (lead as any)[field];
+
+        if (isEditing) {
+            if (field === 'status') {
+                const options = getStatusOptions(lead.leadType, realtorSettings).map((o: any) => o.label);
+
+                return (
+                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <select
+                            autoFocus
+                            className="bg-white border border-indigo-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full font-medium"
+                            defaultValue={value}
+                            onChange={(e) => {
+                                onUpdateLead(lead.id, { [field]: e.target.value });
+                                setEditingCell(null);
+                            }}
+                            onBlur={() => setEditingCell(null)}
+                        >
+                            {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                    </div>
+                );
+            }
+
+            if (typeof value === 'boolean') {
+                return (
+                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <select
+                            autoFocus
+                            className="bg-white border border-indigo-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full font-medium"
+                            defaultValue={value ? 'Yes' : 'No'}
+                            onChange={(e) => {
+                                onUpdateLead(lead.id, { [field]: e.target.value === 'Yes' });
+                                setEditingCell(null);
+                            }}
+                            onBlur={() => setEditingCell(null)}
+                        >
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                    <input
+                        autoFocus
+                        type="text"
+                        className="bg-white border border-indigo-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full font-medium"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveEditing(e as any, field);
+                            if (e.key === 'Escape') cancelEditing(e as any);
+                        }}
+                    />
+                    <button onClick={(e) => saveEditing(e, field)} className="text-emerald-500 hover:text-emerald-700 bg-emerald-50 p-0.5 rounded flex-shrink-0 text-[10px]"><i className="fa-solid fa-check"></i></button>
+                    <button onClick={cancelEditing} className="text-red-400 hover:text-red-600 bg-red-50 p-0.5 rounded flex-shrink-0 text-[10px]"><i className="fa-solid fa-xmark"></i></button>
+                </div>
+            );
+        }
+
+        return (
+            <div className="group/editable flex items-center justify-between gap-1 w-full min-h-[1.2rem]">
+                <span className="font-medium break-words" onClick={(e) => startEditing(e, field, value)}>
+                    {renderValue(field)}
+                </span>
+                <button
+                    onClick={(e) => startEditing(e, field, value)}
+                    className="opacity-0 group-hover/editable:opacity-100 hover:text-indigo-500 transition-opacity p-0.5"
+                >
+                    <i className="fa-solid fa-pencil text-slate-300 text-[9px]"></i>
+                </button>
+            </div>
+        );
     };
 
     return (
@@ -204,36 +324,37 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                     {lead.firstName} {lead.lastName}
                                 </div>
 
-                                <div className="flex flex-col gap-0.5 text-[12px] text-slate-400 font-bold whitespace-nowrap overflow-hidden">
-                                    {lead.email && (
-                                        <div className="flex items-center gap-1.5 pr-2 min-w-0 pb-1">
-                                            <i className="fa-solid fa-envelope opacity-30 text-[8px] flex-shrink-0"></i>
-                                            <span className="truncate">{lead.email}</span>
-                                            {(lead.preferredContactMethod || '').toLowerCase() === 'email' && (
-                                                <span className="text-[9px] text-indigo-400 font-medium italic whitespace-nowrap flex-shrink-0">
-                                                    - preferred
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
-                                    {lead.phone && (
-                                        <div className="flex items-center gap-1.5 pr-2 min-w-0">
-                                            <i className="fa-solid fa-phone opacity-30 text-[8px] flex-shrink-0"></i>
-                                            <span className="truncate">{lead.phone}</span>
-                                            {['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) && (
-                                                <span className="text-[9px] text-indigo-400 font-medium italic whitespace-nowrap flex-shrink-0">
-                                                    - preferred {(lead.preferredContactMethod || '').toLowerCase() === 'call' ? 'call' : 'text'}
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
+                                {getVisibleColumns().has('phone') && (
+                                    <div className="flex flex-col gap-0.5 text-[12px] text-slate-400 font-bold whitespace-nowrap overflow-hidden">
+                                        {lead.email && (
+                                            <div className="flex items-center gap-1.5 pr-2 min-w-0 pb-1">
+                                                <i className="fa-solid fa-envelope opacity-30 text-[8px] flex-shrink-0"></i>
+                                                <span className="truncate">{lead.email}</span>
+                                                {(lead.preferredContactMethod || '').toLowerCase() === 'email' && (
+                                                    <span className="text-[9px] text-indigo-400 font-medium italic whitespace-nowrap flex-shrink-0">
+                                                        - preferred
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                        {lead.phone && (
+                                            <div className="flex items-center gap-1.5 pr-2 min-w-0">
+                                                <i className="fa-solid fa-phone opacity-30 text-[8px] flex-shrink-0"></i>
+                                                <span className="truncate">{lead.phone}</span>
+                                                {['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) && (
+                                                    <span className="text-[9px] text-indigo-400 font-medium italic whitespace-nowrap flex-shrink-0">
+                                                        - preferred {(lead.preferredContactMethod || '').toLowerCase() === 'call' ? 'call' : 'text'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* Price Range & Neighborhood */}
                         <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-4">
-                            {Array.from(visibleColumns).filter(colId => !['phone', 'email', 'firstName', 'lastName', 'message', 'notes'].includes(colId as string)).map((colId: any) => {
+                            {Array.from(getVisibleColumns()).filter(colId => !['phone', 'email', 'firstName', 'lastName', 'message', 'notes'].includes(colId as string)).map((colId: any) => {
                                 const meta = COLUMN_METADATA[colId as string];
                                 if (!meta) return null;
                                 const displayLabel = meta.label
@@ -245,7 +366,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                 return (
                                     <div key={colId as string} className="grid grid-cols-[auto_1fr] gap-x-1.5 text-[14px] font-bold text-black leading-tight min-w-0 items-start">
                                         <span className="whitespace-nowrap">{displayLabel}:</span>
-                                        <span className="font-medium break-words">{renderValue(colId as string)}</span>
+                                        {renderEditableValue(colId as string)}
                                     </div>
                                 );
                             })}
@@ -253,7 +374,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
 
 
                         {/* User Message */}
-                        {lead.message && (
+                        {lead.message && getVisibleColumns().has('message') && (
                             <div className="mt-2 bg-indigo-50/30 p-3 rounded-2xl border border-indigo-100/50 flex flex-col gap-1.5 relative overflow-hidden group/msg">
                                 <div className="text-[14px] font-medium text-black tracking-widest flex items-center gap-1.5 opacity-60">
                                     <i className="fa-solid fa-comment-dots text-[8px] opacity-30"></i>
@@ -266,81 +387,83 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                         )}
 
                         {/* Post-it Notes */}
-                        <div
-                            className="flex flex-wrap gap-3 mt-4 relative min-h-[40px] flex-1 rounded-xl transition-colors"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            {(lead.notesLog || []).filter(n => !n.isDone).map((note, i) => (
-                                <div
-                                    key={note.id}
-                                    onClick={() => { if (!editNoteId) { setEditNoteId(note.id); setEditContent(note.content); } }}
-                                    className={`p-2.5 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[12px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-110 hover:z-10 group/note flex flex-col relative cursor-pointer post-it-container ${note.color || 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]'} ${i % 2 === 0 ? 'rotate-2' : '-rotate-2'} hover:rotate-0 ${note.isDone ? 'line-through opacity-50' : ''} ${celebratingNoteId === note.id ? 'animate-shake' : ''} ${note.isUrgent ? 'urgent-glow' : ''} ${(deletingNoteId === note.id || isFlyingUpId === note.id) ? 'opacity-0 pointer-events-none' : ''}`}
-                                    style={{
-                                        '--rotation': i % 2 === 0 ? '2deg' : '-2deg'
-                                    } as React.CSSProperties}
-                                >
-                                    {editNoteId === note.id ? (
+                        {getVisibleColumns().has('notes') && (
+                            <div
+                                className="flex flex-wrap gap-3 mt-4 relative min-h-[40px] flex-1 rounded-xl transition-colors"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {(lead.notesLog || []).filter(n => !n.isDone).map((note, i) => (
+                                    <div
+                                        key={note.id}
+                                        onClick={() => { if (!editNoteId) { setEditNoteId(note.id); setEditContent(note.content); } }}
+                                        className={`p-2.5 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[12px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-110 hover:z-10 group/note flex flex-col relative cursor-pointer post-it-container ${note.color || 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]'} ${i % 2 === 0 ? 'rotate-2' : '-rotate-2'} hover:rotate-0 ${note.isDone ? 'line-through opacity-50' : ''} ${celebratingNoteId === note.id ? 'animate-shake' : ''} ${note.isUrgent ? 'urgent-glow' : ''} ${(deletingNoteId === note.id || isFlyingUpId === note.id) ? 'opacity-0 pointer-events-none' : ''}`}
+                                        style={{
+                                            '--rotation': i % 2 === 0 ? '2deg' : '-2deg'
+                                        } as React.CSSProperties}
+                                    >
+                                        {editNoteId === note.id ? (
+                                            <textarea
+                                                autoFocus
+                                                className="w-full h-full bg-transparent border-none outline-none resize-none post-it-edit"
+                                                value={editContent}
+                                                onChange={(e) => setEditContent(e.target.value)}
+                                                onBlur={() => {
+                                                    if (editContent.trim() && editContent !== note.content) {
+                                                        handleUpdateNote(note.id, { content: editContent });
+                                                    }
+                                                    setEditNoteId(null);
+                                                }}
+                                            />
+                                        ) : (
+                                            <>
+                                                <div className="text-[7px] opacity-40 mb-1 font-sans leading-none uppercase tracking-tighter">
+                                                    {new Date(note.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                </div>
+                                                <div className="text-slate-800 line-clamp-4 leading-tight">{note.content}</div>
+                                                <div className="absolute top-1 right-1 opacity-0 group-hover/note:opacity-100 transition-opacity flex gap-1 bg-white/20 rounded-full px-1 backdrop-blur-sm">
+                                                    <button
+                                                        onClick={(e) => onDoneToggle(e, note)}
+                                                        className="text-slate-600 hover:text-emerald-600 transition-colors p-0.5"
+                                                        title="Complete"
+                                                    >
+                                                        <i className="fa-solid fa-check text-[10px]"></i>
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => onDeleteClick(e, note.id)}
+                                                        className="text-slate-600 hover:text-red-500 transition-colors p-0.5"
+                                                        title="Delete"
+                                                    >
+                                                        <i className="fa-solid fa-trash-can text-[10px]"></i>
+                                                    </button>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                ))}
+
+                                {/* Pending Note (Draft) */}
+                                {pendingNote && pendingNote.leadId === lead.id && (
+                                    <div className={`p-2.5 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[9px] font-bold post-it-font whitespace-normal shadow-xl transition-all rotate-3 scale-105 z-20 flex flex-col relative post-it-container ${pendingNote.color}`}>
                                         <textarea
                                             autoFocus
-                                            className="w-full h-full bg-transparent border-none outline-none resize-none post-it-edit"
-                                            value={editContent}
-                                            onChange={(e) => setEditContent(e.target.value)}
+                                            className="w-full h-full bg-transparent border-none outline-none resize-none post-it-draft"
+                                            placeholder="Write note..."
+                                            value={draftContent}
+                                            onChange={(e) => setDraftContent(e.target.value)}
                                             onBlur={() => {
-                                                if (editContent.trim() && editContent !== note.content) {
-                                                    handleUpdateNote(note.id, { content: editContent });
+                                                if (draftContent.trim()) {
+                                                    handleSaveNote(draftContent);
+                                                } else {
+                                                    setPendingNote(null);
                                                 }
-                                                setEditNoteId(null);
+                                                setDraftContent('');
                                             }}
                                         />
-                                    ) : (
-                                        <>
-                                            <div className="text-[7px] opacity-40 mb-1 font-sans leading-none uppercase tracking-tighter">
-                                                {new Date(note.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                            </div>
-                                            <div className="text-slate-800 line-clamp-4 leading-tight">{note.content}</div>
-                                            <div className="absolute top-1 right-1 opacity-0 group-hover/note:opacity-100 transition-opacity flex gap-1 bg-white/20 rounded-full px-1 backdrop-blur-sm">
-                                                <button
-                                                    onClick={(e) => onDoneToggle(e, note)}
-                                                    className="text-slate-600 hover:text-emerald-600 transition-colors p-0.5"
-                                                    title="Complete"
-                                                >
-                                                    <i className="fa-solid fa-check text-[10px]"></i>
-                                                </button>
-                                                <button
-                                                    onClick={(e) => onDeleteClick(e, note.id)}
-                                                    className="text-slate-600 hover:text-red-500 transition-colors p-0.5"
-                                                    title="Delete"
-                                                >
-                                                    <i className="fa-solid fa-trash-can text-[10px]"></i>
-                                                </button>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            ))}
-
-                            {/* Pending Note (Draft) */}
-                            {pendingNote && pendingNote.leadId === lead.id && (
-                                <div className={`p-2.5 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[9px] font-bold post-it-font whitespace-normal shadow-xl transition-all rotate-3 scale-105 z-20 flex flex-col relative post-it-container ${pendingNote.color}`}>
-                                    <textarea
-                                        autoFocus
-                                        className="w-full h-full bg-transparent border-none outline-none resize-none post-it-draft"
-                                        placeholder="Write note..."
-                                        value={draftContent}
-                                        onChange={(e) => setDraftContent(e.target.value)}
-                                        onBlur={() => {
-                                            if (draftContent.trim()) {
-                                                handleSaveNote(draftContent);
-                                            } else {
-                                                setPendingNote(null);
-                                            }
-                                            setDraftContent('');
-                                        }}
-                                    />
-                                </div>
-                            )}
-                            {<div style={{ display: 'none' }}>{noteProvided.placeholder}</div>}
-                        </div>
+                                    </div>
+                                )}
+                                {<div style={{ display: 'none' }}>{noteProvided.placeholder}</div>}
+                            </div>
+                        )}
                     </div>
                 )}
             </TypedDroppable>
