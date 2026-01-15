@@ -13,7 +13,7 @@ interface StatusSettingsProps {
     initialSellerStatuses?: StatusOption[];
 }
 
-const FUNNEL_STAGES = ['Leads', 'Nurture', 'Active Search', 'Contract', 'Closed'];
+const FUNNEL_STAGES = ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed'];
 
 const StatusSettings: React.FC<StatusSettingsProps> = ({
     realtorId,

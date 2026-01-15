@@ -52,7 +52,7 @@ const LeadsViewControls: React.FC<LeadsViewControlsProps> = ({
                 <div className="flex items-center gap-4">
                     {/* Sub-Category Selector */}
                     <div className="flex bg-slate-100/50 p-1 rounded-xl border border-slate-200/60 shadow-sm">
-                        {['Leads', 'Nurture', 'Active Search', 'Contract', 'Closed'].map((cat) => (
+                        {['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed'].map((cat) => (
                             <button
                                 key={cat}
                                 onClick={() => onFunnelCategoryChange(cat as any)}

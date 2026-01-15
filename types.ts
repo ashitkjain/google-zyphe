@@ -41,6 +41,7 @@ export type FunnelStage =
   | 'Leads'         // Initial inquiry/Lead
   | 'Nurture'       // Long-term follow-up
   | 'Active Search' // Currently viewing homes
+  | 'Offer'         // Offer submitted
   | 'Contract'      // Under contract
   | 'Closed';       // Deal finalized
 
