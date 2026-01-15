@@ -62,20 +62,64 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
         {
             id: 'identity',
             fields: [
-                { key: 'firstName', label: 'First Name', type: 'text', required: true, placeholder: 'John' },
-                { key: 'lastName', label: 'Last Name', type: 'text', required: true, placeholder: 'Doe' },
                 {
-                    key: 'clientId', label: 'Client ID', type: 'badge', colSpan: 2,
-                    showIf: (l) => !!l.clientId,
+                    key: 'firstName', colSpan: 2,
                     render: (props) => (
-                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-2xl border border-slate-200/50">
-                            <i className="fa-solid fa-id-badge text-xs text-slate-400"></i>
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Client ID:</span>
-                            <span className="text-xs font-bold font-mono tracking-tight text-slate-900">{props.value}</span>
+                        <div className="flex items-start gap-4">
+                            <div className="flex-shrink-0 mt-1 relative group">
+                                <div
+                                    className="w-14 h-14 rounded-full bg-slate-100 border-2 border-white shadow-sm overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-90 transition-all ring-1 ring-slate-100"
+                                    onClick={() => document.getElementById('avatar-upload-row')?.click()}
+                                    title="Click to upload photo"
+                                >
+                                    {props.lead.avatarUrl ? (
+                                        <img src={props.lead.avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <i className="fa-solid fa-camera text-slate-300 text-lg group-hover:text-slate-400 transition-colors"></i>
+                                    )}
+                                </div>
+                                <input
+                                    id="avatar-upload-row"
+                                    type="file"
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            const reader = new FileReader();
+                                            reader.onloadend = () => {
+                                                setEditingLead({ ...props.lead, avatarUrl: reader.result as string });
+                                            };
+                                            reader.readAsDataURL(file);
+                                        }
+                                    }}
+                                />
+                            </div>
+                            <div className="flex-1 grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">First Name <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="text"
+                                        value={props.lead.firstName}
+                                        placeholder="John"
+                                        onChange={(e) => setEditingLead({ ...props.lead, firstName: e.target.value })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Last Name <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="text"
+                                        value={props.lead.lastName}
+                                        placeholder="Doe"
+                                        onChange={(e) => setEditingLead({ ...props.lead, lastName: e.target.value })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     )
-                },
-                { key: 'avatarUrl', label: 'Profile Photo URL', type: 'text', colSpan: 2, placeholder: 'https://example.com/photo.jpg' }
+                }
             ]
         },
         {
@@ -93,30 +137,30 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 {
                     key: 'callTracker', colSpan: 2,
                     render: (props) => (
-                        <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 flex items-center justify-between my-2">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shadow-sm border border-indigo-200">
-                                    <i className="fa-solid fa-phone-volume text-lg"></i>
+                        <div className="bg-indigo-50/50 p-2 rounded-lg border border-indigo-100 flex items-center justify-between my-1">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center border border-indigo-200">
+                                    <i className="fa-solid fa-phone-volume text-sm"></i>
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Call Tracker</span>
-                                    <span className="text-sm font-bold text-indigo-900">
-                                        {props.lead.callCount === 1 ? '1 Call Made' : `${props.lead.callCount || 0} Calls Made`}
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">Call Tracker</span>
+                                    <span className="text-sm font-semibold text-indigo-900">
+                                        {props.lead.callCount === 1 ? '1 Call' : `${props.lead.callCount || 0} Calls`}
                                     </span>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
                                 <button
                                     onClick={() => setEditingLead({ ...props.lead, callCount: Math.max(0, (props.lead.callCount || 0) - 1) })}
-                                    className="w-8 h-8 rounded-full bg-white border border-indigo-100 text-indigo-400 hover:text-indigo-600 hover:border-indigo-300 flex items-center justify-center transition-all shadow-sm"
+                                    className="w-6 h-6 rounded bg-white border border-indigo-100 text-indigo-400 hover:text-indigo-600 hover:border-indigo-300 flex items-center justify-center transition-all shadow-sm"
                                 >
-                                    <i className="fa-solid fa-minus text-xs"></i>
+                                    <i className="fa-solid fa-minus text-[10px]"></i>
                                 </button>
                                 <button
                                     onClick={() => setEditingLead({ ...props.lead, callCount: (props.lead.callCount || 0) + 1 })}
-                                    className="w-8 h-8 rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:border-indigo-500 flex items-center justify-center transition-all border"
+                                    className="w-6 h-6 rounded bg-indigo-600 text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700 hover:border-indigo-500 flex items-center justify-center transition-all border"
                                 >
-                                    <i className="fa-solid fa-plus text-xs"></i>
+                                    <i className="fa-solid fa-plus text-[10px]"></i>
                                 </button>
                             </div>
                         </div>
@@ -132,8 +176,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                     key: 'status', label: 'Status', type: 'select',
                     render: (props) => (
                         <div className="relative">
-                            <div className="flex items-center gap-1 mb-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Status</label>
+                            <div className="flex items-center gap-1 mb-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Status</label>
                                 <div
                                     className="inline-flex self-center text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
                                     onClick={(e) => { e.stopPropagation(); setShowStatusInfo(!showStatusInfo); }}
@@ -168,7 +212,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                             <select
                                 value={editingLead.status}
                                 onChange={(e) => setEditingLead({ ...editingLead, status: e.target.value as any })}
-                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none appearance-none"
+                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold focus:ring-1 focus:ring-indigo-500 transition-all outline-none appearance-none"
                             >
                                 {getStatusOptions(editingLead.leadType, realtorSettings).map((o: any) => (
                                     <option key={o.label} value={o.label}>{o.label}</option>
@@ -190,12 +234,67 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 { key: 'propertyAddress', label: 'Subject Property Address', type: 'text', colSpan: 2, placeholder: '123 Example St' },
                 { key: 'propertyType', label: 'Property Type', type: 'text', placeholder: 'Single Family' },
                 { key: 'mlsNumber', label: 'MLS Number', type: 'text', placeholder: 'MLS123' },
-                { key: 'bedrooms', label: 'Beds', type: 'number' },
-                { key: 'bathrooms', label: 'Baths', type: 'number' },
-                { key: 'sqft', label: 'Sq Ft', type: 'number' },
+                {
+                    key: 'bedrooms', label: 'Property Specs', type: 'text', colSpan: 2,
+                    render: (props) => (
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Beds</label>
+                                <input
+                                    type="number"
+                                    value={editingLead.bedrooms || ''}
+                                    onChange={(e) => setEditingLead({ ...editingLead, bedrooms: Number(e.target.value) })}
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Baths</label>
+                                <input
+                                    type="number"
+                                    value={editingLead.bathrooms || ''}
+                                    onChange={(e) => setEditingLead({ ...editingLead, bathrooms: Number(e.target.value) })}
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Sq Ft</label>
+                                <input
+                                    type="number"
+                                    value={editingLead.sqft || ''}
+                                    onChange={(e) => setEditingLead({ ...editingLead, sqft: Number(e.target.value) })}
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                />
+                            </div>
+                        </div>
+                    )
+                },
                 // Buyer Specs
-                { key: 'minPrice', label: 'Min Price ($)', type: 'number', showIf: (l) => ['Buyer', 'Rental', 'Mortgage'].includes(l.leadType) },
-                { key: 'maxPrice', label: 'Max Price ($)', type: 'number', showIf: (l) => ['Buyer', 'Rental', 'Mortgage'].includes(l.leadType) },
+                {
+                    key: 'minPrice', label: 'Price Range', type: 'number', colSpan: 2,
+                    showIf: (l) => ['Buyer', 'Rental', 'Mortgage'].includes(l.leadType),
+                    render: (props) => (
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Min Price ($)</label>
+                                <input
+                                    type="number"
+                                    value={editingLead.minPrice || ''}
+                                    onChange={(e) => setEditingLead({ ...editingLead, minPrice: Number(e.target.value) })}
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Max Price ($)</label>
+                                <input
+                                    type="number"
+                                    value={editingLead.maxPrice || ''}
+                                    onChange={(e) => setEditingLead({ ...editingLead, maxPrice: Number(e.target.value) })}
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                />
+                            </div>
+                        </div>
+                    )
+                },
                 { key: 'preferredNeighborhood', label: 'Preferred Neighborhood', type: 'text', colSpan: 2, showIf: (l) => ['Buyer', 'Rental'].includes(l.leadType) },
                 // Seller Specs
                 { key: 'price', label: 'List Price ($)', type: 'number', showIf: (l) => l.leadType === 'Seller' },
@@ -272,12 +371,12 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
         if (field.showIf && !field.showIf(editingLead)) return null;
         if (field.render) return <div key={field.key} className={field.colSpan === 2 ? 'col-span-2' : ''}>{field.render({ value: (editingLead as any)[field.key], lead: editingLead })}</div>;
 
-        const commonClasses = "w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none";
+        const commonClasses = "w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none";
 
         return (
-            <div key={field.key} className={`space-y-2 ${field.colSpan === 2 ? 'col-span-2' : ''}`}>
+            <div key={field.key} className={`space-y-1 ${field.colSpan === 2 ? 'col-span-2' : ''}`}>
                 {field.label && (
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">
                         {field.label} {field.required && <span className="text-red-500">*</span>}
                     </label>
                 )}
@@ -329,53 +428,58 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-            <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
                 {/* Header */}
-                <div className="p-8 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
-                    <div>
-                        <h3 className="text-2xl font-black text-slate-900">
-                            {leads.some(l => l.id === editingLead.id) ? 'Edit Funnel Entry' : 'New Funnel Entry'}
+                <div className="p-5 border-b border-slate-100 flex items-center justify-between flex-shrink-0 bg-white z-10">
+                    <div className="flex items-center gap-3">
+                        <h3 className="text-lg font-bold text-slate-900">
+                            {leads.some(l => l.id === editingLead.id) ? 'Edit Client Details' : 'New Client Details'}
                         </h3>
-                        <p className="text-sm text-slate-500 font-medium">
-                            {leads.some(l => l.id === editingLead.id)
-                                ? `Dynamic Schema: ${Object.keys(editingLead).length} fields detected`
-                                : 'Enter basic contact and property details'}
-                        </p>
+                        {editingLead.clientId && (
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-500 rounded-md border border-slate-100">
+                                <i className="fa-solid fa-hashtag text-[8px] text-slate-300"></i>
+                                <span className="text-[10px] font-bold font-mono tracking-tight">{editingLead.clientId}</span>
+                            </div>
+                        )}
                     </div>
-                    <button onClick={() => setEditingLead(null)} className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center transition-all text-slate-400">
+                    <button onClick={() => setEditingLead(null)} className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center transition-all text-slate-400">
                         <i className="fa-solid fa-xmark"></i>
                     </button>
                 </div>
 
                 {/* Form Content */}
-                <div className="flex-1 overflow-y-auto p-8 space-y-8">
-                    {FORM_SECTIONS.map((section) => (
-                        <div key={section.id}>
-                            {section.title && <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 mb-4 ml-1 pb-2 border-b border-slate-100/50">{section.title}</h4>}
-                            <div className="grid grid-cols-2 gap-6">
+                <div className="flex-1 overflow-y-auto p-5 scrollbar-hide">
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                        {FORM_SECTIONS.map((section) => (
+                            <React.Fragment key={section.id}>
+                                {section.title && (
+                                    <div className="col-span-2 pt-2 mt-2 border-t border-slate-100 first:border-0 first:pt-0 first:mt-0">
+                                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 mb-2">{section.title}</h4>
+                                    </div>
+                                )}
                                 {section.fields.map(renderField)}
-                            </div>
-                        </div>
-                    ))}
+                            </React.Fragment>
+                        ))}
+                    </div>
 
                     {/* Tags (Custom UI) */}
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Tags</label>
+                    <div className="space-y-1 mt-4 pt-4 border-t border-slate-100">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Tags</label>
                         <div className="flex flex-wrap gap-2 mb-2">
                             {editingLead.tags?.map((tag, index) => (
-                                <span key={index} className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-bold flex items-center gap-2">
+                                <span key={index} className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs font-semibold flex items-center gap-1.5 border border-indigo-100">
                                     {tag}
                                     <button onClick={() => {
                                         const newTags = editingLead.tags?.filter((_, i) => i !== index);
                                         setEditingLead({ ...editingLead, tags: newTags });
-                                    }} className="hover:text-indigo-800"><i className="fa-solid fa-xmark"></i></button>
+                                    }} className="hover:text-indigo-800"><i className="fa-solid fa-xmark text-[10px]"></i></button>
                                 </span>
                             ))}
                         </div>
                         <input
                             type="text"
-                            placeholder="Add tag and press Enter..."
+                            placeholder="Add tag..."
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                     const val = e.currentTarget.value.trim();
@@ -388,12 +492,12 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                     }
                                 }
                             }}
-                            className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
                         />
                     </div>
 
                     {/* Notes (Custom UI) */}
-                    <div className="space-y-4 pt-4 border-t border-slate-100">
+                    <div className="space-y-3 pt-4 border-t border-slate-100 mt-4">
                         <style dangerouslySetInnerHTML={{
                             __html: `
                             @import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap');
@@ -462,15 +566,15 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                     </div>
                 </div>
 
-                <div className="p-8 bg-slate-50 flex items-center justify-between flex-shrink-0">
-                    <button onClick={() => setEditingLead(null)} className="text-sm font-bold text-slate-500 hover:text-slate-900 transition-all underline underline-offset-4">Cancel Changes</button>
+                <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between flex-shrink-0">
+                    <button onClick={() => setEditingLead(null)} className="text-sm font-semibold text-slate-500 hover:text-slate-900 transition-all">Cancel</button>
                     <button
                         onClick={onSave}
                         disabled={isSavingLead}
-                        className="bg-indigo-600 text-white px-10 py-5 rounded-[2rem] text-xs font-black shadow-xl shadow-indigo-500/20 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-3"
+                        className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
                     >
-                        {isSavingLead ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>}
-                        {isSavingLead ? 'Saving...' : 'Save'}
+                        {isSavingLead ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-check"></i>}
+                        {isSavingLead ? 'Saving...' : 'Save Changes'}
                     </button>
                 </div>
             </div>
