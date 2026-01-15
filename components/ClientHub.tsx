@@ -301,12 +301,25 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         if (!lead) return;
 
         // Optimistically update the UI
-        setLeads(prev => prev.map(l => l.id === leadId ? { ...l, funnelStage: newStage, stageLastChangedAt: new Date() } : l));
+        setLeads(prev => prev.map(l => {
+            if (l.id === leadId) {
+                const stageChanged = l.funnelStage !== newStage;
+                return {
+                    ...l,
+                    funnelStage: newStage,
+                    stageLastChangedAt: stageChanged ? new Date() : (l.stageLastChangedAt || l.receivedAt)
+                };
+            }
+            return l;
+        }));
 
-        // Persist to database (in the correct collection)
-        // All leads are now in the 'leads' collection
+        // Persist to database
         const collectionName = 'leads';
-        const success = await updateLead(leadId, { funnelStage: newStage, stageLastChangedAt: new Date() }, collectionName);
+        const updates: any = { funnelStage: newStage };
+        if (lead.funnelStage !== newStage) {
+            updates.stageLastChangedAt = new Date();
+        }
+        const success = await updateLead(leadId, updates, collectionName);
         if (!success) {
             console.error("Failed to update lead stage");
             setLeads(leads);
@@ -690,6 +703,13 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                 }
                 .animate-bounce-slow {
                   animation: bounce-slow 4s infinite;
+                }
+                @keyframes urgent-flash {
+                  0%, 100% { transform: scale(1); opacity: 1; }
+                  50% { transform: scale(1.01); opacity: 0.9; background-color: rgba(255, 0, 0, 0.05); }
+                }
+                .animate-urgent-flash {
+                  animation: urgent-flash 1s infinite;
                 }
                 /* Custom Scrollbar Styling */
                 ::-webkit-scrollbar {

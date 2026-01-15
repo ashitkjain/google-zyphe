@@ -50,6 +50,39 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
     // ... helper functions ...
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+    const [now, setNow] = React.useState(new Date());
+
+    React.useEffect(() => {
+        const interval = setInterval(() => setNow(new Date()), 10000); // Update every 10s for smooth transition
+        return () => clearInterval(interval);
+    }, []);
+
+    const receivedDate = lead.receivedAt?.toDate ? lead.receivedAt.toDate() : (lead.receivedAt ? new Date(lead.receivedAt) : null);
+    const minsSinceReceived = receivedDate ? (now.getTime() - receivedDate.getTime()) / 60000 : 0;
+
+    React.useEffect(() => {
+        if (stage === 'Leads' && lead.initialContactIn30Mins === undefined && minsSinceReceived >= 30) {
+            onUpdateLead(lead.id, { initialContactIn30Mins: false });
+        }
+    }, [minsSinceReceived, stage, lead.initialContactIn30Mins, lead.id, onUpdateLead]);
+
+    const handleContacted = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onUpdateLead(lead.id, {
+            status: 'Attempted to Contact',
+            initialContactIn30Mins: true
+        });
+    };
+
+    const isLeadsStage = stage === 'Leads';
+    const showUrgencyEffect = isLeadsStage && lead.initialContactIn30Mins === undefined;
+    const isFlashing = showUrgencyEffect && minsSinceReceived < 15;
+
+    let rednessAlpha = 0;
+    if (showUrgencyEffect && minsSinceReceived >= 15) {
+        rednessAlpha = Math.min(1, (minsSinceReceived - 15) / 15);
+    }
+
     const handleAvatarClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         fileInputRef.current?.click();
@@ -82,7 +115,8 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                 const parts = [];
                 if (d > 0) parts.push(`${d}d`);
                 if (h > 0) parts.push(`${h}h`);
-                if (m > 0 || parts.length === 0) parts.push(`${m}m`);
+                if (m > 0) parts.push(`${m}m`);
+                if (parts.length === 0) return 'Just now';
 
                 return parts.join(' ');
             }
@@ -233,9 +267,20 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
             );
         }
 
+        if (field === 'receivedAt' || field === 'lastUpdated' || field === 'lastTouch') {
+            return (
+                <div className="flex items-center gap-1 w-full min-h-[1.2rem]">
+                    <span className="font-medium break-words text-slate-500">
+                        {renderValue(field)}
+                    </span>
+                    <i className="fa-solid fa-lock text-[8px] text-slate-200 ml-auto" title="Read-only"></i>
+                </div>
+            );
+        }
+
         return (
             <div className="group/editable flex items-center justify-between gap-1 w-full min-h-[1.2rem]">
-                <span className="font-medium break-words" onClick={(e) => startEditing(e, field, value)}>
+                <span className="font-medium break-words cursor-pointer hover:text-indigo-600 transition-colors" onClick={(e) => startEditing(e, field, value)}>
                     {renderValue(field)}
                 </span>
                 <button
@@ -250,14 +295,15 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
 
     return (
         <div
-            className={`bg-white p-4 rounded-[2rem] border transition-all border-l-4 group relative cursor-pointer flex flex-col ${selectedIds.has(lead.id)
+            className={`p-4 rounded-[2rem] border transition-all border-l-4 group relative cursor-pointer flex flex-col ${selectedIds.has(lead.id)
                 ? (lead.leadType === 'Seller'
                     ? 'ring-4 ring-emerald-500/50 border-emerald-200 bg-emerald-50/30 shadow-2xl scale-[1.02] z-10'
                     : 'ring-4 ring-indigo-500/50 border-indigo-200 bg-indigo-50/30 shadow-2xl scale-[1.02] z-10')
                 : 'border-slate-200/60 shadow-sm hover:shadow-xl hover:scale-[1.01]'
-                }`}
+                } ${isFlashing ? 'animate-urgent-flash' : ''} ${rednessAlpha >= 1 ? 'bg-red-50 border-red-200' : 'bg-white'}`}
             style={{
-                borderLeftColor: lead.leadType === 'Seller' ? '#10b981' : '#6366f1'
+                borderLeftColor: lead.leadType === 'Seller' ? '#10b981' : '#6366f1',
+                backgroundColor: rednessAlpha > 0 && rednessAlpha < 1 ? `rgba(255, 0, 0, ${rednessAlpha * 0.1})` : undefined
             }}
             onClick={(e) => { handleSelectOne(lead.id); }}
             onDoubleClick={(e) => { e.stopPropagation(); onViewLead(lead); }}
@@ -276,6 +322,20 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                         className={`flex-1 flex flex-col min-h-[130px] ${noteSnapshot.isDraggingOver ? 'bg-indigo-50/20' : ''}`}
                     >
                         <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
+                            {/* Contacted Status Leaves */}
+                            {lead.initialContactIn30Mins === true && (
+                                <div className="flex items-center gap-1 bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm border border-emerald-100">
+                                    <i className="fa-solid fa-leaf text-[8px]"></i>
+                                    got it
+                                </div>
+                            )}
+                            {lead.initialContactIn30Mins === false && (
+                                <div className="flex items-center gap-1 bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm border border-rose-100">
+                                    <i className="fa-solid fa-leaf text-[8px]"></i>
+                                    missed
+                                </div>
+                            )}
+
                             <div className="flex items-center gap-1 mr-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onArchive(lead.id); }}
@@ -324,6 +384,16 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                     {lead.firstName} {lead.lastName}
                                 </div>
 
+                                {isLeadsStage && lead.initialContactIn30Mins === undefined && (
+                                    <button
+                                        onClick={handleContacted}
+                                        className="mt-1 flex items-center justify-center gap-1.5 px-3 py-1 bg-indigo-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md shadow-indigo-200 active:scale-95 self-start"
+                                    >
+                                        <i className="fa-solid fa-paper-plane text-[8px]"></i>
+                                        Contacted
+                                    </button>
+                                )}
+
                                 {getVisibleColumns().has('phone') && (
                                     <div className="flex flex-col gap-0.5 text-[12px] text-slate-400 font-bold whitespace-nowrap overflow-hidden">
                                         {lead.email && (
@@ -354,22 +424,30 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                         </div>
 
                         <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-4">
-                            {Array.from(getVisibleColumns()).filter(colId => !['phone', 'email', 'firstName', 'lastName', 'message', 'notes'].includes(colId as string)).map((colId: any) => {
-                                const meta = COLUMN_METADATA[colId as string];
-                                if (!meta) return null;
-                                const displayLabel = meta.label
-                                    .replace(/[^a-zA-Z0-9\s]/g, '')
-                                    .split(' ')
-                                    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                                    .join(' ') + (meta.label.includes('?') ? '?' : '');
+                            {Array.from(getVisibleColumns())
+                                .filter(colId => !['phone', 'email', 'firstName', 'lastName', 'message', 'notes'].includes(colId as string))
+                                .filter(colId => {
+                                    const val = (lead as any)[colId as string];
+                                    if (val === null || val === undefined || val === '' || val === false) return false;
+                                    if (Array.isArray(val) && val.length === 0) return false;
+                                    return true;
+                                })
+                                .map((colId: any) => {
+                                    const meta = COLUMN_METADATA[colId as string];
+                                    if (!meta) return null;
+                                    const displayLabel = meta.label
+                                        .replace(/[^a-zA-Z0-9\s]/g, '')
+                                        .split(' ')
+                                        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                                        .join(' ') + (meta.label.includes('?') ? '?' : '');
 
-                                return (
-                                    <div key={colId as string} className="grid grid-cols-[auto_1fr] gap-x-1.5 text-[14px] font-bold text-black leading-tight min-w-0 items-start">
-                                        <span className="whitespace-nowrap">{displayLabel}:</span>
-                                        {renderEditableValue(colId as string)}
-                                    </div>
-                                );
-                            })}
+                                    return (
+                                        <div key={colId as string} className="grid grid-cols-[auto_1fr] gap-x-1.5 text-[14px] font-bold text-black leading-tight min-w-0 items-start">
+                                            <span className="whitespace-nowrap">{displayLabel}:</span>
+                                            {renderEditableValue(colId as string)}
+                                        </div>
+                                    );
+                                })}
                         </div>
 
 

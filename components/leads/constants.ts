@@ -29,7 +29,7 @@ export const availableSellerColumns = [
     { id: 'propertyType', label: 'Property Type' },
     { id: 'occupancyStatus', label: 'Occupancy Status' },
     { id: 'expectedPrice', label: 'Expected Price' },
-    { id: 'propertyAddress', label: 'Property Address' },
+    { id: 'propertyAddress', label: 'Inquired Property' },
     { id: 'reasonForSelling', label: 'Reason for Selling' },
     { id: 'existingAgentName', label: 'Existing Agent?' },
     { id: 'source', label: 'Source' },
@@ -41,8 +41,8 @@ export const availableSellerColumns = [
     { id: 'notes', label: 'Agent Notes' }
 ];
 
-export const defaultBuyerVisible = ['status', 'phone', 'callCount', 'lastUpdated', 'isAlsoSelling', 'preQualified', 'budgetRange', 'preferredNeighborhood', 'source', 'receivedAt', 'notes'];
-export const defaultSellerVisible = ['status', 'phone', 'isAlsoBuying', 'homeValueNeeded', 'mostImportantToSeller', 'sellWhen', 'propertyType', 'occupancyStatus', 'expectedPrice', 'propertyAddress', 'source', 'receivedAt'];
+export const defaultBuyerVisible = ['status', 'phone', 'callCount', 'lastUpdated', 'isAlsoSelling', 'preQualified', 'budgetRange', 'preferredNeighborhood', 'source', 'receivedAt', 'message', 'propertyAddress', 'timeframe', 'notes'];
+export const defaultSellerVisible = ['status', 'phone', 'isAlsoBuying', 'homeValueNeeded', 'mostImportantToSeller', 'sellWhen', 'propertyType', 'occupancyStatus', 'expectedPrice', 'propertyAddress', 'message', 'timeframe', 'source', 'receivedAt'];
 
 type FunnelStage = 'Leads' | 'Nurture' | 'Active Search' | 'Offer' | 'Contract' | 'Closed';
 type ViewMode = 'list' | 'gallery';
@@ -53,8 +53,8 @@ export const stageDefaultColumns: Record<
 > = {
     Buyer: {
         'Leads': {
-            list: ['status', 'phone', 'callCount', 'source', 'receivedAt', 'lastUpdated', 'isAlsoSelling', 'preQualified', 'message', 'propertyAddress', 'timeframe', 'notes'],
-            gallery: ['status', 'phone', 'callCount', 'source', 'receivedAt', 'lastUpdated', 'isAlsoSelling', 'preQualified', 'message', 'propertyAddress', 'timeframe', 'notes', 'budgetRange', 'preferredNeighborhood']
+            list: ['status', 'phone', 'callCount', 'source', 'receivedAt', 'message', 'propertyAddress', 'timeframe', 'lastUpdated', 'isAlsoSelling', 'preQualified', 'notes'],
+            gallery: ['status', 'phone', 'callCount', 'source', 'receivedAt', 'message', 'propertyAddress', 'timeframe', 'lastUpdated', 'isAlsoSelling', 'preQualified', 'notes', 'budgetRange', 'preferredNeighborhood']
         },
         'Nurture': {
             list: ['status', 'phone', 'receivedAt', 'lastTouch', 'timeframe', 'notes'],
@@ -79,8 +79,8 @@ export const stageDefaultColumns: Record<
     },
     Seller: {
         'Leads': {
-            list: ['status', 'phone', 'source', 'receivedAt', 'lastUpdated', 'message', 'propertyAddress', 'timeframe'],
-            gallery: ['status', 'phone', 'source', 'receivedAt', 'lastUpdated', 'message', 'propertyAddress', 'timeframe', 'homeValueNeeded']
+            list: ['status', 'phone', 'source', 'receivedAt', 'message', 'propertyAddress', 'timeframe', 'lastUpdated'],
+            gallery: ['status', 'phone', 'source', 'receivedAt', 'message', 'propertyAddress', 'timeframe', 'lastUpdated', 'homeValueNeeded']
         },
         'Nurture': {
             list: ['status', 'phone', 'receivedAt', 'lastTouch', 'sellWhen', 'propertyAddress'],

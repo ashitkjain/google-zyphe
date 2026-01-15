@@ -183,6 +183,7 @@ export interface Lead {
   tags?: string[];
   notes?: string;
   stageLastChangedAt?: any;
+  initialContactIn30Mins?: boolean;
   notesLog?: LeadNote[];
   smsConsent?: boolean;
   smsConsentTimestamp?: any;

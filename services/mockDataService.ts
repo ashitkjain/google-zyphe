@@ -75,6 +75,21 @@ export const getInitialMockLeads = (): Lead[] => [
         slaUrgency: 'medium', funnelStage: 'Leads', health: 'Active', isMock: true, collectionName: 'leads',
         expectedPrice: 1100000, propertyAddress: '202 Birch Ave, Burbank'
     },
+    {
+        id: 'lead_11', avatarUrl: 'https://i.pravatar.cc/150?img=32', firstName: 'Urgency', lastName: 'Tester (Flash)', email: 'flash@example.com', phone: '(555) 999-1111',
+        homeAddress: '123 Flash St, Los Angeles, CA 90001',
+        source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead', status: 'New', receivedAt: new Date(Date.now() - 600000), // 10 mins ago
+        slaUrgency: 'high', funnelStage: 'Leads', health: 'Active', isMock: true, collectionName: 'leads',
+        message: "I am a test lead from 10 mins ago. I should be flashing!"
+    },
+    {
+        id: 'lead_12', avatarUrl: 'https://i.pravatar.cc/150?img=44', firstName: 'Urgency', lastName: 'Tester (Red)', email: 'red@example.com', phone: '(555) 999-2222',
+        homeAddress: '456 Red Way, Los Angeles, CA 90002',
+        source: 'Website', leadType: 'Seller', connectionType: 'Direct Lead', status: 'New', receivedAt: new Date(Date.now() - 1620000), // 27 mins ago
+        slaUrgency: 'high', funnelStage: 'Leads', health: 'Active', isMock: true, collectionName: 'leads',
+        expectedPrice: 500000, propertyAddress: '456 Red Way, LA',
+        message: "I am a test lead from 27 mins ago. I should be deep red!"
+    },
 
     // --- NURTURE (7) ---
     {

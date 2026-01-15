@@ -39,7 +39,8 @@ const LeadsList: React.FC<InternalProps> = ({
         const parts = [];
         if (d > 0) parts.push(`${d}d`);
         if (h > 0) parts.push(`${h}h`);
-        if (m > 0 || parts.length === 0) parts.push(`${m}m`);
+        if (m > 0) parts.push(`${m}m`);
+        if (parts.length === 0) return 'Just now';
 
         return parts.join(' ');
     };
@@ -448,9 +449,15 @@ const LeadsList: React.FC<InternalProps> = ({
             // Normalize Date/Timestamp fields for reliable comparison
             const isDateField = ['receivedAt', 'lastUpdated', 'lastTouch', 'leaseEndDate'].includes(sortField as string);
             if (isDateField) {
-                const getVal = (v: any) => v?.toDate ? v.toDate().getTime() : (v ? new Date(v).getTime() : 0);
-                aVal = getVal(aVal);
-                bVal = getVal(bVal);
+                const getVal = (v: any, lead: Lead) => {
+                    let dateVal = v;
+                    if (sortField === 'receivedAt' && lead.stageLastChangedAt) {
+                        dateVal = lead.stageLastChangedAt;
+                    }
+                    return dateVal?.toDate ? dateVal.toDate().getTime() : (dateVal ? new Date(dateVal).getTime() : 0);
+                };
+                aVal = getVal(aVal, a);
+                bVal = getVal(bVal, b);
             } else if (sortField === 'firstName') {
                 aVal = `${a.firstName} ${a.lastName}`.toLowerCase();
                 bVal = `${b.firstName} ${b.lastName}`.toLowerCase();
@@ -490,11 +497,29 @@ const LeadsList: React.FC<InternalProps> = ({
         if (columnFilters.source) result = result.filter(l => l.source === columnFilters.source);
 
         return result.sort((a, b) => {
-            const aVal = a[sortField];
-            const bVal = b[sortField];
+            let aVal = a[sortField] as any;
+            let bVal = b[sortField] as any;
+
+            // Normalize Date/Timestamp fields for reliable comparison
+            const isDateField = ['receivedAt', 'lastUpdated', 'lastTouch', 'leaseEndDate'].includes(sortField as string);
+            if (isDateField) {
+                const getVal = (v: any, lead: Lead) => {
+                    let dateVal = v;
+                    if (sortField === 'receivedAt' && lead.stageLastChangedAt) {
+                        dateVal = lead.stageLastChangedAt;
+                    }
+                    return dateVal?.toDate ? dateVal.toDate().getTime() : (dateVal ? new Date(dateVal).getTime() : 0);
+                };
+                aVal = getVal(aVal, a);
+                bVal = getVal(bVal, b);
+            } else if (sortField === 'firstName') {
+                aVal = `${a.firstName} ${a.lastName}`.toLowerCase();
+                bVal = `${b.firstName} ${b.lastName}`.toLowerCase();
+            }
+
             if (aVal === bVal) return 0;
-            if (!aVal) return 1;
-            if (!bVal) return -1;
+            if (aVal === undefined || aVal === null || aVal === 0) return 1;
+            if (bVal === undefined || bVal === null || bVal === 0) return -1;
 
             const comparison = aVal > bVal ? 1 : -1;
             return sortDirection === 'asc' ? comparison : -comparison;
