@@ -633,55 +633,7 @@ export const updateLead = async (leadId: string, updates: Partial<Lead>, collect
   }
 };
 
-export const activateLeadToCollection = async (lead: Lead) => {
-  if (!db) return false;
-  try {
-    const { runTransaction } = await import("firebase/firestore");
 
-    await runTransaction(db, async (transaction) => {
-      const oldRef = doc(db, "leads", lead.id);
-      const targetCollection = lead.leadType === 'Seller' ? 'sellers' : 'buyers';
-      const newPipelineRef = doc(db, targetCollection, lead.id);
-      const archivedRef = doc(db, "archived_leads", lead.id); // New archived collection
-
-      // 1. Read existing doc to ensure consistency (optional but good for transactions)
-      const leadDoc = await transaction.get(oldRef);
-      if (!leadDoc.exists()) {
-        throw "Lead document does not exist!";
-      }
-
-      const updatedLeadData = {
-        ...lead,
-        ...sanitizeForFirestore(leadDoc.data()), // Use latest data
-        status: 'Active',
-        funnelStage: 'Nurture',
-        activatedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
-
-      const archivedLeadData = {
-        ...updatedLeadData,
-        status: 'Archived', // Mark as Archived in the archive table
-        archivedAt: serverTimestamp()
-      };
-
-      // 2. Set to Pipeline Collection
-      transaction.set(newPipelineRef, sanitizeForFirestore(updatedLeadData));
-
-      // 3. Set to Archived Leads Collection
-      transaction.set(archivedRef, sanitizeForFirestore(archivedLeadData));
-
-      // 4. Delete from Main Leads Collection
-      transaction.delete(oldRef);
-    });
-
-    console.log(`[activateLeadToCollection] Successfully moved lead ${lead.id} to pipeline and archive.`);
-    return true;
-  } catch (error) {
-    handleFirestoreError(error, "activateLeadToCollection");
-    return false;
-  }
-};
 
 export const getLeads = async (realtorId: string, collectionNames: string[] = ['leads']) => {
   if (!db) return [];

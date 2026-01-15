@@ -4,6 +4,7 @@ export interface StatusOption {
   label: string;
   description: string;
   isDefault?: boolean;
+  funnelStage?: string;
 }
 
 export interface UserProfile {
@@ -37,13 +38,11 @@ export type LeadSource = 'Zillow' | 'Realtor.com' | 'Facebook' | 'Website' | 'Ma
 export type LeadStatus = string; // Changed from union to string to support custom statuses
 
 export type FunnelStage =
-  | 'Inquiry'      // Initial lead
-  | 'Nurture'      // Long-term follow-up
-  | 'Active'       // Currently viewing homes
-  | 'Offer'        // Signed an offer
-  | 'UnderContract'// Escrow
-  | 'Closed'       // Success
-  | 'Lost';        // No longer interested
+  | 'Leads'         // Initial inquiry/Lead
+  | 'Nurture'       // Long-term follow-up
+  | 'Active Search' // Currently viewing homes
+  | 'Contract'      // Under contract
+  | 'Closed';       // Deal finalized
 
 export type LeadHealth = 'Active' | 'Stale' | 'Dormant' | 'Responsive';
 

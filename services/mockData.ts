@@ -23,7 +23,7 @@ export const MOCK_TAGS = ["Urgent", "Cash Buyer", "First-time", "Investor", "Rel
 export const getRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 export const getRandomSubset = <T>(arr: T[], count: number): T[] => arr.sort(() => 0.5 - Math.random()).slice(0, count);
 
-export const generateMockLead = (type: 'Buyer' | 'Seller'): any => {
+export const generateMockLead = (type: 'Buyer' | 'Seller', status?: string, funnelStage?: string): any => {
     const firstName = getRandom(MOCK_FIRST_NAMES);
     const lastName = getRandom(MOCK_LAST_NAMES);
     return {
@@ -33,8 +33,8 @@ export const generateMockLead = (type: 'Buyer' | 'Seller'): any => {
         email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${getRandom(MOCK_GMAIL_DOMAINS)}`,
         phone: `555-${Math.floor(100 + Math.random() * 900)}-${Math.floor(1000 + Math.random() * 9000)}`,
         leadType: type,
-        status: 'Active',
-        funnelStage: 'Nurture',
+        status: status || 'New',
+        funnelStage: funnelStage || 'Leads',
         source: getRandom(MOCK_SOURCES),
         tags: getRandomSubset(MOCK_TAGS, Math.floor(Math.random() * 3)),
         propertyAddress: type === 'Seller' ? `${Math.floor(100 + Math.random() * 900)} ${getRandom(MOCK_STREETS)}, ${getRandom(MOCK_CITIES)}` : undefined,

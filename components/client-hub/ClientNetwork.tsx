@@ -44,7 +44,9 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
     };
     const getName = (c: UserProfile | Lead | null) => {
         if (!c) return '';
-        return isUser(c) ? c.displayName : (c as Lead).name;
+        if (isUser(c)) return c.displayName;
+        const l = c as Lead;
+        return `${l.firstName} ${l.lastName}`.trim();
     };
     const getRole = (c: UserProfile | Lead | null) => {
         if (!c) return '';
@@ -58,7 +60,7 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
 
     const displayList = (networkTab === 'on-zyphe' ? clients : manualContacts).filter(client => {
         if (!searchTerm) return true;
-        const name = (isUser(client) ? client.displayName : (client as Lead).name).toLowerCase();
+        const name = (isUser(client) ? client.displayName : `${(client as Lead).firstName} ${(client as Lead).lastName}`).toLowerCase();
         const email = (client.email || '').toLowerCase();
         const term = searchTerm.toLowerCase();
         return name.includes(term) || email.includes(term);
@@ -263,8 +265,8 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                         {getName(client)?.[0]}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="font-bold text-sm truncate leading-tight">{getName(client)}</div>
-                                        <div className={`text-[9px] uppercase font-black tracking-widest mt-1 ${isSelected ? 'text-white/60' : 'text-slate-400'}`}>
+                                        <div className="font-bold text-slate-900 text-sm truncate leading-tight mb-0.5">{getName(client)}</div>
+                                        <div className={`text-[12px] uppercase font-black tracking-widest ${isSelected ? 'text-white/60' : 'text-slate-400'}`}>
                                             {getRole(client)} • {isUser(client) ? 'Active' : (client as Lead).status}
                                         </div>
                                     </div>
@@ -427,8 +429,8 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                                     <div className="flex-1 min-w-0">
                                                         <h4 className="font-bold text-slate-900 text-sm lg:text-base truncate">{fav.address}</h4>
                                                         <div className="flex items-center gap-2 lg:gap-4 mt-1 lg:mt-2 flex-wrap">
-                                                            <span className="text-lg lg:text-xl font-black text-emerald-600">${fav.price?.toLocaleString() || '---'}</span>
-                                                            {fav.isHot && <span className="px-2 py-0.5 bg-rose-50 text-rose-500 rounded-lg text-[8px] lg:text-[10px] font-black uppercase tracking-widest border border-rose-100">Hot</span>}
+                                                            <span className="text-xl lg:text-2xl font-black text-emerald-600">${fav.price?.toLocaleString() || '---'}</span>
+                                                            {fav.isHot && <span className="px-2 py-0.5 bg-rose-50 text-rose-500 rounded-lg text-[10px] lg:text-[12px] font-black uppercase tracking-widest border border-rose-100">Hot</span>}
                                                         </div>
                                                     </div>
                                                     <button className="w-10 h-10 lg:w-12 lg:h-12 xl:w-14 xl:h-14 rounded-2xl lg:rounded-3xl bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all shrink-0">
@@ -482,9 +484,9 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                                         <div className="min-w-0">
                                                             <h4 className="font-bold text-slate-900 text-sm lg:text-base truncate">{view.address}</h4>
                                                             <div className="flex items-center gap-2 lg:gap-3 mt-1 lg:mt-1.5 flex-wrap">
-                                                                <span className="text-[8px] lg:text-[10px] font-black uppercase tracking-widest text-slate-400">{formatDate(view.timestamp)}</span>
+                                                                <span className="text-[10px] lg:text-[12px] font-black uppercase tracking-widest text-slate-400">{formatDate(view.timestamp)}</span>
                                                                 <span className="opacity-10 text-slate-900">•</span>
-                                                                <span className="text-[8px] lg:text-[10px] font-black uppercase tracking-widest text-indigo-500 font-bold">
+                                                                <span className="text-[10px] lg:text-[12px] font-black uppercase tracking-widest text-indigo-500 font-bold">
                                                                     {view.type || 'Engagement'}
                                                                 </span>
                                                             </div>
@@ -518,21 +520,21 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                                 {/* Target Criteria */}
                                                 <div className="grid grid-cols-2 gap-4 pb-4 border-b border-slate-50">
                                                     <div>
-                                                        <div className="text-[8px] font-black text-slate-400 uppercase">Budget</div>
-                                                        <div className="text-xs font-black text-slate-900">
+                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Budget</div>
+                                                        <div className="text-[14px] font-black text-slate-900">
                                                             ${(selectedClient as any).minPrice?.toLocaleString() || '0'} - ${(selectedClient as any).maxPrice?.toLocaleString() || '---'}
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        <div className="text-[8px] font-black text-slate-400 uppercase">Specs</div>
-                                                        <div className="text-xs font-black text-slate-900">
+                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Specs</div>
+                                                        <div className="text-[14px] font-black text-slate-900">
                                                             {(selectedClient as any).bedrooms || '0'}+ Beds | {(selectedClient as any).bathrooms || '0'}+ Baths
                                                         </div>
                                                     </div>
                                                 </div>
                                                 {(selectedClient.kyc.dealBreakers?.length || 0) > 0 && (
                                                     <div className="space-y-2">
-                                                        <div className="text-[8px] font-black text-slate-400 uppercase">Deal-Breakers</div>
+                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Deal-Breakers</div>
                                                         <div className="flex flex-wrap gap-1.5">
                                                             {selectedClient.kyc.dealBreakers?.map((db, i) => (
                                                                 <span key={i} className="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-bold border border-rose-100/50">{db}</span>
@@ -543,7 +545,7 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
 
                                                 {(selectedClient.kyc.neighborhoodTargets?.length || 0) > 0 && (
                                                     <div className="space-y-2">
-                                                        <div className="text-[8px] font-black text-slate-400 uppercase">Target Neighborhoods</div>
+                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Target Neighborhoods</div>
                                                         <div className="flex flex-wrap gap-1.5">
                                                             {selectedClient.kyc.neighborhoodTargets?.map((nh, i) => (
                                                                 <span key={i} className="px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-bold border border-indigo-100/50">{nh}</span>
@@ -554,8 +556,8 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
 
                                                 {selectedClient.kyc.schoolDistricts && (
                                                     <div className="space-y-1">
-                                                        <div className="text-[8px] font-black text-slate-400 uppercase">School Districts</div>
-                                                        <div className="text-xs font-bold text-slate-700">{selectedClient.kyc.schoolDistricts}</div>
+                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">School Districts</div>
+                                                        <div className="text-[14px] font-bold text-slate-700">{selectedClient.kyc.schoolDistricts}</div>
                                                     </div>
                                                 )}
 
@@ -596,12 +598,12 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                             <div className="space-y-5 flex-1">
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
-                                                        <div className="text-[8px] font-black text-slate-400 uppercase mb-1">Lead Score</div>
+                                                        <div className="text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">Lead Score</div>
                                                         <div className="text-xl font-black text-indigo-600">{selectedClient.kyc.leadScore || 85}%</div>
                                                     </div>
                                                     <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
-                                                        <div className="text-[8px] font-black text-slate-400 uppercase mb-1">Nurture Stage</div>
-                                                        <div className={`text-[10px] font-black uppercase ${selectedClient.kyc.nurtureDetail === 'Hot' ? 'text-orange-600' : 'text-indigo-600'}`}>
+                                                        <div className="text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">Nurture Stage</div>
+                                                        <div className={`text-[12px] font-black uppercase ${selectedClient.kyc.nurtureDetail === 'Hot' ? 'text-orange-600' : 'text-indigo-600'}`}>
                                                             {selectedClient.kyc.nurtureDetail || 'Warm'}
                                                         </div>
                                                     </div>
@@ -609,17 +611,17 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
 
                                                 <div className="space-y-3">
                                                     <div className="flex items-center justify-between">
-                                                        <div className="text-[8px] font-black text-slate-400 uppercase">Purchase Type</div>
-                                                        <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase ${selectedClient.kyc.isAllCash ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-50 text-slate-600'}`}>
+                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Type</div>
+                                                        <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase ${selectedClient.kyc.isAllCash ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-50 text-slate-600'}`}>
                                                             {selectedClient.kyc.isAllCash ? 'All Cash' : 'Financed'}
                                                         </span>
                                                     </div>
                                                     {selectedClient.kyc.lenderName && (
                                                         <div>
-                                                            <div className="text-[8px] font-black text-slate-400 uppercase">Lender Details</div>
-                                                            <div className="text-xs font-bold text-slate-700 mt-0.5">{selectedClient.kyc.lenderName}</div>
+                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lender Details</div>
+                                                            <div className="text-[14px] font-bold text-slate-700 mt-0.5">{selectedClient.kyc.lenderName}</div>
                                                             {selectedClient.kyc.lenderContact && (
-                                                                <div className="text-[9px] text-slate-500 font-medium italic mt-0.5">{selectedClient.kyc.lenderContact}</div>
+                                                                <div className="text-[12px] text-slate-500 font-medium italic mt-0.5">{selectedClient.kyc.lenderContact}</div>
                                                             )}
                                                         </div>
                                                     )}
@@ -637,7 +639,7 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                                 {selectedClient.kyc.slaMinutesTarget && (
                                                     <div className="flex items-center gap-2 pt-2">
                                                         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                                                        <div className="text-[9px] font-black text-slate-400 uppercase">SLA TARGET: {selectedClient.kyc.slaMinutesTarget} MINS</div>
+                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SLA TARGET: {selectedClient.kyc.slaMinutesTarget} MINS</div>
                                                     </div>
                                                 )}
                                             </div>
@@ -651,35 +653,35 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
 
                                             <div className="space-y-6 flex-1">
                                                 <div className="space-y-2">
-                                                    <div className="text-[8px] font-black text-slate-400 uppercase">Current Roadmap Stage</div>
-                                                    <div className="text-sm font-black text-indigo-600 uppercase tracking-tight">{selectedClient.kyc.transactionStage || 'Listing Prep'}</div>
+                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Current Roadmap Stage</div>
+                                                    <div className="text-[14px] font-black text-indigo-600 uppercase tracking-tight">{selectedClient.kyc.transactionStage || 'Listing Prep'}</div>
                                                 </div>
 
                                                 <div className="grid grid-cols-1 gap-3">
                                                     {selectedClient.kyc.inspectionDeadline && (
                                                         <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                                            <span className="text-[9px] font-black text-slate-500 uppercase">Inspection</span>
-                                                            <span className="text-xs font-bold text-slate-800">{selectedClient.kyc.inspectionDeadline}</span>
+                                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Inspection</span>
+                                                            <span className="text-[14px] font-bold text-slate-800">{selectedClient.kyc.inspectionDeadline}</span>
                                                         </div>
                                                     )}
                                                     {selectedClient.kyc.appraisalDeadline && (
                                                         <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                                            <span className="text-[9px] font-black text-slate-500 uppercase">Appraisal</span>
-                                                            <span className="text-xs font-bold text-slate-800">{selectedClient.kyc.appraisalDeadline}</span>
+                                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Appraisal</span>
+                                                            <span className="text-[14px] font-bold text-slate-800">{selectedClient.kyc.appraisalDeadline}</span>
                                                         </div>
                                                     )}
                                                     {selectedClient.kyc.loanCommitmentDeadline && (
                                                         <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                                            <span className="text-[9px] font-black text-slate-500 uppercase">Loan Commit</span>
-                                                            <span className="text-xs font-bold text-slate-800">{selectedClient.kyc.loanCommitmentDeadline}</span>
+                                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Loan Commit</span>
+                                                            <span className="text-[14px] font-bold text-slate-800">{selectedClient.kyc.loanCommitmentDeadline}</span>
                                                         </div>
                                                     )}
                                                 </div>
 
                                                 <div className="pt-4 border-t border-slate-50 space-y-3">
                                                     <div className="flex items-center justify-between">
-                                                        <div className="text-[8px] font-black text-slate-400 uppercase">Document Checklist</div>
-                                                        <div className="text-[9px] font-black text-indigo-600">
+                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Document Checklist</div>
+                                                        <div className="text-[12px] font-black text-indigo-600">
                                                             {selectedClient.kyc.documentChecklist?.filter(i => i.status === 'Signed').length || 0} / {selectedClient.kyc.documentChecklist?.length || 0}
                                                         </div>
                                                     </div>
@@ -691,7 +693,7 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                                     </div>
                                                     <div className="grid gap-1.5 max-h-[120px] overflow-y-auto pt-2">
                                                         {selectedClient.kyc.documentChecklist?.map((item, idx) => (
-                                                            <div key={idx} className="flex items-center gap-2 text-[10px]">
+                                                            <div key={idx} className="flex items-center gap-2 text-[12px]">
                                                                 <i className={`fa-solid ${item.status === 'Signed' ? 'fa-circle-check text-emerald-500' : item.status === 'Pending' ? 'fa-circle-dot text-amber-500' : 'fa-circle-xmark text-slate-300'}`}></i>
                                                                 <span className={item.status === 'Signed' ? 'text-slate-400 line-through' : 'text-slate-600 font-bold'}>{item.name}</span>
                                                             </div>

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Lead, PipelineNote, UserProfile } from '../types';
+import { Lead, PipelineNote, UserProfile, FunnelStage } from '../types';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { getStatusOptions, getStatusDefinitions, isNewLeadStatus } from '../services/statusService';
+import { getStatusOptions, getStatusDefinitions, isNewLeadStatus, getFunnelStageForStatus } from '../services/statusService';
 
 const TypedDraggable = Draggable as any;
 const TypedDroppable = Droppable as any;
@@ -189,7 +189,7 @@ const LeadGalleryItem: React.FC<{
                                 </div>
 
                                 <div className="flex flex-col flex-1 min-w-0 pt-0.5">
-                                    <div className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors tracking-tight truncate leading-tight mb-0.5" onClick={() => onViewLead(lead)}>
+                                    <div className="font-bold text-black text-sm group-hover:text-indigo-600 transition-colors tracking-tight truncate leading-tight mb-0.5" onClick={() => onViewLead(lead)}>
                                         {lead.firstName} {lead.lastName}
                                     </div>
 
@@ -224,7 +224,7 @@ const LeadGalleryItem: React.FC<{
                                         .join(' ') + (meta.label.includes('?') ? '?' : '');
 
                                     return (
-                                        <div key={colId as string} className="grid grid-cols-[auto_1fr] gap-x-1.5 text-[14px] font-bold text-slate-900 leading-tight min-w-0 items-start">
+                                        <div key={colId as string} className="grid grid-cols-[auto_1fr] gap-x-1.5 text-[14px] font-bold text-black leading-tight min-w-0 items-start">
                                             <span className="whitespace-nowrap">{displayLabel}:</span>
                                             <span className="font-medium break-words">{renderValue(colId as string)}</span>
                                         </div>
@@ -236,7 +236,7 @@ const LeadGalleryItem: React.FC<{
                             {/* User Message */}
                             {lead.message && (
                                 <div className="mt-2 bg-indigo-50/30 p-3 rounded-2xl border border-indigo-100/50 flex flex-col gap-1.5 relative overflow-hidden group/msg">
-                                    <div className="text-[14px] font-medium text-slate-900 tracking-widest flex items-center gap-1.5 opacity-60">
+                                    <div className="text-[14px] font-medium text-black tracking-widest flex items-center gap-1.5 opacity-60">
                                         <i className="fa-solid fa-comment-dots text-[8px] opacity-30"></i>
                                         Inquiry Message
                                     </div>
@@ -472,6 +472,9 @@ const LeadsList: React.FC<InternalProps> = ({
     const [buyerViewMode, setBuyerViewMode] = useState<'past6Months' | 'older'>('past6Months');
     const [sellerViewMode, setSellerViewMode] = useState<'past6Months' | 'older'>('past6Months');
 
+    const [buyerFunnelCategory, setBuyerFunnelCategory] = useState<FunnelStage>('Leads');
+    const [sellerFunnelCategory, setSellerFunnelCategory] = useState<FunnelStage>('Leads');
+
     // Display Mode Mapping (Default: Past 6 Months -> Gallery, Older -> List)
     const [viewMode, setViewMode] = useState<'past6Months' | 'older'>('past6Months'); // Legacy
 
@@ -493,7 +496,7 @@ const LeadsList: React.FC<InternalProps> = ({
     // Clear selection on view change
     useEffect(() => {
         setSelectedIds(new Set());
-    }, [activeTab, buyerViewMode, sellerViewMode]);
+    }, [activeTab, buyerViewMode, sellerViewMode, buyerFunnelCategory, sellerFunnelCategory]);
 
     // Inline Editing State
     const [editingCell, setEditingCell] = useState<{ id: string, field: keyof Lead } | null>(null);
@@ -599,28 +602,6 @@ const LeadsList: React.FC<InternalProps> = ({
         });
     };
 
-    const handleBulkActivate = () => {
-        if (selectedIds.size === 0) return;
-
-        const executeActivate = () => {
-            selectedIds.forEach(id => {
-                const lead = leads.find(l => l.id === id);
-                if (lead) {
-                    onActivateLead(lead);
-                }
-            });
-            setSelectedIds(new Set());
-            setConfirmModal(null);
-        };
-
-        setConfirmModal({
-            show: true,
-            title: 'Confirm Bulk Activation',
-            message: `Are you sure you want to activate ${selectedIds.size} selected leads? They will be moved to the appropriate pipeline.`,
-            onConfirm: executeActivate
-        });
-    };
-
     const cancelEditing = (e: React.MouseEvent) => {
         e.stopPropagation();
         setEditingCell(null);
@@ -719,12 +700,15 @@ const LeadsList: React.FC<InternalProps> = ({
     const timeStats = useMemo(() => {
         const { startOf6Months } = dateRanges;
         const validLeads = leads.filter(l =>
-            isNewLeadStatus(l.status, l.leadType, realtorSettings) &&
-            l.collectionName === 'leads'
+            isNewLeadStatus(l.status, l.leadType, realtorSettings)
         );
 
         const getStatsForType = (type: 'Buyer' | 'Seller') => {
-            const typed = validLeads.filter(l => l.leadType === type);
+            const category = type === 'Buyer' ? buyerFunnelCategory : sellerFunnelCategory;
+            const typed = leads.filter(l =>
+                l.leadType === type &&
+                getFunnelStageForStatus(l.status, l.leadType, realtorSettings) === category
+            );
             return {
                 past6Months: typed.filter(l => {
                     const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
@@ -741,24 +725,24 @@ const LeadsList: React.FC<InternalProps> = ({
             Buyer: getStatsForType('Buyer'),
             Seller: getStatsForType('Seller')
         };
-    }, [leads, dateRanges, realtorSettings]);
+    }, [leads, dateRanges, realtorSettings, buyerFunnelCategory, sellerFunnelCategory]);
 
     const filteredBuyerLeads = useMemo(() => {
         const { startOf6Months } = dateRanges;
 
         let result = leads.filter(l => {
-            if (l.leadType !== 'Buyer' && l.leadType !== 'Rental' && l.leadType !== 'Mortgage') return false; // Default Buyers
-            // Note: Types are 'Buyer' | 'Seller' | 'Rental' | 'Mortgage'. Grouping Buyers, Rentals, Mortgage together for now or just Buyer.
-            if (l.leadType !== 'Buyer') return false;
+            if (l.leadType !== 'Buyer' && l.leadType !== 'Rental' && l.leadType !== 'Mortgage') return false;
 
-            if (!isNewLeadStatus(l.status, l.leadType, realtorSettings)) return false;
-            if (l.collectionName !== 'leads') return false;
+            const stage = getFunnelStageForStatus(l.status, l.leadType, realtorSettings);
+            if (stage !== buyerFunnelCategory) return false;
 
             const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
 
-            if (buyerViewMode === 'past6Months') return d >= startOf6Months;
-            if (buyerViewMode === 'older') return d < startOf6Months;
-            return false;
+            if (buyerFunnelCategory === 'Leads') {
+                if (buyerViewMode === 'past6Months') return d >= startOf6Months;
+                if (buyerViewMode === 'older') return d < startOf6Months;
+            }
+            return true;
         });
 
         if (columnFilters.name) result = result.filter(l => `${l.firstName} ${l.lastName}`.toLowerCase().includes(columnFilters.name.toLowerCase()));
@@ -783,21 +767,24 @@ const LeadsList: React.FC<InternalProps> = ({
             const comparison = aVal > bVal ? 1 : -1;
             return sortDirection === 'asc' ? comparison : -comparison;
         });
-    }, [leads, buyerViewMode, columnFilters, sortField, sortDirection, realtorSettings]);
+    }, [leads, buyerViewMode, buyerFunnelCategory, columnFilters, sortField, sortDirection, realtorSettings]);
 
     const filteredSellerLeads = useMemo(() => {
         const { startOf6Months } = dateRanges;
 
         let result = leads.filter(l => {
             if (l.leadType !== 'Seller') return false;
-            if (!isNewLeadStatus(l.status, l.leadType, realtorSettings)) return false;
-            if (l.collectionName !== 'leads') return false;
+
+            const stage = getFunnelStageForStatus(l.status, l.leadType, realtorSettings);
+            if (stage !== sellerFunnelCategory) return false;
 
             const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
 
-            if (sellerViewMode === 'past6Months') return d >= startOf6Months;
-            if (sellerViewMode === 'older') return d < startOf6Months;
-            return false;
+            if (sellerFunnelCategory === 'Leads') {
+                if (sellerViewMode === 'past6Months') return d >= startOf6Months;
+                if (sellerViewMode === 'older') return d < startOf6Months;
+            }
+            return true;
         });
 
         if (columnFilters.name) result = result.filter(l => `${l.firstName} ${l.lastName}`.toLowerCase().includes(columnFilters.name.toLowerCase()));
@@ -816,7 +803,7 @@ const LeadsList: React.FC<InternalProps> = ({
             const comparison = aVal > bVal ? 1 : -1;
             return sortDirection === 'asc' ? comparison : -comparison;
         });
-    }, [leads, sellerViewMode, columnFilters, sortField, sortDirection, realtorSettings]);
+    }, [leads, sellerViewMode, sellerFunnelCategory, columnFilters, sortField, sortDirection, realtorSettings]);
 
     const filteredLeads = useMemo(() => [...filteredBuyerLeads, ...filteredSellerLeads], [filteredBuyerLeads, filteredSellerLeads]);
 
@@ -900,14 +887,14 @@ const LeadsList: React.FC<InternalProps> = ({
                                     className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'Buyer' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                                 >
                                     <i className="fa-solid fa-user-tag"></i>
-                                    Buyer Leads
+                                    Buyer
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('Seller')}
                                     className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'Seller' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                                 >
                                     <i className="fa-solid fa-house-chimney-user"></i>
-                                    Seller Leads
+                                    Seller
                                 </button>
                             </div>
 
@@ -957,7 +944,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                 <button
                                     className={`w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors ${showFilters ? 'bg-slate-100 text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
                                     onClick={() => setShowFilters(!showFilters)}
-                                    title="Filter Leads"
+                                    title="Filter Funnel"
                                 >
                                     <i className="fa-solid fa-filter text-lg"></i>
                                 </button>
@@ -1023,32 +1010,115 @@ const LeadsList: React.FC<InternalProps> = ({
                     {/* Buyer Section */}
                     {activeTab === 'Buyer' && (
                         <section className="px-4 animate-in fade-in slide-in-from-left-4 duration-300">
-                            <div className="flex items-center justify-start mb-4 border-b border-slate-100 pb-3">
+                            <div className="flex flex-col gap-4 mb-4 border-b border-slate-100 pb-3">
+                                {/* Primary Navigation Row */}
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-4">
+                                        {/* Sub-Category Selector */}
+                                        <div className="flex bg-slate-100/50 p-1 rounded-xl border border-slate-200/60 shadow-sm">
+                                            {['Leads', 'Nurture', 'Active Search', 'Contract', 'Closed'].map((cat) => (
+                                                <button
+                                                    key={cat}
+                                                    onClick={() => setBuyerFunnelCategory(cat as any)}
+                                                    className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${buyerFunnelCategory === cat ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                                >
+                                                    {cat}
+                                                </button>
+                                            ))}
+                                        </div>
 
-                                {/* Time Selector for Buyers */}
-                                <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm relative overflow-hidden">
-                                    {[
-                                        { id: 'past6Months', label: 'Past 6 Months', subtitle: dateRanges.labels.past6Months, count: timeStats.Buyer.past6Months },
-                                        { id: 'older', label: 'Older', subtitle: dateRanges.labels.older, count: timeStats.Buyer.older }
-                                    ].map((tab) => (
+                                        {/* Post-it Palette */}
+                                        {currentDisplayMode === 'gallery' && (
+                                            <div className="ml-4 pr-4 border-r border-slate-200 h-10 flex items-center text-left">
+                                                <TypedDroppable droppableId="palette-buyer" direction="horizontal" type="POSTIT_PALETTE" isDropDisabled={true}>
+                                                    {(provided: any) => (
+                                                        <div
+                                                            ref={provided.innerRef}
+                                                            {...provided.droppableProps}
+                                                            className="flex items-center gap-2"
+                                                        >
+                                                            <div className="text-[8px] font-black uppercase tracking-wider text-slate-400">Add Note:</div>
+                                                            <div className="flex items-center gap-2">
+                                                                {noteTypes.map((note, index) => (
+                                                                    <TypedDraggable key={note.id} draggableId={`${note.id}-buyer`} index={index}>
+                                                                        {(provided: any, snapshot: any) => (
+                                                                            <div className="relative group note-palette-item">
+                                                                                {!snapshot.isDragging && (
+                                                                                    <>
+                                                                                        <div className={`absolute inset-0 -translate-x-1 translate-y-1 rounded-sm border border-black/10 opacity-60 ${note.color} ${note.shadow} -rotate-3 transition-transform group-hover:-translate-x-2 group-hover:translate-y-2`}></div>
+                                                                                        <div className={`absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow} rotate-2 transition-transform group-hover:translate-x-1 group-hover:translate-y-1`}></div>
+                                                                                    </>
+                                                                                )}
+                                                                                <div
+                                                                                    ref={provided.innerRef}
+                                                                                    {...provided.draggableProps}
+                                                                                    {...provided.dragHandleProps}
+                                                                                    className={`w-16 h-16 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-1 hover:rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl ring-2 ring-white/50' : 'relative z-10'} ${snapshot.isDropAnimating ? 'opacity-0 duration-0' : ''}`}
+                                                                                >
+                                                                                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-7 border-2 border-slate-400/80 rounded-full bg-slate-200/50 z-20 shadow-sm opacity-80 group-hover:opacity-100 transition-opacity">
+                                                                                        <div className="absolute inset-1 border-l border-slate-500/30 rounded-full"></div>
+                                                                                    </div>
+                                                                                    <div className="w-full h-1.5 bg-black/5 absolute top-0"></div>
+                                                                                    <i className="fa-solid fa-note-sticky opacity-20 text-[18px]"></i>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </TypedDraggable>
+                                                                ))}
+                                                            </div>
+                                                            {provided.placeholder}
+                                                        </div>
+                                                    )}
+                                                </TypedDroppable>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Display Mode Toggles */}
+                                    <div className="flex bg-slate-100/50 p-1 rounded-2xl items-center">
                                         <button
-                                            key={tab.id}
-                                            onClick={() => setBuyerViewMode(tab.id as any)}
-                                            className={`px-4 py-1.5 rounded-xl transition-all duration-300 relative z-10 flex flex-col items-center min-w-[100px] ${buyerViewMode === tab.id ? 'text-indigo-600 bg-white shadow-sm' : 'text-slate-400 hover:text-slate-600'
-                                                }`}
+                                            onClick={() => toggleDisplayMode('list')}
+                                            className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                                         >
-                                            <div className="text-[10px] font-semibold uppercase tracking-widest leading-tight">
-                                                {tab.label} {tab.count > 0 && `(${tab.count})`}
-                                            </div>
-                                            <div className="text-[7px] font-bold opacity-60 uppercase tracking-tighter mt-0.5 whitespace-nowrap">
-                                                {tab.subtitle}
-                                            </div>
+                                            <i className="fa-solid fa-list-ul"></i>
+                                            List
                                         </button>
-                                    ))}
+                                        <button
+                                            onClick={() => toggleDisplayMode('gallery')}
+                                            className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                        >
+                                            <i className="fa-solid fa-table-cells-large"></i>
+                                            Gallery
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="ml-4 flex items-center">
-                                    <div className="flex flex-col items-center">
-                                        <div className="flex items-center gap-2">
+
+                                {/* Actions & Filters Bar */}
+                                <div className="flex items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-300">
+                                    <div className="flex items-center gap-4">
+                                        {buyerFunnelCategory === 'Leads' && (
+                                            <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm relative overflow-hidden">
+                                                {[
+                                                    { id: 'past6Months', label: 'Past 6 Months', subtitle: dateRanges.labels.past6Months, count: timeStats.Buyer.past6Months },
+                                                    { id: 'older', label: 'Older', subtitle: dateRanges.labels.older, count: timeStats.Buyer.older }
+                                                ].map((tab) => (
+                                                    <button
+                                                        key={tab.id}
+                                                        onClick={() => setBuyerViewMode(tab.id as any)}
+                                                        className={`px-4 py-1.5 rounded-xl transition-all duration-300 relative z-10 flex flex-col items-center min-w-[100px] ${buyerViewMode === tab.id ? 'text-indigo-600 bg-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                                    >
+                                                        <div className="text-[10px] font-semibold uppercase tracking-widest leading-tight">
+                                                            {tab.label} {tab.count > 0 && `(${tab.count})`}
+                                                        </div>
+                                                        <div className="text-[7px] font-bold opacity-60 uppercase tracking-tighter mt-0.5 whitespace-nowrap">
+                                                            {tab.subtitle}
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="flex items-center gap-2 border-l border-slate-100 pl-4">
                                             <button
                                                 className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-red-50 text-black hover:bg-red-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
                                                 onClick={handleBulkArchive}
@@ -1057,84 +1127,11 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 <i className="fa-solid fa-box-archive"></i>
                                                 Archive {selectedIds.size > 0 && `(${selectedIds.size})`}
                                             </button>
-                                            <button
-                                                className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-indigo-50 text-black hover:bg-indigo-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
-                                                onClick={handleBulkActivate}
-                                                disabled={selectedIds.size === 0}
-                                            >
-                                                <i className="fa-solid fa-bolt"></i>
-                                                Activate {selectedIds.size > 0 && `(${selectedIds.size})`}
-                                            </button>
-                                        </div>
-                                        <div className="text-[9px] text-slate-400 font-medium text-center mt-1">
-                                            Select the checkbox to archive or activate
+                                            <div className="text-[9px] text-slate-400 font-medium ml-2">
+                                                Select the checkbox to archive selected leads
+                                            </div>
                                         </div>
                                     </div>
-
-                                    {/* Post-it Palette */}
-                                    {currentDisplayMode === 'gallery' && (
-                                        <div className="ml-4 pl-4 border-l border-slate-200 h-10 flex items-center text-left">
-                                            <TypedDroppable droppableId="palette-buyer" direction="horizontal" type="POSTIT_PALETTE" isDropDisabled={true}>
-                                                {(provided: any) => (
-                                                    <div
-                                                        ref={provided.innerRef}
-                                                        {...provided.droppableProps}
-                                                        className="flex items-center gap-2"
-                                                    >
-                                                        <div className="text-[8px] font-black uppercase tracking-wider text-slate-400">Add Note:</div>
-                                                        <div className="flex items-center gap-2">
-                                                            {noteTypes.map((note, index) => (
-                                                                <TypedDraggable key={note.id} draggableId={`${note.id}-buyer`} index={index}>
-                                                                    {(provided: any, snapshot: any) => (
-                                                                        <div className="relative group note-palette-item">
-                                                                            {!snapshot.isDragging && (
-                                                                                <>
-                                                                                    {/* Back Note */}
-                                                                                    <div className={`absolute inset-0 -translate-x-1 translate-y-1 rounded-sm border border-black/10 opacity-60 ${note.color} ${note.shadow} -rotate-3 transition-transform group-hover:-translate-x-2 group-hover:translate-y-2`}></div>
-                                                                                    {/* Middle Note */}
-                                                                                    <div className={`absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow} rotate-2 transition-transform group-hover:translate-x-1 group-hover:translate-y-1`}></div>
-                                                                                </>
-                                                                            )}
-                                                                            <div
-                                                                                ref={provided.innerRef}
-                                                                                {...provided.draggableProps}
-                                                                                {...provided.dragHandleProps}
-                                                                                className={`w-16 h-16 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-1 hover:rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl ring-2 ring-white/50' : 'relative z-10'} ${snapshot.isDropAnimating ? 'opacity-0 duration-0' : ''}`}
-                                                                            >
-                                                                                {/* Paperclip Effect */}
-                                                                                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-7 border-2 border-slate-400/80 rounded-full bg-slate-200/50 z-20 shadow-sm opacity-80 group-hover:opacity-100 transition-opacity">
-                                                                                    <div className="absolute inset-1 border-l border-slate-500/30 rounded-full"></div>
-                                                                                </div>
-                                                                                <div className="w-full h-1.5 bg-black/5 absolute top-0"></div>
-                                                                                <i className="fa-solid fa-note-sticky opacity-20 text-[18px]"></i>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </TypedDraggable>
-                                                            ))}
-                                                        </div>
-                                                        {provided.placeholder}
-                                                    </div>
-                                                )}
-                                            </TypedDroppable>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="ml-auto flex bg-slate-100/50 p-1 rounded-2xl items-center">
-                                    <button
-                                        onClick={() => toggleDisplayMode('list')}
-                                        className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                    >
-                                        <i className="fa-solid fa-list-ul"></i>
-                                        List
-                                    </button>
-                                    <button
-                                        onClick={() => toggleDisplayMode('gallery')}
-                                        className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                    >
-                                        <i className="fa-solid fa-table-cells-large"></i>
-                                        Gallery
-                                    </button>
                                 </div>
                             </div>
 
@@ -1152,6 +1149,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                     <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('firstName')}>
                                                         Full Name {sortField === 'firstName' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                     </th>
+                                                    {visibleColumns.Buyer.has('funnelStage') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Funnel Stage</th>}
                                                     {visibleColumns.Buyer.has('status') && (
                                                         <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('status')}>
                                                             Lead Status {sortField === 'status' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
@@ -1193,7 +1191,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         </th>
                                                     )}
                                                     {visibleColumns.Buyer.has('tags') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Tags</th>}
-                                                    {visibleColumns.Buyer.has('funnelStage') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Pipeline Stage</th>}
+
                                                     {visibleColumns.Buyer.has('notes') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Call Notes</th>}
 
                                                 </tr>
@@ -1217,6 +1215,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         <td className="px-2 py-2 border-b border-slate-100 font-bold text-slate-900 cursor-pointer hover:underline" onClick={() => onViewLead(lead)}>
                                                             {lead.firstName} {lead.lastName}
                                                         </td>
+                                                        {visibleColumns.Buyer.has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs text-indigo-500 uppercase tracking-tighter">{lead.funnelStage || '--'}</td>}
                                                         {visibleColumns.Buyer.has('status') && (
                                                             <td className="px-2 py-2 border-b border-slate-100">
                                                                 {renderCell(lead, 'status', 'select', getStatusOptions(lead.leadType, realtorSettings).map((o: any) => o.label))}
@@ -1352,7 +1351,6 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 </div>
                                                             </td>
                                                         )}
-                                                        {visibleColumns.Buyer.has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.funnelStage || '--'}</td>}
                                                         {visibleColumns.Buyer.has('notes') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 min-w-[200px] max-w-[300px]">
                                                                 <div className="flex flex-col gap-1 max-h-[80px] overflow-y-auto custom-scrollbar">
@@ -1414,7 +1412,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                 )
                             ) : (
                                 <div className="py-12 text-center text-slate-400 border-2 border-dashed border-slate-100 rounded-[2rem]">
-                                    No buyer leads found for this period.
+                                    No buyers found in funnel for this period.
                                 </div>
                             )}
                         </section>
@@ -1423,32 +1421,115 @@ const LeadsList: React.FC<InternalProps> = ({
                     {/* Seller Section */}
                     {activeTab === 'Seller' && (
                         <section className="px-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                            <div className="flex items-center justify-start mb-4 border-b border-slate-100 pb-3">
+                            <div className="flex flex-col gap-4 mb-4 border-b border-slate-100 pb-3">
+                                {/* Primary Navigation Row */}
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-4">
+                                        {/* Sub-Category Selector */}
+                                        <div className="flex bg-slate-100/50 p-1 rounded-xl border border-slate-200/60 shadow-sm">
+                                            {['Leads', 'Nurture', 'Active Search', 'Contract', 'Closed'].map((cat) => (
+                                                <button
+                                                    key={cat}
+                                                    onClick={() => setSellerFunnelCategory(cat as any)}
+                                                    className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${sellerFunnelCategory === cat ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                                >
+                                                    {cat}
+                                                </button>
+                                            ))}
+                                        </div>
 
-                                {/* Time Selector for Sellers */}
-                                <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm relative overflow-hidden">
-                                    {[
-                                        { id: 'past6Months', label: 'Past 6 Months', subtitle: dateRanges.labels.past6Months, count: timeStats.Seller.past6Months },
-                                        { id: 'older', label: 'Older', subtitle: dateRanges.labels.older, count: timeStats.Seller.older }
-                                    ].map((tab) => (
+                                        {/* Post-it Palette */}
+                                        {currentDisplayMode === 'gallery' && (
+                                            <div className="ml-4 pr-4 border-r border-slate-200 h-10 flex items-center text-left">
+                                                <TypedDroppable droppableId="palette-seller" direction="horizontal" type="POSTIT_PALETTE" isDropDisabled={true}>
+                                                    {(provided: any) => (
+                                                        <div
+                                                            ref={provided.innerRef}
+                                                            {...provided.droppableProps}
+                                                            className="flex items-center gap-2"
+                                                        >
+                                                            <div className="text-[8px] font-black uppercase tracking-wider text-slate-400">Add Note:</div>
+                                                            <div className="flex items-center gap-2">
+                                                                {noteTypes.map((note, index) => (
+                                                                    <TypedDraggable key={note.id} draggableId={`${note.id}-seller`} index={index}>
+                                                                        {(provided: any, snapshot: any) => (
+                                                                            <div className="relative group note-palette-item">
+                                                                                {!snapshot.isDragging && (
+                                                                                    <>
+                                                                                        <div className={`absolute inset-0 -translate-x-1 translate-y-1 rounded-sm border border-black/10 opacity-60 ${note.color} ${note.shadow} -rotate-3 transition-transform group-hover:-translate-x-2 group-hover:translate-y-2`}></div>
+                                                                                        <div className={`absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow} rotate-2 transition-transform group-hover:translate-x-1 group-hover:translate-y-1`}></div>
+                                                                                    </>
+                                                                                )}
+                                                                                <div
+                                                                                    ref={provided.innerRef}
+                                                                                    {...provided.draggableProps}
+                                                                                    {...provided.dragHandleProps}
+                                                                                    className={`w-16 h-16 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-1 hover:rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl ring-2 ring-white/50' : 'relative z-10'} ${snapshot.isDropAnimating ? 'opacity-0 duration-0' : ''}`}
+                                                                                >
+                                                                                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-7 border-2 border-slate-400/80 rounded-full bg-slate-200/50 z-20 shadow-sm opacity-80 group-hover:opacity-100 transition-opacity">
+                                                                                        <div className="absolute inset-1 border-l border-slate-500/30 rounded-full"></div>
+                                                                                    </div>
+                                                                                    <div className="w-full h-1.5 bg-black/5 absolute top-0"></div>
+                                                                                    <i className="fa-solid fa-note-sticky opacity-20 text-[18px]"></i>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </TypedDraggable>
+                                                                ))}
+                                                            </div>
+                                                            {provided.placeholder}
+                                                        </div>
+                                                    )}
+                                                </TypedDroppable>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Display Mode Toggles */}
+                                    <div className="flex bg-slate-100/50 p-1 rounded-2xl items-center">
                                         <button
-                                            key={tab.id}
-                                            onClick={() => setSellerViewMode(tab.id as any)}
-                                            className={`px-4 py-1.5 rounded-xl transition-all duration-300 relative z-10 flex flex-col items-center min-w-[100px] ${sellerViewMode === tab.id ? 'text-indigo-600 bg-white shadow-sm' : 'text-slate-400 hover:text-slate-600'
-                                                }`}
+                                            onClick={() => toggleDisplayMode('list')}
+                                            className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                                         >
-                                            <div className="text-[10px] font-semibold uppercase tracking-widest leading-tight">
-                                                {tab.label} {tab.count > 0 && `(${tab.count})`}
-                                            </div>
-                                            <div className="text-[7px] font-bold opacity-60 uppercase tracking-tighter mt-0.5 whitespace-nowrap">
-                                                {tab.subtitle}
-                                            </div>
+                                            <i className="fa-solid fa-list-ul"></i>
+                                            List
                                         </button>
-                                    ))}
+                                        <button
+                                            onClick={() => toggleDisplayMode('gallery')}
+                                            className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                        >
+                                            <i className="fa-solid fa-table-cells-large"></i>
+                                            Gallery
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="ml-4 flex items-center">
-                                    <div className="flex flex-col items-center">
-                                        <div className="flex items-center gap-2">
+
+                                {/* Actions & Filters Bar */}
+                                <div className="flex items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-300">
+                                    <div className="flex items-center gap-4">
+                                        {sellerFunnelCategory === 'Leads' && (
+                                            <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm relative overflow-hidden">
+                                                {[
+                                                    { id: 'past6Months', label: 'Past 6 Months', subtitle: dateRanges.labels.past6Months, count: timeStats.Seller.past6Months },
+                                                    { id: 'older', label: 'Older', subtitle: dateRanges.labels.older, count: timeStats.Seller.older }
+                                                ].map((tab) => (
+                                                    <button
+                                                        key={tab.id}
+                                                        onClick={() => setSellerViewMode(tab.id as any)}
+                                                        className={`px-4 py-1.5 rounded-xl transition-all duration-300 relative z-10 flex flex-col items-center min-w-[100px] ${sellerViewMode === tab.id ? 'text-emerald-600 bg-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                                    >
+                                                        <div className="text-[10px] font-semibold uppercase tracking-widest leading-tight">
+                                                            {tab.label} {tab.count > 0 && `(${tab.count})`}
+                                                        </div>
+                                                        <div className="text-[7px] font-bold opacity-60 uppercase tracking-tighter mt-0.5 whitespace-nowrap">
+                                                            {tab.subtitle}
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="flex items-center gap-2 border-l border-slate-100 pl-4">
                                             <button
                                                 className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-red-50 text-black hover:bg-red-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
                                                 onClick={handleBulkArchive}
@@ -1457,84 +1538,11 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 <i className="fa-solid fa-box-archive"></i>
                                                 Archive {selectedIds.size > 0 && `(${selectedIds.size})`}
                                             </button>
-                                            <button
-                                                className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-indigo-50 text-black hover:bg-indigo-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
-                                                onClick={handleBulkActivate}
-                                                disabled={selectedIds.size === 0}
-                                            >
-                                                <i className="fa-solid fa-bolt"></i>
-                                                Activate {selectedIds.size > 0 && `(${selectedIds.size})`}
-                                            </button>
-                                        </div>
-                                        <div className="text-[9px] text-slate-400 font-medium text-center mt-1">
-                                            Select the checkbox to archive or activate
+                                            <div className="text-[9px] text-slate-400 font-medium ml-2">
+                                                Select the checkbox to archive selected leads
+                                            </div>
                                         </div>
                                     </div>
-
-                                    {/* Post-it Palette */}
-                                    {currentDisplayMode === 'gallery' && (
-                                        <div className="ml-4 pl-4 border-l border-slate-200 h-10 flex items-center text-left">
-                                            <TypedDroppable droppableId="palette-seller" direction="horizontal" type="POSTIT_PALETTE" isDropDisabled={true}>
-                                                {(provided: any) => (
-                                                    <div
-                                                        ref={provided.innerRef}
-                                                        {...provided.droppableProps}
-                                                        className="flex items-center gap-2"
-                                                    >
-                                                        <div className="text-[8px] font-black uppercase tracking-wider text-slate-400">Add Note:</div>
-                                                        <div className="flex items-center gap-2">
-                                                            {noteTypes.map((note, index) => (
-                                                                <TypedDraggable key={note.id} draggableId={`${note.id}-seller`} index={index}>
-                                                                    {(provided: any, snapshot: any) => (
-                                                                        <div className="relative group note-palette-item">
-                                                                            {!snapshot.isDragging && (
-                                                                                <>
-                                                                                    {/* Back Note */}
-                                                                                    <div className={`absolute inset-0 -translate-x-1 translate-y-1 rounded-sm border border-black/10 opacity-60 ${note.color} ${note.shadow} -rotate-3 transition-transform group-hover:-translate-x-2 group-hover:translate-y-2`}></div>
-                                                                                    {/* Middle Note */}
-                                                                                    <div className={`absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow} rotate-2 transition-transform group-hover:translate-x-1 group-hover:translate-y-1`}></div>
-                                                                                </>
-                                                                            )}
-                                                                            <div
-                                                                                ref={provided.innerRef}
-                                                                                {...provided.draggableProps}
-                                                                                {...provided.dragHandleProps}
-                                                                                className={`w-16 h-16 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-1 hover:rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl ring-2 ring-white/50' : 'relative z-10'} ${snapshot.isDropAnimating ? 'opacity-0 duration-0' : ''}`}
-                                                                            >
-                                                                                {/* Paperclip Effect */}
-                                                                                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-7 border-2 border-slate-400/80 rounded-full bg-slate-200/50 z-20 shadow-sm opacity-80 group-hover:opacity-100 transition-opacity">
-                                                                                    <div className="absolute inset-1 border-l border-slate-500/30 rounded-full"></div>
-                                                                                </div>
-                                                                                <div className="w-full h-1.5 bg-black/5 absolute top-0"></div>
-                                                                                <i className="fa-solid fa-note-sticky opacity-20 text-[18px]"></i>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </TypedDraggable>
-                                                            ))}
-                                                        </div>
-                                                        {provided.placeholder}
-                                                    </div>
-                                                )}
-                                            </TypedDroppable>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="ml-auto flex bg-slate-100/50 p-1 rounded-2xl items-center">
-                                    <button
-                                        onClick={() => toggleDisplayMode('list')}
-                                        className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                    >
-                                        <i className="fa-solid fa-list-ul"></i>
-                                        List
-                                    </button>
-                                    <button
-                                        onClick={() => toggleDisplayMode('gallery')}
-                                        className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                    >
-                                        <i className="fa-solid fa-table-cells-large"></i>
-                                        Gallery
-                                    </button>
                                 </div>
                             </div>
 
@@ -1552,6 +1560,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                     <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('firstName')}>
                                                         Full Name {sortField === 'firstName' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                     </th>
+                                                    {visibleColumns.Seller.has('funnelStage') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Funnel Stage</th>}
                                                     {visibleColumns.Seller.has('status') && (
                                                         <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('status')}>
                                                             Lead Status {sortField === 'status' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
@@ -1593,7 +1602,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                     )}
                                                     {visibleColumns.Seller.has('message') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Message</th>}
                                                     {visibleColumns.Seller.has('tags') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Tags</th>}
-                                                    {visibleColumns.Seller.has('funnelStage') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Pipeline Stage</th>}
+
                                                     {visibleColumns.Seller.has('notes') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Comments / Notes</th>}
                                                 </tr>
                                             </thead>
@@ -1616,6 +1625,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         <td className="px-2 py-2 border-b border-slate-100 font-bold text-slate-900 cursor-pointer hover:underline" onClick={() => onViewLead(lead)}>
                                                             {lead.firstName} {lead.lastName}
                                                         </td>
+                                                        {visibleColumns.Seller.has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs text-emerald-500 uppercase tracking-tighter">{lead.funnelStage || '--'}</td>}
                                                         {visibleColumns.Seller.has('status') && (
                                                             <td className="px-2 py-2 border-b border-slate-100">
                                                                 {renderCell(lead, 'status', 'select', getStatusOptions(lead.leadType, realtorSettings).map((o: any) => o.label))}
@@ -1802,7 +1812,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                 )
                             ) : (
                                 <div className="py-12 text-center text-slate-400 border-2 border-dashed border-slate-100 rounded-[2rem]">
-                                    No seller leads found for this period.
+                                    No sellers found in funnel for this period.
                                 </div>
                             )}
                         </section>
@@ -1820,34 +1830,36 @@ const LeadsList: React.FC<InternalProps> = ({
                         </div>
                     )
                 }
-            </DragDropContext >
+            </DragDropContext>
             {/* Custom Confirmation Modal */}
-            {confirmModal && confirmModal.show && (
-                <div className="fixed inset-0 z-[1000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6">
-                    <div className="bg-white max-w-sm w-full rounded-[2rem] shadow-2xl p-8 animate-in zoom-in duration-200">
-                        <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 mb-6 border border-amber-100 mx-auto">
-                            <i className="fa-solid fa-triangle-exclamation text-2xl"></i>
-                        </div>
-                        <h3 className="text-xl font-black text-slate-900 text-center mb-2">{confirmModal.title}</h3>
-                        <p className="text-sm text-slate-500 text-center font-medium leading-relaxed mb-8">{confirmModal.message}</p>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setConfirmModal(null)}
-                                className="flex-1 px-6 py-4 rounded-2xl bg-slate-50 text-slate-400 font-bold text-xs uppercase tracking-widest hover:bg-slate-100 transition-all"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                id="confirm-bulk-action"
-                                onClick={confirmModal.onConfirm}
-                                className="flex-1 px-6 py-4 rounded-2xl bg-indigo-600 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
-                            >
-                                Confirm
-                            </button>
+            {
+                confirmModal && confirmModal.show && (
+                    <div className="fixed inset-0 z-[1000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6">
+                        <div className="bg-white max-w-sm w-full rounded-[2rem] shadow-2xl p-8 animate-in zoom-in duration-200">
+                            <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 mb-6 border border-amber-100 mx-auto">
+                                <i className="fa-solid fa-triangle-exclamation text-2xl"></i>
+                            </div>
+                            <h3 className="text-xl font-black text-slate-900 text-center mb-2">{confirmModal.title}</h3>
+                            <p className="text-sm text-slate-500 text-center font-medium leading-relaxed mb-8">{confirmModal.message}</p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setConfirmModal(null)}
+                                    className="flex-1 px-6 py-4 rounded-2xl bg-slate-50 text-slate-400 font-bold text-xs uppercase tracking-widest hover:bg-slate-100 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    id="confirm-bulk-action"
+                                    onClick={confirmModal.onConfirm}
+                                    className="flex-1 px-6 py-4 rounded-2xl bg-indigo-600 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                                >
+                                    Confirm
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
         </div>
     );
 };

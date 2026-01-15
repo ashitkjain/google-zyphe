@@ -37,7 +37,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
         { id: 'note-green', color: 'bg-[#a7ffeb] text-slate-800 border-[#96eee0]', shadow: 'shadow-[5px_5px_7px_rgba(33,33,33,.1)]' },
     ];
 
-    const onSave = () => {
+    const onSave = async () => {
         if (editingLead) {
             // Mandatory Validation
             if (!editingLead.firstName.trim() || !editingLead.lastName.trim() || !editingLead.phone.trim()) {
@@ -50,31 +50,14 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
             const useUnifiedNotes = !!handleAddNote;
 
-            if (useUnifiedNotes) {
-                // Save profile changes (excluding notesLog to prevent overwrite)
-                handleUpdateLead(updatedLead.id, detailsToSave);
+            // Save profile changes (excluding notesLog to prevent overwrite)
+            handleUpdateLead(updatedLead.id, detailsToSave);
 
-                // Handle New Note (Live Add)
-                if (newNote.trim()) {
-                    // We must use await if we want to guarantee it saves before closing, 
-                    // but onSave here isn't async. We can just fire and forget or make onSave async.
-                    // Making it async is better.
-                    if (handleAddNote) handleAddNote(updatedLead.id, newNote.trim(), noteColor);
+            // Handle New Note (Live Add)
+            if (newNote.trim()) {
+                if (handleAddNote) {
+                    await handleAddNote(updatedLead.id, newNote.trim(), noteColor); // Await the note addition
                 }
-            } else {
-                // Legacy Fallback
-                if (newNote.trim()) {
-                    const noteEntry: LeadNote = {
-                        id: crypto.randomUUID(),
-                        content: newNote.trim(),
-                        timestamp: new Date().toISOString(),
-                        author: 'User',
-                        color: noteColor
-                    };
-                    updatedLead.notesLog = [...(updatedLead.notesLog || []), noteEntry];
-                    updatedLead.notes = newNote.trim();
-                }
-                handleUpdateLead(updatedLead.id, updatedLead);
             }
 
             setNewNote(''); // Clear input
@@ -89,12 +72,12 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                     <div>
                         <h3 className="text-2xl font-black text-slate-900">
                             {leads.some(l => l.id === editingLead.id)
-                                ? (['buyers', 'sellers'].includes(editingLead.collectionName || '') ? 'Edit Client Data' : 'Edit Lead Data')
-                                : 'Create New Lead'}
+                                ? 'Edit Funnel Entry'
+                                : 'New Funnel Entry'}
                         </h3>
                         <p className="text-sm text-slate-500 font-medium">
                             {leads.some(l => l.id === editingLead.id)
-                                ? (editingLead.firstName || editingLead.lastName ? `Update profile for ${editingLead.firstName || ''} ${editingLead.lastName || ''}` : 'Update lead details')
+                                ? (editingLead.firstName || editingLead.lastName ? `Update profile for ${editingLead.firstName || ''} ${editingLead.lastName || ''}` : 'Update funnel details')
                                 : 'Enter basic contact and property details'}
                         </p>
                     </div>
@@ -182,7 +165,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
                         <div className="space-y-2 relative">
                             <div className="flex items-center gap-1">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Lead Status</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Status</label>
                                 <div
                                     className="inline-flex self-center text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
                                     onClick={(e) => {
@@ -220,7 +203,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                             )}
 
                             <select
-                                defaultValue={editingLead.status}
+                                value={editingLead.status}
                                 onChange={(e) => setEditingLead({ ...editingLead, status: e.target.value as any })}
                                 className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all outline-none appearance-none"
                             >
@@ -230,7 +213,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                             </select>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Lead Type</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Type</label>
                             <select
                                 defaultValue={editingLead.leadType}
                                 onChange={(e) => setEditingLead({ ...editingLead, leadType: e.target.value as any })}
@@ -291,7 +274,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
                         {/* Property Specs Row */}
                         <div className="grid grid-cols-4 gap-4 col-span-2">
-                            {(editingLead.collectionName === 'buyers' || editingLead.leadType === 'Buyer') ? (
+                            {(editingLead.leadType === 'Buyer' || editingLead.leadType === 'Rental' || editingLead.leadType === 'Mortgage') ? (
                                 <>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Min Price ($)</label>

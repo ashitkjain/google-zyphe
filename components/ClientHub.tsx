@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, updateFunnelStage, seedMockData, getLeads, getTasks, getTemplates, updateLead, activateLeadToCollection, addPipelineNote, getPipelineNotes, updatePipelineNote, deletePipelineNote, saveUserProfile, getUserProfile } from '../services/firebaseService';
+import { getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, updateFunnelStage, seedMockData, getLeads, getTasks, getTemplates, updateLead, addPipelineNote, getPipelineNotes, updatePipelineNote, deletePipelineNote, saveUserProfile, getUserProfile } from '../services/firebaseService';
 import { UserProfile, Lead, LeadNote, CRMTask, CommMessage, CommTemplate, FunnelStage, PipelineNote, LeadStatus } from '../types';
 import { DropResult } from '@hello-pangea/dnd';
 import Logo from './Logo';
@@ -7,15 +7,12 @@ import LeadsList from './LeadsList';
 
 // Sub-components
 import ClientNetwork from './client-hub/ClientNetwork';
-import PipelineBoard from './client-hub/PipelineBoard';
 import EditLeadModal from './client-hub/EditLeadModal';
 import TaskBoard from './client-hub/TaskBoard';
-import CommHub from './client-hub/CommHub';
-import PropertiesPortfolio from './client-hub/PropertiesPortfolio';
 import KYCModal from './client-hub/KYCModal';
 import StatusSettings from './client-hub/StatusSettings';
 import { StatusOption } from '../types';
-import { isTerminalStatus } from '../services/statusService';
+import { isTerminalStatus, getFunnelStageForStatus, getStatusOptions } from '../services/statusService';
 import WhiteboardTab from './client-hub/WhiteboardTab';
 
 interface Props {
@@ -25,11 +22,10 @@ interface Props {
     onBack: () => void;
 }
 
-type HubTab = 'clients' | 'leads' | 'pipeline' | 'tasks' | 'comms' | 'settings' | 'whiteboard';
+type HubTab = 'clients' | 'leads' | 'tasks' | 'comms' | 'settings' | 'whiteboard';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack }) => {
     const [activeTab, setActiveTab] = useState<HubTab>('leads');
-    const [pipelineSubTab, setPipelineSubTab] = useState<'buying' | 'selling'>('buying');
     const [clients, setClients] = useState<UserProfile[]>([]);
     const [selectedClient, setSelectedClient] = useState<UserProfile | Lead | null>(null);
     const [clientActivity, setClientActivity] = useState<{ favorites: any[], views: any[] }>({ favorites: [], views: [] });
@@ -71,10 +67,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             setLoadingData(true);
 
             // 1. Fetch Existing Data
-            const _incoming = await getLeads(realtorId, ['leads']);
-            const _buyers = await getLeads(realtorId, ['buyers']);
-            const _sellers = await getLeads(realtorId, ['sellers']);
-            let _leads = [..._incoming, ..._buyers, ..._sellers];
+            let _leads = await getLeads(realtorId, ['leads']);
             let _tasks = await getTasks(realtorId);
             let _templates = await getTemplates(realtorId);
             let _notes = await getPipelineNotes(realtorId);
@@ -145,10 +138,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                 await seedMockData(realtorId, initialLeads, initialTasks, initialTemplates);
 
                 // Re-fetch after seeding
-                const _newLeads = await getLeads(realtorId, ['leads']);
-                const _newBuyers = await getLeads(realtorId, ['buyers']);
-                const _newSellers = await getLeads(realtorId, ['sellers']);
-                _leads = [..._newLeads, ..._newBuyers, ..._newSellers];
+                _leads = await getLeads(realtorId, ['leads']);
                 _tasks = await getTasks(realtorId);
                 _templates = await getTemplates(realtorId);
             }
@@ -263,63 +253,42 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     };
 
     const handleUpdateLead = async (leadId: string, updates: Partial<Lead>) => {
-        // Handle Archive/Activate Logic
         const currentLead = leads.find(l => l.id === leadId);
         if (currentLead) {
-            // Activating: Move to buyers/sellers collection
-            if (updates.activatedAt && currentLead.status === 'New') {
-                const updatedLead = { ...currentLead, ...updates };
-                setIsSavingLead(true);
-                const success = await activateLeadToCollection(updatedLead);
-                if (success) {
-                    setLeads(prev => prev.map(l => l.id === leadId ? {
-                        ...l,
-                        ...updates,
-                        funnelStage: 'Nurture',
-                        status: 'Active',
-                        collectionName: currentLead.leadType === 'Seller' ? 'sellers' : 'buyers'
-                    } : l));
-                    setEditingLead(null);
-                } else {
-                    alert('Failed to activate lead. Please try again.');
-                }
-                setIsSavingLead(false);
-                return;
+            // Automatically sync funnelStage if status is changing
+            if (updates.status && updates.status !== currentLead.status) {
+                updates.funnelStage = getFunnelStageForStatus(updates.status, currentLead.leadType, realtorProfile?.settings) as any;
             }
 
             // Archiving
             if (updates.status === 'Archived' && currentLead.status !== 'Archived') {
                 updates.archivedAt = new Date();
             }
-            // Activating (backup if triggered otherwise)
             else if (currentLead.status === 'Archived' && updates.status && updates.status !== 'Archived') {
                 updates.activatedAt = new Date();
             }
-            // Closing
+
             if (isTerminalStatus(updates.status || '', currentLead.leadType, realtorProfile?.settings) && !isTerminalStatus(currentLead.status, currentLead.leadType, realtorProfile?.settings)) {
                 updates.closedAt = new Date();
             }
         }
 
-        // Determine collection
         const lead = currentLead || leads.find(l => l.id === leadId);
-        let collectionName = lead?.collectionName || 'leads';
+        // All leads are now in the 'leads' collection
+        let collectionName = 'leads';
 
-        // Optimistic Update
         const previousLeads = [...leads];
         const leadExists = leads.some(l => l.id === leadId);
         if (leadExists) {
             setLeads(prev => prev.map(l => l.id === leadId ? { ...l, ...updates } : l));
         } else {
-            // New Lead
             setLeads(prev => [{ ...updates, id: leadId } as Lead, ...prev]);
         }
-        setEditingLead(null); // Close overlay if open
+        setEditingLead(null);
 
         setIsSavingLead(true);
         const success = await updateLead(leadId, updates, collectionName);
         if (!success) {
-            // Revert on failure
             setLeads(previousLeads);
             alert('Failed to save changes. Please try again.');
         }
@@ -361,7 +330,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         setLeads(prev => prev.map(l => l.id === leadId ? { ...l, funnelStage: newStage } : l));
 
         // Persist to database (in the correct collection)
-        const collectionName = lead.leadType === 'Seller' ? 'sellers' : 'buyers';
+        // All leads are now in the 'leads' collection
+        const collectionName = 'leads';
         const success = await updateLead(leadId, { funnelStage: newStage }, collectionName);
         if (!success) {
             console.error("Failed to update lead stage");
@@ -369,49 +339,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         }
     };
 
-    const handleActivateLead = async (lead: Lead) => {
-        const targetCollection = lead.leadType === 'Seller' ? 'sellers' : 'buyers';
-
-        setLeads(prev => {
-            // 1. Update the original 'leads' collection record to 'Connected'
-            const updatedLeads = prev.map(l =>
-                (l.id === lead.id && l.collectionName === 'leads')
-                    ? { ...l, status: 'Connected' as LeadStatus }
-                    : l
-            );
-
-            // 2. Add or update the record for the target collection (pipeline)
-            const existsInPipeline = prev.some(l => l.id === lead.id && l.collectionName === targetCollection);
-
-            if (existsInPipeline) {
-                return updatedLeads.map(l =>
-                    (l.id === lead.id && l.collectionName === targetCollection)
-                        ? { ...l, status: 'Active', funnelStage: 'Nurture', activatedAt: new Date() }
-                        : l
-                );
-            }
-
-            const newPipelineLead: Lead = {
-                ...lead,
-                id: lead.id,
-                status: 'Active',
-                funnelStage: 'Nurture',
-                collectionName: targetCollection,
-                activatedAt: new Date(),
-                receivedAt: lead.receivedAt
-            };
-
-            return [...updatedLeads, newPipelineLead];
-        });
-
-        const success = await activateLeadToCollection(lead);
-        if (!success) {
-            alert("Failed to activate lead.");
-            // Re-fetch to be safe
-            const allLeads = await getLeads(realtorId, ['leads', 'buyers', 'sellers']);
-            setLeads(allLeads);
-        }
-    };
 
     const handleAddNote = async (leadId: string, content: string, color: string) => {
         if (!content.trim()) return;
@@ -526,8 +453,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     };
 
     const tabs: { id: HubTab; label: string; icon: string }[] = [
-        { id: 'leads', label: 'Leads', icon: 'fa-bullseye' },
-        { id: 'pipeline', label: 'Pipeline', icon: 'fa-diagram-project' },
+        { id: 'leads', label: 'Funnel', icon: 'fa-bullseye' },
         { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
         { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
@@ -662,7 +588,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                         onUpdateLead={(id, updates) => handleUpdateLead(id, updates)}
                         onViewLead={(lead) => setEditingLead(lead)}
                         onCreateLead={handleCreateLead}
-                        onActivateLead={handleActivateLead}
                         notes={pipelineNotes}
                         pendingNote={pendingNote}
                         setPendingNote={setPendingNote}
@@ -674,22 +599,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     />
                 )}
 
-                {activeTab === 'pipeline' && (
-                    <PipelineBoard
-                        subTab={pipelineSubTab}
-                        setSubTab={setPipelineSubTab}
-                        leads={leads}
-                        notes={pipelineNotes}
-                        pendingNote={pendingNote}
-                        setPendingNote={setPendingNote}
-                        handleSaveNote={handleSavePipelineNote}
-                        handleUpdateNote={handleUpdatePipelineNote}
-                        handleDeleteNote={handleDeletePipelineNote}
-                        setEditingLead={setEditingLead}
-                        handleDragEnd={handleDragEnd}
-                        handleCreateLead={handleCreateLead}
-                    />
-                )}
 
                 {activeTab === 'tasks' && (
                     <TaskBoard tasks={tasks} />
