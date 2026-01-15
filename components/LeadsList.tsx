@@ -1,344 +1,13 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Lead, PipelineNote, UserProfile, FunnelStage } from '../types';
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { getStatusOptions, getStatusDefinitions, isNewLeadStatus, getFunnelStageForStatus } from '../services/statusService';
-
-const TypedDraggable = Draggable as any;
-const TypedDroppable = Droppable as any;
-
-const noteTypes = [
-    { id: 'note-yellow', color: 'bg-[#ffff88] text-slate-800 border-[#eeee77]', shadow: 'shadow-[5px_5px_7px_rgba(33,33,33,.1)]' },
-    { id: 'note-blue', color: 'bg-[#7afaff] text-slate-800 border-[#69e9ee]', shadow: 'shadow-[5px_5px_7px_rgba(33,33,33,.1)]' },
-    { id: 'note-pink', color: 'bg-[#ff7eb9] text-white border-[#ee6da8]', shadow: 'shadow-[5px_5px_7px_rgba(33,33,33,.1)]' },
-    { id: 'note-green', color: 'bg-[#a7ffeb] text-slate-800 border-[#96eee0]', shadow: 'shadow-[5px_5px_7px_rgba(33,33,33,.1)]' },
-];
-
-interface InternalProps {
-    leads: Lead[];
-    onUpdateLead: (id: string, updates: Partial<Lead>) => void;
-    onViewLead: (lead: Lead) => void;
-    onCreateLead: (initialUpdates?: Partial<Lead>) => void;
-    onActivateLead: (lead: Lead) => void;
-    notes: PipelineNote[];
-    pendingNote: { leadId: string, color: string } | null;
-    setPendingNote: (note: { leadId: string, color: string } | null) => void;
-    handleSaveNote: (content: string) => void;
-    handleUpdateNote: (noteId: string, updates: Partial<PipelineNote>) => void;
-    handleDeleteNote: (noteId: string) => void;
-    handleDragEnd: (result: DropResult) => void;
-    realtorSettings?: UserProfile['settings'];
-}
-// Helper Component for Gallery Items
-const LeadGalleryItem: React.FC<{
-    lead: Lead,
-    index: number,
-    onViewLead: (l: Lead) => void,
-    selectedIds: Set<string>,
-    handleSelectOne: (id: string) => void,
-    notes: PipelineNote[],
-    editNoteId: string | null,
-    setEditNoteId: (id: string | null) => void,
-    editContent: string,
-    setEditContent: (c: string) => void,
-    handleUpdateNote: (id: string, updates: any) => void,
-    onDoneToggle: (e: any, note: any) => void,
-    onDeleteClick: (e: any, id: string) => void,
-    pendingNote: any,
-    draftContent: string,
-    setDraftContent: (c: string) => void,
-    handleSaveNote: (c: string) => void,
-    setPendingNote: (n: any) => void,
-    deleteCoords: any,
-    deletingNoteId: string | null,
-    celebratingNoteId: string | null,
-    isFlyingUpId: string | null,
-    onArchive: (id: string) => void,
-    onActivate: (id: string) => void,
-    visibleColumns: Set<string>,
-    activeTab: 'Buyer' | 'Seller'
-}> = ({
-    lead, index, onViewLead, selectedIds, handleSelectOne, notes,
-    editNoteId, setEditNoteId, editContent, setEditContent, handleUpdateNote,
-    onDoneToggle, onDeleteClick, pendingNote, draftContent, setDraftContent,
-    handleSaveNote, setPendingNote, deleteCoords, deletingNoteId, celebratingNoteId, isFlyingUpId,
-    onArchive, onActivate, visibleColumns, activeTab
-}) => {
-        const renderValue = (field: string) => {
-            const val = (lead as any)[field];
-            if (field === 'receivedAt' || field === 'lastTouch' || field === 'leaseEndDate') {
-                const date = val?.toDate ? val.toDate() : (val ? new Date(val) : null);
-                if (!date) return '--';
-                if (field === 'receivedAt') {
-                    const now = new Date();
-                    const diffMs = Math.max(0, now.getTime() - date.getTime());
-                    const d = Math.floor(diffMs / 86400000);
-                    const h = Math.floor((diffMs % 86400000) / 3600000);
-                    const s = Math.floor((diffMs % 60000) / 1000);
-
-                    const parts = [];
-                    if (d > 0) parts.push(`${d}d`);
-                    if (h > 0) parts.push(`${h}h`);
-                    if (s > 0) parts.push(`${s}s`);
-
-                    return parts.length > 0 ? parts.join(' ') : 'Just now';
-                }
-                return date.toLocaleDateString();
-            }
-            if (typeof val === 'boolean') return val ? 'Yes' : 'No';
-            if (field === 'expectedPrice' || field === 'price' || field === 'budgetRange') {
-                const min = lead.minPrice;
-                const max = lead.maxPrice;
-
-                if (field === 'budgetRange') {
-                    if (min && max) return `$${(min / 1000).toFixed(0)}k - $${(max / 1000).toFixed(0)}k`;
-                    if (min) return `Above $${(min / 1000).toFixed(0)}k`;
-                    if (max) return `Under $${(max / 1000).toFixed(0)}k`;
-                    return '--';
-                }
-
-                const priceVal = val || (field === 'expectedPrice' ? lead.expectedPrice : lead.price);
-                return priceVal ? `$${(priceVal / 1000).toFixed(0)}k` : '--';
-            }
-            if (Array.isArray(val)) return val.join(', ') || '--';
-            return val || '--';
-        };
-
-        const COLUMN_METADATA: Record<string, { label: string, icon: string, color?: string }> = {
-            status: { label: 'Status', icon: 'fa-signal', color: 'text-indigo-600' },
-            isAlsoSelling: { label: 'Also Selling?', icon: 'fa-house-user' },
-            isAlsoBuying: { label: 'Also Buying?', icon: 'fa-cart-shopping' },
-            preQualified: { label: 'Pre-qualified?', icon: 'fa-certificate', color: 'text-emerald-600' },
-            budgetRange: { label: 'Budget', icon: 'fa-tag', color: 'text-emerald-600' },
-            expectedPrice: { label: 'Price', icon: 'fa-money-bill-wave', color: 'text-emerald-600' },
-            preferredNeighborhood: { label: 'Neighborhood', icon: 'fa-map-location-dot', color: 'text-indigo-600' },
-            source: { label: 'Source', icon: 'fa-globe', color: 'text-slate-400' },
-            receivedAt: { label: 'Age', icon: 'fa-calendar-plus', color: 'text-slate-400' },
-            lastTouch: { label: 'Follow Up', icon: 'fa-clock-rotate-left', color: 'text-indigo-400' },
-            message: { label: 'Message', icon: 'fa-comment' },
-            timeframe: { label: 'Timeframe', icon: 'fa-hourglass-half' },
-            leaseEndDate: { label: 'Lease End', icon: 'fa-file-signature' },
-            propertyAddress: { label: 'Property', icon: 'fa-location-dot', color: 'text-indigo-600' },
-            tags: { label: 'Tags', icon: 'fa-tags' },
-            funnelStage: { label: 'Stage', icon: 'fa-filter' },
-            notes: { label: 'Notes', icon: 'fa-clipboard-list' },
-            homeValueNeeded: { label: 'Home Value?', icon: 'fa-calculator' },
-            mostImportantToSeller: { label: 'Priority', icon: 'fa-star' },
-            sellWhen: { label: 'When?', icon: 'fa-calendar-days' },
-            propertyType: { label: 'Type', icon: 'fa-building' },
-            occupancyStatus: { label: 'Occupancy', icon: 'fa-key' },
-            reasonForSelling: { label: 'Reason', icon: 'fa-info-circle' },
-            existingAgentName: { label: 'Agent', icon: 'fa-user-tie' }
-        };
-
-        return (
-            <div
-                className={`bg-white p-4 rounded-[2rem] border transition-all border-l-4 group relative cursor-pointer flex flex-col ${selectedIds.has(lead.id)
-                    ? (lead.leadType === 'Seller'
-                        ? 'ring-4 ring-emerald-500/50 border-emerald-200 bg-emerald-50/30 shadow-2xl scale-[1.02] z-10'
-                        : 'ring-4 ring-indigo-500/50 border-indigo-200 bg-indigo-50/30 shadow-2xl scale-[1.02] z-10')
-                    : 'border-slate-200/60 shadow-sm hover:shadow-xl hover:scale-[1.01]'
-                    }`}
-                style={{
-                    borderLeftColor: lead.leadType === 'Seller' ? '#10b981' : '#6366f1'
-                }}
-                onClick={(e) => { handleSelectOne(lead.id); }}
-                onDoubleClick={(e) => { e.stopPropagation(); onViewLead(lead); }}
-            >
-                {/* Selection Badge */}
-                {selectedIds.has(lead.id) && (
-                    <div className={`absolute -top-2 -right-2 w-8 h-8 ${lead.leadType === 'Seller' ? 'bg-emerald-600' : 'bg-indigo-600'} text-white rounded-full flex items-center justify-center shadow-lg animate-in zoom-in duration-200 z-30 ring-4 ring-white`}>
-                        <i className="fa-solid fa-check text-sm"></i>
-                    </div>
-                )}
-                <TypedDroppable droppableId={lead.id} type="POSTIT_PALETTE">
-                    {(noteProvided: any, noteSnapshot: any) => (
-                        <div
-                            ref={noteProvided.innerRef}
-                            {...noteProvided.droppableProps}
-                            className={`flex-1 flex flex-col min-h-[130px] ${noteSnapshot.isDraggingOver ? 'bg-indigo-50/20' : ''}`}
-                        >
-                            <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
-                                <div className="flex items-center gap-1 mr-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onArchive(lead.id); }}
-                                        className="w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 flex items-center justify-center transition-all shadow-sm"
-                                        title="Archive"
-                                    >
-                                        <i className="fa-solid fa-box-archive text-[10px]"></i>
-                                    </button>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onActivate(lead.id); }}
-                                        className="w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-indigo-500 hover:border-indigo-200 hover:bg-indigo-50 flex items-center justify-center transition-all shadow-sm"
-                                        title="Activate"
-                                    >
-                                        <i className="fa-solid fa-bolt text-[10px]"></i>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="flex items-start gap-4 mb-4">
-                                {/* Profile Picture / Avatar (Bigger) */}
-                                <div className="w-14 h-14 rounded-2xl bg-slate-50 flex-shrink-0 border-2 border-white shadow-sm overflow-hidden flex items-center justify-center">
-                                    {lead.avatarUrl ? (
-                                        <img src={lead.avatarUrl} alt="" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="text-indigo-400/60 font-black text-sm uppercase">
-                                            {lead.firstName?.charAt(0) || ''}{lead.lastName?.charAt(0) || ''}
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="flex flex-col flex-1 min-w-0 pt-0.5">
-                                    <div className="font-bold text-black text-sm group-hover:text-indigo-600 transition-colors tracking-tight truncate leading-tight mb-0.5" onClick={() => onViewLead(lead)}>
-                                        {lead.firstName} {lead.lastName}
-                                    </div>
-
-                                    <div className="flex flex-col gap-0.5 text-[12px] text-slate-400 font-bold whitespace-nowrap overflow-hidden">
-                                        {lead.email && (
-                                            <div className="flex items-center gap-1.5 pr-2 min-w-0 pb-1">
-                                                <i className="fa-solid fa-envelope opacity-30 text-[8px] flex-shrink-0"></i>
-                                                <span className="truncate">{lead.email}</span>
-                                                {(lead.preferredContactMethod || '').toLowerCase() === 'email' && (
-                                                    <span className="text-[9px] text-indigo-400 font-medium italic whitespace-nowrap flex-shrink-0">
-                                                        - preferred
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
-                                        {lead.phone && (
-                                            <div className="flex items-center gap-1.5 pr-2 min-w-0">
-                                                <i className="fa-solid fa-phone opacity-30 text-[8px] flex-shrink-0"></i>
-                                                <span className="truncate">{lead.phone}</span>
-                                                {['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) && (
-                                                    <span className="text-[9px] text-indigo-400 font-medium italic whitespace-nowrap flex-shrink-0">
-                                                        - preferred {(lead.preferredContactMethod || '').toLowerCase() === 'call' ? 'call' : 'text'}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Price Range & Neighborhood */}
-                            <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-4">
-                                {Array.from(visibleColumns).filter(colId => !['phone', 'email', 'firstName', 'lastName', 'message', 'notes'].includes(colId as string)).map((colId: any) => {
-                                    const meta = COLUMN_METADATA[colId as string];
-                                    if (!meta) return null;
-                                    const displayLabel = meta.label
-                                        .replace(/[^a-zA-Z0-9\s]/g, '')
-                                        .split(' ')
-                                        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                                        .join(' ') + (meta.label.includes('?') ? '?' : '');
-
-                                    return (
-                                        <div key={colId as string} className="grid grid-cols-[auto_1fr] gap-x-1.5 text-[14px] font-bold text-black leading-tight min-w-0 items-start">
-                                            <span className="whitespace-nowrap">{displayLabel}:</span>
-                                            <span className="font-medium break-words">{renderValue(colId as string)}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-
-                            {/* User Message */}
-                            {lead.message && (
-                                <div className="mt-2 bg-indigo-50/30 p-3 rounded-2xl border border-indigo-100/50 flex flex-col gap-1.5 relative overflow-hidden group/msg">
-                                    <div className="text-[14px] font-medium text-black tracking-widest flex items-center gap-1.5 opacity-60">
-                                        <i className="fa-solid fa-comment-dots text-[8px] opacity-30"></i>
-                                        Inquiry Message
-                                    </div>
-                                    <div className="text-[14px] text-indigo-600 font-bold leading-[1.3] italic">
-                                        "{lead.message}"
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Post-it Notes */}
-                            <div
-                                className="flex flex-wrap gap-3 mt-4 relative min-h-[40px] flex-1 rounded-xl transition-colors"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                {(lead.notesLog || []).filter(n => !n.isDone).map((note, i) => (
-                                    <div
-                                        key={note.id}
-                                        onClick={() => { if (!editNoteId) { setEditNoteId(note.id); setEditContent(note.content); } }}
-                                        className={`p-2.5 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[12px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-110 hover:z-10 group/note flex flex-col relative cursor-pointer post-it-container ${note.color || 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]'} ${i % 2 === 0 ? 'rotate-2' : '-rotate-2'} hover:rotate-0 ${note.isDone ? 'line-through opacity-50' : ''} ${deletingNoteId === note.id ? 'animate-fly-away' : ''} ${celebratingNoteId === note.id ? 'animate-shake' : ''} ${isFlyingUpId === note.id ? 'animate-fly-up' : ''} ${note.isUrgent ? 'urgent-glow' : ''}`}
-                                        style={{
-                                            ...((deletingNoteId === note.id || isFlyingUpId === note.id) && deleteCoords ? {
-                                                '--start-top': `${deleteCoords.top}px`,
-                                                '--start-left': `${deleteCoords.left}px`
-                                            } as any : {})
-                                        }}
-                                    >
-                                        {editNoteId === note.id ? (
-                                            <textarea
-                                                autoFocus
-                                                className="w-full h-full bg-transparent border-none outline-none resize-none post-it-edit"
-                                                value={editContent}
-                                                onChange={(e) => setEditContent(e.target.value)}
-                                                onBlur={() => {
-                                                    if (editContent.trim() && editContent !== note.content) {
-                                                        handleUpdateNote(note.id, { content: editContent });
-                                                    }
-                                                    setEditNoteId(null);
-                                                }}
-                                            />
-                                        ) : (
-                                            <>
-                                                <div className="text-[7px] opacity-40 mb-1 font-sans leading-none uppercase tracking-tighter">
-                                                    {new Date(note.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                                </div>
-                                                <div className="text-slate-800 line-clamp-4 leading-tight">{note.content}</div>
-                                                <div className="absolute top-1 right-1 opacity-0 group-hover/note:opacity-100 transition-opacity flex gap-1 bg-white/20 rounded-full px-1 backdrop-blur-sm">
-                                                    <button
-                                                        onClick={(e) => onDoneToggle(e, note)}
-                                                        className="text-slate-600 hover:text-emerald-600 transition-colors p-0.5"
-                                                        title="Complete"
-                                                    >
-                                                        <i className="fa-solid fa-check text-[10px]"></i>
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => onDeleteClick(e, note.id)}
-                                                        className="text-slate-600 hover:text-red-500 transition-colors p-0.5"
-                                                        title="Delete"
-                                                    >
-                                                        <i className="fa-solid fa-trash-can text-[10px]"></i>
-                                                    </button>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                ))}
-
-                                {/* Pending Note (Draft) */}
-                                {pendingNote && pendingNote.leadId === lead.id && (
-                                    <div className={`p-2.5 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[9px] font-bold post-it-font whitespace-normal shadow-xl transition-all rotate-3 scale-105 z-20 flex flex-col relative post-it-container ${pendingNote.color}`}>
-                                        <textarea
-                                            autoFocus
-                                            className="w-full h-full bg-transparent border-none outline-none resize-none post-it-draft"
-                                            placeholder="Write note..."
-                                            value={draftContent}
-                                            onChange={(e) => setDraftContent(e.target.value)}
-                                            onBlur={() => {
-                                                if (draftContent.trim()) {
-                                                    handleSaveNote(draftContent);
-                                                } else {
-                                                    setPendingNote(null);
-                                                }
-                                                setDraftContent('');
-                                            }}
-                                        />
-                                    </div>
-                                )}
-                                {<div style={{ display: 'none' }}>{noteProvided.placeholder}</div>}
-                            </div>
-                        </div>
-                    )}
-                </TypedDroppable>
-            </div >
-        );
-    };
+import { InternalProps, ViewMode, DisplayMode } from './leads/types';
+import LeadGalleryItem from './leads/LeadGalleryItem';
+import LeadsHeader from './leads/LeadsHeader';
+import LeadsViewControls from './leads/LeadsViewControls';
+import { noteTypes } from './leads/PostItPalette';
+import { availableBuyerColumns, availableSellerColumns, defaultBuyerVisible, defaultSellerVisible } from './leads/constants';
 
 
 const LeadsList: React.FC<InternalProps> = ({
@@ -384,52 +53,7 @@ const LeadsList: React.FC<InternalProps> = ({
     const [activeTab, setActiveTab] = useState<'Buyer' | 'Seller'>('Buyer');
     const [showColumnSelector, setShowColumnSelector] = useState(false);
 
-    const availableBuyerColumns = [
-        { id: 'status', label: 'Lead Status' },
-        { id: 'phone', label: 'Contact Info' },
-        { id: 'callCount', label: 'Call Tracker' },
-        { id: 'lastUpdated', label: 'Last Updated On' },
-        { id: 'isAlsoSelling', label: 'Also Selling?' },
-        { id: 'preQualified', label: 'Pre-qualified?' },
-        { id: 'budgetRange', label: 'Budget Range' },
-        { id: 'preferredNeighborhood', label: 'Preferred Neighborhood' },
-        { id: 'source', label: 'Source' },
-        { id: 'receivedAt', label: 'Date Created' },
-        { id: 'lastTouch', label: 'Last Follow Up' },
-        { id: 'message', label: 'Message' },
-        { id: 'timeframe', label: 'Timeframe' },
-        { id: 'leaseEndDate', label: 'Lease End Date' },
-        { id: 'propertyAddress', label: 'Inquired Property' },
-        { id: 'tags', label: 'Tags' },
-        { id: 'funnelStage', label: 'Pipeline Stage' },
-        { id: 'notes', label: 'Call Notes' }
-    ];
 
-    const availableSellerColumns = [
-        { id: 'status', label: 'Lead Status' },
-        { id: 'phone', label: 'Contact Info' },
-        { id: 'isAlsoBuying', label: 'Also Buying?' },
-        { id: 'homeValueNeeded', label: 'Home Value Needed?' },
-        { id: 'mostImportantToSeller', label: 'Most Important to Seller' },
-        { id: 'sellWhen', label: 'Sell When?' },
-        { id: 'propertyType', label: 'Property Type' },
-        { id: 'occupancyStatus', label: 'Occupancy Status' },
-        { id: 'expectedPrice', label: 'Expected Price' },
-        { id: 'propertyAddress', label: 'Property Address' },
-        { id: 'reasonForSelling', label: 'Reason for Selling' },
-        { id: 'existingAgentName', label: 'Existing Agent?' },
-        { id: 'source', label: 'Source' },
-        { id: 'receivedAt', label: 'Date Created' },
-        { id: 'lastTouch', label: 'Last Follow Up' },
-        { id: 'message', label: 'Message' },
-        { id: 'tags', label: 'Tags' },
-        { id: 'funnelStage', label: 'Pipeline Stage' },
-        { id: 'notes', label: 'Agent Notes' }
-    ];
-
-    // Default visible columns (preserving previous default view)
-    const defaultBuyerVisible = ['status', 'phone', 'callCount', 'lastUpdated', 'isAlsoSelling', 'preQualified', 'budgetRange', 'preferredNeighborhood', 'source', 'receivedAt', 'notes'];
-    const defaultSellerVisible = ['status', 'phone', 'isAlsoBuying', 'homeValueNeeded', 'mostImportantToSeller', 'sellWhen', 'propertyType', 'occupancyStatus', 'expectedPrice', 'propertyAddress', 'source', 'receivedAt'];
 
     const [visibleColumns, setVisibleColumns] = useState({
         Buyer: new Set(defaultBuyerVisible),
@@ -885,255 +509,75 @@ const LeadsList: React.FC<InternalProps> = ({
             `}} />
 
             <DragDropContext onDragEnd={handleDragEnd}>
-                <div className="bg-slate-50 border-b border-slate-200 px-4 py-2 flex-shrink-0 w-full">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            {/* Tab Switcher */}
-                            <div className="flex bg-slate-200/50 p-1 rounded-xl items-center mr-4">
-                                <button
-                                    onClick={() => setActiveTab('Buyer')}
-                                    className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'Buyer' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    <i className="fa-solid fa-user-tag"></i>
-                                    Buyer
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab('Seller')}
-                                    className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'Seller' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    <i className="fa-solid fa-house-chimney-user"></i>
-                                    Seller
-                                </button>
-                            </div>
-
-                            <button
-                                onClick={() => onCreateLead({ leadType: activeTab })}
-                                className={`mr-4 w-8 h-8 rounded-full text-white flex items-center justify-center transition-all shadow-sm hover:shadow-md hover:scale-105 active:scale-95 ${activeTab === 'Buyer' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
-                                title={`Create New ${activeTab} Lead`}
-                            >
-                                <i className="fa-solid fa-plus"></i>
-                            </button>
-
-
-                        </div>
-
-
-
-                    </div>
-                </div>
-
-                {/* Filter Bar */}
-
+                <LeadsHeader
+                    activeTab={activeTab}
+                    setActiveTab={setActiveTab}
+                    onCreateLead={onCreateLead}
+                />
 
                 {/* Content Area */}
                 <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white mb-0 space-y-4 py-4">
                     {/* Buyer Section */}
                     {activeTab === 'Buyer' && (
                         <section className="px-4 animate-in fade-in slide-in-from-left-4 duration-300">
-                            <div className="flex flex-col gap-4 mb-4 border-b border-slate-100 pb-3">
-                                {/* Primary Navigation Row */}
-                                <div className="flex items-center justify-between gap-4">
-                                    <div className="flex items-center gap-4">
-                                        {/* Sub-Category Selector */}
-                                        <div className="flex bg-slate-100/50 p-1 rounded-xl border border-slate-200/60 shadow-sm">
-                                            {['Leads', 'Nurture', 'Active Search', 'Contract', 'Closed'].map((cat) => (
-                                                <button
-                                                    key={cat}
-                                                    onClick={() => setBuyerFunnelCategory(cat as any)}
-                                                    className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${buyerFunnelCategory === cat ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                                >
-                                                    {cat}
-                                                </button>
+                            <LeadsViewControls
+                                activeTab="Buyer"
+                                activeFunnelCategory={buyerFunnelCategory}
+                                onFunnelCategoryChange={setBuyerFunnelCategory}
+                                viewMode={buyerViewMode}
+                                onViewModeChange={setBuyerViewMode}
+                                timeStats={timeStats.Buyer}
+                                dateRangeLabels={dateRanges.labels}
+                                selectedCount={selectedIds.size}
+                                onArchive={handleBulkArchive}
+                                showColumnSelector={showColumnSelector}
+                                setShowColumnSelector={setShowColumnSelector}
+                                showFilters={showFilters}
+                                setShowFilters={setShowFilters}
+                                displayMode={displayModes[buyerViewMode]}
+                                setDisplayMode={(mode) => setDisplayModes(prev => ({ ...prev, [buyerViewMode]: mode }))}
+                                columnSelectorRef={columnSelectorRef}
+                                availableColumns={availableBuyerColumns}
+                                visibleColumns={visibleColumns.Buyer}
+                                onToggleColumn={(colId) => toggleColumn('Buyer', colId)}
+                            />
+                            {
+                                showFilters && (
+                                    <div className="mt-[-1rem] mb-4 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-5 gap-2 flex-shrink-0 w-full animate-in slide-in-from-top-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Filter Name..."
+                                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                            value={columnFilters.name}
+                                            onChange={(e) => setColumnFilters({ ...columnFilters, name: e.target.value })}
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder="Filter Phone..."
+                                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                            value={columnFilters.phone}
+                                            onChange={(e) => setColumnFilters({ ...columnFilters, phone: e.target.value })}
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder="Filter Email..."
+                                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                            value={columnFilters.email}
+                                            onChange={(e) => setColumnFilters({ ...columnFilters, email: e.target.value })}
+                                        />
+                                        <select
+                                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                            value={columnFilters.status}
+                                            onChange={(e) => setColumnFilters({ ...columnFilters, status: e.target.value })}
+                                        >
+                                            <option value="">All Statuses</option>
+                                            {STATUS_OPTIONS.map(s => (
+                                                <option key={s} value={s}>{s}</option>
                                             ))}
-                                        </div>
-
+                                        </select>
                                     </div>
-                                </div>
-
-                                {/* Actions & Filters Bar */}
-                                <div className="flex items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-300">
-                                    <div className="flex items-center gap-4">
-                                        {/* Date Filters */}
-                                        {buyerFunnelCategory === 'Leads' && (
-                                            <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm relative overflow-hidden">
-                                                {[
-                                                    { id: 'past6Months', label: 'Past 6 Months', subtitle: dateRanges.labels.past6Months, count: timeStats.Buyer.past6Months },
-                                                    { id: 'older', label: 'Older', subtitle: dateRanges.labels.older, count: timeStats.Buyer.older }
-                                                ].map((tab) => (
-                                                    <button
-                                                        key={tab.id}
-                                                        onClick={() => setBuyerViewMode(tab.id as any)}
-                                                        className={`px-4 py-1.5 rounded-xl transition-all duration-300 relative z-10 flex flex-col items-center min-w-[100px] ${buyerViewMode === tab.id ? 'text-indigo-600 bg-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                                    >
-                                                        <div className="text-[10px] font-semibold uppercase tracking-widest leading-tight">
-                                                            {tab.label} {tab.count > 0 && `(${tab.count})`}
-                                                        </div>
-                                                        <div className="text-[7px] font-bold opacity-60 uppercase tracking-tighter mt-0.5 whitespace-nowrap">
-                                                            {tab.subtitle}
-                                                        </div>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {/* Archive Button */}
-                                        <div className="flex flex-col items-center justify-center gap-1 border-l border-slate-100 pl-4">
-                                            <button
-                                                className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-red-50 text-black hover:bg-red-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
-                                                onClick={handleBulkArchive}
-                                                disabled={selectedIds.size === 0}
-                                            >
-                                                <i className="fa-solid fa-box-archive"></i>
-                                                Archive {selectedIds.size > 0 && `(${selectedIds.size})`}
-                                            </button>
-                                            <div className="text-[9px] text-slate-400 font-medium text-center">
-                                                Select the checkbox to archive selected leads
-                                            </div>
-                                        </div>
-
-                                        {/* BIG Post-it Palette (Moved Here) */}
-                                        {currentDisplayMode === 'gallery' && (
-                                            <div className="flex items-center gap-3 ml-4 bg-amber-50/50 p-2 rounded-xl border border-amber-100/50">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-500">Quick Note</span>
-                                                    <span className="text-[9px] font-bold text-amber-700/60 leading-none">Drag to card</span>
-                                                </div>
-                                                <TypedDroppable droppableId="palette-buyer" direction="horizontal" type="POSTIT_PALETTE" isDropDisabled={true}>
-                                                    {(provided: any) => (
-                                                        <div ref={provided.innerRef} {...provided.droppableProps} className="flex items-center gap-2">
-                                                            {noteTypes.map((note, index) => (
-                                                                <TypedDraggable key={note.id} draggableId={`${note.id}-buyer`} index={index}>
-                                                                    {(provided: any, snapshot: any) => (
-                                                                        <div className="relative group note-palette-item">
-                                                                            {!snapshot.isDragging && (
-                                                                                <>
-                                                                                    <div className={`absolute inset-0 -translate-x-1 translate-y-1 rounded-sm border border-black/10 opacity-60 ${note.color} ${note.shadow} -rotate-3 transition-transform group-hover:-translate-x-2 group-hover:translate-y-2`}></div>
-                                                                                    <div className={`absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow} rotate-2 transition-transform group-hover:translate-x-1 group-hover:translate-y-1`}></div>
-                                                                                </>
-                                                                            )}
-                                                                            <div
-                                                                                ref={provided.innerRef}
-                                                                                {...provided.draggableProps}
-                                                                                {...provided.dragHandleProps}
-                                                                                className={`w-16 h-16 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-1 hover:rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl ring-2 ring-white/50' : 'relative z-10'} ${snapshot.isDropAnimating ? 'opacity-0 duration-0' : ''}`}
-                                                                            >
-                                                                                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-7 border-2 border-slate-400/80 rounded-full bg-slate-200/50 z-20 shadow-sm opacity-80 group-hover:opacity-100 transition-opacity">
-                                                                                    <div className="absolute inset-1 border-l border-slate-500/30 rounded-full"></div>
-                                                                                </div>
-                                                                                <div className="w-full h-1.5 bg-black/5 absolute top-0"></div>
-                                                                                <i className="fa-solid fa-note-sticky opacity-20 text-[18px]"></i>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </TypedDraggable>
-                                                            ))}
-                                                            {provided.placeholder}
-                                                        </div>
-                                                    )}
-                                                </TypedDroppable>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* View Mode Toggle - Far Right */}
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex items-center gap-1 text-slate-400">
-                                            <div className="relative" ref={columnSelectorRef}>
-                                                <button
-                                                    className={`w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors ${showColumnSelector ? 'bg-slate-100 text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-                                                    onClick={() => setShowColumnSelector(!showColumnSelector)}
-                                                    title="Select Columns"
-                                                >
-                                                    <i className="fa-solid fa-table-columns text-lg"></i>
-                                                </button>
-                                                {showColumnSelector && (
-                                                    <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-200 p-4 w-64 z-50 animate-in fade-in zoom-in-95 duration-200">
-                                                        <div className="flex items-center justify-between mb-3">
-                                                            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Visible Columns</div>
-                                                            <button onClick={() => setShowColumnSelector(false)} className="text-slate-400 hover:text-slate-600">
-                                                                <i className="fa-solid fa-xmark"></i>
-                                                            </button>
-                                                        </div>
-                                                        <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                                                            {availableBuyerColumns.map(col => (
-                                                                <label key={col.id} className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded">
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={visibleColumns['Buyer'].has(col.id)}
-                                                                        onChange={() => toggleColumn('Buyer', col.id)}
-                                                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                                                    />
-                                                                    {col.label}
-                                                                </label>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <button
-                                                className={`w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors ${showFilters ? 'bg-slate-100 text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-                                                onClick={() => setShowFilters(!showFilters)}
-                                                title="Filter Funnel"
-                                            >
-                                                <i className="fa-solid fa-filter text-lg"></i>
-                                            </button>
-                                        </div>
-                                        <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm">
-                                            <button
-                                                onClick={() => toggleDisplayMode('list')}
-                                                className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                            >
-                                                <i className="fa-solid fa-list-ul"></i>
-                                                List
-                                            </button>
-                                            <button
-                                                onClick={() => toggleDisplayMode('gallery')}
-                                                className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                            >
-                                                <i className="fa-solid fa-table-cells-large"></i>
-                                                Gallery
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                                {
-                                    showFilters && (
-                                        <div className="mt-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-5 gap-2 flex-shrink-0 w-full animate-in slide-in-from-top-2">
-                                            <input
-                                                type="text"
-                                                placeholder="Filter Name..."
-                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                                value={columnFilters.name}
-                                                onChange={(e) => setColumnFilters({ ...columnFilters, name: e.target.value })}
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="Filter Phone..."
-                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                                value={columnFilters.phone}
-                                                onChange={(e) => setColumnFilters({ ...columnFilters, phone: e.target.value })}
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="Filter Email..."
-                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                                value={columnFilters.email}
-                                                onChange={(e) => setColumnFilters({ ...columnFilters, email: e.target.value })}
-                                            />
-                                            <select
-                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                                value={columnFilters.status}
-                                                onChange={(e) => setColumnFilters({ ...columnFilters, status: e.target.value })}
-                                            >
-                                                <option value="">All Statuses</option>
-                                                {STATUS_OPTIONS.map(s => (
-                                                    <option key={s} value={s}>{s}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )
-                                }
-                            </div>
+                                )
+                            }
 
                             {filteredBuyerLeads.length > 0 ? (
                                 currentDisplayMode === 'list' ? (
@@ -1429,212 +873,64 @@ const LeadsList: React.FC<InternalProps> = ({
                     {/* Seller Section */}
                     {activeTab === 'Seller' && (
                         <section className="px-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                            <div className="flex flex-col gap-4 mb-4 border-b border-slate-100 pb-3">
-                                {/* Primary Navigation Row */}
-                                <div className="flex items-center justify-between gap-4">
-                                    <div className="flex items-center gap-4">
-                                        {/* Sub-Category Selector */}
-                                        <div className="flex bg-slate-100/50 p-1 rounded-xl border border-slate-200/60 shadow-sm">
-                                            {['Leads', 'Nurture', 'Active Search', 'Contract', 'Closed'].map((cat) => (
-                                                <button
-                                                    key={cat}
-                                                    onClick={() => setSellerFunnelCategory(cat as any)}
-                                                    className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${sellerFunnelCategory === cat ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                                >
-                                                    {cat}
-                                                </button>
+                            <LeadsViewControls
+                                activeTab="Seller"
+                                activeFunnelCategory={sellerFunnelCategory}
+                                onFunnelCategoryChange={setSellerFunnelCategory}
+                                viewMode={sellerViewMode}
+                                onViewModeChange={setSellerViewMode}
+                                timeStats={timeStats.Seller}
+                                dateRangeLabels={dateRanges.labels}
+                                selectedCount={selectedIds.size}
+                                onArchive={handleBulkArchive}
+                                showColumnSelector={showColumnSelector}
+                                setShowColumnSelector={setShowColumnSelector}
+                                showFilters={showFilters}
+                                setShowFilters={setShowFilters}
+                                displayMode={displayModes[sellerViewMode]}
+                                setDisplayMode={(mode) => setDisplayModes(prev => ({ ...prev, [sellerViewMode]: mode }))}
+                                columnSelectorRef={columnSelectorRef}
+                                availableColumns={availableSellerColumns}
+                                visibleColumns={visibleColumns.Seller}
+                                onToggleColumn={(colId) => toggleColumn('Seller', colId)}
+                            />
+                            {
+                                showFilters && (
+                                    <div className="mt-[-1rem] mb-4 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-5 gap-2 flex-shrink-0 w-full animate-in slide-in-from-top-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Filter Name..."
+                                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                            value={columnFilters.name}
+                                            onChange={(e) => setColumnFilters({ ...columnFilters, name: e.target.value })}
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder="Filter Phone..."
+                                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                            value={columnFilters.phone}
+                                            onChange={(e) => setColumnFilters({ ...columnFilters, phone: e.target.value })}
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder="Filter Email..."
+                                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                            value={columnFilters.email}
+                                            onChange={(e) => setColumnFilters({ ...columnFilters, email: e.target.value })}
+                                        />
+                                        <select
+                                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                            value={columnFilters.status}
+                                            onChange={(e) => setColumnFilters({ ...columnFilters, status: e.target.value })}
+                                        >
+                                            <option value="">All Statuses</option>
+                                            {STATUS_OPTIONS.map(s => (
+                                                <option key={s} value={s}>{s}</option>
                                             ))}
-                                        </div>
-
+                                        </select>
                                     </div>
-                                </div>
-
-                                {/* Actions & Filters Bar */}
-                                <div className="flex items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-300">
-                                    <div className="flex items-center gap-4">
-                                        {/* Date Filters */}
-                                        {sellerFunnelCategory === 'Leads' && (
-                                            <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm relative overflow-hidden">
-                                                {[
-                                                    { id: 'past6Months', label: 'Past 6 Months', subtitle: dateRanges.labels.past6Months, count: timeStats.Seller.past6Months },
-                                                    { id: 'older', label: 'Older', subtitle: dateRanges.labels.older, count: timeStats.Seller.older }
-                                                ].map((tab) => (
-                                                    <button
-                                                        key={tab.id}
-                                                        onClick={() => setSellerViewMode(tab.id as any)}
-                                                        className={`px-4 py-1.5 rounded-xl transition-all duration-300 relative z-10 flex flex-col items-center min-w-[100px] ${sellerViewMode === tab.id ? 'text-emerald-600 bg-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                                    >
-                                                        <div className="text-[10px] font-semibold uppercase tracking-widest leading-tight">
-                                                            {tab.label} {tab.count > 0 && `(${tab.count})`}
-                                                        </div>
-                                                        <div className="text-[7px] font-bold opacity-60 uppercase tracking-tighter mt-0.5 whitespace-nowrap">
-                                                            {tab.subtitle}
-                                                        </div>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {/* Archive Button */}
-                                        <div className="flex flex-col items-center justify-center gap-1 border-l border-slate-100 pl-4">
-                                            <button
-                                                className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all min-h-[42px] ${selectedIds.size > 0 ? 'bg-red-50 text-black hover:bg-red-100 shadow-sm' : 'bg-slate-50 text-black cursor-not-allowed border border-slate-100'}`}
-                                                onClick={handleBulkArchive}
-                                                disabled={selectedIds.size === 0}
-                                            >
-                                                <i className="fa-solid fa-box-archive"></i>
-                                                Archive {selectedIds.size > 0 && `(${selectedIds.size})`}
-                                            </button>
-                                            <div className="text-[9px] text-slate-400 font-medium text-center">
-                                                Select the checkbox to archive selected leads
-                                            </div>
-                                        </div>
-
-                                        {/* BIG Post-it Palette (Moved Here) */}
-                                        {currentDisplayMode === 'gallery' && (
-                                            <div className="flex items-center gap-3 ml-4 bg-amber-50/50 p-2 rounded-xl border border-amber-100/50">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-500">Quick Note</span>
-                                                    <span className="text-[9px] font-bold text-amber-700/60 leading-none">Drag to card</span>
-                                                </div>
-                                                <TypedDroppable droppableId="palette-seller" direction="horizontal" type="POSTIT_PALETTE" isDropDisabled={true}>
-                                                    {(provided: any) => (
-                                                        <div ref={provided.innerRef} {...provided.droppableProps} className="flex items-center gap-2">
-                                                            {noteTypes.map((note, index) => (
-                                                                <TypedDraggable key={note.id} draggableId={`${note.id}-seller`} index={index}>
-                                                                    {(provided: any, snapshot: any) => (
-                                                                        <div className="relative group note-palette-item">
-                                                                            {!snapshot.isDragging && (
-                                                                                <>
-                                                                                    <div className={`absolute inset-0 -translate-x-1 translate-y-1 rounded-sm border border-black/10 opacity-60 ${note.color} ${note.shadow} -rotate-3 transition-transform group-hover:-translate-x-2 group-hover:translate-y-2`}></div>
-                                                                                    <div className={`absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-sm border border-black/5 opacity-40 ${note.color} ${note.shadow} rotate-2 transition-transform group-hover:translate-x-1 group-hover:translate-y-1`}></div>
-                                                                                </>
-                                                                            )}
-                                                                            <div
-                                                                                ref={provided.innerRef}
-                                                                                {...provided.draggableProps}
-                                                                                {...provided.dragHandleProps}
-                                                                                className={`w-16 h-16 rounded-sm border-t border-black/5 cursor-grab active:cursor-grabbing flex items-center justify-center transition-all hover:-translate-y-1 hover:rotate-3 ${note.color} ${note.shadow} ${snapshot.isDragging ? 'z-[100] rotate-6 scale-110 shadow-2xl ring-2 ring-white/50' : 'relative z-10'} ${snapshot.isDropAnimating ? 'opacity-0 duration-0' : ''}`}
-                                                                            >
-                                                                                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-7 border-2 border-slate-400/80 rounded-full bg-slate-200/50 z-20 shadow-sm opacity-80 group-hover:opacity-100 transition-opacity">
-                                                                                    <div className="absolute inset-1 border-l border-slate-500/30 rounded-full"></div>
-                                                                                </div>
-                                                                                <div className="w-full h-1.5 bg-black/5 absolute top-0"></div>
-                                                                                <i className="fa-solid fa-note-sticky opacity-20 text-[18px]"></i>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </TypedDraggable>
-                                                            ))}
-                                                            {provided.placeholder}
-                                                        </div>
-                                                    )}
-                                                </TypedDroppable>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* View Mode Toggle - Far Right */}
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex items-center gap-1 text-slate-400">
-                                            <div className="relative" ref={columnSelectorRef}>
-                                                <button
-                                                    className={`w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors ${showColumnSelector ? 'bg-slate-100 text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-                                                    onClick={() => setShowColumnSelector(!showColumnSelector)}
-                                                    title="Select Columns"
-                                                >
-                                                    <i className="fa-solid fa-table-columns text-lg"></i>
-                                                </button>
-                                                {showColumnSelector && (
-                                                    <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-200 p-4 w-64 z-50 animate-in fade-in zoom-in-95 duration-200">
-                                                        <div className="flex items-center justify-between mb-3">
-                                                            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Visible Columns</div>
-                                                            <button onClick={() => setShowColumnSelector(false)} className="text-slate-400 hover:text-slate-600">
-                                                                <i className="fa-solid fa-xmark"></i>
-                                                            </button>
-                                                        </div>
-                                                        <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                                                            {availableSellerColumns.map(col => (
-                                                                <label key={col.id} className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded">
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={visibleColumns['Seller'].has(col.id)}
-                                                                        onChange={() => toggleColumn('Seller', col.id)}
-                                                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                                                    />
-                                                                    {col.label}
-                                                                </label>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <button
-                                                className={`w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors ${showFilters ? 'bg-slate-100 text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-                                                onClick={() => setShowFilters(!showFilters)}
-                                                title="Filter Funnel"
-                                            >
-                                                <i className="fa-solid fa-filter text-lg"></i>
-                                            </button>
-                                        </div>
-                                        <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm">
-                                            <button
-                                                onClick={() => toggleDisplayMode('list')}
-                                                className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'list' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                            >
-                                                <i className="fa-solid fa-list-ul"></i>
-                                                List
-                                            </button>
-                                            <button
-                                                onClick={() => toggleDisplayMode('gallery')}
-                                                className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${currentDisplayMode === 'gallery' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                            >
-                                                <i className="fa-solid fa-table-cells-large"></i>
-                                                Gallery
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                                {
-                                    showFilters && (
-                                        <div className="mt-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-5 gap-2 flex-shrink-0 w-full animate-in slide-in-from-top-2">
-                                            <input
-                                                type="text"
-                                                placeholder="Filter Name..."
-                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                                value={columnFilters.name}
-                                                onChange={(e) => setColumnFilters({ ...columnFilters, name: e.target.value })}
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="Filter Phone..."
-                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                                value={columnFilters.phone}
-                                                onChange={(e) => setColumnFilters({ ...columnFilters, phone: e.target.value })}
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="Filter Email..."
-                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                                value={columnFilters.email}
-                                                onChange={(e) => setColumnFilters({ ...columnFilters, email: e.target.value })}
-                                            />
-                                            <select
-                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                                value={columnFilters.status}
-                                                onChange={(e) => setColumnFilters({ ...columnFilters, status: e.target.value })}
-                                            >
-                                                <option value="">All Statuses</option>
-                                                {STATUS_OPTIONS.map(s => (
-                                                    <option key={s} value={s}>{s}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )
-                                }
-
-                            </div>
-
+                                )
+                            }
                             {filteredSellerLeads.length > 0 ? (
                                 currentDisplayMode === 'list' ? (
                                     <div className="overflow-x-auto w-full pb-6">
@@ -1917,47 +1213,44 @@ const LeadsList: React.FC<InternalProps> = ({
                 </div>
 
                 {/* Trash Bin for Fly-away Animation */}
-                {
-                    deletingNoteId && (
-                        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[10000] flex flex-col items-center gap-2 pointer-events-none">
-                            <div className="w-16 h-16 bg-rose-500 rounded-full flex items-center justify-center text-white shadow-2xl bin-active">
-                                <i className="fa-solid fa-trash-can text-2xl"></i>
-                            </div>
-                            <span className="text-rose-600 font-bold text-xs uppercase tracking-widest bg-white px-3 py-1 rounded-full shadow-sm">Discarding...</span>
+                {deletingNoteId && (
+                    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[10000] flex flex-col items-center gap-2 pointer-events-none">
+                        <div className="w-16 h-16 bg-rose-500 rounded-full flex items-center justify-center text-white shadow-2xl bin-active">
+                            <i className="fa-solid fa-trash-can text-2xl"></i>
                         </div>
-                    )
-                }
-            </DragDropContext >
+                        <span className="text-rose-600 font-bold text-xs uppercase tracking-widest bg-white px-3 py-1 rounded-full shadow-sm">Discarding...</span>
+                    </div>
+                )}
+            </DragDropContext>
+
             {/* Custom Confirmation Modal */}
-            {
-                confirmModal && confirmModal.show && (
-                    <div className="fixed inset-0 z-[1000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6">
-                        <div className="bg-white max-w-sm w-full rounded-[2rem] shadow-2xl p-8 animate-in zoom-in duration-200">
-                            <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 mb-6 border border-amber-100 mx-auto">
-                                <i className="fa-solid fa-triangle-exclamation text-2xl"></i>
-                            </div>
-                            <h3 className="text-xl font-black text-slate-900 text-center mb-2">{confirmModal.title}</h3>
-                            <p className="text-sm text-slate-500 text-center font-medium leading-relaxed mb-8">{confirmModal.message}</p>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setConfirmModal(null)}
-                                    className="flex-1 px-6 py-4 rounded-2xl bg-slate-50 text-slate-400 font-bold text-xs uppercase tracking-widest hover:bg-slate-100 transition-all"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    id="confirm-bulk-action"
-                                    onClick={confirmModal.onConfirm}
-                                    className="flex-1 px-6 py-4 rounded-2xl bg-indigo-600 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
-                                >
-                                    Confirm
-                                </button>
-                            </div>
+            {confirmModal && confirmModal.show && (
+                <div className="fixed inset-0 z-[1000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6">
+                    <div className="bg-white max-w-sm w-full rounded-[2rem] shadow-2xl p-8 animate-in zoom-in duration-200">
+                        <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 mb-6 border border-amber-100 mx-auto">
+                            <i className="fa-solid fa-triangle-exclamation text-2xl"></i>
+                        </div>
+                        <h3 className="text-xl font-black text-slate-900 text-center mb-2">{confirmModal.title}</h3>
+                        <p className="text-sm text-slate-500 text-center font-medium leading-relaxed mb-8">{confirmModal.message}</p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setConfirmModal(null)}
+                                className="flex-1 px-6 py-4 rounded-2xl bg-slate-50 text-slate-400 font-bold text-xs uppercase tracking-widest hover:bg-slate-100 transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                id="confirm-bulk-action"
+                                onClick={confirmModal.onConfirm}
+                                className="flex-1 px-6 py-4 rounded-2xl bg-indigo-600 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                            >
+                                Confirm
+                            </button>
                         </div>
                     </div>
-                )
-            }
-        </div >
+                </div>
+            )}
+        </div>
     );
 };
 

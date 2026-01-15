@@ -14,6 +14,7 @@ import StatusSettings from './client-hub/StatusSettings';
 import { StatusOption } from '../types';
 import { isTerminalStatus, getFunnelStageForStatus, getStatusOptions } from '../services/statusService';
 import WhiteboardTab from './client-hub/WhiteboardTab';
+import ClosingDashboard from './client-hub/ClosingDashboard';
 
 interface Props {
     realtorId: string;
@@ -22,7 +23,7 @@ interface Props {
     onBack: () => void;
 }
 
-type HubTab = 'clients' | 'leads' | 'tasks' | 'comms' | 'settings' | 'whiteboard';
+type HubTab = 'clients' | 'leads' | 'tasks' | 'comms' | 'settings' | 'whiteboard' | 'closing';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack }) => {
     const [activeTab, setActiveTab] = useState<HubTab>('leads');
@@ -82,7 +83,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                 {
                     id: 'clean_buy_1', firstName: 'Alice', lastName: 'New', email: 'alice.new@example.com', phone: '(555) 001-0001',
                     source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead',
-                    status: 'New', receivedAt: new Date(), slaUrgency: 'high', funnelStage: 'Inquiry',
+                    status: 'New', receivedAt: new Date(), slaUrgency: 'high', funnelStage: 'Leads',
                     health: 'Active', message: "Interested in the downtown loft.", isMock: true, collectionName: 'leads',
                     minPrice: 400000, maxPrice: 500000, budgetRange: "$400k - $500k",
                     isAlsoSelling: true, preQualified: true, preferredNeighborhood: 'Downtown',
@@ -444,7 +445,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             leadType: 'Buyer',
             connectionType: 'Direct Lead',
             slaUrgency: 'medium',
-            funnelStage: 'Inquiry',
+            funnelStage: 'Leads',
             health: 'Active',
             ...initialUpdates
         };
@@ -454,6 +455,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
     const tabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'leads', label: 'Funnel', icon: 'fa-bullseye' },
+        { id: 'closing', label: 'Closing', icon: 'fa-file-invoice-dollar' },
         { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
         { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
@@ -599,6 +601,10 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     />
                 )}
 
+
+                {activeTab === 'closing' && (
+                    <ClosingDashboard />
+                )}
 
                 {activeTab === 'tasks' && (
                     <TaskBoard tasks={tasks} />
