@@ -1376,7 +1376,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                         </table>
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-24">
                                         {filteredBuyerLeads.map((lead, index) => (
                                             <LeadGalleryItem
                                                 key={lead.id}
@@ -1776,7 +1776,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                         </table>
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-24">
                                         {filteredSellerLeads.map((lead, index) => (
                                             <LeadGalleryItem
                                                 key={lead.id}
