@@ -83,6 +83,17 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
             }
             return date.toLocaleDateString();
         }
+        if (field === 'isAlsoSelling' || field === 'isAlsoBuying' || field === 'preQualified' || field === 'homeValueNeeded') {
+            return val ? (
+                <div className="w-4 h-4 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center border border-emerald-100 shadow-sm animate-in zoom-in duration-200">
+                    <i className="fa-solid fa-check text-[8px]"></i>
+                </div>
+            ) : (
+                <div className="w-4 h-4 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center border border-slate-100">
+                    <i className="fa-solid fa-xmark text-[8px]"></i>
+                </div>
+            );
+        }
         if (typeof val === 'boolean') return val ? 'Yes' : 'No';
         if (field === 'expectedPrice' || field === 'price' || field === 'budgetRange') {
             const min = lead.minPrice;
