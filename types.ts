@@ -243,6 +243,22 @@ export interface CRMTask {
   isMock?: boolean;
 }
 
+export type ReminderRuleCategory = 'lead' | 'buyer' | 'seller' | 'relationship';
+export type ReminderRuleUrgency = 'high' | 'medium' | 'low';
+
+export interface ReminderRule {
+  id: string;
+  name: string;
+  trigger: string;
+  condition: string;
+  urgency: ReminderRuleUrgency;
+  category: ReminderRuleCategory;
+  suggested_action: string;
+  suggested_message: string;
+  enabled: boolean;
+  realtorId?: string;
+}
+
 export interface PipelineNote {
   id: string;
   leadId: string;

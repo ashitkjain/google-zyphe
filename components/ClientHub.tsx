@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getLeads, getTasks, getTemplates, getPipelineNotes, seedMockData, saveUserProfile, getUserProfile, deleteUserAccount, resetPassword, updateLead, getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, addPipelineNote, updatePipelineNote, deletePipelineNote } from '../services/firebaseService';
 import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates } from '../services/mockDataService';
-import { UserProfile, Lead, LeadNote, CRMTask, CommMessage, CommTemplate, FunnelStage, PipelineNote, LeadStatus } from '../types';
+import { getDefaultReminderRules } from '../services/reminderRulesService';
+import { UserProfile, Lead, LeadNote, CRMTask, CommMessage, CommTemplate, FunnelStage, PipelineNote, LeadStatus, ReminderRule } from '../types';
 import { DropResult } from '@hello-pangea/dnd';
 import Logo from './Logo';
 import LeadsList from './LeadsList';
@@ -49,6 +50,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     const [leads, setLeads] = useState<Lead[]>([]);
     const [tasks, setTasks] = useState<CRMTask[]>([]);
     const [templates, setTemplates] = useState<CommTemplate[]>([]);
+    const [reminderRules, setReminderRules] = useState<ReminderRule[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [editingLead, setEditingLead] = useState<Lead | null>(null);
     const [kycLead, setKycLead] = useState<Lead | null>(null);
@@ -78,6 +80,11 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             let _tasks = await getTasks(realtorId);
             let _templates = await getTemplates(realtorId);
             let _notes = await getPipelineNotes(realtorId);
+
+            // Initialize reminder rules with defaults
+            const defaultRules = getDefaultReminderRules();
+            const rulesWithRealtorId = defaultRules.map(rule => ({ ...rule, realtorId }));
+            setReminderRules(rulesWithRealtorId);
 
             // 2. Define Mock Data (Always available for potential seeding)
             console.log("[ClientHub] Seeding initial mock data...");
@@ -678,7 +685,14 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                 )}
 
                 {activeTab === 'tasks' && (
-                    <TaskBoard tasks={tasks} />
+                    <TaskBoard
+                        tasks={tasks}
+                        reminderRules={reminderRules}
+                        onUpdateRule={(ruleId, updates) => {
+                            setReminderRules(prev => prev.map(r => r.id === ruleId ? { ...r, ...updates } : r));
+                            // TODO: Persist to Firestore once backend is ready
+                        }}
+                    />
                 )}
 
                 {activeTab === 'settings' && (

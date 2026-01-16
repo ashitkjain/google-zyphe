@@ -1,8 +1,11 @@
-import React from 'react';
-import { CRMTask } from '../../types';
+import React, { useState } from 'react';
+import { CRMTask, ReminderRule } from '../../types';
+import ReminderRulesManager from './ReminderRulesManager';
 
 interface TaskBoardProps {
     tasks: CRMTask[];
+    reminderRules?: ReminderRule[];
+    onUpdateRule?: (ruleId: string, updates: Partial<ReminderRule>) => void;
 }
 
 const formatDate = (timestamp: any) => {
@@ -11,43 +14,113 @@ const formatDate = (timestamp: any) => {
     return date.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
-const TaskBoard: React.FC<TaskBoardProps> = ({ tasks }) => {
+const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, reminderRules = [], onUpdateRule }) => {
+    const [activeTab, setActiveTab] = useState<'tasks' | 'rules'>('tasks');
+
     return (
         <div className="flex-1 flex flex-col h-full bg-[#F8FAFC] overflow-hidden">
-            <div className="p-10 bg-white border-b border-slate-200/60 flex items-center justify-between shadow-sm relative z-20">
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight">Today's Focus</h2>
-                <div className="flex items-center gap-4">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 animate-pulse flex items-center gap-2">
-                        <i className="fa-solid fa-brain text-indigo-500"></i> AI Priority Sorting Active
-                    </span>
-                    <button className="bg-slate-900 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10">Add Task</button>
+            {/* Header with Tabs */}
+            <div className="bg-white border-b border-slate-200/60 shadow-sm relative z-20">
+                <div className="p-10 pb-0">
+                    <div className="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+                                {activeTab === 'tasks' ? 'Today\'s Focus' : 'Reminder Rules'}
+                            </h2>
+                            <p className="text-sm text-slate-500 font-medium mt-1">
+                                {activeTab === 'tasks'
+                                    ? 'Your priority tasks and follow-ups'
+                                    : 'Configure automated reminders and notifications'}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            {activeTab === 'tasks' && (
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 animate-pulse flex items-center gap-2">
+                                    <i className="fa-solid fa-brain text-indigo-500"></i> AI Priority Sorting Active
+                                </span>
+                            )}
+                            {activeTab === 'tasks' && (
+                                <button className="bg-slate-900 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10">
+                                    Add Task
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Tab Navigation */}
+                    <div className="flex gap-2 border-b border-slate-200">
+                        <button
+                            onClick={() => setActiveTab('tasks')}
+                            className={`px-6 py-4 font-bold text-sm relative transition-all ${activeTab === 'tasks'
+                                    ? 'text-indigo-600'
+                                    : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                        >
+                            <i className="fa-solid fa-check-double mr-2"></i>
+                            Tasks ({tasks.length})
+                            {activeTab === 'tasks' && (
+                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full" />
+                            )}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('rules')}
+                            className={`px-6 py-4 font-bold text-sm relative transition-all ${activeTab === 'rules'
+                                    ? 'text-indigo-600'
+                                    : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                        >
+                            <i className="fa-solid fa-bell mr-2"></i>
+                            Reminder Rules ({reminderRules.length})
+                            {activeTab === 'rules' && (
+                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full" />
+                            )}
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div className="flex-1 p-10 max-w-5xl mx-auto w-full overflow-y-auto">
-                <div className="space-y-6">
-                    {tasks.map((task) => (
-                        <div key={task.id} className="bg-white p-8 rounded-[3rem] border border-slate-200/60 shadow-xl group hover:border-indigo-200 transition-all flex items-center gap-8 relative overflow-hidden">
-                            <div className={`absolute top-0 left-0 w-2 h-full ${task.priority === 'Urgent' ? 'bg-rose-500' : task.priority === 'High' ? 'bg-amber-500' : 'bg-indigo-500'}`}></div>
-                            <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:scale-110 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-all">
-                                <i className={`fa-solid ${task.type === 'Call' ? 'fa-phone' : task.type === 'Email' ? 'fa-envelope' : 'fa-calendar'} text-2xl`}></i>
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex items-center gap-4 mb-1">
-                                    <h4 className="text-xl font-black text-slate-900 tracking-tight">{task.title}</h4>
-                                    <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${task.priority === 'Urgent' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
-                                        }`}>{task.priority}</span>
+            {/* Tab Content */}
+            {activeTab === 'tasks' ? (
+                <div className="flex-1 p-10 max-w-5xl mx-auto w-full overflow-y-auto">
+                    <div className="space-y-6">
+                        {tasks.map((task) => (
+                            <div key={task.id} className="bg-white p-8 rounded-[3rem] border border-slate-200/60 shadow-xl group hover:border-indigo-200 transition-all flex items-center gap-8 relative overflow-hidden">
+                                <div className={`absolute top-0 left-0 w-2 h-full ${task.priority === 'Urgent' ? 'bg-rose-500' : task.priority === 'High' ? 'bg-amber-500' : 'bg-indigo-500'}`}></div>
+                                <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:scale-110 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-all">
+                                    <i className={`fa-solid ${task.type === 'Call' ? 'fa-phone' : task.type === 'Email' ? 'fa-envelope' : 'fa-calendar'} text-2xl`}></i>
                                 </div>
-                                <p className="text-slate-500 font-medium">{task.description}</p>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-4 mb-1">
+                                        <h4 className="text-xl font-black text-slate-900 tracking-tight">{task.title}</h4>
+                                        <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${task.priority === 'Urgent' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
+                                            }`}>{task.priority}</span>
+                                    </div>
+                                    <p className="text-slate-500 font-medium">{task.description}</p>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Due {formatDate(task.dueDate)}</div>
+                                    <button className="px-6 py-2.5 bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg shadow-indigo-500/20 active:scale-95">Complete Item</button>
+                                </div>
                             </div>
-                            <div className="text-right">
-                                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Due {formatDate(task.dueDate)}</div>
-                                <button className="px-6 py-2.5 bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg shadow-indigo-500/20 active:scale-95">Complete Item</button>
+                        ))}
+
+                        {tasks.length === 0 && (
+                            <div className="flex flex-col items-center justify-center py-20 text-center">
+                                <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-4">
+                                    <i className="fa-solid fa-check-circle text-4xl text-emerald-500"></i>
+                                </div>
+                                <h3 className="text-2xl font-black text-slate-900 mb-2">You're all caught up!</h3>
+                                <p className="text-sm text-slate-500">No pending tasks at the moment</p>
                             </div>
-                        </div>
-                    ))}
+                        )}
+                    </div>
                 </div>
-            </div>
+            ) : (
+                <ReminderRulesManager
+                    rules={reminderRules}
+                    onUpdateRule={onUpdateRule || (() => { })}
+                />
+            )}
         </div>
     );
 };
