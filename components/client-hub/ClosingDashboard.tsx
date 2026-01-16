@@ -464,7 +464,7 @@ const TransactionCalendar: React.FC<TransactionCalendarProps> = ({
                                 </div>
 
                                 {/* Timeline Bar Area */}
-                                <div className="flex relative" style={{ height: 56 }}>
+                                <div className="flex relative" style={{ height: 60 }}>
                                     {/* Grid lines */}
                                     {dates.map((date, dateIdx) => (
                                         <div
@@ -477,7 +477,7 @@ const TransactionCalendar: React.FC<TransactionCalendarProps> = ({
 
                                     {/* Phase Bar */}
                                     <div
-                                        className={`absolute top-2 h-10 rounded-xl ${colors.bar} shadow-[0_4px_0_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.05),inset_0_1px_1px_rgba(255,255,255,0.3)] flex items-center justify-between px-1 group/bar transition-all cursor-pointer hover:-translate-y-[1px] hover:shadow-[0_5px_0_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.05),inset_0_1px_1px_rgba(255,255,255,0.3)] active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.05),inset_0_1px_1px_rgba(255,255,255,0.3)] ${dragging?.phaseId === phase.id ? 'ring-2 ring-indigo-400 ring-offset-1 scale-[1.02]' : ''
+                                        className={`absolute top-2.5 h-10 rounded-xl ${colors.bar} shadow-sm border border-white/10 flex items-center justify-between px-1 group/bar transition-all cursor-pointer hover:-translate-y-[1px] hover:shadow-md active:translate-y-0 ${dragging?.phaseId === phase.id ? 'ring-2 ring-indigo-400 ring-offset-1 scale-[1.01]' : ''
                                             }`}
                                         style={{
                                             left: phaseSchedule.startDay * dayWidth,
@@ -486,66 +486,95 @@ const TransactionCalendar: React.FC<TransactionCalendarProps> = ({
                                         }}
                                         onDoubleClick={() => handleBarDoubleClick(phase.id, idx)}
                                     >
+
                                         {/* Left drag handle */}
                                         <div
-                                            className="w-2 h-full cursor-ew-resize flex items-center justify-center opacity-0 group-hover/bar:opacity-100 transition-opacity"
+                                            className="w-2 h-full cursor-ew-resize flex items-center justify-center opacity-0 group-hover/bar:opacity-100 transition-opacity z-20"
                                             onMouseDown={handleMouseDown(phase.id, 'start')}
                                         >
-                                            <div className="w-0.5 h-5 bg-white/60 rounded-full"></div>
+                                            <div className="w-0.5 h-5 bg-white/50 rounded-full"></div>
                                         </div>
 
-                                        {/* Progress indicator */}
+                                        {/* Progress indicator - subtle subtle tint */}
                                         {progress.percentage > 0 && progress.percentage < 100 && (
                                             <div
-                                                className="absolute inset-0 rounded-lg bg-white/30 origin-left transition-all"
+                                                className="absolute inset-0 rounded-xl bg-white/20 origin-left transition-all"
                                                 style={{ transform: `scaleX(${progress.percentage / 100})` }}
                                             />
                                         )}
 
-                                        {/* Bar Content */}
-                                        <div className="flex-1 px-2 text-white text-[10px] font-bold overflow-hidden flex items-center justify-center relative z-10">
-                                            <span className="drop-shadow-sm truncate">
-                                                {phase.name} {phaseSchedule.duration > 2 && (isCompleted ? '✓' : `(${progress.percentage}%)`)}
-                                            </span>
-                                        </div>
+                                        {/* Bar Content - Stacked Layout */}
+                                        <div className="flex-1 pl-3 pr-2 overflow-hidden flex flex-col items-start justify-center relative z-10 gap-0.5">
 
-                                        {/* Comment Badge */}
-                                        {categories[idx]?.tasks.some(t => t.comments) && (
-                                            <div className="absolute -top-1.5 -right-1.5 z-20 group/comment">
-                                                <div className="w-4 h-4 rounded-full bg-white shadow-sm flex items-center justify-center border border-indigo-100">
-                                                    <i className="fa-solid fa-comment-dots text-indigo-500 text-[8px]"></i>
-                                                </div>
 
-                                                {/* Hover Overlay - Positioned below the bar to avoid top clipping */}
-                                                <div className="absolute top-full right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 hidden group-hover/bar:block animate-in fade-in slide-in-from-top-2 duration-200 z-[60]">
-                                                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-50">
-                                                        <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center">
-                                                            <i className="fa-solid fa-comments text-indigo-600 text-[10px]"></i>
-                                                        </div>
-                                                        <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest text-left">Phase Comments</span>
-                                                    </div>
-                                                    <div className="space-y-3 max-h-48 overflow-y-auto pr-2 no-scrollbar">
-                                                        {categories[idx].tasks.filter(t => t.comments).map(t => (
-                                                            <div key={t.id} className="space-y-1">
-                                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-tight text-left">{t.name}</div>
-                                                                <div className="text-[11px] font-medium text-slate-600 bg-slate-50 p-2 rounded-xl italic leading-relaxed text-left">
-                                                                    "{t.comments}"
-                                                                </div>
+
+
+                                            {/* Comment Avatar Pill - Stacked below text */}
+                                            {categories[idx]?.tasks.some(t => t.comments) && (
+                                                <div className="relative group/comment -ml-1">
+                                                    <div className="flex items-center gap-1.5 bg-slate-50/50 hover:bg-white p-0.5 px-1 rounded-full border border-slate-100/50 transition-all group-hover/comment:shadow-sm cursor-help">
+                                                        <div className="flex -space-x-2 overflow-hidden scale-[0.65] origin-left">
+                                                            <div className="w-8 h-8 rounded-full bg-indigo-100 border-2 border-white flex items-center justify-center shadow-sm">
+                                                                <i className="fa-solid fa-user text-[12px] text-indigo-500"></i>
                                                             </div>
-                                                        ))}
+                                                            <div className="w-8 h-8 rounded-full bg-emerald-100 border-2 border-white flex items-center justify-center shadow-sm">
+                                                                <i className="fa-solid fa-user-tie text-[12px] text-emerald-500"></i>
+                                                            </div>
+                                                            <div className="w-8 h-8 rounded-full bg-amber-100 border-2 border-white flex items-center justify-center shadow-sm">
+                                                                <i className="fa-solid fa-user-pen text-[12px] text-amber-500"></i>
+                                                            </div>
+                                                        </div>
+                                                        <span className="text-[8px] font-black text-slate-400 -ml-1 pr-1 truncate max-w-[100px]">
+                                                            {categories[idx].tasks.filter(t => t.comments).length} updates
+                                                        </span>
                                                     </div>
-                                                    {/* Top arrow */}
-                                                    <div className="absolute -top-1.5 right-2 w-3 h-3 bg-white border-l border-t border-slate-100 rotate-45"></div>
+
+                                                    {/* Hover Overlay - Aligned to left of bar */}
+                                                    <div className="absolute top-full left-0 mt-3 w-72 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-slate-100 p-5 hidden group-hover/bar:block animate-in fade-in slide-in-from-top-3 duration-300 z-[70] origin-top-left">
+                                                        <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-50">
+                                                            <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
+                                                                <i className="fa-solid fa-comments text-indigo-600 text-[12px]"></i>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[11px] font-black text-slate-900 uppercase tracking-widest text-left">Phase Updates</div>
+                                                                <div className="text-[9px] text-slate-400 font-medium text-left">{categories[idx].tasks.filter(t => t.comments).length} discussion threads</div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-4 max-h-60 overflow-y-auto pr-2 no-scrollbar">
+                                                            {categories[idx].tasks.filter(t => t.comments).map((t, tIdx) => (
+                                                                <div key={t.id} className="flex gap-3">
+                                                                    <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] ${tIdx % 3 === 0 ? 'bg-indigo-50 text-indigo-500 border border-indigo-100' :
+                                                                        tIdx % 3 === 1 ? 'bg-emerald-50 text-emerald-500 border border-emerald-100' :
+                                                                            'bg-amber-50 text-amber-500 border border-amber-100'
+                                                                        }`}>
+                                                                        <i className={`fa-solid ${tIdx % 4 === 0 ? 'fa-message' :
+                                                                            tIdx % 4 === 1 ? 'fa-note-sticky' :
+                                                                                tIdx % 4 === 2 ? 'fa-comment-dots' :
+                                                                                    'fa-pencil'
+                                                                            }`}></i>
+                                                                    </div>
+                                                                    <div className="space-y-1.5 flex-1 min-w-0">
+                                                                        <div className="text-[10px] font-black text-slate-500 uppercase tracking-wider leading-tight text-left truncate">{t.name}</div>
+                                                                        <div className="text-[12px] font-medium text-slate-600 bg-slate-50/80 p-3 rounded-2xl leading-relaxed text-left border border-slate-100/50">
+                                                                            {t.comments}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        {/* Decorative arrow */}
+                                                        <div className="absolute -top-1.5 left-4 w-3 h-3 bg-white border-l border-t border-slate-100 rotate-45"></div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            )}
+                                        </div>
 
                                         {/* Right drag handle */}
                                         <div
-                                            className="w-2 h-full cursor-ew-resize flex items-center justify-center opacity-0 group-hover/bar:opacity-100 transition-opacity"
+                                            className="w-2 h-full cursor-ew-resize flex items-center justify-center opacity-0 group-hover/bar:opacity-100 transition-opacity z-20"
                                             onMouseDown={handleMouseDown(phase.id, 'end')}
                                         >
-                                            <div className="w-0.5 h-5 bg-white/60 rounded-full"></div>
+                                            <div className="w-0.5 h-5 bg-white/50 rounded-full"></div>
                                         </div>
                                     </div>
                                 </div>
