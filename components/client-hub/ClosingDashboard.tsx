@@ -39,6 +39,620 @@ const getDefaultDocumentation = (): DocItem[] => [
     { id: 'doc_5', name: 'Inspections', status: 'Pending', comments: '' },
 ];
 
+// Checklist category interface - moved up for use in TransactionTimeline
+interface ChecklistCategory {
+    id: string;
+    name: string;
+    icon: string;
+    description: string;
+    tasks: {
+        id: string;
+        name: string;
+        status: 'Pending' | 'Completed' | 'Rejected';
+        comments: string;
+        emoji?: string;  // Optional emoji for the task
+    }[];
+}
+
+// Timeline phases for transaction progress
+const timelinePhases = [
+    { id: 1, name: 'Contract Review', icon: '📁', shortName: 'Contract' },
+    { id: 2, name: 'Title & Ownership', icon: '🔍', shortName: 'Title' },
+    { id: 3, name: 'Financing & Appraisal', icon: '🏦', shortName: 'Financing' },
+    { id: 4, name: 'Inspections', icon: '🧪', shortName: 'Inspect' },
+    { id: 5, name: 'Document Review', icon: '📜', shortName: 'Documents' },
+    { id: 6, name: 'Final Coordination', icon: '📆', shortName: 'Final' },
+    { id: 7, name: 'Closing Day', icon: '🗝️', shortName: 'Close' },
+    { id: 8, name: 'Post-Closing', icon: '📦', shortName: 'Complete' },
+];
+
+// Initial categories for the checklist
+const getInitialCategories = (): ChecklistCategory[] => [
+    {
+        id: 'c1',
+        name: '1. Contract & Initial Review',
+        icon: '📁',
+        description: 'Tasks that happen right after contract ratification and before ordering anything.',
+        tasks: [
+            { id: 't1_1', name: 'Review and understand the sales/purchase contract.', status: 'Pending', comments: '' },
+            { id: 't1_2', name: 'Review the property survey (if available).', status: 'Pending', comments: '' },
+            { id: 't1_3', name: 'Review and prepare seller disclosure documents.', status: 'Pending', comments: '' },
+        ]
+    },
+    {
+        id: 'c2',
+        name: '2. Title & Ownership',
+        icon: '🔍',
+        description: 'Tasks focused on confirming title and ownership.',
+        tasks: [
+            { id: 't2_1', name: 'Obtain a clear title to the property.', status: 'Pending', comments: '' },
+            { id: 't2_2', name: 'Conduct title search and resolve title issues.', status: 'Pending', comments: '' },
+            { id: 't2_3', name: 'Verify title insurance details.', status: 'Pending', comments: '' },
+            { id: 't2_4', name: 'Verify chain of title (ownership history).', status: 'Pending', comments: '' },
+        ]
+    },
+    {
+        id: 'c3',
+        name: '3. Financing & Appraisal',
+        icon: '🏦',
+        description: 'Tasks required for loan and valuation.',
+        tasks: [
+            { id: 't3_1', name: 'Coordinate with lender to ensure loan approval and funds disbursement.', status: 'Pending', comments: '' },
+            { id: 't3_2', name: 'Order appraisal.', status: 'Pending', comments: '' },
+            { id: 't3_3', name: 'Review appraisal report and approvals.', status: 'Pending', comments: '' },
+            { id: 't3_4', name: "Verify buyer's financial approval and lender docs.", status: 'Pending', comments: '' },
+            { id: 't3_5', name: "Confirm buyer obtains homeowner's insurance.", status: 'Pending', comments: '' },
+        ]
+    },
+    {
+        id: 'c4',
+        name: '4. Inspections & Negotiations',
+        icon: '🧪',
+        description: 'Tasks that deal with property condition and repairs.',
+        tasks: [
+            { id: 't4_1', name: 'Schedule and conduct home inspection.', status: 'Pending', comments: '' },
+            { id: 't4_2', name: 'Review inspection report; identify issues.', status: 'Pending', comments: '' },
+            { id: 't4_3', name: 'Negotiate repair requests / price adjustments.', status: 'Pending', comments: '' },
+            { id: 't4_4', name: 'Ensure agreed repairs are completed.', status: 'Pending', comments: '' },
+        ]
+    },
+    {
+        id: 'c5',
+        name: '5. Document Review & Compliance',
+        icon: '📜',
+        description: 'Tasks where paperwork and legal docs must be checked.',
+        tasks: [
+            { id: 't5_1', name: 'Prepare and review all closing documents (HUD-1, disclosures, settlement).', status: 'Pending', comments: '' },
+            { id: 't5_2', name: 'Review closing costs and verify accuracy.', status: 'Pending', comments: '' },
+            { id: 't5_3', name: 'Review and sign all closing documents.', status: 'Pending', comments: '' },
+            { id: 't5_4', name: 'Review and approve final settlement statement.', status: 'Pending', comments: '' },
+            { id: 't5_5', name: 'Prepare deed, bill of sale, mortgage note, lien releases, title insurance docs.', status: 'Pending', comments: '' },
+            { id: 't5_6', name: 'Verify HOA fees and property taxes are current.', status: 'Pending', comments: '' },
+        ]
+    },
+    {
+        id: 'c6',
+        name: '6. Final Coordination & Checks',
+        icon: '📆',
+        description: 'Tasks that happen shortly before closing date.',
+        tasks: [
+            { id: 't6_1', name: 'Schedule final walk-through inspection.', status: 'Pending', comments: '' },
+            { id: 't6_2', name: 'Confirm time and location of closing meeting.', status: 'Pending', comments: '' },
+            { id: 't6_3', name: 'Arrange funds for closing (wire, certified check).', status: 'Pending', comments: '' },
+            { id: 't6_4', name: 'Arrange utilities transfer/disconnection.', status: 'Pending', comments: '' },
+            { id: 't6_5', name: 'Notify post office & relevant parties of address change.', status: 'Pending', comments: '' },
+        ]
+    },
+    {
+        id: 'c7',
+        name: '7. Closing Day',
+        icon: '🗝️',
+        description: 'Tasks due on closing day itself.',
+        tasks: [
+            { id: 't7_1', name: 'Attend closing meeting with parties.', status: 'Pending', comments: '' },
+            { id: 't7_2', name: 'Sign all documents and verify signatures.', status: 'Pending', comments: '' },
+            { id: 't7_3', name: 'Disburse funds & record deed.', status: 'Pending', comments: '' },
+            { id: 't7_4', name: 'Obtain keys, garage openers, manuals.', status: 'Pending', comments: '' },
+        ]
+    },
+    {
+        id: 'c8',
+        name: '8. Post-Closing & Client Handoff',
+        icon: '📦',
+        description: 'Tasks after the deal is officially closed.',
+        tasks: [
+            { id: 't8_1', name: 'Provide buyer with warranties, manuals, local service info.', status: 'Pending', comments: '' },
+            { id: 't8_2', name: 'Update your internal records with new ownership.', status: 'Pending', comments: '' },
+            { id: 't8_3', name: 'Follow-up with lender, title, and client.', status: 'Pending', comments: '' },
+            { id: 't8_4', name: 'Referral / thank-you outreach.', status: 'Pending', comments: '' },
+        ]
+    }
+];
+
+// Phase schedule interface for calendar view
+interface PhaseSchedule {
+    phaseId: number;
+    startDay: number; // Day offset from contract start
+    duration: number; // Duration in days
+}
+
+// Default schedule for a typical 30-45 day closing
+const getDefaultSchedule = (): PhaseSchedule[] => [
+    { phaseId: 1, startDay: 0, duration: 3 },    // Contract Review: Days 1-3
+    { phaseId: 2, startDay: 3, duration: 7 },    // Title & Ownership: Days 4-10
+    { phaseId: 3, startDay: 5, duration: 14 },   // Financing & Appraisal: Days 6-19 (overlaps)
+    { phaseId: 4, startDay: 7, duration: 10 },   // Inspections: Days 8-17 (overlaps)
+    { phaseId: 5, startDay: 17, duration: 10 },  // Document Review: Days 18-27
+    { phaseId: 6, startDay: 25, duration: 5 },   // Final Coordination: Days 26-30
+    { phaseId: 7, startDay: 30, duration: 1 },   // Closing Day: Day 31
+    { phaseId: 8, startDay: 31, duration: 7 },   // Post-Closing: Days 32-38
+];
+
+// Phase colors for the calendar bars
+const phaseColors = [
+    { bg: 'bg-indigo-100', bar: 'bg-gradient-to-r from-indigo-400 to-indigo-500', border: 'border-indigo-300', text: 'text-indigo-700' },
+    { bg: 'bg-purple-100', bar: 'bg-gradient-to-r from-purple-400 to-purple-500', border: 'border-purple-300', text: 'text-purple-700' },
+    { bg: 'bg-blue-100', bar: 'bg-gradient-to-r from-blue-400 to-blue-500', border: 'border-blue-300', text: 'text-blue-700' },
+    { bg: 'bg-cyan-100', bar: 'bg-gradient-to-r from-cyan-400 to-cyan-500', border: 'border-cyan-300', text: 'text-cyan-700' },
+    { bg: 'bg-amber-100', bar: 'bg-gradient-to-r from-amber-400 to-amber-500', border: 'border-amber-300', text: 'text-amber-700' },
+    { bg: 'bg-orange-100', bar: 'bg-gradient-to-r from-orange-400 to-orange-500', border: 'border-orange-300', text: 'text-orange-700' },
+    { bg: 'bg-emerald-100', bar: 'bg-gradient-to-r from-emerald-400 to-emerald-500', border: 'border-emerald-300', text: 'text-emerald-700' },
+    { bg: 'bg-rose-100', bar: 'bg-gradient-to-r from-rose-400 to-rose-500', border: 'border-rose-300', text: 'text-rose-700' },
+];
+
+// Comment modal interface
+interface CommentModalData {
+    phaseId: number;
+    phaseName: string;
+    tasks: { id: string; name: string }[];
+}
+
+interface TransactionCalendarProps {
+    categories: ChecklistCategory[];
+    onScrollToPhase?: (phaseIndex: number) => void;
+    onAddComment?: (catId: string, taskId: string, comment: string) => void;
+}
+
+const TransactionCalendar: React.FC<TransactionCalendarProps> = ({
+    categories,
+    onScrollToPhase,
+    onAddComment
+}) => {
+    // Contract start date (for demo, using today)
+    const [contractStartDate] = useState(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return today;
+    });
+
+    // Schedule state - allows realtor adjustment
+    const [schedule, setSchedule] = useState<PhaseSchedule[]>(getDefaultSchedule());
+
+    // View mode: 'week' or 'month'
+    const [viewMode, setViewMode] = useState<'week' | 'month'>('month');
+
+    // Dragging state for adjusting bars
+    const [dragging, setDragging] = useState<{ phaseId: number; edge: 'start' | 'end' } | null>(null);
+
+    // Comment modal state
+    const [commentModal, setCommentModal] = useState<CommentModalData | null>(null);
+    const [commentText, setCommentText] = useState('');
+    const [selectedTaskId, setSelectedTaskId] = useState<string>('');
+
+    // Handle double-click on bar to add comment
+    const handleBarDoubleClick = (phaseId: number, idx: number) => {
+        const phase = timelinePhases[idx];
+        const category = categories[idx];
+        if (category) {
+            setCommentModal({
+                phaseId,
+                phaseName: phase.name,
+                tasks: category.tasks.map(t => ({ id: t.id, name: t.name }))
+            });
+            setSelectedTaskId(category.tasks[0]?.id || '');
+            setCommentText('');
+        }
+    };
+
+    // Handle submit comment
+    const handleSubmitComment = () => {
+        if (commentModal && selectedTaskId && commentText.trim()) {
+            const catId = `c${commentModal.phaseId}`;
+            onAddComment?.(catId, selectedTaskId, commentText.trim());
+            setCommentModal(null);
+            setCommentText('');
+            setSelectedTaskId('');
+        }
+    };
+
+
+    // Calculate total days to show
+    const totalDays = viewMode === 'week' ? 14 : 42;
+    const dayWidth = viewMode === 'week' ? 60 : 28;
+
+    // Generate dates for the calendar header
+    const getDates = () => {
+        const dates = [];
+        for (let i = 0; i < totalDays; i++) {
+            const date = new Date(contractStartDate);
+            date.setDate(date.getDate() + i);
+            dates.push(date);
+        }
+        return dates;
+    };
+
+    const dates = getDates();
+
+    // Calculate category completion
+    const getCategoryProgress = (categoryIndex: number) => {
+        if (categoryIndex >= categories.length) return { completed: 0, total: 0, percentage: 0 };
+        const cat = categories[categoryIndex];
+        const completed = cat.tasks.filter(t => t.status === 'Completed').length;
+        const total = cat.tasks.length;
+        return { completed, total, percentage: total > 0 ? Math.round((completed / total) * 100) : 0 };
+    };
+
+    // Handle drag to adjust bar position
+    const handleMouseDown = (phaseId: number, edge: 'start' | 'end') => (e: React.MouseEvent) => {
+        e.preventDefault();
+        setDragging({ phaseId, edge });
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!dragging) return;
+
+        const container = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - container.left - 200; // Subtract label width
+        const dayIndex = Math.max(0, Math.min(totalDays - 1, Math.floor(x / dayWidth)));
+
+        setSchedule(prev => prev.map(s => {
+            if (s.phaseId !== dragging.phaseId) return s;
+
+            if (dragging.edge === 'start') {
+                const newStart = Math.min(dayIndex, s.startDay + s.duration - 1);
+                const newDuration = s.startDay + s.duration - newStart;
+                return { ...s, startDay: newStart, duration: Math.max(1, newDuration) };
+            } else {
+                const newDuration = dayIndex - s.startDay + 1;
+                return { ...s, duration: Math.max(1, newDuration) };
+            }
+        }));
+    };
+
+    const handleMouseUp = () => {
+        setDragging(null);
+    };
+
+    // Calculate overall progress
+    const calculateProgress = () => {
+        let totalTasks = 0;
+        let completedTasks = 0;
+        categories.forEach((cat) => {
+            totalTasks += cat.tasks.length;
+            completedTasks += cat.tasks.filter(t => t.status === 'Completed').length;
+        });
+        return totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    };
+
+    const overallProgress = calculateProgress();
+
+    // Format date for display
+    const formatDate = (date: Date) => date.getDate();
+    const formatMonth = (date: Date) => date.toLocaleDateString('en-US', { month: 'short' });
+    const isToday = (date: Date) => {
+        const today = new Date();
+        return date.toDateString() === today.toDateString();
+    };
+    const isWeekend = (date: Date) => date.getDay() === 0 || date.getDay() === 6;
+
+    return (
+        <div className="bg-white rounded-[2rem] border border-slate-200/60 shadow-xl shadow-indigo-500/5 overflow-hidden">
+            {/* Header */}
+            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                        <i className="fa-solid fa-calendar-days text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-black text-slate-900 tracking-tight">Transaction Timeline</h3>
+                        <p className="text-xs font-medium text-slate-500">Drag bars to adjust schedule • Click phase to view tasks</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-4">
+                    {/* View Toggle */}
+                    <div className="flex items-center bg-slate-100 rounded-xl p-1">
+                        <button
+                            onClick={() => setViewMode('week')}
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'week'
+                                ? 'bg-white text-indigo-600 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                        >
+                            2 Weeks
+                        </button>
+                        <button
+                            onClick={() => setViewMode('month')}
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'month'
+                                ? 'bg-white text-indigo-600 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                        >
+                            6 Weeks
+                        </button>
+                    </div>
+                    {/* Overall Progress */}
+                    <div className="flex items-center gap-3 px-4 py-2 bg-indigo-50 rounded-xl border border-indigo-100">
+                        <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Progress</span>
+                        <span className="text-lg font-black text-indigo-600">{overallProgress}%</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Calendar Grid */}
+            <div
+                className="overflow-x-auto cursor-default select-none"
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+            >
+                <div className="min-w-max">
+                    {/* Date Header */}
+                    <div className="flex border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10">
+                        {/* Phase Label Column */}
+                        <div className="w-[200px] flex-shrink-0 px-4 py-3 border-r border-slate-100">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Phase</span>
+                        </div>
+                        {/* Date Columns */}
+                        <div className="flex">
+                            {dates.map((date, idx) => {
+                                // Show month label at the start of each month
+                                const showMonth = idx === 0 || date.getDate() === 1;
+                                return (
+                                    <div
+                                        key={idx}
+                                        style={{ width: dayWidth }}
+                                        className={`flex-shrink-0 py-2 text-center border-r border-slate-50 ${isToday(date) ? 'bg-indigo-50' : isWeekend(date) ? 'bg-slate-50/80' : ''
+                                            }`}
+                                    >
+                                        {showMonth && (
+                                            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+                                                {formatMonth(date)}
+                                            </div>
+                                        )}
+                                        <div className={`text-xs font-bold ${isToday(date) ? 'text-indigo-600' : 'text-slate-600'
+                                            }`}>
+                                            {formatDate(date)}
+                                        </div>
+                                        {isToday(date) && (
+                                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mx-auto mt-0.5"></div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Phase Rows */}
+                    {timelinePhases.map((phase, idx) => {
+                        const phaseSchedule = schedule.find(s => s.phaseId === phase.id) || { startDay: 0, duration: 1 };
+                        const progress = getCategoryProgress(idx);
+                        const isCompleted = progress.total > 0 && progress.completed === progress.total;
+                        const colors = phaseColors[idx % phaseColors.length];
+
+                        return (
+                            <div
+                                key={phase.id}
+                                className="flex border-b border-slate-50 hover:bg-slate-50/30 transition-colors group"
+                            >
+                                {/* Phase Label */}
+                                <div
+                                    className="w-[200px] flex-shrink-0 px-4 py-4 border-r border-slate-100 flex items-center gap-3 cursor-pointer hover:bg-indigo-50/50 transition-colors"
+                                    onClick={() => onScrollToPhase?.(idx)}
+                                >
+                                    <span className="text-lg">{phase.icon}</span>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="text-sm font-bold text-slate-800 truncate">{phase.name}</div>
+                                        <div className="text-[10px] font-medium text-slate-400">
+                                            {progress.completed}/{progress.total} tasks
+                                        </div>
+                                    </div>
+                                    {isCompleted && (
+                                        <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                                            <i className="fa-solid fa-check text-emerald-600 text-[8px]"></i>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Timeline Bar Area */}
+                                <div className="flex relative" style={{ height: 56 }}>
+                                    {/* Grid lines */}
+                                    {dates.map((date, dateIdx) => (
+                                        <div
+                                            key={dateIdx}
+                                            style={{ width: dayWidth }}
+                                            className={`flex-shrink-0 border-r border-slate-50 ${isToday(date) ? 'bg-indigo-50/30' : isWeekend(date) ? 'bg-slate-50/50' : ''
+                                                }`}
+                                        />
+                                    ))}
+
+                                    {/* Phase Bar */}
+                                    <div
+                                        className={`absolute top-2 h-10 rounded-xl ${colors.bar} shadow-[0_4px_0_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.05),inset_0_1px_1px_rgba(255,255,255,0.3)] flex items-center justify-between px-1 group/bar transition-all cursor-pointer hover:-translate-y-[1px] hover:shadow-[0_5px_0_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.05),inset_0_1px_1px_rgba(255,255,255,0.3)] active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.05),inset_0_1px_1px_rgba(255,255,255,0.3)] ${dragging?.phaseId === phase.id ? 'ring-2 ring-indigo-400 ring-offset-1 scale-[1.02]' : ''
+                                            }`}
+                                        style={{
+                                            left: phaseSchedule.startDay * dayWidth,
+                                            width: phaseSchedule.duration * dayWidth - 4,
+                                            minWidth: 40,
+                                        }}
+                                        onDoubleClick={() => handleBarDoubleClick(phase.id, idx)}
+                                    >
+                                        {/* Left drag handle */}
+                                        <div
+                                            className="w-2 h-full cursor-ew-resize flex items-center justify-center opacity-0 group-hover/bar:opacity-100 transition-opacity"
+                                            onMouseDown={handleMouseDown(phase.id, 'start')}
+                                        >
+                                            <div className="w-0.5 h-5 bg-white/60 rounded-full"></div>
+                                        </div>
+
+                                        {/* Progress indicator */}
+                                        {progress.percentage > 0 && progress.percentage < 100 && (
+                                            <div
+                                                className="absolute inset-0 rounded-lg bg-white/30 origin-left transition-all"
+                                                style={{ transform: `scaleX(${progress.percentage / 100})` }}
+                                            />
+                                        )}
+
+                                        {/* Bar Content */}
+                                        <div className="flex-1 px-2 text-white text-[10px] font-bold overflow-hidden flex items-center justify-center relative z-10">
+                                            <span className="drop-shadow-sm truncate">
+                                                {phase.name} {phaseSchedule.duration > 2 && (isCompleted ? '✓' : `(${progress.percentage}%)`)}
+                                            </span>
+                                        </div>
+
+                                        {/* Comment Badge */}
+                                        {categories[idx]?.tasks.some(t => t.comments) && (
+                                            <div className="absolute -top-1.5 -right-1.5 z-20 group/comment">
+                                                <div className="w-4 h-4 rounded-full bg-white shadow-sm flex items-center justify-center border border-indigo-100">
+                                                    <i className="fa-solid fa-comment-dots text-indigo-500 text-[8px]"></i>
+                                                </div>
+
+                                                {/* Hover Overlay - Positioned below the bar to avoid top clipping */}
+                                                <div className="absolute top-full right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 hidden group-hover/bar:block animate-in fade-in slide-in-from-top-2 duration-200 z-[60]">
+                                                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-50">
+                                                        <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center">
+                                                            <i className="fa-solid fa-comments text-indigo-600 text-[10px]"></i>
+                                                        </div>
+                                                        <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest text-left">Phase Comments</span>
+                                                    </div>
+                                                    <div className="space-y-3 max-h-48 overflow-y-auto pr-2 no-scrollbar">
+                                                        {categories[idx].tasks.filter(t => t.comments).map(t => (
+                                                            <div key={t.id} className="space-y-1">
+                                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-tight text-left">{t.name}</div>
+                                                                <div className="text-[11px] font-medium text-slate-600 bg-slate-50 p-2 rounded-xl italic leading-relaxed text-left">
+                                                                    "{t.comments}"
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    {/* Top arrow */}
+                                                    <div className="absolute -top-1.5 right-2 w-3 h-3 bg-white border-l border-t border-slate-100 rotate-45"></div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Right drag handle */}
+                                        <div
+                                            className="w-2 h-full cursor-ew-resize flex items-center justify-center opacity-0 group-hover/bar:opacity-100 transition-opacity"
+                                            onMouseDown={handleMouseDown(phase.id, 'end')}
+                                        >
+                                            <div className="w-0.5 h-5 bg-white/60 rounded-full"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Footer Legend */}
+            <div className="px-8 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Today</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-6 h-3 rounded bg-gradient-to-r from-emerald-400 to-emerald-500"></div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Completed</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-6 h-3 rounded bg-slate-200"></div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Weekend</span>
+                    </div>
+                </div>
+                <button
+                    onClick={() => setSchedule(getDefaultSchedule())}
+                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-wider flex items-center gap-2"
+                >
+                    <i className="fa-solid fa-rotate-left"></i>
+                    Reset to Default
+                </button>
+            </div>
+
+            {/* Comment Modal */}
+            {commentModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-8 duration-500">
+                        <div className="px-10 pt-10 pb-8">
+                            <div className="flex items-center justify-between mb-8">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center">
+                                        <i className="fa-solid fa-comment-dots text-indigo-600 text-xl"></i>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-black text-slate-900 tracking-tight">Add Phase Comment</h3>
+                                        <p className="text-sm font-medium text-slate-500">For {commentModal.phaseName}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setCommentModal(null)}
+                                    className="w-10 h-10 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-colors"
+                                >
+                                    <i className="fa-solid fa-xmark text-lg"></i>
+                                </button>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Select Specific Task (Optional)</label>
+                                    <select
+                                        value={selectedTaskId}
+                                        onChange={(e) => setSelectedTaskId(e.target.value)}
+                                        className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer"
+                                    >
+                                        <option value="">General Phase Comment</option>
+                                        {commentModal.tasks.map(task => (
+                                            <option key={task.id} value={task.id}>{task.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Your Comment</label>
+                                    <textarea
+                                        value={commentText}
+                                        onChange={(e) => setCommentText(e.target.value)}
+                                        placeholder="Add notes, updates or instructions..."
+                                        className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-indigo-500 transition-all min-h-[120px] resize-none"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="px-10 py-8 bg-slate-50 border-t border-slate-100 flex gap-4">
+                            <button
+                                onClick={() => setCommentModal(null)}
+                                className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSubmitComment}
+                                disabled={!commentText.trim()}
+                                className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Save Comment
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+
 const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead }) => {
     // Filter leads that are in closing stage (funnelStage === 'Contract' or status === 'In Contract')
     const closingLeads = useMemo(() => {
@@ -68,6 +682,68 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
     const [activeSubTab, setActiveSubTab] = useState('CHECKLIST');
 
     const subTabs = ['TRANSACTION', 'CONTACTS', 'COMMISSION', 'CHECKLIST', 'DOCUMENTS', 'LOG', 'TASKS', 'PROPERTY'];
+
+    // Checklist categories state - shared between Timeline and ChecklistSection
+    const [categories, setCategories] = useState<ChecklistCategory[]>(getInitialCategories());
+
+    // Manual phase override state - allows agent to manually control the timeline
+    const [manualPhaseOverride, setManualPhaseOverride] = useState<number | null>(null);
+
+    // Expanded categories state for the checklist
+    const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['c1']));
+
+    // Scroll to a specific phase/category in the checklist
+    const handleScrollToPhase = (phaseIndex: number) => {
+        setActiveSubTab('CHECKLIST');
+        const categoryId = `c${phaseIndex + 1}`;
+        setExpandedCategories(prev => new Set([...prev, categoryId]));
+        // Scroll to the category element after a brief delay to allow render
+        setTimeout(() => {
+            const element = document.getElementById(`category-${categoryId}`);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 100);
+    };
+
+    const toggleCategory = (id: string) => {
+        setExpandedCategories(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const updateTaskStatus = (catId: string, taskId: string, status: 'Pending' | 'Completed' | 'Rejected') => {
+        setCategories(prev => prev.map(cat => {
+            if (cat.id !== catId) return cat;
+            return {
+                ...cat,
+                tasks: cat.tasks.map(t => t.id === taskId ? { ...t, status } : t)
+            };
+        }));
+    };
+
+    const addTaskComment = (catId: string, taskId: string, comment: string) => {
+        setCategories(prev => prev.map(cat => {
+            if (cat.id !== catId) return cat;
+            return {
+                ...cat,
+                tasks: cat.tasks.map(t => t.id === taskId ? { ...t, comments: comment } : t)
+            };
+        }));
+    };
+
+    const updateTaskEmoji = (catId: string, taskId: string, emoji: string) => {
+        setCategories(prev => prev.map(cat => {
+            if (cat.id !== catId) return cat;
+            return {
+                ...cat,
+                tasks: cat.tasks.map(t => t.id === taskId ? { ...t, emoji } : t)
+            };
+        }));
+    };
 
     // Empty state when no clients in closing
     if (closingLeads.length === 0) {
@@ -100,8 +776,8 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                             key={lead.id}
                             onClick={() => setActiveLeadId(lead.id)}
                             className={`flex items-center gap-3 px-5 py-3 rounded-2xl border-2 transition-all flex-shrink-0 group ${activeLeadId === lead.id
-                                    ? 'bg-white border-indigo-500 shadow-lg shadow-indigo-500/10'
-                                    : 'bg-white/50 border-slate-200 hover:border-slate-300 hover:bg-white'
+                                ? 'bg-white border-indigo-500 shadow-lg shadow-indigo-500/10'
+                                : 'bg-white/50 border-slate-200 hover:border-slate-300 hover:bg-white'
                                 }`}
                         >
                             <div className="w-10 h-10 rounded-xl overflow-hidden border border-white shadow-sm flex-shrink-0">
@@ -189,6 +865,13 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                             </button>
                         </div>
 
+                        {/* Transaction Calendar Timeline */}
+                        <TransactionCalendar
+                            categories={categories}
+                            onScrollToPhase={handleScrollToPhase}
+                            onAddComment={addTaskComment}
+                        />
+
                         {/* Sub Navigation */}
                         <div className="flex border-b border-slate-200 overflow-x-auto no-scrollbar">
                             {subTabs.map(tab => (
@@ -265,7 +948,14 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
 
                             <div className="p-10">
                                 {activeSubTab === 'CHECKLIST' ? (
-                                    <ChecklistSection />
+                                    <ChecklistSection
+                                        categories={categories}
+                                        expandedCategories={expandedCategories}
+                                        onToggleCategory={toggleCategory}
+                                        onUpdateTaskStatus={updateTaskStatus}
+                                        onUpdateTaskEmoji={updateTaskEmoji}
+                                        onUpdateTaskComment={addTaskComment}
+                                    />
                                 ) : (
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-left">
@@ -322,144 +1012,35 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
     );
 };
 
-interface ChecklistCategory {
-    id: string;
-    name: string;
-    icon: string;
-    description: string;
-    tasks: { id: string; name: string; status: 'Pending' | 'Completed' | 'Rejected'; comments: string }[];
+interface ChecklistSectionProps {
+    categories: ChecklistCategory[];
+    expandedCategories: Set<string>;
+    onToggleCategory: (id: string) => void;
+    onUpdateTaskStatus: (catId: string, taskId: string, status: 'Pending' | 'Completed' | 'Rejected') => void;
+    onUpdateTaskEmoji?: (catId: string, taskId: string, emoji: string) => void;
+    onUpdateTaskComment?: (catId: string, taskId: string, comment: string) => void;
 }
 
-const ChecklistSection: React.FC = () => {
-    const [categories, setCategories] = useState<ChecklistCategory[]>([
-        {
-            id: 'c1',
-            name: '1. Contract & Initial Review',
-            icon: '📁',
-            description: 'Tasks that happen right after contract ratification and before ordering anything.',
-            tasks: [
-                { id: 't1_1', name: 'Review and understand the sales/purchase contract.', status: 'Pending', comments: '' },
-                { id: 't1_2', name: 'Review the property survey (if available).', status: 'Pending', comments: '' },
-                { id: 't1_3', name: 'Review and prepare seller disclosure documents.', status: 'Pending', comments: '' },
-            ]
-        },
-        {
-            id: 'c2',
-            name: '2. Title & Ownership',
-            icon: '🔍',
-            description: 'Tasks focused on confirming title and ownership.',
-            tasks: [
-                { id: 't2_1', name: 'Obtain a clear title to the property.', status: 'Pending', comments: '' },
-                { id: 't2_2', name: 'Conduct title search and resolve title issues.', status: 'Pending', comments: '' },
-                { id: 't2_3', name: 'Verify title insurance details.', status: 'Pending', comments: '' },
-                { id: 't2_4', name: 'Verify chain of title (ownership history).', status: 'Pending', comments: '' },
-            ]
-        },
-        {
-            id: 'c3',
-            name: '3. Financing & Appraisal',
-            icon: '🏦',
-            description: 'Tasks required for loan and valuation.',
-            tasks: [
-                { id: 't3_1', name: 'Coordinate with lender to ensure loan approval and funds disbursement.', status: 'Pending', comments: '' },
-                { id: 't3_2', name: 'Order appraisal.', status: 'Pending', comments: '' },
-                { id: 't3_3', name: 'Review appraisal report and approvals.', status: 'Pending', comments: '' },
-                { id: 't3_4', name: "Verify buyer's financial approval and lender docs.", status: 'Pending', comments: '' },
-                { id: 't3_5', name: "Confirm buyer obtains homeowner's insurance.", status: 'Pending', comments: '' },
-            ]
-        },
-        {
-            id: 'c4',
-            name: '4. Inspections & Negotiations',
-            icon: '🧪',
-            description: 'Tasks that deal with property condition and repairs.',
-            tasks: [
-                { id: 't4_1', name: 'Schedule and conduct home inspection.', status: 'Pending', comments: '' },
-                { id: 't4_2', name: 'Review inspection report; identify issues.', status: 'Pending', comments: '' },
-                { id: 't4_3', name: 'Negotiate repair requests / price adjustments.', status: 'Pending', comments: '' },
-                { id: 't4_4', name: 'Ensure agreed repairs are completed.', status: 'Pending', comments: '' },
-            ]
-        },
-        {
-            id: 'c5',
-            name: '5. Document Review & Compliance',
-            icon: '📜',
-            description: 'Tasks where paperwork and legal docs must be checked.',
-            tasks: [
-                { id: 't5_1', name: 'Prepare and review all closing documents (HUD-1, disclosures, settlement).', status: 'Pending', comments: '' },
-                { id: 't5_2', name: 'Review closing costs and verify accuracy.', status: 'Pending', comments: '' },
-                { id: 't5_3', name: 'Review and sign all closing documents.', status: 'Pending', comments: '' },
-                { id: 't5_4', name: 'Review and approve final settlement statement.', status: 'Pending', comments: '' },
-                { id: 't5_5', name: 'Prepare deed, bill of sale, mortgage note, lien releases, title insurance docs.', status: 'Pending', comments: '' },
-                { id: 't5_6', name: 'Verify HOA fees and property taxes are current.', status: 'Pending', comments: '' },
-            ]
-        },
-        {
-            id: 'c6',
-            name: '6. Final Coordination & Checks',
-            icon: '📆',
-            description: 'Tasks that happen shortly before closing date.',
-            tasks: [
-                { id: 't6_1', name: 'Schedule final walk-through inspection.', status: 'Pending', comments: '' },
-                { id: 't6_2', name: 'Confirm time and location of closing meeting.', status: 'Pending', comments: '' },
-                { id: 't6_3', name: 'Arrange funds for closing (wire, certified check).', status: 'Pending', comments: '' },
-                { id: 't6_4', name: 'Arrange utilities transfer/disconnection.', status: 'Pending', comments: '' },
-                { id: 't6_5', name: 'Notify post office & relevant parties of address change.', status: 'Pending', comments: '' },
-            ]
-        },
-        {
-            id: 'c7',
-            name: '7. Closing Day',
-            icon: '🗝️',
-            description: 'Tasks due on closing day itself.',
-            tasks: [
-                { id: 't7_1', name: 'Attend closing meeting with parties.', status: 'Pending', comments: '' },
-                { id: 't7_2', name: 'Sign all documents and verify signatures.', status: 'Pending', comments: '' },
-                { id: 't7_3', name: 'Disburse funds & record deed.', status: 'Pending', comments: '' },
-                { id: 't7_4', name: 'Obtain keys, garage openers, manuals.', status: 'Pending', comments: '' },
-            ]
-        },
-        {
-            id: 'c8',
-            name: '8. Post-Closing & Client Handoff',
-            icon: '📦',
-            description: 'Tasks after the deal is officially closed.',
-            tasks: [
-                { id: 't8_1', name: 'Provide buyer with warranties, manuals, local service info.', status: 'Pending', comments: '' },
-                { id: 't8_2', name: 'Update your internal records with new ownership.', status: 'Pending', comments: '' },
-                { id: 't8_3', name: 'Follow-up with lender, title, and client.', status: 'Pending', comments: '' },
-                { id: 't8_4', name: 'Referral / thank-you outreach.', status: 'Pending', comments: '' },
-            ]
-        }
-    ]);
+const commonEmojis = ['✅', '🚧', '❗', '📍', '🏠', '🔑', '📝', '📞', '💰', '📅', '🎉'];
 
-    const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['c1']));
-
-    const toggleCategory = (id: string) => {
-        setExpandedCategories(prev => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
-        });
-    };
-
-    const updateTaskStatus = (catId: string, taskId: string, status: 'Pending' | 'Completed' | 'Rejected') => {
-        setCategories(prev => prev.map(cat => {
-            if (cat.id !== catId) return cat;
-            return {
-                ...cat,
-                tasks: cat.tasks.map(t => t.id === taskId ? { ...t, status } : t)
-            };
-        }));
-    };
-
+const ChecklistSection: React.FC<ChecklistSectionProps> = ({
+    categories,
+    expandedCategories,
+    onToggleCategory,
+    onUpdateTaskStatus,
+    onUpdateTaskEmoji,
+    onUpdateTaskComment
+}) => {
     return (
         <div className="space-y-6 text-left">
             {categories.map(cat => (
-                <div key={cat.id} className="border border-slate-100 rounded-3xl overflow-hidden shadow-sm">
+                <div
+                    key={cat.id}
+                    id={`category-${cat.id}`}
+                    className="border border-slate-100 rounded-3xl overflow-hidden shadow-sm scroll-mt-4"
+                >
                     <button
-                        onClick={() => toggleCategory(cat.id)}
+                        onClick={() => onToggleCategory(cat.id)}
                         className={`w-full px-8 py-6 flex items-center justify-between transition-all ${expandedCategories.has(cat.id) ? 'bg-indigo-50/30' : 'bg-white hover:bg-slate-50'}`}
                     >
                         <div className="flex items-center gap-4 text-left">
@@ -476,6 +1057,12 @@ const ChecklistSection: React.FC = () => {
                                     {cat.tasks.filter(t => t.status === 'Completed').length}/{cat.tasks.length}
                                 </span>
                             </div>
+                            {/* Completion badge */}
+                            {cat.tasks.length > 0 && cat.tasks.every(t => t.status === 'Completed') && (
+                                <span className="px-3 py-1 bg-emerald-100 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-wider border border-emerald-200">
+                                    ✓ Complete
+                                </span>
+                            )}
                             <i className={`fa-solid fa-chevron-down text-slate-400 transition-transform duration-300 ${expandedCategories.has(cat.id) ? 'rotate-180' : ''}`}></i>
                         </div>
                     </button>
@@ -485,6 +1072,7 @@ const ChecklistSection: React.FC = () => {
                             <table className="w-full text-left">
                                 <thead className="bg-slate-50/50 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
                                     <tr>
+                                        <th className="px-8 py-3 w-16 text-center">Icon</th>
                                         <th className="px-8 py-3 w-16">Status</th>
                                         <th className="px-8 py-3">Task Description</th>
                                         <th className="px-8 py-3">Comments</th>
@@ -494,8 +1082,33 @@ const ChecklistSection: React.FC = () => {
                                 <tbody className="divide-y divide-slate-50">
                                     {cat.tasks.map(task => (
                                         <tr key={task.id} className="group hover:bg-slate-50/30">
-                                            <td className="px-8 py-4">
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${task.status === 'Completed' ? 'bg-emerald-100 border-emerald-500 text-emerald-600' :
+                                            <td className="px-8 py-6">
+                                                <div className="relative flex justify-center group/emoji">
+                                                    <button className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-lg hover:border-indigo-500 transition-all">
+                                                        {task.emoji || '+'}
+                                                    </button>
+                                                    {/* Simple emoji picker on hover */}
+                                                    <div className="absolute top-0 left-full ml-2 z-20 hidden group-hover/emoji:flex items-center gap-1 bg-white p-2 rounded-xl shadow-xl border border-slate-100 animate-in fade-in slide-in-from-left-2">
+                                                        {commonEmojis.map(emoji => (
+                                                            <button
+                                                                key={emoji}
+                                                                onClick={() => onUpdateTaskEmoji?.(cat.id, task.id, emoji)}
+                                                                className="w-8 h-8 rounded-lg hover:bg-indigo-50 flex items-center justify-center transition-colors"
+                                                            >
+                                                                {emoji}
+                                                            </button>
+                                                        ))}
+                                                        <button
+                                                            onClick={() => onUpdateTaskEmoji?.(cat.id, task.id, '')}
+                                                            className="w-8 h-8 rounded-lg hover:bg-rose-50 flex items-center justify-center text-rose-500 transition-colors"
+                                                        >
+                                                            <i className="fa-solid fa-trash-can text-[10px]"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 mx-auto ${task.status === 'Completed' ? 'bg-emerald-100 border-emerald-500 text-emerald-600' :
                                                     task.status === 'Rejected' ? 'bg-rose-100 border-rose-500 text-rose-600' :
                                                         'bg-orange-50 border-orange-200 text-orange-400'
                                                     }`}>
@@ -505,38 +1118,61 @@ const ChecklistSection: React.FC = () => {
                                                         } text-xs`}></i>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-4">
-                                                <p className={`text-sm font-bold ${task.status === 'Completed' ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
-                                                    {task.name}
-                                                </p>
+                                            <td className="px-8 py-6">
+                                                <div className="flex flex-col gap-1">
+                                                    <p className={`text-sm font-bold ${task.status === 'Completed' ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
+                                                        {task.name}
+                                                    </p>
+                                                    {task.comments && (
+                                                        <div className="relative group/taskcomment">
+                                                            <div className="flex items-center gap-1.5 text-indigo-500 animate-in fade-in slide-in-from-left-1 duration-300 cursor-help">
+                                                                <i className="fa-solid fa-comment-dots text-[10px]"></i>
+                                                                <span className="text-[10px] font-black uppercase tracking-widest">Commented</span>
+                                                            </div>
+
+                                                            {/* Hover Overlay for Task Comment */}
+                                                            <div className="absolute bottom-full left-0 mb-3 w-72 bg-slate-900 text-white rounded-2xl shadow-2xl p-4 hidden group-hover/taskcomment:block animate-in fade-in slide-in-from-bottom-2 duration-200 z-[60]">
+                                                                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-700/50">
+                                                                    <i className="fa-solid fa-quote-left text-indigo-400 text-xs"></i>
+                                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Task Note</span>
+                                                                </div>
+                                                                <p className="text-xs font-medium leading-relaxed text-slate-200">
+                                                                    {task.comments}
+                                                                </p>
+                                                                <div className="absolute -bottom-1.5 left-6 w-3 h-3 bg-slate-900 rotate-45"></div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </td>
-                                            <td className="px-8 py-4">
+                                            <td className="px-8 py-6">
                                                 <input
                                                     type="text"
-                                                    defaultValue={task.comments}
+                                                    value={task.comments}
+                                                    onChange={(e) => onUpdateTaskComment?.(cat.id, task.id, e.target.value)}
                                                     placeholder="Task notes..."
-                                                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                                                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all font-medium text-slate-700 hover:bg-white"
                                                 />
                                             </td>
-                                            <td className="px-8 py-4 text-right">
+                                            <td className="px-8 py-6 text-right">
                                                 <div className="flex items-center justify-end gap-1">
                                                     <button
-                                                        onClick={() => updateTaskStatus(cat.id, task.id, 'Completed')}
-                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${task.status === 'Completed' ? 'bg-emerald-500 text-white' : 'bg-white border border-slate-200 text-slate-400 hover:border-emerald-500 hover:text-emerald-500'}`}
+                                                        onClick={() => onUpdateTaskStatus(cat.id, task.id, 'Completed')}
+                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${task.status === 'Completed' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-white border border-slate-200 text-slate-400 hover:border-emerald-500 hover:text-emerald-500'}`}
                                                         title="Complete"
                                                     >
                                                         <i className="fa-solid fa-check text-[10px]"></i>
                                                     </button>
                                                     <button
-                                                        onClick={() => updateTaskStatus(cat.id, task.id, 'Rejected')}
-                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${task.status === 'Rejected' ? 'bg-rose-500 text-white' : 'bg-white border border-slate-200 text-slate-400 hover:border-rose-500 hover:text-rose-500'}`}
+                                                        onClick={() => onUpdateTaskStatus(cat.id, task.id, 'Rejected')}
+                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${task.status === 'Rejected' ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20' : 'bg-white border border-slate-200 text-slate-400 hover:border-rose-500 hover:text-rose-500'}`}
                                                         title="Reject"
                                                     >
                                                         <i className="fa-solid fa-xmark text-[10px]"></i>
                                                     </button>
                                                     <button
-                                                        onClick={() => updateTaskStatus(cat.id, task.id, 'Pending')}
-                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${task.status === 'Pending' ? 'bg-orange-500 text-white' : 'bg-white border border-slate-200 text-slate-400 hover:border-orange-500 hover:text-orange-500'}`}
+                                                        onClick={() => onUpdateTaskStatus(cat.id, task.id, 'Pending')}
+                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${task.status === 'Pending' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20' : 'bg-white border border-slate-200 text-slate-400 hover:border-orange-500 hover:text-orange-500'}`}
                                                         title="Set Pending"
                                                     >
                                                         <i className="fa-solid fa-clock text-[10px]"></i>
