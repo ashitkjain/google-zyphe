@@ -6,6 +6,8 @@ interface TaskBoardProps {
     tasks: CRMTask[];
     reminderRules?: ReminderRule[];
     onUpdateRule?: (ruleId: string, updates: Partial<ReminderRule>) => void;
+    onSaveRules?: () => Promise<void>;
+    onDiscardChanges?: () => void;
 }
 
 const formatDate = (timestamp: any) => {
@@ -14,7 +16,7 @@ const formatDate = (timestamp: any) => {
     return date.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
-const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, reminderRules = [], onUpdateRule }) => {
+const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, reminderRules = [], onUpdateRule, onSaveRules, onDiscardChanges }) => {
     const [activeTab, setActiveTab] = useState<'tasks' | 'rules'>('tasks');
 
     return (
@@ -23,22 +25,14 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, reminderRules = [], onUpda
             <div className="bg-white border-b border-slate-200/60 shadow-sm relative z-20">
                 <div className="p-10 pb-0">
                     <div className="flex items-center justify-between mb-6">
-                        <div>
-                            <h2 className="text-3xl font-black text-slate-900 tracking-tight">
-                                {activeTab === 'tasks' ? 'Today\'s Focus' : 'Reminder Rules'}
-                            </h2>
-                            <p className="text-sm text-slate-500 font-medium mt-1">
-                                {activeTab === 'tasks'
-                                    ? 'Your priority tasks and follow-ups'
-                                    : 'Configure automated reminders and notifications'}
-                            </p>
-                        </div>
                         <div className="flex items-center gap-4">
                             {activeTab === 'tasks' && (
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 animate-pulse flex items-center gap-2">
                                     <i className="fa-solid fa-brain text-indigo-500"></i> AI Priority Sorting Active
                                 </span>
                             )}
+                        </div>
+                        <div className="flex items-center gap-4">
                             {activeTab === 'tasks' && (
                                 <button className="bg-slate-900 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10">
                                     Add Task
@@ -48,39 +42,31 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, reminderRules = [], onUpda
                     </div>
 
                     {/* Tab Navigation */}
-                    <div className="flex gap-2 border-b border-slate-200">
+                    <div className="flex gap-2">
                         <button
                             onClick={() => setActiveTab('tasks')}
-                            className={`px-6 py-4 font-bold text-sm relative transition-all ${activeTab === 'tasks'
-                                    ? 'text-indigo-600'
-                                    : 'text-slate-500 hover:text-slate-700'
+                            className={`px-6 py-3 text-sm font-bold transition-all border-b-2 ${activeTab === 'tasks'
+                                    ? 'text-indigo-600 border-indigo-600'
+                                    : 'text-slate-500 border-transparent hover:text-slate-700'
                                 }`}
                         >
-                            <i className="fa-solid fa-check-double mr-2"></i>
                             Tasks ({tasks.length})
-                            {activeTab === 'tasks' && (
-                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full" />
-                            )}
                         </button>
                         <button
                             onClick={() => setActiveTab('rules')}
-                            className={`px-6 py-4 font-bold text-sm relative transition-all ${activeTab === 'rules'
-                                    ? 'text-indigo-600'
-                                    : 'text-slate-500 hover:text-slate-700'
+                            className={`px-6 py-3 text-sm font-bold transition-all border-b-2 ${activeTab === 'rules'
+                                    ? 'text-indigo-600 border-indigo-600'
+                                    : 'text-slate-500 border-transparent hover:text-slate-700'
                                 }`}
                         >
-                            <i className="fa-solid fa-bell mr-2"></i>
-                            Reminder Rules ({reminderRules.length})
-                            {activeTab === 'rules' && (
-                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full" />
-                            )}
+                            Reminder Rules ({reminderRules.filter(r => r.enabled).length})
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* Tab Content */}
-            {activeTab === 'tasks' ? (
+            {/* Tasks View */}
+            {activeTab === 'tasks' && (
                 <div className="flex-1 p-10 max-w-5xl mx-auto w-full overflow-y-auto">
                     <div className="space-y-6">
                         {tasks.map((task) => (
@@ -103,22 +89,17 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, reminderRules = [], onUpda
                                 </div>
                             </div>
                         ))}
-
-                        {tasks.length === 0 && (
-                            <div className="flex flex-col items-center justify-center py-20 text-center">
-                                <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-4">
-                                    <i className="fa-solid fa-check-circle text-4xl text-emerald-500"></i>
-                                </div>
-                                <h3 className="text-2xl font-black text-slate-900 mb-2">You're all caught up!</h3>
-                                <p className="text-sm text-slate-500">No pending tasks at the moment</p>
-                            </div>
-                        )}
                     </div>
                 </div>
-            ) : (
+            )}
+
+            {/* Reminder Rules View */}
+            {activeTab === 'rules' && onUpdateRule && (
                 <ReminderRulesManager
                     rules={reminderRules}
-                    onUpdateRule={onUpdateRule || (() => { })}
+                    onUpdateRule={onUpdateRule}
+                    onSaveRules={onSaveRules}
+                    onDiscardChanges={onDiscardChanges}
                 />
             )}
         </div>

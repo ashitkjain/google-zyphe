@@ -26,7 +26,7 @@ import {
   deleteUser,
   sendPasswordResetEmail
 } from "firebase/auth";
-import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult, InvestmentResearchResult, CommMessage, FunnelStage, LeadHealth, Lead, CRMTask, CommTemplate, PipelineNote } from "../types";
+import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult, InvestmentResearchResult, CommMessage, FunnelStage, LeadHealth, Lead, CRMTask, CommTemplate, PipelineNote, ReminderRule } from "../types";
 
 /**
  * FIRESTORE SECURITY RULES (REQUIRED):
@@ -89,14 +89,20 @@ import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, User
       }
     }
 
-    // 3. ANONYMOUS LOGGING
-    match /user_activity/{activityId} {
-      allow create: if true;
-      allow read, update, delete: if false; 
+    // 4. CRM DATA - LEADS, TASKS, TEMPLATES, NOTES
+    match /leads/{leadId} {
+      allow read, write: if request.auth != null && (resource.data.realtorId == request.auth.uid || request.resource.data.realtorId == request.auth.uid);
     }
-    
-    match /mail/{mailId} {
-      allow create: if request.auth != null;
+    match /tasks/{taskId} {
+      allow read, write: if request.auth != null && (resource.data.realtorId == request.auth.uid || request.resource.data.realtorId == request.auth.uid);
+    }
+    match /templates/{templateId} {
+      allow read, write: if request.auth != null && (resource.data.realtorId == request.auth.uid || request.resource.data.realtorId == request.auth.uid);
+    }
+
+    // 5. REMINDER RULES
+    match /reminderRules/{ruleId} {
+      allow read, write: if request.auth != null;
     }
   }
  *   }
@@ -776,6 +782,57 @@ export const getWhiteboard = async (userId: string) => {
   } catch (error) {
     handleFirestoreError(error, "getWhiteboard");
     return null;
+  }
+};
+
+// ===== REMINDER RULES =====
+export const getReminderRules = async (realtorId: string) => {
+  if (!db) return [];
+  try {
+    const q = query(collection(db, "reminderRules"), where("realtorId", "==", realtorId));
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReminderRule));
+  } catch (error) {
+    handleFirestoreError(error, "getReminderRules");
+    return [];
+  }
+};
+
+export const updateReminderRule = async (ruleId: string, updates: Partial<ReminderRule>) => {
+  if (!db) return false;
+  try {
+    const ruleRef = doc(db, "reminderRules", ruleId);
+    await setDoc(ruleRef, {
+      ...updates,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "updateReminderRule");
+    return false;
+  }
+};
+
+export const seedReminderRules = async (realtorId: string, rules: Omit<ReminderRule, 'realtorId'>[]) => {
+  if (!db) return false;
+  try {
+    const batch = writeBatch(db);
+
+    rules.forEach(rule => {
+      const docRef = doc(collection(db, "reminderRules"), rule.id);
+      batch.set(docRef, {
+        ...rule,
+        realtorId,
+        createdAt: serverTimestamp()
+      }, { merge: true });
+    });
+
+    await batch.commit();
+    console.log("[Seeding] Reminder rules successfully committed to Firestore.");
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "seedReminderRules");
+    return false;
   }
 };
 

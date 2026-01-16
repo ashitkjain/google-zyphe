@@ -1,271 +1,292 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ReminderRule, ReminderRuleCategory, ReminderRuleUrgency } from '../../types';
 
 interface ReminderRulesManagerProps {
     rules: ReminderRule[];
     onUpdateRule: (ruleId: string, updates: Partial<ReminderRule>) => void;
+    onSaveRules?: () => Promise<void>;
+    onDiscardChanges?: () => void;
 }
 
-const ReminderRulesManager: React.FC<ReminderRulesManagerProps> = ({ rules, onUpdateRule }) => {
-    const [selectedCategory, setSelectedCategory] = useState<ReminderRuleCategory | 'all'>('all');
+type EditingField = 'trigger' | 'condition' | 'action' | 'urgency' | null;
+
+const ReminderRulesManager: React.FC<ReminderRulesManagerProps> = ({ rules, onUpdateRule, onSaveRules, onDiscardChanges }) => {
+    const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['lead', 'buyer', 'seller', 'relationship']));
     const [editingRule, setEditingRule] = useState<string | null>(null);
-    const [expandedRule, setExpandedRule] = useState<string | null>(null);
+    const [editingField, setEditingField] = useState<EditingField>(null);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     const categories = [
-        { id: 'all', label: 'All Rules', icon: 'fa-list-check', count: rules.length },
-        { id: 'lead', label: 'Lead & Prospecting', icon: 'fa-user-plus', count: rules.filter(r => r.category === 'lead').length },
-        { id: 'buyer', label: 'Active Buyer Deal', icon: 'fa-handshake', count: rules.filter(r => r.category === 'buyer').length },
-        { id: 'seller', label: 'Listing & Seller', icon: 'fa-house-circle-check', count: rules.filter(r => r.category === 'seller').length },
-        { id: 'relationship', label: 'Client Relationship', icon: 'fa-heart', count: rules.filter(r => r.category === 'relationship').length }
+        { id: 'lead', label: 'Lead & Prospecting', description: 'Speed-to-lead & conversion', icon: 'fa-user-plus', color: 'emerald' },
+        { id: 'buyer', label: 'Active Buyer Deal', description: 'Prevent deal stall or loss', icon: 'fa-handshake', color: 'blue' },
+        { id: 'seller', label: 'Listing & Seller Side', description: 'Reduce days on market & pricing mistakes', icon: 'fa-house-circle-check', color: 'purple' },
+        { id: 'relationship', label: 'Client Relationship & Long-Term Value', description: 'Referrals & repeat business', icon: 'fa-heart', color: 'pink' }
     ];
 
-    const filteredRules = selectedCategory === 'all'
-        ? rules
-        : rules.filter(rule => rule.category === selectedCategory);
+    const urgencyOptions: ReminderRuleUrgency[] = ['high', 'medium', 'low'];
 
-    const getUrgencyColor = (urgency: ReminderRuleUrgency) => {
-        switch (urgency) {
-            case 'high': return 'bg-rose-50 text-rose-600 border-rose-200';
-            case 'medium': return 'bg-amber-50 text-amber-600 border-amber-200';
-            case 'low': return 'bg-indigo-50 text-indigo-600 border-indigo-200';
+    const getCategoryValues = (category: ReminderRuleCategory) => {
+        const categoryRules = rules.filter(r => r.category === category);
+        return {
+            triggers: Array.from(new Set(categoryRules.map(r => r.trigger))).sort(),
+            conditions: Array.from(new Set(categoryRules.map(r => r.condition).filter(c => c))).sort(),
+            actions: Array.from(new Set(categoryRules.map(r => r.suggested_action))).sort()
+        };
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setEditingRule(null);
+                setEditingField(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const toggleCategory = (categoryId: string) => {
+        const newExpanded = new Set(expandedCategories);
+        if (newExpanded.has(categoryId)) {
+            newExpanded.delete(categoryId);
+        } else {
+            newExpanded.add(categoryId);
+        }
+        setExpandedCategories(newExpanded);
+    };
+
+    const getCategoryColor = (color: string) => {
+        const colors: Record<string, string> = {
+            emerald: 'from-emerald-500 to-emerald-600',
+            blue: 'from-blue-500 to-blue-600',
+            purple: 'from-purple-500 to-purple-600',
+            pink: 'from-pink-500 to-pink-600'
+        };
+        return colors[color] || colors.emerald;
+    };
+
+    const handleFieldClick = (ruleId: string, field: EditingField, event: React.MouseEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setEditingRule(ruleId);
+        setEditingField(field);
+    };
+
+    const handleFieldUpdate = (ruleId: string, field: string, value: string) => {
+        const updates: Partial<ReminderRule> = {};
+        if (field === 'trigger') updates.trigger = value;
+        else if (field === 'condition') updates.condition = value;
+        else if (field === 'action') updates.suggested_action = value;
+        else if (field === 'urgency') updates.urgency = value as ReminderRuleUrgency;
+
+        onUpdateRule(ruleId, updates);
+        setHasUnsavedChanges(true);
+        setEditingRule(null);
+        setEditingField(null);
+    };
+
+    const handleSave = async () => {
+        if (!onSaveRules || isSaving) return;
+        setIsSaving(true);
+        try {
+            await onSaveRules();
+            setHasUnsavedChanges(false);
+        } catch (error) {
+            console.error('Failed to save rules:', error);
+        } finally {
+            setIsSaving(false);
         }
     };
 
-    const getCategoryColor = (category: ReminderRuleCategory) => {
-        switch (category) {
-            case 'lead': return 'bg-emerald-50 text-emerald-700';
-            case 'buyer': return 'bg-blue-50 text-blue-700';
-            case 'seller': return 'bg-purple-50 text-purple-700';
-            case 'relationship': return 'bg-pink-50 text-pink-700';
+    const handleDiscard = () => {
+        if (!onDiscardChanges) return;
+        const confirmed = confirm('Discard all unsaved changes?\n\nThis will revert all rules to their last saved state.');
+        if (confirmed) {
+            onDiscardChanges();
+            setHasUnsavedChanges(false);
         }
     };
 
-    const handleToggleRule = (ruleId: string, enabled: boolean) => {
-        onUpdateRule(ruleId, { enabled });
+    const getUrgencyLabel = (urgency: ReminderRuleUrgency) => {
+        return urgency.charAt(0).toUpperCase() + urgency.slice(1) + ' Priority';
     };
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 overflow-hidden">
-            {/* Header */}
-            <div className="p-10 bg-white border-b border-slate-200/60 shadow-sm relative z-20">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Reminder Rules</h2>
-                        <p className="text-sm text-slate-500 font-medium">Configure automated task triggers and notifications</p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo100">
-                            <i className="fa-solid fa-robot text-indigo-600"></i>
-                            <span className="text-xs font-bold text-indigo-900">{rules.filter(r => r.enabled).length} Active Rules</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div className="flex-1 flex flex-col h-full bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 overflow-hidden relative">
+            {/* Floating Action Buttons */}
+            {hasUnsavedChanges && (
+                <div className="absolute top-4 right-4 z-30 flex gap-3">
+                    <button
+                        onClick={handleDiscard}
+                        className="px-4 py-3 rounded-xl font-bold text-sm shadow-lg transition-all bg-slate-200 text-slate-700 hover:bg-red-100 hover:text-red-700 hover:shadow-xl active:scale-95"
+                        title="Discard changes"
+                    >
+                        <i className="fa-solid fa-times"></i>
+                    </button>
 
-            {/* Category Filters */}
-            <div className="px-10 py-6 bg-white border-b border-slate-100">
-                <div className="flex gap-3 overflow-x-auto pb-2">
-                    {categories.map((cat) => (
-                        <button
-                            key={cat.id}
-                            onClick={() => setSelectedCategory(cat.id as any)}
-                            className={`flex items-center gap-3 px-6 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${selectedCategory === cat.id
-                                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/30'
-                                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
-                                }`}
-                        >
-                            <i className={`fa-solid ${cat.icon}`}></i>
-                            <span>{cat.label}</span>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-black ${selectedCategory === cat.id ? 'bg-white/20' : 'bg-slate-200 text-slate-700'
-                                }`}>
-                                {cat.count}
-                            </span>
-                        </button>
-                    ))}
+                    <button
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        className={`px-6 py-3 rounded-xl font-bold text-sm shadow-lg transition-all ${isSaving
+                                ? 'bg-slate-400 text-white cursor-not-allowed'
+                                : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-xl active:scale-95'
+                            }`}
+                    >
+                        {isSaving ? (
+                            <>
+                                <i className="fa-solid fa-spinner fa-spin mr-2"></i>
+                                Saving...
+                            </>
+                        ) : (
+                            <>
+                                <i className="fa-solid fa-save mr-2"></i>
+                                Save Changes
+                            </>
+                        )}
+                    </button>
                 </div>
-            </div>
+            )}
 
-            {/* Rules List */}
+            {/* Rules by Category */}
             <div className="flex-1 overflow-y-auto p-10">
-                <div className="max-w-6xl mx-auto space-y-4">
-                    {filteredRules.map((rule, index) => {
-                        const isExpanded = expandedRule === rule.id;
-                        const isEditing = editingRule === rule.id;
+                <div className="max-w-5xl mx-auto space-y-6">
+                    {categories.map((category) => {
+                        const categoryRules = rules.filter(r => r.category === category.id);
+                        const isExpanded = expandedCategories.has(category.id);
 
                         return (
-                            <div
-                                key={rule.id}
-                                className={`bg-white rounded-2xl border transition-all ${isExpanded
-                                        ? 'border-indigo-300 shadow-xl shadow-indigo-100/50'
-                                        : 'border-slate-200 hover:border-indigo-200 shadow-sm hover:shadow-md'
-                                    }`}
-                            >
-                                {/* Rule Header */}
-                                <div
-                                    className="p-6 cursor-pointer"
-                                    onClick={() => setExpandedRule(isExpanded ? null : rule.id)}
+                            <div key={category.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                <button
+                                    onClick={() => toggleCategory(category.id)}
+                                    className="w-full p-6 flex items-center justify-between hover:bg-slate-50 transition-colors"
                                 >
-                                    <div className="flex items-start gap-4">
-                                        {/* Toggle Switch */}
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleToggleRule(rule.id, !rule.enabled);
-                                            }}
-                                            className={`mt-1 w-12 h-6 rounded-full transition-all relative ${rule.enabled ? 'bg-gradient-to-r from-emerald-500 to-emerald-600' : 'bg-slate-300'
-                                                }`}
-                                        >
-                                            <div
-                                                className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow-sm ${rule.enabled ? 'left-7' : 'left-1'
-                                                    }`}
-                                            />
-                                        </button>
-
-                                        {/* Rule Number & Content */}
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-3 mb-2">
-                                                <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 flex items-center justify-center text-xs font-black text-indigo-700">
-                                                    {index + 1}
-                                                </span>
-                                                <h3 className={`text-lg font-black tracking-tight ${rule.enabled ? 'text-slate-900' : 'text-slate-400'}`}>
-                                                    {rule.name}
-                                                </h3>
-                                            </div>
-
-                                            {/* Quick Info */}
-                                            <div className="flex items-center gap-3 flex-wrap">
-                                                <span className={`px-3 py-1 rounded-lg text-xs font-bold border ${getCategoryColor(rule.category)}`}>
-                                                    {rule.category.toUpperCase()}
-                                                </span>
-                                                <span className={`px-3 py-1 rounded-lg text-xs font-bold border ${getUrgencyColor(rule.urgency)}`}>
-                                                    {rule.urgency.toUpperCase()} PRIORITY
-                                                </span>
-                                                <span className="text-xs text-slate-500 font-medium">
-                                                    <i className="fa-solid fa-bolt text-amber-500 mr-1"></i>
-                                                    {rule.trigger}
-                                                </span>
-                                            </div>
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${getCategoryColor(category.color)} flex items-center justify-center shadow-lg`}>
+                                            <i className={`fa-solid ${category.icon} text-white text-xl`}></i>
                                         </div>
-
-                                        {/* Expand Icon */}
+                                        <div className="text-left">
+                                            <h3 className="text-lg font-black text-slate-900">{category.label}</h3>
+                                            <p className="text-xs text-slate-500 font-medium">{category.description}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-xs font-bold text-slate-400">
+                                            {categoryRules.filter(r => r.enabled).length} / {categoryRules.length} active
+                                        </span>
                                         <i className={`fa-solid fa-chevron-down text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}></i>
                                     </div>
-                                </div>
+                                </button>
 
-                                {/* Expanded Details */}
                                 {isExpanded && (
-                                    <div className="px-6 pb-6 border-t border-slate-100 pt-6 space-y-6 animate-in fade-in slide-in-from-top-2 duration-200">
-                                        {/* Trigger & Condition */}
-                                        <div className="grid grid-cols-2 gap-6">
-                                            <div>
-                                                <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
-                                                    <i className="fa-solid fa-bolt text-amber-500 mr-2"></i>Trigger
-                                                </label>
-                                                {isEditing ? (
-                                                    <input
-                                                        type="text"
-                                                        value={rule.trigger}
-                                                        onChange={(e) => onUpdateRule(rule.id, { trigger: e.target.value })}
-                                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                                    />
-                                                ) : (
-                                                    <p className="text-sm font-semibold text-slate-900 bg-slate-50 px-4 py-3 rounded-xl">{rule.trigger}</p>
-                                                )}
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
-                                                    <i className="fa-solid fa-clock text-indigo-500 mr-2"></i>Condition
-                                                </label>
-                                                {isEditing ? (
-                                                    <input
-                                                        type="text"
-                                                        value={rule.condition}
-                                                        onChange={(e) => onUpdateRule(rule.id, { condition: e.target.value })}
-                                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                                    />
-                                                ) : (
-                                                    <p className="text-sm font-semibold text-slate-900 bg-slate-50 px-4 py-3 rounded-xl">
-                                                        {rule.condition || 'N/A'}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Suggested Action */}
-                                        <div>
-                                            <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
-                                                <i className="fa-solid fa-clipboard-check text-emerald-500 mr-2"></i>Suggested Action
-                                            </label>
-                                            {isEditing ? (
-                                                <input
-                                                    type="text"
-                                                    value={rule.suggested_action}
-                                                    onChange={(e) => onUpdateRule(rule.id, { suggested_action: e.target.value })}
-                                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                                />
-                                            ) : (
-                                                <p className="text-sm font-semibold text-slate-900 bg-gradient-to-r from-emerald-50 to-teal-50 px-4 py-3 rounded-xl border border-emerald-200">
-                                                    {rule.suggested_action}
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        {/* Suggested Message */}
-                                        <div>
-                                            <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
-                                                <i className="fa-solid fa-message text-blue-500 mr-2"></i>Suggested Message Template
-                                            </label>
-                                            {isEditing ? (
-                                                <textarea
-                                                    value={rule.suggested_message}
-                                                    onChange={(e) => onUpdateRule(rule.id, { suggested_message: e.target.value })}
-                                                    rows={4}
-                                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-                                                />
-                                            ) : (
-                                                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 rounded-xl border border-blue-200">
-                                                    <p className="text-sm font-medium text-slate-700 italic leading-relaxed">
-                                                        "{rule.suggested_message}"
-                                                    </p>
-                                                    <p className="text-xs text-slate-500 mt-2">
-                                                        Variables: <code className="bg-white px-2 py-0.5 rounded text-indigo-600">{'{firstName}'}</code>,{' '}
-                                                        <code className="bg-white px-2 py-0.5 rounded text-indigo-600">{'{propertyAddress}'}</code>,{' '}
-                                                        <code className="bg-white px-2 py-0.5 rounded text-indigo-600">{'{neighborhood}'}</code>
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Action Buttons */}
-                                        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-                                            <button
-                                                onClick={() => setEditingRule(isEditing ? null : rule.id)}
-                                                className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${isEditing
-                                                        ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20'
-                                                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                                                    }`}
+                                    <div className="border-t border-slate-100 py-3 px-6 space-y-1">
+                                        {categoryRules.map((rule) => (
+                                            <label
+                                                key={rule.id}
+                                                className="flex items-center gap-3 py-2 px-2 rounded hover:bg-slate-50 transition-all cursor-pointer group"
                                             >
-                                                <i className={`fa-solid ${isEditing ? 'fa-check' : 'fa-pen'} mr-2`}></i>
-                                                {isEditing ? 'Save Changes' : 'Edit Rule'}
-                                            </button>
-                                        </div>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={rule.enabled}
+                                                    onChange={(e) => {
+                                                        onUpdateRule(rule.id, { enabled: e.target.checked });
+                                                        setHasUnsavedChanges(true);
+                                                    }}
+                                                    className="w-4 h-4 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500 flex-shrink-0"
+                                                />
+                                                <div className="flex-1 text-sm text-slate-700 leading-snug relative">
+                                                    <span
+                                                        onClick={(e) => handleFieldClick(rule.id, 'trigger', e)}
+                                                        className="font-semibold text-slate-900 cursor-pointer hover:bg-indigo-50 px-1 rounded transition-colors"
+                                                    >
+                                                        {rule.trigger}
+                                                    </span>
+
+                                                    {rule.condition && (
+                                                        <>
+                                                            {' '}<span className="text-slate-500">when</span>{' '}
+                                                            <span
+                                                                onClick={(e) => handleFieldClick(rule.id, 'condition', e)}
+                                                                className="font-medium text-slate-800 cursor-pointer hover:bg-amber-50 px-1 rounded transition-colors"
+                                                            >
+                                                                {rule.condition}
+                                                            </span>
+                                                        </>
+                                                    )}
+
+                                                    {' '}<span className="text-slate-500">→</span>{' '}
+                                                    <span
+                                                        onClick={(e) => handleFieldClick(rule.id, 'action', e)}
+                                                        className="font-semibold text-indigo-600 cursor-pointer hover:bg-indigo-50 px-1 rounded transition-colors"
+                                                    >
+                                                        {rule.suggested_action}
+                                                    </span>
+
+                                                    {editingRule === rule.id && editingField && (
+                                                        <div ref={dropdownRef} className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto min-w-[300px]">
+                                                            {editingField === 'trigger' && getCategoryValues(rule.category).triggers.map((trigger) => (
+                                                                <button
+                                                                    key={trigger}
+                                                                    onClick={() => handleFieldUpdate(rule.id, 'trigger', trigger)}
+                                                                    className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-50 transition-colors ${rule.trigger === trigger ? 'bg-indigo-100 font-semibold' : ''}`}
+                                                                >
+                                                                    {trigger}
+                                                                </button>
+                                                            ))}
+
+                                                            {editingField === 'condition' && getCategoryValues(rule.category).conditions.map((condition) => (
+                                                                <button
+                                                                    key={condition}
+                                                                    onClick={() => handleFieldUpdate(rule.id, 'condition', condition)}
+                                                                    className={`w-full text-left px-4 py-2 text-sm hover:bg-amber-50 transition-colors ${rule.condition === condition ? 'bg-amber-100 font-semibold' : ''}`}
+                                                                >
+                                                                    {condition}
+                                                                </button>
+                                                            ))}
+
+                                                            {editingField === 'action' && getCategoryValues(rule.category).actions.map((action) => (
+                                                                <button
+                                                                    key={action}
+                                                                    onClick={() => handleFieldUpdate(rule.id, 'action', action)}
+                                                                    className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-50 transition-colors ${rule.suggested_action === action ? 'bg-indigo-100 font-semibold' : ''}`}
+                                                                >
+                                                                    {action}
+                                                                </button>
+                                                            ))}
+
+                                                            {editingField === 'urgency' && urgencyOptions.map((urgency) => (
+                                                                <button
+                                                                    key={urgency}
+                                                                    onClick={() => handleFieldUpdate(rule.id, 'urgency', urgency)}
+                                                                    className={`w-full text-left px-4 py-2 text-sm hover:bg-rose-50 transition-colors ${rule.urgency === urgency ? 'bg-rose-100 font-semibold' : ''}`}
+                                                                >
+                                                                    {getUrgencyLabel(urgency)}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <span
+                                                    onClick={(e) => handleFieldClick(rule.id, 'urgency', e)}
+                                                    className={`flex-shrink-0 px-2 py-0.5 text-xs font-bold rounded-full cursor-pointer transition-colors ${rule.urgency === 'high'
+                                                            ? 'bg-rose-100 text-rose-700 hover:bg-rose-200'
+                                                            : rule.urgency === 'medium'
+                                                                ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                                                                : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                                                        }`}
+                                                >
+                                                    {getUrgencyLabel(rule.urgency)}
+                                                </span>
+                                            </label>
+                                        ))}
                                     </div>
                                 )}
                             </div>
                         );
                     })}
                 </div>
-
-                {filteredRules.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-                            <i className="fa-solid fa-inbox text-3xl text-slate-300"></i>
-                        </div>
-                        <h3 className="text-xl font-black text-slate-900 mb-2">No rules in this category</h3>
-                        <p className="text-sm text-slate-500">Try selecting a different category</p>
-                    </div>
-                )}
             </div>
         </div>
     );

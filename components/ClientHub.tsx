@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getLeads, getTasks, getTemplates, getPipelineNotes, seedMockData, saveUserProfile, getUserProfile, deleteUserAccount, resetPassword, updateLead, getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, addPipelineNote, updatePipelineNote, deletePipelineNote } from '../services/firebaseService';
+import { getLeads, getTasks, getTemplates, getPipelineNotes, seedMockData, saveUserProfile, getUserProfile, deleteUserAccount, resetPassword, updateLead, getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, addPipelineNote, updatePipelineNote, deletePipelineNote, getReminderRules, updateReminderRule, seedReminderRules } from '../services/firebaseService';
 import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates } from '../services/mockDataService';
 import { getDefaultReminderRules } from '../services/reminderRulesService';
 import { UserProfile, Lead, LeadNote, CRMTask, CommMessage, CommTemplate, FunnelStage, PipelineNote, LeadStatus, ReminderRule } from '../types';
@@ -81,10 +81,23 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             let _templates = await getTemplates(realtorId);
             let _notes = await getPipelineNotes(realtorId);
 
-            // Initialize reminder rules with defaults
-            const defaultRules = getDefaultReminderRules();
-            const rulesWithRealtorId = defaultRules.map(rule => ({ ...rule, realtorId }));
-            setReminderRules(rulesWithRealtorId);
+            // 2. Load reminder rules from APP (not database)
+            const appRules = getDefaultReminderRules().map(rule => ({
+                ...rule,
+                realtorId
+            }));
+
+            // 3. Try to fetch any customized rules from database
+            let dbRules = await getReminderRules(realtorId);
+
+            // 4. Merge: Database rules override app rules for the same ID
+            const mergedRules = appRules.map(appRule => {
+                const dbRule = dbRules.find(r => r.id === appRule.id);
+                return dbRule || appRule; // Use DB version if exists, otherwise app default
+            });
+
+            setReminderRules(mergedRules);
+            console.log(`[ClientHub] Loaded ${mergedRules.length} rules (${dbRules.length} from DB, ${mergedRules.length - dbRules.length} from app defaults)`);
 
             // 2. Define Mock Data (Always available for potential seeding)
             console.log("[ClientHub] Seeding initial mock data...");
@@ -688,9 +701,78 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     <TaskBoard
                         tasks={tasks}
                         reminderRules={reminderRules}
-                        onUpdateRule={(ruleId, updates) => {
+                        onUpdateRule={async (ruleId, updates) => {
+                            // Optimistic update - always apply locally
                             setReminderRules(prev => prev.map(r => r.id === ruleId ? { ...r, ...updates } : r));
-                            // TODO: Persist to Firestore once backend is ready
+
+                            // Try to persist to Firestore (will fail silently if no permissions)
+                            try {
+                                await updateReminderRule(ruleId, updates);
+                            } catch (error) {
+                                console.log('[ClientHub] Could not persist rule to database (will save locally only)');
+                            }
+                        }}
+                        onSaveRules={async () => {
+                            console.log(`[ClientHub] Starting to save ${reminderRules.length} rules to database...`);
+
+                            let successCount = 0;
+                            let errorCount = 0;
+                            const errors: string[] = [];
+
+                            for (const rule of reminderRules) {
+                                try {
+                                    const result = await updateReminderRule(rule.id, rule);
+                                    if (result) {
+                                        successCount++;
+                                    } else {
+                                        errorCount++;
+                                        errors.push(`Rule ${rule.id}: Update returned false`);
+                                    }
+                                } catch (error: any) {
+                                    errorCount++;
+                                    const errorMsg = error?.message || String(error);
+                                    errors.push(`Rule ${rule.id}: ${errorMsg}`);
+                                    console.error(`[ClientHub] Failed to save rule ${rule.id}:`, error);
+                                }
+                            }
+
+                            if (errorCount > 0) {
+                                console.error(`[ClientHub] Save completed with errors: ${successCount} succeeded, ${errorCount} failed`);
+                                console.error('[ClientHub] Error details:', errors);
+
+                                // Check if it's a permission error
+                                const hasPermissionError = errors.some(e => e.includes('Permission') || e.includes('permission'));
+                                if (hasPermissionError) {
+                                    alert(`❌ Save Failed: Firestore Permission Denied\n\n${errorCount} rules could not be saved.\n\nYou need to update Firebase security rules:\n1. Go to Firebase Console\n2. Firestore Database → Rules\n3. Add rules for "reminderRules" collection\n4. See firestore.rules file for details`);
+                                } else {
+                                    alert(`❌ Save Failed\n\n${errorCount} rules had errors.\nCheck console for details.`);
+                                }
+
+                                throw new Error(`Failed to save ${errorCount} rules`);
+                            }
+
+                            console.log(`[ClientHub] ✅ Successfully saved all ${successCount} rules!`);
+                        }}
+                        onDiscardChanges={async () => {
+                            console.log('[ClientHub] Discarding changes and reloading rules...');
+
+                            // Reload from app defaults
+                            const appRules = getDefaultReminderRules().map(rule => ({
+                                ...rule,
+                                realtorId
+                            }));
+
+                            // Fetch any customized rules from database
+                            const dbRules = await getReminderRules(realtorId);
+
+                            // Merge: Database rules override app rules for the same ID
+                            const mergedRules = appRules.map(appRule => {
+                                const dbRule = dbRules.find(r => r.id === appRule.id);
+                                return dbRule || appRule;
+                            });
+
+                            setReminderRules(mergedRules);
+                            console.log('[ClientHub] Rules reverted to saved state');
                         }}
                     />
                 )}

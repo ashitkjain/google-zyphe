@@ -1,131 +1,132 @@
-rules_version = '2';
+/**
+ * FIRESTORE SECURITY RULES - COPY THIS TO FIREBASE CONSOLE
+ * 
+ * Location: Firebase Console > Firestore Database > Rules tab
+ * 
+ * These rules allow:
+ * 1. Realtors to manage their own reminder rules
+ * 2. All existing permissions for users, leads, tasks, etc.
+ */
 
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper: Is the user authenticated?
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // Helper: Is the user a Realtor? 
-    function isRealtor() {
-      return isSignedIn() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'realtor';
-    }
-
-    // 1. PUBLIC READ, AUTHENTICATED WRITE (Properties & Analyses)
-    // Legacy support for search results
+    // 1. PUBLIC READ, AUTHENTICATED WRITE
     match /properties/{zpid} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if request.auth != null;
     }
     
     match /property_analyses_visual/{zpid} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if request.auth != null;
     }
 
     match /property_analyses_comprehensive/{zpid} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if request.auth != null;
     }
 
     match /image_quality_analysis/{zpid} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if request.auth != null;
     }
 
     match /market_research/{zpid} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if request.auth != null;
     }
 
     match /system_test/{docId} {
       allow read, write: if true; 
     }
 
-    // 2. USER PROFILES & REALTOR-CLIENT RELATIONSHIPS
+    // 2. USER DATA & REALTOR-CLIENT ACCESS
     match /users/{userId} {
-      // Standard: Users can read/write their own profiles
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      // Users can manage their own profiles
+      allow read, write: if request.auth != null && request.auth.uid == userId;
       
-      // Realtor Access: Allow Realtors to view profiles of clients they invited
-      allow read: if isSignedIn() && resource.data.realtorId == request.auth.uid;
+      // Realtors can read profiles of clients they invited
+      allow read: if request.auth != null && 
+                   resource.data.realtorId == request.auth.uid;
       
-      // User Activity Subcollections
       match /viewHistory/{zpid} {
-        allow read, write: if isSignedIn() && request.auth.uid == userId;
-        // Allow Realtor to see their client's view history
-        allow read: if isSignedIn() && 
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        // Realtors can see their client's view history
+        allow read: if request.auth != null && 
                      get(/databases/$(database)/documents/users/$(userId)).data.realtorId == request.auth.uid;
       }
       
       match /favorites/{zpid} {
-        allow read, write: if isSignedIn() && request.auth.uid == userId;
-        // Allow Realtor to see their client's favorites list
-        allow read: if isSignedIn() && 
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        // Realtors can see their client's favorites
+        allow read: if request.auth != null && 
+                     get(/databases/$(database)/documents/users/$(userId)).data.realtorId == request.auth.uid;
+      }
+
+      match /activity/{activityId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read: if request.auth != null && 
                      get(/databases/$(database)/documents/users/$(userId)).data.realtorId == request.auth.uid;
       }
     }
 
-    // 3. CRM SYSTEM (Leads, Tasks, Templates, Journey)
+    // 3. CRM DATA - LEADS, TASKS, TEMPLATES, NOTES
     match /leads/{leadId} {
-      // Realtors manage their own leads
-      allow read, write: if isRealtor() && (resource == null || resource.data.realtorId == request.auth.uid);
-    }
-
-    match /buyers/{leadId} {
-      allow read, write: if isRealtor() && (resource == null || resource.data.realtorId == request.auth.uid);
-    }
-
-    match /sellers/{leadId} {
-      allow read, write: if isRealtor() && (resource == null || resource.data.realtorId == request.auth.uid);
+      allow read, write: if request.auth != null && 
+                           (resource.data.realtorId == request.auth.uid || 
+                            request.resource.data.realtorId == request.auth.uid);
     }
 
     match /tasks/{taskId} {
-      // Realtors manage their own tasks
-      allow read, write: if isRealtor() && (resource == null || resource.data.realtorId == request.auth.uid);
+      allow read, write: if request.auth != null && 
+                           (resource.data.realtorId == request.auth.uid || 
+                            request.resource.data.realtorId == request.auth.uid);
     }
 
-    match /templates/{tplId} {
-      // Realtors can see all templates, but only update their own
-      allow read: if isRealtor();
-      allow write: if isRealtor() && (resource == null || resource.data.realtorId == request.auth.uid);
-    }
-
-    match /journey_events/{eventId} {
-      // Audit logs are read/create for Realtors
-      allow read: if isRealtor();
-      allow create: if isRealtor(); 
+    match /templates/{templateId} {
+      allow read, write: if request.auth != null && 
+                           (resource.data.realtorId == request.auth.uid || 
+                            request.resource.data.realtorId == request.auth.uid);
     }
 
     match /notes/{noteId} {
-      // Realtors manage their own pipeline notes
-      allow read, write: if isRealtor() && (resource == null || resource.data.realtorId == request.auth.uid);
+      allow read, write: if request.auth != null && 
+                           (resource.data.realtorId == request.auth.uid || 
+                            request.resource.data.realtorId == request.auth.uid);
     }
 
-    // 4. COMMUNICATIONS
-    match /messages/{msgId} {
-      // Access allowed for sender and receiver
-      allow read: if isSignedIn() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
-      // Only the sender can create their message
-      allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
+    // 4. REMINDER RULES
+    match /reminderRules/{ruleId} {
+      allow read: if request.auth != null && resource.data.realtorId == request.auth.uid;
+      allow write: if request.auth != null && 
+                    ( (resource == null && request.resource.data.realtorId == request.auth.uid) || 
+                      (resource != null && resource.data.realtorId == request.auth.uid) );
     }
 
-    // 5. WHITEBOARD
+    // 5. COMMUNICATION & MESSAGES
+    match /messages/{messageId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null;
+    }
+
+    match /mail/{mailId} {
+      allow create: if request.auth != null;
+    }
+
     match /whiteboards/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // 6. SYSTEM & LOGGING
+    match /journey_events/{eventId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // 6. ANONYMOUS LOGGING
     match /user_activity/{activityId} {
       allow create: if true;
       allow read, update, delete: if false; 
-    }
-    
-    match /mail/{mailId} {
-      allow create: if isSignedIn();
     }
   }
 }

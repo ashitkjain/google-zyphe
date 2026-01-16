@@ -5,8 +5,16 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-001',
         name: 'New lead – immediate follow-up',
-        trigger: 'Lead created',
-        condition: 'No response within 5 minutes',
+        // Human-readable (UI display)
+        trigger: 'Lead Creation',
+        condition: 'No response within 5 minutes after',
+        // Executable mappings
+        triggerField: 'leads.receivedAt',
+        conditionField: 'leads.lastTouch',
+        operator: 'not_exists',
+        comparisonField: 'NOW()',
+        value: '5 minutes',
+        // Rule logic: IF (NOW() - leads.receivedAt > 5 minutes) AND leads.lastTouch IS NULL
         urgency: 'high',
         category: 'lead',
         suggested_action: 'Call/text new lead immediately',
@@ -16,8 +24,14 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-002',
         name: 'Unresponsive lead – 24h',
-        trigger: 'Lead created',
-        condition: 'No reply in 24 hours',
+        trigger: 'Lead Creation',
+        condition: 'No reply in 24 hours after',
+        triggerField: 'leads.receivedAt',
+        conditionField: 'leads.lastTouch',
+        operator: 'not_exists',
+        comparisonField: 'NOW()',
+        value: '24 hours',
+        // Logic: IF (NOW() - leads.receivedAt > 24 hours) AND leads.lastTouch IS NULL
         urgency: 'high',
         category: 'lead',
         suggested_action: 'Send short value-based follow-up',
@@ -27,8 +41,13 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-003',
         name: 'Unresponsive lead – 72h',
-        trigger: 'Lead created',
-        condition: 'No reply in 72 hours',
+        trigger: 'Lead Creation',
+        condition: 'No reply in 72 hours after',
+        triggerField: 'leads.receivedAt',
+        conditionField: 'leads.lastTouch',
+        operator: 'not_exists',
+        comparisonField: 'NOW()',
+        value: '72 hours',
         urgency: 'medium',
         category: 'lead',
         suggested_action: 'Switch channel (call if texting, email if calling)',
@@ -38,10 +57,16 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-004',
         name: 'Lead viewed listing',
-        trigger: 'Listing viewed ≥2 times',
-        condition: 'No tour booked in 48 hours',
+        trigger: 'Listing Viewed 2+ Times',
+        condition: 'No tour booked in 48 hours after',
+        triggerField: 'leads.viewCount', // MISSING FIELD - needs to be added
+        operator: '>=',
+        value: 2,
+        conditionField: 'leads.tourBookedAt', // MISSING FIELD
+        comparisonField: 'NOW()',
+        // Logic: IF leads.viewCount >= 2 AND leads.tourBookedAt IS NULL AND (NOW() - leads.lastViewedAt > 48 hours)
         urgency: 'high',
-        category: 'lead',
+        category: 'buyer',
         suggested_action: 'Offer showing or similar homes',
         suggested_message: '{firstName}, I noticed you\'ve been checking out {propertyAddress}. Would you like to schedule a showing? I can also recommend similar properties in the area if you\'re interested!',
         enabled: true
@@ -49,8 +74,14 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-005',
         name: 'Hot lead cooling',
-        trigger: 'Lead tagged "Hot"',
-        condition: 'No contact in 7 days',
+        trigger: 'Lead Tagged "Hot"',
+        condition: 'No contact in 7 days after',
+        triggerField: 'leads.taggedHotAt', // MISSING FIELD
+        operator: 'exists',
+        conditionField: 'leads.lastContactAt', // MISSING FIELD (or use lastTouch)
+        comparisonField: 'NOW()',
+        value: '7 days',
+        // Logic: IF leads.taggedHotAt EXISTS AND (NOW() - leads.lastContactAt > 7 days)
         urgency: 'high',
         category: 'lead',
         suggested_action: 'Re-engage with urgency',
@@ -60,8 +91,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-006',
         name: 'First conversation follow-up',
-        trigger: 'Initial call completed',
-        condition: 'No next step logged in 24 hours',
+        trigger: 'Initial Call Completed',
+        condition: 'No next step logged in 24 hours after',
         urgency: 'high',
         category: 'lead',
         suggested_action: 'Propose a concrete next step',
@@ -71,10 +102,10 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-007',
         name: 'Tour scheduled reminder',
-        trigger: 'Tour booked',
-        condition: '24 hours before tour',
+        trigger: 'Tour Booked',
+        condition: '24 hours before',
         urgency: 'medium',
-        category: 'lead',
+        category: 'buyer',
         suggested_action: 'Confirm time & expectations',
         suggested_message: 'Hi {firstName}! Just confirming our showing tomorrow at {tourTime} for {propertyAddress}. Looking forward to it! Let me know if you have any questions beforehand.',
         enabled: true
@@ -82,10 +113,10 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-008',
         name: 'Post-tour follow-up',
-        trigger: 'Tour completed',
+        trigger: 'Tour Completed',
         condition: '2 hours after',
         urgency: 'high',
-        category: 'lead',
+        category: 'buyer',
         suggested_action: 'Ask for feedback & objections',
         suggested_message: 'Hey {firstName}, thanks for touring {propertyAddress} today! What did you think? Any questions or concerns I can address?',
         enabled: true
@@ -95,8 +126,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-009',
         name: 'Offer intent reminder',
-        trigger: 'Buyer interested',
-        condition: 'No offer drafted within 48 hours',
+        trigger: 'Buyer Showed Interest',
+        condition: 'No offer drafted within 48 hours after',
         urgency: 'high',
         category: 'buyer',
         suggested_action: 'Check readiness & urgency',
@@ -106,8 +137,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-010',
         name: 'Offer submitted – no response',
-        trigger: 'Offer sent',
-        condition: 'No response in 24 hours',
+        trigger: 'Offer Sent',
+        condition: 'No response in 24 hours after',
         urgency: 'high',
         category: 'buyer',
         suggested_action: 'Follow up with listing agent',
@@ -117,8 +148,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-011',
         name: 'Multiple offer check',
-        trigger: 'Offer submitted',
-        condition: 'Listing marked "Hot"',
+        trigger: 'Offer Submitted on Hot Listing',
+        condition: '',
         urgency: 'high',
         category: 'buyer',
         suggested_action: 'Ask about competing offers',
@@ -128,8 +159,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-012',
         name: 'Offer accepted – next steps',
-        trigger: 'Offer accepted',
-        condition: '2 hours after acceptance',
+        trigger: 'Offer Accepted',
+        condition: '2 hours after',
         urgency: 'high',
         category: 'buyer',
         suggested_action: 'Outline escrow timeline to buyer',
@@ -139,8 +170,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-013',
         name: 'Earnest money deposit',
-        trigger: 'Offer accepted',
-        condition: 'EMD not confirmed in 48 hours',
+        trigger: 'Offer Accepted',
+        condition: 'EMD not confirmed in 48 hours after',
         urgency: 'high',
         category: 'buyer',
         suggested_action: 'Verify deposit status',
@@ -150,8 +181,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-014',
         name: 'Inspection scheduling',
-        trigger: 'Escrow opened',
-        condition: 'No inspection scheduled in 3 days',
+        trigger: 'Escrow Opened',
+        condition: 'No inspection scheduled in 3 days after',
         urgency: 'high',
         category: 'buyer',
         suggested_action: 'Book inspection ASAP',
@@ -161,7 +192,7 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-015',
         name: 'Inspection tomorrow',
-        trigger: 'Inspection scheduled',
+        trigger: 'Inspection Scheduled',
         condition: '24 hours before',
         urgency: 'medium',
         category: 'buyer',
@@ -172,8 +203,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-016',
         name: 'Post-inspection decision',
-        trigger: 'Inspection completed',
-        condition: 'No action in 48 hours',
+        trigger: 'Inspection Completed',
+        condition: 'No action in 48 hours after',
         urgency: 'high',
         category: 'buyer',
         suggested_action: 'Review repair requests or credits',
@@ -183,8 +214,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-017',
         name: 'Loan contingency check',
-        trigger: 'Escrow opened',
-        condition: '7 days before contingency deadline',
+        trigger: 'Loan Contingency Deadline',
+        condition: '7 days before',
         urgency: 'high',
         category: 'buyer',
         suggested_action: 'Confirm lender progress',
@@ -194,8 +225,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-018',
         name: 'Appraisal follow-up',
-        trigger: 'Appraisal ordered',
-        condition: 'No update in 5 days',
+        trigger: 'Appraisal Ordered',
+        condition: 'No update in 5 days after',
         urgency: 'medium',
         category: 'buyer',
         suggested_action: 'Check appraisal status',
@@ -207,8 +238,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-019',
         name: 'Listing prep checklist',
-        trigger: 'Listing agreement signed',
-        condition: 'No photos scheduled in 3 days',
+        trigger: 'Listing Agreement Signed',
+        condition: 'No photos scheduled in 3 days after',
         urgency: 'high',
         category: 'seller',
         suggested_action: 'Schedule photography',
@@ -218,8 +249,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-020',
         name: 'Listing live – early traction',
-        trigger: 'Listing live',
-        condition: 'No showings in 7 days',
+        trigger: 'Listing Went Live',
+        condition: 'No showings in 7 days after',
         urgency: 'high',
         category: 'seller',
         suggested_action: 'Review price or presentation',
@@ -229,8 +260,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-021',
         name: 'Low showing feedback',
-        trigger: '≥5 showings',
-        condition: 'Negative feedback trend',
+        trigger: '5+ Showings Completed',
+        condition: 'Negative feedback trend detected',
         urgency: 'medium',
         category: 'seller',
         suggested_action: 'Discuss adjustments with seller',
@@ -240,8 +271,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-022',
         name: '14-day price review',
-        trigger: 'Listing live',
-        condition: 'No offers in 14 days',
+        trigger: 'Listing Went Live',
+        condition: 'No offers in 14 days after',
         urgency: 'high',
         category: 'seller',
         suggested_action: 'Propose price review',
@@ -251,8 +282,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-023',
         name: 'New comp sold',
-        trigger: 'Comparable sold',
-        condition: 'Listing still active',
+        trigger: 'Comparable Property Sold',
+        condition: 'While listing still active',
         urgency: 'medium',
         category: 'seller',
         suggested_action: 'Re-evaluate pricing strategy',
@@ -262,8 +293,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-024',
         name: 'Offer received – seller response',
-        trigger: 'Offer received',
-        condition: 'No seller response in 12 hours',
+        trigger: 'Offer Received',
+        condition: 'No seller response in 12 hours after',
         urgency: 'high',
         category: 'seller',
         suggested_action: 'Follow up for decision',
@@ -273,8 +304,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-025',
         name: 'Open house follow-up',
-        trigger: 'Open house completed',
-        condition: '24 hours later',
+        trigger: 'Open House Completed',
+        condition: '24 hours after',
         urgency: 'low',
         category: 'seller',
         suggested_action: 'Send recap to seller',
@@ -286,8 +317,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-026',
         name: 'Quiet client',
-        trigger: 'Active client',
-        condition: 'No contact in 14 days',
+        trigger: 'Active Client',
+        condition: 'No contact in 14 days with',
         urgency: 'medium',
         category: 'relationship',
         suggested_action: 'Check in with value',
@@ -297,8 +328,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-027',
         name: 'Closing preparation',
-        trigger: '7 days before closing',
-        condition: '',
+        trigger: 'Closing Date',
+        condition: '7 days before',
         urgency: 'high',
         category: 'relationship',
         suggested_action: 'Prep client for closing steps',
@@ -308,7 +339,7 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-028',
         name: 'Post-closing follow-up',
-        trigger: 'Deal closed',
+        trigger: 'Deal Closed',
         condition: '3 days after',
         urgency: 'low',
         category: 'relationship',
@@ -319,8 +350,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-029',
         name: 'Home anniversary',
-        trigger: 'Closing anniversary',
-        condition: '1 year later',
+        trigger: 'Closing Anniversary',
+        condition: '1 year after',
         urgency: 'low',
         category: 'relationship',
         suggested_action: 'Send home anniversary note',
@@ -330,8 +361,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     {
         id: 'rule-030',
         name: 'Referral ask',
-        trigger: 'Positive outcome logged',
-        condition: '7 days later',
+        trigger: 'Positive Outcome Logged',
+        condition: '7 days after',
         urgency: 'low',
         category: 'relationship',
         suggested_action: 'Ask for referrals gently',
