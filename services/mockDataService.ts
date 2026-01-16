@@ -7,7 +7,7 @@ export const getInitialMockLeads = (): Lead[] => [
         id: 'lead_1', avatarUrl: 'https://i.pravatar.cc/150?img=11', firstName: 'James', lastName: 'Wilson', email: 'james.w@example.com', phone: '(555) 123-4567',
         homeAddress: '8822 Ridgewood Dr, Los Angeles, CA 90034',
         source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead', status: 'New', receivedAt: new Date(Date.now() - 3600000),
-        slaUrgency: 'high', funnelStage: 'Leads', health: 'Active', isMock: true, collectionName: 'leads',
+        slaUrgency: 'high', funnelStage: 'Nurture', health: 'Active', isMock: true, collectionName: 'leads',
         minPrice: 450000, maxPrice: 550000, budgetRange: "$450k - $550k", preferredNeighborhood: 'Northside',
         message: "I'd like to see properties in Northside area."
     },
@@ -15,7 +15,7 @@ export const getInitialMockLeads = (): Lead[] => [
         id: 'lead_2', avatarUrl: 'https://i.pravatar.cc/150?img=5', firstName: 'Sarah', lastName: 'Miller', email: 'sarah.m@example.com', phone: '(555) 234-5678',
         homeAddress: '155 N Lake Ave, Pasadena, CA 91101',
         source: 'Website', leadType: 'Buyer', connectionType: 'Direct Lead', status: 'Qualified', receivedAt: new Date(Date.now() - 7200000),
-        slaUrgency: 'medium', funnelStage: 'Leads', health: 'Active', isMock: true, collectionName: 'leads',
+        slaUrgency: 'medium', funnelStage: 'Nurture', health: 'Active', isMock: true, collectionName: 'leads',
         minPrice: 800000, maxPrice: 950000, budgetRange: "$800k - $950k", preferredNeighborhood: 'Downtown',
         preQualified: true
     },
@@ -23,70 +23,70 @@ export const getInitialMockLeads = (): Lead[] => [
         id: 'lead_3', avatarUrl: 'https://i.pravatar.cc/150?img=13', firstName: 'Robert', lastName: 'Taylor', email: 'robert.t@example.com', phone: '(555) 345-6789',
         homeAddress: '789 Oak Ln, Beverly Hills, CA 90210',
         source: 'Facebook', leadType: 'Seller', connectionType: 'Nurture', status: 'New', receivedAt: new Date(Date.now() - 10800000),
-        slaUrgency: 'low', funnelStage: 'Leads', health: 'Active', isMock: true, collectionName: 'leads',
+        slaUrgency: 'low', funnelStage: 'Nurture', health: 'Active', isMock: true, collectionName: 'leads',
         expectedPrice: 1200000, propertyAddress: '789 Oak Ln, Beverly Hills', reasonForSelling: 'Downsizing'
     },
     {
         id: 'lead_4', avatarUrl: 'https://i.pravatar.cc/150?img=9', firstName: 'Emily', lastName: 'Davis', email: 'emily.d@example.com', phone: '(555) 456-7890',
         homeAddress: '4200 Sepulveda Blvd, Culver City, CA 90230',
         source: 'Manual', leadType: 'Buyer', connectionType: 'Direct Lead', status: 'New', receivedAt: new Date(Date.now() - 86400000),
-        slaUrgency: 'high', funnelStage: 'Leads', health: 'Active', isMock: true, collectionName: 'leads',
+        slaUrgency: 'high', funnelStage: 'Nurture', health: 'Active', isMock: true, collectionName: 'leads',
         minPrice: 300000, maxPrice: 400000, budgetRange: "$300k - $400k", preferredNeighborhood: 'Westside'
     },
     {
         id: 'lead_5', avatarUrl: 'https://i.pravatar.cc/150?img=14', firstName: 'Michael', lastName: 'Brown', email: 'michael.b@example.com', phone: '(555) 567-8901',
         homeAddress: '123 Pine St, Glendale, CA 91206',
         source: 'Zillow', leadType: 'Seller', connectionType: 'Direct Lead', status: 'Qualified', receivedAt: new Date(Date.now() - 172800000),
-        slaUrgency: 'medium', funnelStage: 'Leads', health: 'Active', isMock: true, collectionName: 'leads',
+        slaUrgency: 'medium', funnelStage: 'Nurture', health: 'Active', isMock: true, collectionName: 'leads',
         expectedPrice: 650000, propertyAddress: '123 Pine St, Glendale', homeValueNeeded: true
     },
     {
         id: 'lead_6', avatarUrl: 'https://i.pravatar.cc/150?img=16', firstName: 'Jessica', lastName: 'Anderson', email: 'jessica.a@example.com', phone: '(555) 678-9012',
         homeAddress: '3300 W 6th St, Los Angeles, CA 90020',
         source: 'Instagram', leadType: 'Buyer', connectionType: 'Direct Lead', status: 'New', receivedAt: new Date(Date.now() - 259200000),
-        slaUrgency: 'low', funnelStage: 'Leads', health: 'Active', isMock: true, collectionName: 'leads',
+        slaUrgency: 'low', funnelStage: 'Nurture', health: 'Active', isMock: true, collectionName: 'leads',
         minPrice: 500000, maxPrice: 600000, budgetRange: "$500k - $600k", tags: ['First-Time']
     },
     {
         id: 'lead_7', avatarUrl: 'https://i.pravatar.cc/150?img=15', firstName: 'David', lastName: 'Thomas', email: 'david.t@example.com', phone: '(555) 789-0123',
         homeAddress: '900 Wilshire Blvd, Los Angeles, CA 90017',
         source: 'Google', leadType: 'Buyer', connectionType: 'Direct Lead', status: 'New', receivedAt: new Date(Date.now() - 345600000),
-        slaUrgency: 'medium', funnelStage: 'Leads', health: 'Active', isMock: true, collectionName: 'leads',
+        slaUrgency: 'medium', funnelStage: 'Nurture', health: 'Active', isMock: true, collectionName: 'leads',
         minPrice: 700000, maxPrice: 850000, budgetRange: "$700k - $850k"
     },
     {
         id: 'lead_8', avatarUrl: 'https://i.pravatar.cc/150?img=20', firstName: 'Linda', lastName: 'Jackson', email: 'linda.j@example.com', phone: '(555) 890-1234',
         homeAddress: '456 Maple Dr, Pasadena, CA 91105',
         source: 'Direct', leadType: 'Seller', connectionType: 'Direct Lead', status: 'New', receivedAt: new Date(Date.now() - 432000000),
-        slaUrgency: 'low', funnelStage: 'Leads', health: 'Active', isMock: true, collectionName: 'leads',
+        slaUrgency: 'low', funnelStage: 'Nurture', health: 'Active', isMock: true, collectionName: 'leads',
         expectedPrice: 950000, propertyAddress: '456 Maple Dr, Pasadena'
     },
     {
         id: 'lead_9', avatarUrl: 'https://i.pravatar.cc/150?img=33', firstName: 'Christopher', lastName: 'White', email: 'chris.w@example.com', phone: '(555) 901-2345',
         homeAddress: '111 Santa Monica Blvd, Santa Monica, CA 90401',
         source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead', status: 'Qualified', receivedAt: new Date(Date.now() - 518400000),
-        slaUrgency: 'high', funnelStage: 'Leads', health: 'Active', isMock: true, collectionName: 'leads',
+        slaUrgency: 'high', funnelStage: 'Nurture', health: 'Active', isMock: true, collectionName: 'leads',
         minPrice: 400000, maxPrice: 500000, preQualified: true
     },
     {
         id: 'lead_10', avatarUrl: 'https://i.pravatar.cc/150?img=24', firstName: 'Barbara', lastName: 'Harris', email: 'barbara.h@example.com', phone: '(555) 012-3456',
         homeAddress: '202 Birch Ave, Burbank, CA 91506',
         source: 'Website', leadType: 'Seller', connectionType: 'Direct Lead', status: 'Qualified', receivedAt: new Date(Date.now() - 604800000),
-        slaUrgency: 'medium', funnelStage: 'Leads', health: 'Active', isMock: true, collectionName: 'leads',
+        slaUrgency: 'medium', funnelStage: 'Nurture', health: 'Active', isMock: true, collectionName: 'leads',
         expectedPrice: 1100000, propertyAddress: '202 Birch Ave, Burbank'
     },
     {
         id: 'lead_11', avatarUrl: 'https://i.pravatar.cc/150?img=32', firstName: 'Urgency', lastName: 'Tester (Flash)', email: 'flash@example.com', phone: '(555) 999-1111',
         homeAddress: '123 Flash St, Los Angeles, CA 90001',
         source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead', status: 'New', receivedAt: new Date(Date.now() - 600000), // 10 mins ago
-        slaUrgency: 'high', funnelStage: 'Leads', health: 'Active', isMock: true, collectionName: 'leads',
+        slaUrgency: 'high', funnelStage: 'Nurture', health: 'Active', isMock: true, collectionName: 'leads',
         message: "I am a test lead from 10 mins ago. I should be flashing!"
     },
     {
         id: 'lead_12', avatarUrl: 'https://i.pravatar.cc/150?img=44', firstName: 'Urgency', lastName: 'Tester (Red)', email: 'red@example.com', phone: '(555) 999-2222',
         homeAddress: '456 Red Way, Los Angeles, CA 90002',
         source: 'Website', leadType: 'Seller', connectionType: 'Direct Lead', status: 'New', receivedAt: new Date(Date.now() - 1620000), // 27 mins ago
-        slaUrgency: 'high', funnelStage: 'Leads', health: 'Active', isMock: true, collectionName: 'leads',
+        slaUrgency: 'high', funnelStage: 'Nurture', health: 'Active', isMock: true, collectionName: 'leads',
         expectedPrice: 500000, propertyAddress: '456 Red Way, LA',
         message: "I am a test lead from 27 mins ago. I should be deep red!"
     },
@@ -147,35 +147,35 @@ export const getInitialMockLeads = (): Lead[] => [
         id: 'active_1', avatarUrl: 'https://i.pravatar.cc/150?img=49', firstName: 'Nancy', lastName: 'Lewis', email: 'nancy.l@example.com', phone: '(555) 888-9999',
         homeAddress: '800 Abbot Kinney Blvd, Venice, CA 90291',
         source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead', status: 'Actively Searching', receivedAt: new Date(Date.now() - 5443200000),
-        slaUrgency: 'high', funnelStage: 'Active Search', health: 'Active', isMock: true, collectionName: 'leads',
+        slaUrgency: 'high', funnelStage: 'Active', health: 'Active', isMock: true, collectionName: 'leads',
         minPrice: 750000, maxPrice: 900000, preferredNeighborhood: 'Santa Monica'
     },
     {
         id: 'active_2', avatarUrl: 'https://i.pravatar.cc/150?img=55', firstName: 'George', lastName: 'Lee', email: 'george.l@example.com', phone: '(555) 999-0000',
         homeAddress: '666 Ocean Ave, Santa Monica, CA 90402',
         source: 'Website', leadType: 'Seller', connectionType: 'Direct Lead', status: 'Showing', receivedAt: new Date(Date.now() - 6048000000),
-        slaUrgency: 'high', funnelStage: 'Active Search', health: 'Active', isMock: true, collectionName: 'leads',
+        slaUrgency: 'high', funnelStage: 'Active', health: 'Active', isMock: true, collectionName: 'leads',
         expectedPrice: 1300000, propertyAddress: '666 Ocean Ave, Santa Monica'
     },
     {
         id: 'active_3', avatarUrl: 'https://i.pravatar.cc/150?img=47', firstName: 'Sandra', lastName: 'Walker', email: 'sandra.w@example.com', phone: '(555) 000-1111',
         homeAddress: '999 Rodeo Dr, Beverly Hills, CA 90212',
         source: 'Referral', leadType: 'Buyer', connectionType: 'Direct Lead', status: 'Broker Agreement Signed', receivedAt: new Date(Date.now() - 6652800000),
-        slaUrgency: 'medium', funnelStage: 'Active Search', health: 'Active', isMock: true, collectionName: 'leads',
+        slaUrgency: 'medium', funnelStage: 'Active', health: 'Active', isMock: true, collectionName: 'leads',
         minPrice: 500000, maxPrice: 650000
     },
     {
         id: 'active_4', avatarUrl: 'https://i.pravatar.cc/150?img=60', firstName: 'Steven', lastName: 'Hall', email: 'steven.h@example.com', phone: '(555) 111-3333',
         homeAddress: '777 Hill St, Los Angeles, CA 90014',
         source: 'Website', leadType: 'Seller', connectionType: 'Direct Lead', status: 'Broker Agreement Signed', receivedAt: new Date(Date.now() - 7257600000),
-        slaUrgency: 'medium', funnelStage: 'Active Search', health: 'Active', isMock: true, collectionName: 'leads',
+        slaUrgency: 'medium', funnelStage: 'Active', health: 'Active', isMock: true, collectionName: 'leads',
         expectedPrice: 800000, propertyAddress: '777 Hill St, Los Angeles'
     },
     {
         id: 'active_5', avatarUrl: 'https://i.pravatar.cc/150?img=45', firstName: 'Margaret', lastName: 'Allen', email: 'margaret.a@example.com', phone: '(555) 222-4444',
         homeAddress: '333 Broadway, Santa Monica, CA 90401',
         source: 'Google', leadType: 'Buyer', connectionType: 'Direct Lead', status: 'Actively Searching', receivedAt: new Date(Date.now() - 7862400000),
-        slaUrgency: 'high', funnelStage: 'Active Search', health: 'Active', isMock: true, collectionName: 'leads',
+        slaUrgency: 'high', funnelStage: 'Active', health: 'Active', isMock: true, collectionName: 'leads',
         minPrice: 1200000, maxPrice: 1500000
     },
 

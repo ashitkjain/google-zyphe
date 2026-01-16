@@ -90,10 +90,11 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             // 3. Try to fetch any customized rules from database
             let dbRules = await getReminderRules(realtorId);
 
-            // 4. Merge: Database rules override app rules for the same ID
             const mergedRules = appRules.map(appRule => {
                 const dbRule = dbRules.find(r => r.id === appRule.id);
-                return dbRule || appRule; // Use DB version if exists, otherwise app default
+                // Merge to ensure new system flags (like isExecutable) are picked up
+                // even if the rule already exists in the database.
+                return dbRule ? { ...appRule, ...dbRule } : appRule;
             });
 
             setReminderRules(mergedRules);
@@ -572,9 +573,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     }
                 }
             } : null);
-            alert("Settings saved successfully.");
-        } else {
-            alert("Failed to save settings.");
         }
     };
 
@@ -701,16 +699,9 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     <TaskBoard
                         tasks={tasks}
                         reminderRules={reminderRules}
-                        onUpdateRule={async (ruleId, updates) => {
-                            // Optimistic update - always apply locally
+                        onUpdateRule={(ruleId, updates) => {
+                            // Local-only update to allow "Discard" to work
                             setReminderRules(prev => prev.map(r => r.id === ruleId ? { ...r, ...updates } : r));
-
-                            // Try to persist to Firestore (will fail silently if no permissions)
-                            try {
-                                await updateReminderRule(ruleId, updates);
-                            } catch (error) {
-                                console.log('[ClientHub] Could not persist rule to database (will save locally only)');
-                            }
                         }}
                         onSaveRules={async () => {
                             console.log(`[ClientHub] Starting to save ${reminderRules.length} rules to database...`);
@@ -752,27 +743,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                             }
 
                             console.log(`[ClientHub] ✅ Successfully saved all ${successCount} rules!`);
-                        }}
-                        onDiscardChanges={async () => {
-                            console.log('[ClientHub] Discarding changes and reloading rules...');
-
-                            // Reload from app defaults
-                            const appRules = getDefaultReminderRules().map(rule => ({
-                                ...rule,
-                                realtorId
-                            }));
-
-                            // Fetch any customized rules from database
-                            const dbRules = await getReminderRules(realtorId);
-
-                            // Merge: Database rules override app rules for the same ID
-                            const mergedRules = appRules.map(appRule => {
-                                const dbRule = dbRules.find(r => r.id === appRule.id);
-                                return dbRule || appRule;
-                            });
-
-                            setReminderRules(mergedRules);
-                            console.log('[ClientHub] Rules reverted to saved state');
                         }}
                     />
                 )}

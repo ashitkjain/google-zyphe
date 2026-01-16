@@ -7,7 +7,6 @@ interface TaskBoardProps {
     reminderRules?: ReminderRule[];
     onUpdateRule?: (ruleId: string, updates: Partial<ReminderRule>) => void;
     onSaveRules?: () => Promise<void>;
-    onDiscardChanges?: () => void;
 }
 
 const formatDate = (timestamp: any) => {
@@ -16,7 +15,7 @@ const formatDate = (timestamp: any) => {
     return date.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
-const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, reminderRules = [], onUpdateRule, onSaveRules, onDiscardChanges }) => {
+const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, reminderRules = [], onUpdateRule, onSaveRules }) => {
     const [activeTab, setActiveTab] = useState<'tasks' | 'rules'>('tasks');
 
     return (
@@ -46,8 +45,8 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, reminderRules = [], onUpda
                         <button
                             onClick={() => setActiveTab('tasks')}
                             className={`px-6 py-3 text-sm font-bold transition-all border-b-2 ${activeTab === 'tasks'
-                                    ? 'text-indigo-600 border-indigo-600'
-                                    : 'text-slate-500 border-transparent hover:text-slate-700'
+                                ? 'text-indigo-600 border-indigo-600'
+                                : 'text-slate-500 border-transparent hover:text-slate-700'
                                 }`}
                         >
                             Tasks ({tasks.length})
@@ -55,8 +54,8 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, reminderRules = [], onUpda
                         <button
                             onClick={() => setActiveTab('rules')}
                             className={`px-6 py-3 text-sm font-bold transition-all border-b-2 ${activeTab === 'rules'
-                                    ? 'text-indigo-600 border-indigo-600'
-                                    : 'text-slate-500 border-transparent hover:text-slate-700'
+                                ? 'text-indigo-600 border-indigo-600'
+                                : 'text-slate-500 border-transparent hover:text-slate-700'
                                 }`}
                         >
                             Reminder Rules ({reminderRules.filter(r => r.enabled).length})
@@ -99,7 +98,6 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, reminderRules = [], onUpda
                     rules={reminderRules}
                     onUpdateRule={onUpdateRule}
                     onSaveRules={onSaveRules}
-                    onDiscardChanges={onDiscardChanges}
                 />
             )}
         </div>

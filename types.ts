@@ -5,6 +5,8 @@ export interface StatusOption {
   description: string;
   isDefault?: boolean;
   funnelStage?: string;
+  order?: number;
+  visibility?: ('Buyer' | 'Seller')[];
 }
 
 export interface UserProfile {
@@ -27,13 +29,7 @@ export interface UserProfile {
   createdAt?: any;
   kyc?: KYCData;
   settings?: {
-    leadStatuses?: {
-      buyer: StatusOption[];
-      seller: StatusOption[];
-    };
-    columnSettings?: {
-      [key: string]: string[]; // Keyed by 'LeadType:FunnelStage' or just 'LeadType'
-    };
+    leadStatuses?: StatusOption[];
   };
 }
 
@@ -207,6 +203,7 @@ export interface Lead {
   collectionName?: string;
   kyc?: KYCData;
   clientId?: string;
+  isHot?: boolean;
 }
 
 export interface JourneyEvent {
@@ -268,6 +265,7 @@ export interface ReminderRule {
   suggested_message: string;
   enabled: boolean;
   realtorId: string;
+  isExecutable?: boolean;
 }
 
 export interface PipelineNote {

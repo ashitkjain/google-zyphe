@@ -4,22 +4,23 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
     // A. Lead & Prospecting (1–8)
     {
         id: 'rule-001',
-        name: 'New lead – immediate follow-up',
+        name: 'New lead – follow-up reminder',
         // Human-readable (UI display)
         trigger: 'Lead Creation',
-        condition: 'No response within 5 minutes after',
+        condition: 'No contact within 15 minutes',
         // Executable mappings
         triggerField: 'leads.receivedAt',
-        conditionField: 'leads.lastTouch',
+        conditionField: 'leads.initialContactIn30Mins',
         operator: 'not_exists',
         comparisonField: 'NOW()',
-        value: '5 minutes',
-        // Rule logic: IF (NOW() - leads.receivedAt > 5 minutes) AND leads.lastTouch IS NULL
+        value: '15 minutes',
+        // Rule logic: IF (NOW() - leads.receivedAt > 15 minutes) AND leads.initialContactIn30Mins IS NOT TRUE
         urgency: 'high',
         category: 'lead',
         suggested_action: 'Call/text new lead immediately',
         suggested_message: 'Hi {firstName}! I just received your inquiry about {propertyAddress}. I\'d love to connect and answer any questions you have. When would be a good time to chat?',
-        enabled: true
+        enabled: true,
+        isExecutable: true
     },
     {
         id: 'rule-002',
@@ -36,7 +37,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
         category: 'lead',
         suggested_action: 'Send short value-based follow-up',
         suggested_message: 'Hey {firstName}, I wanted to share some recent market insights about {neighborhood}. Properties like the one you viewed are moving fast. Let me know if you\'d like to discuss further!',
-        enabled: true
+        enabled: true,
+        isExecutable: true
     },
     {
         id: 'rule-003',
@@ -52,7 +54,8 @@ export const getDefaultReminderRules = (): Omit<ReminderRule, 'realtorId'>[] => 
         category: 'lead',
         suggested_action: 'Switch channel (call if texting, email if calling)',
         suggested_message: 'Hi {firstName}, just checking in! I know buying/selling can be overwhelming. If you have any questions about the market or next steps, I\'m here to help. No pressure!',
-        enabled: true
+        enabled: true,
+        isExecutable: true
     },
     {
         id: 'rule-004',

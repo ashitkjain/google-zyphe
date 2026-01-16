@@ -1275,8 +1275,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                                 <div className="flex-1 min-w-0">
                                                                                     <div className="flex items-center gap-1 mb-0.5">
                                                                                         <span className={`px-1 py-0 rounded text-[7px] font-bold uppercase ${lastCallNote.outcome === 'Connected' ? 'bg-emerald-100 text-emerald-600' :
-                                                                                                lastCallNote.outcome === 'Voicemail' ? 'bg-amber-100 text-amber-600' :
-                                                                                                    'bg-slate-100 text-slate-500'
+                                                                                            lastCallNote.outcome === 'Voicemail' ? 'bg-amber-100 text-amber-600' :
+                                                                                                'bg-slate-100 text-slate-500'
                                                                                             }`}>
                                                                                             {lastCallNote.outcome || 'Connected'}
                                                                                         </span>

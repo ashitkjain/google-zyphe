@@ -1,50 +1,59 @@
 import { StatusOption } from '../types';
+// Updated status definitions with Cold/Warm/Long Term
 
-export const DEFAULT_SELLER_STATUSES: StatusOption[] = [
-    { label: 'New', description: 'Fresh inquiry from lead source', isDefault: true, funnelStage: 'Leads' },
-    { label: 'Qualified', description: 'Meets our seller criteria', isDefault: true, funnelStage: 'Leads' },
-    { label: 'Meeting Fixed', description: 'Property inspection and discussion with the seller', isDefault: true, funnelStage: 'Nurture' },
-    { label: 'Broker Agreement Sent', description: 'Listing agreement sent to seller', isDefault: true, funnelStage: 'Nurture' },
-    { label: 'Broker Agreement Signed', description: 'Listing agreement signed', isDefault: true, funnelStage: 'Active Search' },
-    { label: 'Showing', description: 'Property is being shown to potential buyers', isDefault: true, funnelStage: 'Active Search' },
-    { label: 'Offer Received', description: 'Offer has been received from a potential buyer', isDefault: true, funnelStage: 'Offer' },
-    { label: 'In Contract', description: 'Property is under contract', isDefault: true, funnelStage: 'Contract' },
-    { label: 'Closed-Won', description: 'Deal closed successfully', isDefault: true, funnelStage: 'Closed' },
-    { label: 'Closed-Lost', description: 'Deal was lost', isDefault: true, funnelStage: 'Closed' },
+export const DEFAULT_STATUSES: StatusOption[] = [
+    // Leads
+    { label: 'New', description: 'Fresh inquiry from lead source', isDefault: true, funnelStage: 'Leads', order: 0, visibility: ['Buyer', 'Seller'] },
+    { label: 'Qualified', description: 'Meets our criteria', isDefault: true, funnelStage: 'Leads', order: 1, visibility: ['Buyer', 'Seller'] },
+    { label: 'Attempted to Contact', description: 'Attempted to contact the client', isDefault: false, funnelStage: 'Leads', order: 2, visibility: ['Buyer', 'Seller'] },
+    { label: 'Cold', description: 'The lead has not yet been spoken to or shown intent.', isDefault: true, funnelStage: 'Leads', order: 3, visibility: ['Buyer', 'Seller'] },
+    { label: 'Warm', description: 'The client has shown interest but is not ready to sign a contract.', isDefault: true, funnelStage: 'Leads', order: 4, visibility: ['Buyer', 'Seller'] },
+    { label: 'Long Term', description: 'Client expressed interest but is 6-12+ months away.', isDefault: true, funnelStage: 'Leads', order: 5, visibility: ['Buyer', 'Seller'] },
 
-    { label: 'Does Not Qualify', description: 'Does not meet our seller criteria', isDefault: true, funnelStage: 'Closed' },
-    { label: 'Did Not Agree To Terms', description: 'Seller is not happy with our terms of engagement', isDefault: true, funnelStage: 'Closed' },
-    { label: 'Not Selling Anymore', description: 'Seller has put the sale on hold or cancelled it', isDefault: true, funnelStage: 'Closed' },
-    { label: 'Found A Buyer', description: 'Seller has found a buyer elsewhere or through another agent', isDefault: true, funnelStage: 'Closed' },
-    { label: 'Not Interested', description: 'Seller is simply not interested', isDefault: true, funnelStage: 'Closed' },
-    { label: 'Archived', description: 'Lead archived for record keeping', isDefault: true, funnelStage: 'Archived' },
-];
+    // Nurture
+    { label: 'Meeting Fixed', description: 'Discussion/consultation scheduled', isDefault: true, funnelStage: 'Nurture', order: 6, visibility: ['Buyer', 'Seller'] },
+    { label: 'Broker Agreement Sent', description: 'Service agreement sent to client', isDefault: true, funnelStage: 'Nurture', order: 7, visibility: ['Buyer', 'Seller'] },
 
-export const DEFAULT_BUYER_STATUSES: StatusOption[] = [
-    { label: 'New', description: 'Fresh inquiry from lead source', isDefault: true, funnelStage: 'Leads' },
-    { label: 'Qualified', description: 'Meets our buyer criteria', isDefault: true, funnelStage: 'Leads' },
-    { label: 'Meeting Fixed', description: 'Discussion with the buyer', isDefault: true, funnelStage: 'Nurture' },
-    { label: 'Broker Agreement Sent', description: 'Buyer needs to e-sign the agreement', isDefault: true, funnelStage: 'Nurture' },
-    { label: 'Broker Agreement Signed', description: 'Buyer has signed the agreement', isDefault: true, funnelStage: 'Active Search' },
-    { label: 'Actively Searching', description: 'Currently looking for properties', isDefault: true, funnelStage: 'Active Search' },
-    { label: 'Offer Submitted', description: 'An offer has been submitted for a property', isDefault: true, funnelStage: 'Offer' },
-    { label: 'In Contract', description: 'Offer accepted, property in escrow', isDefault: true, funnelStage: 'Contract' },
-    { label: 'Closed-Won', description: 'Successfully purchased a home', isDefault: true, funnelStage: 'Closed' },
-    { label: 'Closed-Lost', description: 'Process ended without a purchase', isDefault: true, funnelStage: 'Closed' },
+    // Active Search (Buyer) / Active (Seller)
+    { label: 'Broker Agreement Signed', description: 'Service agreement signed', isDefault: true, funnelStage: 'Active Search', order: 8, visibility: ['Buyer', 'Seller'] },
+    { label: 'Actively Searching', description: 'Currently looking for properties', isDefault: true, funnelStage: 'Active Search', order: 9, visibility: ['Buyer'] },
+    { label: 'Showing', description: 'Property is being shown to potential buyers', isDefault: true, funnelStage: 'Active Search', order: 9, visibility: ['Seller'] },
 
-    { label: 'Does Not Qualify', description: 'Does not meet our buyer criteria', isDefault: true, funnelStage: 'Closed' },
-    { label: 'Did Not Agree To Terms', description: 'Buyer is not happy with our terms of engagement', isDefault: true, funnelStage: 'Closed' },
-    { label: 'Not Buying Anymore', description: 'Buyer has put the requirement on hold or cancelled it', isDefault: true, funnelStage: 'Closed' },
-    { label: 'Found A Home', description: 'Buyer has found a home elsewhere or through another agent', isDefault: true, funnelStage: 'Closed' },
-    { label: 'Not Interested', description: 'Buyer is simply not interested', isDefault: true, funnelStage: 'Closed' },
-    { label: 'Archived', description: 'Lead archived for record keeping', isDefault: true, funnelStage: 'Archived' },
+    // Offer
+    { label: 'Offer Submitted', description: 'An offer has been submitted for a property', isDefault: true, funnelStage: 'Offer', order: 10, visibility: ['Buyer'] },
+    { label: 'Offer Received', description: 'Offer has been received from a potential buyer', isDefault: true, funnelStage: 'Offer', order: 10, visibility: ['Seller'] },
+
+    // Contract
+    { label: 'In Contract', description: 'Property under contract/in escrow', isDefault: true, funnelStage: 'Contract', order: 11, visibility: ['Buyer', 'Seller'] },
+
+    // Closed
+    { label: 'Closed-Won', description: 'Deal closed successfully', isDefault: true, funnelStage: 'Closed', order: 12, visibility: ['Buyer', 'Seller'] },
+    { label: 'Closed-Lost', description: 'Deal was lost/process ended', isDefault: true, funnelStage: 'Closed', order: 13, visibility: ['Buyer', 'Seller'] },
+
+    // Closed (Lost Reasons)
+    { label: 'Does Not Qualify', description: 'Does not meet criteria', isDefault: true, funnelStage: 'Closed', order: 14, visibility: ['Buyer', 'Seller'] },
+    { label: 'Did Not Agree To Terms', description: 'Client not happy with terms', isDefault: true, funnelStage: 'Closed', order: 15, visibility: ['Buyer', 'Seller'] },
+    { label: 'Not Buying Anymore', description: 'Buyer has put requirement on hold', isDefault: true, funnelStage: 'Closed', order: 16, visibility: ['Buyer'] },
+    { label: 'Not Selling Anymore', description: 'Seller has put sale on hold', isDefault: true, funnelStage: 'Closed', order: 16, visibility: ['Seller'] },
+    { label: 'Found A Home', description: 'Found home elsewhere', isDefault: true, funnelStage: 'Closed', order: 17, visibility: ['Buyer'] },
+    { label: 'Found A Buyer', description: 'Found buyer elsewhere', isDefault: true, funnelStage: 'Closed', order: 17, visibility: ['Seller'] },
+    { label: 'Not Interested', description: 'Client not interested', isDefault: true, funnelStage: 'Closed', order: 18, visibility: ['Buyer', 'Seller'] },
+
+    // Archived
+    { label: 'Archived', description: 'Lead archived for record keeping', isDefault: true, funnelStage: 'Archived', order: 19, visibility: ['Buyer', 'Seller'] },
 ];
 
 export const getStatusOptions = (type: 'Buyer' | 'Seller' | string, settings?: any) => {
-    if (type === 'Seller') {
-        return settings?.leadStatuses?.seller || DEFAULT_SELLER_STATUSES;
-    }
-    return settings?.leadStatuses?.buyer || DEFAULT_BUYER_STATUSES;
+    // New Logic: Source is a single array (settings.leadStatuses or DEFAULT_STATUSES)
+    // We filter this array based on visibility.
+    // Ensure we have an array to work with (handles legacy object structure case gracefully by falling back to defaults)
+    const allStatuses: StatusOption[] = Array.isArray(settings?.leadStatuses)
+        ? settings.leadStatuses
+        : DEFAULT_STATUSES;
+
+    return allStatuses
+        .filter(s => s.visibility?.includes(type as any))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 };
 
 export const getStatusDefinitions = (type: 'Buyer' | 'Seller' | string, settings?: any) => {
@@ -56,13 +65,12 @@ export const getFunnelStageForStatus = (status: string, leadType: 'Buyer' | 'Sel
     const options = getStatusOptions(leadType, settings);
     let option = options.find((o: StatusOption) => o.label === status);
 
-    // Fallback to defaults if not found in custom settings
-    if (!option && (leadType === 'Buyer' || leadType === 'Seller')) {
-        const defaults = leadType === 'Seller' ? DEFAULT_SELLER_STATUSES : DEFAULT_BUYER_STATUSES;
-        option = defaults.find((o: StatusOption) => o.label === status);
+    // Legacy fallback handled by checking DEFAULT_STATUSES generically
+    if (!option) {
+        option = DEFAULT_STATUSES.find(o => o.label === status && o.visibility?.includes(leadType as any));
     }
 
-    return option?.funnelStage || 'Leads'; // Default to Leads if not found
+    return option?.funnelStage || 'Leads';
 };
 
 export const isNewLeadStatus = (status: string, leadType: 'Buyer' | 'Seller' | string, settings?: any) => {

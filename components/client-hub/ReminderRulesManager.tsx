@@ -5,12 +5,11 @@ interface ReminderRulesManagerProps {
     rules: ReminderRule[];
     onUpdateRule: (ruleId: string, updates: Partial<ReminderRule>) => void;
     onSaveRules?: () => Promise<void>;
-    onDiscardChanges?: () => void;
 }
 
 type EditingField = 'trigger' | 'condition' | 'action' | 'urgency' | null;
 
-const ReminderRulesManager: React.FC<ReminderRulesManagerProps> = ({ rules, onUpdateRule, onSaveRules, onDiscardChanges }) => {
+const ReminderRulesManager: React.FC<ReminderRulesManagerProps> = ({ rules, onUpdateRule, onSaveRules }) => {
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['lead', 'buyer', 'seller', 'relationship']));
     const [editingRule, setEditingRule] = useState<string | null>(null);
     const [editingField, setEditingField] = useState<EditingField>(null);
@@ -100,14 +99,6 @@ const ReminderRulesManager: React.FC<ReminderRulesManagerProps> = ({ rules, onUp
         }
     };
 
-    const handleDiscard = () => {
-        if (!onDiscardChanges) return;
-        const confirmed = confirm('Discard all unsaved changes?\n\nThis will revert all rules to their last saved state.');
-        if (confirmed) {
-            onDiscardChanges();
-            setHasUnsavedChanges(false);
-        }
-    };
 
     const getUrgencyLabel = (urgency: ReminderRuleUrgency) => {
         return urgency.charAt(0).toUpperCase() + urgency.slice(1) + ' Priority';
@@ -117,21 +108,13 @@ const ReminderRulesManager: React.FC<ReminderRulesManagerProps> = ({ rules, onUp
         <div className="flex-1 flex flex-col h-full bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 overflow-hidden relative">
             {/* Floating Action Buttons */}
             {hasUnsavedChanges && (
-                <div className="absolute top-4 right-4 z-30 flex gap-3">
-                    <button
-                        onClick={handleDiscard}
-                        className="px-4 py-3 rounded-xl font-bold text-sm shadow-lg transition-all bg-slate-200 text-slate-700 hover:bg-red-100 hover:text-red-700 hover:shadow-xl active:scale-95"
-                        title="Discard changes"
-                    >
-                        <i className="fa-solid fa-times"></i>
-                    </button>
-
+                <div className="absolute top-4 right-4 z-30 flex flex-col items-end gap-2">
                     <button
                         onClick={handleSave}
                         disabled={isSaving}
-                        className={`px-6 py-3 rounded-xl font-bold text-sm shadow-lg transition-all ${isSaving
-                                ? 'bg-slate-400 text-white cursor-not-allowed'
-                                : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-xl active:scale-95'
+                        className={`px-8 py-3 rounded-xl font-bold text-sm shadow-lg transition-all ${isSaving
+                            ? 'bg-slate-400 text-white cursor-not-allowed'
+                            : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-xl active:scale-95'
                             }`}
                     >
                         {isSaving ? (
@@ -142,10 +125,15 @@ const ReminderRulesManager: React.FC<ReminderRulesManagerProps> = ({ rules, onUp
                         ) : (
                             <>
                                 <i className="fa-solid fa-save mr-2"></i>
-                                Save Changes
+                                Save
                             </>
                         )}
                     </button>
+
+                    <span className="text-slate-900 font-bold text-[10px] tracking-wide animate-pulse flex items-center bg-white/80 px-3 py-1 rounded-full shadow-sm border border-slate-100">
+                        <i className="fa-solid fa-circle-exclamation mr-1.5 text-amber-500"></i>
+                        Changes not saved
+                    </span>
                 </div>
             )}
 
@@ -157,10 +145,10 @@ const ReminderRulesManager: React.FC<ReminderRulesManagerProps> = ({ rules, onUp
                         const isExpanded = expandedCategories.has(category.id);
 
                         return (
-                            <div key={category.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div key={category.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm">
                                 <button
                                     onClick={() => toggleCategory(category.id)}
-                                    className="w-full p-6 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                                    className="w-full p-6 flex items-center justify-between hover:bg-slate-50 transition-colors rounded-t-2xl"
                                 >
                                     <div className="flex items-center gap-4">
                                         <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${getCategoryColor(category.color)} flex items-center justify-center shadow-lg`}>
@@ -201,6 +189,7 @@ const ReminderRulesManager: React.FC<ReminderRulesManagerProps> = ({ rules, onUp
                                                         className="font-semibold text-slate-900 cursor-pointer hover:bg-indigo-50 px-1 rounded transition-colors"
                                                     >
                                                         {rule.trigger}
+                                                        {!rule.isExecutable && <span className="text-rose-500 ml-1" title="Field mapping pending">*</span>}
                                                     </span>
 
                                                     {rule.condition && (
@@ -271,10 +260,10 @@ const ReminderRulesManager: React.FC<ReminderRulesManagerProps> = ({ rules, onUp
                                                 <span
                                                     onClick={(e) => handleFieldClick(rule.id, 'urgency', e)}
                                                     className={`flex-shrink-0 px-2 py-0.5 text-xs font-bold rounded-full cursor-pointer transition-colors ${rule.urgency === 'high'
-                                                            ? 'bg-rose-100 text-rose-700 hover:bg-rose-200'
-                                                            : rule.urgency === 'medium'
-                                                                ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                                                                : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                                                        ? 'bg-rose-100 text-rose-700 hover:bg-rose-200'
+                                                        : rule.urgency === 'medium'
+                                                            ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                                                            : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
                                                         }`}
                                                 >
                                                     {getUrgencyLabel(rule.urgency)}
@@ -286,6 +275,13 @@ const ReminderRulesManager: React.FC<ReminderRulesManagerProps> = ({ rules, onUp
                             </div>
                         );
                     })}
+                    {/* Legend */}
+                    <div className="pt-4 pb-10 border-t border-slate-100 flex items-center gap-2 justify-center">
+                        <span className="text-rose-500 font-bold text-lg leading-none">*</span>
+                        <p className="text-[10px] text-slate-500 font-medium">
+                            Rules marked with an asterisk require additional field mappings in the Lead schema for automatic execution.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>

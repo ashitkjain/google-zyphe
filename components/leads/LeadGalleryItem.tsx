@@ -350,21 +350,36 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                 </button>
                             )}
 
-                            <div className="flex items-center gap-1 mr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-1">
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); onArchive(lead.id); }}
-                                    className="w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 flex items-center justify-center transition-all shadow-sm"
-                                    title="Archive"
+                                    onClick={(e) => { e.stopPropagation(); onUpdateLead(lead.id, { isHot: !lead.isHot }); }}
+                                    className={`relative transition-all duration-500 ease-out flex items-center justify-center ${lead.isHot
+                                        ? 'w-12 h-12 -mt-6 -mr-4 drop-shadow-[0_8px_8px_rgba(255,100,0,0.5)] z-50 animate-flame'
+                                        : 'w-7 h-7 opacity-20 hover:opacity-100 grayscale hover:grayscale-0 hover:scale-125 group-hover:opacity-100 mr-2 text-orange-500'
+                                        }`}
+                                    title={lead.isHot ? "Remove Hot Status" : "Mark as Hot"}
                                 >
-                                    <i className="fa-solid fa-box-archive text-[10px]"></i>
+                                    <svg viewBox="0 0 100 100" className="w-full h-full filter drop-shadow-sm">
+                                        {/* Outer layer */}
+                                        <path d="M50 95C30 95 15 75 15 50C15 35 25 20 45 5C45 15 50 25 55 35C65 25 75 35 85 50C85 75 70 95 50 95Z" fill="#ff4d00" />
+                                        {/* Middle layer */}
+                                        <path d="M50 90C35 90 25 75 25 55C25 45 30 35 45 25C45 35 50 45 55 50C62 40 70 45 75 55C75 75 65 90 50 90Z" fill="#ff9900" />
+                                        {/* Inner layer */}
+                                        <path d="M50 85C42 85 35 75 35 60C35 50 40 45 45 40C48 50 50 55 55 60C58 55 62 55 65 60C65 75 58 85 50 85Z" fill="#ffcc00" />
+                                    </svg>
+                                    {lead.isHot && (
+                                        <div className="absolute inset-x-0 bottom-0 top-1/2 bg-orange-500/30 blur-xl rounded-full -z-10 animate-pulse"></div>
+                                    )}
                                 </button>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onActivate(lead.id); }}
-                                    className="w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-indigo-500 hover:border-indigo-200 hover:bg-indigo-50 flex items-center justify-center transition-all shadow-sm"
-                                    title="Activate"
-                                >
-                                    <i className="fa-solid fa-bolt text-[10px]"></i>
-                                </button>
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); onArchive(lead.id); }}
+                                        className="w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 flex items-center justify-center transition-all shadow-sm"
+                                        title="Archive"
+                                    >
+                                        <i className="fa-solid fa-box-archive text-[10px]"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -491,10 +506,10 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                             <i className="fa-solid fa-phone text-indigo-400 text-[8px]"></i>
                                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Last Call Note</span>
                                             <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider ${lastCallNote.outcome === 'Connected' ? 'bg-emerald-100 text-emerald-600' :
-                                                    lastCallNote.outcome === 'Voicemail' ? 'bg-amber-100 text-amber-600' :
-                                                        lastCallNote.outcome === 'No Answer' ? 'bg-slate-100 text-slate-500' :
-                                                            lastCallNote.outcome === 'Busy' ? 'bg-orange-100 text-orange-600' :
-                                                                'bg-rose-100 text-rose-600'
+                                                lastCallNote.outcome === 'Voicemail' ? 'bg-amber-100 text-amber-600' :
+                                                    lastCallNote.outcome === 'No Answer' ? 'bg-slate-100 text-slate-500' :
+                                                        lastCallNote.outcome === 'Busy' ? 'bg-orange-100 text-orange-600' :
+                                                            'bg-rose-100 text-rose-600'
                                                 }`}>
                                                 {lastCallNote.outcome || 'Connected'}
                                             </span>

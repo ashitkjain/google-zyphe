@@ -1,16 +1,22 @@
-import React, { useState } from 'react';
-import { LeadType, StatusOption } from '../../types';
-import { DEFAULT_SELLER_STATUSES, DEFAULT_BUYER_STATUSES } from '../../services/statusService';
-// Import required Firestore components
+import React, { useState, useMemo } from 'react';
+import { StatusOption } from '../../types';
+import { DEFAULT_STATUSES } from '../../services/statusService';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { collection, getDocs, writeBatch, doc, serverTimestamp, query, where } from 'firebase/firestore';
-import { db_instance } from '../../services/firebaseService'; // Ensure this path is correct
+import { db_instance } from '../../services/firebaseService';
 import { generateMockLead } from '../../services/mockData';
+
+const TypedDroppable = Droppable as any;
+const TypedDraggable = Draggable as any;
 
 interface StatusSettingsProps {
     realtorId: string;
-    onUpdateStatuses: (buyerStatuses: StatusOption[], sellerStatuses: StatusOption[]) => void;
-    initialBuyerStatuses?: StatusOption[];
-    initialSellerStatuses?: StatusOption[];
+    onUpdateStatuses: (statuses: StatusOption[]) => void;
+    initialStatuses?: StatusOption[];
+}
+
+interface ManagedStatus extends StatusOption {
+    applicableTo?: 'Both' | 'Buyer' | 'Seller';
 }
 
 const FUNNEL_STAGES = ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed', 'Archived'];
@@ -18,385 +24,470 @@ const FUNNEL_STAGES = ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract',
 const StatusSettings: React.FC<StatusSettingsProps> = ({
     realtorId,
     onUpdateStatuses,
-    initialBuyerStatuses,
-    initialSellerStatuses
+    initialStatuses
 }) => {
-    const partition = (b: StatusOption[], s: StatusOption[]) => {
-        const common: StatusOption[] = [];
-        const buyerOnly: StatusOption[] = [];
-        const sellerOnly: StatusOption[] = [];
 
-        const sellerLabels = new Set(s.map(opt => opt.label));
-        const buyerLabels = new Set(b.map(opt => opt.label));
+    const initialData = useMemo(() => {
+        return (initialStatuses || DEFAULT_STATUSES).map(s => ({
+            ...s,
+            applicableTo: (s.visibility?.length === 2) ? 'Both' : (s.visibility?.[0] || 'Both')
+        })) as ManagedStatus[];
+    }, [initialStatuses]);
 
-        b.forEach(opt => {
-            if (sellerLabels.has(opt.label)) {
-                common.push(opt);
-            } else {
-                buyerOnly.push(opt);
-            }
-        });
-
-        s.forEach(opt => {
-            if (!buyerLabels.has(opt.label)) {
-                sellerOnly.push(opt);
-            }
-        });
-
-        return { common, buyerOnly, sellerOnly };
-    };
-
-    const initialData = partition(initialBuyerStatuses || DEFAULT_BUYER_STATUSES, initialSellerStatuses || DEFAULT_SELLER_STATUSES);
-
-    const [commonStatuses, setCommonStatuses] = useState<StatusOption[]>(initialData.common);
-    const [buyerOnlyStatuses, setBuyerOnlyStatuses] = useState<StatusOption[]>(initialData.buyerOnly);
-    const [sellerOnlyStatuses, setSellerOnlyStatuses] = useState<StatusOption[]>(initialData.sellerOnly);
+    const [allStatuses, setAllStatuses] = useState<ManagedStatus[]>(initialData);
     const [searchQuery, setSearchQuery] = useState('');
+    const [expandedStages, setExpandedStages] = useState<Set<string>>(new Set(FUNNEL_STAGES));
     const [isSaving, setIsSaving] = useState(false);
+    const [lastSavedData, setLastSavedData] = useState<ManagedStatus[]>(initialData);
     const [isMigrating, setIsMigrating] = useState(false);
     const [logs, setLogs] = useState<string[]>([]);
 
-    const addLog = (msg: string) => setLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`]);
+    const hasUnsavedChanges = JSON.stringify(allStatuses) !== JSON.stringify(lastSavedData);
+    const db = db_instance;
 
-    const handleSeedMockData = async () => {
-        // User explicitly invoked this via chat, bypassing confirm for smoother execution if UI was glitchy
-        // if (!window.confirm("⚠️ WARNING: This will DELETE all current pipeline data...")) return;
+    const addLog = (msg: string) => setLogs(prev => [msg, ...prev]);
 
-        setIsMigrating(true);
-        setLogs([`Starting seed process for ID: ${realtorId}...`]);
-
-        if (!realtorId) {
-            addLog("❌ ERROR: Missing Realtor ID. Cannot verify permissions.");
-            setIsMigrating(false);
-            return;
-        }
-
-        const db = db_instance;
-        if (!db) {
-            addLog("Error: Database not initialized");
-            setIsMigrating(false);
-            return;
-        }
-
-        try {
-            addLog("Initializing batch write...");
-            const batch = writeBatch(db);
-            let operationCount = 0;
-            const BATCH_LIMIT = 450;
-
-            const commitBatch = async () => {
-                if (operationCount > 0) {
-                    addLog(`Committing batch of ${operationCount} operations...`);
-                    await batch.commit();
-                    operationCount = 0;
-                }
-            };
-
-            // 1. DELETE EXISTING LEADS
-            addLog("Deleting existing leads in unified table...");
-            const leadsRef = query(collection(db, "leads"), where("realtorId", "==", realtorId));
-            const leadsSnap = await getDocs(leadsRef);
-            for (const docSnapshot of leadsSnap.docs) {
-                batch.delete(docSnapshot.ref);
-                operationCount++;
-                if (operationCount >= BATCH_LIMIT) await commitBatch();
-            }
-            addLog(`Marked ${leadsSnap.size} leads for deletion.`);
-
-            // 3. GENERATE AND ADD NEW MOCK DATA
-
-            // Helper to remove undefined keys recursively
-            const removeUndefined = (obj: any): any => {
-                if (Array.isArray(obj)) return obj.map(removeUndefined);
-                if (obj && typeof obj === 'object' && !(obj instanceof Date) && obj !== null && typeof obj.toMillis !== 'function') {
-                    return Object.fromEntries(
-                        Object.entries(obj)
-                            .filter(([_, v]) => v !== undefined)
-                            .map(([k, v]) => [k, removeUndefined(v)])
-                    );
-                }
-                return obj;
-            };
-
-            // Seed leads to the unified 'leads' collection
-            // Construct full status lists for random selection
-            const currentBuyerStatuses = [...commonStatuses, ...buyerOnlyStatuses];
-            const currentSellerStatuses = [...commonStatuses, ...sellerOnlyStatuses];
-
-            const getRandomStatus = (list: StatusOption[]) => list[Math.floor(Math.random() * list.length)];
-
-            addLog(`Generating 10 Mock Buyers for ${realtorId}...`);
-            for (let i = 0; i < 10; i++) {
-                const randomStat = getRandomStatus(currentBuyerStatuses);
-                const lead = generateMockLead('Buyer', randomStat.label, randomStat.funnelStage);
-
-                const ref = doc(collection(db, "leads"));
-                const finalLead = removeUndefined({
-                    ...lead,
-                    id: ref.id,
-                    realtorId: realtorId,
-                    createdAt: serverTimestamp(),
-                    lastUpdated: serverTimestamp(),
-                    collectionName: 'leads'
-                });
-                batch.set(ref, finalLead);
-                operationCount++;
-                if (operationCount >= BATCH_LIMIT) await commitBatch();
-            }
-
-            addLog(`Generating 10 Mock Sellers for ${realtorId}...`);
-            for (let i = 0; i < 10; i++) {
-                const randomStat = getRandomStatus(currentSellerStatuses);
-                const lead = generateMockLead('Seller', randomStat.label, randomStat.funnelStage);
-
-                const ref = doc(collection(db, "leads"));
-                const finalLead = removeUndefined({
-                    ...lead,
-                    id: ref.id,
-                    realtorId: realtorId,
-                    createdAt: serverTimestamp(),
-                    lastUpdated: serverTimestamp(),
-                    collectionName: 'leads'
-                });
-                batch.set(ref, finalLead);
-                operationCount++;
-                if (operationCount >= BATCH_LIMIT) await commitBatch();
-            }
-
-            await commitBatch();
-            addLog("✅ SUCCESS: Seeded 20 new leads.");
-            // alert("✅ Successfully seeded 20 new quality mock leads (10 Buyers, 10 Sellers).");
-
-        } catch (error: any) {
-            console.error("Seeding failed:", error);
-            addLog(`❌ ERROR: ${error.message}`);
-        } finally {
-            setIsMigrating(false);
-        }
+    const toggleStage = (stage: string) => {
+        const next = new Set(expandedStages);
+        if (next.has(stage)) next.delete(stage);
+        else next.add(stage);
+        setExpandedStages(next);
     };
 
+    const handleUpdateStatus = (index: number, updates: Partial<ManagedStatus>) => {
+        setAllStatuses(prev => {
+            const next = [...prev];
 
+            if (updates.applicableTo) {
+                if (updates.applicableTo === 'Both') updates.visibility = ['Buyer', 'Seller'];
+                else if (updates.applicableTo === 'Buyer') updates.visibility = ['Buyer'];
+                else if (updates.applicableTo === 'Seller') updates.visibility = ['Seller'];
+            }
 
-    const handleAddStatus = (category: 'Common' | 'Buyer' | 'Seller') => {
-        const newStatus: StatusOption = { label: '', description: '', isDefault: false, funnelStage: 'Leads' };
-        if (category === 'Common') setCommonStatuses([...commonStatuses, newStatus]);
-        else if (category === 'Buyer') setBuyerOnlyStatuses([...buyerOnlyStatuses, newStatus]);
-        else setSellerOnlyStatuses([...sellerOnlyStatuses, newStatus]);
+            next[index] = { ...next[index], ...updates };
+            return next;
+        });
     };
 
-    const handleUpdateStatus = (category: 'Common' | 'Buyer' | 'Seller', index: number, updates: Partial<StatusOption>) => {
-        if (category === 'Common') {
-            const updated = [...commonStatuses];
-            updated[index] = { ...updated[index], ...updates };
-            setCommonStatuses(updated);
-        } else if (category === 'Buyer') {
-            const updated = [...buyerOnlyStatuses];
-            updated[index] = { ...updated[index], ...updates };
-            setBuyerOnlyStatuses(updated);
+    const handleAddStatus = (stage: string) => {
+        const newStatus: ManagedStatus = {
+            label: 'New Status',
+            description: 'Description...',
+            funnelStage: stage,
+            isDefault: false,
+            visibility: ['Buyer', 'Seller'],
+            applicableTo: 'Both',
+            order: allStatuses.length
+        };
+
+        const stageItems = allStatuses.filter(s => (s.funnelStage || 'Leads') === stage);
+        const lastIndex = allStatuses.indexOf(stageItems[stageItems.length - 1]);
+
+        const next = [...allStatuses];
+        if (lastIndex !== -1) {
+            next.splice(lastIndex + 1, 0, newStatus);
         } else {
-            const updated = [...sellerOnlyStatuses];
-            updated[index] = { ...updated[index], ...updates };
-            setSellerOnlyStatuses(updated);
+            next.push(newStatus);
+        }
+        setAllStatuses(next);
+        if (!expandedStages.has(stage)) toggleStage(stage);
+    };
+
+    const handleRemoveStatus = (index: number) => {
+        if (!allStatuses[index].isDefault) {
+            setAllStatuses(prev => prev.filter((_, i) => i !== index));
         }
     };
 
-    const handleRemoveStatus = (category: 'Common' | 'Buyer' | 'Seller', index: number) => {
-        if (category === 'Common') setCommonStatuses(commonStatuses.filter((_, i) => i !== index));
-        else if (category === 'Buyer') setBuyerOnlyStatuses(buyerOnlyStatuses.filter((_, i) => i !== index));
-        else setSellerOnlyStatuses(sellerOnlyStatuses.filter((_, i) => i !== index));
+    const onDragEnd = async (result: DropResult) => {
+        if (!result.destination) return;
+
+        const draggedStatusIE = result.draggableId;
+        const draggedStatus = allStatuses.find(s => `status-${s.label}-${allStatuses.indexOf(s)}` === draggedStatusIE);
+        if (!draggedStatus) return;
+
+        const sourceStage = result.source.droppableId;
+        const destStage = result.destination.droppableId;
+
+        let newAllStatuses = Array.from(allStatuses);
+        newAllStatuses = newAllStatuses.filter(s => s !== draggedStatus);
+
+        if (destStage !== sourceStage) {
+            draggedStatus.funnelStage = destStage;
+        }
+
+        const finalGlobalList: ManagedStatus[] = [];
+        FUNNEL_STAGES.forEach(stage => {
+            const statusesInThisStage = newAllStatuses.filter(s => (s.funnelStage || 'Nurture') === stage);
+
+            if (stage === destStage) {
+                statusesInThisStage.splice(result.destination!.index, 0, draggedStatus);
+            }
+            finalGlobalList.push(...statusesInThisStage);
+        });
+
+        const orderedFinalList = finalGlobalList.map((s, i) => ({ ...s, order: i }));
+        setAllStatuses(orderedFinalList);
     };
 
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            const finalBuyer = [...commonStatuses, ...buyerOnlyStatuses];
-            const finalSeller = [...commonStatuses, ...sellerOnlyStatuses];
-            await onUpdateStatuses(finalBuyer, finalSeller);
+            await onUpdateStatuses(allStatuses);
+            setLastSavedData([...allStatuses]);
         } finally {
             setIsSaving(false);
         }
     };
 
-    const renderTable = (title: string, category: 'Common' | 'Buyer' | 'Seller', statuses: StatusOption[]) => {
-        const filtered = statuses.filter(s =>
-            s.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            s.description.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+    const handleResetDefaults = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
 
-        let icon = "fa-users-gear";
-        let accentColor = "bg-slate-50 shadow-sm";
-        if (category === 'Buyer') {
-            icon = "fa-cart-shopping";
-            accentColor = "bg-indigo-50/30";
-        } else if (category === 'Seller') {
-            icon = "fa-house-chimney-window";
-            accentColor = "bg-emerald-50/30";
+        if (window.confirm('Reset to defaults and save? This will overwrite existing data.')) {
+            setIsSaving(true);
+            try {
+                const defaults = DEFAULT_STATUSES.map(s => ({
+                    ...s,
+                    applicableTo: (s.visibility?.length === 2) ? 'Both' : (s.visibility?.[0] || 'Both')
+                })) as ManagedStatus[];
+
+                setAllStatuses(defaults);
+                setSearchQuery('');
+                setExpandedStages(new Set(FUNNEL_STAGES));
+
+                console.log("Saving defaults...");
+                await onUpdateStatuses(defaults);
+                setLastSavedData(defaults);
+
+                alert("Defaults successfully restored and saved.");
+            } catch (error) {
+                console.error("Failed to save defaults:", error);
+                alert("Error saving defaults. Please try again.");
+            } finally {
+                setIsSaving(false);
+            }
         }
+    };
+
+    const handleSeedMockData = async () => {
+        if (!confirm("Overwrite all existing leads with generic mock data?")) return;
+        setIsMigrating(true);
+        setLogs([]);
+        try {
+            addLog("Deleting existing leads...");
+            const leadsQ = query(collection(db, "leads"), where("realtorId", "==", realtorId));
+            const snap = await getDocs(leadsQ);
+            const batch = writeBatch(db);
+            snap.docs.forEach(d => batch.delete(d.ref));
+            await batch.commit();
+            addLog("Existing leads deleted.");
+
+            const buyerStatuses = allStatuses.filter(s => s.visibility?.includes('Buyer'));
+            const sellerStatuses = allStatuses.filter(s => s.visibility?.includes('Seller'));
+
+            const getRandom = (arr: any[]) => arr[Math.floor(Math.random() * arr.length)];
+
+            const newBatch = writeBatch(db);
+            let opCount = 0;
+
+            for (let i = 0; i < 10; i++) {
+                const s = getRandom(buyerStatuses);
+                const lead = generateMockLead('Buyer', s.label, s.funnelStage);
+                const ref = doc(collection(db, "leads"));
+                newBatch.set(ref, { ...lead, id: ref.id, realtorId, createdAt: serverTimestamp(), collectionName: 'leads' });
+                opCount++;
+            }
+            for (let i = 0; i < 10; i++) {
+                const s = getRandom(sellerStatuses);
+                const lead = generateMockLead('Seller', s.label, s.funnelStage);
+                const ref = doc(collection(db, "leads"));
+                newBatch.set(ref, { ...lead, id: ref.id, realtorId, createdAt: serverTimestamp(), collectionName: 'leads' });
+                opCount++;
+            }
+
+            await newBatch.commit();
+            addLog(`Success: Created ${opCount} leads.`);
+        } catch (e: any) {
+            addLog(`Error: ${e.message}`);
+        } finally {
+            setIsMigrating(false);
+        }
+    };
+
+    const renderStageGroups = () => {
+        const isFiltering = searchQuery.length > 0;
 
         return (
-            <div className={`bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden mb-8`}>
-                <div className={`p-6 border-b border-slate-50 flex items-center justify-between ${accentColor}`}>
-                    <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${category === 'Common' ? 'bg-slate-100 text-slate-600' : category === 'Buyer' ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                            <i className={`fa-solid ${icon}`}></i>
-                        </div>
-                        <h3 className="text-xl font-black text-slate-900">{title}</h3>
-                    </div>
-                    <div className="relative">
-                        <input
-                            type="text"
-                            placeholder="Search status..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none w-64 transition-all"
-                        />
-                        <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
-                    </div>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="bg-slate-50/50 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                <th className="px-6 py-4">Funnel Stage</th>
-                                <th className="px-6 py-4">Lead Status</th>
-                                <th className="px-6 py-4">Description</th>
-                                <th className="px-6 py-4 w-20"></th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                            {filtered.map((status, index) => (
-                                <tr key={index} className="group hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="relative group/select">
-                                            <select
-                                                value={status.funnelStage || ''}
-                                                onChange={(e) => handleUpdateStatus(category, index, { funnelStage: e.target.value })}
-                                                className="w-full bg-slate-100/50 rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none cursor-pointer hover:bg-slate-100 transition-all active:scale-95"
-                                            >
-                                                <option value="">Select Stage</option>
-                                                {FUNNEL_STAGES.map(stage => (
-                                                    <option key={stage} value={stage}>{stage}</option>
-                                                ))}
-                                            </select>
-                                            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-40 group-hover/select:opacity-100 transition-opacity">
-                                                <i className="fa-solid fa-chevron-down text-[8px]"></i>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <input
-                                            type="text"
-                                            value={status.label}
-                                            onChange={(e) => handleUpdateStatus(category, index, { label: e.target.value })}
-                                            placeholder="Status Label"
-                                            className="w-full bg-transparent font-bold text-slate-900 focus:outline-none focus:text-indigo-600 px-0 py-1"
-                                        />
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <input
-                                            type="text"
-                                            value={status.description}
-                                            onChange={(e) => handleUpdateStatus(category, index, { description: e.target.value })}
-                                            placeholder="Status Description"
-                                            className="w-full bg-transparent text-slate-500 text-sm focus:outline-none focus:text-slate-900 px-0 py-1"
-                                        />
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        {!status.isDefault && (
-                                            <button
-                                                onClick={() => handleRemoveStatus(category, index)}
-                                                className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-rose-500 transition-all"
-                                            >
-                                                <i className="fa-solid fa-trash-can text-xs"></i>
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                            <tr
-                                onClick={() => handleAddStatus(category)}
-                                className="cursor-pointer hover:bg-indigo-50/30 transition-colors"
+            <div className="space-y-6">
+                {FUNNEL_STAGES.map((stage) => {
+                    const stageStatuses = allStatuses.filter(s => {
+                        const matchesStage = (s.funnelStage || 'Nurture') === stage;
+                        if (!matchesStage) return false;
+                        if (isFiltering) {
+                            return s.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                s.description.toLowerCase().includes(searchQuery.toLowerCase());
+                        }
+                        return true;
+                    });
+
+                    const isExpanded = expandedStages.has(stage);
+                    if (isFiltering && stageStatuses.length === 0) return null;
+
+                    return (
+                        <div key={stage} className={`bg-white rounded-2xl border transition-all duration-300 ${isExpanded ? 'border-indigo-100 shadow-sm' : 'border-slate-100'}`}>
+                            {/* Header */}
+                            <div
+                                onClick={() => toggleStage(stage)}
+                                className={`flex items-center justify-between p-4 cursor-pointer select-none transition-colors ${isExpanded ? 'bg-indigo-50/30' : 'hover:bg-slate-50'}`}
                             >
-                                <td colSpan={4} className="px-6 py-4 text-slate-400">
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] ${category === 'Common' ? 'bg-slate-100' : category === 'Buyer' ? 'bg-indigo-100' : 'bg-emerald-100'}`}>
-                                            <i className="fa-solid fa-plus"></i>
-                                        </div>
-                                        <span className="text-xs font-bold uppercase tracking-wider">Add Status</span>
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs transition-colors ${isExpanded ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
+                                        <i className={`fa-solid ${isExpanded ? 'fa-folder-open' : 'fa-folder'}`}></i>
                                     </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                                    <div>
+                                        <h3 className={`text-xs font-black uppercase tracking-widest ${isExpanded ? 'text-indigo-900' : 'text-slate-500'}`}>{stage}</h3>
+                                        <p className="text-[10px] text-slate-400 font-medium">{stageStatuses.length} Statuses</p>
+                                    </div>
+                                </div>
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${isExpanded ? 'bg-indigo-100 text-indigo-600 rotate-180' : 'text-slate-300'}`}>
+                                    <i className="fa-solid fa-chevron-down text-[10px]"></i>
+                                </div>
+                            </div>
+
+                            {/* Content */}
+                            {isExpanded && (
+                                <div className="border-t border-indigo-50/50">
+                                    <TypedDroppable droppableId={stage} isDropDisabled={isFiltering}>
+                                        {(provided: any) => (
+                                            <table
+                                                className="w-full text-left"
+                                                {...provided.droppableProps}
+                                                ref={provided.innerRef}
+                                            >
+                                                <thead className="bg-slate-50 border-b border-slate-100">
+                                                    <tr>
+                                                        <th className="w-10 py-2"></th>
+                                                        <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-1/3">Status Name</th>
+                                                        <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Description</th>
+                                                        <th className="w-12 py-2"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-50">
+                                                    {stageStatuses.map((status, index) => {
+                                                        const actualIndex = allStatuses.indexOf(status);
+                                                        return (
+                                                            <TypedDraggable
+                                                                key={`${status.label}-${actualIndex}`}
+                                                                draggableId={`status-${status.label}-${actualIndex}`}
+                                                                index={index}
+                                                                isDragDisabled={isFiltering}
+                                                            >
+                                                                {(provided: any, snapshot: any) => (
+                                                                    <tr
+                                                                        ref={provided.innerRef}
+                                                                        {...provided.draggableProps}
+                                                                        className={`group hover:bg-slate-50/80 transition-colors ${snapshot.isDragging ? 'bg-white shadow-xl z-50 ring-2 ring-indigo-500/20 rounded-lg' : ''}`}
+                                                                    >
+                                                                        {!isFiltering && (
+                                                                            <td className="px-4 py-2 w-10 align-top">
+                                                                                <div {...provided.dragHandleProps} className="text-slate-300 hover:text-indigo-400 cursor-grab active:cursor-grabbing transition-colors flex justify-center pt-2">
+                                                                                    <i className="fa-solid fa-grip-vertical text-[10px]"></i>
+                                                                                </div>
+                                                                            </td>
+                                                                        )}
+
+                                                                        <td className="px-4 py-2 w-1/3 align-middle">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={status.label}
+                                                                                    onChange={(e) => handleUpdateStatus(actualIndex, { label: e.target.value })}
+                                                                                    placeholder="Status Label"
+                                                                                    className="flex-1 min-w-0 bg-transparent font-semibold text-slate-900 text-sm leading-snug focus:outline-none focus:text-indigo-700 placeholder:text-slate-300 px-0 py-0.5 border-b border-transparent focus:border-indigo-100 transition-all font-sans"
+                                                                                />
+
+                                                                                {/* Scope / Visibility (Now Inline) */}
+                                                                                <div className="relative group/select flex-shrink-0">
+                                                                                    {status.applicableTo !== 'Both' ? (
+                                                                                        <div className={`
+                                                                                            text-[8px] font-black uppercase tracking-widest py-0.5 px-1.5 rounded flex items-center gap-1.5 transition-all cursor-pointer
+                                                                                            ${status.applicableTo === 'Buyer' ? 'bg-sky-50 text-sky-600 border border-sky-100 group-hover/select:border-sky-300' : 'bg-emerald-50 text-emerald-600 border border-emerald-100 group-hover/select:border-emerald-300'}
+                                                                                        `}>
+                                                                                            <div className={`w-1.5 h-1.5 rounded-full ${status.applicableTo === 'Buyer' ? 'bg-sky-400' : 'bg-emerald-400'}`}></div>
+                                                                                            <span>
+                                                                                                {status.applicableTo === 'Buyer' ? 'Buyer Only' : 'Seller Only'}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <div className="flex items-center gap-2 cursor-pointer group-hover/select:opacity-100 opacity-0 transition-opacity">
+                                                                                            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider group-hover/select:text-indigo-400">Common</span>
+                                                                                            <i className="fa-solid fa-sliders text-slate-300 text-[10px] group-hover/select:text-indigo-400"></i>
+                                                                                        </div>
+                                                                                    )}
+                                                                                    <select
+                                                                                        value={status.applicableTo}
+                                                                                        onChange={(e) => handleUpdateStatus(actualIndex, { applicableTo: e.target.value as any })}
+                                                                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                                                        title="Change Scope"
+                                                                                    >
+                                                                                        <option value="Both">Common (All Tabs)</option>
+                                                                                        <option value="Buyer">Buyer Only</option>
+                                                                                        <option value="Seller">Seller Only</option>
+                                                                                    </select>
+                                                                                </div>
+                                                                            </div>
+                                                                        </td>
+
+                                                                        <td className="px-4 py-2 align-top">
+                                                                            <input
+                                                                                value={status.description}
+                                                                                onChange={(e) => handleUpdateStatus(actualIndex, { description: e.target.value })}
+                                                                                placeholder="Description"
+                                                                                className="w-full bg-transparent text-slate-600 text-sm leading-snug font-medium focus:outline-none focus:text-slate-900 px-0 py-0.5 font-sans"
+                                                                            />
+                                                                        </td>
+                                                                        <td className="px-4 py-2 w-12 text-right align-top">
+                                                                            {!status.isDefault && (
+                                                                                <button
+                                                                                    onClick={() => handleRemoveStatus(actualIndex)}
+                                                                                    className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-md hover:bg-rose-50 text-slate-300 hover:text-rose-500 transition-all flex items-center justify-center pt-2"
+                                                                                >
+                                                                                    <i className="fa-solid fa-trash-can text-[10px]"></i>
+                                                                                </button>
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                )}
+                                                            </TypedDraggable>
+                                                        );
+                                                    })}
+                                                    {provided.placeholder}
+                                                </tbody>
+                                            </table>
+                                        )}
+                                    </TypedDroppable>
+
+                                    {/* Add Button */}
+                                    {!isFiltering && (
+                                        <div className="p-2 border-t border-slate-50">
+                                            <button
+                                                onClick={() => handleAddStatus(stage)}
+                                                className="w-full py-2 flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition-all"
+                                            >
+                                                <i className="fa-solid fa-plus"></i>
+                                                Add Status to {stage}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
         );
     };
 
     return (
-        <div className="flex-1 overflow-y-auto bg-[#F8FAFC] p-8">
-            <div className="max-w-5xl mx-auto">
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Status Management</h2>
-                        <p className="text-slate-500 font-medium">Configure lead lifecycles and workflow stages</p>
-                    </div>
-                    <button
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="bg-indigo-600 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-indigo-500/20 hover:bg-indigo-700 transition-all active:scale-95 flex items-center gap-3 disabled:opacity-50"
-                    >
-                        {isSaving ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-floppy-disk"></i>}
-                        {isSaving ? 'Saving...' : 'Save Settings'}
-                    </button>
-                </div>
-
-                {renderTable('Common Funnel Stages', 'Common', commonStatuses)}
-                {renderTable('Buyer Specific Statuses', 'Buyer', buyerOnlyStatuses)}
-                {renderTable('Seller Specific Statuses', 'Seller', sellerOnlyStatuses)}
-
-                <div className="bg-amber-50 border border-amber-100 rounded-2xl p-6 flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0">
-                        <i className="fa-solid fa-circle-info"></i>
-                    </div>
-                    <div>
-                        <h4 className="font-bold text-amber-900 text-sm mb-1">Status Impact</h4>
-                        <p className="text-amber-700 text-xs leading-relaxed font-medium">
-                            Changing status labels will update all existing leads instantly. Custom statuses will appear in the "Lead Status" dropdown across the Client Hub and Pipeline boards.
-                        </p>
-                    </div>
-                </div>
-
-                <div className="mt-8 pt-8 border-t border-slate-200">
-                    <h3 className="text-lg font-bold text-rose-600 mb-4">Danger Zone</h3>
-                    <div className="flex flex-col gap-4">
-
-
+        <div className="flex-1 overflow-y-auto bg-[#F8FAFC] p-4 md:p-8">
+            <DragDropContext onDragEnd={onDragEnd}>
+                <div className="w-full max-w-5xl mx-auto">
+                    {/* Header Controls */}
+                    <div className="flex items-center justify-between mb-8">
                         <div>
+                            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Status Management</h2>
+                            <p className="text-xs text-slate-500 font-medium mt-1">Configure pipeline stages and visibility</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <div className="relative">
+                                <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                <input
+                                    type="text"
+                                    placeholder="Filter statuses..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 w-64 transition-all"
+                                />
+                            </div>
+                            <div className="h-6 w-px bg-slate-200 mx-2"></div>
                             <button
                                 type="button"
-                                onClick={(e) => { e.preventDefault(); handleSeedMockData(); }}
-                                disabled={isMigrating}
-                                className="bg-white border-2 border-indigo-100 text-indigo-600 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-50 hover:border-indigo-200 transition-all active:scale-95 flex items-center gap-2 w-full sm:w-auto"
+                                onClick={handleResetDefaults}
+                                disabled={isSaving}
+                                className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition-colors"
                             >
-                                {isMigrating ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-seedling"></i>}
-                                Seed Quality Mock Data
+                                Reset Defaults
                             </button>
-                            <p className="text-slate-400 text-[10px] mt-2 font-medium">
-                                DELETE all data and generate 20 fresh high-quality leads in the unified leads table (10 Buyers, 10 Sellers).
+                            <div className="flex flex-col items-end">
+                                <button
+                                    onClick={handleSave}
+                                    disabled={isSaving}
+                                    className={`px-6 py-2.5 rounded-xl font-bold text-xs shadow-lg transition-all ${isSaving
+                                        ? 'bg-slate-400 text-white cursor-not-allowed'
+                                        : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-xl active:scale-95'
+                                        } flex items-center gap-2`}
+                                >
+                                    {isSaving ? (
+                                        <>
+                                            <i className="fa-solid fa-spinner fa-spin"></i>
+                                            <span>Saving...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <i className="fa-solid fa-floppy-disk"></i>
+                                            <span>Save</span>
+                                        </>
+                                    )}
+                                </button>
+                                {hasUnsavedChanges && (
+                                    <span className="text-slate-900 font-bold text-[10px] tracking-wide animate-pulse flex items-center bg-white border border-slate-200 px-3 py-1 rounded-full shadow-sm mt-1.5">
+                                        <i className="fa-solid fa-circle-exclamation mr-1.5 text-amber-500"></i>
+                                        Changes not saved
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {renderStageGroups()}
+
+                    {/* Info Card */}
+                    <div className="mt-8 bg-blue-50 border border-blue-100 rounded-2xl p-6 flex items-start gap-4">
+                        <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
+                            <i className="fa-solid fa-circle-info text-sm"></i>
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-blue-900 text-xs uppercase tracking-wide mb-1">Status Visibility</h4>
+                            <p className="text-blue-700 text-xs leading-relaxed">
+                                Statuses set to "Common" appear in both Buyer and Seller tabs. "Buyer Only" or "Seller Only" restricts them to their respective views.
+                                Drag and drop statuses to reorder them within the global sequence.
                             </p>
                         </div>
                     </div>
 
-                    {logs.length > 0 && (
-                        <div className="mt-6 bg-slate-900 rounded-xl p-4 font-mono text-[10px] text-green-400 max-h-48 overflow-y-auto shadow-inner">
-                            {logs.map((log, i) => (
-                                <div key={i}>{log}</div>
-                            ))}
+                    {/* Developer Tools */}
+                    <div className="mt-12 pt-8 border-t border-slate-200">
+                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Developer Tools</h3>
+                        <div className="">
+                            <button
+                                type="button"
+                                onClick={(e) => { e.preventDefault(); handleSeedMockData(); }}
+                                disabled={isMigrating}
+                                className="text-rose-500 hover:text-rose-700 text-xs font-bold flex items-center gap-2 transition-colors opacity-60 hover:opacity-100"
+                            >
+                                <i className="fa-solid fa-database"></i>
+                                {isMigrating ? 'Resetting Database...' : 'Reset & Seed Mock Database'}
+                            </button>
+                            {logs.length > 0 && (
+                                <div className="mt-4 bg-slate-900 rounded-lg p-3 font-mono text-[10px] text-emerald-400 max-h-32 overflow-y-auto">
+                                    {logs.map((log, i) => <div key={i}>{log}</div>)}
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </div>
                 </div>
-            </div>
+            </DragDropContext>
         </div>
     );
 };
