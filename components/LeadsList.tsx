@@ -894,9 +894,32 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         )}
                                                         {getVisibleColumns('Buyer').has('notes') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 min-w-[200px] max-w-[300px]">
-                                                                <div className="flex flex-col gap-1 max-h-[80px] overflow-y-auto custom-scrollbar">
+                                                                <div className="flex flex-col gap-2 max-h-[100px] overflow-y-auto custom-scrollbar">
+                                                                    {/* Last Call Note */}
+                                                                    {lead.callNotes && lead.callNotes.length > 0 && (() => {
+                                                                        const lastCallNote = [...lead.callNotes].sort((a, b) => b.callNumber - a.callNumber)[0];
+                                                                        return (
+                                                                            <div className="flex items-start gap-2 bg-indigo-50 rounded-lg p-1.5 border border-indigo-100">
+                                                                                <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                                                    <span className="text-[8px] font-black text-indigo-600">#{lastCallNote.callNumber}</span>
+                                                                                </div>
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <div className="flex items-center gap-1 mb-0.5">
+                                                                                        <span className={`px-1 py-0 rounded text-[7px] font-bold uppercase ${lastCallNote.outcome === 'Connected' ? 'bg-emerald-100 text-emerald-600' :
+                                                                                            lastCallNote.outcome === 'Voicemail' ? 'bg-amber-100 text-amber-600' :
+                                                                                                'bg-slate-100 text-slate-500'
+                                                                                            }`}>
+                                                                                            {lastCallNote.outcome || 'Connected'}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <p className="text-[10px] text-slate-700 line-clamp-2">{lastCallNote.note}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })()}
+                                                                    {/* Comments */}
                                                                     {(lead.notesLog || []).length > 0 ? (
-                                                                        lead.notesLog!.map((note, i) => (
+                                                                        lead.notesLog!.slice(-2).reverse().map((note, i) => (
                                                                             <div key={note.id || i} className="text-[11px] leading-tight text-slate-600">
                                                                                 <span className="opacity-50 text-[10px] mr-1">
                                                                                     {note.timestamp?.toDate ? note.timestamp.toDate().toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(note.timestamp).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -905,7 +928,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                             </div>
                                                                         ))
                                                                     ) : (
-                                                                        <span className="text-xs text-slate-300">--</span>
+                                                                        !lead.callNotes?.length && <span className="text-xs text-slate-300">--</span>
                                                                     )}
                                                                 </div>
                                                             </td>
@@ -1240,9 +1263,32 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         {getVisibleColumns('Seller').has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.funnelStage || '--'}</td>}
                                                         {getVisibleColumns('Seller').has('notes') && (
                                                             <td className="px-2 py-2 border-b border-slate-100 min-w-[200px] max-w-[300px]">
-                                                                <div className="flex flex-col gap-1 max-h-[80px] overflow-y-auto custom-scrollbar">
+                                                                <div className="flex flex-col gap-2 max-h-[100px] overflow-y-auto custom-scrollbar">
+                                                                    {/* Last Call Note */}
+                                                                    {lead.callNotes && lead.callNotes.length > 0 && (() => {
+                                                                        const lastCallNote = [...lead.callNotes].sort((a, b) => b.callNumber - a.callNumber)[0];
+                                                                        return (
+                                                                            <div className="flex items-start gap-2 bg-emerald-50 rounded-lg p-1.5 border border-emerald-100">
+                                                                                <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                                                                                    <span className="text-[8px] font-black text-emerald-600">#{lastCallNote.callNumber}</span>
+                                                                                </div>
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <div className="flex items-center gap-1 mb-0.5">
+                                                                                        <span className={`px-1 py-0 rounded text-[7px] font-bold uppercase ${lastCallNote.outcome === 'Connected' ? 'bg-emerald-100 text-emerald-600' :
+                                                                                                lastCallNote.outcome === 'Voicemail' ? 'bg-amber-100 text-amber-600' :
+                                                                                                    'bg-slate-100 text-slate-500'
+                                                                                            }`}>
+                                                                                            {lastCallNote.outcome || 'Connected'}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <p className="text-[10px] text-slate-700 line-clamp-2">{lastCallNote.note}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })()}
+                                                                    {/* Comments */}
                                                                     {(lead.notesLog || []).length > 0 ? (
-                                                                        lead.notesLog!.map((note, i) => (
+                                                                        lead.notesLog!.slice(-2).reverse().map((note, i) => (
                                                                             <div key={note.id || i} className="text-[11px] leading-tight text-slate-600">
                                                                                 <span className="opacity-50 text-[10px] mr-1">
                                                                                     {note.timestamp?.toDate ? note.timestamp.toDate().toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(note.timestamp).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -1251,7 +1297,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                             </div>
                                                                         ))
                                                                     ) : (
-                                                                        <span className="text-xs text-slate-300">--</span>
+                                                                        !lead.callNotes?.length && <span className="text-xs text-slate-300">--</span>
                                                                     )}
                                                                 </div>
                                                             </td>

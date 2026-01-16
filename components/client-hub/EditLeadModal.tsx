@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lead } from '../../types';
+import { Lead, CallNote } from '../../types';
 import { getStatusOptions, getStatusDefinitions } from '../../services/statusService';
 
 interface EditLeadModalProps {
@@ -49,6 +49,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 }) => {
     const [showStatusInfo, setShowStatusInfo] = useState(false);
     const [noteColor, setNoteColor] = useState('bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]');
+    const [newCallNote, setNewCallNote] = useState('');
+    const [newCallOutcome, setNewCallOutcome] = useState<'Connected' | 'Voicemail' | 'No Answer' | 'Busy' | 'Wrong Number'>('Connected');
 
     const noteTypes = [
         { id: 'note-yellow', color: 'bg-[#ffff88] text-slate-800 border-[#eeee77]', shadow: 'shadow-[5px_5px_7px_rgba(33,33,33,.1)]' },
@@ -544,7 +546,141 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                         />
                     </div>
 
-                    {/* Notes (Custom UI) */}
+                    {/* Call Notes Section */}
+                    <div className="space-y-3 pt-4 border-t border-slate-100 mt-4">
+                        <div className="flex items-center justify-between ml-1">
+                            <div className="flex items-center gap-2">
+                                <i className="fa-solid fa-phone text-indigo-500 text-xs"></i>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Call Notes</label>
+                                <span className="text-[9px] font-medium text-slate-300">({editingLead.callCount || 0} calls made)</span>
+                            </div>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-indigo-50 to-slate-50 border border-indigo-100 rounded-2xl p-4 max-h-[250px] overflow-y-auto">
+                            {editingLead.callNotes && editingLead.callNotes.length > 0 ? (
+                                <div className="space-y-3">
+                                    {[...editingLead.callNotes].sort((a, b) => b.callNumber - a.callNumber).map((callNote) => (
+                                        <div
+                                            key={callNote.callNumber}
+                                            className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm hover:shadow-md transition-all group"
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                        <span className="text-xs font-black text-indigo-600">#{callNote.callNumber}</span>
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${callNote.outcome === 'Connected' ? 'bg-emerald-100 text-emerald-600' :
+                                                                    callNote.outcome === 'Voicemail' ? 'bg-amber-100 text-amber-600' :
+                                                                        callNote.outcome === 'No Answer' ? 'bg-slate-100 text-slate-500' :
+                                                                            callNote.outcome === 'Busy' ? 'bg-orange-100 text-orange-600' :
+                                                                                'bg-rose-100 text-rose-600'
+                                                                }`}>
+                                                                {callNote.outcome || 'Connected'}
+                                                            </span>
+                                                            {callNote.duration && (
+                                                                <span className="text-[9px] text-slate-400">
+                                                                    {Math.floor(callNote.duration / 60)}m {callNote.duration % 60}s
+                                                                </span>
+                                                            )}
+                                                            <span className="text-[9px] text-slate-300">
+                                                                {new Date(callNote.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-sm text-slate-700">{callNote.note}</p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        const updatedCallNotes = editingLead.callNotes?.filter(n => n.callNumber !== callNote.callNumber);
+                                                        setEditingLead({ ...editingLead, callNotes: updatedCallNotes });
+                                                    }}
+                                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-red-500 p-1"
+                                                >
+                                                    <i className="fa-solid fa-trash-can text-[10px]"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center text-slate-300 italic text-xs py-6">
+                                    <i className="fa-solid fa-phone-slash text-2xl mb-2 block opacity-40"></i>
+                                    No call notes recorded yet
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Add new call note */}
+                        <div className="bg-white rounded-2xl border border-slate-200 p-3 space-y-2">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-xs font-black text-white">#{(editingLead.callCount || 0) + 1}</span>
+                                </div>
+                                <select
+                                    value={newCallOutcome}
+                                    onChange={(e) => setNewCallOutcome(e.target.value as any)}
+                                    className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-indigo-500 outline-none"
+                                >
+                                    <option value="Connected">Connected</option>
+                                    <option value="Voicemail">Voicemail</option>
+                                    <option value="No Answer">No Answer</option>
+                                    <option value="Busy">Busy</option>
+                                    <option value="Wrong Number">Wrong Number</option>
+                                </select>
+                                <span className="text-[9px] text-slate-400 ml-auto">Next call note</span>
+                            </div>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={newCallNote}
+                                    onChange={(e) => setNewCallNote(e.target.value)}
+                                    placeholder="Add note for this call..."
+                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && newCallNote.trim()) {
+                                            const newCallNoteObj: CallNote = {
+                                                callNumber: (editingLead.callCount || 0) + 1,
+                                                note: newCallNote.trim(),
+                                                timestamp: new Date(),
+                                                outcome: newCallOutcome
+                                            };
+                                            setEditingLead({
+                                                ...editingLead,
+                                                callNotes: [...(editingLead.callNotes || []), newCallNoteObj],
+                                                callCount: (editingLead.callCount || 0) + 1
+                                            });
+                                            setNewCallNote('');
+                                        }
+                                    }}
+                                />
+                                <button
+                                    onClick={() => {
+                                        if (newCallNote.trim()) {
+                                            const newCallNoteObj: CallNote = {
+                                                callNumber: (editingLead.callCount || 0) + 1,
+                                                note: newCallNote.trim(),
+                                                timestamp: new Date(),
+                                                outcome: newCallOutcome
+                                            };
+                                            setEditingLead({
+                                                ...editingLead,
+                                                callNotes: [...(editingLead.callNotes || []), newCallNoteObj],
+                                                callCount: (editingLead.callCount || 0) + 1
+                                            });
+                                            setNewCallNote('');
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-indigo-500 text-white rounded-xl text-xs font-bold hover:bg-indigo-600 transition-all"
+                                >
+                                    <i className="fa-solid fa-plus mr-1"></i> Add
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Comments Section (Post-it Notes) */}
                     <div className="space-y-3 pt-4 border-t border-slate-100 mt-4">
                         <style dangerouslySetInnerHTML={{
                             __html: `
@@ -552,7 +688,10 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                             .post-it-font { font-family: 'Architects Daughter', cursive; line-height: 1.2; }
                             `}} />
                         <div className="flex items-center justify-between ml-1">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Call Notes & Comments</label>
+                            <div className="flex items-center gap-2">
+                                <i className="fa-solid fa-note-sticky text-amber-500 text-xs"></i>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Comments</label>
+                            </div>
                             <div className="flex items-center gap-2">
                                 <span className="text-[8px] font-black uppercase tracking-widest text-slate-300">New Note Color:</span>
                                 <div className="flex gap-1.5">
@@ -568,7 +707,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                             </div>
                         </div>
 
-                        <div className="bg-slate-50 border border-slate-100 rounded-[2.5rem] p-6 max-h-[400px] overflow-y-auto">
+                        <div className="bg-slate-50 border border-slate-100 rounded-[2.5rem] p-6 max-h-[300px] overflow-y-auto">
                             <div className="flex flex-wrap gap-4">
                                 {editingLead.notesLog && editingLead.notesLog.length > 0 ? (
                                     [...editingLead.notesLog].reverse().map((note, i) => (
@@ -594,7 +733,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="w-full text-center text-slate-300 italic text-xs py-8">No notes recorded yet. Add one below!</div>
+                                    <div className="w-full text-center text-slate-300 italic text-xs py-8">No comments yet. Add one below!</div>
                                 )}
                             </div>
                         </div>
@@ -605,7 +744,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                 onChange={(e) => setNewNote(e.target.value)}
                                 rows={3}
                                 className={`w-full px-6 py-5 rounded-[2rem] text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none resize-none border-t border-black/5 post-it-font ${noteColor}`}
-                                placeholder="Type a new post-it note..."
+                                placeholder="Type a new comment..."
                             />
                             <div className="absolute top-2 right-4 flex items-center gap-1 opacity-20">
                                 <i className="fa-solid fa-note-sticky text-xs"></i>

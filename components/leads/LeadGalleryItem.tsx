@@ -478,7 +478,32 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                             </div>
                         )}
 
-                        {/* Post-it Notes */}
+                        {/* Last Call Note */}
+                        {lead.callNotes && lead.callNotes.length > 0 && (() => {
+                            const lastCallNote = [...lead.callNotes].sort((a, b) => b.callNumber - a.callNumber)[0];
+                            return (
+                                <div className="mt-2 bg-gradient-to-r from-indigo-50 to-slate-50 p-3 rounded-2xl border border-indigo-100/50 flex items-start gap-3">
+                                    <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                        <span className="text-[10px] font-black text-indigo-600">#{lastCallNote.callNumber}</span>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <i className="fa-solid fa-phone text-indigo-400 text-[8px]"></i>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Last Call Note</span>
+                                            <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider ${lastCallNote.outcome === 'Connected' ? 'bg-emerald-100 text-emerald-600' :
+                                                    lastCallNote.outcome === 'Voicemail' ? 'bg-amber-100 text-amber-600' :
+                                                        lastCallNote.outcome === 'No Answer' ? 'bg-slate-100 text-slate-500' :
+                                                            lastCallNote.outcome === 'Busy' ? 'bg-orange-100 text-orange-600' :
+                                                                'bg-rose-100 text-rose-600'
+                                                }`}>
+                                                {lastCallNote.outcome || 'Connected'}
+                                            </span>
+                                        </div>
+                                        <p className="text-[12px] text-slate-700 font-medium line-clamp-2">{lastCallNote.note}</p>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                         {getVisibleColumns().has('notes') && (
                             <div
                                 className="flex flex-wrap gap-3 mt-4 relative min-h-[40px] flex-1 rounded-xl transition-colors"

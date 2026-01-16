@@ -85,6 +85,14 @@ export interface DocumentChecklistItem {
   status: 'Signed' | 'Pending' | 'Missing';
 }
 
+export interface CallNote {
+  callNumber: number; // Which call this note is for (1st, 2nd, 3rd, etc.)
+  note: string;
+  timestamp: any;
+  duration?: number; // Call duration in seconds
+  outcome?: 'Connected' | 'Voicemail' | 'No Answer' | 'Busy' | 'Wrong Number';
+}
+
 export interface KYCData {
   // 1. Client Profiles & Preferences
   dealBreakers?: string[];
@@ -165,6 +173,7 @@ export interface Lead {
   sqft?: number;
   maxPrice?: number;
   callCount?: number;
+  callNotes?: CallNote[]; // Notes for specific calls (sparse - not all calls need notes)
 
   daysOnZillow?: number;
   mlsNumber?: string;
