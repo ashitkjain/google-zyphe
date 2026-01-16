@@ -241,6 +241,23 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                 updates.closedAt = new Date();
             }
 
+            // Auto-populate subjectProperty from propertyAddress if not set
+            const targetStage = updates.funnelStage || currentLead.funnelStage;
+            const currentSubjectProperty = updates.subjectProperty || currentLead.subjectProperty;
+            const currentPropertyAddress = updates.propertyAddress || currentLead.propertyAddress;
+
+            if (!currentSubjectProperty && currentPropertyAddress) {
+                updates.subjectProperty = currentPropertyAddress;
+            }
+
+            // Warn if subjectProperty is not set for Offer and Contract stages (but don't block)
+            if (['Offer', 'Contract'].includes(targetStage)) {
+                const finalSubjectProperty = updates.subjectProperty || currentLead.subjectProperty;
+                if (!finalSubjectProperty || !finalSubjectProperty.trim()) {
+                    console.warn('[ClientHub] Moving to Offer/Contract stage without Subject Property. Consider adding one.');
+                }
+            }
+
             // Ensure ClientID exists
             if (!currentLead.clientId && !updates.clientId) {
                 updates.clientId = generateClientID();
@@ -303,12 +320,27 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         const lead = leads.find(l => l.id === leadId);
         if (!lead) return;
 
+        // Warn if subjectProperty is not set for Offer and Contract stages (but don't block drag)
+        if (['Offer', 'Contract'].includes(newStage)) {
+            const subjectProperty = lead.subjectProperty || lead.propertyAddress;
+            if (!subjectProperty || !subjectProperty.trim()) {
+                console.warn('[ClientHub] Moving to Offer/Contract stage without Subject Property. Consider adding one.');
+            }
+        }
+
+        // Auto-populate subjectProperty if moving to Offer/Contract and it's empty but propertyAddress exists
+        const additionalUpdates: any = {};
+        if (['Offer', 'Contract'].includes(newStage) && !lead.subjectProperty && lead.propertyAddress) {
+            additionalUpdates.subjectProperty = lead.propertyAddress;
+        }
+
         // Optimistically update the UI
         setLeads(prev => prev.map(l => {
             if (l.id === leadId) {
                 const stageChanged = l.funnelStage !== newStage;
                 return {
                     ...l,
+                    ...additionalUpdates,
                     funnelStage: newStage,
                     stageLastChangedAt: stageChanged ? new Date() : (l.stageLastChangedAt || l.receivedAt)
                 };
@@ -318,7 +350,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
         // Persist to database
         const collectionName = 'leads';
-        const updates: any = { funnelStage: newStage };
+        const updates: any = { funnelStage: newStage, ...additionalUpdates };
         if (lead.funnelStage !== newStage) {
             updates.stageLastChangedAt = new Date();
         }
@@ -642,7 +674,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
 
                 {activeTab === 'closing' && (
-                    <ClosingDashboard />
+                    <ClosingDashboard leads={leads} onUpdateLead={handleUpdateLead} />
                 )}
 
                 {activeTab === 'tasks' && (

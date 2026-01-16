@@ -1,27 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { Lead } from '../../types';
 
-interface Transaction {
-    id: string;
-    address: string;
-    cityStateZip: string;
-    status: 'Pending' | 'Completed' | 'Canceled' | 'Archived';
-    agent: string;
-    closeOfEscrow: string;
-    pricePerSf: string;
-    buyer: string;
-    seller: string;
-    acceptanceDate: string;
-    escrowNumber: string;
-    email: string;
-    yearBuilt: string;
-    type: string;
-    checklistType: string;
-    clientName: string;
-    clientPhoto: string;
-    clientAddress: string;
-    propertyImage: string;
-    documentation: DocItem[];
-    clientId?: string;
+interface ClosingDashboardProps {
+    leads: Lead[];
+    onUpdateLead?: (leadId: string, updates: Partial<Lead>) => void;
 }
 
 interface DocItem {
@@ -48,244 +30,293 @@ const getStatusBadgeColor = (status: string) => {
     }
 };
 
-const ClosingDashboard: React.FC = () => {
-    const [transactions] = useState<Transaction[]>([
-        {
-            id: 'tr_1',
-            address: '164 Front Street',
-            cityStateZip: 'Beverly Hills, CA 90210',
-            status: 'Pending',
-            agent: 'Lauren Thompson',
-            closeOfEscrow: '06/18/2015',
-            pricePerSf: '$230.00',
-            buyer: 'Buyer One',
-            seller: 'Seller One',
-            acceptanceDate: '06/13/2018',
-            escrowNumber: 'ABC-123456',
-            email: 'johnson@skyslope.com',
-            yearBuilt: '1998',
-            type: 'Purchase / Tenant',
-            checklistType: 'Commercial Lease',
-            clientName: 'James Wilson',
-            clientPhoto: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
-            clientAddress: '742 Maple Avenue, Suite 200, Los Angeles, CA 90014',
-            propertyImage: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=400&q=80',
-            clientId: 'C-W9X2Y',
-            documentation: [
-                { id: 'doc_1', name: 'Purchase Contract', status: 'Pending', comments: '' },
-                { id: 'doc_2', name: 'Listing Agreement', status: 'Completed', comments: '' },
-                { id: 'doc_3', name: 'EMD', status: 'Pending', comments: '' },
-                { id: 'doc_4', name: 'Disclosures', status: 'Pending', comments: '' },
-                { id: 'doc_5', name: 'Inspections', status: 'Pending', comments: '' },
-            ]
-        }
-    ]);
+// Default documentation checklist for a transaction
+const getDefaultDocumentation = (): DocItem[] => [
+    { id: 'doc_1', name: 'Purchase Contract', status: 'Pending', comments: '' },
+    { id: 'doc_2', name: 'Listing Agreement', status: 'Pending', comments: '' },
+    { id: 'doc_3', name: 'EMD', status: 'Pending', comments: '' },
+    { id: 'doc_4', name: 'Disclosures', status: 'Pending', comments: '' },
+    { id: 'doc_5', name: 'Inspections', status: 'Pending', comments: '' },
+];
 
-    const [activeTransaction] = useState(transactions[0]);
+const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead }) => {
+    // Filter leads that are in closing stage (funnelStage === 'Contract' or status === 'In Contract')
+    const closingLeads = useMemo(() => {
+        return leads.filter(lead =>
+            lead.funnelStage === 'Contract' ||
+            lead.status === 'In Contract'
+        );
+    }, [leads]);
+
+    const [activeLeadId, setActiveLeadId] = useState<string | null>(
+        closingLeads.length > 0 ? closingLeads[0].id : null
+    );
+
+    // Update activeLeadId when closingLeads changes
+    React.useEffect(() => {
+        if (closingLeads.length > 0) {
+            if (!activeLeadId || !closingLeads.find(l => l.id === activeLeadId)) {
+                setActiveLeadId(closingLeads[0].id);
+            }
+        } else {
+            setActiveLeadId(null);
+        }
+    }, [closingLeads, activeLeadId]);
+
+    const activeLead = closingLeads.find(l => l.id === activeLeadId) || null;
+
     const [activeSubTab, setActiveSubTab] = useState('CHECKLIST');
 
     const subTabs = ['TRANSACTION', 'CONTACTS', 'COMMISSION', 'CHECKLIST', 'DOCUMENTS', 'LOG', 'TASKS', 'PROPERTY'];
 
+    // Empty state when no clients in closing
+    if (closingLeads.length === 0) {
+        return (
+            <div className="flex-1 overflow-y-auto bg-slate-50 p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center">
+                    <div className="w-32 h-32 rounded-full bg-slate-100 flex items-center justify-center mb-8 border border-slate-200">
+                        <i className="fa-solid fa-file-invoice-dollar text-5xl text-slate-300"></i>
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-4">No Clients In Closing</h2>
+                    <p className="text-slate-500 text-lg max-w-md mb-8">
+                        When clients move to the "In Contract" status, they will appear here for transaction management.
+                    </p>
+                    <div className="flex items-center gap-3 text-sm text-slate-400">
+                        <i className="fa-solid fa-lightbulb text-amber-400"></i>
+                        <span>Move a client to "In Contract" status in the Funnel tab to get started</span>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="flex-1 overflow-y-auto bg-slate-50 p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Header Section */}
+            {/* Client Tabs */}
             <div className="max-w-7xl mx-auto space-y-6">
-                <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-8">
-                        {/* Client Info Block */}
-                        <div className="flex items-center gap-4 border-r border-slate-200 pr-8">
-                            <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-white shadow-xl flex-shrink-0 relative group cursor-pointer">
-                                <input
-                                    type="file"
-                                    className="hidden absolute inset-0 z-50 opacity-0 cursor-pointer"
-                                    accept="image/*"
-                                    onChange={(e) => {
-                                        if (e.target.files && e.target.files[0]) {
-                                            // Mock update
-                                            const randomId = Math.floor(Math.random() * 1000);
-                                            const newUrl = `https://i.pravatar.cc/150?img=${randomId}&u=${Date.now()}`;
-                                            // In a real app, we'd update state/backend here. 
-                                            // Since this component uses local state for now:
-                                            // slightly tricky without rearranging state, but let's assume this is visual only for now or I'd need to lift state.
-                                            // Actually I can force update the image via DOM or simple state if I had access.
-                                            // Let's just log for now as state is inside the component
-                                            console.log('ClosingDashboard Avatar Update:', newUrl);
-                                            // Ideally we would setTransactions/setActiveTransaction here if exposed.
-                                            // But since state is local to this component and I can Edit it:
-                                            // I'll leave it as a visual affordance that logs, or I can try to hack it if I read the full file.
-                                            // I DO have access to setTransactions? No, I defined `const [transactions] = useState`. It's read-only.
-                                            // Ah, I should have checked if it has a setter.
-                                        }
-                                    }}
-                                />
-                                <img src={activeTransaction.clientPhoto} alt={activeTransaction.clientName} className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <i className="fa-solid fa-camera text-white text-sm"></i>
-                                </div>
-                            </div>
-                            <div className="flex flex-col">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">{activeTransaction.clientName}</h1>
-                                    {activeTransaction.clientId && (
-                                        <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[9px] font-mono font-bold text-slate-500 tracking-tight">
-                                            {activeTransaction.clientId}
-                                        </span>
-                                    )}
-                                </div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Mailing Address</p>
-                                <p className="text-xs text-slate-500 font-medium max-w-[200px] leading-tight">{activeTransaction.clientAddress}</p>
-                            </div>
-                        </div>
-
-                        {/* Property Info Block */}
-                        <div className="flex items-center gap-6">
-                            <div className="w-24 h-16 rounded-2xl overflow-hidden border-2 border-white shadow-xl flex-shrink-0 relative group">
-                                <img src={activeTransaction.propertyImage} alt="Property" className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500" />
-                                <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors"></div>
-                            </div>
-                            <div className="flex flex-col">
-                                <div className="flex items-center gap-4">
-                                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">{activeTransaction.address}</h2>
-                                    <span className={`px-4 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest text-white ${getStatusColor(activeTransaction.status)}`}>
-                                        {activeTransaction.status}
-                                    </span>
-                                </div>
-                                <p className="text-sm text-slate-400 font-bold uppercase tracking-widest mt-1">{activeTransaction.cityStateZip}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button className="flex items-center gap-3 px-6 py-3 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-all group">
-                        <span className="text-xs font-bold text-slate-700 uppercase tracking-widest">Transaction Actions</span>
-                        <i className="fa-solid fa-chevron-down text-[10px] text-slate-400 group-hover:translate-y-0.5 transition-transform"></i>
-                    </button>
-                </div>
-
-                {/* Sub Navigation */}
-                <div className="flex border-b border-slate-200 overflow-x-auto no-scrollbar">
-                    {subTabs.map(tab => (
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+                    {closingLeads.map(lead => (
                         <button
-                            key={tab}
-                            onClick={() => setActiveSubTab(tab)}
-                            className={`px-6 py-4 text-[11px] font-black uppercase tracking-[0.2em] transition-all relative ${activeSubTab === tab ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                            key={lead.id}
+                            onClick={() => setActiveLeadId(lead.id)}
+                            className={`flex items-center gap-3 px-5 py-3 rounded-2xl border-2 transition-all flex-shrink-0 group ${activeLeadId === lead.id
+                                    ? 'bg-white border-indigo-500 shadow-lg shadow-indigo-500/10'
+                                    : 'bg-white/50 border-slate-200 hover:border-slate-300 hover:bg-white'
+                                }`}
                         >
-                            {tab}
-                            {activeSubTab === tab && (
-                                <div className="absolute bottom-0 left-6 right-6 h-1 bg-indigo-600 rounded-t-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>
+                            <div className="w-10 h-10 rounded-xl overflow-hidden border border-white shadow-sm flex-shrink-0">
+                                {lead.avatarUrl ? (
+                                    <img src={lead.avatarUrl} alt={lead.firstName} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
+                                        {lead.firstName.charAt(0)}{lead.lastName.charAt(0)}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex flex-col items-start">
+                                <span className={`font-bold text-sm tracking-tight ${activeLeadId === lead.id ? 'text-slate-900' : 'text-slate-600'}`}>
+                                    {lead.firstName} {lead.lastName}
+                                </span>
+                                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+                                    {lead.leadType}
+                                </span>
+                            </div>
+                            {activeLeadId === lead.id && (
+                                <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse ml-1"></div>
                             )}
                         </button>
                     ))}
                 </div>
 
-                {/* Details Grid */}
-                <div className="bg-white rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-indigo-500/5 p-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
-                    <div className="space-y-6">
-                        <DetailItem label="ADDRESS" value={activeTransaction.address + ', ' + activeTransaction.cityStateZip} />
-                        <DetailItem label="ACCEPTANCE DATE" value={activeTransaction.acceptanceDate} />
-                        <DetailItem label="YEAR BUILT" value={activeTransaction.yearBuilt} />
-                    </div>
-                    <div className="space-y-6">
-                        <DetailItem label="AGENT" value={activeTransaction.agent} />
-                        <DetailItem label="ESCROW NUMBER" value={activeTransaction.escrowNumber || '--'} />
-                        <DetailItem label="TYPE" value={activeTransaction.type} />
-                    </div>
-                    <div className="space-y-6">
-                        <DetailItem label="CLOSE OF ESCROW" value={activeTransaction.closeOfEscrow} />
-                        <DetailItem label="EMAIL" value={activeTransaction.email} isLink />
-                        <DetailItem label="CHECKLIST TYPE" value={activeTransaction.checklistType} />
-                    </div>
-                    <div className="space-y-6">
-                        <DetailItem label="PRICE PER SF" value={activeTransaction.pricePerSf} />
-                        <DetailItem label="SELLER" value={activeTransaction.seller} />
-                    </div>
-                    <div className="space-y-6">
-                        <DetailItem label="BUYER" value={activeTransaction.buyer} />
-                    </div>
-                </div>
+                {activeLead && (
+                    <>
+                        {/* Header Section */}
+                        <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-8">
+                                {/* Client Info Block */}
+                                <div className="flex items-center gap-4 border-r border-slate-200 pr-8">
+                                    <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-white shadow-xl flex-shrink-0 relative group cursor-pointer">
+                                        {activeLead.avatarUrl ? (
+                                            <img src={activeLead.avatarUrl} alt={activeLead.firstName} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold text-xl">
+                                                {activeLead.firstName.charAt(0)}{activeLead.lastName.charAt(0)}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">
+                                                {activeLead.firstName} {activeLead.lastName}
+                                            </h1>
+                                            {activeLead.clientId && (
+                                                <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[9px] font-mono font-bold text-slate-500 tracking-tight">
+                                                    {activeLead.clientId}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Mailing Address</p>
+                                        <p className="text-xs text-slate-500 font-medium max-w-[200px] leading-tight">
+                                            {activeLead.homeAddress || activeLead.propertyAddress || 'No address provided'}
+                                        </p>
+                                    </div>
+                                </div>
 
-                {/* Toolbar Actions */}
-                <div className="flex flex-wrap items-center gap-3 py-4">
-                    <ActionButton color="bg-indigo-600" icon="fa-house-shield" label="Order Home Warranty" />
-                    <ActionButton color="bg-indigo-600" icon="fa-file-shield" label="Order NHD" />
-                    <ActionButton color="bg-indigo-600" icon="fa-money-bill-transfer" label="Get Paid Now!" />
+                                {/* Property Info Block */}
+                                <div className="flex items-center gap-6">
+                                    <div className="w-24 h-16 rounded-2xl overflow-hidden border-2 border-white shadow-xl flex-shrink-0 relative group bg-slate-100 flex items-center justify-center">
+                                        <i className="fa-solid fa-home text-2xl text-slate-300"></i>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <div className="flex items-center gap-4">
+                                            <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                                                {activeLead.subjectProperty || activeLead.propertyAddress || 'Property TBD'}
+                                            </h2>
+                                            <span className={`px-4 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest text-white ${getStatusColor('Pending')}`}>
+                                                {activeLead.status}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-slate-400 font-bold uppercase tracking-widest mt-1">
+                                            {activeLead.leadType} Transaction
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
 
-                    <div className="h-10 w-px bg-slate-200 mx-2"></div>
-
-                    <DropdownButton label="Checked" />
-                    <DropdownButton label="Update Agent" />
-                    <DropdownButton label="Docs to Review" badge="3" />
-
-                    <button className="w-12 h-12 flex items-center justify-center bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all">
-                        <i className="fa-solid fa-bullhorn"></i>
-                    </button>
-                </div>
-
-                {/* Documentation / Checklist Section */}
-                <div className="bg-white rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-indigo-500/5 overflow-hidden">
-                    <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                        <div className="flex items-center gap-4">
-                            <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                                {activeSubTab === 'CHECKLIST' ? 'Transaction Checklist' : 'Documentation'}
-                            </h2>
-                            <button className="flex items-center gap-2 px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100">
-                                <i className="fa-solid fa-plus"></i>
-                                {activeSubTab === 'CHECKLIST' ? 'Add Task' : 'Add New'}
+                            <button className="flex items-center gap-3 px-6 py-3 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-all group">
+                                <span className="text-xs font-bold text-slate-700 uppercase tracking-widest">Transaction Actions</span>
+                                <i className="fa-solid fa-chevron-down text-[10px] text-slate-400 group-hover:translate-y-0.5 transition-transform"></i>
                             </button>
                         </div>
-                    </div>
 
-                    <div className="p-10">
-                        {activeSubTab === 'CHECKLIST' ? (
-                            <ChecklistSection />
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left">
-                                    <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
-                                        <tr>
-                                            <th className="px-10 py-5 w-20">#</th>
-                                            <th className="px-10 py-5">Documentation</th>
-                                            <th className="px-10 py-5">Status</th>
-                                            <th className="px-10 py-5 text-center">Docs</th>
-                                            <th className="px-10 py-5">Comments</th>
-                                            <th className="px-10 py-5 text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {activeTransaction.documentation.map((doc, idx) => (
-                                            <tr key={doc.id} className="group hover:bg-slate-50/50 transition-all">
-                                                <td className="px-10 py-6 text-sm font-black text-slate-300">{idx + 1}.</td>
-                                                <td className="px-10 py-6 text-sm font-bold text-slate-800">{doc.name}</td>
-                                                <td className="px-10 py-6">
-                                                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${getStatusBadgeColor(doc.status)}`}>
-                                                        {doc.status}
-                                                    </span>
-                                                </td>
-                                                <td className="px-10 py-6 text-center">
-                                                    <button className="text-slate-400 hover:text-indigo-600 transition-all p-2 rounded-xl hover:bg-indigo-50">
-                                                        <i className="fa-solid fa-paperclip text-lg"></i>
-                                                    </button>
-                                                </td>
-                                                <td className="px-10 py-6">
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Add a comment..."
-                                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                                                    />
-                                                </td>
-                                                <td className="px-10 py-6 text-right">
-                                                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                                                        <button className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-600/20">Save</button>
-                                                        <button className="px-4 py-2 bg-white border border-slate-200 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50">Cancel</button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                        {/* Sub Navigation */}
+                        <div className="flex border-b border-slate-200 overflow-x-auto no-scrollbar">
+                            {subTabs.map(tab => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveSubTab(tab)}
+                                    className={`px-6 py-4 text-[11px] font-black uppercase tracking-[0.2em] transition-all relative ${activeSubTab === tab ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                                >
+                                    {tab}
+                                    {activeSubTab === tab && (
+                                        <div className="absolute bottom-0 left-6 right-6 h-1 bg-indigo-600 rounded-t-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Details Grid */}
+                        <div className="bg-white rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-indigo-500/5 p-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
+                            <div className="space-y-6">
+                                <DetailItem label="SUBJECT PROPERTY" value={activeLead.subjectProperty || activeLead.propertyAddress || 'TBD'} />
+                                <DetailItem label="ACCEPTANCE DATE" value={activeLead.stageLastChangedAt ? new Date(activeLead.stageLastChangedAt).toLocaleDateString() : '--'} />
+                                <DetailItem label="PROPERTY TYPE" value={activeLead.propertyType || '--'} />
                             </div>
-                        )}
-                    </div>
-                </div>
+                            <div className="space-y-6">
+                                <DetailItem label="CLIENT NAME" value={`${activeLead.firstName} ${activeLead.lastName}`} />
+                                <DetailItem label="PHONE" value={activeLead.phone || '--'} />
+                                <DetailItem label="TYPE" value={activeLead.leadType} />
+                            </div>
+                            <div className="space-y-6">
+                                <DetailItem label="CLOSE OF ESCROW" value="TBD" />
+                                <DetailItem label="EMAIL" value={activeLead.email || '--'} isLink />
+                                <DetailItem label="MLS NUMBER" value={activeLead.mlsNumber || '--'} />
+                            </div>
+                            <div className="space-y-6">
+                                <DetailItem label="PRICE" value={activeLead.price ? `$${activeLead.price.toLocaleString()}` : '--'} />
+                                <DetailItem label="BEDROOMS" value={activeLead.bedrooms?.toString() || '--'} />
+                            </div>
+                            <div className="space-y-6">
+                                <DetailItem label="BATHROOMS" value={activeLead.bathrooms?.toString() || '--'} />
+                                <DetailItem label="SQ FT" value={activeLead.sqft?.toString() || '--'} />
+                            </div>
+                        </div>
+
+                        {/* Toolbar Actions */}
+                        <div className="flex flex-wrap items-center gap-3 py-4">
+                            <ActionButton color="bg-indigo-600" icon="fa-house-shield" label="Order Home Warranty" />
+                            <ActionButton color="bg-indigo-600" icon="fa-file-shield" label="Order NHD" />
+                            <ActionButton color="bg-indigo-600" icon="fa-money-bill-transfer" label="Get Paid Now!" />
+
+                            <div className="h-10 w-px bg-slate-200 mx-2"></div>
+
+                            <DropdownButton label="Checked" />
+                            <DropdownButton label="Update Agent" />
+                            <DropdownButton label="Docs to Review" badge="0" />
+
+                            <button className="w-12 h-12 flex items-center justify-center bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all">
+                                <i className="fa-solid fa-bullhorn"></i>
+                            </button>
+                        </div>
+
+                        {/* Documentation / Checklist Section */}
+                        <div className="bg-white rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-indigo-500/5 overflow-hidden">
+                            <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                <div className="flex items-center gap-4">
+                                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                                        {activeSubTab === 'CHECKLIST' ? 'Transaction Checklist' : 'Documentation'}
+                                    </h2>
+                                    <button className="flex items-center gap-2 px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100">
+                                        <i className="fa-solid fa-plus"></i>
+                                        {activeSubTab === 'CHECKLIST' ? 'Add Task' : 'Add New'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="p-10">
+                                {activeSubTab === 'CHECKLIST' ? (
+                                    <ChecklistSection />
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left">
+                                            <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
+                                                <tr>
+                                                    <th className="px-10 py-5 w-20">#</th>
+                                                    <th className="px-10 py-5">Documentation</th>
+                                                    <th className="px-10 py-5">Status</th>
+                                                    <th className="px-10 py-5 text-center">Docs</th>
+                                                    <th className="px-10 py-5">Comments</th>
+                                                    <th className="px-10 py-5 text-right">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-50">
+                                                {getDefaultDocumentation().map((doc, idx) => (
+                                                    <tr key={doc.id} className="group hover:bg-slate-50/50 transition-all">
+                                                        <td className="px-10 py-6 text-sm font-black text-slate-300">{idx + 1}.</td>
+                                                        <td className="px-10 py-6 text-sm font-bold text-slate-800">{doc.name}</td>
+                                                        <td className="px-10 py-6">
+                                                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${getStatusBadgeColor(doc.status)}`}>
+                                                                {doc.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-10 py-6 text-center">
+                                                            <button className="text-slate-400 hover:text-indigo-600 transition-all p-2 rounded-xl hover:bg-indigo-50">
+                                                                <i className="fa-solid fa-paperclip text-lg"></i>
+                                                            </button>
+                                                        </td>
+                                                        <td className="px-10 py-6">
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Add a comment..."
+                                                                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                                                            />
+                                                        </td>
+                                                        <td className="px-10 py-6 text-right">
+                                                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                                                <button className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-600/20">Save</button>
+                                                                <button className="px-4 py-2 bg-white border border-slate-200 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50">Cancel</button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );
@@ -307,7 +338,7 @@ const ChecklistSection: React.FC = () => {
             icon: '📁',
             description: 'Tasks that happen right after contract ratification and before ordering anything.',
             tasks: [
-                { id: 't1_1', name: 'Review and understand the sales/purchase contract.', status: 'Completed', comments: 'All terms verified.' },
+                { id: 't1_1', name: 'Review and understand the sales/purchase contract.', status: 'Pending', comments: '' },
                 { id: 't1_2', name: 'Review the property survey (if available).', status: 'Pending', comments: '' },
                 { id: 't1_3', name: 'Review and prepare seller disclosure documents.', status: 'Pending', comments: '' },
             ]
@@ -331,10 +362,10 @@ const ChecklistSection: React.FC = () => {
             description: 'Tasks required for loan and valuation.',
             tasks: [
                 { id: 't3_1', name: 'Coordinate with lender to ensure loan approval and funds disbursement.', status: 'Pending', comments: '' },
-                { id: 't3_2', name: 'Order appraisal.', status: 'Completed', comments: 'Ordered and confirmed.' },
+                { id: 't3_2', name: 'Order appraisal.', status: 'Pending', comments: '' },
                 { id: 't3_3', name: 'Review appraisal report and approvals.', status: 'Pending', comments: '' },
-                { id: 't3_4', name: 'Verify buyer’s financial approval and lender docs.', status: 'Pending', comments: '' },
-                { id: 't3_5', name: 'Confirm buyer obtains homeowner’s insurance.', status: 'Pending', comments: '' },
+                { id: 't3_4', name: "Verify buyer's financial approval and lender docs.", status: 'Pending', comments: '' },
+                { id: 't3_5', name: "Confirm buyer obtains homeowner's insurance.", status: 'Pending', comments: '' },
             ]
         },
         {
@@ -544,7 +575,7 @@ const DropdownButton: React.FC<{ label: string; badge?: string }> = ({ label, ba
     <button className="flex items-center gap-4 px-6 py-3 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all group">
         <div className="flex items-center gap-3">
             <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">{label}</span>
-            {badge && (
+            {badge && badge !== '0' && (
                 <span className="bg-rose-500 text-white text-[9px] font-black w-5 h-5 flex items-center justify-center rounded-full">
                     {badge}
                 </span>

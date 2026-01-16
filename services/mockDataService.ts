@@ -185,21 +185,33 @@ export const getInitialMockLeads = (): Lead[] => [
         homeAddress: '1212 Pico Blvd, Santa Monica, CA 90405',
         source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead', status: 'Offer Submitted', receivedAt: new Date(Date.now() - 8467200000),
         slaUrgency: 'high', funnelStage: 'Offer', health: 'Active', isMock: true, collectionName: 'leads',
-        minPrice: 600000, maxPrice: 700000, propertyAddress: '543 Park Way, Glendale'
+        minPrice: 600000, maxPrice: 700000, propertyAddress: '543 Park Way, Glendale', subjectProperty: '543 Park Way, Glendale'
     },
     {
         id: 'offer_2', avatarUrl: 'https://i.pravatar.cc/150?img=65', firstName: 'Dorothy', lastName: 'Hernandez', email: 'dorothy.h@example.com', phone: '(555) 444-6666',
         homeAddress: '234 View Rd, Pasadena, CA 91103',
         source: 'Facebook', leadType: 'Seller', connectionType: 'Direct Lead', status: 'Offer Received', receivedAt: new Date(Date.now() - 9072000000),
         slaUrgency: 'high', funnelStage: 'Offer', health: 'Active', isMock: true, collectionName: 'leads',
-        expectedPrice: 950000, propertyAddress: '234 View Rd, Pasadena'
+        expectedPrice: 950000, propertyAddress: '234 View Rd, Pasadena', subjectProperty: '234 View Rd, Pasadena'
     },
     {
         id: 'offer_3', avatarUrl: 'https://i.pravatar.cc/150?img=3', firstName: 'Jason', lastName: 'King', email: 'jason.k@example.com', phone: '(555) 555-7777',
         homeAddress: '4321 Ventura Blvd, Studio City, CA 91604',
         source: 'Referral', leadType: 'Buyer', connectionType: 'Direct Lead', status: 'Offer Submitted', receivedAt: new Date(Date.now() - 9676800000),
         slaUrgency: 'high', funnelStage: 'Offer', health: 'Active', isMock: true, collectionName: 'leads',
-        minPrice: 850000, maxPrice: 1000000, propertyAddress: '890 Sunset Blvd, LA'
+        minPrice: 850000, maxPrice: 1000000, propertyAddress: '890 Sunset Blvd, LA', subjectProperty: '890 Sunset Blvd, LA'
+    },
+
+    // --- CONTRACT (1) ---
+    {
+        id: 'contract_1', avatarUrl: 'https://i.pravatar.cc/150?img=28', firstName: 'Michelle', lastName: 'Carter', email: 'michelle.c@example.com', phone: '(555) 888-4444',
+        homeAddress: '9876 Wilshire Blvd, Beverly Hills, CA 90210',
+        source: 'Referral', leadType: 'Buyer', connectionType: 'Direct Lead', status: 'In Contract', receivedAt: new Date(Date.now() - 10281600000),
+        slaUrgency: 'high', funnelStage: 'Contract', health: 'Active', isMock: true, collectionName: 'leads',
+        minPrice: 1500000, maxPrice: 2000000, propertyAddress: '1234 Luxury Lane, Malibu', subjectProperty: '1234 Luxury Lane, Malibu',
+        price: 1850000, bedrooms: 4, bathrooms: 3, sqft: 3200, propertyType: 'Single Family', mlsNumber: 'MLS-2024-1234',
+        stageLastChangedAt: new Date(Date.now() - 604800000), // 1 week ago
+        clientId: 'C-M1C4R'
     },
 
     // --- CLOSED (2) ---

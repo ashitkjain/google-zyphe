@@ -168,6 +168,8 @@ export interface Lead {
 
   daysOnZillow?: number;
   mlsNumber?: string;
+  subjectProperty?: string; // The actual property being transacted (initially populated from propertyAddress)
+  offerCount?: number; // Number of offers made (for buyers) or received (for sellers)
 
   // 4. System Metadata & Source
   source: LeadSource; // e.g. Zillow, Trulia, etc.

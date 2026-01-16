@@ -128,7 +128,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 { key: 'email', label: 'Email Address', type: 'email', placeholder: 'client@example.com' },
                 { key: 'phone', label: 'Phone Number', type: 'text', required: true, placeholder: '(555) 000-0000' },
                 { key: 'homeAddress', label: 'Home / Mailing Address', type: 'text', colSpan: 2, placeholder: '123 Main St, Springfield, IL' },
-                { key: 'preferredContactMethod', label: 'Preferred Contact', type: 'select', options: ['Call', 'Text', 'Email'] }
+                { key: 'preferredContactMethod', label: 'Preferred Contact', type: 'select', options: ['', 'Call', 'Text', 'Email'] }
             ]
         },
         {
@@ -231,7 +231,24 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
             title: 'Property Details',
             id: 'property',
             fields: [
-                { key: 'propertyAddress', label: 'Subject Property Address', type: 'text', colSpan: 2, placeholder: '123 Example St' },
+                {
+                    key: 'subjectProperty',
+                    label: 'Subject Property',
+                    type: 'text',
+                    colSpan: 2,
+                    placeholder: 'Property address for this transaction',
+                    required: true,
+                    showIf: (l) => ['Offer', 'Contract'].includes(l.funnelStage)
+                },
+                {
+                    key: 'subjectProperty',
+                    label: 'Subject Property',
+                    type: 'text',
+                    colSpan: 2,
+                    placeholder: 'Property address for this transaction (auto-filled from inquiry)',
+                    showIf: (l) => !['Offer', 'Contract'].includes(l.funnelStage)
+                },
+                { key: 'propertyAddress', label: 'Inquiry Property', type: 'text', colSpan: 2, placeholder: 'Original property they inquired about' },
                 { key: 'propertyType', label: 'Property Type', type: 'text', placeholder: 'Single Family' },
                 { key: 'mlsNumber', label: 'MLS Number', type: 'text', placeholder: 'MLS123' },
                 {
