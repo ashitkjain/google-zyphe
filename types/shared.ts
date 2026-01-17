@@ -5,6 +5,7 @@ export interface StatusOption {
     funnelStage?: string;
     order?: number;
     visibility?: ('Buyer' | 'Seller')[];
+    funnelVisibility?: string[];
 }
 
 export interface PropertyOption {
@@ -13,5 +14,6 @@ export interface PropertyOption {
     description: string;
     category: string; // Used for grouping in UI
     visibility?: ('Buyer' | 'Seller')[];
+    funnelVisibility?: string[];
     order?: number;
 }

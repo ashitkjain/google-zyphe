@@ -32,6 +32,68 @@ const FUNNEL_STAGES = ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract',
 
 const PROPERTY_CATEGORIES = ['Contact Information', 'Intent & Readiness', 'Persona & Context', 'Activity', 'Timings', 'Client Communication', 'Property Details', 'Referral & Source', 'System Metadata'];
 
+const FunnelVisibilitySelect: React.FC<{
+    selected: string[];
+    onChange: (selected: string[]) => void;
+}> = ({ selected, onChange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const options = ['All', ...FUNNEL_STAGES, 'None'];
+
+    const toggleOption = (option: string) => {
+        if (option === 'All') {
+            onChange(['All']);
+        } else if (option === 'None') {
+            onChange(['None']);
+        } else {
+            let next = selected.filter(s => s !== 'All' && s !== 'None');
+            if (next.includes(option)) {
+                next = next.filter(s => s !== option);
+            } else {
+                next.push(option);
+            }
+            if (next.length === 0) next = ['None'];
+            if (next.length === FUNNEL_STAGES.length) next = ['All'];
+            onChange(next);
+        }
+    };
+
+    const displayText = selected.join(', ');
+
+    return (
+        <div className="relative">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full text-left px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:border-indigo-300 transition-all flex items-center justify-between min-w-[120px]"
+            >
+                <span className="truncate max-w-[100px]">{displayText}</span>
+                <i className={`fa-solid fa-chevron-down transition-transform ${isOpen ? 'rotate-180' : ''}`}></i>
+            </button>
+            {isOpen && (
+                <>
+                    <div className="fixed inset-0 z-[100]" onClick={() => setIsOpen(false)}></div>
+                    <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-[101] py-2 max-h-60 overflow-y-auto">
+                        {options.map(opt => {
+                            const isSelected = selected.includes(opt);
+                            return (
+                                <button
+                                    key={opt}
+                                    onClick={() => toggleOption(opt)}
+                                    className={`w-full text-left px-4 py-2 text-[10px] font-bold flex items-center gap-3 hover:bg-slate-50 transition-colors ${isSelected ? 'text-indigo-600' : 'text-slate-600'}`}
+                                >
+                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 bg-white'}`}>
+                                        {isSelected && <i className="fa-solid fa-check text-[8px]"></i>}
+                                    </div>
+                                    {opt}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};
+
 const StatusSettings: React.FC<StatusSettingsProps> = ({
     realtorId,
     onUpdateStatuses,
@@ -46,7 +108,8 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
         const source = Array.isArray(initialStatuses) ? initialStatuses : DEFAULT_STATUSES;
         return source.map(s => ({
             ...s,
-            applicableTo: (s.visibility?.length === 2) ? 'Both' : (s.visibility?.[0] || 'Both')
+            applicableTo: (s.visibility?.length === 2) ? 'Both' : (s.visibility?.[0] || 'Both'),
+            funnelVisibility: s.funnelVisibility || ['All']
         })) as ManagedStatus[];
     }, [initialStatuses]);
 
@@ -62,7 +125,8 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
         if (!initialProperties || initialProperties.length === 0) {
             return (DEFAULT_PROPERTIES as unknown as PropertyOption[]).map(p => ({
                 ...p,
-                applicableTo: (p.visibility?.length === 2) ? 'Both' : (p.visibility?.[0] || 'Both')
+                applicableTo: (p.visibility?.length === 2) ? 'Both' : (p.visibility?.[0] || 'Both'),
+                funnelVisibility: p.funnelVisibility || ['All']
             })) as ManagedProperty[];
         } else {
             const syncedProperties = initialProperties.map(p => {
@@ -79,7 +143,8 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
             });
             return syncedProperties.map(p => ({
                 ...p,
-                applicableTo: (p.visibility?.length === 2) ? 'Both' : (p.visibility?.[0] || 'Both')
+                applicableTo: (p.visibility?.length === 2) ? 'Both' : (p.visibility?.[0] || 'Both'),
+                funnelVisibility: p.funnelVisibility || ['All']
             })) as ManagedProperty[];
         }
     });
@@ -131,6 +196,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                 funnelStage: group,
                 isDefault: false,
                 visibility: ['Buyer', 'Seller'],
+                funnelVisibility: ['All'],
                 applicableTo: 'Both',
                 order: allStatuses.length
             };
@@ -147,6 +213,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                 description: 'Description...',
                 category: group,
                 visibility: ['Buyer', 'Seller'],
+                funnelVisibility: ['All'],
                 applicableTo: 'Both',
                 order: allProperties.length
             };
@@ -310,6 +377,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                                         <th className="w-10 py-2"></th>
                                                         <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-1/3">Name</th>
                                                         {!isStatus && <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-24">Key ID</th>}
+                                                        <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest min-w-[140px]">Visibility</th>
                                                         <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Description</th>
                                                         <th className="w-12 py-2"></th>
                                                     </tr>
@@ -366,6 +434,12 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                                                             <div className="text-[10px] font-mono text-slate-400 py-1 select-all">{(item as ManagedProperty).id}</div>
                                                                         </td>
                                                                     )}
+                                                                    <td className="px-4 py-2 align-top">
+                                                                        <FunnelVisibilitySelect
+                                                                            selected={item.funnelVisibility || ['All']}
+                                                                            onChange={(next) => handleUpdateItem(originalIndex, { funnelVisibility: next }, type)}
+                                                                        />
+                                                                    </td>
                                                                     <td className="px-4 py-2 align-top">
                                                                         <textarea
                                                                             value={item.description}
