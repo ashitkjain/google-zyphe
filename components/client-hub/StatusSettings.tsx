@@ -156,7 +156,11 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                         type: defaultConfig.type || p.type,     // SYNC type
                         options: defaultConfig.options || p.options, // SYNC options
                         isLocked: defaultConfig.isLocked || false, // SYNC locked status
-                        funnelVisibility: defaultConfig.isLocked ? (defaultConfig.funnelVisibility || ['All']) : (p.funnelVisibility || ['All'])
+                        funnelVisibility: defaultConfig.isLocked
+                            ? (defaultConfig.funnelVisibility || ['All'])
+                            : ((p.funnelVisibility && p.funnelVisibility.length > 0 && !(p.funnelVisibility.length === 1 && p.funnelVisibility[0] === 'All' && defaultConfig.funnelVisibility && defaultConfig.funnelVisibility.length > 0 && !defaultConfig.funnelVisibility.includes('All')))
+                                ? p.funnelVisibility
+                                : (defaultConfig.funnelVisibility || ['All']))
                     };
                 }
                 return p;
@@ -348,6 +352,202 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
         }
     };
 
+    const renderFunnelPipeline = () => {
+        return (
+            <div className="relative pb-20">
+                {/* Background Road SVG - Winding Path */}
+                <div className="absolute top-0 bottom-0 right-0 w-1/3 pointer-events-none hidden lg:block overflow-hidden opacity-90">
+                    <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 800">
+                        {/* Winding Road Path centered on right side */}
+                        <path
+                            d="M 50 0 C 50 50, 80 50, 80 100 C 80 150, 20 150, 20 200 C 20 250, 90 250, 90 300 C 90 350, 30 350, 30 400 C 30 450, 80 450, 80 500 C 80 550, 40 550, 40 600 C 40 650, 70 650, 70 700 L 70 800"
+                            fill="none"
+                            stroke="#374151"
+                            strokeWidth="40"
+                            strokeLinecap="round"
+                        />
+                        {/* Dashed Center Line */}
+                        <path
+                            d="M 50 0 C 50 50, 80 50, 80 100 C 80 150, 20 150, 20 200 C 20 250, 90 250, 90 300 C 90 350, 30 350, 30 400 C 30 450, 80 450, 80 500 C 80 550, 40 550, 40 600 C 40 650, 70 650, 70 700 L 70 800"
+                            fill="none"
+                            stroke="#F3F4F6"
+                            strokeWidth="2"
+                            strokeDasharray="10,15"
+                            strokeLinecap="round"
+                        />
+                    </svg>
+                </div>
+
+                <div className="flex flex-col gap-2 relative z-10">
+                    {FUNNEL_STAGES.map((stage, stageIdx) => {
+                        const groupItems = allStatuses.filter(s => (s.funnelStage || 'Nurture') === stage);
+                        // Filter logic for sorting within stage if needed
+
+                        // Icon mapping based on stage
+                        const getStageIcon = () => {
+                            switch (stage) {
+                                case 'Leads': return 'fa-magnifying-glass';
+                                case 'Nurture': return 'fa-clock';
+                                case 'Active Search': return 'fa-map-location-dot';
+                                case 'Offer': return 'fa-sack-dollar';
+                                case 'Contract': return 'fa-file-signature';
+                                case 'Closed': return 'fa-house-chimney';
+                                default: return 'fa-box-archive';
+                            }
+                        };
+
+                        // Theme Colors for alternating delight (using slate/dark for the road look)
+                        const isEven = stageIdx % 2 === 0;
+
+                        return (
+                            <div key={stage} className="flex gap-4 relative min-h-[160px]">
+                                {/* Content Area (Left Side) */}
+                                <div className="w-full lg:w-2/3 pr-4 md:pr-12 py-4">
+                                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                        {/* Signpost Header */}
+                                        <div className="bg-slate-100 border-b border-slate-200 p-3 flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-md">
+                                                <i className={`fa-solid ${getStageIcon()}`}></i>
+                                            </div>
+                                            <div>
+                                                <h3 className="font-black text-slate-700 uppercase tracking-widest text-xs translate-y-0.5">{stage}</h3>
+                                            </div>
+                                            <div className="ml-auto">
+                                                <button onClick={() => toggleGroup(stage)} className="text-slate-400 hover:text-indigo-600 transition-colors">
+                                                    <i className={`fa-solid fa-chevron-down transition-transform ${expandedGroups.has(stage) ? 'rotate-180' : ''}`}></i>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Dark List Container (Road Map Style) */}
+                                        {expandedGroups.has(stage) && (
+                                            <div className="bg-slate-800 p-1 space-y-1">
+                                                {/* Header Row for Context */}
+                                                <div className="flex px-3 py-1 text-[9px] text-slate-400 font-bold uppercase tracking-wider opacity-60">
+                                                    <span className="w-[30%]">Status Name</span>
+                                                    <span className="flex-1">Description</span>
+                                                    <span className="w-[100px] text-center">Persona</span>
+                                                    <span className="w-6"></span>
+                                                </div>
+
+                                                <TypedDroppable droppableId={stage} isDropDisabled={!!searchQuery}>
+                                                    {(provided: any) => (
+                                                        <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-1">
+                                                            {groupItems.map((status, index) => {
+                                                                const originalIndex = allStatuses.indexOf(status);
+                                                                return (
+                                                                    <TypedDraggable
+                                                                        key={`status-${originalIndex}`}
+                                                                        draggableId={`status::${originalIndex}`}
+                                                                        index={index}
+                                                                        isDragDisabled={!!searchQuery}
+                                                                    >
+                                                                        {(provided: any, snapshot: any) => (
+                                                                            <div
+                                                                                ref={provided.innerRef}
+                                                                                {...provided.draggableProps}
+                                                                                className={`relative flex items-center gap-3 px-3 py-2 rounded-md border border-transparent transition-all group/row ${snapshot.isDragging ? 'bg-slate-700 shadow-xl border-indigo-500/50 z-50' : 'bg-slate-700/50 hover:bg-slate-700 hover:border-slate-600'}`}
+                                                                            >
+                                                                                {/* Drag Handle */}
+                                                                                <div {...provided.dragHandleProps} className="text-slate-500 hover:text-indigo-400 cursor-grab active:cursor-grabbing">
+                                                                                    <i className="fa-solid fa-grip-lines text-xs"></i>
+                                                                                </div>
+
+                                                                                {/* Status Name */}
+                                                                                <div className="w-[30%]">
+                                                                                    <input
+                                                                                        type="text"
+                                                                                        value={status.label}
+                                                                                        onChange={(e) => handleUpdateItem(originalIndex, { label: e.target.value }, 'status')}
+                                                                                        className="w-full bg-transparent text-xs font-bold text-white placeholder:text-slate-500 border-none p-0 focus:ring-0"
+                                                                                        placeholder="Name"
+                                                                                    />
+                                                                                </div>
+
+                                                                                {/* Description */}
+                                                                                <div className="flex-1">
+                                                                                    <input
+                                                                                        type="text"
+                                                                                        value={status.description}
+                                                                                        onChange={(e) => handleUpdateItem(originalIndex, { description: e.target.value }, 'status')}
+                                                                                        className="w-full bg-transparent text-[11px] text-slate-300 placeholder:text-slate-600 border-none p-0 focus:ring-0"
+                                                                                        placeholder="Description..."
+                                                                                    />
+                                                                                </div>
+
+                                                                                {/* Persona Toggles */}
+                                                                                <div className="flex items-center gap-1 w-[100px] justify-center">
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            const newVis = status.visibility?.includes('Buyer') ? status.visibility.filter(v => v !== 'Buyer') : [...(status.visibility || []), 'Buyer'];
+                                                                                            handleUpdateItem(originalIndex, { visibility: newVis as any }, 'status');
+                                                                                        }}
+                                                                                        className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold transition-all border ${status.visibility?.includes('Buyer') ? 'bg-sky-500 border-sky-600 text-white' : 'bg-transparent border-slate-600 text-slate-500 hover:border-slate-400'}`}
+                                                                                        title="Buyer"
+                                                                                    >
+                                                                                        B
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            const newVis = status.visibility?.includes('Seller') ? status.visibility.filter(v => v !== 'Seller') : [...(status.visibility || []), 'Seller'];
+                                                                                            handleUpdateItem(originalIndex, { visibility: newVis as any }, 'status');
+                                                                                        }}
+                                                                                        className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold transition-all border ${status.visibility?.includes('Seller') ? 'bg-emerald-500 border-emerald-600 text-white' : 'bg-transparent border-slate-600 text-slate-500 hover:border-slate-400'}`}
+                                                                                        title="Seller"
+                                                                                    >
+                                                                                        S
+                                                                                    </button>
+                                                                                </div>
+
+                                                                                {/* Delete */}
+                                                                                <div className="w-6 flex justify-end">
+                                                                                    {!status.isDefault && (
+                                                                                        <button
+                                                                                            onClick={() => handleRemoveItem(originalIndex, 'status')}
+                                                                                            className="text-slate-600 hover:text-rose-400 transition-colors"
+                                                                                        >
+                                                                                            <i className="fa-solid fa-trash-can text-[10px]"></i>
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </TypedDraggable>
+                                                                );
+                                                            })}
+                                                            {provided.placeholder}
+
+                                                            {/* Add Button */}
+                                                            <button
+                                                                onClick={() => handleAddItem(stage, 'status')}
+                                                                className="w-full py-2 border border-dashed border-slate-600 rounded-md text-[10px] font-bold text-slate-500 hover:text-indigo-300 hover:border-indigo-400 hover:bg-slate-700/50 transition-all uppercase tracking-wider"
+                                                            >
+                                                                + Add Status to {stage}
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </TypedDroppable>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Illustrator Area (Right Side - Desktop Only) */}
+                                <div className="hidden lg:flex w-1/3 relative items-center justify-center">
+                                    {/* Icon placed on Road */}
+                                    {/* This simple absolute positioning approximates the winding road placement */}
+                                    <div className={`absolute ${isEven ? 'right-[20%]' : 'right-[60%]'} w-16 h-16 bg-white rounded-full border-4 border-slate-200 shadow-xl flex items-center justify-center text-2xl text-slate-600 z-20`}>
+                                        <i className={`fa-solid ${getStageIcon()}`}></i>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
     const renderTable = (groups: string[], type: 'status' | 'property') => {
         const isStatus = type === 'status';
         let items: any[] = [];
@@ -399,8 +599,8 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                                     <tr>
                                                         <th className="w-10 py-2"></th>
                                                         <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[240px]">Name</th>
-                                                        <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[110px]">Visibility</th>
-                                                        <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[140px]">Field Type</th>
+                                                        {type !== 'status' && <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[110px]">Visibility</th>}
+                                                        {type !== 'status' && <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[140px]">Field Type</th>}
                                                         <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Description</th>
                                                         <th className="w-8 py-2"></th>
                                                     </tr>
@@ -453,23 +653,27 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                                                             />
                                                                         </div>
                                                                     </td>
-                                                                    <td className="px-4 py-2 w-[110px] align-top">
-                                                                        <FunnelVisibilitySelect
-                                                                            selected={item.funnelVisibility || ['All']}
-                                                                            onChange={(next) => handleUpdateItem(originalIndex, { funnelVisibility: next }, type)}
-                                                                            disabled={(item as any).isLocked}
-                                                                        />
-                                                                    </td>
-                                                                    <td className="px-4 py-2 w-[140px] align-top">
-                                                                        <div className="flex flex-col gap-1.5 pt-1">
-                                                                            <div className="flex items-center gap-2">
-                                                                                <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${item.type === 'boolean' ? 'bg-amber-50 text-amber-700 border border-amber-100' : item.type === 'integer' ? 'bg-purple-50 text-purple-700 border border-purple-100' : item.type === 'enum' ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}>
-                                                                                    {item.type || 'string'}
+                                                                    {type !== 'status' && (
+                                                                        <td className="px-4 py-2 w-[110px] align-top">
+                                                                            <FunnelVisibilitySelect
+                                                                                selected={item.funnelVisibility || ['All']}
+                                                                                onChange={(next) => handleUpdateItem(originalIndex, { funnelVisibility: next }, type)}
+                                                                                disabled={(item as any).isLocked}
+                                                                            />
+                                                                        </td>
+                                                                    )}
+                                                                    {type !== 'status' && (
+                                                                        <td className="px-4 py-2 w-[140px] align-top">
+                                                                            <div className="flex flex-col gap-1.5 pt-1">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${item.type === 'boolean' ? 'bg-amber-50 text-amber-700 border border-amber-100' : item.type === 'integer' ? 'bg-purple-50 text-purple-700 border border-purple-100' : item.type === 'enum' ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}>
+                                                                                        {item.type || 'string'}
+                                                                                    </div>
+                                                                                    <i className="fa-solid fa-lock text-[8px] text-slate-300"></i>
                                                                                 </div>
-                                                                                <i className="fa-solid fa-lock text-[8px] text-slate-300"></i>
                                                                             </div>
-                                                                        </div>
-                                                                    </td>
+                                                                        </td>
+                                                                    )}
                                                                     <td className="px-4 py-2 align-top">
                                                                         <div className="flex flex-col">
                                                                             <textarea

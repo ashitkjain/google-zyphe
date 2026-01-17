@@ -114,7 +114,7 @@ const LeadsList: React.FC<InternalProps> = ({
         const sorted = valid.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
 
         // Limit to 10 fields and return IDs
-        return new Set(sorted.slice(0, 10).map(p => p.id));
+        return new Set(sorted.slice(0, 15).map(p => p.id));
     };
 
     const getVisibleColumns = (type: 'Buyer' | 'Seller') => {
@@ -453,7 +453,13 @@ const LeadsList: React.FC<InternalProps> = ({
         let result = leads.filter(l => {
             if (l.leadType !== 'Buyer' && l.leadType !== 'Rental' && l.leadType !== 'Mortgage') return false;
 
-            const stage = getFunnelStageForStatus(l.status, l.leadType, realtorSettings);
+            let stage = getFunnelStageForStatus(l.status, l.leadType, realtorSettings);
+
+            // Fallback: If status mapping falls back to 'Leads' (default) but the lead has a specific funnelStage (common in mock data or desynced settings), trust the explicit stage.
+            if (stage === 'Leads' && l.funnelStage && l.funnelStage !== 'Leads') {
+                stage = l.funnelStage;
+            }
+
             if (stage !== buyerFunnelCategory) return false;
 
             const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
@@ -464,6 +470,7 @@ const LeadsList: React.FC<InternalProps> = ({
             }
             return true;
         });
+
 
         if (columnFilters.name) result = result.filter(l => `${l.firstName} ${l.lastName}`.toLowerCase().includes(columnFilters.name.toLowerCase()));
         if (columnFilters.phone) result = result.filter(l => l.phone.toLowerCase().includes(columnFilters.phone.toLowerCase()));
@@ -507,7 +514,12 @@ const LeadsList: React.FC<InternalProps> = ({
         let result = leads.filter(l => {
             if (l.leadType !== 'Seller') return false;
 
-            const stage = getFunnelStageForStatus(l.status, l.leadType, realtorSettings);
+            let stage = getFunnelStageForStatus(l.status, l.leadType, realtorSettings);
+
+            // Fallback for mock data or desynced settings
+            if (stage === 'Leads' && l.funnelStage && l.funnelStage !== 'Leads') {
+                stage = l.funnelStage;
+            }
             if (stage !== sellerFunnelCategory) return false;
 
             const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
@@ -588,6 +600,16 @@ const LeadsList: React.FC<InternalProps> = ({
 
     return (
         <div className="flex flex-col h-full w-full bg-white text-sm font-sans overflow-hidden min-w-0">
+            {/* DEBUG BANNER - TEMPORARY */}
+            <div className="bg-red-100 border-b border-red-200 p-2 text-xs font-mono text-red-800 flex flex-wrap gap-4 items-center z-50">
+                <span><strong>Total:</strong> {leads.length}</span>
+                <span><strong>Tab:</strong> {activeTab}</span>
+                <span><strong>Cat:</strong> {activeTab === 'Buyer' ? buyerFunnelCategory : sellerFunnelCategory}</span>
+                <span><strong>Filtered:</strong> {activeTab === 'Buyer' ? filteredBuyerLeads.length : filteredSellerLeads.length}</span>
+                <span><strong>L1 Status:</strong> {leads.length > 0 ? `${leads[0].firstName}:${leads[0].status}->${getFunnelStageForStatus(leads[0].status, leads[0].leadType, realtorSettings)}` : 'N/A'}</span>
+                <span><strong>L1 FunnelStage:</strong> {leads.length > 0 ? `${leads[0].funnelStage}` : 'N/A'}</span>
+                <span><strong>L1 Date:</strong> {leads.length > 0 ? `${leads[0].receivedAt?.toDate ? leads[0].receivedAt.toDate().toLocaleDateString() : new Date(leads[0].receivedAt).toLocaleDateString()}` : 'N/A'}</span>
+            </div>
             <style dangerouslySetInnerHTML={{
                 __html: `
                 @import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap');

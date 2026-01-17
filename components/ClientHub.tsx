@@ -117,10 +117,12 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
             if (shouldSeed) {
                 console.log("[ClientHub] Missing mock data detected. Seeding...");
-                await seedMockData(realtorId, initialLeads, initialTasks, initialTemplates);
+                const seedResult = await seedMockData(realtorId, initialLeads, initialTasks, initialTemplates);
+                console.log("[ClientHub] Seed result:", seedResult);
 
                 // Re-fetch after seeding
                 _leads = await getLeads(realtorId, ['leads']);
+                console.log(`[ClientHub] Re-fetched leads count: ${_leads.length}`);
                 _tasks = await getTasks(realtorId);
                 _templates = await getTemplates(realtorId);
             }
@@ -137,6 +139,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                 }
                 return lead;
             });
+            console.log(`[ClientHub] Final leads set to state: ${finalLeads.length} for RealtorID: ${realtorId}`);
 
             setLeads(finalLeads);
             setTasks(_tasks);

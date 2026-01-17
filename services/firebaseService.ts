@@ -627,20 +627,23 @@ export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMT
 
       const targetColl = lead.collectionName || "leads";
       const docRef = doc(collection(db, targetColl), lead.id);
-      batch.set(docRef, { ...lead, clientPhotoUrl: finalPhotoUrl, isMock: true, realtorId }, { merge: true });
+      const leadData = { ...lead, clientPhotoUrl: finalPhotoUrl || null, isMock: true, realtorId };
+      batch.set(docRef, sanitizeForFirestore(leadData), { merge: true });
       return { ...lead, clientPhotoUrl: finalPhotoUrl };
     }));
 
     // Seed Tasks
     tasks.forEach(task => {
       const docRef = doc(collection(db, "tasks"), task.id);
-      batch.set(docRef, { ...task, isMock: true, realtorId }, { merge: true });
+      const taskData = { ...task, isMock: true, realtorId };
+      batch.set(docRef, sanitizeForFirestore(taskData), { merge: true });
     });
 
     // Seed Templates
     templates.forEach(template => {
       const docRef = doc(collection(db, "templates"), template.id);
-      batch.set(docRef, { ...template, isMock: true, realtorId }, { merge: true });
+      const templateData = { ...template, isMock: true, realtorId };
+      batch.set(docRef, sanitizeForFirestore(templateData), { merge: true });
     });
 
     await batch.commit();
