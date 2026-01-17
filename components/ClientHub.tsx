@@ -504,7 +504,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             receivedAt: new Date(),
             source: 'Manual',
             leadType: 'Buyer',
-            connectionType: 'Direct Lead',
             slaUrgency: 'medium',
             funnelStage: 'Leads',
             health: 'Active',

@@ -39,7 +39,6 @@ export const generateMockLead = (type: 'Buyer' | 'Seller', status?: string, funn
         phone: `(555) ${Math.floor(100 + Math.random() * 900)}-${Math.floor(1000 + Math.random() * 9000)}`,
         homeAddress: fullAddress,
         leadType: type,
-        connectionType: 'Direct Lead',
         status: status || 'New',
         funnelStage: funnelStage || 'Leads',
         source: getRandom(MOCK_SOURCES),

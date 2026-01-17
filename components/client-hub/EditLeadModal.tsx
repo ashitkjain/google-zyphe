@@ -156,6 +156,57 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
             id: 'intent_readiness',
             title: 'Intent & Readiness',
             fields: [
+                {
+                    key: 'status', label: 'Status', type: 'select',
+                    render: (props) => (
+                        <div className="relative">
+                            <div className="flex items-center gap-1 mb-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Status</label>
+                                <div
+                                    className="inline-flex self-center text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
+                                    onClick={(e) => { e.stopPropagation(); setShowStatusInfo(!showStatusInfo); }}
+                                >
+                                    <i className="fa-solid fa-circle-info text-[10px]"></i>
+                                </div>
+                            </div>
+                            {showStatusInfo && (
+                                <div className="absolute top-8 left-0 w-80 bg-white shadow-xl rounded-xl border border-slate-200 p-4 z-50 text-left cursor-default" onClick={e => e.stopPropagation()}>
+                                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+                                        <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wide">Status Definitions</h4>
+                                        <button onClick={() => setShowStatusInfo(false)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
+                                    </div>
+                                    <div className="space-y-3 max-h-[300px] overflow-y-auto font-sans">
+                                        <div className="text-[10px] font-black text-indigo-500 uppercase mb-2">Buyer Statuses</div>
+                                        {Object.entries(getStatusDefinitions('Buyer', realtorSettings)).map(([s, d]) => (
+                                            <div key={`buyer-${s}`} className="text-xs mb-2">
+                                                <div className="font-bold text-indigo-900 mb-0.5">{s}</div>
+                                                <div className="text-slate-500 leading-snug">{d as string}</div>
+                                            </div>
+                                        ))}
+                                        <div className="text-[10px] font-black text-emerald-500 uppercase mt-4 mb-2">Seller Statuses</div>
+                                        {Object.entries(getStatusDefinitions('Seller', realtorSettings)).map(([s, d]) => (
+                                            <div key={`seller-${s}`} className="text-xs mb-2">
+                                                <div className="font-bold text-emerald-900 mb-0.5">{s}</div>
+                                                <div className="text-slate-500 leading-snug">{d as string}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            <select
+                                value={editingLead.status}
+                                onChange={(e) => setEditingLead({ ...editingLead, status: e.target.value as any })}
+                                disabled={props.field?.disabled}
+                                className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold transition-all outline-none appearance-none ${props.field?.disabled ? 'bg-slate-100/50 text-slate-500 cursor-not-allowed border-slate-100' : 'focus:ring-1 focus:ring-indigo-500'}`}
+                            >
+                                {getStatusOptions(editingLead.leadType, realtorSettings).map((o: any) => (
+                                    <option key={o.label} value={o.label}>{o.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )
+                },
+                { key: 'funnelStage', label: 'Funnel Stage', type: 'select', options: ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed'] },
                 { key: 'message', label: 'Initial Message', type: 'textarea', colSpan: 2 },
                 { key: 'timeframe', label: 'Timeframe', type: 'text', placeholder: 'e.g. 1-3 months' },
                 { key: 'preApprovalStatus', label: 'Pre-Approved', type: 'checkbox', showIf: (l) => l.leadType === 'Buyer' },
@@ -820,7 +871,6 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 { key: 'leadType', label: 'Lead Type', type: 'select', options: ['Buyer', 'Seller', 'Rental', 'Mortgage'] },
                 { key: 'isReferredByPastClient', label: 'Ref by Past Client', type: 'checkbox' },
                 { key: 'isReferredByFriendFamily', label: 'Ref by Friend/Fam', type: 'checkbox' },
-                { key: 'connectionType', label: 'Connection Type', type: 'text' },
                 { key: 'referralSource', label: 'Referral Source', type: 'text', colSpan: 2 }
             ]
         },
@@ -865,61 +915,11 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 { key: 'notes', label: 'General Internal Notes', type: 'textarea', colSpan: 2 }
             ]
         },
+
         {
             id: 'system_metadata',
             title: 'System Metadata',
             fields: [
-                {
-                    key: 'status', label: 'Status', type: 'select',
-                    render: (props) => (
-                        <div className="relative">
-                            <div className="flex items-center gap-1 mb-1">
-                                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Status</label>
-                                <div
-                                    className="inline-flex self-center text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
-                                    onClick={(e) => { e.stopPropagation(); setShowStatusInfo(!showStatusInfo); }}
-                                >
-                                    <i className="fa-solid fa-circle-info text-[10px]"></i>
-                                </div>
-                            </div>
-                            {showStatusInfo && (
-                                <div className="absolute top-8 left-0 w-80 bg-white shadow-xl rounded-xl border border-slate-200 p-4 z-50 text-left cursor-default" onClick={e => e.stopPropagation()}>
-                                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
-                                        <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wide">Status Definitions</h4>
-                                        <button onClick={() => setShowStatusInfo(false)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
-                                    </div>
-                                    <div className="space-y-3 max-h-[300px] overflow-y-auto font-sans">
-                                        <div className="text-[10px] font-black text-indigo-500 uppercase mb-2">Buyer Statuses</div>
-                                        {Object.entries(getStatusDefinitions('Buyer', realtorSettings)).map(([s, d]) => (
-                                            <div key={`buyer-${s}`} className="text-xs mb-2">
-                                                <div className="font-bold text-indigo-900 mb-0.5">{s}</div>
-                                                <div className="text-slate-500 leading-snug">{d as string}</div>
-                                            </div>
-                                        ))}
-                                        <div className="text-[10px] font-black text-emerald-500 uppercase mt-4 mb-2">Seller Statuses</div>
-                                        {Object.entries(getStatusDefinitions('Seller', realtorSettings)).map(([s, d]) => (
-                                            <div key={`seller-${s}`} className="text-xs mb-2">
-                                                <div className="font-bold text-emerald-900 mb-0.5">{s}</div>
-                                                <div className="text-slate-500 leading-snug">{d as string}</div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                            <select
-                                value={editingLead.status}
-                                onChange={(e) => setEditingLead({ ...editingLead, status: e.target.value as any })}
-                                disabled={props.field?.disabled}
-                                className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold transition-all outline-none appearance-none ${props.field?.disabled ? 'bg-slate-100/50 text-slate-500 cursor-not-allowed border-slate-100' : 'focus:ring-1 focus:ring-indigo-500'}`}
-                            >
-                                {getStatusOptions(editingLead.leadType, realtorSettings).map((o: any) => (
-                                    <option key={o.label} value={o.label}>{o.label}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )
-                },
-                { key: 'funnelStage', label: 'Funnel Stage', type: 'select', options: ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed'] },
                 { key: 'clientId', label: 'Client ID', type: 'text', disabled: true },
                 { key: 'id', label: 'System ID', type: 'text', disabled: true },
                 { key: 'health', label: 'Lead Health', type: 'select', options: ['new', 'engaged', 'active', 'cold', 'stale'] },

@@ -6,6 +6,8 @@ export interface StatusOption {
     order?: number;
     visibility?: ('Buyer' | 'Seller')[];
     funnelVisibility?: string[];
+    type?: 'string' | 'integer' | 'boolean' | 'enum';
+    options?: string[];
 }
 
 export interface PropertyOption {
@@ -16,4 +18,6 @@ export interface PropertyOption {
     visibility?: ('Buyer' | 'Seller')[];
     funnelVisibility?: string[];
     order?: number;
+    type?: 'string' | 'integer' | 'boolean' | 'enum';
+    options?: string[];
 }

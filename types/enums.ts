@@ -13,6 +13,5 @@ export type FunnelStage =
 export type LeadHealth = 'Active' | 'Stale' | 'Dormant' | 'Responsive';
 
 export type LeadType = 'Buyer' | 'Seller' | 'Rental' | 'Mortgage';
-export type ConnectionType = 'Direct Lead' | 'Live Connection' | 'Nurture';
 
 export type CommChannel = 'SMS' | 'Email' | 'Call';
