@@ -36,8 +36,9 @@ const PROPERTY_CATEGORIES = ['Contact Information', 'Intent & Readiness', 'Perso
 
 const FunnelVisibilitySelect: React.FC<{
     selected: string[];
-    onChange: (selected: string[]) => void;
-}> = ({ selected, onChange }) => {
+    onChange: (next: string[]) => void;
+    disabled?: boolean;
+}> = ({ selected, onChange, disabled }) => {
     const [isOpen, setIsOpen] = useState(false);
     const options = ['All', ...FUNNEL_STAGES, 'None'];
 
@@ -59,16 +60,26 @@ const FunnelVisibilitySelect: React.FC<{
         }
     };
 
-    const displayText = selected.join(', ');
+    const displayText = selected.includes('All')
+        ? 'All'
+        : selected.includes('None')
+            ? 'None'
+            : selected.length > 1
+                ? 'Multiple'
+                : (selected[0] || 'None');
 
     return (
         <div className="relative">
             <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-full text-left px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:border-indigo-300 transition-all flex items-center justify-between min-w-[100px]"
+                onClick={() => !disabled && setIsOpen(!isOpen)}
+                className={`w-full text-left px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:border-indigo-300 transition-all flex items-center justify-between min-w-[100px] ${disabled ? 'opacity-70 cursor-not-allowed bg-slate-25/50' : ''}`}
             >
                 <span className="truncate max-w-[80px]">{displayText}</span>
-                <i className={`fa-solid fa-chevron-down transition-transform ${isOpen ? 'rotate-180' : ''}`}></i>
+                {disabled ? (
+                    <i className="fa-solid fa-lock text-[8px] text-slate-300"></i>
+                ) : (
+                    <i className={`fa-solid fa-chevron-down transition-transform ${isOpen ? 'rotate-180' : ''}`}></i>
+                )}
             </button>
             {isOpen && (
                 <>
@@ -130,7 +141,8 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
             return (DEFAULT_PROPERTIES as unknown as PropertyOption[]).map(p => ({
                 ...p,
                 applicableTo: (p.visibility?.length === 2) ? 'Both' : (p.visibility?.[0] || 'Both'),
-                funnelVisibility: p.funnelVisibility || ['All']
+                funnelVisibility: p.funnelVisibility || ['All'],
+                isLocked: p.isLocked || false
             })) as ManagedProperty[];
         } else {
             const syncedProperties = initialProperties.map(p => {
@@ -142,7 +154,9 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                         label: defaultConfig.label,       // FORCE update label
                         description: defaultConfig.description, // FORCE update description
                         type: defaultConfig.type || p.type,     // SYNC type
-                        options: defaultConfig.options || p.options // SYNC options
+                        options: defaultConfig.options || p.options, // SYNC options
+                        isLocked: defaultConfig.isLocked || false, // SYNC locked status
+                        funnelVisibility: defaultConfig.isLocked ? (defaultConfig.funnelVisibility || ['All']) : (p.funnelVisibility || ['All'])
                     };
                 }
                 return p;
@@ -150,7 +164,8 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
             return syncedProperties.map(p => ({
                 ...p,
                 applicableTo: (p.visibility?.length === 2) ? 'Both' : (p.visibility?.[0] || 'Both'),
-                funnelVisibility: p.funnelVisibility || ['All']
+                funnelVisibility: p.isLocked ? (p.funnelVisibility || ['All']) : (p.funnelVisibility || ['All']), // This is already handled in the mapping above
+                isLocked: p.isLocked || false
             })) as ManagedProperty[];
         }
     });
@@ -411,15 +426,20 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                                                         <div className="flex items-center gap-2.5 group/field">
                                                                             <div className="relative group/select flex-shrink-0">
                                                                                 {item.applicableTo !== 'Both' ? (
-                                                                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black transition-all cursor-pointer shadow-sm border ${item.applicableTo === 'Buyer' ? 'bg-sky-500 text-white border-sky-600' : 'bg-emerald-500 text-white border-emerald-600'}`}>
-                                                                                        {item.applicableTo === 'Buyer' ? 'B' : 'S'}
+                                                                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black transition-all cursor-pointer shadow-sm border ${item.applicableTo === 'Buyer' ? 'bg-sky-500 text-white border-sky-600' : 'bg-emerald-500 text-white border-emerald-600'} ${item.isLocked ? 'cursor-not-allowed' : ''}`}>
+                                                                                        {item.isLocked ? <i className="fa-solid fa-lock text-[6px]"></i> : (item.applicableTo === 'Buyer' ? 'B' : 'S')}
                                                                                     </div>
                                                                                 ) : (
-                                                                                    <div className="w-4 h-4 rounded-full flex items-center justify-center text-slate-300 opacity-0 group-hover/field:opacity-100 transition-opacity cursor-pointer border border-dashed border-slate-200">
-                                                                                        <i className="fa-solid fa-plus text-[8px]"></i>
+                                                                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center text-slate-300 transition-opacity cursor-pointer border border-dashed border-slate-200 ${item.isLocked ? 'opacity-100 bg-slate-50 border-slate-300' : 'opacity-0 group-hover/field:opacity-100'}`}>
+                                                                                        <i className={`fa-solid ${item.isLocked ? 'fa-lock text-[6px]' : 'fa-plus text-[8px]'}`}></i>
                                                                                     </div>
                                                                                 )}
-                                                                                <select value={item.applicableTo} onChange={(e) => handleUpdateItem(originalIndex, { applicableTo: e.target.value as any }, type)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                                                                                <select
+                                                                                    value={item.applicableTo}
+                                                                                    onChange={(e) => handleUpdateItem(originalIndex, { applicableTo: e.target.value as any }, type)}
+                                                                                    className={`absolute inset-0 w-full h-full opacity-0 ${item.isLocked ? 'cursor-not-allowed pointer-events-none' : 'cursor-pointer'}`}
+                                                                                    disabled={item.isLocked}
+                                                                                >
                                                                                     <option value="Both">Common (All Tabs)</option>
                                                                                     <option value="Buyer">Buyer Only</option>
                                                                                     <option value="Seller">Seller Only</option>
@@ -437,6 +457,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                                                         <FunnelVisibilitySelect
                                                                             selected={item.funnelVisibility || ['All']}
                                                                             onChange={(next) => handleUpdateItem(originalIndex, { funnelVisibility: next }, type)}
+                                                                            disabled={(item as any).isLocked}
                                                                         />
                                                                     </td>
                                                                     <td className="px-4 py-2 w-[140px] align-top">

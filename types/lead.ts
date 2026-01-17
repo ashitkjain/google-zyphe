@@ -27,14 +27,14 @@ export interface Visitor {
 
 export const LEAD_FIELD_CONFIG = [
     // --- Contact Information ---
-    { id: 'firstName', label: 'First Name', description: 'Lead first name', category: 'Contact Information', visibility: ['Buyer', 'Seller'], type: 'string' },
-    { id: 'lastName', label: 'Last Name', description: 'Lead last name', category: 'Contact Information', visibility: ['Buyer', 'Seller'], type: 'string' },
-    { id: 'email', label: 'Email', description: 'Primary email address', category: 'Contact Information', visibility: ['Buyer', 'Seller'], type: 'string' },
-    { id: 'phone', label: 'Phone', description: 'Primary phone number', category: 'Contact Information', visibility: ['Buyer', 'Seller'], type: 'string' },
+    { id: 'firstName', label: 'First Name', description: 'Lead first name', category: 'Contact Information', visibility: ['Buyer', 'Seller'], type: 'string', funnelVisibility: ['All'], isLocked: true },
+    { id: 'lastName', label: 'Last Name', description: 'Lead last name', category: 'Contact Information', visibility: ['Buyer', 'Seller'], type: 'string', funnelVisibility: ['All'], isLocked: true },
+    { id: 'email', label: 'Email', description: 'Primary email address', category: 'Contact Information', visibility: ['Buyer', 'Seller'], type: 'string', funnelVisibility: ['All'], isLocked: true },
+    { id: 'phone', label: 'Phone', description: 'Primary phone number', category: 'Contact Information', visibility: ['Buyer', 'Seller'], type: 'string', funnelVisibility: ['All'], isLocked: true },
     { id: 'homeAddress', label: 'Home Address', description: 'Current residence address', category: 'Contact Information', visibility: ['Buyer', 'Seller'], type: 'string' },
-    { id: 'preferredContactMethod', label: 'Preferred Contact', description: 'Preferred way to be reached', category: 'Contact Information', visibility: ['Buyer', 'Seller'], type: 'enum', options: ['Phone', 'Email', 'SMS', 'WhatsApp'] },
+    { id: 'preferredContactMethod', label: 'Preferred Contact', description: 'Preferred way to be reached', category: 'Contact Information', visibility: ['Buyer', 'Seller'], type: 'enum', options: ['Phone', 'Email', 'SMS', 'WhatsApp'], funnelVisibility: ['All'], isLocked: true },
     { id: 'smsConsent', label: 'SMS Consent', description: 'Has agreed to receive text messages', category: 'Contact Information', visibility: ['Buyer', 'Seller'], type: 'boolean' },
-    { id: 'clientPhotoUrl', label: 'Client Photo', description: 'Client profile photo URL', category: 'Contact Information', visibility: ['Buyer', 'Seller'], type: 'string' },
+    { id: 'clientPhotoUrl', label: 'Client Photo', description: 'Client profile photo URL', category: 'Contact Information', visibility: ['Buyer', 'Seller'], type: 'string', funnelVisibility: ['All'], isLocked: true },
 
     // --- Intent & Readiness ---
     { id: 'message', label: 'Initial Message', description: 'Message sent with inquiry', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'string' },

@@ -8,6 +8,7 @@ export interface StatusOption {
     funnelVisibility?: string[];
     type?: 'string' | 'integer' | 'boolean' | 'enum';
     options?: string[];
+    isLocked?: boolean;
 }
 
 export interface PropertyOption {
@@ -20,4 +21,5 @@ export interface PropertyOption {
     order?: number;
     type?: 'string' | 'integer' | 'boolean' | 'enum';
     options?: string[];
+    isLocked?: boolean;
 }
