@@ -26,35 +26,103 @@ interface ManagedProperty extends PropertyOption {
 }
 
 const FUNNEL_STAGES = ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed', 'Archived'];
-const PROPERTY_CATEGORIES = ['Status & Engagement', 'Persona & Characteristics', 'Referral & History'];
+const PROPERTY_CATEGORIES = ['Contact Information', 'Intent & Readiness', 'Persona & Context', 'Engagement Status', 'Property Details', 'Referral & Source', 'System Metadata'];
 
 const DEFAULT_PROPERTIES: PropertyOption[] = [
-    // Status & Engagement
-    { id: 'isEngaged', label: 'Engaged', description: 'Lead is actively interacting', category: 'Status & Engagement', visibility: ['Buyer', 'Seller'] },
-    { id: 'isEvaluatingAgent', label: 'Evaluating Agent', description: 'Shopping for representation', category: 'Status & Engagement', visibility: ['Buyer', 'Seller'] },
-    { id: 'isCloseToDeciding', label: 'Close to Deciding', description: 'Nearing a decision point', category: 'Status & Engagement', visibility: ['Buyer', 'Seller'] },
-    { id: 'isCloseToOffer', label: 'Close to Offer', description: 'Preparing to make an offer', category: 'Status & Engagement', visibility: ['Buyer'] },
-    { id: 'isHot', label: 'Hot Lead', description: 'High priority lead requiring immediate attention', category: 'Status & Engagement', visibility: ['Buyer', 'Seller'] },
-    { id: 'preApprovalStatus', label: 'Pre-Approved', description: 'Has obtained mortgage pre-approval', category: 'Status & Engagement', visibility: ['Buyer'] },
-    { id: 'preQualified', label: 'Pre-Qualified', description: 'Has initial financial qualification', category: 'Status & Engagement', visibility: ['Buyer'] },
-    { id: 'homeValueNeeded', label: 'Home Value Needed', description: 'Requested a home valuation', category: 'Status & Engagement', visibility: ['Seller'] },
+    // --- Contact Information ---
+    { id: 'firstName', label: 'First Name', description: 'Lead first name', category: 'Contact Information', visibility: ['Buyer', 'Seller'] },
+    { id: 'lastName', label: 'Last Name', description: 'Lead last name', category: 'Contact Information', visibility: ['Buyer', 'Seller'] },
+    { id: 'email', label: 'Email', description: 'Primary email address', category: 'Contact Information', visibility: ['Buyer', 'Seller'] },
+    { id: 'phone', label: 'Phone', description: 'Primary phone number', category: 'Contact Information', visibility: ['Buyer', 'Seller'] },
+    { id: 'homeAddress', label: 'Home Address', description: 'Current residence address', category: 'Contact Information', visibility: ['Buyer', 'Seller'] },
+    { id: 'preferredContactMethod', label: 'Preferred Contact', description: 'Preferred way to be reached', category: 'Contact Information', visibility: ['Buyer', 'Seller'] },
+    { id: 'smsConsent', label: 'SMS Consent', description: 'Has agreed to receive text messages', category: 'Contact Information', visibility: ['Buyer', 'Seller'] },
+    { id: 'avatarUrl', label: 'Avatar URL', description: 'Profile picture URL', category: 'Contact Information', visibility: ['Buyer', 'Seller'] },
 
-    // Persona & Characteristics
-    { id: 'isFirstTimeBuyer', label: 'First Time Buyer', description: 'Never purchased before', category: 'Persona & Characteristics', visibility: ['Buyer'] },
-    { id: 'isFirstTimeSeller', label: 'First Time Seller', description: 'Never sold before', category: 'Persona & Characteristics', visibility: ['Seller'] },
-    { id: 'isInvestor', label: 'Investor', description: 'Buying for investment purposes', category: 'Persona & Characteristics', visibility: ['Buyer', 'Seller'] },
-    { id: 'isAlsoBuying', label: 'Also Buying', description: 'Seller who also intends to buy', category: 'Persona & Characteristics', visibility: ['Seller'] },
-    { id: 'isAlsoSelling', label: 'Also Selling', description: 'Buyer who also has a home to sell', category: 'Persona & Characteristics', visibility: ['Buyer'] },
-    { id: 'hasHomeToSell', label: 'Has Home to Sell', description: 'Lead owns a property they need to sell', category: 'Persona & Characteristics', visibility: ['Buyer'] },
+    // --- Intent & Readiness ---
+    { id: 'message', label: 'Initial Message', description: 'Message sent with inquiry', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'] },
+    { id: 'timeframe', label: 'Timeframe', description: 'Expected timeline for transaction', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'] },
+    { id: 'preApprovalStatus', label: 'Pre-Approved', description: 'Has obtained mortgage pre-approval', category: 'Intent & Readiness', visibility: ['Buyer'] },
+    { id: 'preQualified', label: 'Pre-Qualified', description: 'Has initial financial qualification', category: 'Intent & Readiness', visibility: ['Buyer'] },
+    { id: 'isAllCash', label: 'All Cash', description: 'Planning to pay with cash', category: 'Intent & Readiness', visibility: ['Buyer'] },
+    { id: 'budgetRange', label: 'Budget Range', description: 'Target price range', category: 'Intent & Readiness', visibility: ['Buyer'] },
+    { id: 'homeValueNeeded', label: 'Home Value Needed', description: 'Requested a home valuation', category: 'Intent & Readiness', visibility: ['Seller'] },
+    { id: 'reasonForSelling', label: 'Reason for Selling', description: 'Motivation for listing property', category: 'Intent & Readiness', visibility: ['Seller'] },
+    { id: 'sellWhen', label: 'When to Sell', description: 'Target listing date/period', category: 'Intent & Readiness', visibility: ['Seller'] },
+    { id: 'mostImportantToSeller', label: 'Most Important Req', description: 'Top priority for the seller', category: 'Intent & Readiness', visibility: ['Seller'] },
+    { id: 'dealStage', label: 'Deal Stage', description: 'Current stage of the deal', category: 'Intent & Readiness', visibility: ['Buyer'] },
+    { id: 'dealStatus', label: 'Deal Status', description: 'Won/Lost status', category: 'Intent & Readiness', visibility: ['Buyer'] },
+    { id: 'leaseEndDate', label: 'Lease End Date', description: 'When current lease expires', category: 'Intent & Readiness', visibility: ['Buyer'] },
 
-    // Referral & History
-    { id: 'isPastClient', label: 'Past Client', description: 'Has worked with you before', category: 'Referral & History', visibility: ['Buyer', 'Seller'] },
-    { id: 'isReferredByPastClient', label: 'Referred by Past Client', description: 'Referral source is a former client', category: 'Referral & History', visibility: ['Buyer', 'Seller'] },
-    { id: 'isReferredByFriendFamily', label: 'Referred by Friend/Family', description: 'Referral source is personal network', category: 'Referral & History', visibility: ['Buyer', 'Seller'] },
+    // --- Persona & Context ---
+    { id: 'isHot', label: 'Hot Lead', description: 'High priority lead', category: 'Persona & Context', visibility: ['Buyer', 'Seller'] },
+    { id: 'isFirstTimeBuyer', label: 'First Time Buyer', description: 'Never purchased before', category: 'Persona & Context', visibility: ['Buyer'] },
+    { id: 'isFirstTimeSeller', label: 'First Time Seller', description: 'Never sold before', category: 'Persona & Context', visibility: ['Seller'] },
+    { id: 'isInvestor', label: 'Investor', description: 'Buying for investment purposes', category: 'Persona & Context', visibility: ['Buyer', 'Seller'] },
+    { id: 'isAlsoBuying', label: 'Also Buying', description: 'Seller who also intends to buy', category: 'Persona & Context', visibility: ['Seller'] },
+    { id: 'isAlsoSelling', label: 'Also Selling', description: 'Buyer who also has a home to sell', category: 'Persona & Context', visibility: ['Buyer'] },
+    { id: 'hasHomeToSell', label: 'Has Home to Sell', description: 'Lead owns a property they need to sell', category: 'Persona & Context', visibility: ['Buyer'] },
+    { id: 'isPastClient', label: 'Past Client', description: 'Has worked with you before', category: 'Persona & Context', visibility: ['Buyer', 'Seller'] },
+    { id: 'gender', label: 'Gender', description: 'Gender identity', category: 'Persona & Context', visibility: ['Buyer', 'Seller'] },
+    { id: 'occupancyStatus', label: 'Occupancy Status', description: 'Owner occupied vs Vacant vs Tenant', category: 'Persona & Context', visibility: ['Seller'] },
+    { id: 'existingAgentName', label: 'Existing Agent', description: 'Name of other agent if exists', category: 'Persona & Context', visibility: ['Buyer', 'Seller'] },
 
-    // Additional Context (Example grouping, can be adjusted)
-    { id: 'initialContactIn30Mins', label: 'Fast Response', description: 'Contacted within 30 minutes of inquiry', category: 'Status & Engagement', visibility: ['Buyer', 'Seller'] },
-    { id: 'smsConsent', label: 'SMS Consent', description: 'Has agreed to receive text messages', category: 'Status & Engagement', visibility: ['Buyer', 'Seller'] },
+    // --- Engagement Status ---
+    { id: 'isEngaged', label: 'Engaged', description: 'Lead is actively interacting', category: 'Engagement Status', visibility: ['Buyer', 'Seller'] },
+    { id: 'isEvaluatingAgent', label: 'Evaluating Agent', description: 'Shopping for representation', category: 'Engagement Status', visibility: ['Buyer', 'Seller'] },
+    { id: 'isCloseToDeciding', label: 'Close to Deciding', description: 'Nearing a decision point', category: 'Engagement Status', visibility: ['Buyer', 'Seller'] },
+    { id: 'isCloseToOffer', label: 'Close to Offer', description: 'Preparing to make an offer', category: 'Engagement Status', visibility: ['Buyer'] },
+    { id: 'initialContactIn30Mins', label: 'Fast Response', description: 'Contacted within 30 minutes', category: 'Engagement Status', visibility: ['Buyer', 'Seller'] },
+    { id: 'tourRequestDate', label: 'Tour Date', description: 'Requested date for viewing', category: 'Engagement Status', visibility: ['Buyer'] },
+    { id: 'tourRequestTime', label: 'Tour Time', description: 'Requested time for viewing', category: 'Engagement Status', visibility: ['Buyer'] },
+    { id: 'callCount', label: 'Call Count', description: 'Number of calls made', category: 'Engagement Status', visibility: ['Buyer', 'Seller'] },
+    { id: 'offerCount', label: 'Offer Count', description: 'Number of offers made/received', category: 'Engagement Status', visibility: ['Buyer', 'Seller'] },
+
+    // --- Property Preferences / Subject Property ---
+    { id: 'propertyAddress', label: 'Target Property', description: 'Address of property of interest', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
+    { id: 'subjectProperty', label: 'Subject Property', description: 'The specific property being transacted', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
+    { id: 'preferredNeighborhood', label: 'Preferred Area', description: 'Desired neighborhood or zone', category: 'Property Details', visibility: ['Buyer'] },
+    { id: 'propertyType', label: 'Property Type', description: 'SFH, Condo, Townhouse, etc.', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
+    { id: 'bedrooms', label: 'Bedrooms', description: 'Number of bedrooms', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
+    { id: 'bathrooms', label: 'Bathrooms', description: 'Number of bathrooms', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
+    { id: 'sqft', label: 'Square Feet', description: 'Living area size', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
+    { id: 'price', label: 'Price (Actual)', description: 'Contract or Listing Price', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
+    { id: 'expectedPrice', label: 'Expected Price', description: 'Seller\'s desired price', category: 'Property Details', visibility: ['Seller'] },
+    { id: 'minPrice', label: 'Min Price', description: 'Budget floor', category: 'Property Details', visibility: ['Buyer'] },
+    { id: 'maxPrice', label: 'Max Price', description: 'Budget ceiling', category: 'Property Details', visibility: ['Buyer'] },
+    { id: 'mlsNumber', label: 'MLS Number', description: 'Multiple Listing Service ID', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
+    { id: 'zpid', label: 'Zillow ID', description: 'Zillow Property ID', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
+    { id: 'daysOnZillow', label: 'Days on Zillow', description: 'Time listed on Zillow', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
+
+    // --- Referral & Source ---
+    { id: 'source', label: 'Lead Source', description: 'Origin (Zillow, Website, etc.)', category: 'Referral & Source', visibility: ['Buyer', 'Seller'] },
+    { id: 'isReferredByPastClient', label: 'Ref by Past Client', description: 'Referral source is a former client', category: 'Referral & Source', visibility: ['Buyer', 'Seller'] },
+    { id: 'isReferredByFriendFamily', label: 'Ref by Friend/Fam', description: 'Referral source is personal network', category: 'Referral & Source', visibility: ['Buyer', 'Seller'] },
+    { id: 'leadType', label: 'Lead Type', description: 'Classification of lead', category: 'Referral & Source', visibility: ['Buyer', 'Seller'] },
+    { id: 'connectionType', label: 'Connection Type', description: 'Method of connection', category: 'Referral & Source', visibility: ['Buyer', 'Seller'] },
+    { id: 'referralSource', label: 'Referral Source', description: 'Specific source details', category: 'Referral & Source', visibility: ['Buyer', 'Seller'] },
+
+    // --- System Metadata ---
+    { id: 'status', label: 'Status', description: 'Current status label', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'funnelStage', label: 'Funnel Stage', description: 'Broad lifecycle stage', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'receivedAt', label: 'Received At', description: 'Date lead was created', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'lastTouch', label: 'Last Touch', description: 'Last interaction timestamp', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'clientId', label: 'Client ID', description: 'Unique Client Reference ID', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'id', label: 'System ID', description: 'Internal Database ID', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'notes', label: 'Notes', description: 'General notes', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'tags', label: 'Tags', description: 'Custom tags', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'slaUrgency', label: 'SLA Urgency', description: 'Service Level Agreement urgency', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'assignedTo', label: 'Assigned To', description: 'Agent assigned to lead', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'channel', label: 'Channel', description: 'Communication channel', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'lastUpdated', label: 'Last Updated', description: 'Timestamp of last update', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'stageLastChangedAt', label: 'Stage Changed At', description: 'When funnel stage changed', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'smsConsentTimestamp', label: 'SMS Consent Time', description: 'When SMS consent was given', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'health', label: 'Lead Health', description: 'System calculated health score', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'isMock', label: 'Is Mock', description: 'Test data flag', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'archivedAt', label: 'Archived At', description: 'When lead was archived', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'activatedAt', label: 'Activated At', description: 'When lead became active', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'closedAt', label: 'Closed At', description: 'When transaction closed', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
+    { id: 'collectionName', label: 'Collection Name', description: 'Database collection reference', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
 ];
 
 const StatusSettings: React.FC<StatusSettingsProps> = ({
@@ -79,7 +147,8 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
 
     // --- Property Logic ---
     const initialPropertyData = useMemo(() => {
-        const source = Array.isArray(initialProperties) ? initialProperties : DEFAULT_PROPERTIES;
+        // Fallback to defaults if initialProperties is missing OR empty (for new setup)
+        const source = (Array.isArray(initialProperties) && initialProperties.length > 0) ? initialProperties : DEFAULT_PROPERTIES;
         return source.map(p => ({
             ...p,
             applicableTo: (p.visibility?.length === 2) ? 'Both' : (p.visibility?.[0] || 'Both')
@@ -176,11 +245,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
 
         // Status Logic
         if (type === 'status') {
-            const draggedStatus = allStatuses.find((s, i) => `status-${s.label}-${i}` === draggableId); // Note: ideally use ID if available, using label-index as composite
             // Fallback to searching by index if ID construction is tricky or unstable
-            // Let's rely on the index in the filtered list logic for safety inside the render loop? 
-            // Actually, the draggableId must be unique. Let's fix the draggableId generation in render to include type.
-            // Using simple find for now assuming the id passed from render matches.
         }
 
         // Simplified Drag Logic that works for both (assuming list reconstruction)
@@ -294,7 +359,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                     </div>
                                     <div>
                                         <h3 className={`text-xs font-black uppercase tracking-widest ${isExpanded ? 'text-indigo-900' : 'text-slate-500'}`}>{group}</h3>
-                                        <p className="text-[10px] text-slate-400 font-medium">{groupItems.length} {isStatus ? 'Statuses' : 'Properties'}</p>
+                                        <p className="text-[10px] text-slate-400 font-medium">{groupItems.length} {isStatus ? 'Statuses' : 'Fields'}</p>
                                     </div>
                                 </div>
                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${isExpanded ? 'bg-indigo-100 text-indigo-600 rotate-180' : 'text-slate-300'}`}>
@@ -412,7 +477,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                     <div className="flex items-center justify-between mb-8">
                         <div>
                             <h2 className="text-2xl font-black text-slate-900 tracking-tight">Data Fields</h2>
-                            <p className="text-xs text-slate-500 font-medium mt-1">Configure your data model</p>
+                            <p className="text-xs text-slate-500 font-medium mt-1">Configure your data model ({activeTab === 'statuses' ? allStatuses.length : allProperties.length} items)</p>
                         </div>
                         <div className="flex items-center gap-3">
                             {/* Tabs */}
@@ -421,7 +486,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                     Status Management
                                 </button>
                                 <button onClick={() => setActiveTab('properties')} className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === 'properties' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
-                                    Leads Properties
+                                    Leads Fields
                                 </button>
                             </div>
 
@@ -442,7 +507,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                             <i className="fa-solid fa-circle-info text-sm"></i>
                         </div>
                         <div>
-                            <h4 className="font-bold text-blue-900 text-xs uppercase tracking-wide mb-1">{activeTab === 'statuses' ? 'Status Visibility' : 'Property Visibility'}</h4>
+                            <h4 className="font-bold text-blue-900 text-xs uppercase tracking-wide mb-1">{activeTab === 'statuses' ? 'Status Visibility' : 'Field Visibility'}</h4>
                             <p className="text-blue-700 text-xs leading-relaxed">
                                 Items set to "Common" appear in both Buyer and Seller views. Restrict items to specific personas using the "Buyer Only" or "Seller Only" options.
                                 Drag and drop items to reorder them within their respective groups (Funnel Stages or Categories).
@@ -457,7 +522,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                             <div className="">
                                 <button
                                     type="button"
-                                    onClick={(e) => { e.preventDefault(); handleSeedMockData(); }} // Using the original seed function signature for now, though it's not defined in this clean rewrite. 
+                                    onClick={(e) => { e.preventDefault(); /* handleSeedMockData(); */ }} // Function temporarily disabled 
                                     // Ah, I need to bring back handleSeedMockData logic if I want to keep it.
                                     disabled={true}
                                     className="text-rose-500 hover:text-rose-700 text-xs font-bold flex items-center gap-2 transition-colors opacity-60 hover:opacity-100 cursor-not-allowed"
