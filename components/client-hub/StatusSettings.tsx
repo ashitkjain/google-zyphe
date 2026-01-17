@@ -513,9 +513,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                 </button>
                             </div>
 
-                            <button type="button" onClick={handleResetDefaults} disabled={isSaving} className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition-colors">
-                                Reset Tab Defaults
-                            </button>
+
                             <button onClick={handleSave} disabled={isSaving} className={`px-6 py-2.5 rounded-xl font-bold text-xs shadow-lg transition-all ${isSaving ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-xl active:scale-95'} flex items-center gap-2`}>
                                 {isSaving ? <><i className="fa-solid fa-spinner fa-spin"></i><span>Saving...</span></> : <><i className="fa-solid fa-floppy-disk"></i><span>Save</span></>}
                             </button>
@@ -540,23 +538,29 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                     </div>
 
                     {/* Developer Tools (Only on Statuses for now as migration is specific) */}
-                    {activeTab === 'statuses' && (
-                        <div className="mt-12 pt-8 border-t border-slate-200">
-                            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Developer Tools</h3>
-                            <div className="">
-                                <button
-                                    type="button"
-                                    onClick={(e) => { e.preventDefault(); /* handleSeedMockData(); */ }} // Function temporarily disabled 
-                                    // Ah, I need to bring back handleSeedMockData logic if I want to keep it.
-                                    disabled={true}
-                                    className="text-rose-500 hover:text-rose-700 text-xs font-bold flex items-center gap-2 transition-colors opacity-60 hover:opacity-100 cursor-not-allowed"
-                                >
-                                    <i className="fa-solid fa-database"></i>
-                                    Reset & Seed Mock Database (Disabled in this view)
-                                </button>
-                            </div>
+                    <div className="mt-12 pt-8 border-t border-slate-200">
+                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Developer Tools</h3>
+                        <div className="flex flex-col gap-4">
+                            <button
+                                type="button"
+                                onClick={handleResetDefaults}
+                                disabled={isSaving}
+                                className="w-fit text-amber-600 hover:text-amber-700 text-xs font-bold flex items-center gap-2 transition-colors"
+                            >
+                                <i className="fa-solid fa-rotate-left"></i>
+                                Reset Current Tab to Defaults
+                            </button>
+                            <button
+                                type="button"
+                                onClick={(e) => { e.preventDefault(); /* handleSeedMockData(); */ }} // Function temporarily disabled 
+                                disabled={true}
+                                className="w-fit text-rose-500 hover:text-rose-700 text-xs font-bold flex items-center gap-2 transition-colors opacity-60 hover:opacity-100 cursor-not-allowed"
+                            >
+                                <i className="fa-solid fa-database"></i>
+                                Reset & Seed Mock Database (Disabled in this view)
+                            </button>
                         </div>
-                    )}
+                    </div>
                 </div>
             </DragDropContext>
         </div>
