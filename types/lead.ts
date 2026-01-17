@@ -4,6 +4,27 @@ import { CallNote, LeadNote } from './notes';
 import { KYCData } from './kyc';
 import { PropertyOption } from './shared';
 
+export interface Offer {
+    id: string;
+    property: string; // Brief property description or address
+    bidPrice: number;
+    outcome: 'Pending' | 'Accepted' | 'Rejected' | 'Countered' | 'Withdrawn';
+    comment?: string;
+    date?: any;
+}
+
+export interface Visitor {
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    isInterested: boolean;
+    isOnline: boolean;
+    visitCount: number;
+    visitDates: any[];
+    comment?: string;
+}
+
 export const LEAD_FIELD_CONFIG = [
     // --- Contact Information ---
     { id: 'firstName', label: 'First Name', description: 'Lead first name', category: 'Contact Information', visibility: ['Buyer', 'Seller'] },
@@ -21,51 +42,52 @@ export const LEAD_FIELD_CONFIG = [
     { id: 'preApprovalStatus', label: 'Pre-Approved', description: 'Has obtained mortgage pre-approval', category: 'Intent & Readiness', visibility: ['Buyer'] },
     { id: 'preQualified', label: 'Pre-Qualified', description: 'Has initial financial qualification', category: 'Intent & Readiness', visibility: ['Buyer'] },
     { id: 'isAllCash', label: 'All Cash', description: 'Planning to pay with cash', category: 'Intent & Readiness', visibility: ['Buyer'] },
+    { id: 'isWarm', label: 'Warm Lead', description: 'The client has shown interest but is not ready to sign a contract.', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'] },
+    { id: 'isCold', label: 'Cold Lead', description: 'The lead has not yet been spoken to or shown intent.', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'] },
+    { id: 'isLongTerm', label: 'Long Term Lead', description: 'Client expressed interest but is 6-12+ months away.', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'] },
     { id: 'homeValueNeeded', label: 'Home Value Needed', description: 'Requested a home valuation', category: 'Intent & Readiness', visibility: ['Seller'] },
     { id: 'reasonForSelling', label: 'Reason for Selling', description: 'Motivation for listing property', category: 'Intent & Readiness', visibility: ['Seller'] },
-    { id: 'mostImportantToSeller', label: 'Most Important Req', description: 'Top priority for the seller', category: 'Intent & Readiness', visibility: ['Seller'] },
+    { id: 'isMostImportantReq', label: 'Most Important Req', description: 'Top priority for the client', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'] },
     { id: 'lenderContact', label: 'Lender Contact', description: 'Contact info for lender', category: 'Intent & Readiness', visibility: ['Buyer'] },
     { id: 'tags', label: 'Tags', description: 'Custom tags', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'] },
     { id: 'slaUrgency', label: 'SLA Urgency', description: 'Service Level Agreement urgency', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'] },
+    { id: 'isHot', label: 'Hot Lead', description: 'High priority lead', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'] },
+    { id: 'isEngaged', label: 'Engaged', description: 'Lead is actively interacting', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'] },
+    { id: 'isEvaluatingAgent', label: 'Evaluating Agent', description: 'Shopping for representation', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'] },
+    { id: 'initialContactIn30Mins', label: 'Contacted in 30 mins', description: 'Contacted within 30 minutes', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'] },
+    { id: 'dealBreakers', label: 'Deal Breakers', description: 'List of deal breakers', category: 'Intent & Readiness', visibility: ['Buyer'] },
+    { id: 'neighborhoodTargets', label: 'Neighborhood Targets', description: 'Target neighborhoods', category: 'Intent & Readiness', visibility: ['Buyer'] },
+    { id: 'schoolDistricts', label: 'School Districts', description: 'Preferred school districts', category: 'Intent & Readiness', visibility: ['Buyer'] },
 
     // --- Persona & Context ---
-    { id: 'isHot', label: 'Hot Lead', description: 'High priority lead', category: 'Persona & Context', visibility: ['Buyer', 'Seller'] },
+    { id: 'generalInfo', label: 'General Info', description: 'General information about the client', category: 'Persona & Context', visibility: ['Buyer', 'Seller'] },
     { id: 'isFirstTimeBuyer', label: 'First Time Buyer', description: 'Never purchased before', category: 'Persona & Context', visibility: ['Buyer'] },
     { id: 'isFirstTimeSeller', label: 'First Time Seller', description: 'Never sold before', category: 'Persona & Context', visibility: ['Seller'] },
     { id: 'isInvestor', label: 'Investor', description: 'Buying for investment purposes', category: 'Persona & Context', visibility: ['Buyer', 'Seller'] },
     { id: 'isAlsoBuying', label: 'Also Buying', description: 'Seller who also intends to buy', category: 'Persona & Context', visibility: ['Seller'] },
     { id: 'isAlsoSelling', label: 'Also Selling', description: 'Buyer who also has a home to sell', category: 'Persona & Context', visibility: ['Buyer'] },
-    { id: 'hasHomeToSell', label: 'Has Home to Sell', description: 'Lead owns a property they need to sell', category: 'Persona & Context', visibility: ['Buyer'] },
     { id: 'isPastClient', label: 'Past Client', description: 'Has worked with you before', category: 'Persona & Context', visibility: ['Buyer', 'Seller'] },
     { id: 'gender', label: 'Gender', description: 'Gender identity', category: 'Persona & Context', visibility: ['Buyer', 'Seller'] },
     { id: 'occupancyStatus', label: 'Occupancy Status', description: 'Owner occupied vs Vacant vs Tenant', category: 'Persona & Context', visibility: ['Seller'] },
     { id: 'existingAgentName', label: 'Existing Agent', description: 'Name of other agent if exists', category: 'Persona & Context', visibility: ['Buyer', 'Seller'] },
 
     // --- Activity ---
-    { id: 'isEngaged', label: 'Engaged', description: 'Lead is actively interacting', category: 'Activity', visibility: ['Buyer', 'Seller'] },
-    { id: 'isEvaluatingAgent', label: 'Evaluating Agent', description: 'Shopping for representation', category: 'Activity', visibility: ['Buyer', 'Seller'] },
-    { id: 'isCloseToDeciding', label: 'Close to Deciding', description: 'Nearing a decision point', category: 'Activity', visibility: ['Buyer', 'Seller'] },
     { id: 'isCloseToOffer', label: 'Close to Offer', description: 'Preparing to make an offer', category: 'Activity', visibility: ['Buyer'] },
-    { id: 'initialContactIn30Mins', label: 'Fast Response', description: 'Contacted within 30 minutes', category: 'Activity', visibility: ['Buyer', 'Seller'] },
+    { id: 'offers', label: 'Offers', description: 'Complex List: History of offers made', category: 'Activity', visibility: ['Buyer'] },
+    { id: 'tours', label: 'Property Tours', description: 'Complex List: History of property tours', category: 'Activity', visibility: ['Buyer'] },
+    { id: 'visitors', label: 'Visitors', description: 'Complex List: History of property visitors', category: 'Activity', visibility: ['Seller'] },
 
     // --- Timings ---
-    { id: 'tours', label: 'Property Tours', description: 'Complex List: History of property tours', category: 'Timings', visibility: ['Buyer'] },
     { id: 'leaseEndDate', label: 'Lease End Date', description: 'When current lease expires', category: 'Timings', visibility: ['Buyer'] },
     { id: 'sellWhen', label: 'When to Sell', description: 'Target listing date/period', category: 'Timings', visibility: ['Seller'] },
     { id: 'receivedAt', label: 'Received At', description: 'Date lead was created', category: 'Timings', visibility: ['Buyer', 'Seller'] },
     { id: 'lastUpdated', label: 'Last Updated', description: 'Timestamp of last update', category: 'Timings', visibility: ['Buyer', 'Seller'] },
     { id: 'stageLastChangedAt', label: 'Stage Changed At', description: 'When funnel stage changed', category: 'Timings', visibility: ['Buyer', 'Seller'] },
-    { id: 'smsConsentTimestamp', label: 'SMS Consent Time', description: 'When SMS consent was given', category: 'Timings', visibility: ['Buyer', 'Seller'] },
-    { id: 'archivedAt', label: 'Archived At', description: 'When lead was archived', category: 'Timings', visibility: ['Buyer', 'Seller'] },
-    { id: 'closedAt', label: 'Closed At', description: 'When transaction closed', category: 'Timings', visibility: ['Buyer', 'Seller'] },
 
     // --- Property Preferences / Subject Property ---
     // REPLACED individual fields with Complex Objects
     { id: 'inquiryProperty', label: 'Inquiry Property', description: 'Complex Object: Buyer preferences/target', category: 'Property Details', visibility: ['Buyer'] },
     { id: 'subjectPropertyDetails', label: 'Subject Property Details', description: 'Complex Object: Seller property details', category: 'Property Details', visibility: ['Seller'] },
-    { id: 'dealBreakers', label: 'Deal Breakers', description: 'List of deal breakers', category: 'Property Details', visibility: ['Buyer'] },
-    { id: 'neighborhoodTargets', label: 'Neighborhood Targets', description: 'Target neighborhoods', category: 'Property Details', visibility: ['Buyer'] },
-    { id: 'schoolDistricts', label: 'School Districts', description: 'Preferred school districts', category: 'Property Details', visibility: ['Buyer'] },
 
     // --- Referral & Source ---
     { id: 'source', label: 'Lead Source', description: 'Origin (Zillow, Website, etc.)', category: 'Referral & Source', visibility: ['Buyer', 'Seller'] },
@@ -104,12 +126,15 @@ export interface Lead {
     phone: string;
     homeAddress?: string;
     preferredContactMethod?: 'Call' | 'Text' | 'Email';
+    generalInfo?: string;
 
     // 2. Readiness & Context
     message?: string;
     preApprovalStatus?: boolean;
     timeframe?: string;
-    hasHomeToSell?: boolean;
+    isWarm?: boolean;
+    isCold?: boolean;
+    isLongTerm?: boolean;
 
     // Lead Context from UI requirements (Buyer & Seller)
     isAlsoBuying?: boolean;
@@ -118,7 +143,7 @@ export interface Lead {
     existingAgentName?: string;
     reasonForSelling?: string;
     homeValueNeeded?: boolean;
-    mostImportantToSeller?: string;
+    isMostImportantReq?: string;
     sellWhen?: string;
     occupancyStatus?: string;
     expectedPrice?: number;
@@ -132,6 +157,8 @@ export interface Lead {
 
     // Complex Objects
     tours?: Tour[];
+    offers?: Offer[];
+    visitors?: Visitor[];
 
     // 3. Property Details (Nested Objects)
     inquiryProperty?: PropertyDetails;        // For Buyers: What they are tracking/interested in
@@ -161,12 +188,9 @@ export interface Lead {
     initialContactIn30Mins?: boolean;
     notesLog?: LeadNote[];
     smsConsent?: boolean;
-    smsConsentTimestamp?: any;
     funnelStage: FunnelStage;
     health: LeadHealth;
     isMock?: boolean;
-    archivedAt?: any;
-    closedAt?: any;
     collectionName?: string;
     clientId?: string;
     isHot?: boolean;
@@ -188,7 +212,7 @@ export interface Lead {
 // This ensures that ALL keys in Lead are present in LEAD_FIELD_CONFIG (or explicitly ignored).
 // If you add a field to Lead and forget to add it to LEAD_FIELD_CONFIG, this line will error.
 type ConfiguredKeys = typeof LEAD_FIELD_CONFIG[number]['id'];
-type IgnoredKeys = 'callNotes' | 'notesLog' | 'inquiryProperty' | 'subjectPropertyDetails' | 'tours'; // Keys that are strictly NOT configurable via this list (e.g. complex objects)
+type IgnoredKeys = 'callNotes' | 'notesLog' | 'inquiryProperty' | 'subjectPropertyDetails' | 'tours' | 'offers' | 'visitors'; // Keys that are strictly NOT configurable via this list (e.g. complex objects)
 
 // If this type is not 'never', it means there are keys in Lead that are missing from config.
 // Hover over 'MissingKeys' to see what they are.

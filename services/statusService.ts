@@ -6,9 +6,6 @@ export const DEFAULT_STATUSES: StatusOption[] = [
     { label: 'New', description: 'Fresh inquiry from lead source', isDefault: true, funnelStage: 'Leads', order: 0, visibility: ['Buyer', 'Seller'] },
     { label: 'Qualified', description: 'Meets our criteria', isDefault: true, funnelStage: 'Leads', order: 1, visibility: ['Buyer', 'Seller'] },
     { label: 'Attempted to Contact', description: 'Attempted to contact the client', isDefault: false, funnelStage: 'Leads', order: 2, visibility: ['Buyer', 'Seller'] },
-    { label: 'Cold', description: 'The lead has not yet been spoken to or shown intent.', isDefault: true, funnelStage: 'Leads', order: 3, visibility: ['Buyer', 'Seller'] },
-    { label: 'Warm', description: 'The client has shown interest but is not ready to sign a contract.', isDefault: true, funnelStage: 'Leads', order: 4, visibility: ['Buyer', 'Seller'] },
-    { label: 'Long Term', description: 'Client expressed interest but is 6-12+ months away.', isDefault: true, funnelStage: 'Leads', order: 5, visibility: ['Buyer', 'Seller'] },
 
     // Nurture
     { label: 'Meeting Fixed', description: 'Discussion/consultation scheduled', isDefault: true, funnelStage: 'Nurture', order: 6, visibility: ['Buyer', 'Seller'] },

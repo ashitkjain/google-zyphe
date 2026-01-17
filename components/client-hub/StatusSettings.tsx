@@ -367,7 +367,23 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                                                         </td>
                                                                     )}
                                                                     <td className="px-4 py-2 align-top">
-                                                                        <input value={item.description} onChange={(e) => handleUpdateItem(originalIndex, { description: e.target.value }, type)} className="w-full bg-transparent text-slate-600 text-sm leading-snug font-medium focus:outline-none focus:text-slate-900 px-0 py-0.5 font-sans" />
+                                                                        <textarea
+                                                                            value={item.description}
+                                                                            onChange={(e) => handleUpdateItem(originalIndex, { description: e.target.value }, type)}
+                                                                            className="w-full bg-transparent text-slate-600 text-sm leading-snug font-medium focus:outline-none focus:text-slate-900 px-0 py-0.5 font-sans resize-none overflow-hidden min-h-[1.5rem]"
+                                                                            rows={1}
+                                                                            onInput={(e) => {
+                                                                                const target = e.target as HTMLTextAreaElement;
+                                                                                target.style.height = 'auto';
+                                                                                target.style.height = target.scrollHeight + 'px';
+                                                                            }}
+                                                                            ref={(el) => {
+                                                                                if (el) {
+                                                                                    el.style.height = 'auto';
+                                                                                    el.style.height = el.scrollHeight + 'px';
+                                                                                }
+                                                                            }}
+                                                                        />
                                                                     </td>
                                                                     <td className="px-4 py-2 w-12 text-right align-top">
                                                                         {!((item as any).isDefault || false) && (

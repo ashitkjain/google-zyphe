@@ -333,7 +333,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 },
                 { key: 'preferredNeighborhood', label: 'Preferred Neighborhood', type: 'text', colSpan: 2, showIf: (l) => ['Buyer', 'Rental'].includes(l.leadType) },
                 { key: 'occupancyStatus', label: 'Occupancy', type: 'text', showIf: (l) => l.leadType === 'Seller' },
-                { key: 'mostImportantToSeller', label: 'Priority', type: 'text', showIf: (l) => l.leadType === 'Seller' },
+                { key: 'isMostImportantReq', label: 'Priority / Most Important Req', type: 'text', colSpan: 2 },
                 { key: 'reasonForSelling', label: 'Reason for Selling', type: 'text', showIf: (l) => l.leadType === 'Seller' },
                 { key: 'existingAgentName', label: 'Existing Agent?', type: 'text', showIf: (l) => l.leadType === 'Seller' },
                 // Checkboxes as custom renders for layout control
@@ -385,6 +385,35 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                     <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Home Value Needed?</span>
                                 </label>
                             )}
+
+                            {/* Warm/Cold/Long Term Flags */}
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    checked={props.lead.isWarm || false}
+                                    onChange={(e) => setEditingLead({ ...props.lead, isWarm: e.target.checked })}
+                                    className="w-5 h-5 rounded-lg border-slate-200 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                                />
+                                <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Warm Lead</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    checked={props.lead.isCold || false}
+                                    onChange={(e) => setEditingLead({ ...props.lead, isCold: e.target.checked })}
+                                    className="w-5 h-5 rounded-lg border-slate-200 text-sky-500 focus:ring-sky-500 cursor-pointer"
+                                />
+                                <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Cold Lead</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    checked={props.lead.isLongTerm || false}
+                                    onChange={(e) => setEditingLead({ ...props.lead, isLongTerm: e.target.checked })}
+                                    className="w-5 h-5 rounded-lg border-slate-200 text-purple-500 focus:ring-purple-500 cursor-pointer"
+                                />
+                                <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Long Term</span>
+                            </label>
                         </div>
                     )
                 },

@@ -173,7 +173,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
         funnelStage: { label: 'Pipeline Stage', icon: 'fa-filter' },
         notes: { label: 'Notes', icon: 'fa-clipboard-list' },
         homeValueNeeded: { label: 'Home Value Needed?', icon: 'fa-calculator' },
-        mostImportantToSeller: { label: 'Priority', icon: 'fa-star' },
+        isMostImportantReq: { label: 'Priority', icon: 'fa-star' },
         sellWhen: { label: 'Sell When?', icon: 'fa-calendar-days' },
         propertyType: { label: 'Property Type', icon: 'fa-building' },
         occupancyStatus: { label: 'Occupancy Status', icon: 'fa-key' },
