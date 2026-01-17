@@ -9,7 +9,12 @@ export const getInitialMockLeads = (): Lead[] => [
         source: 'Zillow', leadType: 'Buyer', connectionType: 'Direct Lead', status: 'New', receivedAt: new Date(Date.now() - 3600000),
         slaUrgency: 'high', funnelStage: 'Nurture', health: 'Active', isMock: true, collectionName: 'leads',
         inquiryProperty: { minPrice: 450000, maxPrice: 550000, preferredNeighborhood: 'Northside' },
-        message: "I'd like to see properties in Northside area."
+        message: "I'd like to see properties in Northside area.",
+        callCount: 2,
+        notesLog: [
+            { id: 'nl_1', type: 'call', timestamp: new Date(Date.now() - 3600000), note: 'Initial introduction call. Discussed preferred neighborhoods.', callNumber: 1, outcome: 'Connected' },
+            { id: 'nl_2', type: 'call', timestamp: new Date(Date.now() - 1800000), note: 'Sent neighborhood list via text.', callNumber: 2, outcome: 'Text' }
+        ]
     },
     {
         id: 'lead_2', clientPhotoUrl: 'https://i.pravatar.cc/150?img=5', firstName: 'Sarah', lastName: 'Miller', email: 'sarah.m@example.com', phone: '(555) 234-5678',
@@ -17,7 +22,11 @@ export const getInitialMockLeads = (): Lead[] => [
         source: 'Website', leadType: 'Buyer', connectionType: 'Direct Lead', status: 'Qualified', receivedAt: new Date(Date.now() - 7200000),
         slaUrgency: 'medium', funnelStage: 'Nurture', health: 'Active', isMock: true, collectionName: 'leads',
         inquiryProperty: { minPrice: 800000, maxPrice: 950000, preferredNeighborhood: 'Downtown' },
-        preQualified: true
+        preQualified: true,
+        callCount: 1,
+        notesLog: [
+            { id: 'nl_3', type: 'call', timestamp: new Date(Date.now() - 7200000), note: 'Left voicemail regarding pre-approval.', callNumber: 1, outcome: 'Voicemail' }
+        ]
     },
     {
         id: 'lead_3', clientPhotoUrl: 'https://i.pravatar.cc/150?img=13', firstName: 'Robert', lastName: 'Taylor', email: 'robert.t@example.com', phone: '(555) 345-6789',
@@ -50,7 +59,11 @@ export const getInitialMockLeads = (): Lead[] => [
         source: 'Instagram', leadType: 'Buyer', connectionType: 'Direct Lead', status: 'New', receivedAt: new Date(Date.now() - 259200000),
         slaUrgency: 'low', funnelStage: 'Nurture', health: 'Active', isMock: true, collectionName: 'leads',
         inquiryProperty: { minPrice: 500000, maxPrice: 600000 },
-        tags: ['First-Time']
+        tags: ['First-Time'],
+        callCount: 1,
+        notesLog: [
+            { id: 'nl_4', type: 'call', timestamp: new Date(Date.now() - 259200000), note: 'Followed up via email with community guide.', callNumber: 1, outcome: 'Email' }
+        ]
     },
     {
         id: 'lead_7', clientPhotoUrl: 'https://i.pravatar.cc/150?img=15', firstName: 'David', lastName: 'Thomas', email: 'david.t@example.com', phone: '(555) 789-0123',
