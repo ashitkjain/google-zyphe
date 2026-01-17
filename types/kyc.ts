@@ -16,16 +16,10 @@ export interface DocumentChecklistItem {
 
 export interface KYCData {
     // 1. Client Profiles & Preferences
-    dealBreakers?: string[];
-    neighborhoodTargets?: string[];
-    schoolDistricts?: string[];
     lenderName?: string;
-    lenderContact?: string;
-    isAllCash?: boolean;
     birthdays?: string; // Flexible format for now
     homeAnniversary?: string;
     familyPetsDetails?: string;
-    communicationPreferenceNotes?: string;
 
     // 2. Lead Management
     leadScore?: number;
@@ -33,7 +27,6 @@ export interface KYCData {
     slaMinutesTarget?: number;
 
     // 3. Transaction Pipeline
-    transactionStage?: 'Listing' | 'Under Contract' | 'Inspection' | 'Appraisal' | 'Closing';
     inspectionDeadline?: any;
     appraisalDeadline?: any;
     loanCommitmentDeadline?: any;

@@ -738,8 +738,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         </td>
                                                         <td className="px-2 py-2 border-b border-slate-100">
                                                             <div className="w-8 h-8 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shadow-sm">
-                                                                {lead.avatarUrl ? (
-                                                                    <img src={lead.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                                                {lead.clientPhotoUrl ? (
+                                                                    <img src={lead.clientPhotoUrl} alt="" className="w-full h-full object-cover" />
                                                                 ) : (
                                                                     <i className="fa-solid fa-user text-slate-300 text-[10px]"></i>
                                                                 )}

@@ -16,6 +16,8 @@ interface StatusSettingsProps {
     onUpdateProperties: (properties: PropertyOption[]) => void;
     initialStatuses?: StatusOption[];
     initialProperties?: PropertyOption[];
+    initialClientProperties?: PropertyOption[];
+    onUpdateClientProperties?: (properties: PropertyOption[]) => void;
 }
 
 interface ManagedStatus extends StatusOption {
@@ -27,16 +29,15 @@ interface ManagedProperty extends PropertyOption {
 }
 
 const FUNNEL_STAGES = ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed', 'Archived'];
+
 const PROPERTY_CATEGORIES = ['Contact Information', 'Intent & Readiness', 'Persona & Context', 'Activity', 'Timings', 'Client Communication', 'Property Details', 'Referral & Source', 'System Metadata'];
-
-
 
 const StatusSettings: React.FC<StatusSettingsProps> = ({
     realtorId,
     onUpdateStatuses,
     onUpdateProperties,
     initialStatuses,
-    initialProperties
+    initialProperties,
 }) => {
     const [activeTab, setActiveTab] = useState<'statuses' | 'properties'>('statuses');
 
@@ -83,8 +84,10 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
         }
     });
 
+
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set([...FUNNEL_STAGES, ...PROPERTY_CATEGORIES]));
+
     const [isSaving, setIsSaving] = useState(false);
     const [isMigrating, setIsMigrating] = useState(false);
     const [logs, setLogs] = useState<string[]>([]);
@@ -102,7 +105,9 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
 
     // Generic Update Handler
     const handleUpdateItem = (index: number, updates: Partial<ManagedStatus | ManagedProperty>, type: 'status' | 'property') => {
-        const setter = type === 'status' ? setAllStatuses : setAllProperties;
+        let setter;
+        if (type === 'status') setter = setAllStatuses;
+        else setter = setAllProperties;
 
         setter(prev => {
             const next = [...prev] as any[];
@@ -228,7 +233,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
         setIsSaving(true);
         try {
             if (activeTab === 'statuses') await onUpdateStatuses(allStatuses);
-            else await onUpdateProperties(allProperties);
+            else if (activeTab === 'properties') await onUpdateProperties(allProperties);
             // Flash success? handled by parent or just button state
         } finally {
             setIsSaving(false);
@@ -255,7 +260,9 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
 
     const renderTable = (groups: string[], type: 'status' | 'property') => {
         const isStatus = type === 'status';
-        const items = isStatus ? allStatuses : allProperties;
+        let items: any[] = [];
+        if (type === 'status') items = allStatuses;
+        else items = allProperties;
 
         return (
             <div className="space-y-6">
@@ -409,7 +416,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                             {/* Tabs */}
                             <div className="flex bg-white rounded-lg p-1 border border-slate-200 shadow-sm mr-4">
                                 <button onClick={() => setActiveTab('statuses')} className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === 'statuses' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
-                                    Status Management
+                                    Funnel Stages Fields
                                 </button>
                                 <button onClick={() => setActiveTab('properties')} className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === 'properties' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
                                     Leads Fields
@@ -425,7 +432,8 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                         </div>
                     </div>
 
-                    {activeTab === 'statuses' ? renderTable(FUNNEL_STAGES, 'status') : renderTable(PROPERTY_CATEGORIES, 'property')}
+                    {activeTab === 'statuses' && renderTable(FUNNEL_STAGES, 'status')}
+                    {activeTab === 'properties' && renderTable(PROPERTY_CATEGORIES, 'property')}
 
                     {/* Info Card */}
                     <div className="mt-8 bg-blue-50 border border-blue-100 rounded-2xl p-6 flex items-start gap-4">

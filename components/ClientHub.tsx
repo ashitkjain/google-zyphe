@@ -111,7 +111,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                 const existing = _leads.find(ex => ex.id === l.id);
                 if (!existing) return true;
                 if (l.collectionName && existing.collectionName !== l.collectionName) return true;
-                if (l.kyc && !existing.kyc) return true; // New check for KYC data
                 return false;
             });
 

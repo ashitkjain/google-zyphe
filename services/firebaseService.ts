@@ -1,5 +1,6 @@
 
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
+import { getStorage } from "firebase/storage";
 import {
   getFirestore,
   doc,
@@ -140,8 +141,16 @@ try {
   console.error("Auth service initialization failed:", e);
 }
 
+let storage: any = null;
+try {
+  if (app) storage = getStorage(app);
+} catch (e) {
+  console.error("Storage initialization failed:", e);
+}
+
 export const db_instance = db;
 export const auth = authInstance;
+export const storage_instance = storage;
 export const googleProvider = new GoogleAuthProvider();
 
 const sanitizeForFirestore = (data: any): any => {
@@ -596,11 +605,31 @@ export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMT
     const batch = writeBatch(db);
 
     // Seed Leads
-    leads.forEach(lead => {
+    // Seed Leads
+    const seededLeads = await Promise.all(leads.map(async (lead) => {
+      let finalPhotoUrl = lead.clientPhotoUrl;
+
+      // New Logic: Cache pravatar images to Firebase Storage
+      if (lead.clientPhotoUrl && lead.clientPhotoUrl.includes("pravatar.cc") && storage) {
+        try {
+          const response = await fetch(lead.clientPhotoUrl);
+          if (response.ok) {
+            const blob = await response.blob();
+            const storageRef = ref(storage, `leads/mock/${lead.id}_photo.png`);
+            await uploadBytes(storageRef, blob);
+            finalPhotoUrl = await getDownloadURL(storageRef);
+            console.log(`[Seeding] Cached photo for ${lead.firstName} to Firebase Storage.`);
+          }
+        } catch (err) {
+          console.warn(`[Seeding] Failed to cache photo for ${lead.firstName}`, err);
+        }
+      }
+
       const targetColl = lead.collectionName || "leads";
       const docRef = doc(collection(db, targetColl), lead.id);
-      batch.set(docRef, { ...lead, isMock: true, realtorId }, { merge: true });
-    });
+      batch.set(docRef, { ...lead, clientPhotoUrl: finalPhotoUrl, isMock: true, realtorId }, { merge: true });
+      return { ...lead, clientPhotoUrl: finalPhotoUrl };
+    }));
 
     // Seed Tasks
     tasks.forEach(task => {

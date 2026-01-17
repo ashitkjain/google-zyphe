@@ -396,8 +396,8 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                     accept="image/*"
                                     onChange={handleFileChange}
                                 />
-                                {lead.avatarUrl ? (
-                                    <img src={lead.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                {lead.clientPhotoUrl ? (
+                                    <img src={lead.clientPhotoUrl} alt="" className="w-full h-full object-cover" />
                                 ) : (
                                     <div className="text-indigo-400/60 font-black text-sm uppercase">
                                         {lead.firstName?.charAt(0) || ''}{lead.lastName?.charAt(0) || ''}

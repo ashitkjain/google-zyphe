@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Lead, CallNote } from '../../types';
 import { getStatusOptions, getStatusDefinitions } from '../../services/statusService';
+import { storage_instance } from '../../services/firebaseService';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface EditLeadModalProps {
     editingLead: Lead;
@@ -83,8 +85,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                     onClick={() => document.getElementById('avatar-upload-row')?.click()}
                                     title="Click to upload photo"
                                 >
-                                    {props.lead.avatarUrl ? (
-                                        <img src={props.lead.avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                                    {props.lead.clientPhotoUrl ? (
+                                        <img src={props.lead.clientPhotoUrl} alt="Profile" className="w-full h-full object-cover" />
                                     ) : (
                                         <i className="fa-solid fa-camera text-slate-300 text-lg group-hover:text-slate-400 transition-colors"></i>
                                     )}
@@ -94,14 +96,27 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                     type="file"
                                     className="hidden"
                                     accept="image/*"
-                                    onChange={(e) => {
+                                    onChange={async (e) => {
                                         const file = e.target.files?.[0];
                                         if (file) {
-                                            const reader = new FileReader();
-                                            reader.onloadend = () => {
-                                                setEditingLead({ ...props.lead, avatarUrl: reader.result as string });
-                                            };
-                                            reader.readAsDataURL(file);
+                                            if (!storage_instance) {
+                                                console.error("Storage not initialized");
+                                                alert("Image upload service is currently unavailable.");
+                                                return;
+                                            }
+                                            try {
+                                                // Create a reference to 'leads/{leadId}/avatar_{timestamp}_{filename}'
+                                                const storageRef = ref(storage_instance, `leads/${props.lead.id}/avatar_${Date.now()}_${file.name}`);
+                                                // Upload the file
+                                                const snapshot = await uploadBytes(storageRef, file);
+                                                // Get the download URL
+                                                const downloadURL = await getDownloadURL(snapshot.ref);
+                                                // Update state
+                                                setEditingLead({ ...props.lead, clientPhotoUrl: downloadURL });
+                                            } catch (error) {
+                                                console.error("Error uploading avatar:", error);
+                                                alert("Failed to upload image. Please try again.");
+                                            }
                                         }
                                     }}
                                 />
@@ -241,61 +256,46 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
             id: 'property',
             fields: [
                 {
-                    key: 'subjectProperty',
+                    key: 'subjectPropertyDetails',
                     label: 'Subject Property',
                     type: 'text',
                     colSpan: 2,
-                    placeholder: 'Property address for this transaction',
                     required: true,
-                    showIf: (l) => ['Offer', 'Contract'].includes(l.funnelStage)
+                    // Use a custom render to access nested property (address) or implement a specialized component later.
+                    // For now, removing direct text binding to 'subjectProperty' string as it was deleted.
+                    render: (props: any) => (
+                        <div className="space-y-1 col-span-2">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Subject Property Address</label>
+                            <input
+                                type="text"
+                                value={editingLead.subjectPropertyDetails?.address || ''}
+                                onChange={(e) => setEditingLead({ ...editingLead, subjectPropertyDetails: { ...editingLead.subjectPropertyDetails, address: e.target.value } })}
+                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                placeholder="Property address for this transaction"
+                            />
+                        </div>
+                    )
                 },
                 {
-                    key: 'subjectProperty',
-                    label: 'Subject Property',
+                    key: 'inquiryProperty',
+                    label: 'Inquiry Property',
                     type: 'text',
                     colSpan: 2,
-                    placeholder: 'Property address for this transaction (auto-filled from inquiry)',
-                    showIf: (l) => !['Offer', 'Contract'].includes(l.funnelStage)
-                },
-                { key: 'propertyAddress', label: 'Inquiry Property', type: 'text', colSpan: 2, placeholder: 'Original property they inquired about' },
-                { key: 'propertyType', label: 'Property Type', type: 'text', placeholder: 'Single Family' },
-                { key: 'mlsNumber', label: 'MLS Number', type: 'text', placeholder: 'MLS123' },
-                {
-                    key: 'bedrooms', label: 'Property Specs', type: 'text', colSpan: 2,
-                    render: (props) => (
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Beds</label>
-                                <input
-                                    type="number"
-                                    value={editingLead.bedrooms || ''}
-                                    onChange={(e) => setEditingLead({ ...editingLead, bedrooms: Number(e.target.value) })}
-                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
-                                />
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Baths</label>
-                                <input
-                                    type="number"
-                                    value={editingLead.bathrooms || ''}
-                                    onChange={(e) => setEditingLead({ ...editingLead, bathrooms: Number(e.target.value) })}
-                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
-                                />
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Sq Ft</label>
-                                <input
-                                    type="number"
-                                    value={editingLead.sqft || ''}
-                                    onChange={(e) => setEditingLead({ ...editingLead, sqft: Number(e.target.value) })}
-                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
-                                />
-                            </div>
+                    placeholder: 'Original property they inquired about',
+                    render: (props: any) => (
+                        <div className="space-y-1 col-span-2">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Inquiry Property Address</label>
+                            <input
+                                type="text"
+                                value={editingLead.inquiryProperty?.address || ''}
+                                onChange={(e) => setEditingLead({ ...editingLead, inquiryProperty: { ...editingLead.inquiryProperty, address: e.target.value } })}
+                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                placeholder="Original property they inquired about"
+                            />
                         </div>
                     )
                 },
                 // Seller Specs
-                { key: 'price', label: 'List Price ($)', type: 'number', showIf: (l) => l.leadType === 'Seller' },
                 { key: 'expectedPrice', label: 'Expected Price ($)', type: 'number', showIf: (l) => l.leadType === 'Seller' },
             ]
         },
@@ -306,7 +306,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 { key: 'leadType', label: 'Type', type: 'select', options: ['Buyer', 'Seller', 'Rental', 'Mortgage'] },
                 { key: 'slaUrgency', label: 'SLA Urgency', type: 'select', options: ['low', 'medium', 'high'] },
                 {
-                    key: 'minPrice', label: 'Price Range', type: 'number', colSpan: 2,
+                    key: 'inquiryProperty', label: 'Price Range', type: 'number', colSpan: 2,
                     showIf: (l) => ['Buyer', 'Rental', 'Mortgage'].includes(l.leadType),
                     render: (props) => (
                         <div className="grid grid-cols-2 gap-3">
@@ -314,8 +314,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Min Price ($)</label>
                                 <input
                                     type="number"
-                                    value={editingLead.minPrice || ''}
-                                    onChange={(e) => setEditingLead({ ...editingLead, minPrice: Number(e.target.value) })}
+                                    value={editingLead.inquiryProperty?.minPrice || ''}
+                                    onChange={(e) => setEditingLead({ ...editingLead, inquiryProperty: { ...editingLead.inquiryProperty, minPrice: Number(e.target.value) } })}
                                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
                                 />
                             </div>
@@ -323,8 +323,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Max Price ($)</label>
                                 <input
                                     type="number"
-                                    value={editingLead.maxPrice || ''}
-                                    onChange={(e) => setEditingLead({ ...editingLead, maxPrice: Number(e.target.value) })}
+                                    value={editingLead.inquiryProperty?.maxPrice || ''}
+                                    onChange={(e) => setEditingLead({ ...editingLead, inquiryProperty: { ...editingLead.inquiryProperty, maxPrice: Number(e.target.value) } })}
                                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
                                 />
                             </div>

@@ -164,3 +164,12 @@ export interface PropertyDetails {
     preferredNeighborhood?: string;
     preferredZipCodes?: string[];
 }
+
+export interface Tour {
+    id: string; // Unique ID for the tour
+    propertyAddress: string;
+    date: string; // ISO Date String
+    time?: string; // "14:00" etc
+    comment?: string;
+    status?: 'Scheduled' | 'Completed' | 'Cancelled' | 'No Show';
+}
