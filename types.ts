@@ -9,6 +9,15 @@ export interface StatusOption {
   visibility?: ('Buyer' | 'Seller')[];
 }
 
+export interface PropertyOption {
+  id: string; // Maps to the key in Lead object, e.g. 'isPastClient'
+  label: string;
+  description: string;
+  category: string; // Used for grouping in UI
+  visibility?: ('Buyer' | 'Seller')[];
+  order?: number;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -30,6 +39,7 @@ export interface UserProfile {
   kyc?: KYCData;
   settings?: {
     leadStatuses?: StatusOption[];
+    leadProperties?: PropertyOption[];
   };
 }
 
@@ -204,6 +214,18 @@ export interface Lead {
   kyc?: KYCData;
   clientId?: string;
   isHot?: boolean;
+
+  // 5. Additional Status & Persona Flags
+  isPastClient?: boolean;
+  isEngaged?: boolean;
+  isEvaluatingAgent?: boolean;
+  isCloseToDeciding?: boolean;
+  isCloseToOffer?: boolean;
+  isReferredByFriendFamily?: boolean;
+  isReferredByPastClient?: boolean;
+  isFirstTimeBuyer?: boolean;
+  isFirstTimeSeller?: boolean;
+  isInvestor?: boolean;
 }
 
 export interface JourneyEvent {

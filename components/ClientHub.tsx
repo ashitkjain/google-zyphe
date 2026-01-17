@@ -520,7 +520,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
         { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
-        { id: 'settings', label: 'Statuses', icon: 'fa-sliders' },
+        { id: 'settings', label: 'Data Fields', icon: 'fa-sliders' },
         { id: 'best_practices', label: 'Best Practices', icon: 'fa-book-open' },
     ];
 
@@ -552,13 +552,11 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         setKycLead(null);
     };
 
-    const handleUpdateStatuses = async (buyerStatuses: StatusOption[], sellerStatuses: StatusOption[]) => {
+    const handleUpdateStatuses = async (statuses: StatusOption[]) => {
         const success = await saveUserProfile(realtorId, {
             settings: {
-                leadStatuses: {
-                    buyer: buyerStatuses,
-                    seller: sellerStatuses
-                }
+                ...realtorProfile?.settings,
+                leadStatuses: statuses
             }
         });
 
@@ -567,10 +565,26 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                 ...prev,
                 settings: {
                     ...prev.settings,
-                    leadStatuses: {
-                        buyer: buyerStatuses,
-                        seller: sellerStatuses
-                    }
+                    leadStatuses: statuses
+                }
+            } : null);
+        }
+    };
+
+    const handleUpdateProperties = async (properties: any[]) => {
+        const success = await saveUserProfile(realtorId, {
+            settings: {
+                ...realtorProfile?.settings,
+                leadProperties: properties
+            }
+        });
+
+        if (success === true) {
+            setRealtorProfile(prev => prev ? {
+                ...prev,
+                settings: {
+                    ...prev.settings,
+                    leadProperties: properties
                 }
             } : null);
         }
@@ -751,8 +765,9 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     <StatusSettings
                         realtorId={realtorId}
                         onUpdateStatuses={handleUpdateStatuses}
-                        initialBuyerStatuses={realtorProfile?.settings?.leadStatuses?.buyer}
-                        initialSellerStatuses={realtorProfile?.settings?.leadStatuses?.seller}
+                        onUpdateProperties={handleUpdateProperties}
+                        initialStatuses={realtorProfile?.settings?.leadStatuses}
+                        initialProperties={realtorProfile?.settings?.leadProperties}
                     />
                 )}
 
