@@ -135,3 +135,32 @@ export interface PropertyData {
     visual_analysis?: CustomAIAnalysisResult;
     comprehensive_analysis?: ComprehensiveAnalysisResult;
 }
+
+export interface PropertyDetails {
+    // Identity
+    address?: string; // Full formatted address
+    zpid?: string;
+    mlsNumber?: string;
+
+    // Core Attributes
+    propertyType?: string; // SFH, Condo, Etc.
+    bedrooms?: number;
+    bathrooms?: number;
+    sqft?: number;
+    yearBuilt?: number;
+    lotSize?: string;
+
+    // Financials
+    price?: number; // List price or purchase price
+    minPrice?: number; // For preferences
+    maxPrice?: number; // For preferences
+
+    // Additional Context
+    daysOnMarket?: number;
+    description?: string;
+    images?: string[];
+
+    // Preferences (Specific to search usage)
+    preferredNeighborhood?: string;
+    preferredZipCodes?: string[];
+}

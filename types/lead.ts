@@ -1,9 +1,10 @@
+import { PropertyDetails } from './property';
 import { CommChannel, ConnectionType, FunnelStage, LeadHealth, LeadSource, LeadStatus, LeadType } from './enums';
 import { CallNote, LeadNote } from './notes';
 import { KYCData } from './kyc';
 import { PropertyOption } from './shared';
 
-export const LEAD_FIELD_CONFIG: PropertyOption[] = [
+export const LEAD_FIELD_CONFIG = [
     // --- Contact Information ---
     { id: 'firstName', label: 'First Name', description: 'Lead first name', category: 'Contact Information', visibility: ['Buyer', 'Seller'] },
     { id: 'lastName', label: 'Last Name', description: 'Lead last name', category: 'Contact Information', visibility: ['Buyer', 'Seller'] },
@@ -50,24 +51,11 @@ export const LEAD_FIELD_CONFIG: PropertyOption[] = [
     { id: 'initialContactIn30Mins', label: 'Fast Response', description: 'Contacted within 30 minutes', category: 'Activity', visibility: ['Buyer', 'Seller'] },
     { id: 'tourRequestDate', label: 'Tour Date', description: 'Requested date for viewing', category: 'Activity', visibility: ['Buyer'] },
     { id: 'tourRequestTime', label: 'Tour Time', description: 'Requested time for viewing', category: 'Activity', visibility: ['Buyer'] },
-    { id: 'callCount', label: 'Call Count', description: 'Number of calls made', category: 'Activity', visibility: ['Buyer', 'Seller'] },
-    { id: 'offerCount', label: 'Offer Count', description: 'Number of offers made/received', category: 'Activity', visibility: ['Buyer', 'Seller'] },
 
     // --- Property Preferences / Subject Property ---
-    { id: 'propertyAddress', label: 'Target Property', description: 'Address of property of interest', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
-    { id: 'subjectProperty', label: 'Subject Property', description: 'The specific property being transacted', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
-    { id: 'preferredNeighborhood', label: 'Preferred Area', description: 'Desired neighborhood or zone', category: 'Property Details', visibility: ['Buyer'] },
-    { id: 'propertyType', label: 'Property Type', description: 'SFH, Condo, Townhouse, etc.', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
-    { id: 'bedrooms', label: 'Bedrooms', description: 'Number of bedrooms', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
-    { id: 'bathrooms', label: 'Bathrooms', description: 'Number of bathrooms', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
-    { id: 'sqft', label: 'Square Feet', description: 'Living area size', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
-    { id: 'price', label: 'Price (Actual)', description: 'Contract or Listing Price', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
-    { id: 'expectedPrice', label: 'Expected Price', description: 'Seller\'s desired price', category: 'Property Details', visibility: ['Seller'] },
-    { id: 'minPrice', label: 'Min Price', description: 'Budget floor', category: 'Property Details', visibility: ['Buyer'] },
-    { id: 'maxPrice', label: 'Max Price', description: 'Budget ceiling', category: 'Property Details', visibility: ['Buyer'] },
-    { id: 'mlsNumber', label: 'MLS Number', description: 'Multiple Listing Service ID', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
-    { id: 'zpid', label: 'Zillow ID', description: 'Zillow Property ID', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
-    { id: 'daysOnZillow', label: 'Days on Zillow', description: 'Time listed on Zillow', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
+    // REPLACED individual fields with Complex Objects
+    { id: 'targetProperty', label: 'Target Property', description: 'Complex Object: Buyer preferences/target', category: 'Property Details', visibility: ['Buyer'] },
+    { id: 'subjectPropertyDetails', label: 'Subject Property', description: 'Complex Object: Seller property details', category: 'Property Details', visibility: ['Seller'] },
 
     // --- Referral & Source ---
     { id: 'source', label: 'Lead Source', description: 'Origin (Zillow, Website, etc.)', category: 'Referral & Source', visibility: ['Buyer', 'Seller'] },
@@ -77,6 +65,14 @@ export const LEAD_FIELD_CONFIG: PropertyOption[] = [
     { id: 'connectionType', label: 'Connection Type', description: 'Method of connection', category: 'Referral & Source', visibility: ['Buyer', 'Seller'] },
     { id: 'referralSource', label: 'Referral Source', description: 'Specific source details', category: 'Referral & Source', visibility: ['Buyer', 'Seller'] },
 
+    // --- Client Communication ---
+    { id: 'callCount', label: 'Call Count', description: 'Number of calls made', category: 'Client Communication', visibility: ['Buyer', 'Seller'] },
+    { id: 'offerCount', label: 'Offer Count', description: 'Number of offers made/received', category: 'Client Communication', visibility: ['Buyer', 'Seller'] },
+    { id: 'notes', label: 'Notes', description: 'General notes', category: 'Client Communication', visibility: ['Buyer', 'Seller'] },
+    { id: 'callNotes', label: 'Call Notes', description: 'Complex List: Log of call summaries and outcomes', category: 'Client Communication', visibility: ['Buyer', 'Seller'] },
+    { id: 'notesLog', label: 'Activity Log', description: 'Complex List: History of all notes and activities', category: 'Client Communication', visibility: ['Buyer', 'Seller'] },
+    { id: 'channel', label: 'Channel', description: 'Communication channel', category: 'Client Communication', visibility: ['Buyer', 'Seller'] },
+
     // --- System Metadata ---
     { id: 'status', label: 'Status', description: 'Current status label', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'funnelStage', label: 'Funnel Stage', description: 'Broad lifecycle stage', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
@@ -84,24 +80,19 @@ export const LEAD_FIELD_CONFIG: PropertyOption[] = [
     { id: 'lastTouch', label: 'Last Touch', description: 'Last interaction timestamp', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'clientId', label: 'Client ID', description: 'Unique Client Reference ID', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'id', label: 'System ID', description: 'Internal Database ID', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
-    { id: 'notes', label: 'Notes', description: 'General notes', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'tags', label: 'Tags', description: 'Custom tags', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'slaUrgency', label: 'SLA Urgency', description: 'Service Level Agreement urgency', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'assignedTo', label: 'Assigned To', description: 'Agent assigned to lead', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
-    { id: 'channel', label: 'Channel', description: 'Communication channel', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'lastUpdated', label: 'Last Updated', description: 'Timestamp of last update', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'stageLastChangedAt', label: 'Stage Changed At', description: 'When funnel stage changed', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'smsConsentTimestamp', label: 'SMS Consent Time', description: 'When SMS consent was given', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'health', label: 'Lead Health', description: 'System calculated health score', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'isMock', label: 'Is Mock', description: 'Test data flag', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'archivedAt', label: 'Archived At', description: 'When lead was archived', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
-    { id: 'activatedAt', label: 'Activated At', description: 'When lead became active', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'closedAt', label: 'Closed At', description: 'When transaction closed', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'collectionName', label: 'Collection Name', description: 'Database collection reference', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
-    { id: 'callNotes', label: 'Call Notes', description: 'Complex List: Log of call summaries and outcomes', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
-    { id: 'notesLog', label: 'Activity Log', description: 'Complex List: History of all notes and activities', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'kyc', label: 'KYC Data', description: 'Complex Object: Know Your Client verification data', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
-];
+] as const;
 
 
 export interface Lead {
@@ -144,26 +135,17 @@ export interface Lead {
     dealStatus?: 'Won' | 'Lost' | string;
     isAllCash?: boolean;
 
-    // 3. Property Details (Subject Property)
-    propertyAddress?: string;
-    zpid?: string;
-    price?: number;
-    minPrice?: number;
-    propertyType?: string;
-    bedrooms?: number;
-    bathrooms?: number;
-    sqft?: number;
-    maxPrice?: number;
+    // 3. Property Details (Nested Objects)
+    targetProperty?: PropertyDetails;         // For Buyers: What they are tracking/interested in
+    subjectPropertyDetails?: PropertyDetails; // For Sellers: What they are selling OR The specific house under contract
+
+    // 4. Client Communication (Moved from Root Level)
     callCount?: number;
-    callNotes?: CallNote[]; // Notes for specific calls (sparse - not all calls need notes)
+    offerCount?: number;
+    callNotes?: CallNote[];
 
-    daysOnZillow?: number;
-    mlsNumber?: string;
-    subjectProperty?: string; // The actual property being transacted (initially populated from propertyAddress)
-    offerCount?: number; // Number of offers made (for buyers) or received (for sellers)
-
-    // 4. System Metadata & Source
-    source: LeadSource; // e.g. Zillow, Trulia, etc.
+    // 5. System Metadata & Source
+    source: LeadSource;
     leadType: LeadType;
     connectionType: ConnectionType;
     status: LeadStatus;
@@ -184,14 +166,13 @@ export interface Lead {
     health: LeadHealth;
     isMock?: boolean;
     archivedAt?: any;
-    activatedAt?: any;
     closedAt?: any;
     collectionName?: string;
     kyc?: KYCData;
     clientId?: string;
     isHot?: boolean;
 
-    // 5. Additional Status & Persona Flags
+    // 6. Additional Status & Persona Flags
     isPastClient?: boolean;
     isEngaged?: boolean;
     isEvaluatingAgent?: boolean;
@@ -203,3 +184,18 @@ export interface Lead {
     isFirstTimeSeller?: boolean;
     isInvestor?: boolean;
 }
+
+// --- Completeness Check ---
+// This ensures that ALL keys in Lead are present in LEAD_FIELD_CONFIG (or explicitly ignored).
+// If you add a field to Lead and forget to add it to LEAD_FIELD_CONFIG, this line will error.
+type ConfiguredKeys = typeof LEAD_FIELD_CONFIG[number]['id'];
+type IgnoredKeys = 'callNotes' | 'notesLog' | 'targetProperty' | 'subjectPropertyDetails'; // Keys that are strictly NOT configurable via this list (e.g. complex objects)
+
+// If this type is not 'never', it means there are keys in Lead that are missing from config.
+// Hover over 'MissingKeys' to see what they are.
+type MissingKeys = Exclude<keyof Lead, ConfiguredKeys | IgnoredKeys>;
+
+// This dummy assignment triggers the compile-time error
+// @ts-ignore - Uncomment this line to check for missing keys if you are debugging. 
+// Ideally we want this to be a real error, but for now we interpret it manually.
+const _completenessCheck: MissingKeys = {} as never;

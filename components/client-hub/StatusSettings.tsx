@@ -27,7 +27,7 @@ interface ManagedProperty extends PropertyOption {
 }
 
 const FUNNEL_STAGES = ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed', 'Archived'];
-const PROPERTY_CATEGORIES = ['Contact Information', 'Intent & Readiness', 'Persona & Context', 'Activity', 'Property Details', 'Referral & Source', 'System Metadata'];
+const PROPERTY_CATEGORIES = ['Contact Information', 'Intent & Readiness', 'Persona & Context', 'Activity', 'Timings', 'Client Communication', 'Property Details', 'Referral & Source', 'System Metadata'];
 
 
 
@@ -52,16 +52,36 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
     const [allStatuses, setAllStatuses] = useState<ManagedStatus[]>(initialStatusData);
 
     // --- Property Logic ---
-    const initialPropertyData = useMemo(() => {
-        // Fallback to defaults if initialProperties is missing OR empty (for new setup)
-        const source = (Array.isArray(initialProperties) && initialProperties.length > 0) ? initialProperties : DEFAULT_PROPERTIES;
-        return source.map(p => ({
-            ...p,
-            applicableTo: (p.visibility?.length === 2) ? 'Both' : (p.visibility?.[0] || 'Both')
-        })) as ManagedProperty[];
-    }, [initialProperties]);
-
-    const [allProperties, setAllProperties] = useState<ManagedProperty[]>(initialPropertyData);
+    // Initialize properties with category synchronization
+    // If a property exists in the Default Config, we FORCE its category to match the new config.
+    // This allows us to re-organize categories in the code and have it reflect for users without resetting details.
+    // --- Property Logic ---
+    // Initialize properties with category synchronization directly in useState initializer
+    const [allProperties, setAllProperties] = useState<ManagedProperty[]>(() => {
+        if (!initialProperties || initialProperties.length === 0) {
+            return (DEFAULT_PROPERTIES as unknown as PropertyOption[]).map(p => ({
+                ...p,
+                applicableTo: (p.visibility?.length === 2) ? 'Both' : (p.visibility?.[0] || 'Both')
+            })) as ManagedProperty[];
+        } else {
+            const syncedProperties = initialProperties.map(p => {
+                const defaultConfig = DEFAULT_PROPERTIES.find(dp => dp.id === p.id);
+                if (defaultConfig) {
+                    return {
+                        ...p,
+                        category: defaultConfig.category, // FORCE update category
+                        label: defaultConfig.label,       // FORCE update label
+                        description: defaultConfig.description // FORCE update description
+                    };
+                }
+                return p;
+            });
+            return syncedProperties.map(p => ({
+                ...p,
+                applicableTo: (p.visibility?.length === 2) ? 'Both' : (p.visibility?.[0] || 'Both')
+            })) as ManagedProperty[];
+        }
+    });
 
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set([...FUNNEL_STAGES, ...PROPERTY_CATEGORIES]));
@@ -224,7 +244,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                 setAllStatuses(defaults);
                 await onUpdateStatuses(defaults);
             } else {
-                const defaults = DEFAULT_PROPERTIES.map(p => ({ ...p, applicableTo: (p.visibility?.length === 2) ? 'Both' : (p.visibility?.[0] || 'Both') })) as ManagedProperty[];
+                const defaults = (DEFAULT_PROPERTIES as unknown as PropertyOption[]).map(p => ({ ...p, applicableTo: (p.visibility?.length === 2) ? 'Both' : (p.visibility?.[0] || 'Both') })) as ManagedProperty[];
                 setAllProperties(defaults);
                 await onUpdateProperties(defaults);
             }
