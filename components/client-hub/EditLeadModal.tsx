@@ -126,7 +126,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                         value={props.lead.firstName}
                                         placeholder="John"
                                         onChange={(e) => setEditingLead({ ...props.lead, firstName: e.target.value })}
-                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none hover:bg-white hover:border-slate-300"
                                     />
                                 </div>
                                 <div className="space-y-1">
@@ -136,7 +136,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                         value={props.lead.lastName}
                                         placeholder="Doe"
                                         onChange={(e) => setEditingLead({ ...props.lead, lastName: e.target.value })}
-                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none hover:bg-white hover:border-slate-300"
                                     />
                                 </div>
                             </div>
@@ -193,7 +193,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                     type="text"
                                     placeholder="Add deal breaker..."
                                     id="new-deal-breaker"
-                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
                                 />
                                 <button
                                     onClick={() => {
@@ -232,7 +232,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                     type="text"
                                     placeholder="Add neighborhood..."
                                     id="new-neighborhood"
-                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
                                 />
                                 <button
                                     onClick={() => {
@@ -271,7 +271,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                     type="text"
                                     placeholder="Add school district..."
                                     id="new-school-district"
-                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
                                 />
                                 <button
                                     onClick={() => {
@@ -322,7 +322,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                             }
                                         }
                                     }}
-                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-100 transition-all outline-none hover:bg-white hover:border-slate-300"
                                 />
                                 <button
                                     onClick={() => {
@@ -606,19 +606,19 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                                     className="w-full px-2 py-1 bg-orange-50/30 border border-orange-100 rounded text-xs font-medium focus:ring-1 focus:ring-orange-500 outline-none"
                                                 />
                                             </div>
-                                            <label className="flex items-center gap-2 cursor-pointer group col-span-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={visitor.isInterested || false}
-                                                    onChange={(e) => {
-                                                        const newVisitors = [...props.lead.visitors];
-                                                        newVisitors[idx] = { ...visitor, isInterested: e.target.checked };
-                                                        setEditingLead({ ...props.lead, visitors: newVisitors });
-                                                    }}
-                                                    className="w-4 h-4 rounded border-orange-200 text-orange-500 focus:ring-orange-500 cursor-pointer"
-                                                />
-                                                <span className="text-[10px] font-bold text-slate-600 transition-colors uppercase">Mark as Interested</span>
-                                            </label>
+                                            <div
+                                                className="flex items-center justify-between col-span-2 py-1.5 px-3 bg-orange-50/50 border border-orange-100 rounded-lg cursor-pointer group/toggle"
+                                                onClick={() => {
+                                                    const newVisitors = [...props.lead.visitors];
+                                                    newVisitors[idx] = { ...visitor, isInterested: !visitor.isInterested };
+                                                    setEditingLead({ ...props.lead, visitors: newVisitors });
+                                                }}
+                                            >
+                                                <span className="text-[9px] font-black text-orange-600 uppercase tracking-widest group-hover/toggle:text-orange-700 transition-colors">Mark as Interested</span>
+                                                <div className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out ${visitor.isInterested ? 'bg-orange-500' : 'bg-slate-200'}`}>
+                                                    <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${visitor.isInterested ? 'translate-x-3' : 'translate-x-0'}`} />
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -690,7 +690,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                         type="text"
                                         value={editingLead.subjectPropertyDetails?.address || ''}
                                         onChange={(e) => setEditingLead({ ...editingLead, subjectPropertyDetails: { ...editingLead.subjectPropertyDetails, address: e.target.value } })}
-                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none hover:bg-white hover:border-slate-300"
                                         placeholder="Full address"
                                     />
                                 </div>
@@ -700,7 +700,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                         type="text"
                                         value={editingLead.subjectPropertyDetails?.propertyType || ''}
                                         onChange={(e) => setEditingLead({ ...editingLead, subjectPropertyDetails: { ...editingLead.subjectPropertyDetails, propertyType: e.target.value } })}
-                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none hover:bg-white hover:border-slate-300 transition-all"
                                         placeholder="SFH, Condo, etc."
                                     />
                                 </div>
@@ -710,7 +710,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                         type="number"
                                         value={editingLead.subjectPropertyDetails?.expectedPrice || ''}
                                         onChange={(e) => setEditingLead({ ...editingLead, subjectPropertyDetails: { ...editingLead.subjectPropertyDetails, expectedPrice: Number(e.target.value) } })}
-                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none hover:bg-white hover:border-slate-300 transition-all"
                                     />
                                 </div>
                                 <div className="space-y-1">
@@ -719,7 +719,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                         type="number"
                                         value={editingLead.subjectPropertyDetails?.bedrooms || ''}
                                         onChange={(e) => setEditingLead({ ...editingLead, subjectPropertyDetails: { ...editingLead.subjectPropertyDetails, bedrooms: Number(e.target.value) } })}
-                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none hover:bg-white hover:border-slate-300 transition-all"
                                     />
                                 </div>
                                 <div className="space-y-1">
@@ -728,7 +728,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                         type="number"
                                         value={editingLead.subjectPropertyDetails?.bathrooms || ''}
                                         onChange={(e) => setEditingLead({ ...editingLead, subjectPropertyDetails: { ...editingLead.subjectPropertyDetails, bathrooms: Number(e.target.value) } })}
-                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none hover:bg-white hover:border-slate-300 transition-all"
                                     />
                                 </div>
                                 <div className="space-y-1">
@@ -737,7 +737,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                         type="number"
                                         value={editingLead.subjectPropertyDetails?.sqft || ''}
                                         onChange={(e) => setEditingLead({ ...editingLead, subjectPropertyDetails: { ...editingLead.subjectPropertyDetails, sqft: Number(e.target.value) } })}
-                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none hover:bg-white hover:border-slate-300 transition-all"
                                     />
                                 </div>
                                 <div className="space-y-1">
@@ -746,7 +746,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                         type="number"
                                         value={editingLead.subjectPropertyDetails?.yearBuilt || ''}
                                         onChange={(e) => setEditingLead({ ...editingLead, subjectPropertyDetails: { ...editingLead.subjectPropertyDetails, yearBuilt: Number(e.target.value) } })}
-                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none hover:bg-white hover:border-slate-300 transition-all"
                                     />
                                 </div>
                             </div>
@@ -765,7 +765,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                         type="text"
                                         value={editingLead.inquiryProperty?.address || ''}
                                         onChange={(e) => setEditingLead({ ...editingLead, inquiryProperty: { ...editingLead.inquiryProperty, address: e.target.value } })}
-                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none hover:bg-white hover:border-slate-300"
                                         placeholder="Property they inquired about"
                                     />
                                 </div>
@@ -775,7 +775,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                         type="number"
                                         value={editingLead.inquiryProperty?.minPrice || ''}
                                         onChange={(e) => setEditingLead({ ...editingLead, inquiryProperty: { ...editingLead.inquiryProperty, minPrice: Number(e.target.value) } })}
-                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none hover:bg-white hover:border-slate-300 transition-all"
                                     />
                                 </div>
                                 <div className="space-y-1">
@@ -784,7 +784,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                         type="number"
                                         value={editingLead.inquiryProperty?.maxPrice || ''}
                                         onChange={(e) => setEditingLead({ ...editingLead, inquiryProperty: { ...editingLead.inquiryProperty, maxPrice: Number(e.target.value) } })}
-                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none hover:bg-white hover:border-slate-300 transition-all"
                                     />
                                 </div>
                                 <div className="space-y-1">
@@ -793,7 +793,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                         type="number"
                                         value={editingLead.inquiryProperty?.bedrooms || ''}
                                         onChange={(e) => setEditingLead({ ...editingLead, inquiryProperty: { ...editingLead.inquiryProperty, bedrooms: Number(e.target.value) } })}
-                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none hover:bg-white hover:border-slate-300 transition-all"
                                     />
                                 </div>
                                 <div className="space-y-1">
@@ -802,7 +802,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                         type="number"
                                         value={editingLead.inquiryProperty?.bathrooms || ''}
                                         onChange={(e) => setEditingLead({ ...editingLead, inquiryProperty: { ...editingLead.inquiryProperty, bathrooms: Number(e.target.value) } })}
-                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none hover:bg-white hover:border-slate-300 transition-all"
                                     />
                                 </div>
                             </div>
@@ -932,7 +932,33 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
         if (field.showIf && !field.showIf(editingLead)) return null;
         if (field.render) return <div key={field.key} className={field.colSpan === 2 ? 'col-span-2' : ''}>{field.render({ value: (editingLead as any)[field.key], lead: editingLead })}</div>;
 
-        const commonClasses = "w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none";
+        if (field.type === 'checkbox') {
+            const isChecked = !!(editingLead as any)[field.key];
+            return (
+                <div
+                    key={field.key}
+                    className={`flex items-center justify-between py-2 px-3 bg-slate-50/50 border border-slate-200 rounded-xl hover:border-indigo-200 hover:bg-indigo-50/30 transition-all cursor-pointer group ${field.colSpan === 2 ? 'col-span-2' : ''}`}
+                    onClick={() => setEditingLead({ ...editingLead, [field.key]: !isChecked })}
+                >
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 group-hover:text-indigo-600 transition-colors">
+                            {field.label}
+                        </span>
+                        {field.placeholder && (
+                            <span className="text-[9px] text-slate-400 font-medium">{field.placeholder}</span>
+                        )}
+                    </div>
+                    <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isChecked ? 'bg-indigo-600' : 'bg-slate-200'}`}>
+                        <span
+                            aria-hidden="true"
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isChecked ? 'translate-x-4' : 'translate-x-0'}`}
+                        />
+                    </div>
+                </div>
+            );
+        }
+
+        const commonClasses = "w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-100 transition-all outline-none hover:bg-white hover:border-slate-300";
 
         return (
             <div key={field.key} className={`space-y-1 ${field.colSpan === 2 ? 'col-span-2' : ''}`}>
