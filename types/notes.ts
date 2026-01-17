@@ -21,7 +21,7 @@ export interface CallNote {
     note: string;
     timestamp: any;
     duration?: number; // Call duration in seconds
-    outcome?: 'Connected' | 'Voicemail' | 'No Answer' | 'Busy' | 'Wrong Number';
+    outcome?: 'Connected' | 'Voicemail' | 'No Answer' | 'Busy' | 'Text' | 'Email' | 'Other';
 }
 
 export interface PipelineNote {

@@ -53,7 +53,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
     const [showStatusInfo, setShowStatusInfo] = useState(false);
     const [noteColor, setNoteColor] = useState('bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]');
     const [newCallNote, setNewCallNote] = useState('');
-    const [newCallOutcome, setNewCallOutcome] = useState<'Connected' | 'Voicemail' | 'No Answer' | 'Busy' | 'Wrong Number'>('Connected');
+    const [newCallOutcome, setNewCallOutcome] = useState<'Connected' | 'Voicemail' | 'No Answer' | 'Busy' | 'Text' | 'Email' | 'Other'>('Connected');
 
     const [activeTab, setActiveTab] = useState<'profile' | 'deal' | 'context' | 'notes'>('profile');
 
@@ -1158,7 +1158,9 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                             <option value="Voicemail">Voicemail</option>
                                             <option value="No Answer">No Answer</option>
                                             <option value="Busy">Busy</option>
-                                            <option value="Wrong Number">Wrong Number</option>
+                                            <option value="Text">Text</option>
+                                            <option value="Email">Email</option>
+                                            <option value="Other">Other</option>
                                         </select>
                                         <span className="text-[9px] text-slate-400 ml-auto">Next call note</span>
                                     </div>
