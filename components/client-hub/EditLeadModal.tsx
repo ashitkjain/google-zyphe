@@ -52,6 +52,15 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
     const [newCallNote, setNewCallNote] = useState('');
     const [newCallOutcome, setNewCallOutcome] = useState<'Connected' | 'Voicemail' | 'No Answer' | 'Busy' | 'Wrong Number'>('Connected');
 
+    const [activeTab, setActiveTab] = useState<'profile' | 'deal' | 'context' | 'notes'>('profile');
+
+    const tabs = [
+        { id: 'profile', label: 'Profile', icon: 'fa-user' },
+        { id: 'deal', label: 'Deal & Property', icon: 'fa-house' },
+        { id: 'context', label: 'Context', icon: 'fa-sliders' },
+        { id: 'notes', label: 'Notes & Activity', icon: 'fa-clipboard-list' },
+    ];
+
     const noteTypes = [
         { id: 'note-yellow', color: 'bg-[#ffff88] text-slate-800 border-[#eeee77]', shadow: 'shadow-[5px_5px_7px_rgba(33,33,33,.1)]' },
         { id: 'note-blue', color: 'bg-[#7afaff] text-slate-800 border-[#69e9ee]', shadow: 'shadow-[5px_5px_7px_rgba(33,33,33,.1)]' },
@@ -223,8 +232,6 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                         </div>
                     )
                 },
-                { key: 'leadType', label: 'Type', type: 'select', options: ['Buyer', 'Seller', 'Rental', 'Mortgage'] },
-                { key: 'timeframe', label: 'Timeframe', type: 'text', placeholder: 'e.g. 1-3 months' },
                 { key: 'channel', label: 'Channel', type: 'select', options: ['Email', 'API', 'Manual', 'CRM', 'Others'] },
                 { key: 'assignedTo', label: 'Assigned To', type: 'text', placeholder: 'Team Member' },
             ]
@@ -287,7 +294,17 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                         </div>
                     )
                 },
-                // Buyer Specs
+                // Seller Specs
+                { key: 'price', label: 'List Price ($)', type: 'number', showIf: (l) => l.leadType === 'Seller' },
+                { key: 'expectedPrice', label: 'Expected Price ($)', type: 'number', showIf: (l) => l.leadType === 'Seller' },
+            ]
+        },
+        {
+            title: 'Context & Preferences',
+            id: 'context',
+            fields: [
+                { key: 'leadType', label: 'Type', type: 'select', options: ['Buyer', 'Seller', 'Rental', 'Mortgage'] },
+                { key: 'slaUrgency', label: 'SLA Urgency', type: 'select', options: ['low', 'medium', 'high'] },
                 {
                     key: 'minPrice', label: 'Price Range', type: 'number', colSpan: 2,
                     showIf: (l) => ['Buyer', 'Rental', 'Mortgage'].includes(l.leadType),
@@ -315,16 +332,6 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                     )
                 },
                 { key: 'preferredNeighborhood', label: 'Preferred Neighborhood', type: 'text', colSpan: 2, showIf: (l) => ['Buyer', 'Rental'].includes(l.leadType) },
-                // Seller Specs
-                { key: 'price', label: 'List Price ($)', type: 'number', showIf: (l) => l.leadType === 'Seller' },
-                { key: 'expectedPrice', label: 'Expected Price ($)', type: 'number', showIf: (l) => l.leadType === 'Seller' },
-            ]
-        },
-        {
-            title: 'Context & Preferences',
-            id: 'context',
-            fields: [
-                { key: 'sellWhen', label: 'Sell When?', type: 'text', showIf: (l) => l.leadType === 'Seller' },
                 { key: 'occupancyStatus', label: 'Occupancy', type: 'text', showIf: (l) => l.leadType === 'Seller' },
                 { key: 'mostImportantToSeller', label: 'Priority', type: 'text', showIf: (l) => l.leadType === 'Seller' },
                 { key: 'reasonForSelling', label: 'Reason for Selling', type: 'text', showIf: (l) => l.leadType === 'Seller' },
@@ -381,13 +388,52 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                         </div>
                     )
                 },
-                { key: 'message', label: 'User Message', type: 'textarea', colSpan: 2 }
+                { key: 'message', label: 'User Message', type: 'textarea', colSpan: 2 },
+                // Tags (Custom UI, pseudo-field)
+                {
+                    key: 'tags' as any, colSpan: 2,
+                    render: (props: any) => (
+                        <div className="space-y-1 mt-1">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Tags</label>
+                            <div className="flex flex-wrap gap-2 mb-2">
+                                {props.lead.tags?.map((tag: string, index: number) => (
+                                    <span key={index} className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs font-semibold flex items-center gap-1.5 border border-indigo-100">
+                                        {tag}
+                                        <button onClick={() => {
+                                            const newTags = props.lead.tags?.filter((_: any, i: number) => i !== index);
+                                            setEditingLead({ ...props.lead, tags: newTags });
+                                        }} className="hover:text-indigo-800"><i className="fa-solid fa-xmark text-[10px]"></i></button>
+                                    </span>
+                                ))}
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Add tag..."
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        const val = e.currentTarget.value.trim();
+                                        if (val) {
+                                            const currentTags = props.lead.tags || [];
+                                            if (!currentTags.includes(val)) {
+                                                setEditingLead({ ...props.lead, tags: [...currentTags, val] });
+                                            }
+                                            e.currentTarget.value = '';
+                                        }
+                                    }
+                                }}
+                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                            />
+                        </div>
+                    )
+                }
             ]
         },
         {
-            title: 'System Information',
-            id: 'metadata',
+            title: 'Timing',
+            id: 'timing',
             fields: [
+                { key: 'timeframe', label: 'Timeframe', type: 'text', placeholder: 'e.g. 1-3 months' },
+                { key: 'sellWhen', label: 'Sell When?', type: 'text', showIf: (l) => l.leadType === 'Seller' },
                 {
                     key: 'receivedAt',
                     label: 'Created At',
@@ -498,10 +544,30 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                     </button>
                 </div>
 
+                {/* Tab Navigation */}
+                <div className="flex px-5 border-b border-slate-100 bg-white">
+                    {tabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={`flex items-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2 ${activeTab === tab.id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                        >
+                            <i className={`fa-solid ${tab.icon}`}></i>
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+
                 {/* Form Content */}
                 <div className="flex-1 overflow-y-auto p-5 scrollbar-hide">
                     <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                        {FORM_SECTIONS.map((section) => (
+                        {FORM_SECTIONS.filter(section => {
+                            if (activeTab === 'profile') return ['identity', 'contact'].includes(section.id);
+                            if (activeTab === 'deal') return ['status', 'property', 'timing'].includes(section.id);
+                            if (activeTab === 'context') return ['context'].includes(section.id);
+                            if (activeTab === 'notes') return ['callTracker'].includes(section.id);
+                            return false;
+                        }).map((section) => (
                             <React.Fragment key={section.id}>
                                 {section.title && (
                                     <div className="col-span-2 pt-2 mt-2 border-t border-slate-100 first:border-0 first:pt-0 first:mt-0">
@@ -513,244 +579,216 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                         ))}
                     </div>
 
-                    {/* Tags (Custom UI) */}
-                    <div className="space-y-1 mt-4 pt-4 border-t border-slate-100">
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Tags</label>
-                        <div className="flex flex-wrap gap-2 mb-2">
-                            {editingLead.tags?.map((tag, index) => (
-                                <span key={index} className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs font-semibold flex items-center gap-1.5 border border-indigo-100">
-                                    {tag}
-                                    <button onClick={() => {
-                                        const newTags = editingLead.tags?.filter((_, i) => i !== index);
-                                        setEditingLead({ ...editingLead, tags: newTags });
-                                    }} className="hover:text-indigo-800"><i className="fa-solid fa-xmark text-[10px]"></i></button>
-                                </span>
-                            ))}
-                        </div>
-                        <input
-                            type="text"
-                            placeholder="Add tag..."
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    const val = e.currentTarget.value.trim();
-                                    if (val) {
-                                        const currentTags = editingLead.tags || [];
-                                        if (!currentTags.includes(val)) {
-                                            setEditingLead({ ...editingLead, tags: [...currentTags, val] });
-                                        }
-                                        e.currentTarget.value = '';
-                                    }
-                                }
-                            }}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
-                        />
-                    </div>
+                    {/* Notes Tab Special Content */}
+                    {activeTab === 'notes' && (
+                        <>
+                            {/* Call Notes Section */}
+                            <div className="space-y-3 pt-4 border-t border-slate-100 mt-4">
+                                <div className="flex items-center justify-between ml-1">
+                                    <div className="flex items-center gap-2">
+                                        <i className="fa-solid fa-phone text-indigo-500 text-xs"></i>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Call Notes</label>
+                                        <span className="text-[9px] font-medium text-slate-300">({editingLead.callCount || 0} calls made)</span>
+                                    </div>
+                                </div>
 
-                    {/* Call Notes Section */}
-                    <div className="space-y-3 pt-4 border-t border-slate-100 mt-4">
-                        <div className="flex items-center justify-between ml-1">
-                            <div className="flex items-center gap-2">
-                                <i className="fa-solid fa-phone text-indigo-500 text-xs"></i>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Call Notes</label>
-                                <span className="text-[9px] font-medium text-slate-300">({editingLead.callCount || 0} calls made)</span>
-                            </div>
-                        </div>
-
-                        <div className="bg-gradient-to-br from-indigo-50 to-slate-50 border border-indigo-100 rounded-2xl p-4 max-h-[250px] overflow-y-auto">
-                            {editingLead.callNotes && editingLead.callNotes.length > 0 ? (
-                                <div className="space-y-3">
-                                    {[...editingLead.callNotes].sort((a, b) => b.callNumber - a.callNumber).map((callNote) => (
-                                        <div
-                                            key={callNote.callNumber}
-                                            className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm hover:shadow-md transition-all group"
-                                        >
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                                                        <span className="text-xs font-black text-indigo-600">#{callNote.callNumber}</span>
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${callNote.outcome === 'Connected' ? 'bg-emerald-100 text-emerald-600' :
-                                                                    callNote.outcome === 'Voicemail' ? 'bg-amber-100 text-amber-600' :
-                                                                        callNote.outcome === 'No Answer' ? 'bg-slate-100 text-slate-500' :
-                                                                            callNote.outcome === 'Busy' ? 'bg-orange-100 text-orange-600' :
-                                                                                'bg-rose-100 text-rose-600'
-                                                                }`}>
-                                                                {callNote.outcome || 'Connected'}
-                                                            </span>
-                                                            {callNote.duration && (
-                                                                <span className="text-[9px] text-slate-400">
-                                                                    {Math.floor(callNote.duration / 60)}m {callNote.duration % 60}s
-                                                                </span>
-                                                            )}
-                                                            <span className="text-[9px] text-slate-300">
-                                                                {new Date(callNote.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                                            </span>
+                                <div className="bg-gradient-to-br from-indigo-50 to-slate-50 border border-indigo-100 rounded-2xl p-4 max-h-[250px] overflow-y-auto">
+                                    {editingLead.callNotes && editingLead.callNotes.length > 0 ? (
+                                        <div className="space-y-3">
+                                            {[...editingLead.callNotes].sort((a, b) => b.callNumber - a.callNumber).map((callNote) => (
+                                                <div
+                                                    key={callNote.callNumber}
+                                                    className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm hover:shadow-md transition-all group"
+                                                >
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                                <span className="text-xs font-black text-indigo-600">#{callNote.callNumber}</span>
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${callNote.outcome === 'Connected' ? 'bg-emerald-100 text-emerald-600' :
+                                                                        callNote.outcome === 'Voicemail' ? 'bg-amber-100 text-amber-600' :
+                                                                            callNote.outcome === 'No Answer' ? 'bg-slate-100 text-slate-500' :
+                                                                                callNote.outcome === 'Busy' ? 'bg-orange-100 text-orange-600' :
+                                                                                    'bg-rose-100 text-rose-600'
+                                                                        }`}>
+                                                                        {callNote.outcome || 'Connected'}
+                                                                    </span>
+                                                                    {callNote.duration && (
+                                                                        <span className="text-[9px] text-slate-400">
+                                                                            {Math.floor(callNote.duration / 60)}m {callNote.duration % 60}s
+                                                                        </span>
+                                                                    )}
+                                                                    <span className="text-[9px] text-slate-300">
+                                                                        {new Date(callNote.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                                    </span>
+                                                                </div>
+                                                                <p className="text-sm text-slate-700">{callNote.note}</p>
+                                                            </div>
                                                         </div>
-                                                        <p className="text-sm text-slate-700">{callNote.note}</p>
+                                                        <button
+                                                            onClick={() => {
+                                                                const updatedCallNotes = editingLead.callNotes?.filter(n => n.callNumber !== callNote.callNumber);
+                                                                setEditingLead({ ...editingLead, callNotes: updatedCallNotes });
+                                                            }}
+                                                            className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-red-500 p-1"
+                                                        >
+                                                            <i className="fa-solid fa-trash-can text-[10px]"></i>
+                                                        </button>
                                                     </div>
                                                 </div>
-                                                <button
-                                                    onClick={() => {
-                                                        const updatedCallNotes = editingLead.callNotes?.filter(n => n.callNumber !== callNote.callNumber);
-                                                        setEditingLead({ ...editingLead, callNotes: updatedCallNotes });
-                                                    }}
-                                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-red-500 p-1"
-                                                >
-                                                    <i className="fa-solid fa-trash-can text-[10px]"></i>
-                                                </button>
-                                            </div>
+                                            ))}
                                         </div>
-                                    ))}
+                                    ) : (
+                                        <div className="text-center text-slate-300 italic text-xs py-6">
+                                            <i className="fa-solid fa-phone-slash text-2xl mb-2 block opacity-40"></i>
+                                            No call notes recorded yet
+                                        </div>
+                                    )}
                                 </div>
-                            ) : (
-                                <div className="text-center text-slate-300 italic text-xs py-6">
-                                    <i className="fa-solid fa-phone-slash text-2xl mb-2 block opacity-40"></i>
-                                    No call notes recorded yet
-                                </div>
-                            )}
-                        </div>
 
-                        {/* Add new call note */}
-                        <div className="bg-white rounded-2xl border border-slate-200 p-3 space-y-2">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center flex-shrink-0">
-                                    <span className="text-xs font-black text-white">#{(editingLead.callCount || 0) + 1}</span>
+                                {/* Add new call note */}
+                                <div className="bg-white rounded-2xl border border-slate-200 p-3 space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center flex-shrink-0">
+                                            <span className="text-xs font-black text-white">#{(editingLead.callCount || 0) + 1}</span>
+                                        </div>
+                                        <select
+                                            value={newCallOutcome}
+                                            onChange={(e) => setNewCallOutcome(e.target.value as any)}
+                                            className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-indigo-500 outline-none"
+                                        >
+                                            <option value="Connected">Connected</option>
+                                            <option value="Voicemail">Voicemail</option>
+                                            <option value="No Answer">No Answer</option>
+                                            <option value="Busy">Busy</option>
+                                            <option value="Wrong Number">Wrong Number</option>
+                                        </select>
+                                        <span className="text-[9px] text-slate-400 ml-auto">Next call note</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={newCallNote}
+                                            onChange={(e) => setNewCallNote(e.target.value)}
+                                            placeholder="Add note for this call..."
+                                            className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && newCallNote.trim()) {
+                                                    const newCallNoteObj: CallNote = {
+                                                        callNumber: (editingLead.callCount || 0) + 1,
+                                                        note: newCallNote.trim(),
+                                                        timestamp: new Date(),
+                                                        outcome: newCallOutcome
+                                                    };
+                                                    setEditingLead({
+                                                        ...editingLead,
+                                                        callNotes: [...(editingLead.callNotes || []), newCallNoteObj],
+                                                        callCount: (editingLead.callCount || 0) + 1
+                                                    });
+                                                    setNewCallNote('');
+                                                }
+                                            }}
+                                        />
+                                        <button
+                                            onClick={() => {
+                                                if (newCallNote.trim()) {
+                                                    const newCallNoteObj: CallNote = {
+                                                        callNumber: (editingLead.callCount || 0) + 1,
+                                                        note: newCallNote.trim(),
+                                                        timestamp: new Date(),
+                                                        outcome: newCallOutcome
+                                                    };
+                                                    setEditingLead({
+                                                        ...editingLead,
+                                                        callNotes: [...(editingLead.callNotes || []), newCallNoteObj],
+                                                        callCount: (editingLead.callCount || 0) + 1
+                                                    });
+                                                    setNewCallNote('');
+                                                }
+                                            }}
+                                            className="px-4 py-2 bg-indigo-500 text-white rounded-xl text-xs font-bold hover:bg-indigo-600 transition-all"
+                                        >
+                                            <i className="fa-solid fa-plus mr-1"></i> Add
+                                        </button>
+                                    </div>
                                 </div>
-                                <select
-                                    value={newCallOutcome}
-                                    onChange={(e) => setNewCallOutcome(e.target.value as any)}
-                                    className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-indigo-500 outline-none"
-                                >
-                                    <option value="Connected">Connected</option>
-                                    <option value="Voicemail">Voicemail</option>
-                                    <option value="No Answer">No Answer</option>
-                                    <option value="Busy">Busy</option>
-                                    <option value="Wrong Number">Wrong Number</option>
-                                </select>
-                                <span className="text-[9px] text-slate-400 ml-auto">Next call note</span>
                             </div>
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    value={newCallNote}
-                                    onChange={(e) => setNewCallNote(e.target.value)}
-                                    placeholder="Add note for this call..."
-                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && newCallNote.trim()) {
-                                            const newCallNoteObj: CallNote = {
-                                                callNumber: (editingLead.callCount || 0) + 1,
-                                                note: newCallNote.trim(),
-                                                timestamp: new Date(),
-                                                outcome: newCallOutcome
-                                            };
-                                            setEditingLead({
-                                                ...editingLead,
-                                                callNotes: [...(editingLead.callNotes || []), newCallNoteObj],
-                                                callCount: (editingLead.callCount || 0) + 1
-                                            });
-                                            setNewCallNote('');
-                                        }
-                                    }}
-                                />
-                                <button
-                                    onClick={() => {
-                                        if (newCallNote.trim()) {
-                                            const newCallNoteObj: CallNote = {
-                                                callNumber: (editingLead.callCount || 0) + 1,
-                                                note: newCallNote.trim(),
-                                                timestamp: new Date(),
-                                                outcome: newCallOutcome
-                                            };
-                                            setEditingLead({
-                                                ...editingLead,
-                                                callNotes: [...(editingLead.callNotes || []), newCallNoteObj],
-                                                callCount: (editingLead.callCount || 0) + 1
-                                            });
-                                            setNewCallNote('');
-                                        }
-                                    }}
-                                    className="px-4 py-2 bg-indigo-500 text-white rounded-xl text-xs font-bold hover:bg-indigo-600 transition-all"
-                                >
-                                    <i className="fa-solid fa-plus mr-1"></i> Add
-                                </button>
-                            </div>
-                        </div>
-                    </div>
 
-                    {/* Comments Section (Post-it Notes) */}
-                    <div className="space-y-3 pt-4 border-t border-slate-100 mt-4">
-                        <style dangerouslySetInnerHTML={{
-                            __html: `
+                            {/* Comments Section (Post-it Notes) */}
+                            <div className="space-y-3 pt-4 border-t border-slate-100 mt-4">
+                                <style dangerouslySetInnerHTML={{
+                                    __html: `
                             @import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap');
                             .post-it-font { font-family: 'Architects Daughter', cursive; line-height: 1.2; }
                             `}} />
-                        <div className="flex items-center justify-between ml-1">
-                            <div className="flex items-center gap-2">
-                                <i className="fa-solid fa-note-sticky text-amber-500 text-xs"></i>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Comments</label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-300">New Note Color:</span>
-                                <div className="flex gap-1.5">
-                                    {noteTypes.map((type) => (
-                                        <button
-                                            key={type.id}
-                                            onClick={() => setNoteColor(`${type.color} ${type.shadow}`)}
-                                            className={`w-4 h-4 rounded-full border border-black/5 transition-all hover:scale-125 ${type.color} ${noteColor.includes(type.color) ? 'ring-2 ring-indigo-500 ring-offset-2 scale-110' : 'opacity-60'}`}
-                                            title={type.id.replace('note-', '')}
-                                        />
-                                    ))}
+                                <div className="flex items-center justify-between ml-1">
+                                    <div className="flex items-center gap-2">
+                                        <i className="fa-solid fa-note-sticky text-amber-500 text-xs"></i>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Comments</label>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-300">New Note Color:</span>
+                                        <div className="flex gap-1.5">
+                                            {noteTypes.map((type) => (
+                                                <button
+                                                    key={type.id}
+                                                    onClick={() => setNoteColor(`${type.color} ${type.shadow}`)}
+                                                    className={`w-4 h-4 rounded-full border border-black/5 transition-all hover:scale-125 ${type.color} ${noteColor.includes(type.color) ? 'ring-2 ring-indigo-500 ring-offset-2 scale-110' : 'opacity-60'}`}
+                                                    title={type.id.replace('note-', '')}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-50 border border-slate-100 rounded-[2.5rem] p-6 max-h-[300px] overflow-y-auto">
+                                    <div className="flex flex-wrap gap-4">
+                                        {editingLead.notesLog && editingLead.notesLog.length > 0 ? (
+                                            [...editingLead.notesLog].reverse().map((note, i) => (
+                                                <div
+                                                    key={note.id}
+                                                    className={`p-4 pt-5 w-32 h-32 rounded-sm border-t border-black/5 text-[12px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-105 group/note flex flex-col relative ${note.color || 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]'} ${i % 2 === 0 ? 'rotate-1' : '-rotate-1'} hover:rotate-0`}
+                                                >
+                                                    <div className="flex justify-between text-[7px] opacity-40 mb-1 font-sans uppercase tracking-tighter">
+                                                        <span>{new Date(note.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                                        <span>{note.author || 'System'}</span>
+                                                    </div>
+                                                    <div className="text-slate-800 line-clamp-6 leading-tight flex-1">{note.content}</div>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (handleDeleteNote) handleDeleteNote(note.id);
+                                                            else setEditingLead({ ...editingLead, notesLog: editingLead.notesLog?.filter(n => n.id !== note.id) });
+                                                        }}
+                                                        className="absolute top-1 right-1 opacity-0 group-hover/note:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1"
+                                                    >
+                                                        <i className="fa-solid fa-trash-can text-[8px]"></i>
+                                                    </button>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="w-full text-center text-slate-300 italic text-xs py-8">No comments yet. Add one below!</div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="relative">
+                                    <textarea
+                                        value={newNote}
+                                        onChange={(e) => setNewNote(e.target.value)}
+                                        rows={3}
+                                        className={`w-full px-6 py-5 rounded-[2rem] text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none resize-none border-t border-black/5 post-it-font ${noteColor}`}
+                                        placeholder="Type a new comment..."
+                                    />
+                                    <div className="absolute top-2 right-4 flex items-center gap-1 opacity-20">
+                                        <i className="fa-solid fa-note-sticky text-xs"></i>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-
-                        <div className="bg-slate-50 border border-slate-100 rounded-[2.5rem] p-6 max-h-[300px] overflow-y-auto">
-                            <div className="flex flex-wrap gap-4">
-                                {editingLead.notesLog && editingLead.notesLog.length > 0 ? (
-                                    [...editingLead.notesLog].reverse().map((note, i) => (
-                                        <div
-                                            key={note.id}
-                                            className={`p-4 pt-5 w-32 h-32 rounded-sm border-t border-black/5 text-[12px] font-bold post-it-font whitespace-normal shadow-lg transition-all hover:scale-105 group/note flex flex-col relative ${note.color || 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]'} ${i % 2 === 0 ? 'rotate-1' : '-rotate-1'} hover:rotate-0`}
-                                        >
-                                            <div className="flex justify-between text-[7px] opacity-40 mb-1 font-sans uppercase tracking-tighter">
-                                                <span>{new Date(note.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                                                <span>{note.author || 'System'}</span>
-                                            </div>
-                                            <div className="text-slate-800 line-clamp-6 leading-tight flex-1">{note.content}</div>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (handleDeleteNote) handleDeleteNote(note.id);
-                                                    else setEditingLead({ ...editingLead, notesLog: editingLead.notesLog?.filter(n => n.id !== note.id) });
-                                                }}
-                                                className="absolute top-1 right-1 opacity-0 group-hover/note:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1"
-                                            >
-                                                <i className="fa-solid fa-trash-can text-[8px]"></i>
-                                            </button>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="w-full text-center text-slate-300 italic text-xs py-8">No comments yet. Add one below!</div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="relative">
-                            <textarea
-                                value={newNote}
-                                onChange={(e) => setNewNote(e.target.value)}
-                                rows={3}
-                                className={`w-full px-6 py-5 rounded-[2rem] text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none resize-none border-t border-black/5 post-it-font ${noteColor}`}
-                                placeholder="Type a new comment..."
-                            />
-                            <div className="absolute top-2 right-4 flex items-center gap-1 opacity-20">
-                                <i className="fa-solid fa-note-sticky text-xs"></i>
-                            </div>
-                        </div>
-                    </div>
+                        </>
+                    )}
                 </div>
 
                 <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between flex-shrink-0">

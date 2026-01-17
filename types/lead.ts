@@ -21,14 +21,11 @@ export const LEAD_FIELD_CONFIG = [
     { id: 'preApprovalStatus', label: 'Pre-Approved', description: 'Has obtained mortgage pre-approval', category: 'Intent & Readiness', visibility: ['Buyer'] },
     { id: 'preQualified', label: 'Pre-Qualified', description: 'Has initial financial qualification', category: 'Intent & Readiness', visibility: ['Buyer'] },
     { id: 'isAllCash', label: 'All Cash', description: 'Planning to pay with cash', category: 'Intent & Readiness', visibility: ['Buyer'] },
-    { id: 'budgetRange', label: 'Budget Range', description: 'Target price range', category: 'Intent & Readiness', visibility: ['Buyer'] },
     { id: 'homeValueNeeded', label: 'Home Value Needed', description: 'Requested a home valuation', category: 'Intent & Readiness', visibility: ['Seller'] },
     { id: 'reasonForSelling', label: 'Reason for Selling', description: 'Motivation for listing property', category: 'Intent & Readiness', visibility: ['Seller'] },
-    { id: 'sellWhen', label: 'When to Sell', description: 'Target listing date/period', category: 'Intent & Readiness', visibility: ['Seller'] },
     { id: 'mostImportantToSeller', label: 'Most Important Req', description: 'Top priority for the seller', category: 'Intent & Readiness', visibility: ['Seller'] },
     { id: 'dealStage', label: 'Deal Stage', description: 'Current stage of the deal', category: 'Intent & Readiness', visibility: ['Buyer'] },
     { id: 'dealStatus', label: 'Deal Status', description: 'Won/Lost status', category: 'Intent & Readiness', visibility: ['Buyer'] },
-    { id: 'leaseEndDate', label: 'Lease End Date', description: 'When current lease expires', category: 'Intent & Readiness', visibility: ['Buyer'] },
 
     // --- Persona & Context ---
     { id: 'isHot', label: 'Hot Lead', description: 'High priority lead', category: 'Persona & Context', visibility: ['Buyer', 'Seller'] },
@@ -49,13 +46,33 @@ export const LEAD_FIELD_CONFIG = [
     { id: 'isCloseToDeciding', label: 'Close to Deciding', description: 'Nearing a decision point', category: 'Activity', visibility: ['Buyer', 'Seller'] },
     { id: 'isCloseToOffer', label: 'Close to Offer', description: 'Preparing to make an offer', category: 'Activity', visibility: ['Buyer'] },
     { id: 'initialContactIn30Mins', label: 'Fast Response', description: 'Contacted within 30 minutes', category: 'Activity', visibility: ['Buyer', 'Seller'] },
-    { id: 'tourRequestDate', label: 'Tour Date', description: 'Requested date for viewing', category: 'Activity', visibility: ['Buyer'] },
-    { id: 'tourRequestTime', label: 'Tour Time', description: 'Requested time for viewing', category: 'Activity', visibility: ['Buyer'] },
+
+    // --- Timings ---
+    { id: 'tourRequestDate', label: 'Tour Date', description: 'Requested date for viewing', category: 'Timings', visibility: ['Buyer'] },
+    { id: 'tourRequestTime', label: 'Tour Time', description: 'Requested time for viewing', category: 'Timings', visibility: ['Buyer'] },
+    { id: 'leaseEndDate', label: 'Lease End Date', description: 'When current lease expires', category: 'Timings', visibility: ['Buyer'] },
+    { id: 'sellWhen', label: 'When to Sell', description: 'Target listing date/period', category: 'Timings', visibility: ['Seller'] },
+    { id: 'receivedAt', label: 'Received At', description: 'Date lead was created', category: 'Timings', visibility: ['Buyer', 'Seller'] },
+    { id: 'lastTouch', label: 'Last Touch', description: 'Last interaction timestamp', category: 'Timings', visibility: ['Buyer', 'Seller'] },
+    { id: 'lastUpdated', label: 'Last Updated', description: 'Timestamp of last update', category: 'Timings', visibility: ['Buyer', 'Seller'] },
+    { id: 'stageLastChangedAt', label: 'Stage Changed At', description: 'When funnel stage changed', category: 'Timings', visibility: ['Buyer', 'Seller'] },
+    { id: 'smsConsentTimestamp', label: 'SMS Consent Time', description: 'When SMS consent was given', category: 'Timings', visibility: ['Buyer', 'Seller'] },
+    { id: 'archivedAt', label: 'Archived At', description: 'When lead was archived', category: 'Timings', visibility: ['Buyer', 'Seller'] },
+    { id: 'closedAt', label: 'Closed At', description: 'When transaction closed', category: 'Timings', visibility: ['Buyer', 'Seller'] },
 
     // --- Property Preferences / Subject Property ---
     // REPLACED individual fields with Complex Objects
     { id: 'targetProperty', label: 'Target Property', description: 'Complex Object: Buyer preferences/target', category: 'Property Details', visibility: ['Buyer'] },
-    { id: 'subjectPropertyDetails', label: 'Subject Property', description: 'Complex Object: Seller property details', category: 'Property Details', visibility: ['Seller'] },
+    { id: 'subjectPropertyDetails', label: 'Subject Property Details', description: 'Complex Object: Seller property details', category: 'Property Details', visibility: ['Seller'] },
+    { id: 'minPrice', label: 'Min Price', description: 'Minimum budget', category: 'Property Details', visibility: ['Buyer'] },
+    { id: 'maxPrice', label: 'Max Price', description: 'Maximum budget', category: 'Property Details', visibility: ['Buyer'] },
+    { id: 'bedrooms', label: 'Bedrooms', description: 'Number of bedrooms', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
+    { id: 'bathrooms', label: 'Bathrooms', description: 'Number of bathrooms', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
+    { id: 'sqft', label: 'Square Footage', description: 'Property size', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
+    { id: 'mlsNumber', label: 'MLS Number', description: 'Multiple Listing Service ID', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
+    { id: 'propertyType', label: 'Property Type', description: 'Type of property (e.g. Single Family)', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
+    { id: 'propertyAddress', label: 'Property Address', description: 'Address of the property', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
+    { id: 'subjectProperty', label: 'Subject Property', description: 'Main subject property address', category: 'Property Details', visibility: ['Buyer', 'Seller'] },
 
     // --- Referral & Source ---
     { id: 'source', label: 'Lead Source', description: 'Origin (Zillow, Website, etc.)', category: 'Referral & Source', visibility: ['Buyer', 'Seller'] },
@@ -76,20 +93,13 @@ export const LEAD_FIELD_CONFIG = [
     // --- System Metadata ---
     { id: 'status', label: 'Status', description: 'Current status label', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'funnelStage', label: 'Funnel Stage', description: 'Broad lifecycle stage', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
-    { id: 'receivedAt', label: 'Received At', description: 'Date lead was created', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
-    { id: 'lastTouch', label: 'Last Touch', description: 'Last interaction timestamp', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'clientId', label: 'Client ID', description: 'Unique Client Reference ID', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'id', label: 'System ID', description: 'Internal Database ID', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'tags', label: 'Tags', description: 'Custom tags', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'slaUrgency', label: 'SLA Urgency', description: 'Service Level Agreement urgency', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'assignedTo', label: 'Assigned To', description: 'Agent assigned to lead', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
-    { id: 'lastUpdated', label: 'Last Updated', description: 'Timestamp of last update', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
-    { id: 'stageLastChangedAt', label: 'Stage Changed At', description: 'When funnel stage changed', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
-    { id: 'smsConsentTimestamp', label: 'SMS Consent Time', description: 'When SMS consent was given', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'health', label: 'Lead Health', description: 'System calculated health score', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'isMock', label: 'Is Mock', description: 'Test data flag', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
-    { id: 'archivedAt', label: 'Archived At', description: 'When lead was archived', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
-    { id: 'closedAt', label: 'Closed At', description: 'When transaction closed', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'collectionName', label: 'Collection Name', description: 'Database collection reference', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
     { id: 'kyc', label: 'KYC Data', description: 'Complex Object: Know Your Client verification data', category: 'System Metadata', visibility: ['Buyer', 'Seller'] },
 ] as const;
@@ -130,7 +140,6 @@ export interface Lead {
     dealStage?: string;
     leaseEndDate?: any;
     preQualified?: boolean;
-    budgetRange?: string;
     preferredNeighborhood?: string;
     dealStatus?: 'Won' | 'Lost' | string;
     isAllCash?: boolean;
@@ -138,6 +147,15 @@ export interface Lead {
     // 3. Property Details (Nested Objects)
     targetProperty?: PropertyDetails;         // For Buyers: What they are tracking/interested in
     subjectPropertyDetails?: PropertyDetails; // For Sellers: What they are selling OR The specific house under contract
+    minPrice?: number;
+    maxPrice?: number;
+    bedrooms?: number;
+    bathrooms?: number;
+    sqft?: number;
+    mlsNumber?: string;
+    propertyType?: string;
+    propertyAddress?: string;
+    subjectProperty?: string;
 
     // 4. Client Communication (Moved from Root Level)
     callCount?: number;

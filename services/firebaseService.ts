@@ -798,6 +798,49 @@ export const getReminderRules = async (realtorId: string) => {
   }
 };
 
+export const deleteAllMockData = async (realtorId: string) => {
+  if (!db) return false;
+  try {
+    const batch = writeBatch(db);
+    let count = 0;
+
+    // 1. Leads
+    const leadsQ = query(collection(db, "leads"), where("realtorId", "==", realtorId), where("isMock", "==", true));
+    const leadsSnap = await getDocs(leadsQ);
+    leadsSnap.forEach(doc => {
+      batch.delete(doc.ref);
+      count++;
+    });
+
+    // 2. Tasks
+    const tasksQ = query(collection(db, "tasks"), where("realtorId", "==", realtorId), where("isMock", "==", true));
+    const tasksSnap = await getDocs(tasksQ);
+    tasksSnap.forEach(doc => {
+      batch.delete(doc.ref);
+      count++;
+    });
+
+    // 3. Templates
+    const templatesQ = query(collection(db, "templates"), where("realtorId", "==", realtorId), where("isMock", "==", true));
+    const templatesSnap = await getDocs(templatesQ);
+    templatesSnap.forEach(doc => {
+      batch.delete(doc.ref);
+      count++;
+    });
+
+    if (count > 0) {
+      await batch.commit();
+      console.log(`[MockData] Deleted ${count} mock items.`);
+    } else {
+      console.log("[MockData] No mock items found to delete.");
+    }
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "deleteAllMockData");
+    return false;
+  }
+};
+
 export const updateReminderRule = async (ruleId: string, updates: Partial<ReminderRule>) => {
   if (!db) return false;
   try {

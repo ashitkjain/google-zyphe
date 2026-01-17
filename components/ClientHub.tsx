@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getLeads, getTasks, getTemplates, getPipelineNotes, seedMockData, saveUserProfile, getUserProfile, deleteUserAccount, resetPassword, updateLead, getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, addPipelineNote, updatePipelineNote, deletePipelineNote, getReminderRules, updateReminderRule, seedReminderRules } from '../services/firebaseService';
+import { getLeads, getTasks, getTemplates, getPipelineNotes, seedMockData, saveUserProfile, getUserProfile, deleteUserAccount, resetPassword, updateLead, getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, addPipelineNote, updatePipelineNote, deletePipelineNote, getReminderRules, updateReminderRule, seedReminderRules, deleteAllMockData } from '../services/firebaseService';
 import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates } from '../services/mockDataService';
 import { getDefaultReminderRules } from '../services/reminderRulesService';
 import { UserProfile, Lead, LeadNote, CRMTask, CommMessage, CommTemplate, FunnelStage, PipelineNote, LeadStatus, ReminderRule } from '../types';
@@ -588,6 +588,15 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                 }
             } : null);
         }
+    }
+
+
+    const handleResetMockData = async () => {
+        if (confirm("Are you sure you want to delete all mock data and reload? This cannot be undone.")) {
+            setLoadingData(true);
+            await deleteAllMockData(realtorId);
+            window.location.reload();
+        }
     };
 
     return (
@@ -632,6 +641,14 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                             Sign Out
                         </button>
                     </div>
+
+                    <button
+                        onClick={handleResetMockData}
+                        className="flex items-center gap-2 text-rose-300 font-bold uppercase tracking-widest text-[10px] px-4 py-2 hover:bg-rose-900/30 rounded-lg transition-all border border-transparent hover:border-rose-500/30 mr-2"
+                    >
+                        <i className="fa-solid fa-trash-can"></i>
+                        Reset Data
+                    </button>
 
                     <button
                         onClick={onBack}
