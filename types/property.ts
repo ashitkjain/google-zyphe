@@ -139,6 +139,7 @@ export interface PropertyData {
 export interface PropertyDetails {
     // Identity
     address?: string; // Full formatted address
+    propertyAddress?: string; // Alias for address, used in some contexts
     zpid?: string;
     mlsNumber?: string;
 

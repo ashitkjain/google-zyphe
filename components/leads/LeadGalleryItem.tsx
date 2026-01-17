@@ -136,18 +136,8 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
             );
         }
         if (typeof val === 'boolean') return val ? 'Yes' : 'No';
-        if (field === 'expectedPrice' || field === 'price' || field === 'budgetRange') {
-            const min = lead.minPrice;
-            const max = lead.maxPrice;
-
-            if (field === 'budgetRange') {
-                if (min && max) return `$${(min / 1000).toFixed(0)}k - $${(max / 1000).toFixed(0)}k`;
-                if (min) return `Above $${(min / 1000).toFixed(0)}k`;
-                if (max) return `Under $${(max / 1000).toFixed(0)}k`;
-                return '--';
-            }
-
-            const priceVal = val || (field === 'expectedPrice' ? lead.expectedPrice : lead.price);
+        if (field === 'price') {
+            const priceVal = val || lead.price;
             return priceVal ? `$${(priceVal / 1000).toFixed(0)}k` : '--';
         }
         if (Array.isArray(val)) return val.join(', ') || '--';
@@ -159,23 +149,18 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
         isAlsoSelling: { label: 'Also Selling?', icon: 'fa-house-user' },
         isAlsoBuying: { label: 'Also Buying?', icon: 'fa-cart-shopping' },
         preQualified: { label: 'Pre-qualified?', icon: 'fa-certificate', color: 'text-emerald-600' },
-        budgetRange: { label: 'Budget Range', icon: 'fa-tag', color: 'text-emerald-600' },
-        expectedPrice: { label: 'Expected Price', icon: 'fa-money-bill-wave', color: 'text-emerald-600' },
         preferredNeighborhood: { label: 'Neighborhood', icon: 'fa-map-location-dot', color: 'text-indigo-600' },
         source: { label: 'Source', icon: 'fa-globe', color: 'text-slate-400' },
         receivedAt: { label: `Time in ${stage}`, icon: 'fa-calendar-plus', color: 'text-slate-400' },
-        lastTouch: { label: 'Last Follow Up', icon: 'fa-clock-rotate-left', color: 'text-indigo-400' },
         message: { label: 'Message', icon: 'fa-comment' },
         timeframe: { label: 'Timeframe', icon: 'fa-hourglass-half' },
         leaseEndDate: { label: 'Lease End Date', icon: 'fa-file-signature' },
-        propertyAddress: { label: 'Property Address', icon: 'fa-location-dot', color: 'text-indigo-600' },
         tags: { label: 'Tags', icon: 'fa-tags' },
         funnelStage: { label: 'Pipeline Stage', icon: 'fa-filter' },
         notes: { label: 'Notes', icon: 'fa-clipboard-list' },
         homeValueNeeded: { label: 'Home Value Needed?', icon: 'fa-calculator' },
         isMostImportantReq: { label: 'Priority', icon: 'fa-star' },
         sellWhen: { label: 'Sell When?', icon: 'fa-calendar-days' },
-        propertyType: { label: 'Property Type', icon: 'fa-building' },
         occupancyStatus: { label: 'Occupancy Status', icon: 'fa-key' },
         reasonForSelling: { label: 'Reason for Selling', icon: 'fa-info-circle' },
         existingAgentName: { label: 'Existing Agent?', icon: 'fa-user-tie' },

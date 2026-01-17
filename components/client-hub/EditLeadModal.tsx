@@ -73,7 +73,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
     // --- Dynamic Form Configuration ---
     const FORM_SECTIONS: SectionConfig[] = [
         {
-            id: 'identity',
+            id: 'contact_info',
+            title: 'Contact Information',
             fields: [
                 {
                     key: 'firstName', colSpan: 2,
@@ -105,13 +106,9 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                                 return;
                                             }
                                             try {
-                                                // Create a reference to 'leads/{leadId}/avatar_{timestamp}_{filename}'
                                                 const storageRef = ref(storage_instance, `leads/${props.lead.id}/avatar_${Date.now()}_${file.name}`);
-                                                // Upload the file
                                                 const snapshot = await uploadBytes(storageRef, file);
-                                                // Get the download URL
                                                 const downloadURL = await getDownloadURL(snapshot.ref);
-                                                // Update state
                                                 setEditingLead({ ...props.lead, clientPhotoUrl: downloadURL });
                                             } catch (error) {
                                                 console.error("Error uploading avatar:", error);
@@ -145,20 +142,690 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                             </div>
                         </div>
                     )
+                },
+                { key: 'email', label: 'Email Address', type: 'email', placeholder: 'client@example.com' },
+                { key: 'phone', label: 'Phone Number', type: 'text', required: true, placeholder: '(555) 000-0000' },
+                { key: 'homeAddress', label: 'Home Address', type: 'text', colSpan: 2, placeholder: '123 Main St, Springfield, IL' },
+                { key: 'preferredContactMethod', label: 'Preferred Contact', type: 'select', options: ['', 'Call', 'Text', 'Email'] },
+                { key: 'smsConsent', label: 'SMS Consent', type: 'checkbox' },
+                { key: 'clientPhotoUrl', label: 'Profile Photo URL', type: 'text', colSpan: 2 }
+            ]
+        },
+        {
+            id: 'intent_readiness',
+            title: 'Intent & Readiness',
+            fields: [
+                { key: 'message', label: 'Initial Message', type: 'textarea', colSpan: 2 },
+                { key: 'timeframe', label: 'Timeframe', type: 'text', placeholder: 'e.g. 1-3 months' },
+                { key: 'preApprovalStatus', label: 'Pre-Approved', type: 'checkbox', showIf: (l) => l.leadType === 'Buyer' },
+                { key: 'preQualified', label: 'Pre-Qualified', type: 'checkbox', showIf: (l) => l.leadType === 'Buyer' },
+                { key: 'isAllCash', label: 'All Cash', type: 'checkbox', showIf: (l) => l.leadType === 'Buyer' },
+                { key: 'isWarm', label: 'Warm Lead', type: 'checkbox' },
+                { key: 'isCold', label: 'Cold Lead', type: 'checkbox' },
+                { key: 'isLongTerm', label: 'Long Term Lead', type: 'checkbox' },
+                { key: 'homeValueNeeded', label: 'Home Value Needed', type: 'checkbox', showIf: (l) => l.leadType === 'Seller' },
+                { key: 'reasonForSelling', label: 'Reason for Selling', type: 'text', colSpan: 2, showIf: (l) => l.leadType === 'Seller' },
+                { key: 'isMostImportantReq', label: 'Most Important Req', type: 'text', colSpan: 2 },
+                { key: 'lenderContact', label: 'Lender Contact', type: 'text', showIf: (l) => l.leadType === 'Buyer' },
+                { key: 'slaUrgency', label: 'SLA Urgency', type: 'select', options: ['low', 'medium', 'high'] },
+                { key: 'isHot', label: 'Hot Lead', type: 'checkbox' },
+                { key: 'isEngaged', label: 'Engaged', type: 'checkbox' },
+                { key: 'isEvaluatingAgent', label: 'Evaluating Agent', type: 'checkbox' },
+                { key: 'initialContactIn30Mins', label: 'Contacted in 30 mins', type: 'checkbox' },
+                {
+                    key: 'dealBreakers' as any, colSpan: 2, showIf: (l) => l.leadType === 'Buyer',
+                    render: (props: any) => (
+                        <div className="space-y-1 mt-1">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Deal Breakers</label>
+                            <div className="flex flex-wrap gap-2 mb-2">
+                                {props.lead.dealBreakers?.map((item: string, index: number) => (
+                                    <span key={index} className="px-2 py-0.5 bg-red-50 text-red-600 rounded text-xs font-semibold flex items-center gap-1.5 border border-red-100">
+                                        {item}
+                                        <button onClick={() => {
+                                            const newArr = props.lead.dealBreakers?.filter((_: any, i: number) => i !== index);
+                                            setEditingLead({ ...props.lead, dealBreakers: newArr });
+                                        }} className="hover:text-red-800"><i className="fa-solid fa-xmark text-[10px]"></i></button>
+                                    </span>
+                                ))}
+                            </div>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="Add deal breaker..."
+                                    id="new-deal-breaker"
+                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                />
+                                <button
+                                    onClick={() => {
+                                        const input = document.getElementById('new-deal-breaker') as HTMLInputElement;
+                                        if (input.value.trim()) {
+                                            setEditingLead({ ...props.lead, dealBreakers: [...(props.lead.dealBreakers || []), input.value.trim()] });
+                                            input.value = '';
+                                        }
+                                    }}
+                                    className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-all"
+                                >
+                                    <i className="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    key: 'neighborhoodTargets' as any, colSpan: 2, showIf: (l) => l.leadType === 'Buyer',
+                    render: (props: any) => (
+                        <div className="space-y-1 mt-1">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Neighborhood Targets</label>
+                            <div className="flex flex-wrap gap-2 mb-2">
+                                {props.lead.neighborhoodTargets?.map((item: string, index: number) => (
+                                    <span key={index} className="px-2 py-0.5 bg-sky-50 text-sky-600 rounded text-xs font-semibold flex items-center gap-1.5 border border-sky-100">
+                                        {item}
+                                        <button onClick={() => {
+                                            const newArr = props.lead.neighborhoodTargets?.filter((_: any, i: number) => i !== index);
+                                            setEditingLead({ ...props.lead, neighborhoodTargets: newArr });
+                                        }} className="hover:text-sky-800"><i className="fa-solid fa-xmark text-[10px]"></i></button>
+                                    </span>
+                                ))}
+                            </div>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="Add neighborhood..."
+                                    id="new-neighborhood"
+                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                />
+                                <button
+                                    onClick={() => {
+                                        const input = document.getElementById('new-neighborhood') as HTMLInputElement;
+                                        if (input.value.trim()) {
+                                            setEditingLead({ ...props.lead, neighborhoodTargets: [...(props.lead.neighborhoodTargets || []), input.value.trim()] });
+                                            input.value = '';
+                                        }
+                                    }}
+                                    className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-all"
+                                >
+                                    <i className="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    key: 'schoolDistricts' as any, colSpan: 2, showIf: (l) => l.leadType === 'Buyer',
+                    render: (props: any) => (
+                        <div className="space-y-1 mt-1">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">School Districts</label>
+                            <div className="flex flex-wrap gap-2 mb-2">
+                                {props.lead.schoolDistricts?.map((item: string, index: number) => (
+                                    <span key={index} className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-xs font-semibold flex items-center gap-1.5 border border-emerald-100">
+                                        {item}
+                                        <button onClick={() => {
+                                            const newArr = props.lead.schoolDistricts?.filter((_: any, i: number) => i !== index);
+                                            setEditingLead({ ...props.lead, schoolDistricts: newArr });
+                                        }} className="hover:text-emerald-800"><i className="fa-solid fa-xmark text-[10px]"></i></button>
+                                    </span>
+                                ))}
+                            </div>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="Add school district..."
+                                    id="new-school-district"
+                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                />
+                                <button
+                                    onClick={() => {
+                                        const input = document.getElementById('new-school-district') as HTMLInputElement;
+                                        if (input.value.trim()) {
+                                            setEditingLead({ ...props.lead, schoolDistricts: [...(props.lead.schoolDistricts || []), input.value.trim()] });
+                                            input.value = '';
+                                        }
+                                    }}
+                                    className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-all"
+                                >
+                                    <i className="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    key: 'tags' as any, colSpan: 2,
+                    render: (props: any) => (
+                        <div className="space-y-1 mt-1">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Tags</label>
+                            <div className="flex flex-wrap gap-2 mb-2">
+                                {props.lead.tags?.map((tag: string, index: number) => (
+                                    <span key={index} className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs font-semibold flex items-center gap-1.5 border border-indigo-100">
+                                        {tag}
+                                        <button onClick={() => {
+                                            const newTags = props.lead.tags?.filter((_: any, i: number) => i !== index);
+                                            setEditingLead({ ...props.lead, tags: newTags });
+                                        }} className="hover:text-indigo-800"><i className="fa-solid fa-xmark text-[10px]"></i></button>
+                                    </span>
+                                ))}
+                            </div>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="Add tag..."
+                                    id="new-tag"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            const val = e.currentTarget.value.trim();
+                                            if (val) {
+                                                const currentTags = props.lead.tags || [];
+                                                if (!currentTags.includes(val)) {
+                                                    setEditingLead({ ...props.lead, tags: [...currentTags, val] });
+                                                }
+                                                e.currentTarget.value = '';
+                                            }
+                                        }
+                                    }}
+                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                />
+                                <button
+                                    onClick={() => {
+                                        const input = document.getElementById('new-tag') as HTMLInputElement;
+                                        if (input.value.trim()) {
+                                            const currentTags = props.lead.tags || [];
+                                            if (!currentTags.includes(input.value.trim())) {
+                                                setEditingLead({ ...props.lead, tags: [...currentTags, input.value.trim()] });
+                                            }
+                                            input.value = '';
+                                        }
+                                    }}
+                                    className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-all"
+                                >
+                                    <i className="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    )
                 }
             ]
         },
         {
-            id: 'contact',
+            id: 'persona_context',
+            title: 'Persona & Context',
             fields: [
-                { key: 'email', label: 'Email Address', type: 'email', placeholder: 'client@example.com' },
-                { key: 'phone', label: 'Phone Number', type: 'text', required: true, placeholder: '(555) 000-0000' },
-                { key: 'homeAddress', label: 'Home / Mailing Address', type: 'text', colSpan: 2, placeholder: '123 Main St, Springfield, IL' },
-                { key: 'preferredContactMethod', label: 'Preferred Contact', type: 'select', options: ['', 'Call', 'Text', 'Email'] }
+                { key: 'generalInfo', label: 'General Info', type: 'textarea', colSpan: 2 },
+                { key: 'isFirstTimeBuyer', label: 'First Time Buyer', type: 'checkbox', showIf: (l) => l.leadType === 'Buyer' },
+                { key: 'isFirstTimeSeller', label: 'First Time Seller', type: 'checkbox', showIf: (l) => l.leadType === 'Seller' },
+                { key: 'isInvestor', label: 'Investor', type: 'checkbox' },
+                { key: 'isAlsoBuying', label: 'Also Buying', type: 'checkbox', showIf: (l) => l.leadType === 'Seller' },
+                { key: 'isAlsoSelling', label: 'Also Selling', type: 'checkbox', showIf: (l) => l.leadType === 'Buyer' },
+                { key: 'isPastClient', label: 'Past Client', type: 'checkbox' },
+                { key: 'gender', label: 'Gender', type: 'select', options: ['', 'Male', 'Female', 'Non-binary', 'Prefer not to say'] },
+                { key: 'occupancyStatus', label: 'Occupancy Status', type: 'text', showIf: (l) => l.leadType === 'Seller' },
+                { key: 'existingAgentName', label: 'Existing Agent', type: 'text' }
             ]
         },
         {
-            id: 'callTracker',
+            id: 'activity',
+            title: 'Activity',
+            fields: [
+                { key: 'isCloseToOffer', label: 'Close to Offer', type: 'checkbox', showIf: (l) => l.leadType === 'Buyer' },
+                {
+                    key: 'offers' as any, colSpan: 2,
+                    render: (props: any) => (
+                        <div className="space-y-3 col-span-2 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                            <div className="flex items-center justify-between mb-1">
+                                <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Offers</h5>
+                                <button
+                                    onClick={() => {
+                                        const newOffer = { id: `off_${Date.now()}`, property: '', bidPrice: 0, outcome: 'Pending', date: new Date().toISOString() };
+                                        setEditingLead({ ...props.lead, offers: [...(props.lead.offers || []), newOffer] });
+                                    }}
+                                    className="px-2 py-1 bg-indigo-600 text-white rounded text-[10px] font-bold flex items-center gap-1 hover:bg-indigo-700 transition-all"
+                                >
+                                    <i className="fa-solid fa-plus"></i> Add Offer
+                                </button>
+                            </div>
+                            <div className="space-y-3">
+                                {props.lead.offers?.map((offer: any, idx: number) => (
+                                    <div key={offer.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm space-y-2 relative group">
+                                        <button
+                                            onClick={() => {
+                                                const newOffers = props.lead.offers?.filter((_: any, i: number) => i !== idx);
+                                                setEditingLead({ ...props.lead, offers: newOffers });
+                                            }}
+                                            className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-slate-200 text-slate-400 rounded-full flex items-center justify-center hover:text-red-500 hover:border-red-200 shadow-sm opacity-0 group-hover:opacity-100 transition-all"
+                                        >
+                                            <i className="fa-solid fa-xmark text-xs"></i>
+                                        </button>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-slate-400 uppercase">Property/Address</label>
+                                                <input
+                                                    type="text"
+                                                    value={offer.property}
+                                                    onChange={(e) => {
+                                                        const newOffers = [...props.lead.offers];
+                                                        newOffers[idx] = { ...offer, property: e.target.value };
+                                                        setEditingLead({ ...props.lead, offers: newOffers });
+                                                    }}
+                                                    className="w-full px-2 py-1 bg-slate-50 border border-slate-100 rounded text-xs font-medium focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-slate-400 uppercase">Bid Price ($)</label>
+                                                <input
+                                                    type="number"
+                                                    value={offer.bidPrice}
+                                                    onChange={(e) => {
+                                                        const newOffers = [...props.lead.offers];
+                                                        newOffers[idx] = { ...offer, bidPrice: Number(e.target.value) };
+                                                        setEditingLead({ ...props.lead, offers: newOffers });
+                                                    }}
+                                                    className="w-full px-2 py-1 bg-slate-50 border border-slate-100 rounded text-xs font-medium focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-slate-400 uppercase">Outcome</label>
+                                                <select
+                                                    value={offer.outcome}
+                                                    onChange={(e) => {
+                                                        const newOffers = [...props.lead.offers];
+                                                        newOffers[idx] = { ...offer, outcome: e.target.value as any };
+                                                        setEditingLead({ ...props.lead, offers: newOffers });
+                                                    }}
+                                                    className="w-full px-2 py-1 bg-slate-50 border border-slate-100 rounded text-xs font-medium focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                >
+                                                    {['Pending', 'Accepted', 'Rejected', 'Countered', 'Withdrawn'].map(o => <option key={o} value={o}>{o}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-slate-400 uppercase">Date</label>
+                                                <input
+                                                    type="date"
+                                                    value={offer.date ? new Date(offer.date).toISOString().split('T')[0] : ''}
+                                                    onChange={(e) => {
+                                                        const newOffers = [...props.lead.offers];
+                                                        newOffers[idx] = { ...offer, date: e.target.value };
+                                                        setEditingLead({ ...props.lead, offers: newOffers });
+                                                    }}
+                                                    className="w-full px-2 py-1 bg-slate-50 border border-slate-100 rounded text-xs font-medium focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                />
+                                            </div>
+                                            <div className="col-span-2 space-y-1">
+                                                <label className="text-[9px] font-bold text-slate-400 uppercase">Comment</label>
+                                                <input
+                                                    type="text"
+                                                    value={offer.comment || ''}
+                                                    onChange={(e) => {
+                                                        const newOffers = [...props.lead.offers];
+                                                        newOffers[idx] = { ...offer, comment: e.target.value };
+                                                        setEditingLead({ ...props.lead, offers: newOffers });
+                                                    }}
+                                                    className="w-full px-2 py-1 bg-slate-50 border border-slate-100 rounded text-xs font-medium focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                    placeholder="e.g. Needs inspection"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {(!props.lead.offers || props.lead.offers.length === 0) && (
+                                    <div className="text-center py-4 text-slate-400 text-[10px] italic">No offers recorded yet.</div>
+                                )}
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    key: 'tours' as any, colSpan: 2,
+                    render: (props: any) => (
+                        <div className="space-y-3 col-span-2 bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
+                            <div className="flex items-center justify-between mb-1">
+                                <h5 className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Property Tours</h5>
+                                <button
+                                    onClick={() => {
+                                        const newTour = { id: `tour_${Date.now()}`, propertyAddress: '', date: new Date().toISOString(), status: 'Scheduled' };
+                                        setEditingLead({ ...props.lead, tours: [...(props.lead.tours || []), newTour] });
+                                    }}
+                                    className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold flex items-center gap-1 hover:bg-emerald-700 transition-all"
+                                >
+                                    <i className="fa-solid fa-plus"></i> Add Tour
+                                </button>
+                            </div>
+                            <div className="space-y-3">
+                                {props.lead.tours?.map((tour: any, idx: number) => (
+                                    <div key={tour.id} className="bg-white p-3 rounded-lg border border-emerald-200 shadow-sm space-y-2 relative group">
+                                        <button
+                                            onClick={() => {
+                                                const newTours = props.lead.tours?.filter((_: any, i: number) => i !== idx);
+                                                setEditingLead({ ...props.lead, tours: newTours });
+                                            }}
+                                            className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-emerald-200 text-slate-400 rounded-full flex items-center justify-center hover:text-red-500 hover:border-red-200 shadow-sm opacity-0 group-hover:opacity-100 transition-all"
+                                        >
+                                            <i className="fa-solid fa-xmark text-xs"></i>
+                                        </button>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="col-span-2 space-y-1">
+                                                <label className="text-[9px] font-bold text-emerald-400 uppercase">Property Address</label>
+                                                <input
+                                                    type="text"
+                                                    value={tour.propertyAddress}
+                                                    onChange={(e) => {
+                                                        const newTours = [...props.lead.tours];
+                                                        newTours[idx] = { ...tour, propertyAddress: e.target.value };
+                                                        setEditingLead({ ...props.lead, tours: newTours });
+                                                    }}
+                                                    className="w-full px-2 py-1 bg-emerald-50/30 border border-emerald-100 rounded text-xs font-medium focus:ring-1 focus:ring-emerald-500 outline-none"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-emerald-400 uppercase">Date</label>
+                                                <input
+                                                    type="date"
+                                                    value={tour.date ? new Date(tour.date).toISOString().split('T')[0] : ''}
+                                                    onChange={(e) => {
+                                                        const newTours = [...props.lead.tours];
+                                                        newTours[idx] = { ...tour, date: e.target.value };
+                                                        setEditingLead({ ...props.lead, tours: newTours });
+                                                    }}
+                                                    className="w-full px-2 py-1 bg-emerald-50/30 border border-emerald-100 rounded text-xs font-medium focus:ring-1 focus:ring-emerald-500 outline-none"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-emerald-400 uppercase">Status</label>
+                                                <select
+                                                    value={tour.status}
+                                                    onChange={(e) => {
+                                                        const newTours = [...props.lead.tours];
+                                                        newTours[idx] = { ...tour, status: e.target.value as any };
+                                                        setEditingLead({ ...props.lead, tours: newTours });
+                                                    }}
+                                                    className="w-full px-2 py-1 bg-emerald-50/30 border border-emerald-100 rounded text-xs font-medium focus:ring-1 focus:ring-emerald-500 outline-none"
+                                                >
+                                                    {['Scheduled', 'Completed', 'Cancelled', 'No Show'].map(o => <option key={o} value={o}>{o}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {(!props.lead.tours || props.lead.tours.length === 0) && (
+                                    <div className="text-center py-4 text-emerald-400 text-[10px] italic">No tours scheduled yet.</div>
+                                )}
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    key: 'visitors' as any, colSpan: 2, showIf: (l) => l.leadType === 'Seller',
+                    render: (props: any) => (
+                        <div className="space-y-3 col-span-2 bg-orange-50/50 p-4 rounded-xl border border-orange-100">
+                            <div className="flex items-center justify-between mb-1">
+                                <h5 className="text-[10px] font-bold uppercase tracking-wider text-orange-600">Property Visitors</h5>
+                                <button
+                                    onClick={() => {
+                                        const newVisitor = { id: `vis_${Date.now()}`, name: '', visitCount: 1, isInterested: false };
+                                        setEditingLead({ ...props.lead, visitors: [...(props.lead.visitors || []), newVisitor] });
+                                    }}
+                                    className="px-2 py-1 bg-orange-500 text-white rounded text-[10px] font-bold flex items-center gap-1 hover:bg-orange-600 transition-all"
+                                >
+                                    <i className="fa-solid fa-plus"></i> Add Visitor
+                                </button>
+                            </div>
+                            <div className="space-y-3">
+                                {props.lead.visitors?.map((visitor: any, idx: number) => (
+                                    <div key={visitor.id} className="bg-white p-3 rounded-lg border border-orange-200 shadow-sm space-y-2 relative group">
+                                        <button
+                                            onClick={() => {
+                                                const newVisitors = props.lead.visitors?.filter((_: any, i: number) => i !== idx);
+                                                setEditingLead({ ...props.lead, visitors: newVisitors });
+                                            }}
+                                            className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-orange-200 text-slate-400 rounded-full flex items-center justify-center hover:text-red-500 hover:border-red-200 shadow-sm opacity-0 group-hover:opacity-100 transition-all"
+                                        >
+                                            <i className="fa-solid fa-xmark text-xs"></i>
+                                        </button>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-orange-400 uppercase">Visitor Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={visitor.name}
+                                                    onChange={(e) => {
+                                                        const newVisitors = [...props.lead.visitors];
+                                                        newVisitors[idx] = { ...visitor, name: e.target.value };
+                                                        setEditingLead({ ...props.lead, visitors: newVisitors });
+                                                    }}
+                                                    className="w-full px-2 py-1 bg-orange-50/30 border border-orange-100 rounded text-xs font-medium focus:ring-1 focus:ring-orange-500 outline-none"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-orange-400 uppercase">Visit Count</label>
+                                                <input
+                                                    type="number"
+                                                    value={visitor.visitCount}
+                                                    onChange={(e) => {
+                                                        const newVisitors = [...props.lead.visitors];
+                                                        newVisitors[idx] = { ...visitor, visitCount: Number(e.target.value) };
+                                                        setEditingLead({ ...props.lead, visitors: newVisitors });
+                                                    }}
+                                                    className="w-full px-2 py-1 bg-orange-50/30 border border-orange-100 rounded text-xs font-medium focus:ring-1 focus:ring-orange-500 outline-none"
+                                                />
+                                            </div>
+                                            <label className="flex items-center gap-2 cursor-pointer group col-span-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={visitor.isInterested || false}
+                                                    onChange={(e) => {
+                                                        const newVisitors = [...props.lead.visitors];
+                                                        newVisitors[idx] = { ...visitor, isInterested: e.target.checked };
+                                                        setEditingLead({ ...props.lead, visitors: newVisitors });
+                                                    }}
+                                                    className="w-4 h-4 rounded border-orange-200 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                                                />
+                                                <span className="text-[10px] font-bold text-slate-600 transition-colors uppercase">Mark as Interested</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                ))}
+                                {(!props.lead.visitors || props.lead.visitors.length === 0) && (
+                                    <div className="text-center py-4 text-orange-400 text-[10px] italic">No visitors recorded yet.</div>
+                                )}
+                            </div>
+                        </div>
+                    )
+                }
+            ]
+        },
+        {
+            id: 'timings',
+            title: 'Timings',
+            fields: [
+                { key: 'leaseEndDate', label: 'Lease End Date', type: 'date', showIf: (l) => l.leadType === 'Buyer' },
+                { key: 'sellWhen', label: 'When to Sell', type: 'text', showIf: (l) => l.leadType === 'Seller' },
+                {
+                    key: 'receivedAt', label: 'Received At', colSpan: 1,
+                    render: (props) => (
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Received At</label>
+                            <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm font-medium text-slate-500 cursor-not-allowed">
+                                {props.lead.receivedAt?.toDate ? props.lead.receivedAt.toDate().toLocaleString() : props.lead.receivedAt ? new Date(props.lead.receivedAt).toLocaleString() : '--'}
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    key: 'lastUpdated', label: 'Last Updated', colSpan: 1,
+                    render: (props) => (
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Last Updated</label>
+                            <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm font-medium text-slate-500 cursor-not-allowed">
+                                {props.lead.lastUpdated?.toDate ? props.lead.lastUpdated.toDate().toLocaleString() : props.lead.lastUpdated ? new Date(props.lead.lastUpdated).toLocaleString() : '--'}
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    key: 'stageLastChangedAt', label: 'Stage Changed At', colSpan: 1,
+                    render: (props) => (
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Stage Changed At</label>
+                            <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm font-medium text-slate-500 cursor-not-allowed">
+                                {props.lead.stageLastChangedAt?.toDate ? props.lead.stageLastChangedAt.toDate().toLocaleString() : props.lead.stageLastChangedAt ? new Date(props.lead.stageLastChangedAt).toLocaleString() : '--'}
+                            </div>
+                        </div>
+                    )
+                }
+            ]
+        },
+        {
+            id: 'property_details',
+            title: 'Property Details',
+            fields: [
+                {
+                    key: 'subjectPropertyDetails', colSpan: 2,
+                    render: (props: any) => (
+                        <div className="space-y-4 col-span-2 border-b border-slate-50 pb-6 mb-2">
+                            <div className="flex items-center justify-between">
+                                <h5 className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Subject Property (Seller/Active)</h5>
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                                <div className="space-y-1 col-span-2">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Address</label>
+                                    <input
+                                        type="text"
+                                        value={editingLead.subjectPropertyDetails?.address || ''}
+                                        onChange={(e) => setEditingLead({ ...editingLead, subjectPropertyDetails: { ...editingLead.subjectPropertyDetails, address: e.target.value } })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                        placeholder="Full address"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Property Type</label>
+                                    <input
+                                        type="text"
+                                        value={editingLead.subjectPropertyDetails?.propertyType || ''}
+                                        onChange={(e) => setEditingLead({ ...editingLead, subjectPropertyDetails: { ...editingLead.subjectPropertyDetails, propertyType: e.target.value } })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                        placeholder="SFH, Condo, etc."
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Expected Price ($)</label>
+                                    <input
+                                        type="number"
+                                        value={editingLead.subjectPropertyDetails?.expectedPrice || ''}
+                                        onChange={(e) => setEditingLead({ ...editingLead, subjectPropertyDetails: { ...editingLead.subjectPropertyDetails, expectedPrice: Number(e.target.value) } })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Bedrooms</label>
+                                    <input
+                                        type="number"
+                                        value={editingLead.subjectPropertyDetails?.bedrooms || ''}
+                                        onChange={(e) => setEditingLead({ ...editingLead, subjectPropertyDetails: { ...editingLead.subjectPropertyDetails, bedrooms: Number(e.target.value) } })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Bathrooms</label>
+                                    <input
+                                        type="number"
+                                        value={editingLead.subjectPropertyDetails?.bathrooms || ''}
+                                        onChange={(e) => setEditingLead({ ...editingLead, subjectPropertyDetails: { ...editingLead.subjectPropertyDetails, bathrooms: Number(e.target.value) } })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">SQFT</label>
+                                    <input
+                                        type="number"
+                                        value={editingLead.subjectPropertyDetails?.sqft || ''}
+                                        onChange={(e) => setEditingLead({ ...editingLead, subjectPropertyDetails: { ...editingLead.subjectPropertyDetails, sqft: Number(e.target.value) } })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Year Built</label>
+                                    <input
+                                        type="number"
+                                        value={editingLead.subjectPropertyDetails?.yearBuilt || ''}
+                                        onChange={(e) => setEditingLead({ ...editingLead, subjectPropertyDetails: { ...editingLead.subjectPropertyDetails, yearBuilt: Number(e.target.value) } })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    key: 'inquiryProperty', colSpan: 2,
+                    render: (props: any) => (
+                        <div className="space-y-4 col-span-2">
+                            <h5 className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Inquiry/Target Property (Buyer)</h5>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                                <div className="space-y-1 col-span-2">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Inquiry Address</label>
+                                    <input
+                                        type="text"
+                                        value={editingLead.inquiryProperty?.address || ''}
+                                        onChange={(e) => setEditingLead({ ...editingLead, inquiryProperty: { ...editingLead.inquiryProperty, address: e.target.value } })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                                        placeholder="Property they inquired about"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Min Price ($)</label>
+                                    <input
+                                        type="number"
+                                        value={editingLead.inquiryProperty?.minPrice || ''}
+                                        onChange={(e) => setEditingLead({ ...editingLead, inquiryProperty: { ...editingLead.inquiryProperty, minPrice: Number(e.target.value) } })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Max Price ($)</label>
+                                    <input
+                                        type="number"
+                                        value={editingLead.inquiryProperty?.maxPrice || ''}
+                                        onChange={(e) => setEditingLead({ ...editingLead, inquiryProperty: { ...editingLead.inquiryProperty, maxPrice: Number(e.target.value) } })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Min Bed</label>
+                                    <input
+                                        type="number"
+                                        value={editingLead.inquiryProperty?.bedrooms || ''}
+                                        onChange={(e) => setEditingLead({ ...editingLead, inquiryProperty: { ...editingLead.inquiryProperty, bedrooms: Number(e.target.value) } })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Min Bath</label>
+                                    <input
+                                        type="number"
+                                        value={editingLead.inquiryProperty?.bathrooms || ''}
+                                        onChange={(e) => setEditingLead({ ...editingLead, inquiryProperty: { ...editingLead.inquiryProperty, bathrooms: Number(e.target.value) } })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )
+                }
+            ]
+        },
+        {
+            id: 'referral_source',
+            title: 'Referral & Source',
+            fields: [
+                { key: 'source', label: 'Lead Source', type: 'select', options: ['Zillow', 'Website', 'Referral', 'Manual', 'Google', 'Facebook'] },
+                { key: 'leadType', label: 'Lead Type', type: 'select', options: ['Buyer', 'Seller', 'Rental', 'Mortgage'] },
+                { key: 'isReferredByPastClient', label: 'Ref by Past Client', type: 'checkbox' },
+                { key: 'isReferredByFriendFamily', label: 'Ref by Friend/Fam', type: 'checkbox' },
+                { key: 'connectionType', label: 'Connection Type', type: 'text' },
+                { key: 'referralSource', label: 'Referral Source', type: 'text', colSpan: 2 }
+            ]
+        },
+        {
+            id: 'client_comm',
+            title: 'Client Communication',
             fields: [
                 {
                     key: 'callTracker', colSpan: 2,
@@ -191,12 +858,15 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                             </div>
                         </div>
                     )
-                }
+                },
+                { key: 'offerCount', label: 'Offer Count', type: 'number' },
+                { key: 'channel', label: 'Channel', type: 'select', options: ['Email', 'API', 'Manual', 'CRM', 'Others'] },
+                { key: 'notes', label: 'General Internal Notes', type: 'textarea', colSpan: 2 }
             ]
         },
         {
-            title: 'Deal Status',
-            id: 'status',
+            id: 'system_metadata',
+            title: 'System Metadata',
             fields: [
                 {
                     key: 'status', label: 'Status', type: 'select',
@@ -217,7 +887,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                                         <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wide">Status Definitions</h4>
                                         <button onClick={() => setShowStatusInfo(false)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
                                     </div>
-                                    <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                                    <div className="space-y-3 max-h-[300px] overflow-y-auto font-sans">
                                         <div className="text-[10px] font-black text-indigo-500 uppercase mb-2">Buyer Statuses</div>
                                         {Object.entries(getStatusDefinitions('Buyer', realtorSettings)).map(([s, d]) => (
                                             <div key={`buyer-${s}`} className="text-xs mb-2">
@@ -247,248 +917,13 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                         </div>
                     )
                 },
-                { key: 'channel', label: 'Channel', type: 'select', options: ['Email', 'API', 'Manual', 'CRM', 'Others'] },
-                { key: 'assignedTo', label: 'Assigned To', type: 'text', placeholder: 'Team Member' },
-            ]
-        },
-        {
-            title: 'Property Details',
-            id: 'property',
-            fields: [
-                {
-                    key: 'subjectPropertyDetails',
-                    label: 'Subject Property',
-                    type: 'text',
-                    colSpan: 2,
-                    required: true,
-                    // Use a custom render to access nested property (address) or implement a specialized component later.
-                    // For now, removing direct text binding to 'subjectProperty' string as it was deleted.
-                    render: (props: any) => (
-                        <div className="space-y-1 col-span-2">
-                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Subject Property Address</label>
-                            <input
-                                type="text"
-                                value={editingLead.subjectPropertyDetails?.address || ''}
-                                onChange={(e) => setEditingLead({ ...editingLead, subjectPropertyDetails: { ...editingLead.subjectPropertyDetails, address: e.target.value } })}
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
-                                placeholder="Property address for this transaction"
-                            />
-                        </div>
-                    )
-                },
-                {
-                    key: 'inquiryProperty',
-                    label: 'Inquiry Property',
-                    type: 'text',
-                    colSpan: 2,
-                    placeholder: 'Original property they inquired about',
-                    render: (props: any) => (
-                        <div className="space-y-1 col-span-2">
-                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Inquiry Property Address</label>
-                            <input
-                                type="text"
-                                value={editingLead.inquiryProperty?.address || ''}
-                                onChange={(e) => setEditingLead({ ...editingLead, inquiryProperty: { ...editingLead.inquiryProperty, address: e.target.value } })}
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
-                                placeholder="Original property they inquired about"
-                            />
-                        </div>
-                    )
-                },
-                // Seller Specs
-                { key: 'expectedPrice', label: 'Expected Price ($)', type: 'number', showIf: (l) => l.leadType === 'Seller' },
-            ]
-        },
-        {
-            title: 'Context & Preferences',
-            id: 'context',
-            fields: [
-                { key: 'leadType', label: 'Type', type: 'select', options: ['Buyer', 'Seller', 'Rental', 'Mortgage'] },
-                { key: 'slaUrgency', label: 'SLA Urgency', type: 'select', options: ['low', 'medium', 'high'] },
-                {
-                    key: 'inquiryProperty', label: 'Price Range', type: 'number', colSpan: 2,
-                    showIf: (l) => ['Buyer', 'Rental', 'Mortgage'].includes(l.leadType),
-                    render: (props) => (
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Min Price ($)</label>
-                                <input
-                                    type="number"
-                                    value={editingLead.inquiryProperty?.minPrice || ''}
-                                    onChange={(e) => setEditingLead({ ...editingLead, inquiryProperty: { ...editingLead.inquiryProperty, minPrice: Number(e.target.value) } })}
-                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
-                                />
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Max Price ($)</label>
-                                <input
-                                    type="number"
-                                    value={editingLead.inquiryProperty?.maxPrice || ''}
-                                    onChange={(e) => setEditingLead({ ...editingLead, inquiryProperty: { ...editingLead.inquiryProperty, maxPrice: Number(e.target.value) } })}
-                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
-                                />
-                            </div>
-                        </div>
-                    )
-                },
-                { key: 'preferredNeighborhood', label: 'Preferred Neighborhood', type: 'text', colSpan: 2, showIf: (l) => ['Buyer', 'Rental'].includes(l.leadType) },
-                { key: 'occupancyStatus', label: 'Occupancy', type: 'text', showIf: (l) => l.leadType === 'Seller' },
-                { key: 'isMostImportantReq', label: 'Priority / Most Important Req', type: 'text', colSpan: 2 },
-                { key: 'reasonForSelling', label: 'Reason for Selling', type: 'text', showIf: (l) => l.leadType === 'Seller' },
-                { key: 'existingAgentName', label: 'Existing Agent?', type: 'text', showIf: (l) => l.leadType === 'Seller' },
-                // Checkboxes as custom renders for layout control
-                {
-                    key: 'isAlsoSelling', label: '', type: 'checkbox', colSpan: 2,
-                    render: (props) => (
-                        <div className="flex flex-wrap gap-4 items-center">
-                            {['Buyer', 'Rental'].includes(props.lead.leadType) && (
-                                <label className="flex items-center gap-2 cursor-pointer group">
-                                    <input
-                                        type="checkbox"
-                                        checked={props.lead.isAlsoSelling || false}
-                                        onChange={(e) => setEditingLead({ ...props.lead, isAlsoSelling: e.target.checked })}
-                                        className="w-5 h-5 rounded-lg border-slate-200 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                    />
-                                    <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Also Selling?</span>
-                                </label>
-                            )}
-                            {['Buyer', 'Rental'].includes(props.lead.leadType) && (
-                                <label className="flex items-center gap-2 cursor-pointer group">
-                                    <input
-                                        type="checkbox"
-                                        checked={props.lead.preQualified || false}
-                                        onChange={(e) => setEditingLead({ ...props.lead, preQualified: e.target.checked })}
-                                        className="w-5 h-5 rounded-lg border-slate-200 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                                    />
-                                    <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Pre-qualified?</span>
-                                </label>
-                            )}
-                            {props.lead.leadType === 'Seller' && (
-                                <label className="flex items-center gap-2 cursor-pointer group">
-                                    <input
-                                        type="checkbox"
-                                        checked={props.lead.isAlsoBuying || false}
-                                        onChange={(e) => setEditingLead({ ...props.lead, isAlsoBuying: e.target.checked })}
-                                        className="w-5 h-5 rounded-lg border-slate-200 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                    />
-                                    <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Also Buying?</span>
-                                </label>
-                            )}
-                            {props.lead.leadType === 'Seller' && (
-                                <label className="flex items-center gap-2 cursor-pointer group">
-                                    <input
-                                        type="checkbox"
-                                        checked={props.lead.homeValueNeeded || false}
-                                        onChange={(e) => setEditingLead({ ...props.lead, homeValueNeeded: e.target.checked })}
-                                        className="w-5 h-5 rounded-lg border-slate-200 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                                    />
-                                    <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Home Value Needed?</span>
-                                </label>
-                            )}
-
-                            {/* Warm/Cold/Long Term Flags */}
-                            <label className="flex items-center gap-2 cursor-pointer group">
-                                <input
-                                    type="checkbox"
-                                    checked={props.lead.isWarm || false}
-                                    onChange={(e) => setEditingLead({ ...props.lead, isWarm: e.target.checked })}
-                                    className="w-5 h-5 rounded-lg border-slate-200 text-orange-500 focus:ring-orange-500 cursor-pointer"
-                                />
-                                <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Warm Lead</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer group">
-                                <input
-                                    type="checkbox"
-                                    checked={props.lead.isCold || false}
-                                    onChange={(e) => setEditingLead({ ...props.lead, isCold: e.target.checked })}
-                                    className="w-5 h-5 rounded-lg border-slate-200 text-sky-500 focus:ring-sky-500 cursor-pointer"
-                                />
-                                <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Cold Lead</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer group">
-                                <input
-                                    type="checkbox"
-                                    checked={props.lead.isLongTerm || false}
-                                    onChange={(e) => setEditingLead({ ...props.lead, isLongTerm: e.target.checked })}
-                                    className="w-5 h-5 rounded-lg border-slate-200 text-purple-500 focus:ring-purple-500 cursor-pointer"
-                                />
-                                <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Long Term</span>
-                            </label>
-                        </div>
-                    )
-                },
-                { key: 'message', label: 'User Message', type: 'textarea', colSpan: 2 },
-                // Tags (Custom UI, pseudo-field)
-                {
-                    key: 'tags' as any, colSpan: 2,
-                    render: (props: any) => (
-                        <div className="space-y-1 mt-1">
-                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Tags</label>
-                            <div className="flex flex-wrap gap-2 mb-2">
-                                {props.lead.tags?.map((tag: string, index: number) => (
-                                    <span key={index} className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs font-semibold flex items-center gap-1.5 border border-indigo-100">
-                                        {tag}
-                                        <button onClick={() => {
-                                            const newTags = props.lead.tags?.filter((_: any, i: number) => i !== index);
-                                            setEditingLead({ ...props.lead, tags: newTags });
-                                        }} className="hover:text-indigo-800"><i className="fa-solid fa-xmark text-[10px]"></i></button>
-                                    </span>
-                                ))}
-                            </div>
-                            <input
-                                type="text"
-                                placeholder="Add tag..."
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        const val = e.currentTarget.value.trim();
-                                        if (val) {
-                                            const currentTags = props.lead.tags || [];
-                                            if (!currentTags.includes(val)) {
-                                                setEditingLead({ ...props.lead, tags: [...currentTags, val] });
-                                            }
-                                            e.currentTarget.value = '';
-                                        }
-                                    }
-                                }}
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
-                            />
-                        </div>
-                    )
-                }
-            ]
-        },
-        {
-            title: 'Timing',
-            id: 'timing',
-            fields: [
-                { key: 'timeframe', label: 'Timeframe', type: 'text', placeholder: 'e.g. 1-3 months' },
-                { key: 'sellWhen', label: 'Sell When?', type: 'text', showIf: (l) => l.leadType === 'Seller' },
-                {
-                    key: 'receivedAt',
-                    label: 'Created At',
-                    colSpan: 1,
-                    render: (props) => (
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Created At</label>
-                            <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm font-medium text-slate-500 cursor-not-allowed">
-                                {props.lead.receivedAt?.toDate ? props.lead.receivedAt.toDate().toLocaleString() : props.lead.receivedAt ? new Date(props.lead.receivedAt).toLocaleString() : '--'}
-                            </div>
-                        </div>
-                    )
-                },
-                {
-                    key: 'lastUpdated',
-                    label: 'Last Updated',
-                    colSpan: 1,
-                    render: (props) => (
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Last Updated</label>
-                            <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm font-medium text-slate-500 cursor-not-allowed">
-                                {props.lead.lastUpdated?.toDate ? props.lead.lastUpdated.toDate().toLocaleString() : props.lead.lastUpdated ? new Date(props.lead.lastUpdated).toLocaleString() : '--'}
-                            </div>
-                        </div>
-                    )
-                }
+                { key: 'funnelStage', label: 'Funnel Stage', type: 'select', options: ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed'] },
+                { key: 'clientId', label: 'Client ID', type: 'text' },
+                { key: 'id', label: 'System ID', type: 'text' },
+                { key: 'health', label: 'Lead Health', type: 'select', options: ['new', 'engaged', 'active', 'cold', 'stale'] },
+                { key: 'isMock', label: 'Is Mock Data', type: 'checkbox' },
+                { key: 'collectionName', label: 'Collection Name', type: 'text' },
+                { key: 'assignedTo', label: 'Assigned To', type: 'text', placeholder: 'Agent Name' }
             ]
         }
     ];
@@ -591,10 +1026,10 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 <div className="flex-1 overflow-y-auto p-5 scrollbar-hide">
                     <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                         {FORM_SECTIONS.filter(section => {
-                            if (activeTab === 'profile') return ['identity', 'contact'].includes(section.id);
-                            if (activeTab === 'deal') return ['status', 'property', 'timing'].includes(section.id);
-                            if (activeTab === 'context') return ['context'].includes(section.id);
-                            if (activeTab === 'notes') return ['callTracker'].includes(section.id);
+                            if (activeTab === 'profile') return ['contact_info', 'persona_context'].includes(section.id);
+                            if (activeTab === 'deal') return ['intent_readiness', 'property_details', 'referral_source'].includes(section.id);
+                            if (activeTab === 'context') return ['timings', 'system_metadata'].includes(section.id);
+                            if (activeTab === 'notes') return ['client_comm', 'activity'].includes(section.id);
                             return false;
                         }).map((section) => (
                             <React.Fragment key={section.id}>
