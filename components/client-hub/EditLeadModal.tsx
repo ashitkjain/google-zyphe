@@ -28,6 +28,7 @@ interface FieldConfig {
     required?: boolean;
     colSpan?: 1 | 2;
     showIf?: (lead: Lead) => boolean;
+    disabled?: boolean;
     render?: (props: any) => React.ReactNode; // Custom render function
 }
 
@@ -638,33 +639,33 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 { key: 'leaseEndDate', label: 'Lease End Date', type: 'date', showIf: (l) => l.leadType === 'Buyer' },
                 { key: 'sellWhen', label: 'When to Sell', type: 'text', showIf: (l) => l.leadType === 'Seller' },
                 {
-                    key: 'receivedAt', label: 'Received At', colSpan: 1,
+                    key: 'receivedAt', label: 'Received At', colSpan: 1, disabled: true,
                     render: (props) => (
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Received At</label>
-                            <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm font-medium text-slate-500 cursor-not-allowed">
+                            <div className="w-full px-3 py-2 bg-slate-100/50 border border-slate-100 rounded-lg text-sm font-medium text-slate-500 cursor-not-allowed">
                                 {props.lead.receivedAt?.toDate ? props.lead.receivedAt.toDate().toLocaleString() : props.lead.receivedAt ? new Date(props.lead.receivedAt).toLocaleString() : '--'}
                             </div>
                         </div>
                     )
                 },
                 {
-                    key: 'lastUpdated', label: 'Last Updated', colSpan: 1,
+                    key: 'lastUpdated', label: 'Last Updated', colSpan: 1, disabled: true,
                     render: (props) => (
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Last Updated</label>
-                            <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm font-medium text-slate-500 cursor-not-allowed">
+                            <div className="w-full px-3 py-2 bg-slate-100/50 border border-slate-100 rounded-lg text-sm font-medium text-slate-500 cursor-not-allowed">
                                 {props.lead.lastUpdated?.toDate ? props.lead.lastUpdated.toDate().toLocaleString() : props.lead.lastUpdated ? new Date(props.lead.lastUpdated).toLocaleString() : '--'}
                             </div>
                         </div>
                     )
                 },
                 {
-                    key: 'stageLastChangedAt', label: 'Stage Changed At', colSpan: 1,
+                    key: 'stageLastChangedAt', label: 'Stage Changed At', colSpan: 1, disabled: true,
                     render: (props) => (
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-0.5">Stage Changed At</label>
-                            <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm font-medium text-slate-500 cursor-not-allowed">
+                            <div className="w-full px-3 py-2 bg-slate-100/50 border border-slate-100 rounded-lg text-sm font-medium text-slate-500 cursor-not-allowed">
                                 {props.lead.stageLastChangedAt?.toDate ? props.lead.stageLastChangedAt.toDate().toLocaleString() : props.lead.stageLastChangedAt ? new Date(props.lead.stageLastChangedAt).toLocaleString() : '--'}
                             </div>
                         </div>
@@ -908,7 +909,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                             <select
                                 value={editingLead.status}
                                 onChange={(e) => setEditingLead({ ...editingLead, status: e.target.value as any })}
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold focus:ring-1 focus:ring-indigo-500 transition-all outline-none appearance-none"
+                                disabled={props.field?.disabled}
+                                className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold transition-all outline-none appearance-none ${props.field?.disabled ? 'bg-slate-100/50 text-slate-500 cursor-not-allowed border-slate-100' : 'focus:ring-1 focus:ring-indigo-500'}`}
                             >
                                 {getStatusOptions(editingLead.leadType, realtorSettings).map((o: any) => (
                                     <option key={o.label} value={o.label}>{o.label}</option>
@@ -918,11 +920,11 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                     )
                 },
                 { key: 'funnelStage', label: 'Funnel Stage', type: 'select', options: ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed'] },
-                { key: 'clientId', label: 'Client ID', type: 'text' },
-                { key: 'id', label: 'System ID', type: 'text' },
+                { key: 'clientId', label: 'Client ID', type: 'text', disabled: true },
+                { key: 'id', label: 'System ID', type: 'text', disabled: true },
                 { key: 'health', label: 'Lead Health', type: 'select', options: ['new', 'engaged', 'active', 'cold', 'stale'] },
-                { key: 'isMock', label: 'Is Mock Data', type: 'checkbox' },
-                { key: 'collectionName', label: 'Collection Name', type: 'text' },
+                { key: 'isMock', label: 'Is Mock Data', type: 'checkbox', disabled: true },
+                { key: 'collectionName', label: 'Collection Name', type: 'text', disabled: true },
                 { key: 'assignedTo', label: 'Assigned To', type: 'text', placeholder: 'Agent Name' }
             ]
         }
@@ -930,15 +932,15 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
     const renderField = (field: FieldConfig) => {
         if (field.showIf && !field.showIf(editingLead)) return null;
-        if (field.render) return <div key={field.key} className={field.colSpan === 2 ? 'col-span-2' : ''}>{field.render({ value: (editingLead as any)[field.key], lead: editingLead })}</div>;
+        if (field.render) return <div key={field.key} className={field.colSpan === 2 ? 'col-span-2' : ''}>{field.render({ value: (editingLead as any)[field.key], lead: editingLead, field })}</div>;
 
         if (field.type === 'checkbox') {
             const isChecked = !!(editingLead as any)[field.key];
             return (
                 <div
                     key={field.key}
-                    className={`flex items-center justify-between py-2 px-3 bg-slate-50/50 border border-slate-200 rounded-xl hover:border-indigo-200 hover:bg-indigo-50/30 transition-all cursor-pointer group ${field.colSpan === 2 ? 'col-span-2' : ''}`}
-                    onClick={() => setEditingLead({ ...editingLead, [field.key]: !isChecked })}
+                    className={`flex items-center justify-between py-2 px-3 bg-slate-50/50 border border-slate-200 rounded-xl hover:border-indigo-200 hover:bg-indigo-50/30 transition-all cursor-pointer group ${field.colSpan === 2 ? 'col-span-2' : ''} ${field.disabled ? 'opacity-60 cursor-not-allowed pointer-events-none grayscale-[0.5]' : ''}`}
+                    onClick={() => !field.disabled && setEditingLead({ ...editingLead, [field.key]: !isChecked })}
                 >
                     <div className="flex flex-col">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 group-hover:text-indigo-600 transition-colors">
@@ -971,7 +973,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                     <select
                         value={(editingLead as any)[field.key] || ''}
                         onChange={(e) => setEditingLead({ ...editingLead, [field.key]: e.target.value })}
-                        className={`${commonClasses} appearance-none`}
+                        disabled={field.disabled}
+                        className={`${commonClasses} appearance-none ${field.disabled ? 'bg-slate-100/50 text-slate-500 cursor-not-allowed border-slate-100 shadow-none' : ''}`}
                     >
                         {field.options && field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                     </select>
@@ -979,7 +982,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                     <textarea
                         value={(editingLead as any)[field.key] || ''}
                         onChange={(e) => setEditingLead({ ...editingLead, [field.key]: e.target.value })}
-                        className={`${commonClasses} min-h-[80px]`}
+                        disabled={field.disabled}
+                        className={`${commonClasses} min-h-[80px] ${field.disabled ? 'bg-slate-100/50 text-slate-500 cursor-not-allowed border-slate-100 shadow-none' : ''}`}
                         placeholder={field.placeholder}
                     />
                 ) : (
@@ -987,7 +991,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                         type={field.type}
                         value={(editingLead as any)[field.key] || ''}
                         onChange={(e) => setEditingLead({ ...editingLead, [field.key]: field.type === 'number' ? Number(e.target.value) : e.target.value })}
-                        className={commonClasses}
+                        disabled={field.disabled}
+                        className={`${commonClasses} ${field.disabled ? 'bg-slate-100/50 text-slate-500 cursor-not-allowed border-slate-100 shadow-none' : ''}`}
                         placeholder={field.placeholder}
                     />
                 )}
