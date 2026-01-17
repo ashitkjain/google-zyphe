@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, Lead, ShortlistedProperty, ActivityEvent } from '../../types';
+import { LEAD_FIELD_CONFIG } from '../../types/lead';
 
 interface ClientNetworkProps {
     clients: UserProfile[];
@@ -59,6 +60,13 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
     };
 
     const displayList = (networkTab === 'on-zyphe' ? clients : manualContacts).filter(client => {
+        // Stage Filter for Off Zyphe
+        if (!isUser(client)) {
+            const lead = client as Lead;
+            const validStages = ['Nurture', 'Active Search', 'Offer', 'Contract', 'Closed'];
+            if (!validStages.includes(lead.funnelStage)) return false;
+        }
+
         if (!searchTerm) return true;
         const name = (isUser(client) ? client.displayName : `${(client as Lead).firstName} ${(client as Lead).lastName}`).toLowerCase();
         const email = (client.email || '').toLowerCase();
@@ -360,9 +368,16 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                             </p>
                                         ) : (
                                             <p className="text-indigo-100 text-lg leading-relaxed font-medium">
-                                                {getName(selectedClient)} is actively engaged via <strong>{(selectedClient as Lead).source}</strong>. Analysis of their inquiry suggests a strong preference for <strong>{(selectedClient as Lead).leadType}</strong> opportunities.
-                                                {(selectedClient as Lead).minPrice ? ` Targeting a price point of $${((selectedClient as Lead).minPrice! / 1000).toFixed(0)}k - $${((selectedClient as Lead).maxPrice! / 1000).toFixed(0)}k.` : ' Currently analyzing their search patterns for local listings.'}
-                                                {(selectedClient as Lead).propertyAddress ? ` Critical interest detected in ${(selectedClient as Lead).propertyAddress}.` : ''}
+                                                <strong>{getName(selectedClient)}</strong> is a <strong>{(selectedClient as Lead).leadType}</strong> currently in the <strong>{(selectedClient as Lead).funnelStage}</strong> stage.
+                                                {(selectedClient as Lead).isHot && <span className="text-amber-400 font-bold"> This is a Hot Lead.</span>}
+                                                {(selectedClient as Lead).isWarm && <span className="text-amber-200 font-bold"> This is a Warm Lead.</span>}
+                                                {' '}
+                                                Targeting <strong>{(selectedClient as Lead).inquiryProperty?.minPrice ? `$${((selectedClient as Lead).inquiryProperty?.minPrice! / 1000).toFixed(0)}k` : 'market price'}</strong>
+                                                {' - '}
+                                                <strong>{(selectedClient as Lead).inquiryProperty?.maxPrice ? `$${((selectedClient as Lead).inquiryProperty?.maxPrice! / 1000).toFixed(0)}k` : 'any range'}</strong>.
+                                                {((selectedClient as Lead).offers?.length || 0) > 0 ? ` Has made ${(selectedClient as Lead).offers?.length} offer(s) so far.` : ' No offers made yet.'}
+                                                {(selectedClient as Lead).timeframe ? ` Looking to close by: ${(selectedClient as Lead).timeframe}.` : ''}
+                                                {(selectedClient as Lead).generalInfo ? ` Note: ${(selectedClient as Lead).generalInfo}` : ''}
                                             </p>
                                         )}
                                         <div className="flex gap-3 pt-2">
@@ -702,6 +717,66 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Detailed Lead View for Off Zyphe Clients */}
+                            {!isUser(selectedClient) && !selectedClient.kyc && (
+                                <div className="mt-12 space-y-8">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {[
+                                            'Intent & Readiness',
+                                            'Persona & Context',
+                                            'Activity',
+                                            'Property Details',
+                                            'Timings',
+                                            'Contact Information',
+                                            'Referral & Source',
+                                            'System Metadata'
+                                        ].map(category => {
+                                            const fields = LEAD_FIELD_CONFIG.filter(f => f.category === category);
+                                            const lead = selectedClient as any;
+                                            const hasData = fields.some(f => lead[f.id] !== undefined && lead[f.id] !== null && lead[f.id] !== '' && (Array.isArray(lead[f.id]) ? lead[f.id].length > 0 : true));
+
+                                            if (!hasData) return null;
+
+                                            return (
+                                                <div key={category} className="bg-white p-8 rounded-[2rem] border border-slate-200/60 shadow-sm space-y-4">
+                                                    <h4 className="text-[10px] font-black text-indigo-900 uppercase tracking-widest border-b border-slate-50 pb-3 mb-2">{category}</h4>
+                                                    <div className="space-y-4">
+                                                        {fields.map(field => {
+                                                            const value = lead[field.id];
+                                                            if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) return null;
+
+                                                            return (
+                                                                <div key={field.id} className="group">
+                                                                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{field.label}</div>
+                                                                    <div className="text-sm font-semibold text-slate-700 break-words">
+                                                                        {typeof value === 'boolean' ? (
+                                                                            value ? <span className="text-emerald-600"><i className="fa-solid fa-check"></i> Yes</span> : 'No'
+                                                                        ) : Array.isArray(value) ? (
+                                                                            // Simple list rendering for arrays like tags, complex objects need specific handling or JSON dump
+                                                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                                                {value.map((v: any, i: number) => (
+                                                                                    <span key={i} className="px-2 py-0.5 bg-slate-100 rounded text-xs">
+                                                                                        {typeof v === 'object' ? (v.name || v.address || v.id || JSON.stringify(v)) : v}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        ) : typeof value === 'object' ? (
+                                                                            <pre className="text-xs text-slate-500 whitespace-pre-wrap font-sans">{JSON.stringify(value, null, 2)}</pre>
+                                                                        ) : (
+                                                                            value
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
