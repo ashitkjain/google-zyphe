@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { saveWhiteboard, getWhiteboard, auth } from '../../services/firebaseService';
 
-type Tool = 'select' | 'note' | 'text' | 'pen' | 'sticker' | 'eraser' | 'arrow';
+type Tool = 'select' | 'note' | 'text' | 'pen' | 'sticker' | 'eraser' | 'arrow' | 'circle';
 type NoteColor = 'yellow' | 'blue' | 'green' | 'red';
 
 interface BoardItem {
     id: string;
-    type: 'note' | 'text' | 'sticker' | 'pen' | 'arrow';
+    type: 'note' | 'text' | 'sticker' | 'pen' | 'arrow' | 'circle';
     x?: number;
     y?: number;
     content?: string;
@@ -16,6 +16,7 @@ interface BoardItem {
     rotation?: number;
     fontSize?: number;
     reaction?: string;
+    radius?: number;
     // Path specific
     points?: { x: number; y: number }[];
     stroke?: string;
@@ -30,7 +31,9 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
     const [activeTool, setActiveTool] = useState<Tool>('select');
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [selectedColor, setSelectedColor] = useState<NoteColor>('yellow');
+
     const [penColor, setPenColor] = useState<string>('#000000');
+    const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -128,11 +131,14 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
 
     // Dragging State
     const [draggingId, setDraggingId] = useState<string | null>(null);
-    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+    const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number } | null>(null);
+    const [dragOriginalItem, setDragOriginalItem] = useState<BoardItem | null>(null);
 
     // Resizing State
     const [resizingId, setResizingId] = useState<string | null>(null);
     const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, w: 0, h: 0 });
+    const [resizeOriginalItem, setResizeOriginalItem] = useState<BoardItem | null>(null);
+    const [resizeHandle, setResizeHandle] = useState<string | null>(null);
 
     const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -140,6 +146,11 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
         // Close color picker on interaction
         if (showColorPicker && !((e.target as HTMLElement).closest('button'))) {
             setShowColorPicker(false);
+        }
+
+        // Deselect if clicking on empty space
+        if (activeTool === 'select' && e.target === canvasRef.current || (e.target as HTMLElement).tagName === 'svg') {
+            setSelectedItemId(null);
         }
 
         if (activeTool === 'pen') {
@@ -154,6 +165,17 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
         }
 
         if (activeTool === 'arrow') {
+            setIsDrawing(true);
+            const rect = canvasRef.current?.getBoundingClientRect();
+            if (rect) {
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                setCurrentPath([{ x, y }, { x, y }]);
+            }
+            return;
+        }
+
+        if (activeTool === 'circle') {
             setIsDrawing(true);
             const rect = canvasRef.current?.getBoundingClientRect();
             if (rect) {
@@ -221,23 +243,87 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
             return;
         }
 
-        if (resizingId) {
-            const dx = e.clientX - resizeStart.x;
-            const dy = e.clientY - resizeStart.y;
-            setItems(prev => prev.map(item =>
-                item.id === resizingId
-                    ? { ...item, width: Math.max(100, resizeStart.w + dx), height: Math.max(50, resizeStart.h + dy) }
-                    : item
-            ));
+        if (activeTool === 'circle' && isDrawing) {
+            setCurrentPath(prev => [prev[0], { x, y }]);
             return;
         }
 
-        if (draggingId) {
-            setItems(prev => prev.map(item =>
-                item.id === draggingId
-                    ? { ...item, x: x - dragOffset.x, y: y - dragOffset.y }
-                    : item
-            ));
+        if (resizingId && resizeOriginalItem) {
+            const dx = e.clientX - resizeStart.x;
+            const dy = e.clientY - resizeStart.y;
+
+            setItems(prev => prev.map(item => {
+                if (item.id !== resizingId) return item;
+
+                // Handle Circle Resizing (Radius)
+                if (item.type === 'circle' && item.x && item.y) {
+                    const currentRadius = Math.sqrt(
+                        Math.pow((e.clientX - rect.left) - item.x, 2) +
+                        Math.pow((e.clientY - rect.top) - item.y, 2)
+                    );
+                    return { ...item, radius: currentRadius };
+                }
+
+                // Handle Arrow Resizing (Endpoints)
+                if (item.type === 'arrow' && resizeOriginalItem.points) {
+                    const newPoints = [...resizeOriginalItem.points];
+                    if (resizeHandle === 'start') {
+                        newPoints[0] = {
+                            x: resizeOriginalItem.points[0].x + dx,
+                            y: resizeOriginalItem.points[0].y + dy
+                        };
+                    } else if (resizeHandle === 'end') {
+                        newPoints[newPoints.length - 1] = {
+                            x: resizeOriginalItem.points[newPoints.length - 1].x + dx,
+                            y: resizeOriginalItem.points[newPoints.length - 1].y + dy
+                        };
+                    }
+                    return { ...item, points: newPoints };
+                }
+
+                // Handle Box Resizing (Note/Text)
+                if (item.type === 'note' || item.type === 'text') {
+                    return {
+                        ...item,
+                        width: Math.max(100, Math.max(100, resizeStart.w + dx)),
+                        height: Math.max(50, Math.max(50, resizeStart.h + dy))
+                    };
+                }
+
+                return item;
+            }));
+            return;
+        }
+
+        if (draggingId && dragStartPos && dragOriginalItem) {
+            const dx = x - dragStartPos.x;
+            const dy = y - dragStartPos.y;
+
+            setItems(prev => prev.map(item => {
+                if (item.id !== draggingId) return item;
+
+                // Handle XY items (Note, Text, Circle)
+                if (dragOriginalItem.x !== undefined && dragOriginalItem.y !== undefined) {
+                    return {
+                        ...item,
+                        x: dragOriginalItem.x + dx,
+                        y: dragOriginalItem.y + dy
+                    };
+                }
+
+                // Handle Path items (Pen, Arrow)
+                if (dragOriginalItem.points) {
+                    return {
+                        ...item,
+                        points: dragOriginalItem.points.map(p => ({
+                            x: p.x + dx,
+                            y: p.y + dy
+                        }))
+                    };
+                }
+
+                return item;
+            }));
         }
     };
 
@@ -252,6 +338,7 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
                     stroke: penColor,
                     strokeWidth: 3
                 }]);
+                setActiveTool('select');
             }
             setCurrentPath([]);
         }
@@ -265,17 +352,64 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
                     stroke: penColor,
                     strokeWidth: 3
                 }]);
+                setActiveTool('select');
+            }
+            setCurrentPath([]);
+        }
+        if (activeTool === 'circle' && isDrawing) {
+            setIsDrawing(false);
+            if (currentPath.length > 1) {
+                const dx = currentPath[1].x - currentPath[0].x;
+                const dy = currentPath[1].y - currentPath[0].y;
+                const radius = Math.sqrt(dx * dx + dy * dy);
+
+                if (radius > 5) {
+                    setItems(prev => [...prev, {
+                        id: Date.now().toString(),
+                        type: 'circle',
+                        x: currentPath[0].x,
+                        y: currentPath[0].y,
+                        radius,
+                        stroke: penColor,
+                        strokeWidth: 3
+                    }]);
+                    setActiveTool('select');
+                }
             }
             setCurrentPath([]);
         }
         setDraggingId(null);
+        setDragStartPos(null);
+        setDragOriginalItem(null);
         setResizingId(null);
+        setResizeOriginalItem(null);
+        setResizeHandle(null);
     };
 
-    const startResize = (e: React.MouseEvent, item: BoardItem) => {
+    // Keyboard Deletion
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.key === 'Delete' || e.key === 'Backspace') && selectedItemId) {
+                // Prevent backspace from navigating back if not in an input
+                const activeElement = document.activeElement;
+                const isInput = activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA';
+                if (!isInput) {
+                    deleteItem(selectedItemId);
+                    setSelectedItemId(null);
+                }
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedItemId]);
+
+    const startResize = (e: React.MouseEvent, item: BoardItem, handle: string = 'default') => {
         e.stopPropagation();
         e.preventDefault();
         setResizingId(item.id);
+        setResizeHandle(handle);
+        setResizeOriginalItem(item); // Snapshot
+
         setResizeStart({
             x: e.clientX,
             y: e.clientY,
@@ -286,14 +420,19 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
 
     const startDrag = (e: React.MouseEvent, item: BoardItem) => {
         if (activeTool !== 'select') return;
-        if (!item.x || !item.y) return; // Prevent dragging of paths
+
+        // Select logic
+        setSelectedItemId(item.id);
         e.stopPropagation();
-        setDraggingId(item.id);
+
         const rect = canvasRef.current?.getBoundingClientRect();
         if (rect) {
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
-            setDragOffset({ x: x - item.x, y: y - item.y });
+
+            setDraggingId(item.id);
+            setDragStartPos({ x, y });
+            setDragOriginalItem(item); // Snapshot current state
         }
     };
 
@@ -317,6 +456,7 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
 
     const deleteItem = (id: string) => {
         setItems(prev => prev.filter(item => item.id !== id));
+        if (activeTool === 'eraser') setActiveTool('select');
     };
 
 
@@ -326,7 +466,7 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
             setShowColorPicker(!showColorPicker);
         } else {
             setActiveTool(tool);
-            if (['note', 'pen', 'arrow'].includes(tool)) {
+            if (['note', 'pen', 'arrow', 'circle'].includes(tool)) {
                 setShowColorPicker(true);
             } else {
                 setShowColorPicker(false);
@@ -377,6 +517,19 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
                 )}
                 <ToolButton icon="fa-arrow-right-long" tool="arrow" active={activeTool} onClick={() => handleToolClick('arrow')} label="Arrow" />
                 {activeTool === 'arrow' && showColorPicker && (
+                    <div className="flex flex-col gap-1.5 p-1.5 bg-slate-50 rounded-lg border border-slate-100 items-center animate-in fade-in slide-in-from-left-4 duration-200">
+                        {['#000000', '#ef4444', '#22c55e', '#3b82f6', '#eab308'].map(color => (
+                            <button
+                                key={color}
+                                className={`w-5 h-5 rounded-full border-2 ${penColor === color ? 'border-indigo-600 scale-110' : 'border-transparent hover:scale-110'} transition-all`}
+                                style={{ backgroundColor: color }}
+                                onClick={(e) => { e.stopPropagation(); setPenColor(color); setShowColorPicker(false); }}
+                            />
+                        ))}
+                    </div>
+                )}
+                <ToolButton icon="fa-circle" tool="circle" active={activeTool} onClick={() => handleToolClick('circle')} label="Circle" />
+                {activeTool === 'circle' && showColorPicker && (
                     <div className="flex flex-col gap-1.5 p-1.5 bg-slate-50 rounded-lg border border-slate-100 items-center animate-in fade-in slide-in-from-left-4 duration-200">
                         {['#000000', '#ef4444', '#22c55e', '#3b82f6', '#eab308'].map(color => (
                             <button
@@ -470,13 +623,13 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
 
                 {/* Unified Items Layer - Rendered in Creation Order */}
                 {items.map(item => {
-                    // Render Path/Arrow
-                    if (item.type === 'pen' || item.type === 'arrow') {
-                        if (!item.points || item.points.length < 1) return null;
-                        if (item.type === 'arrow' && item.points.length < 2) return null;
+                    // Render Path/Arrow/Circle
+                    if (item.type === 'pen' || item.type === 'arrow' || item.type === 'circle') {
+                        if ((item.type === 'pen' || item.type === 'arrow') && (!item.points || item.points.length < 1)) return null;
+                        if (item.type === 'arrow' && item.points!.length < 2) return null;
                         return (
                             <svg key={item.id} className="absolute inset-0 w-full h-full pointer-events-none">
-                                {activeTool === 'eraser' && (
+                                {(activeTool === 'eraser' || activeTool === 'select') && (
                                     item.type === 'arrow' ? (
                                         <line
                                             x1={item.points![0].x}
@@ -485,11 +638,58 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
                                             y2={item.points![1].y}
                                             stroke="transparent"
                                             strokeWidth={20}
-                                            className="cursor-cell"
+                                            className={activeTool === 'eraser' ? 'cursor-cell' : 'cursor-pointer'}
                                             style={{ pointerEvents: 'all' }}
-                                            onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
-                                            onMouseEnter={(e) => { if (e.buttons === 1) deleteItem(item.id); }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (activeTool === 'eraser') deleteItem(item.id);
+                                                else if (activeTool === 'select') {
+                                                    setSelectedItemId(item.id);
+                                                    // Trigger drag
+                                                }
+                                            }}
+                                            onMouseDown={(e) => startDrag(e, item)}
+                                            onMouseEnter={(e) => {
+                                                if (activeTool === 'eraser' && e.buttons === 1) deleteItem(item.id);
+                                            }}
                                         />
+                                    ) : item.type === 'circle' ? (
+                                        <>
+                                            <circle
+                                                cx={item.x}
+                                                cy={item.y}
+                                                r={item.radius}
+                                                fill="transparent"
+                                                stroke="transparent"
+                                                strokeWidth={20}
+                                                className={activeTool === 'eraser' ? 'cursor-cell' : 'cursor-pointer'}
+                                                style={{ pointerEvents: 'all' }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (activeTool === 'eraser') deleteItem(item.id);
+                                                    else if (activeTool === 'select') {
+                                                        setSelectedItemId(item.id);
+                                                    }
+                                                }}
+                                                onMouseDown={(e) => startDrag(e, item)}
+                                                onMouseEnter={(e) => {
+                                                    if (activeTool === 'eraser' && e.buttons === 1) deleteItem(item.id);
+                                                }}
+                                            />
+                                            {selectedItemId === item.id && activeTool === 'select' && item.radius && (
+                                                <circle
+                                                    cx={item.x! + item.radius}
+                                                    cy={item.y}
+                                                    r={6}
+                                                    fill="white"
+                                                    stroke="#3b82f6"
+                                                    strokeWidth={2}
+                                                    className="cursor-ew-resize"
+                                                    style={{ pointerEvents: 'all' }}
+                                                    onMouseDown={(e) => startResize(e, item)}
+                                                />
+                                            )}
+                                        </>
                                     ) : (
                                         <polyline
                                             points={item.points!.map(p => `${p.x},${p.y}`).join(' ')}
@@ -498,23 +698,80 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
                                             strokeWidth={20}
                                             strokeLinecap="round"
                                             strokeLinejoin="round"
-                                            className="cursor-cell"
+                                            className={activeTool === 'eraser' ? 'cursor-cell' : 'cursor-pointer'}
                                             style={{ pointerEvents: 'all' }}
-                                            onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
-                                            onMouseEnter={(e) => { if (e.buttons === 1) deleteItem(item.id); }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (activeTool === 'eraser') deleteItem(item.id);
+                                                else if (activeTool === 'select') {
+                                                    setSelectedItemId(item.id);
+                                                }
+                                            }}
+                                            onMouseDown={(e) => startDrag(e, item)}
+                                            onMouseEnter={(e) => {
+                                                if (activeTool === 'eraser' && e.buttons === 1) deleteItem(item.id);
+                                            }}
                                         />
                                     )
                                 )}
                                 {item.type === 'arrow' ? (
-                                    <line
-                                        x1={item.points![0].x}
-                                        y1={item.points![0].y}
-                                        x2={item.points![1].x}
-                                        y2={item.points![1].y}
+                                    <>
+                                        <line
+                                            x1={item.points![0].x}
+                                            y1={item.points![0].y}
+                                            x2={item.points![1].x}
+                                            y2={item.points![1].y}
+                                            stroke={item.stroke}
+                                            strokeWidth={item.strokeWidth}
+                                            markerEnd={`url(#arrowhead-${item.stroke?.replace('#', '')})`}
+                                            style={{
+                                                opacity: activeTool === 'eraser' ? 0.3 : 1,
+                                                transition: 'opacity 0.2s',
+                                                filter: selectedItemId === item.id ? 'drop-shadow(0 0 4px #3b82f6)' : 'none'
+                                            }}
+                                        />
+                                        {selectedItemId === item.id && activeTool === 'select' && item.points && (
+                                            <>
+                                                {/* Start Handle */}
+                                                <circle
+                                                    cx={item.points[0].x}
+                                                    cy={item.points[0].y}
+                                                    r={5}
+                                                    fill="white"
+                                                    stroke="#3b82f6"
+                                                    strokeWidth={2}
+                                                    className="cursor-move"
+                                                    style={{ pointerEvents: 'all' }}
+                                                    onMouseDown={(e) => startResize(e, item, 'start')}
+                                                />
+                                                {/* End Handle */}
+                                                <circle
+                                                    cx={item.points[item.points.length - 1].x}
+                                                    cy={item.points[item.points.length - 1].y}
+                                                    r={5}
+                                                    fill="white"
+                                                    stroke="#3b82f6"
+                                                    strokeWidth={2}
+                                                    className="cursor-move"
+                                                    style={{ pointerEvents: 'all' }}
+                                                    onMouseDown={(e) => startResize(e, item, 'end')}
+                                                />
+                                            </>
+                                        )}
+                                    </>
+                                ) : item.type === 'circle' ? (
+                                    <circle
+                                        cx={item.x}
+                                        cy={item.y}
+                                        r={item.radius}
+                                        fill="none"
                                         stroke={item.stroke}
                                         strokeWidth={item.strokeWidth}
-                                        markerEnd={`url(#arrowhead-${item.stroke?.replace('#', '')})`}
-                                        style={{ opacity: activeTool === 'eraser' ? 0.3 : 1, transition: 'opacity 0.2s' }}
+                                        style={{
+                                            opacity: activeTool === 'eraser' ? 0.3 : 1,
+                                            transition: 'opacity 0.2s',
+                                            filter: selectedItemId === item.id ? 'drop-shadow(0 0 4px #3b82f6)' : 'none'
+                                        }}
                                     />
                                 ) : (
                                     <polyline
@@ -524,7 +781,11 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
                                         strokeWidth={item.strokeWidth}
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
-                                        style={{ opacity: activeTool === 'eraser' ? 0.3 : 1, transition: 'opacity 0.2s' }}
+                                        style={{
+                                            opacity: activeTool === 'eraser' ? 0.3 : 1,
+                                            transition: 'opacity 0.2s',
+                                            filter: selectedItemId === item.id ? 'drop-shadow(0 0 4px #3b82f6)' : 'none'
+                                        }}
                                     />
                                 )}
                             </svg>
@@ -535,10 +796,10 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
                     return (
                         <div
                             key={item.id}
-                            className={`absolute group top-0 left-0 transition-transform ${activeTool === 'select' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                            className={`absolute group top-0 left-0 transition-transform hover:z-30 ${activeTool === 'select' ? 'cursor-grab active:cursor-grabbing' : ''}`}
                             style={{
                                 transform: `translate(${item.x}px, ${item.y}px) rotate(${item.rotation || 0}deg)`,
-                                zIndex: 'auto' // Let DOM order dictate zIndex
+                                zIndex: selectedItemId === item.id ? 40 : undefined
                             }}
                             onMouseDown={(e) => startDrag(e, item)}
                         >
@@ -568,7 +829,7 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
 
                             {item.type === 'note' && (
                                 <div
-                                    className={`p-4 shadow-lg ${getColorClass(item.color || 'yellow')} flex flex-col justify-start relative transition-shadow hover:shadow-2xl`}
+                                    className={`p-4 shadow-lg ${getColorClass(item.color || 'yellow')} flex flex-col justify-start relative transition-shadow hover:shadow-2xl ${selectedItemId === item.id ? 'ring-2 ring-indigo-600 ring-offset-2' : ''}`}
                                     style={{
                                         width: item.width || 192,
                                         height: item.height || 192,
@@ -600,7 +861,7 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
 
                             {item.type === 'text' && (
                                 <div
-                                    className="bg-white/50 rounded-lg p-2 focus-within:bg-white focus-within:shadow-sm border border-transparent focus-within:border-slate-200 transition-colors relative group/text"
+                                    className={`bg-white/50 rounded-lg p-2 focus-within:bg-white focus-within:shadow-sm border border-transparent focus-within:border-slate-200 transition-colors relative group/text ${selectedItemId === item.id ? 'ring-1 ring-indigo-600 ring-offset-1' : ''}`}
                                     style={{
                                         width: item.width || 300,
                                         height: item.height || 'auto',
@@ -672,6 +933,16 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
                             stroke={penColor}
                             strokeWidth="3"
                             markerEnd={`url(#arrowhead-${penColor.replace('#', '')})`}
+                        />
+                    )}
+                    {currentPath.length > 1 && activeTool === 'circle' && (
+                        <circle
+                            cx={currentPath[0].x}
+                            cy={currentPath[0].y}
+                            r={Math.sqrt(Math.pow(currentPath[1].x - currentPath[0].x, 2) + Math.pow(currentPath[1].y - currentPath[0].y, 2))}
+                            fill="none"
+                            stroke={penColor}
+                            strokeWidth="3"
                         />
                     )}
                 </svg>
