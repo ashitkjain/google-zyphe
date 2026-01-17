@@ -642,14 +642,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     </div>
 
                     <button
-                        onClick={handleResetMockData}
-                        className="flex items-center gap-2 text-rose-300 font-bold uppercase tracking-widest text-[10px] px-4 py-2 hover:bg-rose-900/30 rounded-lg transition-all border border-transparent hover:border-rose-500/30 mr-2"
-                    >
-                        <i className="fa-solid fa-trash-can"></i>
-                        Reset Data
-                    </button>
-
-                    <button
                         onClick={onBack}
                         className="group flex items-center gap-2 text-white font-black uppercase tracking-widest text-[10px] bg-indigo-600 px-6 py-3 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 border border-indigo-500/30"
                     >
@@ -784,6 +776,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                         onUpdateProperties={handleUpdateProperties}
                         initialStatuses={realtorProfile?.settings?.leadStatuses}
                         initialProperties={realtorProfile?.settings?.leadProperties}
+                        onResetData={handleResetMockData}
                     />
                 )}
 

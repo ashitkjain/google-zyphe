@@ -18,6 +18,7 @@ interface StatusSettingsProps {
     initialProperties?: PropertyOption[];
     initialClientProperties?: PropertyOption[];
     onUpdateClientProperties?: (properties: PropertyOption[]) => void;
+    onResetData?: () => void;
 }
 
 interface ManagedStatus extends StatusOption {
@@ -100,6 +101,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
     onUpdateProperties,
     initialStatuses,
     initialProperties,
+    onResetData,
 }) => {
     const [activeTab, setActiveTab] = useState<'statuses' | 'properties'>('statuses');
 
@@ -513,7 +515,9 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                 </button>
                             </div>
 
-
+                            <button type="button" onClick={handleResetDefaults} disabled={isSaving} className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition-colors">
+                                Reset Tab Defaults
+                            </button>
                             <button onClick={handleSave} disabled={isSaving} className={`px-6 py-2.5 rounded-xl font-bold text-xs shadow-lg transition-all ${isSaving ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-xl active:scale-95'} flex items-center gap-2`}>
                                 {isSaving ? <><i className="fa-solid fa-spinner fa-spin"></i><span>Saving...</span></> : <><i className="fa-solid fa-floppy-disk"></i><span>Save</span></>}
                             </button>
@@ -537,28 +541,23 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                         </div>
                     </div>
 
-                    {/* Developer Tools (Only on Statuses for now as migration is specific) */}
+                    {/* Developer Tools */}
                     <div className="mt-12 pt-8 border-t border-slate-200">
                         <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Developer Tools</h3>
                         <div className="flex flex-col gap-4">
-                            <button
-                                type="button"
-                                onClick={handleResetDefaults}
-                                disabled={isSaving}
-                                className="w-fit text-amber-600 hover:text-amber-700 text-xs font-bold flex items-center gap-2 transition-colors"
-                            >
-                                <i className="fa-solid fa-rotate-left"></i>
-                                Reset Current Tab to Defaults
-                            </button>
-                            <button
-                                type="button"
-                                onClick={(e) => { e.preventDefault(); /* handleSeedMockData(); */ }} // Function temporarily disabled 
-                                disabled={true}
-                                className="w-fit text-rose-500 hover:text-rose-700 text-xs font-bold flex items-center gap-2 transition-colors opacity-60 hover:opacity-100 cursor-not-allowed"
-                            >
-                                <i className="fa-solid fa-database"></i>
-                                Reset & Seed Mock Database (Disabled in this view)
-                            </button>
+                            {onResetData && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); onResetData(); }}
+                                    className="text-rose-500 hover:text-rose-700 text-xs font-bold flex items-center gap-2 transition-all hover:translate-x-1"
+                                >
+                                    <i className="fa-solid fa-trash-can"></i>
+                                    Reset & Seed Mock Database
+                                </button>
+                            )}
+                            <div className="text-[10px] text-slate-400 font-medium italic">
+                                Note: Resetting mock data will delete all existing leads and reload the default demonstration data.
+                            </div>
                         </div>
                     </div>
                 </div>
