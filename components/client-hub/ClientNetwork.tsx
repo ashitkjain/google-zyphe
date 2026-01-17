@@ -29,7 +29,7 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
     loadingClients,
     loadingActivity
 }) => {
-    const [networkTab, setNetworkTab] = useState<'on-zyphe' | 'off-zyphe'>('on-zyphe');
+    const [networkTab, setNetworkTab] = useState<'on-zyphe' | 'off-zyphe'>('off-zyphe');
     const [searchTerm, setSearchTerm] = useState('');
 
     // Manual Entry States
@@ -220,16 +220,16 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                         </h3>
                         <div className="flex bg-slate-100 p-1 rounded-xl">
                             <button
-                                onClick={() => setNetworkTab('on-zyphe')}
-                                className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${networkTab === 'on-zyphe' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                            >
-                                On Zyphe
-                            </button>
-                            <button
                                 onClick={() => setNetworkTab('off-zyphe')}
                                 className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${networkTab === 'off-zyphe' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                             >
                                 Off Zyphe
+                            </button>
+                            <button
+                                onClick={() => setNetworkTab('on-zyphe')}
+                                className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${networkTab === 'on-zyphe' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                            >
+                                On Zyphe
                             </button>
                         </div>
                     </div>
