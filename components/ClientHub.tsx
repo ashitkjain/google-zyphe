@@ -40,6 +40,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     const [loadingClients, setLoadingClients] = useState(true);
     const [loadingActivity, setLoadingActivity] = useState(false);
     const [realtorProfile, setRealtorProfile] = useState<UserProfile | null>(null);
+    const [settingsSubTab, setSettingsSubTab] = useState<'statuses' | 'properties'>('statuses');
 
     // Communication Hub State
     const [messages, setMessages] = useState<CommMessage[]>([]);
@@ -709,6 +710,14 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                                 } : null);
                             }
                         }}
+                        onTabChange={(tab: any) => {
+                            if (tab === 'settings:properties') {
+                                setSettingsSubTab('properties');
+                                setActiveTab('settings');
+                            } else {
+                                setActiveTab(tab);
+                            }
+                        }}
                     />
                 )}
 
@@ -777,6 +786,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                         initialStatuses={realtorProfile?.settings?.leadStatuses}
                         initialProperties={realtorProfile?.settings?.leadProperties}
                         onResetData={handleResetMockData}
+                        defaultTab={settingsSubTab}
                     />
                 )}
 

@@ -17,6 +17,7 @@ export interface InternalProps {
     realtorSettings?: UserProfile['settings'];
     onUpdateAvatar: (leadId: string, file: File) => void;
     onUpdateSettings: (settings: Partial<UserProfile['settings']>) => void;
+    onTabChange?: (tab: any) => void;
 }
 
 export type ViewMode = 'past6Months' | 'older';

@@ -25,7 +25,8 @@ const LeadsList: React.FC<InternalProps> = ({
     handleDragEnd,
     realtorSettings,
     onUpdateAvatar,
-    onUpdateSettings
+    onUpdateSettings,
+    onTabChange
 }) => {
     const formatLeadAge = (dateInput: any) => {
         if (!dateInput) return '--';
@@ -85,7 +86,7 @@ const LeadsList: React.FC<InternalProps> = ({
         };
         if (realtorSettings?.columnSettings) {
             Object.entries(realtorSettings.columnSettings).forEach(([key, cols]) => {
-                initial[key] = new Set(cols);
+                initial[key] = new Set(cols as string[]);
             });
         }
         return initial;
@@ -112,7 +113,7 @@ const LeadsList: React.FC<InternalProps> = ({
             // Persist to database
             const columnSettings: Record<string, string[]> = {};
             Object.entries(newState).forEach(([k, s]) => {
-                columnSettings[k] = Array.from(s);
+                columnSettings[k] = Array.from(s as Set<string>);
             });
             onUpdateSettings({ columnSettings });
 
@@ -629,6 +630,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                 availableColumns={availableBuyerColumns}
                                 visibleColumns={getVisibleColumns('Buyer')}
                                 onToggleColumn={(colId) => toggleColumn('Buyer', colId)}
+                                onTabChange={onTabChange}
                             />
                             {
                                 showFilters && (
@@ -991,6 +993,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                 availableColumns={availableSellerColumns}
                                 visibleColumns={getVisibleColumns('Seller')}
                                 onToggleColumn={(colId) => toggleColumn('Seller', colId)}
+                                onTabChange={onTabChange}
                             />
                             {
                                 showFilters && (

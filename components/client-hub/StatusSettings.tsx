@@ -19,6 +19,7 @@ interface StatusSettingsProps {
     initialClientProperties?: PropertyOption[];
     onUpdateClientProperties?: (properties: PropertyOption[]) => void;
     onResetData?: () => void;
+    defaultTab?: 'statuses' | 'properties';
 }
 
 interface ManagedStatus extends StatusOption {
@@ -102,8 +103,9 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
     initialStatuses,
     initialProperties,
     onResetData,
+    defaultTab,
 }) => {
-    const [activeTab, setActiveTab] = useState<'statuses' | 'properties'>('statuses');
+    const [activeTab, setActiveTab] = useState<'statuses' | 'properties'>(defaultTab || 'statuses');
 
     // --- Status Logic ---
     const initialStatusData = useMemo(() => {

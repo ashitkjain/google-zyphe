@@ -24,5 +24,6 @@ export interface UserProfile {
     settings?: {
         leadStatuses?: StatusOption[];
         leadProperties?: PropertyOption[];
+        columnSettings?: Record<string, string[]>;
     };
 }

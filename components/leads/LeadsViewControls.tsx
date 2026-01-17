@@ -22,6 +22,7 @@ interface LeadsViewControlsProps {
     availableColumns: { id: string; label: string }[];
     visibleColumns: Set<string>;
     onToggleColumn: (colId: string) => void;
+    onTabChange?: (tab: any) => void;
 }
 
 const LeadsViewControls: React.FC<LeadsViewControlsProps> = ({
@@ -43,7 +44,8 @@ const LeadsViewControls: React.FC<LeadsViewControlsProps> = ({
     columnSelectorRef,
     availableColumns,
     visibleColumns,
-    onToggleColumn
+    onToggleColumn,
+    onTabChange
 }) => {
     return (
         <div className="flex flex-col gap-4 mb-4 border-b border-slate-100 pb-3">
@@ -131,18 +133,30 @@ const LeadsViewControls: React.FC<LeadsViewControlsProps> = ({
                                             <i className="fa-solid fa-xmark"></i>
                                         </button>
                                     </div>
-                                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                                    <div className="space-y-2 max-h-[300px] overflow-y-auto mb-3">
                                         {availableColumns.map(col => (
-                                            <label key={col.id} className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                                            <label key={col.id} className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded transition-colors">
                                                 <input
                                                     type="checkbox"
                                                     checked={visibleColumns.has(col.id)}
                                                     onChange={() => onToggleColumn(col.id)}
                                                     className={`rounded border-slate-300 ${activeTab === 'Buyer' ? 'text-indigo-600 focus:ring-indigo-500' : 'text-emerald-600 focus:ring-emerald-500'}`}
                                                 />
-                                                {col.id === 'receivedAt' ? `Time in ${activeFunnelCategory}` : col.label}
+                                                <span className="truncate">{col.id === 'receivedAt' ? `Time in ${activeFunnelCategory}` : col.label}</span>
                                             </label>
                                         ))}
+                                    </div>
+                                    <div className="pt-2 border-t border-slate-100 mt-2">
+                                        <button
+                                            onClick={() => {
+                                                setShowColumnSelector(false);
+                                                onTabChange?.('settings:properties');
+                                            }}
+                                            className="w-full py-2 bg-slate-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-indigo-50 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <i className="fa-solid fa-sliders"></i>
+                                            Configure Fields
+                                        </button>
                                     </div>
                                 </div>
                             )}
