@@ -37,25 +37,25 @@ export const LEAD_FIELD_CONFIG = [
     { id: 'clientPhotoUrl', label: 'Client Photo', description: 'Client profile photo URL', category: 'Contact Information', visibility: ['Buyer', 'Seller'], type: 'string', funnelVisibility: ['All'], isLocked: true },
 
     // --- Intent & Readiness ---
-    { id: 'message', label: 'Initial Message', description: 'Message sent with inquiry', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'string' },
-    { id: 'timeframe', label: 'Timeframe', description: 'Expected timeline for transaction', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'string' },
-    { id: 'preApprovalStatus', label: 'Pre-Approved', description: 'Has obtained mortgage pre-approval', category: 'Intent & Readiness', visibility: ['Buyer'], type: 'boolean' },
-    { id: 'preQualified', label: 'Pre-Qualified', description: 'Has initial financial qualification', category: 'Intent & Readiness', visibility: ['Buyer'], type: 'boolean' },
+    { id: 'message', label: 'Initial Message', description: 'Message sent with inquiry', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'string', funnelVisibility: ['Leads', 'Nurture'] },
+    { id: 'timeframe', label: 'Timeframe', description: 'Expected timeline for transaction', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'string', funnelVisibility: ['Leads', 'Nurture', 'Active Search'] },
+    { id: 'preApprovalStatus', label: 'Pre-Approved', description: 'Has obtained mortgage pre-approval', category: 'Intent & Readiness', visibility: ['Buyer'], type: 'boolean', funnelVisibility: ['Active Search', 'Offer'] },
+    { id: 'preQualified', label: 'Pre-Qualified', description: 'Has initial financial qualification', category: 'Intent & Readiness', visibility: ['Buyer'], type: 'boolean', funnelVisibility: ['Leads', 'Nurture'] },
     { id: 'isAllCash', label: 'All Cash', description: 'Planning to pay with cash', category: 'Intent & Readiness', visibility: ['Buyer'], type: 'boolean' },
     { id: 'isWarm', label: 'Warm Lead', description: 'The client has shown interest but is not ready to sign a contract.', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'boolean' },
     { id: 'isCold', label: 'Cold Lead', description: 'The lead has not yet been spoken to or shown intent.', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'boolean' },
     { id: 'isLongTerm', label: 'Long Term Lead', description: 'Client expressed interest but is 6-12+ months away.', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'boolean' },
     { id: 'homeValueNeeded', label: 'Home Value Needed', description: 'Requested a home valuation', category: 'Intent & Readiness', visibility: ['Seller'], type: 'boolean' },
-    { id: 'reasonForSelling', label: 'Reason for Selling', description: 'Motivation for listing property', category: 'Intent & Readiness', visibility: ['Seller'], type: 'string' },
-    { id: 'isMostImportantReq', label: 'Most Important Req', description: 'Top priority for the client', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'boolean' },
+    { id: 'reasonForSelling', label: 'Reason for Selling', description: 'Motivation for listing property', category: 'Intent & Readiness', visibility: ['Seller'], type: 'string', funnelVisibility: ['Leads', 'Nurture', 'Active Search'] },
+    { id: 'isMostImportantReq', label: 'Most Important Req', description: 'Top priority for the client', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'boolean', funnelVisibility: ['Active Search'] },
     { id: 'lenderContact', label: 'Lender Contact', description: 'Contact info for lender', category: 'Intent & Readiness', visibility: ['Buyer'], type: 'string' },
     { id: 'tags', label: 'Tags', description: 'Custom tags', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'string' },
     { id: 'slaUrgency', label: 'SLA Urgency', description: 'Service Level Agreement urgency', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'enum', options: ['Low', 'Medium', 'High', 'Critical'] },
     { id: 'isHot', label: 'Hot Lead', description: 'High priority lead', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'boolean' },
     { id: 'isEngaged', label: 'Engaged', description: 'Lead is actively interacting', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'boolean' },
-    { id: 'isEvaluatingAgent', label: 'Evaluating Agent', description: 'Shopping for representation', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'boolean' },
-    { id: 'initialContactIn30Mins', label: 'Contacted in 30 mins', description: 'Contacted within 30 minutes', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'boolean' },
-    { id: 'dealBreakers', label: 'Deal Breakers', description: 'List of deal breakers', category: 'Intent & Readiness', visibility: ['Buyer'], type: 'string' },
+    { id: 'isEvaluatingAgent', label: 'Evaluating Agent', description: 'Shopping for representation', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'boolean', funnelVisibility: ['Leads', 'Nurture'] },
+    { id: 'initialContactIn30Mins', label: 'Contacted in 30 mins', description: 'Contacted within 30 minutes', category: 'Intent & Readiness', visibility: ['Buyer', 'Seller'], type: 'boolean', funnelVisibility: ['Leads'] },
+    { id: 'dealBreakers', label: 'Deal Breakers', description: 'List of deal breakers', category: 'Intent & Readiness', visibility: ['Buyer'], type: 'string', funnelVisibility: ['Active Search', 'Offer'] },
     { id: 'neighborhoodTargets', label: 'Neighborhood Targets', description: 'Target neighborhoods', category: 'Intent & Readiness', visibility: ['Buyer'], type: 'string' },
     { id: 'schoolDistricts', label: 'School Districts', description: 'Preferred school districts', category: 'Intent & Readiness', visibility: ['Buyer'], type: 'string' },
 
@@ -78,7 +78,7 @@ export const LEAD_FIELD_CONFIG = [
     { id: 'visitors', label: 'Visitors', description: 'Complex List: History of property visitors', category: 'Activity', visibility: ['Seller'], type: 'string' },
 
     // --- Timings ---
-    { id: 'leaseEndDate', label: 'Lease End Date', description: 'When current lease expires', category: 'Timings', visibility: ['Buyer'], type: 'string' },
+    { id: 'leaseEndDate', label: 'Lease End Date', description: 'When current lease expires', category: 'Timings', visibility: ['Buyer'], type: 'string', funnelVisibility: ['Leads', 'Nurture'] },
     { id: 'sellWhen', label: 'When to Sell', description: 'Target listing date/period', category: 'Timings', visibility: ['Seller'], type: 'string' },
     { id: 'receivedAt', label: 'Received At', description: 'Date lead was created', category: 'Timings', visibility: ['Buyer', 'Seller'], type: 'string' },
     { id: 'lastUpdated', label: 'Last Updated', description: 'Timestamp of last update', category: 'Timings', visibility: ['Buyer', 'Seller'], type: 'string' },
@@ -86,11 +86,11 @@ export const LEAD_FIELD_CONFIG = [
 
     // --- Property Preferences / Subject Property ---
     // REPLACED individual fields with Complex Objects
-    { id: 'inquiryProperty', label: 'Inquiry Property', description: 'Complex Object: Buyer preferences/target', category: 'Property Details', visibility: ['Buyer'], type: 'string' },
+    { id: 'inquiryProperty', label: 'Inquiry Property', description: 'Complex Object: Buyer preferences/target', category: 'Property Details', visibility: ['Buyer'], type: 'string', funnelVisibility: ['Leads', 'Nurture'] },
     { id: 'subjectPropertyDetails', label: 'Subject Property Details', description: 'Complex Object: Seller property details', category: 'Property Details', visibility: ['Seller'], type: 'string' },
 
     // --- Referral & Source ---
-    { id: 'source', label: 'Lead Source', description: 'Origin (Zillow, Website, etc.)', category: 'Referral & Source', visibility: ['Buyer', 'Seller'], type: 'string' },
+    { id: 'source', label: 'Lead Source', description: 'Origin (Zillow, Website, etc.)', category: 'Referral & Source', visibility: ['Buyer', 'Seller'], type: 'string', funnelVisibility: ['Leads', 'Nurture'] },
     { id: 'isReferredByPastClient', label: 'Ref by Past Client', description: 'Referral source is a former client', category: 'Referral & Source', visibility: ['Buyer', 'Seller'], type: 'boolean' },
     { id: 'isReferredByFriendFamily', label: 'Ref by Friend/Fam', description: 'Referral source is personal network', category: 'Referral & Source', visibility: ['Buyer', 'Seller'], type: 'boolean' },
     { id: 'leadType', label: 'Lead Type', description: 'Classification of lead', category: 'Referral & Source', visibility: ['Buyer', 'Seller'], type: 'enum', options: ['Direct Lead', 'Live Connection', 'Nurture'] },

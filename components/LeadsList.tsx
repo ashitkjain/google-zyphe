@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Lead, PipelineNote, UserProfile, FunnelStage } from '../types';
+import { LEAD_FIELD_CONFIG } from '../types/lead';
+import { PropertyOption } from '../types/shared';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { getStatusOptions, getStatusDefinitions, isNewLeadStatus, getFunnelStageForStatus } from '../services/statusService';
 import { InternalProps, ViewMode, DisplayMode } from './leads/types';
@@ -92,10 +94,36 @@ const LeadsList: React.FC<InternalProps> = ({
         return initial;
     });
 
+    const computeVisibleColumns = (type: 'Buyer' | 'Seller', stage: FunnelStage) => {
+        // Use user settings if available, otherwise defaults
+        // We cast to PropertyOption[] because strict typing might miss some runtime properties or optional mismatch
+        const properties = (realtorSettings?.leadProperties || LEAD_FIELD_CONFIG) as PropertyOption[];
+
+        const valid = properties.filter(p => {
+            // Check Persona Visibility
+            const isVisibleForPersona = !p.visibility || p.visibility.includes(type);
+
+            // Check Funnel Visibility
+            const stages = p.funnelVisibility || ['All'];
+            const isVisibleForStage = stages.includes('All') || stages.includes(stage);
+
+            return isVisibleForPersona && isVisibleForStage;
+        });
+
+        // Sort by order if available (user defined order), otherwise keep existing order
+        const sorted = valid.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+
+        // Limit to 10 fields and return IDs
+        return new Set(sorted.slice(0, 10).map(p => p.id));
+    };
+
     const getVisibleColumns = (type: 'Buyer' | 'Seller') => {
         const stage = type === 'Buyer' ? buyerFunnelCategory : sellerFunnelCategory;
         const key = `${type}:${stage}`;
-        return visibleColumns[key] || visibleColumns[type] || new Set(type === 'Buyer' ? defaultBuyerVisible : defaultSellerVisible);
+
+        // If user has manually toggled columns for this specific view (key), use that.
+        // Otherwise, compute based on Status Settings (This "Connects" the two features).
+        return visibleColumns[key] || computeVisibleColumns(type, stage);
     };
 
     const toggleColumn = (type: 'Buyer' | 'Seller', colId: string) => {
