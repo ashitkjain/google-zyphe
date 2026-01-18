@@ -665,6 +665,11 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                         clientActivity={clientActivity}
                         loadingClients={loadingClients}
                         loadingActivity={loadingActivity}
+                        agentSettings={realtorProfile?.settings}
+                        onUpdateAgentSettings={(settings) => {
+                            saveUserProfile(realtorId, { settings });
+                            setRealtorProfile(prev => prev ? { ...prev, settings } : null);
+                        }}
                     />
                 )}
 

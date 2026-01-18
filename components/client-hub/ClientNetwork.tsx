@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, Lead, ShortlistedProperty, ActivityEvent } from '../../types';
 import { LEAD_FIELD_CONFIG } from '../../types/lead';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
 interface ClientNetworkProps {
     clients: UserProfile[];
@@ -11,6 +12,8 @@ interface ClientNetworkProps {
     clientActivity: { favorites: any[], views: any[] };
     loadingClients: boolean;
     loadingActivity: boolean;
+    agentSettings?: any;
+    onUpdateAgentSettings?: (settings: any) => void;
 }
 
 const formatDate = (timestamp: any) => {
@@ -27,10 +30,65 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
     onUpdateKYC,
     clientActivity,
     loadingClients,
-    loadingActivity
+    loadingActivity,
+    agentSettings,
+    onUpdateAgentSettings
 }) => {
     const [networkTab, setNetworkTab] = useState<'on-zyphe' | 'off-zyphe'>('off-zyphe');
     const [searchTerm, setSearchTerm] = useState('');
+    const DEFAULT_ORDER = [
+        'persona',
+        'shortlist',
+        'activity',
+        'kyc_profiles',
+        'kyc_readiness',
+        'kyc_pipeline',
+        'detail_intent',
+        'detail_persona',
+        'detail_activity',
+        'detail_property',
+        'detail_timings',
+        'detail_referral'
+    ];
+
+    const migrateIds = (order: string[]) => {
+        const mapping: Record<string, string> = {
+            'persona_context': 'detail_persona',
+            'detailed_activity': 'detail_activity',
+            'property_details': 'detail_property',
+            'timings': 'detail_timings',
+            'referral': 'detail_referral',
+            'intent': 'detail_intent'
+        };
+        return Array.from(new Set(order.map(id => mapping[id] || id)));
+    };
+
+    const [cardOrder, setCardOrder] = useState<string[]>(() => {
+        if (agentSettings?.clientLayoutOrder) {
+            return migrateIds(agentSettings.clientLayoutOrder);
+        }
+        return DEFAULT_ORDER;
+    });
+
+    useEffect(() => {
+        if (agentSettings?.clientLayoutOrder) {
+            setCardOrder(migrateIds(agentSettings.clientLayoutOrder));
+        }
+    }, [agentSettings?.clientLayoutOrder]);
+
+    const handleDragEnd = (result: DropResult) => {
+        if (!result.destination) return;
+
+        const items = Array.from(cardOrder);
+        const [reorderedItem] = items.splice(result.source.index, 1);
+        items.splice(result.destination.index, 0, reorderedItem);
+
+        setCardOrder(items);
+        onUpdateAgentSettings?.({
+            ...agentSettings,
+            clientLayoutOrder: items
+        });
+    };
 
     // Manual Entry States
     const [activeForm, setActiveForm] = useState<'property' | 'activity' | null>(null);
@@ -355,524 +413,310 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 lg:p-6 xl:p-10">
-                            {/* Premium AI Persona Section */}
-                            <div className="bg-indigo-900 rounded-[3rem] p-10 mb-10 text-white relative overflow-hidden shadow-2xl">
-                                <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-                                <div className="relative z-10 flex items-center justify-between">
-                                    <div className="space-y-5 max-w-2xl">
-                                        <div className="flex items-center gap-3">
-                                            <div className="px-3 py-1 bg-amber-500 text-slate-900 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20">
-                                                AI Intelligence Active
-                                            </div>
-                                            <h3 className="text-2xl font-black tracking-tight">
-                                                {isUser(selectedClient) ? 'Modern Luxury Seeker' : 'High-Intent Prospect'}
-                                            </h3>
-                                        </div>
-                                        {isUser(selectedClient) ? (
-                                            <p className="text-indigo-100 text-lg leading-relaxed font-medium">
-                                                Based on {selectedClient.displayName}'s behavior, they are focusing on <span className="font-bold text-white">expansive open floor plans</span> and <span className="font-bold text-white">smart home ecosystems</span>. They typically view properties in the <span className="font-bold text-amber-400">$800k-$1.2M range</span>.
-                                            </p>
-                                        ) : (
-                                            <p className="text-indigo-100 text-lg leading-relaxed font-medium">
-                                                <strong>{getName(selectedClient)}</strong> is a <strong>{(selectedClient as Lead).leadType}</strong> currently in the <strong>{(selectedClient as Lead).funnelStage}</strong> stage.
-                                                {(selectedClient as Lead).isHot && <span className="text-amber-400 font-bold"> This is a Hot Lead.</span>}
-                                                {(selectedClient as Lead).isWarm && <span className="text-amber-200 font-bold"> This is a Warm Lead.</span>}
-                                                {' '}
-                                                Targeting <strong>{(selectedClient as Lead).inquiryProperty?.minPrice ? `$${((selectedClient as Lead).inquiryProperty?.minPrice! / 1000).toFixed(0)}k` : 'market price'}</strong>
-                                                {' - '}
-                                                <strong>{(selectedClient as Lead).inquiryProperty?.maxPrice ? `$${((selectedClient as Lead).inquiryProperty?.maxPrice! / 1000).toFixed(0)}k` : 'any range'}</strong>.
-                                                {((selectedClient as Lead).offers?.length || 0) > 0 ? ` Has made ${(selectedClient as Lead).offers?.length} offer(s) so far.` : ' No offers made yet.'}
-                                                {(selectedClient as Lead).timeframe ? ` Looking to close by: ${(selectedClient as Lead).timeframe}.` : ''}
-                                                {(selectedClient as Lead).generalInfo ? ` Note: ${(selectedClient as Lead).generalInfo}` : ''}
-                                            </p>
-                                        )}
-                                        <div className="flex gap-3 pt-2">
-                                            {isUser(selectedClient) ? (
-                                                ['Modern Design', 'Eco-Home', 'High Walkscore'].map((tag, i) => (
-                                                    <span key={i} className="px-5 py-2.5 bg-white/10 rounded-2xl text-[11px] font-black uppercase border border-white/10">{tag}</span>
-                                                ))
-                                            ) : (
-                                                <>
-                                                    <span className="px-5 py-2.5 bg-white/10 rounded-2xl text-[11px] font-black uppercase border border-white/10">Channel: {(selectedClient as Lead).source}</span>
-                                                    <span className="px-5 py-2.5 bg-white/10 rounded-2xl text-[11px] font-black uppercase border border-white/10">Stage: {(selectedClient as Lead).funnelStage}</span>
-                                                    <span className="px-5 py-2.5 bg-white/10 rounded-2xl text-[11px] font-black uppercase border border-white/10">Health: {(selectedClient as Lead).health}</span>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-6xl font-black text-amber-500 tracking-tighter">
-                                            {isUser(selectedClient) ? '88%' : (selectedClient as Lead).health === 'Active' ? '92%' : '76%'}
-                                        </div>
-                                        <div className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mt-2">Conversion Sc.</div>
-                                    </div>
-                                </div>
-                            </div>
+                        <div className="flex-1 overflow-hidden">
+                            <DragDropContext onDragEnd={handleDragEnd}>
+                                <Droppable droppableId="client-cards">
+                                    {(provided) => (
+                                        <div
+                                            {...provided.droppableProps}
+                                            ref={provided.innerRef}
+                                            className="h-full overflow-y-auto p-4 lg:p-6 xl:p-10 grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-6 xl:gap-8 min-w-0"
+                                        >
+                                            {cardOrder.map((cardId, index) => {
+                                                let content: React.ReactNode = null;
+                                                let span = "col-span-1";
+                                                let isVisible = true;
 
-                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 xl:gap-8 w-full min-w-0">
-                                {/* Top Interests (Property Shortlist) */}
-                                <div className="space-y-6 min-w-0 flex flex-col">
-                                    <div className="flex items-center justify-between px-2">
-                                        <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-900 flex items-center gap-3">
-                                            <div className="w-2 h-2 rounded-full bg-rose-500"></div>
-                                            Property Shortlist
-                                        </h3>
-                                        <div className="flex items-center gap-4">
-                                            <button className="text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:underline">Export</button>
-                                            <button
-                                                onClick={() => setActiveForm('property')}
-                                                className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all shadow-sm border border-indigo-100/50"
-                                            >
-                                                <i className="fa-solid fa-plus text-[10px]"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {getFavorites(selectedClient).length === 0 ? (
-                                        <div className="bg-white rounded-[2rem] p-16 text-center shadow-sm border border-slate-100">
-                                            <p className="text-slate-400 font-medium">No archived favorites.</p>
-                                        </div>
-                                    ) : (
-                                        <div className="grid gap-5">
-                                            {getFavorites(selectedClient).map((fav, i) => (
-                                                <div
-                                                    key={i}
-                                                    onDoubleClick={() => {
-                                                        setEditingProperty(fav);
-                                                        setActiveForm('property');
-                                                    }}
-                                                    className="bg-white p-4 lg:p-6 rounded-[2rem] lg:rounded-[2.5rem] border border-slate-200/60 shadow-sm hover:shadow-xl transition-all flex items-center gap-4 lg:gap-6 group cursor-pointer relative min-w-0"
-                                                >
-                                                    <div className="w-16 h-16 lg:w-20 lg:h-20 xl:w-24 xl:h-24 rounded-[1.2rem] lg:rounded-[1.5rem] bg-indigo-50 shrink-0 overflow-hidden relative border border-slate-100">
-                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-                                                        <i className="fa-solid fa-house-circle-check text-indigo-200 text-xl lg:text-2xl absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></i>
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <h4 className="font-bold text-slate-900 text-sm lg:text-base truncate">{fav.address}</h4>
-                                                        <div className="flex items-center gap-2 lg:gap-4 mt-1 lg:mt-2 flex-wrap">
-                                                            <span className="text-xl lg:text-2xl font-black text-emerald-600">${fav.price?.toLocaleString() || '---'}</span>
-                                                            {fav.isHot && <span className="px-2 py-0.5 bg-rose-50 text-rose-500 rounded-lg text-[10px] lg:text-[12px] font-black uppercase tracking-widest border border-rose-100">Hot</span>}
-                                                        </div>
-                                                    </div>
-                                                    <button className="w-10 h-10 lg:w-12 lg:h-12 xl:w-14 xl:h-14 rounded-2xl lg:rounded-3xl bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all shrink-0">
-                                                        <i className="fa-solid fa-up-right-from-square text-[10px]"></i>
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Engagement Stream (Live Activity Feed) */}
-                                <div className="space-y-6 min-w-0 flex flex-col">
-                                    <div className="flex items-center justify-between px-2">
-                                        <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-900 flex items-center gap-3">
-                                            <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-                                            Live Activity Feed
-                                        </h3>
-                                        <div className="flex items-center gap-4">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                                {getViews(selectedClient).length} Events
-                                            </span>
-                                            <button
-                                                onClick={() => setActiveForm('activity')}
-                                                className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all shadow-sm border border-indigo-100/50"
-                                            >
-                                                <i className="fa-solid fa-plus text-[10px]"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {getViews(selectedClient).length === 0 ? (
-                                        <div className="bg-white rounded-[2rem] p-16 text-center shadow-sm border border-slate-100">
-                                            <p className="text-slate-400 font-medium">No activity recorded yet.</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {getViews(selectedClient).map((view, i) => (
-                                                <div
-                                                    key={i}
-                                                    onDoubleClick={() => {
-                                                        setEditingActivity(view);
-                                                        setActiveForm('activity');
-                                                    }}
-                                                    className="bg-white p-4 lg:p-6 rounded-[2rem] lg:rounded-[2.5rem] border border-slate-200/60 shadow-sm hover:shadow-xl hover:scale-[1.02] transition-all flex items-center justify-between group cursor-pointer min-w-0"
-                                                >
-                                                    <div className="flex items-center gap-4 lg:gap-6 flex-1 min-w-0">
-                                                        <div className="w-10 h-10 lg:w-12 lg:h-12 xl:w-14 xl:h-14 rounded-xl lg:rounded-2xl xl:rounded-3xl bg-slate-50 flex items-center justify-center text-indigo-600 font-black shrink-0 border border-slate-100 text-sm lg:text-base xl:text-xl">
-                                                            {view.viewCount || 1}
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <h4 className="font-bold text-slate-900 text-sm lg:text-base truncate">{view.address}</h4>
-                                                            <div className="flex items-center gap-2 lg:gap-3 mt-1 lg:mt-1.5 flex-wrap">
-                                                                <span className="text-[10px] lg:text-[12px] font-black uppercase tracking-widest text-slate-400">{formatDate(view.timestamp)}</span>
-                                                                <span className="opacity-10 text-slate-900">•</span>
-                                                                <span className="text-[10px] lg:text-[12px] font-black uppercase tracking-widest text-indigo-500 font-bold">
-                                                                    {view.type || 'Engagement'}
-                                                                </span>
+                                                if (cardId === 'persona') {
+                                                    if (!isUser(selectedClient)) return null;
+                                                    span = "col-span-full";
+                                                    content = (
+                                                        <div className="bg-indigo-900 rounded-[3rem] p-10 text-white relative overflow-hidden shadow-2xl">
+                                                            <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+                                                            <div className="relative z-10 flex items-center justify-between">
+                                                                <div className="space-y-5 max-w-2xl">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="px-3 py-1 bg-amber-500 text-slate-900 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20">
+                                                                            AI Intelligence Active
+                                                                        </div>
+                                                                        <h3 className="text-2xl font-black tracking-tight">
+                                                                            {isUser(selectedClient) ? 'Modern Luxury Seeker' : 'High-Intent Prospect'}
+                                                                        </h3>
+                                                                    </div>
+                                                                    {isUser(selectedClient) ? (
+                                                                        <p className="text-indigo-100 text-lg leading-relaxed font-medium">
+                                                                            Based on {selectedClient.displayName}'s behavior, they are focusing on <span className="font-bold text-white">expansive open floor plans</span> and <span className="font-bold text-white">smart home ecosystems</span>. They typically view properties in the <span className="font-bold text-amber-400">$800k-$1.2M range</span>.
+                                                                        </p>
+                                                                    ) : (
+                                                                        <p className="text-indigo-100 text-lg leading-relaxed font-medium">
+                                                                            <strong>{getName(selectedClient)}</strong> is a <strong>{(selectedClient as Lead).leadType}</strong> currently in the <strong>{(selectedClient as Lead).funnelStage}</strong> stage.
+                                                                            {(selectedClient as Lead).isHot && <span className="text-amber-400 font-bold"> This is a Hot Lead.</span>}
+                                                                            Targeting <strong>{(selectedClient as Lead).inquiryProperty?.minPrice ? `$${((selectedClient as Lead).inquiryProperty?.minPrice! / 1000).toFixed(0)}k` : 'market price'}</strong>
+                                                                            {' - '}
+                                                                            <strong>{(selectedClient as Lead).inquiryProperty?.maxPrice ? `$${((selectedClient as Lead).inquiryProperty?.maxPrice! / 1000).toFixed(0)}k` : 'any range'}</strong>.
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-right">
+                                                                    <div className="text-6xl font-black text-amber-500 tracking-tighter">
+                                                                        {isUser(selectedClient) ? '88%' : (selectedClient as Lead).health === 'Active' ? '92%' : '76%'}
+                                                                    </div>
+                                                                    <div className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mt-2">Conversion Sc.</div>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                    <button className="w-8 h-8 lg:w-10 lg:h-10 xl:w-11 xl:h-11 rounded-xl lg:rounded-2xl bg-indigo-50 text-indigo-600 opacity-0 group-hover:opacity-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all shrink-0">
-                                                        <i className="fa-solid fa-chevron-right text-[10px]"></i>
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* KYC Intelligence Hub - Comprehensive View */}
-                            {selectedClient.kyc && (
-                                <div className="mt-12 space-y-8">
-                                    <div className="flex items-center justify-between px-2">
-                                        {/* KYC Header removed */}
-                                    </div>
-
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
-                                        {/* 1. Profiles & Preferences */}
-                                        <div className="bg-white p-8 rounded-[3rem] border border-slate-200/60 shadow-sm space-y-6 flex flex-col">
-                                            <h4 className="text-[10px] font-black text-indigo-900 uppercase tracking-widest flex items-center gap-2 border-b border-slate-50 pb-3">
-                                                <i className="fa-solid fa-user-gear"></i> Profiles & Preferences
-                                            </h4>
-
-                                            <div className="space-y-4 flex-1">
-                                                {/* Target Criteria */}
-                                                <div className="grid grid-cols-2 gap-4 pb-4 border-b border-slate-50">
-                                                    <div>
-                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Budget</div>
-                                                        <div className="text-[14px] font-black text-slate-900">
-                                                            ${(selectedClient as any).minPrice?.toLocaleString() || '0'} - ${(selectedClient as any).maxPrice?.toLocaleString() || '---'}
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Specs</div>
-                                                        <div className="text-[14px] font-black text-slate-900">
-                                                            {(selectedClient as any).bedrooms || '0'}+ Beds | {(selectedClient as any).bathrooms || '0'}+ Baths
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                {(selectedClient.kyc.dealBreakers?.length || 0) > 0 && (
-                                                    <div className="space-y-2">
-                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Deal-Breakers</div>
-                                                        <div className="flex flex-wrap gap-1.5">
-                                                            {selectedClient.kyc.dealBreakers?.map((db, i) => (
-                                                                <span key={i} className="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-bold border border-rose-100/50">{db}</span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {(selectedClient.kyc.neighborhoodTargets?.length || 0) > 0 && (
-                                                    <div className="space-y-2">
-                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Target Neighborhoods</div>
-                                                        <div className="flex flex-wrap gap-1.5">
-                                                            {selectedClient.kyc.neighborhoodTargets?.map((nh, i) => (
-                                                                <span key={i} className="px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-bold border border-indigo-100/50">{nh}</span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {selectedClient.kyc.schoolDistricts && (
-                                                    <div className="space-y-1">
-                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">School Districts</div>
-                                                        <div className="text-[14px] font-bold text-slate-700">{selectedClient.kyc.schoolDistricts}</div>
-                                                    </div>
-                                                )}
-
-                                                {(selectedClient.kyc.birthdays || selectedClient.kyc.homeAnniversary) && (
-                                                    <div className="pt-4 border-t border-slate-50 grid grid-cols-2 gap-4">
-                                                        {selectedClient.kyc.birthdays && (
-                                                            <div>
-                                                                <div className="text-[8px] font-black text-slate-400 uppercase">Birthdays</div>
-                                                                <div className="text-[10px] font-bold text-slate-800">{selectedClient.kyc.birthdays}</div>
+                                                    );
+                                                } else if (cardId === 'shortlist') {
+                                                    content = (
+                                                        <div className="space-y-6 flex flex-col h-full bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-sm relative group/card">
+                                                            <div className="flex items-center justify-between px-2">
+                                                                <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-900 flex items-center gap-3">
+                                                                    <div className="w-2 h-2 rounded-full bg-rose-500"></div>
+                                                                    Property Shortlist
+                                                                </h3>
+                                                                <div className="flex items-center gap-4">
+                                                                    <button onClick={() => setActiveForm('property')} className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all shadow-sm border border-indigo-100/50">
+                                                                        <i className="fa-solid fa-plus text-[10px]"></i>
+                                                                    </button>
+                                                                </div>
                                                             </div>
-                                                        )}
-                                                        {selectedClient.kyc.homeAnniversary && (
-                                                            <div>
-                                                                <div className="text-[8px] font-black text-slate-400 uppercase">Anniversary</div>
-                                                                <div className="text-[10px] font-bold text-slate-800">{selectedClient.kyc.homeAnniversary}</div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {selectedClient.kyc.familyPetsDetails && (
-                                                    <div className="pt-2">
-                                                        <div className="text-[8px] font-black text-slate-400 uppercase">Family & Pets</div>
-                                                        <div className="text-[10px] font-medium text-slate-600 italic mt-1 leading-relaxed">
-                                                            {selectedClient.kyc.familyPetsDetails}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* 2. Management & Financials */}
-                                        <div className="bg-white p-8 rounded-[3rem] border border-slate-200/60 shadow-sm space-y-6 flex flex-col">
-                                            <h4 className="text-[10px] font-black text-indigo-900 uppercase tracking-widest flex items-center gap-2 border-b border-slate-50 pb-3">
-                                                <i className="fa-solid fa-gauge-high"></i> Management & Readiness
-                                            </h4>
-
-                                            <div className="space-y-5 flex-1">
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
-                                                        <div className="text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">Lead Score</div>
-                                                        <div className="text-xl font-black text-indigo-600">{selectedClient.kyc.leadScore || 85}%</div>
-                                                    </div>
-                                                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
-                                                        <div className="text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">Nurture Stage</div>
-                                                        <div className={`text-[12px] font-black uppercase ${selectedClient.kyc.nurtureDetail === 'Hot' ? 'text-orange-600' : 'text-indigo-600'}`}>
-                                                            {selectedClient.kyc.nurtureDetail || 'Warm'}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-3">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Type</div>
-                                                        <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase ${selectedClient.kyc.isAllCash ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-50 text-slate-600'}`}>
-                                                            {selectedClient.kyc.isAllCash ? 'All Cash' : 'Financed'}
-                                                        </span>
-                                                    </div>
-                                                    {selectedClient.kyc.lenderName && (
-                                                        <div>
-                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lender Details</div>
-                                                            <div className="text-[14px] font-bold text-slate-700 mt-0.5">{selectedClient.kyc.lenderName}</div>
-                                                            {selectedClient.kyc.lenderContact && (
-                                                                <div className="text-[12px] text-slate-500 font-medium italic mt-0.5">{selectedClient.kyc.lenderContact}</div>
+                                                            {getFavorites(selectedClient).length === 0 ? (
+                                                                <div className="flex-1 flex items-center justify-center p-12 text-center">
+                                                                    <p className="text-slate-400 font-medium">No archived favorites.</p>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="grid gap-4">
+                                                                    {getFavorites(selectedClient).map((fav, i) => (
+                                                                        <div key={i} onDoubleClick={() => { setEditingProperty(fav); setActiveForm('property'); }} className="bg-slate-50/50 p-4 rounded-3xl border border-slate-100 flex items-center gap-4 hover:bg-white hover:shadow-xl transition-all cursor-pointer">
+                                                                            <div className="w-16 h-16 rounded-2xl bg-indigo-100/50 flex items-center justify-center shrink-0">
+                                                                                <i className="fa-solid fa-house-circle-check text-indigo-600"></i>
+                                                                            </div>
+                                                                            <div className="flex-1 min-w-0">
+                                                                                <h4 className="font-bold text-slate-900 text-sm truncate">{fav.address}</h4>
+                                                                                <div className="text-lg font-black text-emerald-600">${fav.price?.toLocaleString()}</div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
                                                             )}
                                                         </div>
-                                                    )}
-                                                </div>
-
-                                                {selectedClient.kyc.communicationPreferenceNotes && (
-                                                    <div className="pt-4 border-t border-slate-50">
-                                                        <div className="text-[8px] font-black text-slate-400 uppercase">Comms Preferences</div>
-                                                        <p className="text-[10px] font-medium text-slate-600 mt-2 leading-relaxed bg-indigo-50/30 p-3 rounded-xl border border-indigo-100/50">
-                                                            "{selectedClient.kyc.communicationPreferenceNotes}"
-                                                        </p>
-                                                    </div>
-                                                )}
-
-                                                {selectedClient.kyc.slaMinutesTarget && (
-                                                    <div className="flex items-center gap-2 pt-2">
-                                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SLA TARGET: {selectedClient.kyc.slaMinutesTarget} MINS</div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* 3. Transaction Timeline */}
-                                        <div className="bg-white p-8 rounded-[3rem] border border-slate-200/60 shadow-sm space-y-6 flex flex-col">
-                                            <h4 className="text-[10px] font-black text-indigo-900 uppercase tracking-widest flex items-center gap-2 border-b border-slate-50 pb-3">
-                                                <i className="fa-solid fa-map-location-dot"></i> Transaction Pipeline
-                                            </h4>
-
-                                            <div className="space-y-6 flex-1">
-                                                <div className="space-y-2">
-                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Current Roadmap Stage</div>
-                                                    <div className="text-[14px] font-black text-indigo-600 uppercase tracking-tight">{selectedClient.kyc.transactionStage || 'Listing Prep'}</div>
-                                                </div>
-
-                                                <div className="grid grid-cols-1 gap-3">
-                                                    {selectedClient.kyc.inspectionDeadline && (
-                                                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Inspection</span>
-                                                            <span className="text-[14px] font-bold text-slate-800">{selectedClient.kyc.inspectionDeadline}</span>
-                                                        </div>
-                                                    )}
-                                                    {selectedClient.kyc.appraisalDeadline && (
-                                                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Appraisal</span>
-                                                            <span className="text-[14px] font-bold text-slate-800">{selectedClient.kyc.appraisalDeadline}</span>
-                                                        </div>
-                                                    )}
-                                                    {selectedClient.kyc.loanCommitmentDeadline && (
-                                                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Loan Commit</span>
-                                                            <span className="text-[14px] font-bold text-slate-800">{selectedClient.kyc.loanCommitmentDeadline}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                <div className="pt-4 border-t border-slate-50 space-y-3">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Document Checklist</div>
-                                                        <div className="text-[12px] font-black text-indigo-600">
-                                                            {selectedClient.kyc.documentChecklist?.filter(i => i.status === 'Signed').length || 0} / {selectedClient.kyc.documentChecklist?.length || 0}
-                                                        </div>
-                                                    </div>
-                                                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                                                        <div
-                                                            className="h-full bg-indigo-500 rounded-full transition-all duration-1000"
-                                                            style={{ width: `${(selectedClient.kyc.documentChecklist?.filter(i => i.status === 'Signed').length || 0) / (selectedClient.kyc.documentChecklist?.length || 1) * 100}%` }}
-                                                        ></div>
-                                                    </div>
-                                                    <div className="grid gap-1.5 max-h-[120px] overflow-y-auto pt-2">
-                                                        {selectedClient.kyc.documentChecklist?.map((item, idx) => (
-                                                            <div key={idx} className="flex items-center gap-2 text-[12px]">
-                                                                <i className={`fa-solid ${item.status === 'Signed' ? 'fa-circle-check text-emerald-500' : item.status === 'Pending' ? 'fa-circle-dot text-amber-500' : 'fa-circle-xmark text-slate-300'}`}></i>
-                                                                <span className={item.status === 'Signed' ? 'text-slate-400 line-through' : 'text-slate-600 font-bold'}>{item.name}</span>
+                                                    );
+                                                } else if (cardId === 'activity') {
+                                                    content = (
+                                                        <div className="space-y-6 flex flex-col h-full bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-sm relative group/card">
+                                                            <div className="flex items-center justify-between px-2">
+                                                                <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-900 flex items-center gap-3">
+                                                                    <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                                                                    Live Activity Feed
+                                                                </h3>
+                                                                <button onClick={() => setActiveForm('activity')} className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all shadow-sm border border-indigo-100/50">
+                                                                    <i className="fa-solid fa-plus text-[10px]"></i>
+                                                                </button>
                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Detailed Lead View for Off Zyphe Clients */}
-                            {!isUser(selectedClient) && !selectedClient.kyc && (
-                                <div className="mt-12 space-y-8">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                        {[
-                                            'Intent & Readiness',
-                                            'Persona & Context',
-                                            'Activity',
-                                            'Property Details',
-                                            'Timings',
-                                            'Referral & Source'
-                                        ].map(category => {
-                                            const fields = LEAD_FIELD_CONFIG.filter(f => f.category === category);
-                                            const lead = selectedClient as any;
-                                            const hasData = fields.some(f => lead[f.id] !== undefined && lead[f.id] !== null && lead[f.id] !== '' && (Array.isArray(lead[f.id]) ? lead[f.id].length > 0 : true));
-
-                                            if (!hasData) return null;
-
-                                            const renderLeadFieldValue = (field: any, value: any) => {
-                                                if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) return null;
-
-                                                // Custom handling for specific field types or IDs
-                                                if (field.category === 'Timings' || field.id === 'timeframe' || field.id === 'leaseEndDate' || field.id === 'sellWhen' || field.id === 'receivedAt' || field.id === 'lastUpdated' || field.id === 'stageLastChangedAt') {
-                                                    return (
-                                                        <div className="flex items-center gap-2 text-indigo-600 font-bold">
-                                                            <i className="fa-solid fa-calendar-day text-[10px] opacity-50"></i>
-                                                            {formatDate(value)}
-                                                        </div>
-                                                    );
-                                                }
-
-                                                if (typeof value === 'boolean') {
-                                                    return value ? (
-                                                        <span className="text-emerald-600 font-bold flex items-center gap-1">
-                                                            <i className="fa-solid fa-check-circle"></i> Yes
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-slate-400">No</span>
-                                                    );
-                                                }
-
-                                                if (Array.isArray(value)) {
-                                                    // Check for specialized lists
-                                                    if (field.id === 'offers') {
-                                                        return (
-                                                            <div className="space-y-2 mt-1">
-                                                                {value.map((offer: any, i: number) => (
-                                                                    <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px]">
-                                                                        <div className="flex justify-between font-black text-slate-900 border-b border-slate-200/50 pb-1.5 mb-1.5">
-                                                                            <span className="text-emerald-600">${offer.bidPrice?.toLocaleString()}</span>
-                                                                            <span className="bg-indigo-50 px-2 py-0.5 rounded text-[9px] text-indigo-700 uppercase">{offer.outcome}</span>
+                                                            <div className="space-y-3">
+                                                                {getViews(selectedClient).slice(0, 5).map((view, i) => (
+                                                                    <div key={i} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                                                                        <div className="min-w-0 flex-1 pr-4">
+                                                                            <h4 className="font-bold text-slate-800 text-xs truncate">{view.address}</h4>
+                                                                            <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{view.type || 'Engagement'}</span>
                                                                         </div>
-                                                                        <div className="text-slate-500 font-medium truncate">{offer.property || 'Property Inquiry'}</div>
+                                                                        <div className="text-[10px] font-bold text-slate-400 shrink-0">{formatDate(view.timestamp)}</div>
                                                                     </div>
                                                                 ))}
                                                             </div>
-                                                        );
-                                                    }
-                                                    if (field.id === 'tours') {
-                                                        return (
-                                                            <div className="space-y-2 mt-1">
-                                                                {value.map((tour: any, i: number) => (
-                                                                    <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px]">
-                                                                        <div className="flex justify-between font-black text-slate-900">
-                                                                            <span className="truncate flex-1 pr-2">{tour.propertyAddress}</span>
-                                                                            <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded text-[9px]">{tour.status}</span>
-                                                                        </div>
-                                                                        <div className="text-slate-400 mt-2 flex items-center gap-2 font-bold uppercase tracking-widest text-[9px]">
-                                                                            <i className="fa-solid fa-clock opacity-50 text-[10px]"></i>
-                                                                            {formatDate(tour.date)} {tour.time || ''}
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        );
-                                                    }
-
-                                                    return (
-                                                        <div className="flex flex-wrap gap-1.5 mt-1">
-                                                            {value.map((v: any, i: number) => (
-                                                                <span key={i} className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-[10px] font-black uppercase tracking-wider border border-indigo-100/30">
-                                                                    {typeof v === 'object' ? (v.name || v.address || v.id || 'Complex Item') : v}
-                                                                </span>
-                                                            ))}
                                                         </div>
                                                     );
-                                                }
-
-                                                if (typeof value === 'object') {
-                                                    // Specific handling for PropertyDetails objects
-                                                    if (field.id === 'inquiryProperty' || field.id === 'subjectPropertyDetails') {
-                                                        return (
-                                                            <div className="p-4 bg-indigo-50/30 rounded-2xl border border-indigo-100/50 mt-1 shadow-sm">
-                                                                <div className="font-bold text-slate-800 text-xs mb-2 truncate flex items-center gap-2">
-                                                                    <i className="fa-solid fa-house text-indigo-400 text-[10px]"></i>
-                                                                    {value.address || value.propertyAddress || 'Target Profile'}
+                                                } else if (cardId.startsWith('kyc_')) {
+                                                    if (!selectedClient.kyc) return null;
+                                                    const sub = cardId.replace('kyc_', '');
+                                                    if (sub === 'profiles') {
+                                                        content = (
+                                                            <div className="bg-white p-8 rounded-[3rem] border border-slate-200/60 shadow-sm h-full flex flex-col space-y-6">
+                                                                <h4 className="text-[10px] font-black text-indigo-900 uppercase tracking-widest flex items-center gap-2 border-b border-slate-50 pb-3">
+                                                                    <i className="fa-solid fa-user-gear"></i> Profiles & Preferences
+                                                                </h4>
+                                                                <div className="flex-1 space-y-4 text-sm">
+                                                                    <div className="grid grid-cols-2 gap-4 pb-4 border-b border-slate-50">
+                                                                        <div>
+                                                                            <div className="text-[9px] font-black text-slate-400 uppercase mb-1">Budget</div>
+                                                                            <div className="font-black text-slate-900">${(selectedClient as any).minPrice?.toLocaleString() || '0'} - ${(selectedClient as any).maxPrice?.toLocaleString() || '---'}</div>
+                                                                        </div>
+                                                                        <div>
+                                                                            <div className="text-[9px] font-black text-slate-400 uppercase mb-1">Specs</div>
+                                                                            <div className="font-black text-slate-900">{(selectedClient as any).bedrooms || '0'}+ Beds | {(selectedClient as any).bathrooms || '0'}+ Baths</div>
+                                                                        </div>
+                                                                    </div>
+                                                                    {selectedClient.kyc.dealBreakers && (
+                                                                        <div>
+                                                                            <div className="text-[9px] font-black text-slate-400 uppercase mb-2">Deal-Breakers</div>
+                                                                            <div className="flex flex-wrap gap-1.5">{selectedClient.kyc.dealBreakers.map((db, i) => <span key={i} className="px-2 py-0.5 bg-rose-50 text-rose-600 rounded-md text-[10px] font-bold">{db}</span>)}</div>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
-                                                                <div className="flex items-center gap-4 text-[9px] font-black text-indigo-600 uppercase tracking-[0.2em]">
-                                                                    <span>{value.bedrooms || 0} BEDS</span>
-                                                                    <span>{value.bathrooms || 0} BATHS</span>
-                                                                    {value.sqft && <span>{value.sqft} SQFT</span>}
-                                                                    {value.price && <span className="ml-auto text-emerald-600 font-black">${value.price.toLocaleString()}</span>}
+                                                            </div>
+                                                        );
+                                                    } else if (sub === 'readiness') {
+                                                        content = (
+                                                            <div className="bg-white p-8 rounded-[3rem] border border-slate-200/60 shadow-sm h-full flex flex-col space-y-6">
+                                                                <h4 className="text-[10px] font-black text-indigo-900 uppercase tracking-widest flex items-center gap-2 border-b border-slate-50 pb-3">
+                                                                    <i className="fa-solid fa-gauge-high"></i> Management & Readiness
+                                                                </h4>
+                                                                <div className="flex-1 space-y-5">
+                                                                    <div className="grid grid-cols-2 gap-4">
+                                                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
+                                                                            <div className="text-[9px] font-black text-slate-400 uppercase mb-1">Lead Score</div>
+                                                                            <div className="text-xl font-black text-indigo-600">{selectedClient.kyc.leadScore || 85}%</div>
+                                                                        </div>
+                                                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
+                                                                            <div className="text-[9px] font-black text-slate-400 uppercase mb-1">Nurture</div>
+                                                                            <div className="text-xs font-black text-indigo-600 uppercase">{selectedClient.kyc.nurtureDetail || 'Warm'}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    } else if (sub === 'pipeline') {
+                                                        content = (
+                                                            <div className="bg-white p-8 rounded-[3rem] border border-slate-200/60 shadow-sm h-full flex flex-col space-y-6">
+                                                                <h4 className="text-[10px] font-black text-indigo-900 uppercase tracking-widest flex items-center gap-2 border-b border-slate-50 pb-3">
+                                                                    <i className="fa-solid fa-map-location-dot"></i> Transaction Pipeline
+                                                                </h4>
+                                                                <div className="flex-1 space-y-6">
+                                                                    <div>
+                                                                        <div className="text-[9px] font-black text-slate-400 uppercase mb-2">Current Roadmap</div>
+                                                                        <div className="text-sm font-black text-indigo-600 uppercase">{selectedClient.kyc.transactionStage || 'Listing Prep'}</div>
+                                                                    </div>
+                                                                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                                                                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: '45%' }}></div>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         );
                                                     }
-                                                    return (
-                                                        <pre className="text-[10px] text-slate-500 whitespace-pre-wrap font-mono bg-slate-50 p-3 rounded-2xl border border-slate-100 mt-1 max-h-40 overflow-y-auto">
-                                                            {JSON.stringify(value, null, 2)}
-                                                        </pre>
-                                                    );
-                                                }
+                                                } else if (cardId.startsWith('detail_')) {
+                                                    if (isUser(selectedClient) || selectedClient.kyc) return null;
+                                                    const categoryMap: Record<string, string> = {
+                                                        'detail_intent': 'Intent & Readiness',
+                                                        'detail_persona': 'Persona & Context',
+                                                        'detail_activity': 'Activity',
+                                                        'detail_property': 'Property Details',
+                                                        'detail_timings': 'Timings',
+                                                        'detail_referral': 'Referral & Source'
+                                                    };
+                                                    const category = categoryMap[cardId];
+                                                    const fields = LEAD_FIELD_CONFIG.filter(f => f.category === category);
+                                                    const lead = selectedClient as any;
+                                                    const hasData = fields.some(f => lead[f.id] !== undefined && lead[f.id] !== null && lead[f.id] !== '' && (Array.isArray(lead[f.id]) ? lead[f.id].length > 0 : true));
 
-                                                return <span className="text-slate-700 font-semibold">{value}</span>;
-                                            };
+                                                    if (!hasData) return null;
 
-                                            return (
-                                                <div key={category} className="bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-5">
-                                                    <h4 className="text-[10px] font-black text-indigo-900 uppercase tracking-widest border-b border-slate-50 pb-3 mb-2 flex items-center justify-between">
-                                                        <span>{category}</span>
-                                                        <i className="fa-solid fa-chevron-right text-[8px] opacity-30"></i>
-                                                    </h4>
-                                                    <div className="space-y-5">
-                                                        {fields.map(field => {
-                                                            const renderedValue = renderLeadFieldValue(field, lead[field.id]);
-                                                            if (!renderedValue) return null;
+                                                    const renderLeadFieldValue = (field: any, value: any) => {
+                                                        if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) return null;
 
+                                                        if (field.category === 'Timings' || field.id === 'timeframe' || field.id === 'leaseEndDate' || field.id === 'sellWhen' || field.id === 'receivedAt' || field.id === 'lastUpdated' || field.id === 'stageLastChangedAt') {
+                                                            return <div className="flex items-center gap-2 text-indigo-600 font-bold"><i className="fa-solid fa-calendar-day text-[10px] opacity-50"></i>{formatDate(value)}</div>;
+                                                        }
+
+                                                        if (typeof value === 'boolean') {
+                                                            return value ? <span className="text-emerald-600 font-bold flex items-center gap-1"><i className="fa-solid fa-check-circle"></i> Yes</span> : <span className="text-slate-400">No</span>;
+                                                        }
+
+                                                        if (Array.isArray(value)) {
+                                                            if (field.id === 'offers') {
+                                                                return (
+                                                                    <div className="space-y-2 mt-1">
+                                                                        {value.map((offer: any, i: number) => (
+                                                                            <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px]">
+                                                                                <div className="flex justify-between font-black text-slate-900 border-b border-slate-200/50 pb-1.5 mb-1.5">
+                                                                                    <span className="text-emerald-600">${offer.bidPrice?.toLocaleString()}</span>
+                                                                                    <span className="bg-indigo-50 px-2 py-0.5 rounded text-[9px] text-indigo-700 uppercase">{offer.outcome}</span>
+                                                                                </div>
+                                                                                <div className="text-slate-500 font-medium truncate">{offer.property || 'Property Inquiry'}</div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                );
+                                                            }
                                                             return (
-                                                                <div key={field.id} className="group">
-                                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1.5 flex items-center gap-2">
-                                                                        {field.label}
-                                                                    </div>
-                                                                    <div className="text-sm">
-                                                                        {renderedValue}
-                                                                    </div>
+                                                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                                                    {value.map((v: any, i: number) => (
+                                                                        <span key={i} className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-[10px] font-black uppercase tracking-wider border border-indigo-100/30">
+                                                                            {typeof v === 'object' ? (v.name || v.address || v.id || 'Complex Item') : v}
+                                                                        </span>
+                                                                    ))}
                                                                 </div>
                                                             );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
+                                                        }
+
+                                                        if (typeof value === 'object') {
+                                                            if (field.id === 'inquiryProperty' || field.id === 'subjectPropertyDetails') {
+                                                                return (
+                                                                    <div className="p-4 bg-indigo-50/30 rounded-2xl border border-indigo-100/50 mt-1 shadow-sm">
+                                                                        <div className="font-bold text-slate-800 text-xs mb-2 truncate flex items-center gap-2"><i className="fa-solid fa-house text-indigo-400 text-[10px]"></i>{value.address || value.propertyAddress || 'Target Profile'}</div>
+                                                                        <div className="flex items-center gap-4 text-[9px] font-black text-indigo-600 uppercase tracking-[0.2em]">
+                                                                            <span>{value.bedrooms || 0} BEDS</span>
+                                                                            <span>{value.bathrooms || 0} BATHS</span>
+                                                                            {value.price && <span className="ml-auto text-emerald-600 font-black">${value.price.toLocaleString()}</span>}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            return <pre className="text-[10px] text-slate-500 whitespace-pre-wrap font-mono bg-slate-50 p-3 rounded-2xl border border-slate-100 mt-1 max-h-40 overflow-y-auto">{JSON.stringify(value, null, 2)}</pre>;
+                                                        }
+                                                        return <span className="text-slate-700 font-semibold">{value}</span>;
+                                                    };
+
+                                                    content = (
+                                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-5 h-full">
+                                                            <h4 className="text-[10px] font-black text-indigo-900 uppercase tracking-widest border-b border-slate-50 pb-3 mb-2 flex items-center justify-between">
+                                                                <span>{category}</span>
+                                                                <i className="fa-solid fa-chevron-right text-[8px] opacity-30"></i>
+                                                            </h4>
+                                                            <div className="space-y-5">
+                                                                {fields.map(field => {
+                                                                    const renderedValue = renderLeadFieldValue(field, lead[field.id]);
+                                                                    if (!renderedValue) return null;
+                                                                    return (
+                                                                        <div key={field.id} className="group/item">
+                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1.5 flex items-center gap-2">{field.label}</div>
+                                                                            <div className="text-sm">{renderedValue}</div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                if (!content) return null;
+
+                                                return (
+                                                    <Draggable key={cardId} draggableId={cardId} index={index}>
+                                                        {(draggableProvided, snapshot) => (
+                                                            <div
+                                                                ref={draggableProvided.innerRef}
+                                                                {...draggableProvided.draggableProps}
+                                                                className={`${span} relative group/card-wrapper ${snapshot.isDragging ? 'z-[1000] rotate-2' : ''}`}
+                                                            >
+                                                                {/* Custom Drag Handle */}
+                                                                <div
+                                                                    {...draggableProvided.dragHandleProps}
+                                                                    className="absolute top-4 right-4 z-[60] w-10 h-10 flex items-center justify-center bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-slate-200 opacity-0 group-hover/card-wrapper:opacity-100 transition-all cursor-grab active:cursor-grabbing hover:bg-white hover:scale-110 active:scale-95"
+                                                                >
+                                                                    <i className="fa-solid fa-up-down-left-right text-slate-400 text-xs"></i>
+                                                                </div>
+
+                                                                {content}
+                                                            </div>
+                                                        )}
+                                                    </Draggable>
+                                                );
+                                            })}
+                                            {provided.placeholder}
+                                        </div>
+                                    )}
+                                </Droppable>
+                            </DragDropContext>
                         </div>
                     </>
                 ) : (
@@ -889,135 +733,139 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
             </div>
 
             {/* Manual Forms Overlays */}
-            {activeForm === 'property' && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
-                        <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                            <h3 className="text-xl font-black text-slate-900 tracking-tight">{editingProperty ? 'Edit Property' : 'Add to Shortlist'}</h3>
-                            <button onClick={() => { setActiveForm(null); setEditingProperty(null); }} className="text-slate-400 hover:text-slate-600 border border-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-slate-100">
-                                <i className="fa-solid fa-xmark"></i>
-                            </button>
-                        </div>
-                        <div className="p-8 space-y-6">
-                            <div className="space-y-1.5">
-                                <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Property Address</label>
-                                <input
-                                    type="text"
-                                    defaultValue={editingProperty?.address || ''}
-                                    id="prop_address"
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500"
-                                    placeholder="e.g. 123 Beverly Hills Dr"
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Listing Price</label>
-                                <input
-                                    type="number"
-                                    defaultValue={editingProperty?.price || ''}
-                                    id="prop_price"
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500"
-                                    placeholder="2500000"
-                                />
-                            </div>
-                            <div className="flex items-center gap-3 py-2">
-                                <input type="checkbox" defaultChecked={editingProperty?.isHot} id="prop_hot" className="w-4 h-4 rounded text-indigo-600" />
-                                <label className="text-xs font-bold text-slate-700">Mark as 'Hot' Asset</label>
-                            </div>
-                        </div>
-                        <div className="p-8 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-                            {editingProperty ? (
-                                <button
-                                    onClick={() => handleDeleteProperty(editingProperty.id)}
-                                    className="px-6 py-3 rounded-xl bg-white border border-rose-100 text-rose-600 text-[10px] font-black uppercase tracking-widest hover:bg-rose-50 transition-all flex items-center gap-2"
-                                >
-                                    <i className="fa-solid fa-minus text-[8px]"></i> Delete Item
+            {
+                activeForm === 'property' && (
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+                        <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+                            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                <h3 className="text-xl font-black text-slate-900 tracking-tight">{editingProperty ? 'Edit Property' : 'Add to Shortlist'}</h3>
+                                <button onClick={() => { setActiveForm(null); setEditingProperty(null); }} className="text-slate-400 hover:text-slate-600 border border-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-slate-100">
+                                    <i className="fa-solid fa-xmark"></i>
                                 </button>
-                            ) : <div className="text-[10px] font-medium text-slate-400 italic">Creating new entry...</div>}
-                            <button
-                                onClick={() => {
-                                    const address = (document.getElementById('prop_address') as HTMLInputElement).value;
-                                    const price = parseInt((document.getElementById('prop_price') as HTMLInputElement).value) || 0;
-                                    const isHot = (document.getElementById('prop_hot') as HTMLInputElement).checked;
-                                    handleSaveProperty({ address, price, isHot });
-                                }}
-                                className="bg-indigo-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all"
-                            >
-                                Save Selection
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {activeForm === 'activity' && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
-                        <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                            <h3 className="text-xl font-black text-slate-900 tracking-tight">{editingActivity ? 'Edit Activity' : 'Log Manual Event'}</h3>
-                            <button onClick={() => { setActiveForm(null); setEditingActivity(null); }} className="text-slate-400 hover:text-slate-600 border border-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-slate-100">
-                                <i className="fa-solid fa-xmark"></i>
-                            </button>
-                        </div>
-                        <div className="p-8 space-y-6">
-                            <div className="space-y-1.5">
-                                <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Event Description / Address</label>
-                                <input
-                                    type="text"
-                                    defaultValue={editingActivity?.address || ''}
-                                    id="act_address"
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500"
-                                    placeholder="e.g. Phone Call: Listing Details"
-                                />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="p-8 space-y-6">
                                 <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Event Type</label>
-                                    <select
-                                        id="act_type"
-                                        defaultValue={editingActivity?.type || 'Meeting'}
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none"
-                                    >
-                                        <option value="Meeting">Office Meeting</option>
-                                        <option value="Call">Phone Call</option>
-                                        <option value="Property View">Property Tour</option>
-                                        <option value="Other">Other Engagement</option>
-                                    </select>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Intensity / Hits</label>
+                                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Property Address</label>
                                     <input
-                                        type="number"
-                                        defaultValue={editingActivity?.viewCount || 1}
-                                        id="act_count"
+                                        type="text"
+                                        defaultValue={editingProperty?.address || ''}
+                                        id="prop_address"
                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                                        placeholder="e.g. 123 Beverly Hills Dr"
                                     />
                                 </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Listing Price</label>
+                                    <input
+                                        type="number"
+                                        defaultValue={editingProperty?.price || ''}
+                                        id="prop_price"
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                                        placeholder="2500000"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-3 py-2">
+                                    <input type="checkbox" defaultChecked={editingProperty?.isHot} id="prop_hot" className="w-4 h-4 rounded text-indigo-600" />
+                                    <label className="text-xs font-bold text-slate-700">Mark as 'Hot' Asset</label>
+                                </div>
+                            </div>
+                            <div className="p-8 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                                {editingProperty ? (
+                                    <button
+                                        onClick={() => handleDeleteProperty(editingProperty.id)}
+                                        className="px-6 py-3 rounded-xl bg-white border border-rose-100 text-rose-600 text-[10px] font-black uppercase tracking-widest hover:bg-rose-50 transition-all flex items-center gap-2"
+                                    >
+                                        <i className="fa-solid fa-minus text-[8px]"></i> Delete Item
+                                    </button>
+                                ) : <div className="text-[10px] font-medium text-slate-400 italic">Creating new entry...</div>}
+                                <button
+                                    onClick={() => {
+                                        const address = (document.getElementById('prop_address') as HTMLInputElement).value;
+                                        const price = parseInt((document.getElementById('prop_price') as HTMLInputElement).value) || 0;
+                                        const isHot = (document.getElementById('prop_hot') as HTMLInputElement).checked;
+                                        handleSaveProperty({ address, price, isHot });
+                                    }}
+                                    className="bg-indigo-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all"
+                                >
+                                    Save Selection
+                                </button>
                             </div>
                         </div>
-                        <div className="p-8 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-                            {editingActivity ? (
-                                <button
-                                    onClick={() => handleDeleteActivity(editingActivity.id)}
-                                    className="px-6 py-3 rounded-xl bg-white border border-rose-100 text-rose-600 text-[10px] font-black uppercase tracking-widest hover:bg-rose-50 transition-all flex items-center gap-2"
-                                >
-                                    <i className="fa-solid fa-minus text-[8px]"></i> Delete Item
+                    </div>
+                )
+            }
+
+            {
+                activeForm === 'activity' && (
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+                        <div className="bg-white w-full max-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+                            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                <h3 className="text-xl font-black text-slate-900 tracking-tight">{editingActivity ? 'Edit Activity' : 'Log Manual Event'}</h3>
+                                <button onClick={() => { setActiveForm(null); setEditingActivity(null); }} className="text-slate-400 hover:text-slate-600 border border-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-slate-100">
+                                    <i className="fa-solid fa-xmark"></i>
                                 </button>
-                            ) : <div className="text-[10px] font-medium text-slate-400 italic">Creating new log...</div>}
-                            <button
-                                onClick={() => {
-                                    const address = (document.getElementById('act_address') as HTMLInputElement).value;
-                                    const type = (document.getElementById('act_type') as HTMLSelectElement).value as any;
-                                    const viewCount = parseInt((document.getElementById('act_count') as HTMLInputElement).value) || 1;
-                                    handleSaveActivity({ address, type, viewCount });
-                                }}
-                                className="bg-indigo-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all"
-                            >
-                                Log Activity
-                            </button>
+                            </div>
+                            <div className="p-8 space-y-6">
+                                <div className="space-y-1.5">
+                                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Event Description / Address</label>
+                                    <input
+                                        type="text"
+                                        defaultValue={editingActivity?.address || ''}
+                                        id="act_address"
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                                        placeholder="e.g. Phone Call: Listing Details"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Event Type</label>
+                                        <select
+                                            id="act_type"
+                                            defaultValue={editingActivity?.type || 'Meeting'}
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none"
+                                        >
+                                            <option value="Meeting">Office Meeting</option>
+                                            <option value="Call">Phone Call</option>
+                                            <option value="Property View">Property Tour</option>
+                                            <option value="Other">Other Engagement</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Intensity / Hits</label>
+                                        <input
+                                            type="number"
+                                            defaultValue={editingActivity?.viewCount || 1}
+                                            id="act_count"
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-8 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                                {editingActivity ? (
+                                    <button
+                                        onClick={() => handleDeleteActivity(editingActivity.id)}
+                                        className="px-6 py-3 rounded-xl bg-white border border-rose-100 text-rose-600 text-[10px] font-black uppercase tracking-widest hover:bg-rose-50 transition-all flex items-center gap-2"
+                                    >
+                                        <i className="fa-solid fa-minus text-[8px]"></i> Delete Item
+                                    </button>
+                                ) : <div className="text-[10px] font-medium text-slate-400 italic">Creating new log...</div>}
+                                <button
+                                    onClick={() => {
+                                        const address = (document.getElementById('act_address') as HTMLInputElement).value;
+                                        const type = (document.getElementById('act_type') as HTMLSelectElement).value as any;
+                                        const viewCount = parseInt((document.getElementById('act_count') as HTMLInputElement).value) || 1;
+                                        handleSaveActivity({ address, type, viewCount });
+                                    }}
+                                    className="bg-indigo-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all"
+                                >
+                                    Log Activity
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
         </div >
     );
 };
