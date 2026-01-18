@@ -301,16 +301,7 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                 <div>
                                     <div className="flex items-center gap-3">
                                         <h2 className="text-3xl font-black text-slate-900 tracking-tight">{getName(selectedClient)}</h2>
-                                        <button
-                                            onClick={() => (window as any).dispatchKYCEvent?.(selectedClient)}
-                                            className="group px-8 py-2.5 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-700 rounded-2xl text-[10px] font-black uppercase tracking-[0.1em] transition-all border border-indigo-100/50 shadow-sm flex items-center gap-3"
-                                        >
-                                            <div className="relative flex items-center justify-center w-6 h-6">
-                                                <i className="fa-solid fa-file-lines text-indigo-400 group-hover:scale-110 transition-transform"></i>
-                                                <i className="fa-solid fa-paperclip absolute -top-1.5 -right-1.5 text-[10px] text-indigo-600/60 -rotate-12 group-hover:rotate-0 transition-transform"></i>
-                                            </div>
-                                            KYC FORM
-                                        </button>
+
                                         <span className="px-3 py-1 bg-indigo-600 text-white rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg shadow-indigo-200">
                                             {getRole(selectedClient)}
                                         </span>
@@ -320,14 +311,30 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                             </span>
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-4 mt-3">
-                                        <span className="text-slate-500 font-medium text-sm flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-4">
+                                        <span className="text-slate-500 font-bold text-sm flex items-center gap-2">
                                             <i className="fa-solid fa-envelope text-indigo-400"></i> {getEmail(selectedClient)}
                                         </span>
-                                        <span className="text-slate-200">|</span>
-                                        <span className="text-slate-500 font-medium text-sm flex items-center gap-2">
+                                        <span className="text-slate-500 font-bold text-sm flex items-center gap-2">
                                             <i className="fa-solid fa-phone text-indigo-400"></i> {getPhone(selectedClient) || 'No phone'}
                                         </span>
+                                        {(selectedClient as Lead).homeAddress && (
+                                            <span className="text-slate-500 font-bold text-sm flex items-center gap-2">
+                                                <i className="fa-solid fa-location-dot text-indigo-400"></i> {(selectedClient as Lead).homeAddress}
+                                            </span>
+                                        )}
+                                        {(selectedClient as Lead).preferredContactMethod && (
+                                            <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-[10px] font-black uppercase tracking-widest border border-indigo-100/30 flex items-center gap-2">
+                                                <i className="fa-solid fa-star text-[8px]"></i>
+                                                Prefers: {(selectedClient as Lead).preferredContactMethod}
+                                            </span>
+                                        )}
+                                        {(selectedClient as Lead).smsConsent !== undefined && (
+                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border flex items-center gap-2 ${(selectedClient as Lead).smsConsent ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                                                <i className={`fa-solid ${(selectedClient as Lead).smsConsent ? 'fa-comment-dots' : 'fa-comment-slash'} text-[8px]`}></i>
+                                                SMS {(selectedClient as Lead).smsConsent ? 'Enabled' : 'Disabled'}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -731,9 +738,7 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                             'Activity',
                                             'Property Details',
                                             'Timings',
-                                            'Contact Information',
-                                            'Referral & Source',
-                                            'System Metadata'
+                                            'Referral & Source'
                                         ].map(category => {
                                             const fields = LEAD_FIELD_CONFIG.filter(f => f.category === category);
                                             const lead = selectedClient as any;
@@ -741,34 +746,122 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
 
                                             if (!hasData) return null;
 
+                                            const renderLeadFieldValue = (field: any, value: any) => {
+                                                if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) return null;
+
+                                                // Custom handling for specific field types or IDs
+                                                if (field.category === 'Timings' || field.id === 'timeframe' || field.id === 'leaseEndDate' || field.id === 'sellWhen' || field.id === 'receivedAt' || field.id === 'lastUpdated' || field.id === 'stageLastChangedAt') {
+                                                    return (
+                                                        <div className="flex items-center gap-2 text-indigo-600 font-bold">
+                                                            <i className="fa-solid fa-calendar-day text-[10px] opacity-50"></i>
+                                                            {formatDate(value)}
+                                                        </div>
+                                                    );
+                                                }
+
+                                                if (typeof value === 'boolean') {
+                                                    return value ? (
+                                                        <span className="text-emerald-600 font-bold flex items-center gap-1">
+                                                            <i className="fa-solid fa-check-circle"></i> Yes
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-slate-400">No</span>
+                                                    );
+                                                }
+
+                                                if (Array.isArray(value)) {
+                                                    // Check for specialized lists
+                                                    if (field.id === 'offers') {
+                                                        return (
+                                                            <div className="space-y-2 mt-1">
+                                                                {value.map((offer: any, i: number) => (
+                                                                    <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px]">
+                                                                        <div className="flex justify-between font-black text-slate-900 border-b border-slate-200/50 pb-1.5 mb-1.5">
+                                                                            <span className="text-emerald-600">${offer.bidPrice?.toLocaleString()}</span>
+                                                                            <span className="bg-indigo-50 px-2 py-0.5 rounded text-[9px] text-indigo-700 uppercase">{offer.outcome}</span>
+                                                                        </div>
+                                                                        <div className="text-slate-500 font-medium truncate">{offer.property || 'Property Inquiry'}</div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        );
+                                                    }
+                                                    if (field.id === 'tours') {
+                                                        return (
+                                                            <div className="space-y-2 mt-1">
+                                                                {value.map((tour: any, i: number) => (
+                                                                    <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px]">
+                                                                        <div className="flex justify-between font-black text-slate-900">
+                                                                            <span className="truncate flex-1 pr-2">{tour.propertyAddress}</span>
+                                                                            <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded text-[9px]">{tour.status}</span>
+                                                                        </div>
+                                                                        <div className="text-slate-400 mt-2 flex items-center gap-2 font-bold uppercase tracking-widest text-[9px]">
+                                                                            <i className="fa-solid fa-clock opacity-50 text-[10px]"></i>
+                                                                            {formatDate(tour.date)} {tour.time || ''}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <div className="flex flex-wrap gap-1.5 mt-1">
+                                                            {value.map((v: any, i: number) => (
+                                                                <span key={i} className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-[10px] font-black uppercase tracking-wider border border-indigo-100/30">
+                                                                    {typeof v === 'object' ? (v.name || v.address || v.id || 'Complex Item') : v}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                }
+
+                                                if (typeof value === 'object') {
+                                                    // Specific handling for PropertyDetails objects
+                                                    if (field.id === 'inquiryProperty' || field.id === 'subjectPropertyDetails') {
+                                                        return (
+                                                            <div className="p-4 bg-indigo-50/30 rounded-2xl border border-indigo-100/50 mt-1 shadow-sm">
+                                                                <div className="font-bold text-slate-800 text-xs mb-2 truncate flex items-center gap-2">
+                                                                    <i className="fa-solid fa-house text-indigo-400 text-[10px]"></i>
+                                                                    {value.address || value.propertyAddress || 'Target Profile'}
+                                                                </div>
+                                                                <div className="flex items-center gap-4 text-[9px] font-black text-indigo-600 uppercase tracking-[0.2em]">
+                                                                    <span>{value.bedrooms || 0} BEDS</span>
+                                                                    <span>{value.bathrooms || 0} BATHS</span>
+                                                                    {value.sqft && <span>{value.sqft} SQFT</span>}
+                                                                    {value.price && <span className="ml-auto text-emerald-600 font-black">${value.price.toLocaleString()}</span>}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <pre className="text-[10px] text-slate-500 whitespace-pre-wrap font-mono bg-slate-50 p-3 rounded-2xl border border-slate-100 mt-1 max-h-40 overflow-y-auto">
+                                                            {JSON.stringify(value, null, 2)}
+                                                        </pre>
+                                                    );
+                                                }
+
+                                                return <span className="text-slate-700 font-semibold">{value}</span>;
+                                            };
+
                                             return (
-                                                <div key={category} className="bg-white p-8 rounded-[2rem] border border-slate-200/60 shadow-sm space-y-4">
-                                                    <h4 className="text-[10px] font-black text-indigo-900 uppercase tracking-widest border-b border-slate-50 pb-3 mb-2">{category}</h4>
-                                                    <div className="space-y-4">
+                                                <div key={category} className="bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-5">
+                                                    <h4 className="text-[10px] font-black text-indigo-900 uppercase tracking-widest border-b border-slate-50 pb-3 mb-2 flex items-center justify-between">
+                                                        <span>{category}</span>
+                                                        <i className="fa-solid fa-chevron-right text-[8px] opacity-30"></i>
+                                                    </h4>
+                                                    <div className="space-y-5">
                                                         {fields.map(field => {
-                                                            const value = lead[field.id];
-                                                            if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) return null;
+                                                            const renderedValue = renderLeadFieldValue(field, lead[field.id]);
+                                                            if (!renderedValue) return null;
 
                                                             return (
                                                                 <div key={field.id} className="group">
-                                                                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{field.label}</div>
-                                                                    <div className="text-sm font-semibold text-slate-700 break-words">
-                                                                        {typeof value === 'boolean' ? (
-                                                                            value ? <span className="text-emerald-600"><i className="fa-solid fa-check"></i> Yes</span> : 'No'
-                                                                        ) : Array.isArray(value) ? (
-                                                                            // Simple list rendering for arrays like tags, complex objects need specific handling or JSON dump
-                                                                            <div className="flex flex-wrap gap-1 mt-1">
-                                                                                {value.map((v: any, i: number) => (
-                                                                                    <span key={i} className="px-2 py-0.5 bg-slate-100 rounded text-xs">
-                                                                                        {typeof v === 'object' ? (v.name || v.address || v.id || JSON.stringify(v)) : v}
-                                                                                    </span>
-                                                                                ))}
-                                                                            </div>
-                                                                        ) : typeof value === 'object' ? (
-                                                                            <pre className="text-xs text-slate-500 whitespace-pre-wrap font-sans">{JSON.stringify(value, null, 2)}</pre>
-                                                                        ) : (
-                                                                            value
-                                                                        )}
+                                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1.5 flex items-center gap-2">
+                                                                        {field.label}
+                                                                    </div>
+                                                                    <div className="text-sm">
+                                                                        {renderedValue}
                                                                     </div>
                                                                 </div>
                                                             );

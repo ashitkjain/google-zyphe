@@ -116,7 +116,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
     onResetData,
     defaultTab,
 }) => {
-    const [activeTab, setActiveTab] = useState<'statuses' | 'properties'>(defaultTab || 'statuses');
+    const [activeTab, setActiveTab] = useState<'statuses' | 'properties'>(defaultTab || 'properties');
 
     // --- Status Logic ---
     const initialStatusData = useMemo(() => {
@@ -750,11 +750,11 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                         <div className="flex items-center gap-3">
                             {/* Tabs */}
                             <div className="flex bg-white rounded-lg p-1 border border-slate-200 shadow-sm mr-4">
-                                <button onClick={() => setActiveTab('statuses')} className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === 'statuses' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
-                                    Funnel Stages Fields
-                                </button>
                                 <button onClick={() => setActiveTab('properties')} className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === 'properties' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
                                     Leads Fields
+                                </button>
+                                <button onClick={() => setActiveTab('statuses')} className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === 'statuses' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
+                                    Funnel Stages Fields
                                 </button>
                             </div>
 
