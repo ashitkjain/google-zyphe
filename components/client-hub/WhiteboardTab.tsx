@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { saveWhiteboard, getWhiteboard, auth } from '../../services/firebaseService';
 
-type Tool = 'select' | 'note' | 'text' | 'pen' | 'sticker' | 'eraser' | 'arrow' | 'circle' | 'calculator' | 'mortgage-calc';
+type Tool = 'select' | 'note' | 'text' | 'pen' | 'sticker' | 'eraser' | 'arrow' | 'circle' | 'calculator' | 'mortgage-calc' | 'calendar';
 type NoteColor = 'yellow' | 'blue' | 'green' | 'red';
 
 interface BoardItem {
     id: string;
-    type: 'note' | 'text' | 'sticker' | 'pen' | 'arrow' | 'circle' | 'calculator' | 'mortgage-calc';
+    type: 'note' | 'text' | 'sticker' | 'pen' | 'arrow' | 'circle' | 'calculator' | 'mortgage-calc' | 'calendar';
     x?: number;
     y?: number;
     content?: string;
@@ -285,6 +285,32 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
                     width: 320,
                     height: 420,
                     content: JSON.stringify({ principal: 300000, rate: 3.5, years: 30, downPaymentPercent: 20 }),
+                    rotation: 0
+                };
+                setItems(prev => [...prev, newItem]);
+                setActiveTool('select');
+            }
+        }
+
+
+        // Add Calendar
+        if (activeTool === 'calendar') {
+            const rect = canvasRef.current?.getBoundingClientRect();
+            if (rect) {
+                const x = e.clientX - rect.left - 200;
+                const y = e.clientY - rect.top - 150;
+                const newItem: BoardItem = {
+                    id: Date.now().toString(),
+                    type: 'calendar',
+                    x,
+                    y,
+                    width: 500,
+                    height: 400,
+                    content: JSON.stringify({
+                        view: 'month',
+                        currentDate: new Date().getTime(),
+                        events: []
+                    }),
                     rotation: 0
                 };
                 setItems(prev => [...prev, newItem]);
@@ -612,6 +638,7 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
 
                 <ToolButton icon="fa-calculator" tool="calculator" active={activeTool} onClick={() => handleToolClick('calculator')} label="Calculator" />
                 <ToolButton icon="fa-house-chimney" imageSrc="/mortgage-icon.png" tool="mortgage-calc" active={activeTool} onClick={() => handleToolClick('mortgage-calc')} label="Mortgage Calc" />
+                <ToolButton icon="fa-calendar" tool="calendar" active={activeTool} onClick={() => handleToolClick('calendar')} label="Calendar" />
                 <ToolButton icon="fa-star" imageSrc="/pikachu.png" tool="sticker" active={activeTool} onClick={() => handleToolClick('sticker')} label="Pokemon" />
             </div>
 
@@ -1208,6 +1235,208 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
                         </div>
                     );
                 })}
+
+                {/* Calendar Rendering */}
+                {items.map(item => {
+                    if (item.type !== 'calendar') return null;
+
+                    let data = { view: 'month', currentDate: new Date().getTime(), events: [] as { id: string, date: number, title: string }[] };
+                    try { data = { ...data, ...JSON.parse(item.content || '{}') }; } catch (e) { }
+
+                    const currentDate = new Date(data.currentDate);
+                    const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+                    const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+
+                    const updateState = (updates: Partial<typeof data>) => {
+                        updateItemContent(item.id, JSON.stringify({ ...data, ...updates }));
+                    };
+
+                    const handlePrev = () => {
+                        const newDate = new Date(currentDate);
+                        if (data.view === 'month') newDate.setMonth(newDate.getMonth() - 1);
+                        else newDate.setDate(newDate.getDate() - 7);
+                        updateState({ currentDate: newDate.getTime() });
+                    };
+
+                    const handleNext = () => {
+                        const newDate = new Date(currentDate);
+                        if (data.view === 'month') newDate.setMonth(newDate.getMonth() + 1);
+                        else newDate.setDate(newDate.getDate() + 7);
+                        updateState({ currentDate: newDate.getTime() });
+                    };
+
+                    const addEvent = (dayTimestamp: number) => {
+                        const title = prompt("Event Title:");
+                        if (title) {
+                            const newEvents = [...data.events, { id: Date.now().toString(), date: dayTimestamp, title }];
+                            updateState({ events: newEvents });
+                        }
+                    };
+
+                    const deleteEvent = (eventId: string) => {
+                        if (confirm("Delete this event?")) {
+                            const newEvents = data.events.filter(e => e.id !== eventId);
+                            updateState({ events: newEvents });
+                        }
+                    };
+
+                    const renderMonthGrid = () => {
+                        const days = [];
+                        for (let i = 0; i < firstDayOfMonth; i++) {
+                            days.push(<div key={`empty-${i}`} className="h-full bg-slate-50/50"></div>);
+                        }
+                        for (let day = 1; day <= daysInMonth; day++) {
+                            const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+                            const dayEvents = data.events.filter(e => new Date(e.date).toDateString() === date.toDateString());
+                            const isToday = new Date().toDateString() === date.toDateString();
+
+                            days.push(
+                                <div
+                                    key={day}
+                                    className={`h-full border border-slate-100 p-1 flex flex-col group/day relative hover:bg-slate-50 transition-colors ${isToday ? 'bg-indigo-50/30' : ''}`}
+                                    onClick={(e) => { e.stopPropagation(); addEvent(date.getTime()); }}
+                                >
+                                    <span className={`text-xs font-semibold mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>{day}</span>
+                                    <div className="flex flex-col gap-0.5 overflow-y-auto no-scrollbar">
+                                        {dayEvents.map(ev => (
+                                            <div
+                                                key={ev.id}
+                                                className="text-[10px] bg-indigo-100 text-indigo-700 px-1 py-0.5 rounded truncate cursor-pointer hover:bg-indigo-200"
+                                                onClick={(e) => { e.stopPropagation(); deleteEvent(ev.id); }}
+                                                title={ev.title}
+                                            >
+                                                {ev.title}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <button className="opacity-0 group-hover/day:opacity-100 absolute top-1 right-1 text-slate-300 hover:text-indigo-600 transition-opacity">
+                                        <i className="fa-solid fa-plus text-[10px]"></i>
+                                    </button>
+                                </div>
+                            );
+                        }
+                        return days;
+                    };
+
+                    // Simple Week View Implementation
+                    const renderWeekGrid = () => {
+                        const startOfWeek = new Date(currentDate);
+                        startOfWeek.setDate(currentDate.getDate() - currentDate.getDay()); // Sunday start
+
+                        const days = [];
+                        for (let i = 0; i < 7; i++) {
+                            const date = new Date(startOfWeek);
+                            date.setDate(startOfWeek.getDate() + i);
+                            const dayEvents = data.events.filter(e => new Date(e.date).toDateString() === date.toDateString());
+                            const isToday = new Date().toDateString() === date.toDateString();
+
+                            days.push(
+                                <div
+                                    key={i}
+                                    className="flex-1 h-full border-r border-slate-100 last:border-r-0 flex flex-col hover:bg-slate-50"
+                                    onClick={(e) => { e.stopPropagation(); addEvent(date.getTime()); }}
+                                >
+                                    <div className={`text-center py-2 border-b border-slate-100 ${isToday ? 'bg-indigo-50' : ''}`}>
+                                        <div className="text-xs uppercase text-slate-400 font-bold mb-1">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][i]}</div>
+                                        <div className={`text-sm font-bold w-8 h-8 flex items-center justify-center rounded-full mx-auto ${isToday ? 'bg-indigo-600 text-white' : 'text-slate-700'}`}>
+                                            {date.getDate()}
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 p-1 flex flex-col gap-1 overflow-y-auto">
+                                        {dayEvents.map(ev => (
+                                            <div
+                                                key={ev.id}
+                                                className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded cursor-pointer hover:bg-indigo-200"
+                                                onClick={(e) => { e.stopPropagation(); deleteEvent(ev.id); }}
+                                            >
+                                                {ev.title}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )
+                        }
+                        return <div className="flex w-full h-full">{days}</div>;
+                    };
+
+                    return (
+                        <div
+                            key={item.id}
+                            className={`absolute group bg-white rounded-xl shadow-xl border border-slate-200 flex flex-col overflow-hidden ${activeTool === 'select' ? 'shadow-indigo-500/20 ring-1 ring-indigo-500' : ''}`}
+                            style={{
+                                transform: `translate(${item.x}px, ${item.y}px) rotate(${item.rotation || 0}deg)`,
+                                width: item.width || 500,
+                                height: item.height || 400,
+                                zIndex: selectedItemId === item.id ? 50 : undefined
+                            }}
+                            onMouseDown={(e) => startDrag(e, item)}
+                        >
+                            {/* Header */}
+                            <div className="bg-white border-b border-slate-100 p-3 flex items-center justify-between cursor-move">
+                                <div className="flex items-center gap-4">
+                                    <div className="flex bg-slate-100 rounded-lg p-0.5">
+                                        <button
+                                            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${data.view === 'month' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                            onClick={(e) => { e.stopPropagation(); updateState({ view: 'month' }); }}
+                                        >
+                                            Month
+                                        </button>
+                                        <button
+                                            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${data.view === 'week' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                            onClick={(e) => { e.stopPropagation(); updateState({ view: 'week' }); }}
+                                        >
+                                            Week
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={(e) => { e.stopPropagation(); handlePrev() }} className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500">
+                                            <i className="fa-solid fa-chevron-left text-xs"></i>
+                                        </button>
+                                        <span className="text-sm font-bold text-slate-700 w-24 text-center">
+                                            {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                                        </span>
+                                        <button onClick={(e) => { e.stopPropagation(); handleNext() }} className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500">
+                                            <i className="fa-solid fa-chevron-right text-xs"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <button
+                                    className="text-slate-400 hover:text-red-500 transition-colors"
+                                    onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
+                                >
+                                    <i className="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+
+                            {/* Calendar Grid */}
+                            <div className="flex-1 bg-white overflow-hidden flex flex-col">
+                                {data.view === 'month' && (
+                                    <>
+                                        <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/50">
+                                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                                                <div key={d} className="py-2 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">{d}</div>
+                                            ))}
+                                        </div>
+                                        <div className="flex-1 grid grid-cols-7 auto-rows-fr">
+                                            {renderMonthGrid()}
+                                        </div>
+                                    </>
+                                )}
+                                {data.view === 'week' && renderWeekGrid()}
+                            </div>
+
+                            {/* Resize Handle */}
+                            <div
+                                className="absolute bottom-1 right-1 w-6 h-6 cursor-se-resize z-50 opacity-0 group-hover:opacity-100 flex items-end justify-end p-1"
+                                onMouseDown={(e) => startResize(e, item)}
+                            >
+                                <div className="w-2 h-2 bg-indigo-600 rounded-full"></div>
+                            </div>
+                        </div>
+                    );
+                })}
+
 
                 {/* Current Drawing (Always on top during creation) */}
                 <svg className="absolute inset-0 w-full h-full pointer-events-none z-50">
