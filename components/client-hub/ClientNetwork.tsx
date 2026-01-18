@@ -51,7 +51,7 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
         'detail_referral'
     ];
 
-    const migrateIds = (order: string[]) => {
+    const migrateIds = (order: any): { left: string[]; right: string[] } => {
         const mapping: Record<string, string> = {
             'persona_context': 'detail_persona',
             'detailed_activity': 'detail_activity',
@@ -60,14 +60,30 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
             'referral': 'detail_referral',
             'intent': 'detail_intent'
         };
-        return Array.from(new Set(order.map(id => mapping[id] || id)));
+
+        if (Array.isArray(order)) {
+            const migrated = order.map(id => mapping[id] || id);
+            return {
+                left: migrated.filter((_, i) => i % 2 === 0),
+                right: migrated.filter((_, i) => i % 2 !== 0)
+            };
+        }
+
+        if (order?.left && order?.right) {
+            return {
+                left: order.left.map((id: string) => mapping[id] || id),
+                right: order.right.map((id: string) => mapping[id] || id)
+            };
+        }
+
+        return {
+            left: DEFAULT_ORDER.filter((_, i) => i % 2 === 0),
+            right: DEFAULT_ORDER.filter((_, i) => i % 2 !== 0)
+        };
     };
 
     const [cardOrder, setCardOrder] = useState<string[]>(() => {
-        if (agentSettings?.clientLayoutOrder) {
-            return migrateIds(agentSettings.clientLayoutOrder);
-        }
-        return DEFAULT_ORDER;
+        return migrateIds(agentSettings?.clientLayoutOrder);
     });
 
     useEffect(() => {
@@ -151,8 +167,8 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
         if (!client) return [];
 
         // Priority 1: Manual entries
-        if (client.kyc?.activityFeed && client.kyc.activityFeed.length > 0) {
-            return client.kyc.activityFeed;
+        if ((client as any).kyc?.activityFeed && (client as any).kyc.activityFeed.length > 0) {
+            return (client as any).kyc.activityFeed;
         }
 
         // Priority 2: Automated/Mock entries
@@ -168,10 +184,10 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
             const lead = client as Lead;
             const idNum = parseInt(lead.id.replace(/\D/g, '') || '0') || 7;
             const views = [];
-            if (lead.propertyAddress) {
+            if (lead.inquiryProperty?.address) {
                 views.push({
                     id: 'mock_1',
-                    address: lead.propertyAddress,
+                    address: lead.inquiryProperty.address,
                     timestamp: lead.receivedAt,
                     viewCount: (idNum % 5) + 1,
                     type: 'Property View' as const
@@ -192,8 +208,8 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
         if (!client) return [];
 
         // Priority 1: Manual entries
-        if (client.kyc?.shortlist && client.kyc.shortlist.length > 0) {
-            return client.kyc.shortlist;
+        if ((client as any).kyc?.shortlist && (client as any).kyc.shortlist.length > 0) {
+            return (client as any).kyc.shortlist;
         }
 
         // Priority 2: Automated/Mock entries
@@ -206,11 +222,11 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
             }));
         } else {
             const lead = client as Lead;
-            if (lead.propertyAddress) {
+            if (lead.inquiryProperty?.address) {
                 return [{
                     id: 'mock_fav',
-                    address: lead.propertyAddress,
-                    price: lead.price || lead.minPrice || 0,
+                    address: lead.inquiryProperty.address,
+                    price: lead.inquiryProperty.price || (lead as any).minPrice || 0,
                     isHot: true
                 }];
             }
@@ -220,24 +236,24 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
 
     const handleSaveProperty = (prop: Partial<ShortlistedProperty>) => {
         if (!selectedClient) return;
-        const currentShortlist = selectedClient.kyc?.shortlist || [];
+        const currentShortlist = (selectedClient as any).kyc?.shortlist || [];
         let newList;
 
         if (editingProperty) {
-            newList = currentShortlist.map(p => p.id === editingProperty.id ? { ...p, ...prop } : p);
+            newList = currentShortlist.map((p: any) => p.id === editingProperty.id ? { ...p, ...prop } : p);
         } else {
             newList = [...currentShortlist, { ...prop, id: `prop_${Date.now()}` } as ShortlistedProperty];
         }
 
-        onUpdateKYC({ kyc: { ...selectedClient.kyc, shortlist: newList } });
+        onUpdateKYC({ kyc: { ...(selectedClient as any).kyc, shortlist: newList } });
         setActiveForm(null);
         setEditingProperty(null);
     };
 
     const handleDeleteProperty = (id: string) => {
         if (!selectedClient) return;
-        const newList = (selectedClient.kyc?.shortlist || []).filter(p => p.id !== id);
-        onUpdateKYC({ kyc: { ...selectedClient.kyc, shortlist: newList } });
+        const newList = ((selectedClient as any).kyc?.shortlist || []).filter((p: any) => p.id !== id);
+        onUpdateKYC({ kyc: { ...(selectedClient as any).kyc, shortlist: newList } });
         setActiveForm(null);
         setEditingProperty(null);
     };
@@ -420,16 +436,14 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                         <div
                                             {...provided.droppableProps}
                                             ref={provided.innerRef}
-                                            className="h-full overflow-y-auto p-4 lg:p-6 xl:p-10 grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-6 xl:gap-8 min-w-0"
+                                            className="h-full overflow-y-auto p-4 lg:p-6 xl:p-10 space-y-8"
                                         >
                                             {cardOrder.map((cardId, index) => {
                                                 let content: React.ReactNode = null;
-                                                let span = "col-span-1";
                                                 let isVisible = true;
 
                                                 if (cardId === 'persona') {
                                                     if (!isUser(selectedClient)) return null;
-                                                    span = "col-span-full";
                                                     content = (
                                                         <div className="bg-indigo-900 rounded-[3rem] p-10 text-white relative overflow-hidden shadow-2xl">
                                                             <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
@@ -485,15 +499,15 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                                                     <p className="text-slate-400 font-medium">No archived favorites.</p>
                                                                 </div>
                                                             ) : (
-                                                                <div className="grid gap-4">
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                                                                     {getFavorites(selectedClient).map((fav, i) => (
-                                                                        <div key={i} onDoubleClick={() => { setEditingProperty(fav); setActiveForm('property'); }} className="bg-slate-50/50 p-4 rounded-3xl border border-slate-100 flex items-center gap-4 hover:bg-white hover:shadow-xl transition-all cursor-pointer">
-                                                                            <div className="w-16 h-16 rounded-2xl bg-indigo-100/50 flex items-center justify-center shrink-0">
+                                                                        <div key={i} onDoubleClick={() => { setEditingProperty(fav); setActiveForm('property'); }} className="bg-slate-50/50 p-6 rounded-[2.5rem] border border-slate-100 flex items-center gap-6 hover:bg-white hover:shadow-xl transition-all cursor-pointer">
+                                                                            <div className="w-20 h-20 rounded-[2rem] bg-indigo-100/50 flex items-center justify-center shrink-0 text-2xl">
                                                                                 <i className="fa-solid fa-house-circle-check text-indigo-600"></i>
                                                                             </div>
                                                                             <div className="flex-1 min-w-0">
-                                                                                <h4 className="font-bold text-slate-900 text-sm truncate">{fav.address}</h4>
-                                                                                <div className="text-lg font-black text-emerald-600">${fav.price?.toLocaleString()}</div>
+                                                                                <h4 className="font-bold text-slate-900 text-lg truncate mb-1">{fav.address}</h4>
+                                                                                <div className="text-2xl font-black text-emerald-600">${fav.price?.toLocaleString()}</div>
                                                                             </div>
                                                                         </div>
                                                                     ))}
@@ -513,14 +527,14 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                                                     <i className="fa-solid fa-plus text-[10px]"></i>
                                                                 </button>
                                                             </div>
-                                                            <div className="space-y-3">
-                                                                {getViews(selectedClient).slice(0, 5).map((view, i) => (
-                                                                    <div key={i} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                                                {getViews(selectedClient).slice(0, 10).map((view, i) => (
+                                                                    <div key={i} className="flex items-center justify-between p-5 bg-slate-50/50 rounded-2xl border border-slate-100 group/item hover:bg-white hover:shadow-md transition-all">
                                                                         <div className="min-w-0 flex-1 pr-4">
-                                                                            <h4 className="font-bold text-slate-800 text-xs truncate">{view.address}</h4>
-                                                                            <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{view.type || 'Engagement'}</span>
+                                                                            <h4 className="font-bold text-slate-800 text-[11px] truncate leading-tight mb-1">{view.address}</h4>
+                                                                            <span className="text-[9px] font-black text-indigo-500 uppercase tracking-[0.1em]">{view.type || 'Engagement'}</span>
                                                                         </div>
-                                                                        <div className="text-[10px] font-bold text-slate-400 shrink-0">{formatDate(view.timestamp)}</div>
+                                                                        <div className="text-[9px] font-black text-slate-400 shrink-0">{formatDate(view.timestamp)}</div>
                                                                     </div>
                                                                 ))}
                                                             </div>
@@ -531,11 +545,11 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                                     const sub = cardId.replace('kyc_', '');
                                                     if (sub === 'profiles') {
                                                         content = (
-                                                            <div className="bg-white p-8 rounded-[3rem] border border-slate-200/60 shadow-sm h-full flex flex-col space-y-6">
+                                                            <div className="bg-white p-8 rounded-[3rem] border border-slate-200/60 shadow-sm flex flex-col space-y-6">
                                                                 <h4 className="text-[10px] font-black text-indigo-900 uppercase tracking-widest flex items-center gap-2 border-b border-slate-50 pb-3">
                                                                     <i className="fa-solid fa-user-gear"></i> Profiles & Preferences
                                                                 </h4>
-                                                                <div className="flex-1 space-y-4 text-sm">
+                                                                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                                                     <div className="grid grid-cols-2 gap-4 pb-4 border-b border-slate-50">
                                                                         <div>
                                                                             <div className="text-[9px] font-black text-slate-400 uppercase mb-1">Budget</div>
@@ -546,10 +560,10 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                                                             <div className="font-black text-slate-900">{(selectedClient as any).bedrooms || '0'}+ Beds | {(selectedClient as any).bathrooms || '0'}+ Baths</div>
                                                                         </div>
                                                                     </div>
-                                                                    {selectedClient.kyc.dealBreakers && (
+                                                                    {(selectedClient as any).kyc?.dealBreakers && (
                                                                         <div>
                                                                             <div className="text-[9px] font-black text-slate-400 uppercase mb-2">Deal-Breakers</div>
-                                                                            <div className="flex flex-wrap gap-1.5">{selectedClient.kyc.dealBreakers.map((db, i) => <span key={i} className="px-2 py-0.5 bg-rose-50 text-rose-600 rounded-md text-[10px] font-bold">{db}</span>)}</div>
+                                                                            <div className="flex flex-wrap gap-1.5">{(selectedClient as any).kyc.dealBreakers.map((db: string, i: number) => <span key={i} className="px-2 py-0.5 bg-rose-50 text-rose-600 rounded-md text-[10px] font-bold">{db}</span>)}</div>
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -557,44 +571,42 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                                         );
                                                     } else if (sub === 'readiness') {
                                                         content = (
-                                                            <div className="bg-white p-8 rounded-[3rem] border border-slate-200/60 shadow-sm h-full flex flex-col space-y-6">
+                                                            <div className="bg-white p-8 rounded-[3rem] border border-slate-200/60 shadow-sm flex flex-col space-y-6">
                                                                 <h4 className="text-[10px] font-black text-indigo-900 uppercase tracking-widest flex items-center gap-2 border-b border-slate-50 pb-3">
                                                                     <i className="fa-solid fa-gauge-high"></i> Management & Readiness
                                                                 </h4>
-                                                                <div className="flex-1 space-y-5">
-                                                                    <div className="grid grid-cols-2 gap-4">
-                                                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
-                                                                            <div className="text-[9px] font-black text-slate-400 uppercase mb-1">Lead Score</div>
-                                                                            <div className="text-xl font-black text-indigo-600">{selectedClient.kyc.leadScore || 85}%</div>
-                                                                        </div>
-                                                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
-                                                                            <div className="text-[9px] font-black text-slate-400 uppercase mb-1">Nurture</div>
-                                                                            <div className="text-xs font-black text-indigo-600 uppercase">{selectedClient.kyc.nurtureDetail || 'Warm'}</div>
-                                                                        </div>
+                                                                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                                                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100/50 shadow-sm flex flex-col justify-center">
+                                                                        <div className="text-[9px] font-black text-slate-400 uppercase mb-2 tracking-widest">Lead Score</div>
+                                                                        <div className="text-3xl font-black text-indigo-600">{(selectedClient as any).kyc?.leadScore || 85}%</div>
+                                                                    </div>
+                                                                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100/50 shadow-sm flex flex-col justify-center">
+                                                                        <div className="text-[9px] font-black text-slate-400 uppercase mb-2 tracking-widest">Nurture</div>
+                                                                        <div className="text-sm font-black text-indigo-600 uppercase">{(selectedClient as any).kyc?.nurtureDetail || 'Warm'}</div>
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                         );
                                                     } else if (sub === 'pipeline') {
                                                         content = (
-                                                            <div className="bg-white p-8 rounded-[3rem] border border-slate-200/60 shadow-sm h-full flex flex-col space-y-6">
+                                                            <div className="bg-white p-8 rounded-[3rem] border border-slate-200/60 shadow-sm flex flex-col space-y-6">
                                                                 <h4 className="text-[10px] font-black text-indigo-900 uppercase tracking-widest flex items-center gap-2 border-b border-slate-50 pb-3">
                                                                     <i className="fa-solid fa-map-location-dot"></i> Transaction Pipeline
                                                                 </h4>
-                                                                <div className="flex-1 space-y-6">
-                                                                    <div>
-                                                                        <div className="text-[9px] font-black text-slate-400 uppercase mb-2">Current Roadmap</div>
-                                                                        <div className="text-sm font-black text-indigo-600 uppercase">{selectedClient.kyc.transactionStage || 'Listing Prep'}</div>
-                                                                    </div>
-                                                                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                                                                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: '45%' }}></div>
+                                                                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                                                    <div className="flex flex-col gap-2">
+                                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Stage</div>
+                                                                        <div className="text-sm font-black text-indigo-600 uppercase">{(selectedClient as any).kyc?.transactionStage || 'Listing Prep'}</div>
+                                                                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden mt-2">
+                                                                            <div className="h-full bg-indigo-500 rounded-full" style={{ width: '45%' }}></div>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                         );
                                                     }
                                                 } else if (cardId.startsWith('detail_')) {
-                                                    if (isUser(selectedClient) || selectedClient.kyc) return null;
+                                                    if (isUser(selectedClient)) return null;
                                                     const categoryMap: Record<string, string> = {
                                                         'detail_intent': 'Intent & Readiness',
                                                         'detail_persona': 'Persona & Context',
@@ -667,19 +679,19 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                                     };
 
                                                     content = (
-                                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-5 h-full">
+                                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-sm space-y-5">
                                                             <h4 className="text-[10px] font-black text-indigo-900 uppercase tracking-widest border-b border-slate-50 pb-3 mb-2 flex items-center justify-between">
                                                                 <span>{category}</span>
                                                                 <i className="fa-solid fa-chevron-right text-[8px] opacity-30"></i>
                                                             </h4>
-                                                            <div className="space-y-5">
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                                                                 {fields.map(field => {
                                                                     const renderedValue = renderLeadFieldValue(field, lead[field.id]);
                                                                     if (!renderedValue) return null;
                                                                     return (
-                                                                        <div key={field.id} className="group/item">
-                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1.5 flex items-center gap-2">{field.label}</div>
-                                                                            <div className="text-sm">{renderedValue}</div>
+                                                                        <div key={field.id} className="group/item p-4 bg-slate-50/30 rounded-2xl border border-transparent hover:border-slate-100 hover:bg-white transition-all">
+                                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2 flex items-center gap-2">{field.label}</div>
+                                                                            <div className="text-sm font-bold text-slate-900 leading-tight">{renderedValue}</div>
                                                                         </div>
                                                                     );
                                                                 })}
@@ -688,24 +700,21 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                                     );
                                                 }
 
-                                                if (!content) return null;
-
                                                 return (
+                                                    // @ts-ignore
                                                     <Draggable key={cardId} draggableId={cardId} index={index}>
                                                         {(draggableProvided, snapshot) => (
                                                             <div
                                                                 ref={draggableProvided.innerRef}
                                                                 {...draggableProvided.draggableProps}
-                                                                className={`${span} relative group/card-wrapper ${snapshot.isDragging ? 'z-[1000] rotate-2' : ''}`}
+                                                                className={`relative group/card-wrapper ${snapshot.isDragging ? 'z-[1000] rotate-2' : ''}`}
                                                             >
-                                                                {/* Custom Drag Handle */}
                                                                 <div
                                                                     {...draggableProvided.dragHandleProps}
                                                                     className="absolute top-4 right-4 z-[60] w-10 h-10 flex items-center justify-center bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-slate-200 opacity-0 group-hover/card-wrapper:opacity-100 transition-all cursor-grab active:cursor-grabbing hover:bg-white hover:scale-110 active:scale-95"
                                                                 >
                                                                     <i className="fa-solid fa-up-down-left-right text-slate-400 text-xs"></i>
                                                                 </div>
-
                                                                 {content}
                                                             </div>
                                                         )}
