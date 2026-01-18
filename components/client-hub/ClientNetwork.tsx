@@ -51,7 +51,7 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
         'detail_referral'
     ];
 
-    const migrateIds = (order: any): { left: string[]; right: string[] } => {
+    const migrateIds = (order: any): string[] => {
         const mapping: Record<string, string> = {
             'persona_context': 'detail_persona',
             'detailed_activity': 'detail_activity',
@@ -62,24 +62,15 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
         };
 
         if (Array.isArray(order)) {
-            const migrated = order.map(id => mapping[id] || id);
-            return {
-                left: migrated.filter((_, i) => i % 2 === 0),
-                right: migrated.filter((_, i) => i % 2 !== 0)
-            };
+            return order.map(id => mapping[id] || id);
         }
 
         if (order?.left && order?.right) {
-            return {
-                left: order.left.map((id: string) => mapping[id] || id),
-                right: order.right.map((id: string) => mapping[id] || id)
-            };
+            const merged = [...order.left, ...order.right];
+            return merged.map((id: string) => mapping[id] || id);
         }
 
-        return {
-            left: DEFAULT_ORDER.filter((_, i) => i % 2 === 0),
-            right: DEFAULT_ORDER.filter((_, i) => i % 2 !== 0)
-        };
+        return DEFAULT_ORDER;
     };
 
     const [cardOrder, setCardOrder] = useState<string[]>(() => {
