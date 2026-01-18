@@ -166,6 +166,32 @@ const LeadsList: React.FC<InternalProps> = ({
         };
     }, [showColumnSelector]);
 
+    // NEW: Dynamic sorting based on prioritization settings
+    useEffect(() => {
+        const type = activeTab;
+        const stage = type === 'Buyer' ? buyerFunnelCategory : sellerFunnelCategory;
+        const properties = (realtorSettings?.leadProperties || LEAD_FIELD_CONFIG) as PropertyOption[];
+
+        const valid = properties.filter(p => {
+            const isVisibleForPersona = !p.visibility || p.visibility.includes(type);
+            const stages = p.funnelVisibility || ['All'];
+            const isVisibleForStage = stages.includes('All') || stages.includes(stage);
+            return isVisibleForPersona && isVisibleForStage;
+        });
+
+        // Find highest priority field (lowest order)
+        const sorted = valid.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+
+        if (sorted.length > 0) {
+            const topField = sorted[0].id as keyof Lead;
+            setSortField(topField);
+
+            // Smart default direction
+            const isDate = ['receivedAt', 'lastUpdated', 'leaseEndDate', 'stageLastChangedAt'].includes(topField);
+            setSortDirection(isDate ? 'desc' : 'asc');
+        }
+    }, [activeTab, buyerFunnelCategory, sellerFunnelCategory, realtorSettings]); // Run whenever context changes
+
     const [buyerViewMode, setBuyerViewMode] = useState<'past6Months' | 'older'>('past6Months');
     const [sellerViewMode, setSellerViewMode] = useState<'past6Months' | 'older'>('past6Months');
 
