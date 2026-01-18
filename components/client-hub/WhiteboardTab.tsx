@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { saveWhiteboard, getWhiteboard, auth } from '../../services/firebaseService';
 
-type Tool = 'select' | 'note' | 'text' | 'pen' | 'sticker' | 'eraser' | 'arrow' | 'circle';
+type Tool = 'select' | 'note' | 'text' | 'pen' | 'sticker' | 'eraser' | 'arrow' | 'circle' | 'calculator' | 'mortgage-calc';
 type NoteColor = 'yellow' | 'blue' | 'green' | 'red';
 
 interface BoardItem {
     id: string;
-    type: 'note' | 'text' | 'sticker' | 'pen' | 'arrow' | 'circle';
+    type: 'note' | 'text' | 'sticker' | 'pen' | 'arrow' | 'circle' | 'calculator' | 'mortgage-calc';
     x?: number;
     y?: number;
     content?: string;
@@ -21,6 +21,7 @@ interface BoardItem {
     points?: { x: number; y: number }[];
     stroke?: string;
     strokeWidth?: number;
+    imageUrl?: string;
 }
 
 interface Props {
@@ -224,6 +225,72 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
                 setActiveTool('select'); // Switch back to select
             }
         }
+
+
+        // Add Sticker (Pokemon)
+        if (activeTool === 'sticker') {
+            const rect = canvasRef.current?.getBoundingClientRect();
+            if (rect) {
+                const x = e.clientX - rect.left - 50; // Center offset
+                const y = e.clientY - rect.top - 50;
+                const newItem: BoardItem = {
+                    id: Date.now().toString(),
+                    type: 'sticker',
+                    x,
+                    y,
+                    width: 100,
+                    height: 100,
+                    imageUrl: '/pikachu.png',
+                    rotation: 0
+                };
+                setItems(prev => [...prev, newItem]);
+                setActiveTool('select');
+            }
+        }
+
+
+        // Add Calculator
+        if (activeTool === 'calculator') {
+            const rect = canvasRef.current?.getBoundingClientRect();
+            if (rect) {
+                const x = e.clientX - rect.left - 100;
+                const y = e.clientY - rect.top - 140;
+                const newItem: BoardItem = {
+                    id: Date.now().toString(),
+                    type: 'calculator',
+                    x,
+                    y,
+                    width: 240,
+                    height: 320,
+                    content: '0', // Current display value
+                    rotation: 0
+                };
+                setItems(prev => [...prev, newItem]);
+                setActiveTool('select');
+            }
+        }
+
+
+        // Add Mortgage Calculator
+        if (activeTool === 'mortgage-calc') {
+            const rect = canvasRef.current?.getBoundingClientRect();
+            if (rect) {
+                const x = e.clientX - rect.left - 150;
+                const y = e.clientY - rect.top - 200;
+                const newItem: BoardItem = {
+                    id: Date.now().toString(),
+                    type: 'mortgage-calc',
+                    x,
+                    y,
+                    width: 320,
+                    height: 420,
+                    content: JSON.stringify({ principal: 300000, rate: 3.5, years: 30, downPaymentPercent: 20 }),
+                    rotation: 0
+                };
+                setItems(prev => [...prev, newItem]);
+                setActiveTool('select');
+            }
+        }
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
@@ -281,11 +348,11 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
                     return { ...item, points: newPoints };
                 }
 
-                // Handle Box Resizing (Note/Text)
-                if (item.type === 'note' || item.type === 'text') {
+                // Handle Box Resizing (Note/Text/Sticker)
+                if (item.type === 'note' || item.type === 'text' || item.type === 'sticker') {
                     return {
                         ...item,
-                        width: Math.max(100, Math.max(100, resizeStart.w + dx)),
+                        width: Math.max(50, Math.max(50, resizeStart.w + dx)),
                         height: Math.max(50, Math.max(50, resizeStart.h + dy))
                     };
                 }
@@ -542,7 +609,10 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
                     </div>
                 )}
                 <ToolButton icon="fa-eraser" tool="eraser" active={activeTool} onClick={() => handleToolClick('eraser')} />
-                <ToolButton icon="fa-icons" tool="sticker" active={activeTool} onClick={() => handleToolClick('select')} label="Sticker" disabled />
+
+                <ToolButton icon="fa-calculator" tool="calculator" active={activeTool} onClick={() => handleToolClick('calculator')} label="Calculator" />
+                <ToolButton icon="fa-house-chimney" imageSrc="/mortgage-icon.png" tool="mortgage-calc" active={activeTool} onClick={() => handleToolClick('mortgage-calc')} label="Mortgage Calc" />
+                <ToolButton icon="fa-star" imageSrc="/pikachu.png" tool="sticker" active={activeTool} onClick={() => handleToolClick('sticker')} label="Pokemon" />
             </div>
 
             {/* Top Right Save Controls */}
@@ -911,6 +981,234 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
                     );
                 })}
 
+                {/* Sticker (Pokemon) Rendering */}
+                {items.map(item => {
+                    if (item.type !== 'sticker' || !item.imageUrl) return null;
+                    return (
+                        <div
+                            key={item.id}
+                            className={`absolute group top-0 left-0 transition-transform hover:z-30 ${activeTool === 'select' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                            style={{
+                                transform: `translate(${item.x}px, ${item.y}px) rotate(${item.rotation || 0}deg)`,
+                                zIndex: selectedItemId === item.id ? 40 : undefined,
+                                width: item.width || 100,
+                                height: item.height || 100
+                            }}
+                            onMouseDown={(e) => startDrag(e, item)}
+                        >
+                            <img
+                                src={item.imageUrl}
+                                alt="Sticker"
+                                className={`w-full h-full object-contain select-none pointer-events-none ${selectedItemId === item.id ? 'ring-2 ring-indigo-600 ring-offset-2 rounded-lg' : ''}`}
+                            />
+
+                            {/* Delete Button */}
+                            <button
+                                className="absolute -bottom-3 -left-3 w-6 h-6 bg-white rounded-full shadow-md text-slate-400 hover:text-red-500 hover:scale-110 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-50 text-xs border border-slate-100"
+                                onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
+                            >
+                                <i className="fa-solid fa-xmark"></i>
+                            </button>
+
+                            {/* Resize Handle */}
+                            <div
+                                className="absolute bottom-1 right-1 w-6 h-6 cursor-se-resize z-50 opacity-0 group-hover:opacity-100 flex items-end justify-end p-1"
+                                onMouseDown={(e) => startResize(e, item)}
+                            >
+                                <div className="w-2 h-2 bg-indigo-600 rounded-full"></div>
+                            </div>
+                        </div>
+                    );
+
+                })}
+
+                {/* Calculator Rendering */}
+                {items.map(item => {
+                    if (item.type !== 'calculator') return null;
+
+                    const handleCalcClick = (val: string) => {
+                        let newContent = item.content || '0';
+                        if (val === 'C') {
+                            newContent = '0';
+                        } else if (val === '=') {
+                            try {
+                                // Safe evaluation
+                                // eslint-disable-next-line
+                                newContent = String(eval(newContent.replace(/[^-()\d/*+.]/g, '')));
+                            } catch (err) {
+                                newContent = 'Error';
+                            }
+                        } else {
+                            if (newContent === '0' || newContent === 'Error') newContent = val;
+                            else newContent += val;
+                        }
+                        updateItemContent(item.id, newContent);
+                    };
+
+                    return (
+                        <div
+                            key={item.id}
+                            className={`absolute group bg-slate-900 rounded-2xl p-4 shadow-2xl flex flex-col gap-3 overflow-hidden ${activeTool === 'select' ? 'shadow-indigo-500/20' : ''}`}
+                            style={{
+                                transform: `translate(${item.x}px, ${item.y}px) rotate(${item.rotation || 0}deg)`,
+                                width: item.width || 240,
+                                height: item.height || 360,
+                                zIndex: selectedItemId === item.id ? 50 : undefined
+                            }}
+                            onMouseDown={(e) => startDrag(e, item)}
+                        >
+                            {/* Display */}
+                            <div className="w-full h-16 bg-slate-800 rounded-xl mb-2 flex items-center justify-end px-4 text-3xl font-mono text-white overflow-hidden">
+                                {item.content}
+                            </div>
+
+                            {/* Buttons Grid */}
+                            <div className="grid grid-cols-4 gap-2 flex-1">
+                                {['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', 'C', '0', '=', '+'].map(btn => (
+                                    <button
+                                        key={btn}
+                                        className={`rounded-lg text-lg font-bold transition-all active:scale-95 ${['/', '*', '-', '+', '='].includes(btn)
+                                            ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                            : btn === 'C'
+                                                ? 'bg-red-500 text-white hover:bg-red-600'
+                                                : 'bg-slate-700 text-slate-100 hover:bg-slate-600'
+                                            }`}
+                                        onMouseDown={(e) => { e.stopPropagation(); handleCalcClick(btn); }}
+                                    >
+                                        {btn}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Delete Button */}
+                            <button
+                                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full text-white shadow-md hover:scale-110 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
+                            >
+                                <i className="fa-solid fa-xmark text-xs"></i>
+                            </button>
+                        </div>
+                    );
+                })}
+
+                {/* Mortgage Calculator Rendering */}
+                {items.map(item => {
+                    if (item.type !== 'mortgage-calc') return null;
+
+                    let data = { principal: 300000, rate: 3.5, years: 30, downPaymentPercent: 20 };
+                    try { data = { ...data, ...JSON.parse(item.content || '{}') }; } catch (e) { }
+
+                    const calculatePayment = () => {
+                        const principal = data.principal || 0;
+                        const downPayment = principal * ((data.downPaymentPercent || 0) / 100);
+                        const loanAmount = principal - downPayment;
+                        const r = (data.rate || 0) / 100 / 12;
+                        const n = (data.years || 0) * 12;
+                        if (r === 0) return loanAmount / n;
+                        return (loanAmount * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+                    };
+                    const monthlyPayment = calculatePayment();
+
+                    const updateData = (key: string, val: number) => {
+                        const newData = { ...data, [key]: val };
+                        updateItemContent(item.id, JSON.stringify(newData));
+                    };
+
+                    return (
+                        <div
+                            key={item.id}
+                            className={`absolute group bg-white rounded-2xl shadow-xl border border-slate-200 flex flex-col overflow-hidden ${activeTool === 'select' ? 'shadow-indigo-500/20 ring-1 ring-indigo-500' : ''}`}
+                            style={{
+                                transform: `translate(${item.x}px, ${item.y}px) rotate(${item.rotation || 0}deg)`,
+                                width: item.width || 320,
+                                height: item.height || 480,
+                                zIndex: selectedItemId === item.id ? 50 : undefined
+                            }}
+                            onMouseDown={(e) => startDrag(e, item)}
+                        >
+                            {/* Header */}
+                            <div className="bg-slate-900 text-white p-4 flex items-center justify-between cursor-move">
+                                <div className="flex items-center gap-2">
+                                    <i className="fa-solid fa-house-chimney text-emerald-400"></i>
+                                    <span className="font-bold text-sm">Mortgage Estimator</span>
+                                </div>
+                                <button
+                                    className="text-slate-400 hover:text-white transition-colors"
+                                    onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
+                                >
+                                    <i className="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+
+                            {/* Content */}
+                            <div className="p-5 flex flex-col gap-4 bg-slate-50 flex-1">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Property Price</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                                        <input
+                                            type="number"
+                                            className="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                                            value={data.principal}
+                                            onChange={(e) => updateData('principal', parseFloat(e.target.value))}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Down Payment %</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            className="w-full pl-3 pr-6 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                                            value={data.downPaymentPercent}
+                                            onChange={(e) => updateData('downPaymentPercent', parseFloat(e.target.value))}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                        />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">%</span>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Interest %</label>
+                                        <div className="relative">
+                                            <input
+                                                type="number"
+                                                className="w-full pl-3 pr-6 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                                                value={data.rate}
+                                                onChange={(e) => updateData('rate', parseFloat(e.target.value))}
+                                                onMouseDown={(e) => e.stopPropagation()}
+                                            />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">%</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Years</label>
+                                        <input
+                                            type="number"
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                                            value={data.years}
+                                            onChange={(e) => updateData('years', parseFloat(e.target.value))}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="mt-auto pt-4 border-t border-slate-200">
+                                    <div className="flex justify-between items-end">
+                                        <span className="text-sm font-medium text-slate-500">Monthly Payment</span>
+                                        <span className="text-2xl font-black text-indigo-600">
+                                            ${monthlyPayment ? monthlyPayment.toFixed(2) : '0.00'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+
                 {/* Current Drawing (Always on top during creation) */}
                 <svg className="absolute inset-0 w-full h-full pointer-events-none z-50">
                     {currentPath.length > 0 && activeTool === 'pen' && (
@@ -951,7 +1249,7 @@ const WhiteboardTab: React.FC<Props> = ({ userId }) => {
     );
 };
 
-const ToolButton: React.FC<{ icon: string; tool: Tool; active: Tool; onClick: () => void; label?: string; disabled?: boolean }> = ({ icon, tool, active, onClick, label, disabled }) => (
+const ToolButton: React.FC<{ icon: string; imageSrc?: string; tool: Tool; active: Tool; onClick: () => void; label?: string; disabled?: boolean }> = ({ icon, imageSrc, tool, active, onClick, label, disabled }) => (
     <button
         onClick={onClick}
         disabled={disabled}
@@ -960,7 +1258,11 @@ const ToolButton: React.FC<{ icon: string; tool: Tool; active: Tool; onClick: ()
             : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'} ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
         title={label || tool}
     >
-        <i className={`fa-solid ${icon}`}></i>
+        {imageSrc ? (
+            <img src={imageSrc} alt={label || tool} className="w-6 h-6 object-contain filter drop-shadow-sm" />
+        ) : (
+            <i className={`fa-solid ${icon}`}></i>
+        )}
     </button>
 );
 
