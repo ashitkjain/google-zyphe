@@ -142,6 +142,18 @@
       animation: flameFlicker 0.6s ease-in-out infinite;
       transform-origin: bottom center;
     }
+
+    /* 3-Dot Loading Animation */
+    .loader-dots span {
+      animation: loaderDots 0.6s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+    }
+    .loader-dots span:nth-child(1) { animation-delay: -0.4s; }
+    .loader-dots span:nth-child(2) { animation-delay: -0.2s; }
+    .loader-dots span:nth-child(3) { animation-delay: 0s; }
+    @keyframes loaderDots {
+      from { transform: translateY(0); opacity: 0.5; transform: scale(0.9); }
+      to { transform: translateY(-6px); opacity: 1; transform: scale(1.1); }
+    }
   </style>
   <script type="importmap">
 {

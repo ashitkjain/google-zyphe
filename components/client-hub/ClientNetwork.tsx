@@ -11,6 +11,7 @@ interface ClientNetworkProps {
     onUpdateKYC: (updates: any) => void;
     clientActivity: { favorites: any[], views: any[] };
     loadingClients: boolean;
+    loadingManual?: boolean;
     loadingActivity: boolean;
     agentSettings?: any;
     onUpdateAgentSettings?: (settings: any) => void;
@@ -30,6 +31,7 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
     onUpdateKYC,
     clientActivity,
     loadingClients,
+    loadingManual = false,
     loadingActivity,
     agentSettings,
     onUpdateAgentSettings
@@ -312,9 +314,13 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                    {loadingClients && networkTab === 'on-zyphe' ? (
-                        <div className="p-12 text-center text-slate-200">
-                            <i className="fa-solid fa-circle-notch fa-spin text-3xl"></i>
+                    {(loadingClients && networkTab === 'on-zyphe') || (loadingManual && networkTab === 'off-zyphe') ? (
+                        <div className="py-16 flex items-center justify-center">
+                            <div className="loader-dots flex items-center gap-1.5">
+                                <span className="w-2 h-2 bg-indigo-300 rounded-full"></span>
+                                <span className="w-2 h-2 bg-indigo-300 rounded-full"></span>
+                                <span className="w-2 h-2 bg-indigo-300 rounded-full"></span>
+                            </div>
                         </div>
                     ) : displayList.length === 0 ? (
                         <div className="p-8 text-center">

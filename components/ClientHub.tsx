@@ -664,6 +664,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                         onUpdateKYC={handleSaveKYC}
                         clientActivity={clientActivity}
                         loadingClients={loadingClients}
+                        loadingManual={loadingData}
                         loadingActivity={loadingActivity}
                         agentSettings={realtorProfile?.settings}
                         onUpdateAgentSettings={(settings) => {
