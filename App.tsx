@@ -19,7 +19,7 @@ import {
   getUserProfile,
   trackUserPropertyView,
   getUserViewHistory,
-  logUserActivity,
+
   verifyFirestoreConnection,
   getImageQualityAnalysisFromCloud,
   getInvestmentResearchFromCloud,
@@ -251,7 +251,7 @@ const App: React.FC = () => {
     setLogs([]);
     setViewMode('main');
 
-    logUserActivity(sessionId, searchAddress);
+    // logUserActivity(sessionId, searchAddress); // Removed as per user request
 
     try {
       let finalAddress = searchAddress;

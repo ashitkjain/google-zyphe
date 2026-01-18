@@ -521,18 +521,7 @@ export const getInvestmentResearchFromCloud = async (zpid: string): Promise<Inve
 
 
 
-export const logUserActivity = async (sessionId: string, address: string) => {
-  if (!db) return;
-  try {
-    const activityRef = doc(collection(db, "user_activity"));
-    await setDoc(activityRef, {
-      sessionId,
-      address,
-      timestamp: serverTimestamp()
-    });
-  } catch (error) {
-  }
-};
+
 
 export const verifyFirestoreConnection = async () => {
   if (!db) return { success: false, message: "Database not initialized" };
