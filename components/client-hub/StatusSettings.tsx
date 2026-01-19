@@ -30,7 +30,7 @@ interface ManagedProperty extends PropertyOption {
     applicableTo?: 'Both' | 'Buyer' | 'Seller';
 }
 
-const FUNNEL_STAGES = ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed', 'Archived'];
+const FUNNEL_STAGES = ['Leads', 'Nurture', 'Active Search', 'Offer', 'Closing', 'Closed', 'Archived'];
 
 const PROPERTY_CATEGORIES = [
     'Leads',
