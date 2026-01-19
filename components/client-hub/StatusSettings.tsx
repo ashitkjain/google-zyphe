@@ -207,7 +207,15 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
 
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set([...FUNNEL_STAGES, ...PROPERTY_CATEGORIES]));
-    const [expandedFields, setExpandedFields] = useState<Set<string>>(new Set());
+    const [expandedFields, setExpandedFields] = useState<Set<string>>(() => {
+        const expanded = new Set<string>();
+        allProperties.forEach((p, idx) => {
+            if (p.type === 'object' || p.type === 'list') {
+                expanded.add(p.id || `field-${idx}`);
+            }
+        });
+        return expanded;
+    });
 
     const [isSaving, setIsSaving] = useState(false);
     const [isMigrating, setIsMigrating] = useState(false);
@@ -711,11 +719,15 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                                                             </td>
                                                                             {type !== 'status' && (
                                                                                 <td className="px-4 py-2 w-[110px] align-top">
-                                                                                    <FunnelVisibilitySelect
-                                                                                        selected={item.funnelVisibility || ['All']}
-                                                                                        onChange={(next) => handleUpdateItem(originalIndex, { funnelVisibility: next }, type)}
-                                                                                        disabled={(item as any).isLocked}
-                                                                                    />
+                                                                                    {isObject ? (
+                                                                                        <span className="text-[10px] text-slate-300 italic font-medium px-2">—</span>
+                                                                                    ) : (
+                                                                                        <FunnelVisibilitySelect
+                                                                                            selected={item.funnelVisibility || ['All']}
+                                                                                            onChange={(next) => handleUpdateItem(originalIndex, { funnelVisibility: next }, type)}
+                                                                                            disabled={(item as any).isLocked}
+                                                                                        />
+                                                                                    )}
                                                                                 </td>
                                                                             )}
                                                                             {type !== 'status' && (

@@ -185,6 +185,13 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
         isMock: true,
         collectionName: 'leads',
         clientId: `client_${Math.floor(Math.random() * 1000)}`,
-        lastUpdated: new Date()
+        lastUpdated: new Date(),
+
+        // --- Flat Accessors for UI (Satisfying LeadsList expectations) ---
+        firstName,
+        lastName,
+        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${getRandom(MOCK_GMAIL_DOMAINS)}`,
+        phone: `(555) ${Math.floor(100 + Math.random() * 900)}-${Math.floor(1000 + Math.random() * 9000)}`,
+        source: getRandom(MOCK_SOURCES),
     };
 };
