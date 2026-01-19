@@ -498,9 +498,9 @@ export interface Lead {
     id: string;
 
     // --- Phase 1 ---
-    fullName: string;
-    primaryContact: PrimaryContact;
-    leadInfo: LeadInfo;
+    fullName?: string;
+    primaryContact?: PrimaryContact;
+    leadInfo?: LeadInfo;
     engagementScore?: 'Cold' | 'Warm' | 'Hot' | 'Stale';
 
     // --- Phase 2 ---
@@ -544,10 +544,44 @@ export interface Lead {
     staleWarningDate?: Date;
 
     // Legacy / Shared fields that might be used by generic components
+    // Legacy / Shared fields that might be used by generic components
+    firstName?: string;
+    lastName?: string;
+    email?: string; // Flat accessor for primaryContact.email
+    phone?: string; // Flat accessor for primaryContact.phone
+    source?: string; // Flat accessor for leadInfo.origin
+    notes?: string;
+    notesLog?: any[];
+    isAlsoSelling?: boolean;
+    isAlsoBuying?: boolean;
+    preQualified?: boolean;
+    homeValueNeeded?: boolean;
+    price?: number;
+    preferredNeighborhood?: string;
+    callCount?: number;
+    initialContactIn30Mins?: boolean;
+    isHot?: boolean;
+    tags?: string[];
+    message?: string;
+    timeframe?: string;
+    preferredContactMethod?: string;
+    callNotes?: any[];
+
+    // Lifecycle
+    stageLastChangedAt?: any;
+    archivedAt?: any;
+    activatedAt?: any;
+    closedAt?: any;
+    subjectProperty?: string;
+    propertyAddress?: string;
+    avatarUrl?: string;
+    slaUrgency?: string;
+
     lastUpdated?: any;
     isMock?: boolean;
     collectionName?: string;
     clientId?: string;
+    clientPhotoUrl?: string; // Flat accessor
 
     // Deprecated / Mapped fields (keeping some for potential backward compat or strict adherence to new schema)
     // Ideally we remove everything else.

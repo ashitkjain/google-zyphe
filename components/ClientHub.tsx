@@ -9,7 +9,7 @@ import LeadsList from './LeadsList';
 
 // Sub-components
 import ClientNetwork from './client-hub/ClientNetwork';
-import EditLeadModal from './client-hub/EditLeadModal';
+
 import TaskBoard from './client-hub/TaskBoard';
 import KYCModal from './client-hub/KYCModal';
 import StatusSettings from './client-hub/StatusSettings';
@@ -53,14 +53,12 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     const [templates, setTemplates] = useState<CommTemplate[]>([]);
     const [reminderRules, setReminderRules] = useState<ReminderRule[]>([]);
     const [loadingData, setLoadingData] = useState(true);
-    const [editingLead, setEditingLead] = useState<Lead | null>(null);
-    const [kycLead, setKycLead] = useState<Lead | null>(null);
-    const [newNote, setNewNote] = useState('');
-    const [isSavingLead, setIsSavingLead] = useState(false);
+
 
     // Pipeline Notes State
     const [pipelineNotes, setPipelineNotes] = useState<PipelineNote[]>([]);
     const [pendingNote, setPendingNote] = useState<{ leadId: string, color: string } | null>(null);
+    const [kycLead, setKycLead] = useState<Lead | null>(null);
 
     useEffect(() => {
         // Global listener for KYC modal
@@ -301,16 +299,12 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         const collectionName = 'leads';
         const previousLeads = [...leads];
 
-        setIsSavingLead(true);
         const success = await updateLead(leadId, updates, collectionName);
 
         if (!success) {
             setLeads(previousLeads);
             alert('Failed to save changes. Please try again.');
         }
-
-        setIsSavingLead(false);
-        setEditingLead(null); // Close modal only after save process completes (success or failure handled)
     };
 
     const handleDragEnd = async (result: DropResult) => {
@@ -413,11 +407,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     color: color
                 }];
                 handleUpdateLead(lead.id, { notesLog: updatedNotesLog, notes: content });
-
-                // Also update editingLead if it's the same lead
-                if (editingLead && editingLead.id === leadId) {
-                    setEditingLead({ ...editingLead, notesLog: updatedNotesLog, notes: content });
-                }
             }
         }
         return noteId;
@@ -449,10 +438,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             if (lead && lead.notesLog) {
                 const updatedNotesLog = lead.notesLog.map(n => n.id === noteId ? { ...n, ...updates } : n);
                 handleUpdateLead(lead.id, { notesLog: updatedNotesLog });
-
-                if (editingLead && editingLead.id === lead.id) {
-                    setEditingLead({ ...editingLead, notesLog: updatedNotesLog });
-                }
             }
         }
 
@@ -482,10 +467,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             if (lead && lead.notesLog) {
                 const updatedNotesLog = lead.notesLog.filter(n => n.id !== noteId);
                 handleUpdateLead(lead.id, { notesLog: updatedNotesLog });
-
-                if (editingLead && editingLead.id === lead.id) {
-                    setEditingLead({ ...editingLead, notesLog: updatedNotesLog });
-                }
             }
         }
 
@@ -512,8 +493,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             health: 'Active',
             ...initialUpdates
         };
-        setEditingLead(newLead);
-        setNewNote('');
+        console.log("Skipping modal open for new lead");
     };
 
     const tabs: { id: HubTab; label: string; icon: string }[] = [
@@ -678,7 +658,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     <LeadsList
                         leads={leads}
                         onUpdateLead={(id, updates) => handleUpdateLead(id, updates)}
-                        onViewLead={(lead) => setEditingLead(lead)}
                         onCreateLead={handleCreateLead}
                         notes={pipelineNotes}
                         pendingNote={pendingNote}
@@ -808,23 +787,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
             </div>
 
-            {/* Lead Edit Modal */}
-            {
-                editingLead && (
-                    <EditLeadModal
-                        editingLead={editingLead}
-                        setEditingLead={setEditingLead}
-                        leads={leads}
-                        handleUpdateLead={handleUpdateLead}
-                        isSavingLead={isSavingLead}
-                        newNote={newNote}
-                        setNewNote={setNewNote}
-                        realtorSettings={realtorProfile?.settings}
-                        handleAddNote={handleAddNote}
-                        handleDeleteNote={handleDeletePipelineNote}
-                    />
-                )
-            }
+
 
 
             {/* KYC Modal */}

@@ -8,7 +8,8 @@ const TypedDroppable = Droppable as any;
 interface LeadGalleryItemProps {
     lead: Lead;
     index: number;
-    onViewLead: (lead: Lead) => void;
+
+
     selectedIds: Set<string>;
     handleSelectOne: (id: string) => void;
     notes: PipelineNote[];
@@ -39,7 +40,7 @@ interface LeadGalleryItemProps {
 }
 
 const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
-    lead, index, onViewLead, selectedIds, handleSelectOne,
+    lead, index, selectedIds, handleSelectOne,
     editNoteId, setEditNoteId, editContent, setEditContent, handleUpdateNote,
     onDoneToggle, onDeleteClick, pendingNote, draftContent, setDraftContent,
     handleSaveNote, setPendingNote, deleteCoords, deletingNoteId, celebratingNoteId, isFlyingUpId,
@@ -102,7 +103,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
             val = lead.stageLastChangedAt;
         }
 
-        if (field === 'receivedAt' || field === 'lastTouch' || field === 'leaseEndDate' || field === 'lastUpdated') {
+        if (field === 'receivedAt' || field === 'lastTouch' || field === 'leaseEndDate' || field === 'lastUpdated' || field === 'staleWarningDate') {
             const date = val?.toDate ? val.toDate() : (val ? new Date(val) : null);
             if (!date) return '--';
             if (field === 'receivedAt') {
@@ -135,6 +136,17 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                 ></div>
             );
         }
+        if (field === 'status') {
+            return <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">{val || 'New'}</span>;
+        }
+        if (field === 'engagementScore') {
+            const score = val as string;
+            if (score === 'Hot') return <i className="fa-solid fa-fire text-orange-500 text-sm" title="Hot"></i>;
+            if (score === 'Warm') return <i className="fa-solid fa-mug-hot text-amber-500 text-sm" title="Warm"></i>;
+            if (score === 'Cold') return <i className="fa-solid fa-snowflake text-sky-300 text-sm" title="Cold"></i>;
+            if (score === 'Stale') return <i className="fa-solid fa-ghost text-slate-300 text-sm" title="Stale"></i>;
+            return '--';
+        }
         if (typeof val === 'boolean') return val ? 'Yes' : 'No';
         if (field === 'price') {
             const priceVal = val || lead.price;
@@ -146,6 +158,9 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
 
     const COLUMN_METADATA: Record<string, { label: string, icon: string, color?: string }> = {
         status: { label: 'Lead Status', icon: 'fa-signal', color: 'text-indigo-600' },
+        engagementScore: { label: 'Lead Temperature', icon: 'fa-temperature-half', color: 'text-orange-500' },
+        staleWarningDate: { label: 'Follow-up Deadline', icon: 'fa-clock', color: 'text-red-500' },
+        smsConsent: { label: 'SMS Consent', icon: 'fa-comments', color: 'text-blue-500' },
         isAlsoSelling: { label: 'Also Selling?', icon: 'fa-house-user' },
         isAlsoBuying: { label: 'Also Buying?', icon: 'fa-cart-shopping' },
         preQualified: { label: 'Pre-qualified?', icon: 'fa-certificate', color: 'text-emerald-600' },
@@ -192,8 +207,10 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
         const value = (lead as any)[field];
 
         if (isEditing) {
-            if (field === 'status') {
-                const options = getStatusOptions(lead.leadType, realtorSettings).map((o: any) => o.label);
+            if (field === 'status' || field === 'engagementScore') {
+                const options = field === 'status'
+                    ? getStatusOptions(lead.leadType, realtorSettings).map((o: any) => o.label)
+                    : ['Cold', 'Warm', 'Hot', 'Stale'];
 
                 return (
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
@@ -207,13 +224,13 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                             }}
                             onBlur={() => setEditingCell(null)}
                         >
-                            {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            {options.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
                         </select>
                     </div>
                 );
             }
 
-            if (typeof value === 'boolean') {
+            if (typeof value === 'boolean' || field === 'smsConsent') {
                 return (
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                         <select
@@ -252,7 +269,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
             );
         }
 
-        if (field === 'receivedAt' || field === 'lastUpdated' || field === 'lastTouch') {
+        if (field === 'receivedAt' || field === 'lastUpdated' || field === 'lastTouch' || field === 'staleWarningDate') {
             return (
                 <div className="flex items-center gap-1 w-full min-h-[1.2rem]">
                     <span className="font-medium break-words text-slate-500">
@@ -278,6 +295,15 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
         );
     };
 
+    // Combine explicit required fields with user-selected columns
+    const gridFields = Array.from(new Set([
+        ...Array.from(getVisibleColumns()),
+        'receivedAt',
+        'smsConsent',
+        'status',
+        'staleWarningDate'
+    ]));
+
     return (
         <div
             className={`p-4 rounded-[2rem] border transition-all border-l-4 group relative cursor-pointer flex flex-col ${selectedIds.has(lead.id)
@@ -291,7 +317,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                 backgroundColor: rednessAlpha > 0 && rednessAlpha < 1 ? `rgba(255, 0, 0, ${rednessAlpha * 0.1})` : undefined
             }}
             onClick={(e) => { handleSelectOne(lead.id); }}
-            onDoubleClick={(e) => { e.stopPropagation(); onViewLead(lead); }}
+
         >
             {/* Selection Badge */}
             {selectedIds.has(lead.id) && (
@@ -306,6 +332,9 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                         {...noteProvided.droppableProps}
                         className={`flex-1 flex flex-col min-h-[130px] ${noteSnapshot.isDraggingOver ? 'bg-indigo-50/20' : ''}`}
                     >
+                        {/* Top Right Actions code is unchanged and below... */}
+                        {/* skipping to grid for brevity in replacement search */}
+
                         <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
                             {/* Contacted Status Leaves */}
                             {lead.initialContactIn30Mins === true && (
@@ -337,23 +366,28 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
 
                             <div className="flex items-center gap-1">
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); onUpdateLead(lead.id, { isHot: !lead.isHot }); }}
-                                    className={`relative transition-all duration-500 ease-out flex items-center justify-center ${lead.isHot
-                                        ? 'w-12 h-12 -mt-6 -mr-4 drop-shadow-[0_8px_8px_rgba(255,100,0,0.5)] z-50 animate-flame'
-                                        : 'w-7 h-7 opacity-20 hover:opacity-100 grayscale hover:grayscale-0 hover:scale-125 group-hover:opacity-100 mr-2 text-orange-500'
-                                        }`}
-                                    title={lead.isHot ? "Remove Hot Status" : "Mark as Hot"}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const scores = ['Cold', 'Warm', 'Hot', 'Stale'];
+                                        const currentIndex = scores.indexOf(lead.engagementScore || 'Cold');
+                                        const nextScore = scores[(currentIndex + 1) % scores.length];
+                                        onUpdateLead(lead.id, { engagementScore: nextScore as any });
+                                    }}
+                                    className={`relative transition-all duration-300 ease-out flex items-center justify-center mr-2 cursor-pointer hover:scale-110 active:scale-95 ${lead.engagementScore === 'Hot' ? 'w-12 h-12 -mt-6 -mr-4 drop-shadow-[0_8px_8px_rgba(255,100,0,0.5)] z-50 animate-flame' : 'w-7 h-7'}`}
+                                    title={`Current Temperature: ${lead.engagementScore || 'Cold'}. Click to cycle.`}
                                 >
-                                    <svg viewBox="0 0 100 100" className="w-full h-full filter drop-shadow-sm">
-                                        {/* Outer layer */}
-                                        <path d="M50 95C30 95 15 75 15 50C15 35 25 20 45 5C45 15 50 25 55 35C65 25 75 35 85 50C85 75 70 95 50 95Z" fill="#ff4d00" />
-                                        {/* Middle layer */}
-                                        <path d="M50 90C35 90 25 75 25 55C25 45 30 35 45 25C45 35 50 45 55 50C62 40 70 45 75 55C75 75 65 90 50 90Z" fill="#ff9900" />
-                                        {/* Inner layer */}
-                                        <path d="M50 85C42 85 35 75 35 60C35 50 40 45 45 40C48 50 50 55 55 60C58 55 62 55 65 60C65 75 58 85 50 85Z" fill="#ffcc00" />
-                                    </svg>
-                                    {lead.isHot && (
-                                        <div className="absolute inset-x-0 bottom-0 top-1/2 bg-orange-500/30 blur-xl rounded-full -z-10 animate-pulse"></div>
+                                    {(!lead.engagementScore || lead.engagementScore === 'Cold') && <i className="fa-solid fa-snowflake text-sky-300 text-xl filter drop-shadow-sm"></i>}
+                                    {lead.engagementScore === 'Warm' && <i className="fa-solid fa-mug-hot text-amber-500 text-xl filter drop-shadow-sm"></i>}
+                                    {lead.engagementScore === 'Stale' && <img src="/assets/stale-icon.png" alt="Stale" className="w-6 h-6 object-contain opacity-60 grayscale filter drop-shadow-sm" />}
+                                    {lead.engagementScore === 'Hot' && (
+                                        <>
+                                            <svg viewBox="0 0 100 100" className="w-full h-full filter drop-shadow-sm">
+                                                <path d="M50 95C30 95 15 75 15 50C15 35 25 20 45 5C45 15 50 25 55 35C65 25 75 35 85 50C85 75 70 95 50 95Z" fill="#ff4d00" />
+                                                <path d="M50 90C35 90 25 75 25 55C25 45 30 35 45 25C45 35 50 45 55 50C62 40 70 45 75 55C75 75 65 90 50 90Z" fill="#ff9900" />
+                                                <path d="M50 85C42 85 35 75 35 60C35 50 40 45 45 40C48 50 50 55 55 60C58 55 62 55 65 60C65 75 58 85 50 85Z" fill="#ffcc00" />
+                                            </svg>
+                                            <div className="absolute inset-x-0 bottom-0 top-1/2 bg-orange-500/30 blur-xl rounded-full -z-10 animate-pulse"></div>
+                                        </>
                                     )}
                                 </button>
                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
@@ -394,7 +428,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                             </div>
 
                             <div className="flex flex-col flex-1 min-w-0 pt-0.5">
-                                <div className="font-bold text-black text-sm group-hover:text-indigo-600 transition-colors tracking-tight truncate leading-tight mb-0.5" onClick={() => onViewLead(lead)}>
+                                <div className="font-bold text-black text-sm group-hover:text-indigo-600 transition-colors tracking-tight truncate leading-tight mb-0.5" >
                                     {lead.firstName} {lead.lastName}
                                 </div>
 
@@ -438,10 +472,11 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                         </div>
 
                         <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-4">
-                            {Array.from(getVisibleColumns())
+                            {gridFields
                                 .filter(colId => !['phone', 'email', 'firstName', 'lastName', 'message', 'notes'].includes(colId as string))
                                 .filter(colId => {
                                     const val = (lead as any)[colId as string];
+                                    if (colId === 'engagementScore' || colId === 'staleWarningDate' || colId === 'smsConsent') return true; // Always show even if empty for these important fields
                                     if (val === null || val === undefined || val === '' || val === false) return false;
                                     if (Array.isArray(val) && val.length === 0) return false;
                                     return true;
@@ -449,6 +484,15 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                 .map((colId: any) => {
                                     const meta = COLUMN_METADATA[colId as string];
                                     if (!meta) return null;
+
+                                    if (colId === 'status') {
+                                        return (
+                                            <div key={colId as string} className="grid grid-cols-[auto_1fr] gap-x-1.5 text-[14px] font-bold text-black leading-tight min-w-0 items-center">
+                                                {renderEditableValue(colId as string)}
+                                            </div>
+                                        );
+                                    }
+
                                     const displayLabel = meta.label
                                         .replace(/[^a-zA-Z0-9\s]/g, '')
                                         .split(' ')

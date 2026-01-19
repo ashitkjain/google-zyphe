@@ -21,10 +21,6 @@ export const MOCK_STREETS = ["Main St", "Oak Ave", "Pine Rd", "Maple Dr", "Cedar
 export const MOCK_CITIES = ["Denver", "Boulder", "Aurora", "Colorado Springs", "Fort Collins"];
 export const MOCK_SOURCES = ["Zillow", "Realtor.com", "Referral", "Website", "Direct", "Google", "Facebook", "Instagram"];
 
-// Helper to get random item from array
-export const getRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
-export const getRandomSubset = <T>(arr: T[], count: number): T[] => arr.sort(() => 0.5 - Math.random()).slice(0, count);
-
 // New Mock Data Helpers
 const MOCK_CAMPAIGNS = ["Spring Promo", "First-Time Buyer Seminar", "Facebook Ad #4", "Referral Program", "None"];
 const MOCK_REFERRAL_TYPES = ["Agent", "Client", "Friend", "Vendor"];
@@ -39,7 +35,19 @@ const MOCK_LOCATIONS = ["Denver", "Cherry Creek", "Highlands", "LoDo", "RiNo"];
 const MOCK_MUST_HAVES = ["3+ Bedrooms", "Garage", "Large Yard", "Modern Kitchen", "Home Office"];
 const MOCK_DEAL_BREAKERS = ["Busy Road", "No Parking", "Power Lines", "HOA > $500", "Basement Issues"];
 
-export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStage?: FunnelStage): any => {
+const MOCK_COMMENTS = [
+    "Client loved the open floor plan but hated the backyard.",
+    "Price is a bit high for the condition.",
+    "Perfect location, but needs too much work.",
+    "Ready to move forward if seller gives concession.",
+    "Checking with lender on rate lock before proceeding."
+];
+export const getRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+export const getRandomSubset = <T>(arr: T[], count: number): T[] => arr.sort(() => 0.5 - Math.random()).slice(0, count);
+
+
+
+export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStage?: FunnelStage, customId?: string): any => {
     const firstName = getRandom(MOCK_FIRST_NAMES);
     const lastName = getRandom(MOCK_LAST_NAMES);
     const fullName = `${firstName} ${lastName}`;
@@ -54,7 +62,7 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
     const receivedDate = new Date(Date.now() - Math.floor(Math.random() * 90 * 24 * 60 * 60 * 1000));
 
     return {
-        id: `mock_${Math.random().toString(36).substr(2, 9)}`,
+        id: customId || `mock_${Math.random().toString(36).substr(2, 9)}`,
 
         // --- Phase 1: Contact ---
         fullName,
@@ -79,6 +87,7 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
         motivation: getRandom(MOCK_MOTIVATIONS),
         targetTimeline: getRandom(['ASAP', '1-3 Months', '3-6 Months', '6-12 Months', 'Just Browsing']),
         personaProfile: getRandom(['First-Time', 'Investor', 'Past Client', 'Relocation']),
+        leaseEndDate: isBuyer && Math.random() > 0.5 ? new Date(Date.now() + Math.floor(Math.random() * 180) * 24 * 60 * 60 * 1000) : undefined,
         nurtureLog: [
             { lastCallDate: new Date(), callCount: Math.floor(Math.random() * 5), lastNote: "Discussed timeline and budget." }
         ],
@@ -102,6 +111,14 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
         tourFeedback: isBuyer ? [
             { property: { address: "123 Mock St", mlsId: "MLS-54321" }, rating: 4, feedback: "Loved the kitchen, yard was too small." }
         ] : undefined,
+        tours: isBuyer ? [
+            { propertyAddress: "456 Oak Street", date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), status: 'Scheduled' },
+            { propertyAddress: "789 Pine Avenue", date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), status: 'Completed' }
+        ] : undefined,
+        visitors: isSeller ? [
+            { name: "John Doe", visitCount: 1, isInterested: true },
+            { name: "Jane Smith", visitCount: 2, isInterested: false }
+        ] : undefined,
 
         // --- Phase 4: Offer/Contract ---
         activeOffer: isBuyer && Math.random() > 0.7 ? {
@@ -118,6 +135,15 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
                 rejectionDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
                 rejectionReason: getRandom(['Price', 'Terms', 'Financing', 'Timing', 'Multiple Offers']),
                 agentNotes: "Client moved on to better property."
+            }
+        ] : undefined,
+        offers: (isBuyer || isSeller) && funnelStage === 'Offer' ? [
+            {
+                property: "123 Mock St",
+                bidPrice: 520000,
+                outcome: 'Pending',
+                date: new Date(),
+                comment: getRandom(MOCK_COMMENTS)
             }
         ] : undefined,
         transactionTeam: {

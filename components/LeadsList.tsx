@@ -15,7 +15,7 @@ import { availableBuyerColumns, availableSellerColumns, defaultBuyerVisible, def
 const LeadsList: React.FC<InternalProps> = ({
     leads,
     onUpdateLead,
-    onViewLead,
+
     onCreateLead,
     onActivateLead,
     notes,
@@ -354,7 +354,7 @@ const LeadsList: React.FC<InternalProps> = ({
         setEditValue('');
     };
 
-    const renderCell = (lead: Lead, field: keyof Lead, type: 'text' | 'select' = 'text', options: string[] = [], viewAction?: () => void) => {
+    const renderCell = (lead: Lead, field: keyof Lead, type: 'text' | 'select' = 'text', options: string[] = []) => {
         const isEditing = editingCell?.id === lead.id && editingCell?.field === field;
         const value = lead[field] as string;
 
@@ -408,14 +408,9 @@ const LeadsList: React.FC<InternalProps> = ({
         return (
             <div className="group/cell flex items-center justify-between gap-2 w-full h-full min-h-[20px]">
                 <div
-                    className={`truncate ${viewAction ? 'cursor-pointer hover:underline' : 'cursor-text'}`}
+                    className="truncate cursor-text"
                     onClick={(e) => {
-                        if (viewAction) {
-                            e.stopPropagation();
-                            viewAction();
-                        } else {
-                            startEditing(e, lead.id, field, value);
-                        }
+                        startEditing(e, lead.id, field, value);
                     }}
                 >
                     {value || <span className="text-slate-300 italic">--</span>}
@@ -798,7 +793,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
                                                 {filteredBuyerLeads.map((lead, index) => (
-                                                    <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80" onDoubleClick={() => onViewLead(lead)}>
+                                                    <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80">
                                                         <td className="px-2 py-2 border-b border-slate-100 text-center text-slate-400 font-bold opacity-50">{index + 1}</td>
                                                         <td className="px-2 py-2 border-b border-slate-100">
                                                             <input type="checkbox" checked={selectedIds.has(lead.id)} onChange={() => handleSelectOne(lead.id)} className="rounded border-slate-300" />
@@ -812,7 +807,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 )}
                                                             </div>
                                                         </td>
-                                                        <td className="px-2 py-2 border-b border-slate-100 font-bold text-slate-900 cursor-pointer hover:underline" onClick={() => onViewLead(lead)}>
+                                                        <td className="px-2 py-2 border-b border-slate-100 font-bold text-slate-900">
                                                             {lead.firstName} {lead.lastName}
                                                         </td>
                                                         {getVisibleColumns('Buyer').has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs text-indigo-500 uppercase tracking-tighter">{lead.funnelStage || '--'}</td>}
@@ -1008,7 +1003,6 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 lead={lead}
                                                 stage={buyerFunnelCategory}
                                                 index={index}
-                                                onViewLead={onViewLead}
                                                 selectedIds={selectedIds}
                                                 handleSelectOne={handleSelectOne}
                                                 notes={notes}
@@ -1157,7 +1151,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
                                                 {filteredSellerLeads.map((lead, index) => (
-                                                    <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80" onDoubleClick={() => onViewLead(lead)}>
+                                                    <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80">
                                                         <td className="px-2 py-2 border-b border-slate-100 text-center text-slate-400 font-bold opacity-50">{index + 1}</td>
                                                         <td className="px-2 py-2 border-b border-slate-100">
                                                             <input type="checkbox" checked={selectedIds.has(lead.id)} onChange={() => handleSelectOne(lead.id)} className="rounded border-slate-300" />
@@ -1171,7 +1165,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 )}
                                                             </div>
                                                         </td>
-                                                        <td className="px-2 py-2 border-b border-slate-100 font-bold text-slate-900 cursor-pointer hover:underline" onClick={() => onViewLead(lead)}>
+                                                        <td className="px-2 py-2 border-b border-slate-100 font-bold text-slate-900">
                                                             {lead.firstName} {lead.lastName}
                                                         </td>
                                                         {getVisibleColumns('Seller').has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs text-emerald-500 uppercase tracking-tighter">{lead.funnelStage || '--'}</td>}
@@ -1351,7 +1345,6 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 lead={lead}
                                                 stage={sellerFunnelCategory}
                                                 index={index + filteredBuyerLeads.length}
-                                                onViewLead={onViewLead}
                                                 selectedIds={selectedIds}
                                                 handleSelectOne={handleSelectOne}
                                                 notes={notes}

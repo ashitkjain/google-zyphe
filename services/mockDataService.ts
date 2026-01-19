@@ -6,35 +6,26 @@ import { generateMockLead } from './mockData';
 export const getInitialMockLeads = (): Lead[] => {
     const leads: Lead[] = [];
 
-    // --- LEADS (10) ---
-    for (let i = 0; i < 5; i++) leads.push(generateMockLead('Buyer', 'New', 'Leads'));
-    for (let i = 0; i < 5; i++) leads.push(generateMockLead('Seller', 'New', 'Leads'));
+    // --- BUYERS (Total 20) ---
+    // Leads: 10
+    for (let i = 0; i < 10; i++) leads.push(generateMockLead('Buyer', 'New', 'Leads', `mock_buyer_lead_${i}`));
+    // Nurture: 5
+    for (let i = 0; i < 5; i++) leads.push(generateMockLead('Buyer', 'Meeting Fixed', 'Nurture', `mock_buyer_nurture_${i}`));
+    // Active Search: 3
+    for (let i = 0; i < 3; i++) leads.push(generateMockLead('Buyer', 'Actively Searching', 'Active Search', `mock_buyer_active_${i}`));
+    // Offer: 2
+    for (let i = 0; i < 2; i++) leads.push(generateMockLead('Buyer', 'Offer Submitted', 'Offer', `mock_buyer_offer_${i}`));
 
-    // --- NURTURE (7) ---
-    for (let i = 0; i < 4; i++) leads.push(generateMockLead('Buyer', 'Meeting Fixed', 'Nurture'));
-    for (let i = 0; i < 3; i++) leads.push(generateMockLead('Seller', 'Meeting Fixed', 'Nurture'));
 
-    // --- ACTIVE SEARCH (5) ---
-    for (let i = 0; i < 3; i++) leads.push(generateMockLead('Buyer', 'Actively Searching', 'Active Search'));
-    for (let i = 0; i < 2; i++) leads.push(generateMockLead('Seller', 'Showing', 'Active Search'));
-
-    // --- OFFER (3) ---
-    for (let i = 0; i < 2; i++) leads.push(generateMockLead('Buyer', 'Offer Submitted', 'Offer'));
-    leads.push(generateMockLead('Seller', 'Offer Received', 'Offer'));
-
-    // --- CONTRACT (1) ---
-    leads.push(generateMockLead('Buyer', 'In Contract', 'Contract'));
-
-    // --- CLOSED (2) ---
-    leads.push(generateMockLead('Buyer', 'Closed-Won', 'Closed')); // Assuming 'Closed' stage exists in logic even if not in config
-    leads.push(generateMockLead('Seller', 'Closed-Won', 'Closed'));
-
-    // Add some specific high urgency leads for testing
-    const urgencyLead = generateMockLead('Buyer', 'New', 'Leads');
-    urgencyLead.fullName = "Urgency Tester"; // Updated from firstName/lastName
-    urgencyLead.engagementScore = 'Hot'; // Updated from slaUrgency
-    urgencyLead.motivation = "I need to buy ASAP!"; // Updated from message
-    leads.push(urgencyLead);
+    // --- SELLERS (Total 10) ---
+    // Leads: 5
+    for (let i = 0; i < 5; i++) leads.push(generateMockLead('Seller', 'New', 'Leads', `mock_seller_lead_${i}`));
+    // Nurture: 3
+    for (let i = 0; i < 3; i++) leads.push(generateMockLead('Seller', 'Meeting Fixed', 'Nurture', `mock_seller_nurture_${i}`));
+    // Offer: 1 (Skipping Active Search as requested)
+    leads.push(generateMockLead('Seller', 'Offer Received', 'Offer', `mock_seller_offer_0`));
+    // Closing (Contract): 1
+    leads.push(generateMockLead('Seller', 'In Contract', 'Contract', `mock_seller_contract_0`));
 
     return leads;
 };
