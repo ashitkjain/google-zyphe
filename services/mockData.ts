@@ -1,3 +1,6 @@
+import { CommChannel, FunnelStage, LeadHealth, LeadSource, LeadStatus, LeadType } from '../types/enums';
+// Note: We are generating data matching the NEW Lead schema in types/lead.ts
+
 export const MOCK_FIRST_NAMES = [
     "James", "Mary", "Robert", "Patricia", "John", "Jennifer", "Michael", "Linda",
     "David", "Elizabeth", "William", "Barbara", "Richard", "Susan", "Joseph", "Jessica",
@@ -17,139 +20,142 @@ export const MOCK_GMAIL_DOMAINS = ["gmail.com"];
 export const MOCK_STREETS = ["Main St", "Oak Ave", "Pine Rd", "Maple Dr", "Cedar Ln"];
 export const MOCK_CITIES = ["Denver", "Boulder", "Aurora", "Colorado Springs", "Fort Collins"];
 export const MOCK_SOURCES = ["Zillow", "Realtor.com", "Referral", "Website", "Direct", "Google", "Facebook", "Instagram"];
-export const MOCK_TAGS = ["Urgent", "Cash Buyer", "First-time", "Investor", "Relocation"];
 
 // Helper to get random item from array
 export const getRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 export const getRandomSubset = <T>(arr: T[], count: number): T[] => arr.sort(() => 0.5 - Math.random()).slice(0, count);
 
-// Helper constants
-const MOCK_MESSAGES = [
-    "I'm interested in viewing this property.",
-    "Can you tell me more about the neighborhood?",
-    "I'm looking to buy in the next 3 months.",
-    "Is this property still available?",
-    "I'd like to schedule a tour for this weekend."
+// New Mock Data Helpers
+const MOCK_CAMPAIGNS = ["Spring Promo", "First-Time Buyer Seminar", "Facebook Ad #4", "Referral Program", "None"];
+const MOCK_REFERRAL_TYPES = ["Agent", "Client", "Friend", "Vendor"];
+const MOCK_MOTIVATIONS = [
+    "Need more space for growing family.",
+    "Relocating for a new job in Denver.",
+    "Downsizing after kids moved out.",
+    "Want to build equity closer to downtown.",
+    "Looking for an investment property."
 ];
+const MOCK_LOCATIONS = ["Denver", "Cherry Creek", "Highlands", "LoDo", "RiNo"];
+const MOCK_MUST_HAVES = ["3+ Bedrooms", "Garage", "Large Yard", "Modern Kitchen", "Home Office"];
+const MOCK_DEAL_BREAKERS = ["Busy Road", "No Parking", "Power Lines", "HOA > $500", "Basement Issues"];
 
-const MOCK_TIMEFRAMES = ["ASAP", "1-3 Months", "3-6 Months", "6-12 Months", "1+ Year"];
-const MOCK_TAGS_POOL = ["Urgent", "Cash Buyer", "First-time", "Investor", "Relocation", "Luxury", "Fixer-upper", "Waterfront"];
-const MOCK_NEIGHBORHOODS = ["Downtown", "Cherry Creek", "Capitol Hill", "Highlands", "Washington Park"];
-const MOCK_SCHOOLS = ["East High", "Cherry Creek High", "Denver South", "George Washington"];
-const MOCK_DEAL_BREAKERS = ["No Garage", "Busy Street", "Needs Renovation", "Small Yard", "No POOL"];
-const MOCK_LENDERS = ["Chase Bank", "Wells Fargo", "Rocket Mortgage", "Local Credit Union"];
-const MOCK_REASONS_SELLING = ["Upgrading", "Downsizing", "Job Relocation", "Divorce", "Financial"];
-const MOCK_OCCUPANCY = ['Owner Occupied', 'Vacant', 'Tenant Occupied'];
-
-export const generateMockLead = (type: 'Buyer' | 'Seller', status?: string, funnelStage?: string): any => {
+export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStage?: FunnelStage): any => {
     const firstName = getRandom(MOCK_FIRST_NAMES);
     const lastName = getRandom(MOCK_LAST_NAMES);
+    const fullName = `${firstName} ${lastName}`;
     const streetNum = Math.floor(100 + Math.random() * 900);
     const streetName = getRandom(MOCK_STREETS);
     const city = getRandom(MOCK_CITIES);
     const fullAddress = `${streetNum} ${streetName}, ${city}, CO 80202`;
+
+    // Derived values
     const isBuyer = type === 'Buyer';
     const isSeller = type === 'Seller';
-
-    const receivedDate = new Date(Date.now() - Math.floor(Math.random() * 90 * 24 * 60 * 60 * 1000)); // Last 90 days
+    const receivedDate = new Date(Date.now() - Math.floor(Math.random() * 90 * 24 * 60 * 60 * 1000));
 
     return {
         id: `mock_${Math.random().toString(36).substr(2, 9)}`,
 
-        // 1. Contact Information
-        firstName,
-        lastName,
-        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${getRandom(MOCK_GMAIL_DOMAINS)}`,
-        phone: `(555) ${Math.floor(100 + Math.random() * 900)}-${Math.floor(1000 + Math.random() * 9000)}`,
-        homeAddress: fullAddress,
-        preferredContactMethod: getRandom(['Call', 'Text', 'Email']),
-        smsConsent: Math.random() > 0.3, // 70% chance of consent
-        clientPhotoUrl: Math.random() > 0.7 ? `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=random` : undefined,
+        // --- Phase 1: Contact ---
+        fullName,
+        primaryContact: {
+            email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${getRandom(MOCK_GMAIL_DOMAINS)}`,
+            phone: `(555) ${Math.floor(100 + Math.random() * 900)}-${Math.floor(1000 + Math.random() * 9000)}`,
+            preferredMethod: getRandom(['Phone', 'Email', 'SMS', 'WhatsApp']),
+            smsConsent: Math.random() > 0.3,
+            clientPhotoUrl: Math.random() > 0.7 ? `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=random` : undefined,
+            homeAddress: fullAddress
+        },
+        leadInfo: {
+            origin: getRandom(MOCK_SOURCES),
+            referralType: getRandom(MOCK_REFERRAL_TYPES),
+            campaign: getRandom(MOCK_CAMPAIGNS),
+            createdDate: receivedDate,
+            leadType: type
+        },
+        engagementScore: getRandom(['Cold', 'Warm', 'Hot', 'Stale']),
 
-        // 2. Readiness & Context
-        message: getRandom(MOCK_MESSAGES),
-        timeframe: getRandom(MOCK_TIMEFRAMES),
-        preApprovalStatus: isBuyer ? Math.random() > 0.6 : undefined,
-        preQualified: isBuyer ? Math.random() > 0.5 : undefined,
-        isAllCash: isBuyer ? Math.random() > 0.8 : undefined, // 20% chance
-        isWarm: Math.random() > 0.6,
-        isCold: Math.random() > 0.8,
-        isLongTerm: Math.random() > 0.8,
+        // --- Phase 2: Nurture ---
+        motivation: getRandom(MOCK_MOTIVATIONS),
+        targetTimeline: getRandom(['ASAP', '1-3 Months', '3-6 Months', '6-12 Months', 'Just Browsing']),
+        personaProfile: getRandom(['First-Time', 'Investor', 'Past Client', 'Relocation']),
+        nurtureLog: [
+            { lastCallDate: new Date(), callCount: Math.floor(Math.random() * 5), lastNote: "Discussed timeline and budget." }
+        ],
 
-        homeValueNeeded: isSeller ? Math.random() > 0.4 : undefined,
-        reasonForSelling: isSeller ? getRandom(MOCK_REASONS_SELLING) : undefined,
-        isMostImportantReq: Math.random() > 0.7,
-        lenderContact: isBuyer && Math.random() > 0.5 ? getRandom(MOCK_LENDERS) : undefined,
-        tags: getRandomSubset(MOCK_TAGS_POOL, Math.floor(Math.random() * 4)),
-
-        slaUrgency: getRandom(['low', 'medium', 'high']),
-        isHot: Math.random() > 0.85,
-        isEngaged: Math.random() > 0.4,
-        isEvaluatingAgent: Math.random() > 0.7,
-        initialContactIn30Mins: Math.random() > 0.5,
-
-        // Buyer specifics
-        dealBreakers: isBuyer && Math.random() > 0.7 ? getRandomSubset(MOCK_DEAL_BREAKERS, 2) : undefined,
-        neighborhoodTargets: isBuyer ? getRandomSubset(MOCK_NEIGHBORHOODS, 2) : undefined,
-        schoolDistricts: isBuyer && Math.random() > 0.6 ? getRandomSubset(MOCK_SCHOOLS, 1) : undefined,
-
-        // 3. Persona & Context
-        generalInfo: `Looking for a ${isBuyer ? 'home' : 'buyer'} in the ${city} area.`,
-        isFirstTimeBuyer: isBuyer ? Math.random() > 0.6 : undefined,
-        isFirstTimeSeller: isSeller ? Math.random() > 0.6 : undefined,
-        isInvestor: Math.random() > 0.85,
-        isAlsoBuying: isSeller ? Math.random() > 0.4 : undefined,
-        isAlsoSelling: isBuyer ? Math.random() > 0.3 : undefined,
-        isPastClient: Math.random() > 0.9,
-        gender: getRandom(['Male', 'Female', 'Prefer not to say']),
-        occupancyStatus: isSeller ? getRandom(MOCK_OCCUPANCY) : undefined,
-        existingAgentName: Math.random() > 0.8 ? "Competitor Agent" : undefined,
-
-        // 4. Activity
-        isCloseToOffer: isBuyer ? Math.random() > 0.7 : undefined,
-        // (Complex lists like offers/tours/visitors left as empty/undefined for basic mock generation simplicity, 
-        // can be expanded if specific UI needs them populated with objects)
-
-        // 5. Timings
-        leaseEndDate: isBuyer && Math.random() > 0.7 ? new Date(Date.now() + Math.random() * 10000000000) : undefined,
-        sellWhen: isSeller ? getRandom(MOCK_TIMEFRAMES) : undefined,
-        receivedAt: receivedDate,
-        lastUpdated: new Date(),
-        stageLastChangedAt: new Date(Date.now() - Math.floor(Math.random() * 1000000000)),
-
-        // 6. Referral & Source
-        source: getRandom(MOCK_SOURCES),
-        isReferredByPastClient: Math.random() > 0.85,
-        isReferredByFriendFamily: Math.random() > 0.85,
-        leadType: type,
-        referralSource: Math.random() > 0.8 ? "John Doe" : undefined,
-
-        // 7. Client Communication
-        callCount: Math.floor(Math.random() * 10),
-        offerCount: isBuyer ? Math.floor(Math.random() * 3) : undefined,
-        channel: getRandom(['Email', 'Manual', 'CRM']),
-
-        // 8. Properties
-        inquiryProperty: isBuyer ? {
-            minPrice: 300000,
-            maxPrice: 800000,
-            bedrooms: Math.floor(2 + Math.random() * 3),
-            bathrooms: Math.floor(1 + Math.random() * 3),
-            preferredNeighborhood: getRandom(MOCK_NEIGHBORHOODS)
+        // --- Phase 3: Active Search ---
+        financialVitals: isBuyer ? {
+            preApprovalStatus: Math.random() > 0.5,
+            isAllCash: Math.random() > 0.8,
+            budgetMax: Math.floor(400000 + Math.random() * 1000000)
         } : undefined,
-        subjectPropertyDetails: isSeller ? {
-            address: fullAddress,
-            propertyType: 'Single Family',
-            bedrooms: Math.floor(2 + Math.random() * 3),
-            bathrooms: Math.floor(1 + Math.random() * 3),
+        searchCriteria: isBuyer ? {
+            locations: getRandomSubset(MOCK_LOCATIONS, 2),
+            mustHaves: getRandomSubset(MOCK_MUST_HAVES, 2),
+            dealBreakers: getRandomSubset(MOCK_DEAL_BREAKERS, 1)
         } : undefined,
+        listingStatus: isSeller ? {
+            property: { address: fullAddress, mlsId: `MLS-${Math.floor(10000 + Math.random() * 90000)}` },
+            estimatedValue: Math.floor(500000 + Math.random() * 500000),
+            occupancyStatus: getRandom(['Owner Occupied', 'Vacant', 'Tenant Occupied'])
+        } : undefined,
+        tourFeedback: isBuyer ? [
+            { property: { address: "123 Mock St", mlsId: "MLS-54321" }, rating: 4, feedback: "Loved the kitchen, yard was too small." }
+        ] : undefined,
 
-        // 9. System
+        // --- Phase 4: Offer/Contract ---
+        activeOffer: isBuyer && Math.random() > 0.7 ? {
+            property: { address: "123 Mock St", mlsId: "MLS-54321" },
+            price: Math.floor(450000 + Math.random() * 100000),
+            earnestMoney: 5000,
+            contingencies: ['Inspection', 'Appraisal'],
+            offerDate: new Date()
+        } : undefined,
+        historicalOffers: isBuyer && Math.random() > 0.6 ? [
+            {
+                propertyAddress: "789 Old St",
+                offerPrice: 420000,
+                rejectionDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+                rejectionReason: getRandom(['Price', 'Terms', 'Financing', 'Timing', 'Multiple Offers']),
+                agentNotes: "Client moved on to better property."
+            }
+        ] : undefined,
+        transactionTeam: {
+            lenderPOC: "Sarah Lender",
+            escrowOfficer: "Bob Escrow",
+            coopAgent: "Alice Agent"
+        },
+        criticalDates: {
+            inspectionEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            appraisalDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+            closingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        },
+        dealHealth: getRandom(['On Track', 'Delayed', 'At Risk', 'Rescinded']),
+
+        // --- Lifecycle Tracking ---
+        daysInCurrentStage: Math.floor(Math.random() * 30),
+        staleWarningDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        stageHistory: [
+            {
+                fromStage: 'Leads',
+                toStage: funnelStage || 'Leads',
+                enteredAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+                durationDays: 5
+            }
+        ],
+        rejectedOfferLog: isBuyer && Math.random() > 0.8 ? [
+            { rejectionReason: "Price too low", competitorPrice: 460000, lostToCash: false, agentNotes: "They wanted 460k firm." }
+        ] : undefined,
+
+        // --- System ---
         status: status || 'New',
         funnelStage: funnelStage || 'Leads',
+        receivedAt: receivedDate,
+        leadType: type,
         health: getRandom(['Active', 'Stale', 'Dormant', 'Responsive']),
         isMock: true,
         collectionName: 'leads',
-        clientId: Math.random() > 0.9 ? `client_${Math.floor(Math.random() * 1000)}` : undefined,
+        clientId: `client_${Math.floor(Math.random() * 1000)}`,
+        lastUpdated: new Date()
     };
 };

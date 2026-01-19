@@ -5,7 +5,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { collection, getDocs, writeBatch, doc, serverTimestamp, query, where } from 'firebase/firestore';
 import { db_instance } from '../../services/firebaseService';
 import { generateMockLead } from '../../services/mockData';
-import { LEAD_FIELD_CONFIG as DEFAULT_PROPERTIES } from '../../types/lead';
+import { LEAD_FIELD_CONFIG as DEFAULT_PROPERTIES, LEAD_STAGE_LIFECYCLE_CONFIG } from '../../types/lead';
 
 const TypedDroppable = Droppable as any;
 const TypedDraggable = Draggable as any;
@@ -32,7 +32,16 @@ interface ManagedProperty extends PropertyOption {
 
 const FUNNEL_STAGES = ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed', 'Archived'];
 
-const PROPERTY_CATEGORIES = ['Contact Information', 'Intent & Readiness', 'Persona & Context', 'Activity', 'Timings', 'Client Communication', 'Property Details', 'Referral & Source', 'System Metadata'];
+const PROPERTY_CATEGORIES = [
+    'Leads Info',
+    'Nurture Info',
+    'Activity',
+    'Timings',
+    'Negotiation',
+    'Network',
+    'System',
+    'System Metadata' // For lifecycle fields
+];
 
 const FunnelVisibilitySelect: React.FC<{
     selected: string[];
@@ -138,15 +147,19 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
     // Initialize properties with category synchronization directly in useState initializer
     const [allProperties, setAllProperties] = useState<ManagedProperty[]>(() => {
         if (!initialProperties || initialProperties.length === 0) {
-            return (DEFAULT_PROPERTIES as unknown as PropertyOption[]).map(p => ({
+            const allConfigs = [...DEFAULT_PROPERTIES, ...LEAD_STAGE_LIFECYCLE_CONFIG];
+            return (allConfigs as unknown as PropertyOption[]).map(p => ({
                 ...p,
                 applicableTo: (p.visibility?.length === 2) ? 'Both' : (p.visibility?.[0] || 'Both'),
                 funnelVisibility: p.funnelVisibility || ['All'],
                 isLocked: p.isLocked || false
             })) as ManagedProperty[];
         } else {
+            const allConfigs = [...DEFAULT_PROPERTIES, ...LEAD_STAGE_LIFECYCLE_CONFIG];
+
+            // 1. Sync existing properties with new config definitions
             const syncedProperties = initialProperties.map(p => {
-                const defaultConfig = DEFAULT_PROPERTIES.find(dp => dp.id === p.id) as any;
+                const defaultConfig = allConfigs.find(dp => dp.id === p.id) as any;
                 if (defaultConfig) {
                     return {
                         ...p,
@@ -155,6 +168,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                         description: defaultConfig.description, // FORCE update description
                         type: defaultConfig.type || p.type,     // SYNC type
                         options: defaultConfig.options || p.options, // SYNC options
+                        fields: defaultConfig.fields || p.fields, // SYNC fields (sub-structure)
                         isLocked: defaultConfig.isLocked || false, // SYNC locked status
                         funnelVisibility: defaultConfig.isLocked
                             ? (defaultConfig.funnelVisibility || ['All'])
@@ -165,18 +179,34 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                 }
                 return p;
             });
-            return syncedProperties.map(p => ({
+
+            // 2. Add any NEW properties from config that are missing in initialProperties
+            const existingIds = new Set(initialProperties.map(p => p.id));
+            const missingProperties = (allConfigs as unknown as PropertyOption[])
+                .filter(dp => !existingIds.has(dp.id))
+                .map(dp => ({
+                    ...dp,
+                    applicableTo: (dp.visibility?.length === 2) ? 'Both' : (dp.visibility?.[0] || 'Both'),
+                    funnelVisibility: dp.funnelVisibility || ['All'],
+                    isLocked: dp.isLocked || false,
+                    order: syncedProperties.length // Append at end, will be re-ordered if needed or user can re-order
+                }));
+
+            // Combine and map final structure
+            return [...syncedProperties, ...missingProperties].map(p => ({
                 ...p,
                 applicableTo: (p.visibility?.length === 2) ? 'Both' : (p.visibility?.[0] || 'Both'),
-                funnelVisibility: p.isLocked ? (p.funnelVisibility || ['All']) : (p.funnelVisibility || ['All']), // This is already handled in the mapping above
+                funnelVisibility: p.isLocked ? (p.funnelVisibility || ['All']) : (p.funnelVisibility || ['All']),
                 isLocked: p.isLocked || false
             })) as ManagedProperty[];
         }
+
     });
 
 
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set([...FUNNEL_STAGES, ...PROPERTY_CATEGORIES]));
+    const [expandedFields, setExpandedFields] = useState<Set<string>>(new Set());
 
     const [isSaving, setIsSaving] = useState(false);
     const [isMigrating, setIsMigrating] = useState(false);
@@ -191,6 +221,13 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
         if (next.has(group)) next.delete(group);
         else next.add(group);
         setExpandedGroups(next);
+    };
+
+    const toggleField = (fieldId: string) => {
+        const next = new Set(expandedFields);
+        if (next.has(fieldId)) next.delete(fieldId);
+        else next.add(fieldId);
+        setExpandedFields(next);
     };
 
     // Generic Update Handler
@@ -613,106 +650,197 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                                             index={index}
                                                             isDragDisabled={!!searchQuery}
                                                         >
-                                                            {(provided: any, snapshot: any) => (
-                                                                <tr ref={provided.innerRef} {...provided.draggableProps} className={`group hover:bg-slate-50/80 transition-colors ${snapshot.isDragging ? 'bg-white shadow-xl z-50 ring-2 ring-indigo-500/20 rounded-lg' : ''}`}>
-                                                                    {!searchQuery && (
-                                                                        <td className="px-4 py-2 w-10 align-top">
-                                                                            <div {...provided.dragHandleProps} className="text-slate-300 hover:text-indigo-400 cursor-grab active:cursor-grabbing transition-colors flex justify-center pt-2">
-                                                                                <i className="fa-solid fa-grip-vertical text-[10px]"></i>
-                                                                            </div>
-                                                                        </td>
-                                                                    )}
-                                                                    <td className="px-4 py-2 w-[240px] align-middle">
-                                                                        <div className="flex items-center gap-2.5 group/field">
-                                                                            <div className="relative group/select flex-shrink-0">
-                                                                                {item.applicableTo !== 'Both' ? (
-                                                                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black transition-all cursor-pointer shadow-sm border ${item.applicableTo === 'Buyer' ? 'bg-sky-500 text-white border-sky-600' : 'bg-emerald-500 text-white border-emerald-600'} ${item.isLocked ? 'cursor-not-allowed' : ''}`}>
-                                                                                        {item.isLocked ? <i className="fa-solid fa-lock text-[6px]"></i> : (item.applicableTo === 'Buyer' ? 'B' : 'S')}
+                                                            {(provided: any, snapshot: any) => {
+                                                                const isObject = item.type === 'object' || item.type === 'list';
+                                                                const isFieldExpanded = expandedFields.has(item.id || `field-${index}`);
+
+                                                                return (
+                                                                    <React.Fragment key={`${type}-${originalIndex}-fragment`}>
+                                                                        <tr ref={provided.innerRef} {...provided.draggableProps} className={`group hover:bg-slate-50/80 transition-colors ${snapshot.isDragging ? 'bg-white shadow-xl z-50 ring-2 ring-indigo-500/20 rounded-lg' : ''}`}>
+                                                                            {!searchQuery && (
+                                                                                <td className="px-4 py-2 w-10 align-top">
+                                                                                    <div {...provided.dragHandleProps} className="text-slate-300 hover:text-indigo-400 cursor-grab active:cursor-grabbing transition-colors flex justify-center pt-2">
+                                                                                        <i className="fa-solid fa-grip-vertical text-[10px]"></i>
                                                                                     </div>
-                                                                                ) : (
-                                                                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center text-slate-300 transition-opacity cursor-pointer border border-dashed border-slate-200 ${item.isLocked ? 'opacity-100 bg-slate-50 border-slate-300' : 'opacity-0 group-hover/field:opacity-100'}`}>
-                                                                                        <i className={`fa-solid ${item.isLocked ? 'fa-lock text-[6px]' : 'fa-plus text-[8px]'}`}></i>
-                                                                                    </div>
-                                                                                )}
-                                                                                <select
-                                                                                    value={item.applicableTo}
-                                                                                    onChange={(e) => handleUpdateItem(originalIndex, { applicableTo: e.target.value as any }, type)}
-                                                                                    className={`absolute inset-0 w-full h-full opacity-0 ${item.isLocked ? 'cursor-not-allowed pointer-events-none' : 'cursor-pointer'}`}
-                                                                                    disabled={item.isLocked}
-                                                                                >
-                                                                                    <option value="Both">Common (All Tabs)</option>
-                                                                                    <option value="Buyer">Buyer Only</option>
-                                                                                    <option value="Seller">Seller Only</option>
-                                                                                </select>
-                                                                            </div>
-                                                                            <input
-                                                                                type="text"
-                                                                                value={item.label}
-                                                                                onChange={(e) => handleUpdateItem(originalIndex, { label: e.target.value }, type)}
-                                                                                className="flex-1 min-w-0 bg-transparent font-semibold text-slate-900 text-sm leading-snug focus:outline-none focus:text-indigo-700 placeholder:text-slate-300 px-0 py-0.5 border-b border-transparent focus:border-indigo-100 transition-all font-sans"
-                                                                            />
-                                                                        </div>
-                                                                    </td>
-                                                                    {type !== 'status' && (
-                                                                        <td className="px-4 py-2 w-[110px] align-top">
-                                                                            <FunnelVisibilitySelect
-                                                                                selected={item.funnelVisibility || ['All']}
-                                                                                onChange={(next) => handleUpdateItem(originalIndex, { funnelVisibility: next }, type)}
-                                                                                disabled={(item as any).isLocked}
-                                                                            />
-                                                                        </td>
-                                                                    )}
-                                                                    {type !== 'status' && (
-                                                                        <td className="px-4 py-2 w-[140px] align-top">
-                                                                            <div className="flex flex-col gap-1.5 pt-1">
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${item.type === 'boolean' ? 'bg-amber-50 text-amber-700 border border-amber-100' : item.type === 'integer' ? 'bg-purple-50 text-purple-700 border border-purple-100' : item.type === 'enum' ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}>
-                                                                                        {item.type || 'string'}
-                                                                                    </div>
-                                                                                    <i className="fa-solid fa-lock text-[8px] text-slate-300"></i>
-                                                                                </div>
-                                                                            </div>
-                                                                        </td>
-                                                                    )}
-                                                                    <td className="px-4 py-2 align-top">
-                                                                        <div className="flex flex-col">
-                                                                            <textarea
-                                                                                value={item.description}
-                                                                                onChange={(e) => handleUpdateItem(originalIndex, { description: e.target.value }, type)}
-                                                                                className="w-full bg-transparent text-slate-600 text-sm leading-snug font-medium focus:outline-none focus:text-slate-900 px-0 py-0.5 font-sans resize-none overflow-hidden min-h-[1.5rem]"
-                                                                                rows={1}
-                                                                                onInput={(e) => {
-                                                                                    const target = e.target as HTMLTextAreaElement;
-                                                                                    target.style.height = 'auto';
-                                                                                    target.style.height = target.scrollHeight + 'px';
-                                                                                }}
-                                                                                ref={(el) => {
-                                                                                    if (el) {
-                                                                                        el.style.height = 'auto';
-                                                                                        el.style.height = el.scrollHeight + 'px';
-                                                                                    }
-                                                                                }}
-                                                                            />
-                                                                            {item.type === 'enum' && (
-                                                                                <div className="flex flex-wrap gap-1 mt-2">
-                                                                                    {item.options?.map((opt: string) => (
-                                                                                        <span key={opt} className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-[9px] font-bold text-slate-500 shadow-sm">
-                                                                                            {opt}
-                                                                                        </span>
-                                                                                    ))}
-                                                                                </div>
+                                                                                </td>
                                                                             )}
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="px-4 py-2 w-8 text-right align-top">
-                                                                        {!((item as any).isDefault || false) && (
-                                                                            <button onClick={() => handleRemoveItem(originalIndex, type)} className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-md hover:bg-rose-50 text-slate-300 hover:text-rose-500 transition-all flex items-center justify-center pt-2">
-                                                                                <i className="fa-solid fa-trash-can text-[10px]"></i>
-                                                                            </button>
+                                                                            <td className="px-4 py-2 w-[240px] align-middle">
+                                                                                <div className="flex items-center gap-2.5 group/field">
+                                                                                    {isObject && (
+                                                                                        <button onClick={() => toggleField(item.id || `field-${index}`)} className="text-slate-400 hover:text-indigo-600 transition-colors">
+                                                                                            <i className={`fa-solid fa-chevron-right text-[10px] transition-transform ${isFieldExpanded ? 'rotate-90' : ''}`}></i>
+                                                                                        </button>
+                                                                                    )}
+                                                                                    <div className="relative group/select flex-shrink-0">
+                                                                                        {item.applicableTo !== 'Both' ? (
+                                                                                            <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black transition-all cursor-pointer shadow-sm border ${item.applicableTo === 'Buyer' ? 'bg-sky-500 text-white border-sky-600' : 'bg-emerald-500 text-white border-emerald-600'} ${item.isLocked ? 'cursor-not-allowed' : ''}`}>
+                                                                                                {item.isLocked ? <i className="fa-solid fa-lock text-[6px]"></i> : (item.applicableTo === 'Buyer' ? 'B' : 'S')}
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            <div className={`w-4 h-4 rounded-full flex items-center justify-center text-slate-300 transition-opacity cursor-pointer border border-dashed border-slate-200 ${item.isLocked ? 'opacity-100 bg-slate-50 border-slate-300' : 'opacity-0 group-hover/field:opacity-100'}`}>
+                                                                                                <i className={`fa-solid ${item.isLocked ? 'fa-lock text-[6px]' : 'fa-plus text-[8px]'}`}></i>
+                                                                                            </div>
+                                                                                        )}
+                                                                                        <select
+                                                                                            value={item.applicableTo}
+                                                                                            onChange={(e) => handleUpdateItem(originalIndex, { applicableTo: e.target.value as any }, type)}
+                                                                                            className={`absolute inset-0 w-full h-full opacity-0 ${item.isLocked ? 'cursor-not-allowed pointer-events-none' : 'cursor-pointer'}`}
+                                                                                            disabled={item.isLocked}
+                                                                                        >
+                                                                                            <option value="Both">Common (All Tabs)</option>
+                                                                                            <option value="Buyer">Buyer Only</option>
+                                                                                            <option value="Seller">Seller Only</option>
+                                                                                        </select>
+                                                                                    </div>
+                                                                                    <input
+                                                                                        type="text"
+                                                                                        value={item.label}
+                                                                                        onChange={(e) => handleUpdateItem(originalIndex, { label: e.target.value }, type)}
+                                                                                        className="flex-1 min-w-0 bg-transparent font-semibold text-slate-900 text-sm leading-snug focus:outline-none focus:text-indigo-700 placeholder:text-slate-300 px-0 py-0.5 border-b border-transparent focus:border-indigo-100 transition-all font-sans"
+                                                                                    />
+                                                                                </div>
+                                                                            </td>
+                                                                            {type !== 'status' && (
+                                                                                <td className="px-4 py-2 w-[110px] align-top">
+                                                                                    <FunnelVisibilitySelect
+                                                                                        selected={item.funnelVisibility || ['All']}
+                                                                                        onChange={(next) => handleUpdateItem(originalIndex, { funnelVisibility: next }, type)}
+                                                                                        disabled={(item as any).isLocked}
+                                                                                    />
+                                                                                </td>
+                                                                            )}
+                                                                            {type !== 'status' && (
+                                                                                <td className="px-4 py-2 w-[140px] align-top">
+                                                                                    <div className="flex flex-col gap-1.5 pt-1">
+                                                                                        <div className="flex items-center gap-2">
+                                                                                            <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${item.type === 'boolean' ? 'bg-amber-50 text-amber-700 border border-amber-100' : item.type === 'integer' ? 'bg-purple-50 text-purple-700 border border-purple-100' : item.type === 'enum' ? 'bg-blue-50 text-blue-700 border border-blue-100' : (item.type === 'object' || item.type === 'list') ? 'bg-teal-50 text-teal-700 border border-teal-100' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}>
+                                                                                                {item.type || 'string'}
+                                                                                            </div>
+                                                                                            <i className="fa-solid fa-lock text-[8px] text-slate-300"></i>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </td>
+                                                                            )}
+                                                                            <td className="px-4 py-2 align-top">
+                                                                                <div className="flex flex-col">
+                                                                                    <textarea
+                                                                                        value={item.description}
+                                                                                        onChange={(e) => handleUpdateItem(originalIndex, { description: e.target.value }, type)}
+                                                                                        className="w-full bg-transparent text-slate-600 text-sm leading-snug font-medium focus:outline-none focus:text-slate-900 px-0 py-0.5 font-sans resize-none overflow-hidden min-h-[1.5rem]"
+                                                                                        rows={1}
+                                                                                        onInput={(e) => {
+                                                                                            const target = e.target as HTMLTextAreaElement;
+                                                                                            target.style.height = 'auto';
+                                                                                            target.style.height = target.scrollHeight + 'px';
+                                                                                        }}
+                                                                                        ref={(el) => {
+                                                                                            if (el) {
+                                                                                                el.style.height = 'auto';
+                                                                                                el.style.height = el.scrollHeight + 'px';
+                                                                                            }
+                                                                                        }}
+                                                                                    />
+                                                                                    {item.type === 'enum' && (
+                                                                                        <div className="flex flex-wrap gap-1 mt-2">
+                                                                                            {item.options?.map((opt: string) => (
+                                                                                                <span key={opt} className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-[9px] font-bold text-slate-500 shadow-sm">
+                                                                                                    {opt}
+                                                                                                </span>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            </td>
+                                                                            <td className="px-4 py-2 w-8 text-right align-top">
+                                                                                {!((item as any).isDefault || false) && (
+                                                                                    <button onClick={() => handleRemoveItem(originalIndex, type)} className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-md hover:bg-rose-50 text-slate-300 hover:text-rose-500 transition-all flex items-center justify-center pt-2">
+                                                                                        <i className="fa-solid fa-trash-can text-[10px]"></i>
+                                                                                    </button>
+                                                                                )}
+                                                                            </td>
+                                                                        </tr>
+                                                                        {isObject && isFieldExpanded && (
+                                                                            <tr className="bg-slate-50/50">
+                                                                                <td colSpan={6} className="p-0 border-b border-slate-100">
+                                                                                    <div className="w-full relative">
+                                                                                        {/* Indentation line on the left to visually group */}
+                                                                                        <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-indigo-100"></div>
+
+                                                                                        <table className="w-full">
+                                                                                            <tbody>
+                                                                                                {item.fields && item.fields.length > 0 ? (
+                                                                                                    item.fields.map((field: any, idx: number) => {
+                                                                                                        const isObj = typeof field === 'object';
+                                                                                                        const name = isObj ? field.name : field;
+                                                                                                        const type = isObj ? field.type : 'string';
+                                                                                                        const desc = isObj ? field.description : '';
+
+                                                                                                        return (
+                                                                                                            <tr key={`${originalIndex}-sub-${idx}`} className="hover:bg-indigo-50/20 transition-colors">
+                                                                                                                {/* 1. Drag Spacer */}
+                                                                                                                <td className="w-10 p-0"></td>
+
+                                                                                                                {/* 2. Indented Name */}
+                                                                                                                <td className="w-[240px] px-4 py-2 align-top">
+                                                                                                                    <div className="flex items-center gap-2 pl-6">
+                                                                                                                        <div className="w-4 h-4 border-l-2 border-b-2 border-indigo-200 rounded-bl-md -mt-3.5"></div>
+                                                                                                                        <div className="flex flex-col">
+                                                                                                                            <span className="text-xs font-bold text-slate-700 font-mono">{name}</span>
+                                                                                                                        </div>
+                                                                                                                    </div>
+                                                                                                                </td>
+
+                                                                                                                {/* 3. Visibility (Pseudo) */}
+                                                                                                                <td className="w-[110px] px-4 py-2 align-top">
+
+                                                                                                                </td>
+
+                                                                                                                {/* 4. Type */}
+                                                                                                                <td className="w-[140px] px-4 py-2 align-top">
+                                                                                                                    <div className="flex gap-2">
+                                                                                                                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${type === 'date' || type === 'timestamp' ? 'bg-orange-50 text-orange-700 border-orange-100' : type === 'currency' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : type === 'enum' ? 'bg-blue-50 text-blue-700 border-blue-100' : type?.startsWith('list') ? 'bg-purple-50 text-purple-700 border-purple-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                                                                                                                            {type}
+                                                                                                                        </span>
+                                                                                                                    </div>
+                                                                                                                </td>
+
+                                                                                                                {/* 5. Description */}
+                                                                                                                <td className="px-4 py-2 align-top">
+                                                                                                                    <p className="text-xs text-slate-500 font-medium leading-relaxed">{desc || 'No description provided.'}</p>
+                                                                                                                    {type === 'enum' && field.options && (
+                                                                                                                        <div className="flex flex-wrap gap-1 mt-1.5">
+                                                                                                                            {field.options.map((opt: string) => (
+                                                                                                                                <span key={opt} className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-[9px] font-bold text-slate-500 shadow-sm">
+                                                                                                                                    {opt}
+                                                                                                                                </span>
+                                                                                                                            ))}
+                                                                                                                        </div>
+                                                                                                                    )}
+                                                                                                                </td>
+
+                                                                                                                {/* 6. Action Spacer */}
+                                                                                                                <td className="w-8"></td>
+                                                                                                            </tr>
+                                                                                                        );
+                                                                                                    })
+                                                                                                ) : (
+                                                                                                    <tr>
+                                                                                                        <td className="w-10"></td>
+                                                                                                        <td colSpan={4} className="px-10 py-3 text-xs text-slate-400 italic">
+                                                                                                            Complex defined structure (no breakdown available).
+                                                                                                        </td>
+                                                                                                        <td className="w-8"></td>
+                                                                                                    </tr>
+                                                                                                )}
+                                                                                            </tbody>
+                                                                                        </table>
+                                                                                    </div>
+                                                                                </td>
+                                                                            </tr>
                                                                         )}
-                                                                    </td>
-                                                                </tr>
-                                                            )}
+                                                                    </React.Fragment>
+                                                                );
+                                                            }}
                                                         </TypedDraggable>
                                                     ))}
                                                     {provided.placeholder}

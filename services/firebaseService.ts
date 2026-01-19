@@ -563,11 +563,57 @@ export const updateFunnelStage = async (id: string, stage: FunnelStage, reason?:
   try {
     const docRef = doc(db, isLead ? "leads" : "users", id);
     const snap = await getDoc(docRef);
-    const oldStage = snap.exists() ? (snap.data().funnelStage as FunnelStage) : 'Inquiry';
+
+    if (!snap.exists()) {
+      console.error("Document not found for updateFunnelStage");
+      return false;
+    }
+
+    const data = snap.data();
+    const oldStage = (data.funnelStage as FunnelStage) || 'Inquiry';
+
+    if (oldStage === stage) return true;
+
+    // --- Lifecycle Logic ---
+    let stageHistory = (data.stageHistory || []) as any[];
+    const now = new Date();
+
+    // 1. Stamping previous
+    if (stageHistory.length > 0) {
+      const lastEntry = stageHistory[stageHistory.length - 1];
+      if (!lastEntry.exitedAt) {
+        const enteredParams = lastEntry.enteredAt;
+        let enteredDate = now;
+        // Handle Firestore Timestamp or JS Date
+        if (enteredParams && typeof enteredParams.toDate === 'function') {
+          enteredDate = enteredParams.toDate();
+        } else if (enteredParams instanceof Date) {
+          enteredDate = enteredParams;
+        }
+
+        const diffTime = Math.abs(now.getTime() - enteredDate.getTime());
+        const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        stageHistory[stageHistory.length - 1] = {
+          ...lastEntry,
+          exitedAt: now,
+          durationDays
+        };
+      }
+    }
+
+    // 2. Initiating new
+    stageHistory.push({
+      fromStage: oldStage,
+      toStage: stage,
+      enteredAt: serverTimestamp()
+    });
 
     await setDoc(docRef, {
       funnelStage: stage,
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
+      stageHistory: stageHistory,
+      daysInCurrentStage: 0 // Reset
     }, { merge: true });
 
     // Log Journey Event

@@ -26,15 +26,14 @@ export const getInitialMockLeads = (): Lead[] => {
     leads.push(generateMockLead('Buyer', 'In Contract', 'Contract'));
 
     // --- CLOSED (2) ---
-    leads.push(generateMockLead('Buyer', 'Closed-Won', 'Closed'));
+    leads.push(generateMockLead('Buyer', 'Closed-Won', 'Closed')); // Assuming 'Closed' stage exists in logic even if not in config
     leads.push(generateMockLead('Seller', 'Closed-Won', 'Closed'));
 
     // Add some specific high urgency leads for testing
     const urgencyLead = generateMockLead('Buyer', 'New', 'Leads');
-    urgencyLead.firstName = "Urgency";
-    urgencyLead.lastName = "Tester";
-    urgencyLead.slaUrgency = "high";
-    urgencyLead.message = "I need to buy ASAP!";
+    urgencyLead.fullName = "Urgency Tester"; // Updated from firstName/lastName
+    urgencyLead.engagementScore = 'Hot'; // Updated from slaUrgency
+    urgencyLead.motivation = "I need to buy ASAP!"; // Updated from message
     leads.push(urgencyLead);
 
     return leads;

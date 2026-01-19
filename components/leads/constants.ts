@@ -1,98 +1,94 @@
 export const availableBuyerColumns = [
     { id: 'status', label: 'Lead Status' },
-    { id: 'phone', label: 'Contact Info' },
-    { id: 'callCount', label: 'Call Tracker' },
-    { id: 'lastUpdated', label: 'Last Updated On' },
-    { id: 'isAlsoSelling', label: 'Also Selling?' },
-    { id: 'preQualified', label: 'Pre-qualified?' },
-    { id: 'preferredNeighborhood', label: 'Preferred Neighborhood' },
-    { id: 'source', label: 'Source' },
+    { id: 'fullName', label: 'Full Name' },
+    { id: 'primaryContact', label: 'Contact Info' }, // Needs object handling in UI
+    { id: 'engagementScore', label: 'Engagement' },
+    { id: 'lastUpdated', label: 'Last Updated' },
+    { id: 'financialVitals', label: 'Buying Power' }, // Object
+    { id: 'searchCriteria', label: 'Criteria' }, // Object
+    { id: 'leadSource', label: 'Source' }, // Object
     { id: 'receivedAt', label: 'Date Created' },
-    { id: 'message', label: 'Message' },
-    { id: 'timeframe', label: 'Timeframe' },
-    { id: 'leaseEndDate', label: 'Lease End Date' },
-    { id: 'tags', label: 'Tags' },
+    { id: 'motivation', label: 'Motivation' },
+    { id: 'targetTimeline', label: 'Timeline' },
+    { id: 'personaProfile', label: 'Persona' },
     { id: 'funnelStage', label: 'Pipeline Stage' },
-    { id: 'notes', label: 'Call Notes' }
+    { id: 'nurtureLog', label: 'Log' }
 ];
 
 export const availableSellerColumns = [
     { id: 'status', label: 'Lead Status' },
-    { id: 'phone', label: 'Contact Info' },
-    { id: 'isAlsoBuying', label: 'Also Buying?' },
-    { id: 'homeValueNeeded', label: 'Home Value Needed?' },
-    { id: 'sellWhen', label: 'Sell When?' },
-    { id: 'occupancyStatus', label: 'Occupancy Status' },
-    { id: 'reasonForSelling', label: 'Reason for Selling' },
-    { id: 'existingAgentName', label: 'Existing Agent?' },
-    { id: 'source', label: 'Source' },
+    { id: 'fullName', label: 'Full Name' },
+    { id: 'primaryContact', label: 'Contact Info' },
+    { id: 'listingStatus', label: 'Listing Status' }, // Object
+    { id: 'targetTimeline', label: 'Timeline' },
+    { id: 'motivation', label: 'Reason for Selling' },
+    { id: 'leadSource', label: 'Source' },
     { id: 'receivedAt', label: 'Date Created' },
-    { id: 'message', label: 'Message' },
-    { id: 'tags', label: 'Tags' },
     { id: 'funnelStage', label: 'Pipeline Stage' },
-    { id: 'notes', label: 'Agent Notes' }
+    { id: 'personaProfile', label: 'Persona' }
 ];
 
-export const defaultBuyerVisible = ['status', 'phone', 'callCount', 'lastUpdated', 'isAlsoSelling', 'preQualified', 'preferredNeighborhood', 'source', 'receivedAt', 'message', 'timeframe', 'notes'];
-export const defaultSellerVisible = ['status', 'phone', 'isAlsoBuying', 'homeValueNeeded', 'sellWhen', 'occupancyStatus', 'message', 'timeframe', 'source', 'receivedAt'];
+export const defaultBuyerVisible = ['status', 'fullName', 'primaryContact', 'engagementScore', 'targetTimeline', 'motivation', 'leadSource', 'receivedAt'];
+export const defaultSellerVisible = ['status', 'fullName', 'primaryContact', 'listingStatus', 'targetTimeline', 'motivation', 'leadSource', 'receivedAt'];
 
 type FunnelStage = 'Leads' | 'Nurture' | 'Active Search' | 'Offer' | 'Contract' | 'Closed';
 type ViewMode = 'list' | 'gallery';
 
+// Updated to use new schema keys
 export const stageDefaultColumns: Record<
     'Buyer' | 'Seller',
     Record<FunnelStage, Record<ViewMode, string[]>>
 > = {
     Buyer: {
         'Leads': {
-            list: ['status', 'phone', 'callCount', 'source', 'receivedAt', 'message', 'timeframe', 'lastUpdated', 'isAlsoSelling', 'preQualified', 'notes'],
-            gallery: ['status', 'phone', 'callCount', 'source', 'receivedAt', 'message', 'timeframe', 'lastUpdated', 'isAlsoSelling', 'preQualified', 'notes', 'preferredNeighborhood']
+            list: ['status', 'fullName', 'primaryContact', 'leadSource', 'receivedAt', 'engagementScore', 'lastUpdated'],
+            gallery: ['status', 'fullName', 'primaryContact', 'engagementScore', 'leadSource']
         },
         'Nurture': {
-            list: ['status', 'phone', 'receivedAt', 'timeframe', 'notes'],
-            gallery: ['status', 'phone', 'receivedAt', 'timeframe', 'notes']
+            list: ['status', 'fullName', 'targetTimeline', 'motivation', 'personaProfile', 'nurtureLog'],
+            gallery: ['status', 'fullName', 'targetTimeline', 'motivation']
         },
         'Active Search': {
-            list: ['status', 'phone', 'receivedAt', 'notes'],
-            gallery: ['status', 'phone', 'receivedAt', 'notes', 'preferredNeighborhood']
+            list: ['status', 'fullName', 'searchCriteria', 'financialVitals', 'tourFeedback'],
+            gallery: ['status', 'fullName', 'searchCriteria', 'financialVitals']
         },
         'Offer': {
-            list: ['status', 'phone', 'receivedAt', 'notes'],
-            gallery: ['status', 'phone', 'receivedAt', 'notes', 'timeframe']
+            list: ['status', 'fullName', 'activeOffer', 'transactionTeam'],
+            gallery: ['status', 'fullName', 'activeOffer']
         },
         'Contract': {
-            list: ['status', 'phone', 'receivedAt', 'leaseEndDate', 'notes'],
-            gallery: ['status', 'phone', 'receivedAt', 'leaseEndDate', 'notes', 'tags']
+            list: ['status', 'fullName', 'criticalDates', 'dealHealth', 'transactionTeam'],
+            gallery: ['status', 'fullName', 'health', 'dealHealth']
         },
         'Closed': {
-            list: ['status', 'phone', 'receivedAt', 'source'],
-            gallery: ['status', 'phone', 'receivedAt', 'source', 'tags']
+            list: ['status', 'fullName', 'receivedAt', 'leadSource'],
+            gallery: ['status', 'fullName', 'receivedAt']
         }
     },
     Seller: {
         'Leads': {
-            list: ['status', 'phone', 'source', 'receivedAt', 'message', 'timeframe', 'lastUpdated'],
-            gallery: ['status', 'phone', 'source', 'receivedAt', 'message', 'timeframe', 'lastUpdated', 'homeValueNeeded']
+            list: ['status', 'fullName', 'primaryContact', 'leadSource', 'receivedAt', 'engagementScore'],
+            gallery: ['status', 'fullName', 'primaryContact', 'engagementScore']
         },
         'Nurture': {
-            list: ['status', 'phone', 'receivedAt', 'sellWhen'],
-            gallery: ['status', 'phone', 'receivedAt', 'sellWhen', 'reasonForSelling']
+            list: ['status', 'fullName', 'targetTimeline', 'motivation', 'personaProfile'],
+            gallery: ['status', 'fullName', 'targetTimeline', 'listingStatus']
         },
         'Active Search': {
-            list: ['status', 'phone', 'receivedAt'],
-            gallery: ['status', 'phone', 'receivedAt', 'occupancyStatus']
+            list: ['status', 'fullName', 'listingStatus', 'lastUpdated'],
+            gallery: ['status', 'fullName', 'listingStatus']
         },
         'Offer': {
-            list: ['status', 'phone', 'receivedAt'],
-            gallery: ['status', 'phone', 'receivedAt', 'tags']
+            list: ['status', 'fullName', 'activeOffer'],
+            gallery: ['status', 'fullName', 'activeOffer']
         },
         'Contract': {
-            list: ['status', 'phone', 'receivedAt', 'notes'],
-            gallery: ['status', 'phone', 'receivedAt', 'notes', 'tags']
+            list: ['status', 'fullName', 'criticalDates', 'dealHealth'],
+            gallery: ['status', 'fullName', 'dealHealth']
         },
         'Closed': {
-            list: ['status', 'phone', 'receivedAt', 'source'],
-            gallery: ['status', 'phone', 'receivedAt', 'source', 'tags']
+            list: ['status', 'fullName', 'receivedAt', 'leadSource'],
+            gallery: ['status', 'fullName', 'leadSource']
         }
     }
 };
