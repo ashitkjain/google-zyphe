@@ -135,18 +135,22 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
                                         {...provided.droppableProps}
                                         className={`flex-1 overflow-y-auto p-3 space-y-3 transition-colors ${snapshot.isDraggingOver ? 'bg-indigo-50/30' : ''}`}
                                     >
-                                        {columns[column.id].map((lead, index) => (
-                                            <Draggable key={lead.id} draggableId={lead.id} index={index}>
-                                                {(provided, snapshot) => (
-                                                    <KanbanCard
-                                                        lead={lead}
-                                                        provided={provided}
-                                                        snapshot={snapshot}
-                                                        realtorSettings={realtorSettings}
-                                                    />
-                                                )}
-                                            </Draggable>
-                                        ))}
+                                        {columns[column.id].map((lead, index) => {
+                                            const DraggableAny = Draggable as any;
+                                            return (
+                                                <DraggableAny key={lead.id} draggableId={lead.id} index={index}>
+                                                    {(provided: any, snapshot: any) => (
+                                                        <KanbanCard
+                                                            lead={lead}
+                                                            provided={provided}
+                                                            snapshot={snapshot}
+                                                            realtorSettings={realtorSettings}
+                                                            onUpdateLead={onUpdateLead}
+                                                        />
+                                                    )}
+                                                </DraggableAny>
+                                            );
+                                        })}
                                         {provided.placeholder}
                                     </div>
                                 )}
@@ -159,7 +163,7 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
     );
 };
 
-const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSettings: any }> = ({ lead, provided, snapshot, realtorSettings }) => {
+const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSettings: any, onUpdateLead: (id: string, updates: Partial<Lead>) => void }> = ({ lead, provided, snapshot, realtorSettings, onUpdateLead }) => {
     // Determine border color based on temperature/score
     let accentColor = 'border-l-indigo-500';
     if (lead.engagementScore === 'Hot') accentColor = 'border-l-orange-500';
@@ -218,22 +222,33 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
             style={provided.draggableProps.style}
         >
             {/* Top Right Temperature Badge */}
-            {lead.engagementScore && (
-                <div className="absolute top-3 right-3 filter drop-shadow-sm flex items-center justify-center">
+            <div className="absolute top-3 right-3 filter drop-shadow-sm flex items-center justify-center">
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        const scores = ['Cold', 'Warm', 'Hot', 'Stale'];
+                        const currentIndex = scores.indexOf(lead.engagementScore || 'Cold');
+                        const nextScore = scores[(currentIndex + 1) % scores.length];
+                        onUpdateLead(lead.id, { engagementScore: nextScore as any });
+                    }}
+                    className={`relative transition-all duration-300 ease-out flex items-center justify-center cursor-pointer hover:scale-110 active:scale-95 ${lead.engagementScore === 'Hot' ? 'w-10 h-10 -mt-2 -mr-2 drop-shadow-[0_4px_4px_rgba(255,100,0,0.3)] z-50 animate-flame' : 'w-6 h-6'}`}
+                    title={`Current Temperature: ${lead.engagementScore || 'Cold'}. Click to cycle.`}
+                >
+                    {(!lead.engagementScore || lead.engagementScore === 'Cold') && <i className="fa-solid fa-snowflake text-sky-300 text-lg filter drop-shadow-sm"></i>}
+                    {lead.engagementScore === 'Warm' && <i className="fa-solid fa-mug-hot text-amber-500 text-lg filter drop-shadow-sm"></i>}
+                    {lead.engagementScore === 'Stale' && <img src="/assets/stale-icon.png" alt="Stale" className="w-5 h-5 object-contain opacity-60 grayscale filter drop-shadow-sm" />}
                     {lead.engagementScore === 'Hot' && (
-                        <div className="w-6 h-6">
-                            <svg viewBox="0 0 100 100" className="w-full h-full filter drop-shadow-sm animate-pulse">
+                        <>
+                            <svg viewBox="0 0 100 100" className="w-full h-full filter drop-shadow-sm">
                                 <path d="M50 95C30 95 15 75 15 50C15 35 25 20 45 5C45 15 50 25 55 35C65 25 75 35 85 50C85 75 70 95 50 95Z" fill="#ff4d00" />
                                 <path d="M50 90C35 90 25 75 25 55C25 45 30 35 45 25C45 35 50 45 55 50C62 40 70 45 75 55C75 75 65 90 50 90Z" fill="#ff9900" />
                                 <path d="M50 85C42 85 35 75 35 60C35 50 40 45 45 40C48 50 50 55 55 60C58 55 62 55 65 60C65 75 58 85 50 85Z" fill="#ffcc00" />
                             </svg>
-                        </div>
+                            <div className="absolute inset-x-0 bottom-0 top-1/2 bg-orange-500/20 blur-lg rounded-full -z-10 animate-pulse"></div>
+                        </>
                     )}
-                    {lead.engagementScore === 'Warm' && <i className="fa-solid fa-mug-hot text-amber-500 text-lg" title="Warm"></i>}
-                    {lead.engagementScore === 'Cold' && <i className="fa-solid fa-snowflake text-sky-300 text-lg" title="Cold"></i>}
-                    {lead.engagementScore === 'Stale' && <img src="/assets/stale-icon.png" alt="Stale" className="w-5 h-5 object-contain opacity-60 grayscale" />}
-                </div>
-            )}
+                </button>
+            </div>
 
             {/* Header: Photo + Info (Name, Email, Phone) */}
             <div className="flex items-start gap-3 mb-3 pr-10"> {/* pr-10 to avoid overlap with badge */}

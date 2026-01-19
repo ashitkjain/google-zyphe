@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Lead, PipelineNote, UserProfile, FunnelStage } from '../types';
-import { LEAD_FIELD_CONFIG } from '../types/lead';
+import { LEAD_FIELD_CONFIG, LEAD_STAGE_LIFECYCLE_CONFIG } from '../types/lead';
 import { PropertyOption } from '../types/shared';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { getStatusOptions, getStatusDefinitions, isNewLeadStatus, getFunnelStageForStatus } from '../services/statusService';
@@ -9,7 +9,7 @@ import LeadGalleryItem from './leads/LeadGalleryItem';
 import LeadsHeader from './leads/LeadsHeader';
 import LeadsViewControls from './leads/LeadsViewControls';
 import { noteTypes } from './leads/PostItPalette';
-import { availableBuyerColumns, availableSellerColumns, defaultBuyerVisible, defaultSellerVisible } from './leads/constants';
+import { defaultBuyerVisible, defaultSellerVisible } from './leads/constants';
 import LeadsKanbanBoard from './leads/LeadsKanbanBoard';
 
 
@@ -75,30 +75,16 @@ const LeadsList: React.FC<InternalProps> = ({
         source: '',
     });
     const [activeTab, setActiveTab] = useState<'Buyer' | 'Seller'>('Buyer');
-    const [showColumnSelector, setShowColumnSelector] = useState(false);
 
 
 
     const [buyerFunnelCategory, setBuyerFunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
     const [sellerFunnelCategory, setSellerFunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
 
-    const [visibleColumns, setVisibleColumns] = useState<Record<string, Set<string>>>(() => {
-        const initial: Record<string, Set<string>> = {
-            Buyer: new Set(defaultBuyerVisible),
-            Seller: new Set(defaultSellerVisible)
-        };
-        if (realtorSettings?.columnSettings) {
-            Object.entries(realtorSettings.columnSettings).forEach(([key, cols]) => {
-                initial[key] = new Set(cols as string[]);
-            });
-        }
-        return initial;
-    });
-
     const computeVisibleColumns = (type: 'Buyer' | 'Seller', stage: FunnelStage | 'Closed & Archived') => {
         // Use user settings if available, otherwise defaults
         // We cast to PropertyOption[] because strict typing might miss some runtime properties or optional mismatch
-        const properties = (realtorSettings?.leadProperties || LEAD_FIELD_CONFIG) as PropertyOption[];
+        const properties = (realtorSettings?.leadProperties || [...LEAD_FIELD_CONFIG, ...LEAD_STAGE_LIFECYCLE_CONFIG]) as PropertyOption[];
 
         const valid = properties.filter(p => {
             // Check Persona Visibility
@@ -116,65 +102,22 @@ const LeadsList: React.FC<InternalProps> = ({
         const sorted = valid.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
 
         // Limit to 10 fields and return IDs
-        return new Set(sorted.slice(0, 15).map(p => p.id));
+        return new Set(sorted.map(p => p.id));
     };
 
     const getVisibleColumns = (type: 'Buyer' | 'Seller') => {
         const stage = type === 'Buyer' ? buyerFunnelCategory : sellerFunnelCategory;
-        // Map 'Closed & Archived' to 'Closed' for column config purposes (or handle specifically if needed)
         const effectiveStage = stage === 'Closed & Archived' ? 'Closed' : stage;
-        const key = `${type}:${effectiveStage}`;
-
-        // If user has manually toggled columns for this specific view (key), use that.
-        // Otherwise, compute based on Status Settings (This "Connects" the two features).
-        return visibleColumns[key] || computeVisibleColumns(type, effectiveStage as FunnelStage);
+        return computeVisibleColumns(type, effectiveStage as FunnelStage);
     };
-
-    const toggleColumn = (type: 'Buyer' | 'Seller', colId: string) => {
-        const stage = type === 'Buyer' ? buyerFunnelCategory : sellerFunnelCategory;
-        const key = `${type}:${stage}`;
-
-        setVisibleColumns(prev => {
-            const currentSet = prev[key] || prev[type] || new Set(type === 'Buyer' ? defaultBuyerVisible : defaultSellerVisible);
-            const newSet = new Set(currentSet);
-            if (newSet.has(colId)) newSet.delete(colId);
-            else newSet.add(colId);
-
-            const newState = { ...prev, [key]: newSet };
-
-            // Persist to database
-            const columnSettings: Record<string, string[]> = {};
-            Object.entries(newState).forEach(([k, s]) => {
-                columnSettings[k] = Array.from(s as Set<string>);
-            });
-            onUpdateSettings({ columnSettings });
-
-            return newState;
-        });
-    };
-    const columnSelectorRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (columnSelectorRef.current && !columnSelectorRef.current.contains(event.target as Node)) {
-                setShowColumnSelector(false);
-            }
-        };
-
-        if (showColumnSelector) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
-
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [showColumnSelector]);
+    const MANUAL_BUYER_COLS = new Set(['fullName', 'status', 'phone', 'email', 'callCount', 'lastUpdated', 'isAlsoSelling', 'preQualified', 'preferredNeighborhood', 'source', 'leadInfo', 'message', 'timeframe', 'leaseEndDate', 'tags', 'notes', 'funnelStage', 'firstName', 'lastName', 'clientPhotoUrl', 'avatarUrl']);
+    const MANUAL_SELLER_COLS = new Set(['fullName', 'status', 'phone', 'email', 'isAlsoBuying', 'homeValueNeeded', 'sellWhen', 'occupancyStatus', 'source', 'leadInfo', 'reasonForSelling', 'existingAgentName', 'message', 'tags', 'notes', 'funnelStage', 'firstName', 'lastName', 'clientPhotoUrl', 'avatarUrl']);
 
     // NEW: Dynamic sorting based on prioritization settings
     useEffect(() => {
         const type = activeTab;
         const stage = type === 'Buyer' ? buyerFunnelCategory : sellerFunnelCategory;
-        const properties = (realtorSettings?.leadProperties || LEAD_FIELD_CONFIG) as PropertyOption[];
+        const properties = (realtorSettings?.leadProperties || [...LEAD_FIELD_CONFIG, ...LEAD_STAGE_LIFECYCLE_CONFIG]) as PropertyOption[];
 
         const valid = properties.filter(p => {
             const isVisibleForPersona = !p.visibility || p.visibility.includes(type);
@@ -391,6 +334,40 @@ const LeadsList: React.FC<InternalProps> = ({
             );
         }
 
+        if (field === 'daysInStage') {
+            const currentStage = lead.funnelStage || (lead.leadType === 'Seller' ? sellerFunnelCategory : buyerFunnelCategory);
+            const currentStageEntry = lead.stageHistory?.find(
+                entry => entry.toStage === currentStage && !entry.exitedAt
+            );
+            const startDate = currentStageEntry?.enteredAt || lead.stageLastChangedAt || lead.leadInfo?.createdDate || lead.receivedAt;
+            if (startDate) {
+                const start = typeof startDate.toDate === 'function' ? startDate.toDate() : new Date(startDate);
+                const diff = Math.max(0, new Date().getTime() - start.getTime());
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                return `${days} days`;
+            }
+            return '--';
+        }
+
+        if (field === 'financialVitals' && lead.financialVitals) {
+            const parts = [];
+            if (lead.financialVitals.budgetMax) parts.push(`$${(lead.financialVitals.budgetMax / 1000).toFixed(0)}k`);
+            if (lead.financialVitals.isAllCash) parts.push('Cash');
+            return parts.join(', ') || '--';
+        }
+
+        if (field === 'searchCriteria' && lead.searchCriteria) {
+            return lead.searchCriteria.locations?.join(', ') || '--';
+        }
+
+        if (field === 'primaryContact' && lead.primaryContact) {
+            const { clientPhotoUrl, ...rest } = lead.primaryContact;
+            return Object.entries(rest)
+                .filter(([_, v]) => v)
+                .map(([k, v]) => `${k}: ${v}`)
+                .join(', ') || '--';
+        }
+
         return (
             <div className="group/cell flex items-center justify-between gap-2 w-full h-full min-h-[20px]">
                 <div
@@ -399,7 +376,28 @@ const LeadsList: React.FC<InternalProps> = ({
                         startEditing(e, lead.id, field, value);
                     }}
                 >
-                    {value || <span className="text-slate-300 italic">--</span>}
+                    {(() => {
+                        if (field === 'status') {
+                            const status = lead[field] as string;
+                            const isNew = status === 'New';
+                            const isArchived = status === 'Archived';
+                            return (
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${isNew ? 'bg-emerald-100 text-emerald-600 border border-emerald-200' :
+                                    isArchived ? 'bg-slate-100 text-slate-500 border border-slate-200' :
+                                        'bg-indigo-100 text-indigo-600 border border-indigo-200'
+                                    }`}>
+                                    {status || 'New'}
+                                </span>
+                            );
+                        }
+                        if (typeof lead[field] === 'boolean') return lead[field] ? 'Yes' : 'No';
+                        if (Array.isArray(lead[field])) return (lead[field] as any[]).join(', ');
+                        if (typeof lead[field] === 'object' && lead[field] !== null) {
+                            if ((lead[field] as any).toDate) return (lead[field] as any).toDate().toLocaleDateString();
+                            return JSON.stringify(lead[field]);
+                        }
+                        return value || <span className="text-slate-300 italic">--</span>;
+                    })()}
                 </div>
                 <button
                     onClick={(e) => startEditing(e, lead.id, field, value)}
@@ -721,16 +719,10 @@ const LeadsList: React.FC<InternalProps> = ({
                                     dateRangeLabels={dateRanges.labels}
                                     selectedCount={selectedIds.size}
                                     onArchive={handleBulkArchive}
-                                    showColumnSelector={showColumnSelector}
-                                    setShowColumnSelector={setShowColumnSelector}
                                     showFilters={showFilters}
                                     setShowFilters={setShowFilters}
                                     displayMode={currentDisplayMode}
                                     setDisplayMode={toggleDisplayMode}
-                                    columnSelectorRef={columnSelectorRef}
-                                    availableColumns={availableBuyerColumns}
-                                    visibleColumns={getVisibleColumns('Buyer')}
-                                    onToggleColumn={(colId) => toggleColumn('Buyer', colId)}
                                     onTabChange={onTabChange}
                                 />
                                 {
@@ -818,6 +810,17 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         {getVisibleColumns('Buyer').has('tags') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Tags</th>}
 
                                                         {getVisibleColumns('Buyer').has('notes') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Call Notes</th>}
+
+                                                        {/* Dynamic Columns */}
+                                                        {Array.from(getVisibleColumns('Buyer') as Set<string>).filter((id: string) => !MANUAL_BUYER_COLS.has(id)).map((colId: string) => {
+                                                            const allConfigs = [...LEAD_FIELD_CONFIG, ...LEAD_STAGE_LIFECYCLE_CONFIG];
+                                                            const fieldConfig = allConfigs.find(c => c.id === colId);
+                                                            return (
+                                                                <th key={colId} className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort(colId as any)}>
+                                                                    {fieldConfig?.label || colId} {sortField === colId && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                                </th>
+                                                            );
+                                                        })}
 
                                                     </tr>
                                                 </thead>
@@ -1020,6 +1023,13 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 </td>
                                                             )}
 
+                                                            {/* Dynamic Cells */}
+                                                            {Array.from(getVisibleColumns('Buyer') as Set<string>).filter((id: string) => !MANUAL_BUYER_COLS.has(id)).map((colId: string) => (
+                                                                <td key={colId} className="px-2 py-2 border-b border-slate-100 text-xs text-slate-600">
+                                                                    {renderCell(lead, colId as any)}
+                                                                </td>
+                                                            ))}
+
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -1084,16 +1094,10 @@ const LeadsList: React.FC<InternalProps> = ({
                                     dateRangeLabels={dateRanges.labels}
                                     selectedCount={selectedIds.size}
                                     onArchive={handleBulkArchive}
-                                    showColumnSelector={showColumnSelector}
-                                    setShowColumnSelector={setShowColumnSelector}
                                     showFilters={showFilters}
                                     setShowFilters={setShowFilters}
                                     displayMode={currentDisplayMode}
                                     setDisplayMode={toggleDisplayMode}
-                                    columnSelectorRef={columnSelectorRef}
-                                    availableColumns={availableSellerColumns}
-                                    visibleColumns={getVisibleColumns('Seller')}
-                                    onToggleColumn={(colId) => toggleColumn('Seller', colId)}
                                     onTabChange={onTabChange}
                                 />
                                 {
@@ -1178,6 +1182,17 @@ const LeadsList: React.FC<InternalProps> = ({
                                                         {getVisibleColumns('Seller').has('tags') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Tags</th>}
 
                                                         {getVisibleColumns('Seller').has('notes') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Comments / Notes</th>}
+
+                                                        {/* Dynamic Columns */}
+                                                        {Array.from(getVisibleColumns('Seller') as Set<string>).filter((id: string) => !MANUAL_SELLER_COLS.has(id)).map((colId: string) => {
+                                                            const allConfigs = [...LEAD_FIELD_CONFIG, ...LEAD_STAGE_LIFECYCLE_CONFIG];
+                                                            const fieldConfig = allConfigs.find(c => c.id === colId);
+                                                            return (
+                                                                <th key={colId} className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort(colId as any)}>
+                                                                    {fieldConfig?.label || colId} {sortField === colId && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                                </th>
+                                                            );
+                                                        })}
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100">
@@ -1363,6 +1378,13 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                     </div>
                                                                 </td>
                                                             )}
+
+                                                            {/* Dynamic Cells */}
+                                                            {Array.from(getVisibleColumns('Seller') as Set<string>).filter((id: string) => !MANUAL_SELLER_COLS.has(id)).map((colId: string) => (
+                                                                <td key={colId} className="px-2 py-2 border-b border-slate-100 text-xs text-slate-600">
+                                                                    {renderCell(lead, colId as any)}
+                                                                </td>
+                                                            ))}
                                                         </tr>
                                                     ))}
                                                 </tbody>

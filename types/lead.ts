@@ -473,6 +473,16 @@ export const LEAD_STAGE_LIFECYCLE_CONFIG = [
         funnelVisibility: ['Leads', 'Nurture', 'Active Search']
     },
 
+    {
+        id: 'daysInStage',
+        label: 'Days in Stage',
+        category: 'System Metadata',
+        visibility: ['Buyer', 'Seller'],
+        type: 'integer',
+        description: 'Number of days the lead has been in its current funnel stage.',
+        funnelVisibility: ['All']
+    },
+
 ] as const;
 
 
@@ -522,6 +532,8 @@ export interface Lead {
 
     // --- Lifecycle Tracking ---
     stageHistory?: StageHistoryEntry[];
+    daysInStage?: number;
+    currentStage?: FunnelStage;
 
     staleWarningDate?: Date;
 

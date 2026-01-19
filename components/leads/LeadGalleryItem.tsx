@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lead, PipelineNote } from '../../types';
+import { Lead, PipelineNote, LEAD_FIELD_CONFIG, LEAD_STAGE_LIFECYCLE_CONFIG } from '../../types';
 import { Droppable } from '@hello-pangea/dnd';
 import { getStatusOptions } from '../../services/statusService';
 
@@ -139,6 +139,28 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
         if (field === 'status') {
             return <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">{val || 'New'}</span>;
         }
+
+        if (field === 'daysInStage') {
+            const currentStageEntry = lead.stageHistory?.find(
+                entry => entry.toStage === (lead.funnelStage || stage) && !entry.exitedAt
+            );
+            const startDate = currentStageEntry?.enteredAt || lead.stageLastChangedAt || lead.leadInfo?.createdDate || lead.receivedAt;
+            if (startDate) {
+                const start = typeof startDate.toDate === 'function' ? startDate.toDate() : new Date(startDate);
+                const diff = Math.max(0, new Date().getTime() - start.getTime());
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                return `${days} days`;
+            }
+            return '--';
+        }
+        if (field === 'primaryContact' && lead.primaryContact) {
+            const { clientPhotoUrl, ...rest } = lead.primaryContact;
+            return Object.entries(rest)
+                .filter(([_, v]) => v)
+                .map(([k, v]) => `${(v as string).toString()}`)
+                .join(', ') || '--';
+        }
+
         if (field === 'engagementScore') {
             const score = val as string;
             if (score === 'Hot') return <i className="fa-solid fa-fire text-orange-500 text-sm" title="Hot"></i>;
@@ -546,7 +568,9 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                     return true;
                                 })
                                 .map((colId: any) => {
-                                    const meta = COLUMN_METADATA[colId as string];
+                                    const allConfigs = [...LEAD_FIELD_CONFIG, ...LEAD_STAGE_LIFECYCLE_CONFIG];
+                                    const fieldConfig = allConfigs.find(c => c.id === colId);
+                                    const meta = COLUMN_METADATA[colId as string] || (fieldConfig ? { label: fieldConfig.label, icon: 'fa-circle-info' } : null);
                                     if (!meta) return null;
 
                                     if (colId === 'status') {
