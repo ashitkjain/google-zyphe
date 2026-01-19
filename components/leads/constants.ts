@@ -12,6 +12,11 @@ export const availableBuyerColumns = [
     { id: 'targetTimeline', label: 'Timeline' },
     { id: 'personaProfile', label: 'Persona' },
     { id: 'funnelStage', label: 'Pipeline Stage' },
+    { id: 'leadStatus', label: 'Lead Stage Status' },
+    { id: 'nurtureStatus', label: 'Nurture Stage Status' },
+    { id: 'activeSearchStatus', label: 'Search Stage Status' },
+    { id: 'offerStatus', label: 'Offer Stage Status' },
+    { id: 'closingStatus', label: 'Closing Stage Status' },
     { id: 'nurtureLog', label: 'Log' }
 ];
 
@@ -25,6 +30,11 @@ export const availableSellerColumns = [
     { id: 'leadSource', label: 'Source' },
     { id: 'receivedAt', label: 'Date Created' },
     { id: 'funnelStage', label: 'Pipeline Stage' },
+    { id: 'leadStatus', label: 'Lead Stage Status' },
+    { id: 'nurtureStatus', label: 'Nurture Stage Status' },
+    { id: 'activeSearchStatus', label: 'Search Stage Status' },
+    { id: 'offerStatus', label: 'Offer Stage Status' },
+    { id: 'closingStatus', label: 'Closing Stage Status' },
     { id: 'personaProfile', label: 'Persona' }
 ];
 
@@ -57,8 +67,8 @@ export const stageDefaultColumns: Record<
             gallery: ['status', 'fullName', 'activeOffer']
         },
         'Contract': {
-            list: ['status', 'fullName', 'criticalDates', 'dealHealth', 'transactionTeam'],
-            gallery: ['status', 'fullName', 'health', 'dealHealth']
+            list: ['status', 'fullName', 'criticalDates', 'closingStatus', 'transactionTeam'],
+            gallery: ['status', 'fullName', 'health', 'closingStatus']
         },
         'Closed': {
             list: ['status', 'fullName', 'receivedAt', 'leadSource'],
@@ -83,8 +93,8 @@ export const stageDefaultColumns: Record<
             gallery: ['status', 'fullName', 'activeOffer']
         },
         'Contract': {
-            list: ['status', 'fullName', 'criticalDates', 'dealHealth'],
-            gallery: ['status', 'fullName', 'dealHealth']
+            list: ['status', 'fullName', 'criticalDates', 'closingStatus'],
+            gallery: ['status', 'fullName', 'closingStatus']
         },
         'Closed': {
             list: ['status', 'fullName', 'receivedAt', 'leadSource'],

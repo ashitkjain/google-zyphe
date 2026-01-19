@@ -30,6 +30,7 @@ interface FieldConfig {
     showIf?: (lead: Lead) => boolean;
     disabled?: boolean;
     render?: (props: any) => React.ReactNode; // Custom render function
+    funnelVisibility?: string[];
 }
 
 interface SectionConfig {
@@ -61,7 +62,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
         { id: 'profile', label: 'Profile', icon: 'fa-user' },
         { id: 'deal', label: 'Deal & Property', icon: 'fa-house' },
         { id: 'context', label: 'Context', icon: 'fa-sliders' },
-        { id: 'notes', label: 'Notes & Activity', icon: 'fa-clipboard-list' },
+        { id: 'notes', label: 'Notes & Active Search', icon: 'fa-clipboard-list' },
     ];
 
     const noteTypes = [
@@ -206,6 +207,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                         </div>
                     )
                 },
+                { key: 'leadStatus', label: 'Lead Status', type: 'select', options: ['', 'New', 'Qualified', 'Attempted to Contact'], funnelVisibility: ['Leads'] as any },
                 { key: 'funnelStage', label: 'Funnel Stage', type: 'select', options: ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed'] },
                 { key: 'message', label: 'Initial Message', type: 'textarea', colSpan: 2 },
                 { key: 'timeframe', label: 'Timeframe', type: 'text', placeholder: 'e.g. 1-3 months' },
@@ -398,8 +400,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
             ]
         },
         {
-            id: 'persona_context',
-            title: 'Persona & Context',
+            id: 'nurture_info',
+            title: 'Nurture Info',
             fields: [
                 { key: 'generalInfo', label: 'General Info', type: 'textarea', colSpan: 2 },
                 { key: 'isFirstTimeBuyer', label: 'First Time Buyer', type: 'checkbox', showIf: (l) => l.leadType === 'Buyer' },
@@ -410,14 +412,181 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 { key: 'isPastClient', label: 'Past Client', type: 'checkbox' },
                 { key: 'gender', label: 'Gender', type: 'select', options: ['', 'Male', 'Female', 'Non-binary', 'Prefer not to say'] },
                 { key: 'occupancyStatus', label: 'Occupancy Status', type: 'text', showIf: (l) => l.leadType === 'Seller' },
-                { key: 'existingAgentName', label: 'Existing Agent', type: 'text' }
+                { key: 'nurtureStatus', label: 'Nurture Status', type: 'select', options: ['', 'Meeting Fixed', 'Broker Agreement Sent'], funnelVisibility: ['Nurture'] },
+                { key: 'existingAgentName', label: 'Existing Agent', type: 'text' },
+                { key: 'motivation', label: 'Motivation & Why', type: 'textarea', colSpan: 2 }
             ]
         },
         {
-            id: 'activity',
-            title: 'Activity',
+            id: 'active_search',
+            title: 'Active Search',
             fields: [
+                { key: 'activeSearchStatus', label: 'Active Search Status', type: 'select', options: ['', 'Broker Agreement Signed', 'Actively Searching', 'Showing'], funnelVisibility: ['Active Search'] },
                 { key: 'isCloseToOffer', label: 'Close to Offer', type: 'checkbox', showIf: (l) => l.leadType === 'Buyer' },
+                {
+                    key: 'tours' as any, colSpan: 2,
+                    render: (props: any) => (
+                        <div className="space-y-3 col-span-2 bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
+                            <div className="flex items-center justify-between mb-1">
+                                <h5 className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Property Tours</h5>
+                                <button
+                                    onClick={() => {
+                                        const newTour = { id: `tour_${Date.now()}`, propertyAddress: '', date: new Date().toISOString(), status: 'Scheduled' };
+                                        setEditingLead({ ...props.lead, tours: [...(props.lead.tours || []), newTour] });
+                                    }}
+                                    className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold flex items-center gap-1 hover:bg-emerald-700 transition-all"
+                                >
+                                    <i className="fa-solid fa-plus"></i> Add Tour
+                                </button>
+                            </div>
+                            <div className="space-y-3">
+                                {props.lead.tours?.map((tour: any, idx: number) => (
+                                    <div key={tour.id} className="bg-white p-3 rounded-lg border border-emerald-200 shadow-sm space-y-2 relative group">
+                                        <button
+                                            onClick={() => {
+                                                const newTours = props.lead.tours?.filter((_: any, i: number) => i !== idx);
+                                                setEditingLead({ ...props.lead, tours: newTours });
+                                            }}
+                                            className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-emerald-200 text-slate-400 rounded-full flex items-center justify-center hover:text-red-500 hover:border-red-200 shadow-sm opacity-0 group-hover:opacity-100 transition-all"
+                                        >
+                                            <i className="fa-solid fa-xmark text-xs"></i>
+                                        </button>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="col-span-2 space-y-1">
+                                                <label className="text-[9px] font-bold text-emerald-400 uppercase">Property Address</label>
+                                                <input
+                                                    type="text"
+                                                    value={tour.propertyAddress}
+                                                    onChange={(e) => {
+                                                        const newTours = [...props.lead.tours];
+                                                        newTours[idx] = { ...tour, propertyAddress: e.target.value };
+                                                        setEditingLead({ ...props.lead, tours: newTours });
+                                                    }}
+                                                    className="w-full px-2 py-1 bg-emerald-50/30 border border-emerald-100 rounded text-xs font-medium focus:ring-1 focus:ring-emerald-500 outline-none"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-emerald-400 uppercase">Date</label>
+                                                <input
+                                                    type="date"
+                                                    value={tour.date ? new Date(tour.date).toISOString().split('T')[0] : ''}
+                                                    onChange={(e) => {
+                                                        const newTours = [...props.lead.tours];
+                                                        newTours[idx] = { ...tour, date: e.target.value };
+                                                        setEditingLead({ ...props.lead, tours: newTours });
+                                                    }}
+                                                    className="w-full px-2 py-1 bg-emerald-50/30 border border-emerald-100 rounded text-xs font-medium focus:ring-1 focus:ring-emerald-500 outline-none"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-emerald-400 uppercase">Status</label>
+                                                <select
+                                                    value={tour.status}
+                                                    onChange={(e) => {
+                                                        const newTours = [...props.lead.tours];
+                                                        newTours[idx] = { ...tour, status: e.target.value as any };
+                                                        setEditingLead({ ...props.lead, tours: newTours });
+                                                    }}
+                                                    className="w-full px-2 py-1 bg-emerald-50/30 border border-emerald-100 rounded text-xs font-medium focus:ring-1 focus:ring-emerald-500 outline-none"
+                                                >
+                                                    {['Scheduled', 'Completed', 'Cancelled', 'No Show'].map(o => <option key={o} value={o}>{o}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {(!props.lead.tours || props.lead.tours.length === 0) && (
+                                    <div className="text-center py-4 text-emerald-400 text-[10px] italic">No tours recorded yet.</div>
+                                )}
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    key: 'visitors' as any, colSpan: 2, showIf: (l) => l.leadType === 'Seller',
+                    render: (props: any) => (
+                        <div className="space-y-3 col-span-2 bg-orange-50/50 p-4 rounded-xl border border-orange-100">
+                            <div className="flex items-center justify-between mb-1">
+                                <h5 className="text-[10px] font-bold uppercase tracking-wider text-orange-600">Property Visitors</h5>
+                                <button
+                                    onClick={() => {
+                                        const newVisitor = { id: `vis_${Date.now()}`, name: '', visitCount: 1, isInterested: false };
+                                        setEditingLead({ ...props.lead, visitors: [...(props.lead.visitors || []), newVisitor] });
+                                    }}
+                                    className="px-2 py-1 bg-orange-500 text-white rounded text-[10px] font-bold flex items-center gap-1 hover:bg-orange-600 transition-all"
+                                >
+                                    <i className="fa-solid fa-plus"></i> Add Visitor
+                                </button>
+                            </div>
+                            <div className="space-y-3">
+                                {props.lead.visitors?.map((visitor: any, idx: number) => (
+                                    <div key={visitor.id} className="bg-white p-3 rounded-lg border border-orange-200 shadow-sm space-y-2 relative group">
+                                        <button
+                                            onClick={() => {
+                                                const newVisitors = props.lead.visitors?.filter((_: any, i: number) => i !== idx);
+                                                setEditingLead({ ...props.lead, visitors: newVisitors });
+                                            }}
+                                            className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-orange-200 text-slate-400 rounded-full flex items-center justify-center hover:text-red-500 hover:border-red-200 shadow-sm opacity-0 group-hover:opacity-100 transition-all"
+                                        >
+                                            <i className="fa-solid fa-xmark text-xs"></i>
+                                        </button>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-orange-400 uppercase">Visitor Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={visitor.name}
+                                                    onChange={(e) => {
+                                                        const newVisitors = [...props.lead.visitors];
+                                                        newVisitors[idx] = { ...visitor, name: e.target.value };
+                                                        setEditingLead({ ...props.lead, visitors: newVisitors });
+                                                    }}
+                                                    className="w-full px-2 py-1 bg-orange-50/30 border border-orange-100 rounded text-xs font-medium focus:ring-1 focus:ring-orange-500 outline-none"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-orange-400 uppercase">Visit Count</label>
+                                                <input
+                                                    type="number"
+                                                    value={visitor.visitCount}
+                                                    onChange={(e) => {
+                                                        const newVisitors = [...props.lead.visitors];
+                                                        newVisitors[idx] = { ...visitor, visitCount: Number(e.target.value) };
+                                                        setEditingLead({ ...props.lead, visitors: newVisitors });
+                                                    }}
+                                                    className="w-full px-2 py-1 bg-orange-50/30 border border-orange-100 rounded text-xs font-medium focus:ring-1 focus:ring-orange-500 outline-none"
+                                                />
+                                            </div>
+                                            <div
+                                                className="flex items-center justify-between col-span-2 py-1.5 px-3 bg-orange-50/50 border border-orange-100 rounded-lg cursor-pointer group/toggle"
+                                                onClick={() => {
+                                                    const newVisitors = [...props.lead.visitors];
+                                                    newVisitors[idx] = { ...visitor, isInterested: !visitor.isInterested };
+                                                    setEditingLead({ ...props.lead, visitors: newVisitors });
+                                                }}
+                                            >
+                                                <span className="text-[9px] font-black text-orange-600 uppercase tracking-widest group-hover/toggle:text-orange-700 transition-colors">Mark as Interested</span>
+                                                <div className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out ${visitor.isInterested ? 'bg-orange-500' : 'bg-slate-200'}`}>
+                                                    <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${visitor.isInterested ? 'translate-x-3' : 'translate-x-0'}`} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {(!props.lead.visitors || props.lead.visitors.length === 0) && (
+                                    <div className="text-center py-4 text-orange-400 text-[10px] italic">No visitors recorded yet.</div>
+                                )}
+                            </div>
+                        </div>
+                    )
+                }
+            ]
+        },
+        {
+            id: 'offer_info',
+            title: 'Offer Info',
+            fields: [
+                { key: 'offerStatus', label: 'Offer Status', type: 'select', options: ['', 'Offer Submitted', 'Offer Received'], funnelVisibility: ['Offer'] },
                 {
                     key: 'offers' as any, colSpan: 2,
                     render: (props: any) => (
@@ -524,163 +693,6 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                         </div>
                     )
                 },
-                {
-                    key: 'tours' as any, colSpan: 2,
-                    render: (props: any) => (
-                        <div className="space-y-3 col-span-2 bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
-                            <div className="flex items-center justify-between mb-1">
-                                <h5 className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Property Tours</h5>
-                                <button
-                                    onClick={() => {
-                                        const newTour = { id: `tour_${Date.now()}`, propertyAddress: '', date: new Date().toISOString(), status: 'Scheduled' };
-                                        setEditingLead({ ...props.lead, tours: [...(props.lead.tours || []), newTour] });
-                                    }}
-                                    className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold flex items-center gap-1 hover:bg-emerald-700 transition-all"
-                                >
-                                    <i className="fa-solid fa-plus"></i> Add Tour
-                                </button>
-                            </div>
-                            <div className="space-y-3">
-                                {props.lead.tours?.map((tour: any, idx: number) => (
-                                    <div key={tour.id} className="bg-white p-3 rounded-lg border border-emerald-200 shadow-sm space-y-2 relative group">
-                                        <button
-                                            onClick={() => {
-                                                const newTours = props.lead.tours?.filter((_: any, i: number) => i !== idx);
-                                                setEditingLead({ ...props.lead, tours: newTours });
-                                            }}
-                                            className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-emerald-200 text-slate-400 rounded-full flex items-center justify-center hover:text-red-500 hover:border-red-200 shadow-sm opacity-0 group-hover:opacity-100 transition-all"
-                                        >
-                                            <i className="fa-solid fa-xmark text-xs"></i>
-                                        </button>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="col-span-2 space-y-1">
-                                                <label className="text-[9px] font-bold text-emerald-400 uppercase">Property Address</label>
-                                                <input
-                                                    type="text"
-                                                    value={tour.propertyAddress}
-                                                    onChange={(e) => {
-                                                        const newTours = [...props.lead.tours];
-                                                        newTours[idx] = { ...tour, propertyAddress: e.target.value };
-                                                        setEditingLead({ ...props.lead, tours: newTours });
-                                                    }}
-                                                    className="w-full px-2 py-1 bg-emerald-50/30 border border-emerald-100 rounded text-xs font-medium focus:ring-1 focus:ring-emerald-500 outline-none"
-                                                />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-[9px] font-bold text-emerald-400 uppercase">Date</label>
-                                                <input
-                                                    type="date"
-                                                    value={tour.date ? new Date(tour.date).toISOString().split('T')[0] : ''}
-                                                    onChange={(e) => {
-                                                        const newTours = [...props.lead.tours];
-                                                        newTours[idx] = { ...tour, date: e.target.value };
-                                                        setEditingLead({ ...props.lead, tours: newTours });
-                                                    }}
-                                                    className="w-full px-2 py-1 bg-emerald-50/30 border border-emerald-100 rounded text-xs font-medium focus:ring-1 focus:ring-emerald-500 outline-none"
-                                                />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-[9px] font-bold text-emerald-400 uppercase">Status</label>
-                                                <select
-                                                    value={tour.status}
-                                                    onChange={(e) => {
-                                                        const newTours = [...props.lead.tours];
-                                                        newTours[idx] = { ...tour, status: e.target.value as any };
-                                                        setEditingLead({ ...props.lead, tours: newTours });
-                                                    }}
-                                                    className="w-full px-2 py-1 bg-emerald-50/30 border border-emerald-100 rounded text-xs font-medium focus:ring-1 focus:ring-emerald-500 outline-none"
-                                                >
-                                                    {['Scheduled', 'Completed', 'Cancelled', 'No Show'].map(o => <option key={o} value={o}>{o}</option>)}
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {(!props.lead.tours || props.lead.tours.length === 0) && (
-                                    <div className="text-center py-4 text-emerald-400 text-[10px] italic">No tours scheduled yet.</div>
-                                )}
-                            </div>
-                        </div>
-                    )
-                },
-                {
-                    key: 'visitors' as any, colSpan: 2, showIf: (l) => l.leadType === 'Seller',
-                    render: (props: any) => (
-                        <div className="space-y-3 col-span-2 bg-orange-50/50 p-4 rounded-xl border border-orange-100">
-                            <div className="flex items-center justify-between mb-1">
-                                <h5 className="text-[10px] font-bold uppercase tracking-wider text-orange-600">Property Visitors</h5>
-                                <button
-                                    onClick={() => {
-                                        const newVisitor = { id: `vis_${Date.now()}`, name: '', visitCount: 1, isInterested: false };
-                                        setEditingLead({ ...props.lead, visitors: [...(props.lead.visitors || []), newVisitor] });
-                                    }}
-                                    className="px-2 py-1 bg-orange-500 text-white rounded text-[10px] font-bold flex items-center gap-1 hover:bg-orange-600 transition-all"
-                                >
-                                    <i className="fa-solid fa-plus"></i> Add Visitor
-                                </button>
-                            </div>
-                            <div className="space-y-3">
-                                {props.lead.visitors?.map((visitor: any, idx: number) => (
-                                    <div key={visitor.id} className="bg-white p-3 rounded-lg border border-orange-200 shadow-sm space-y-2 relative group">
-                                        <button
-                                            onClick={() => {
-                                                const newVisitors = props.lead.visitors?.filter((_: any, i: number) => i !== idx);
-                                                setEditingLead({ ...props.lead, visitors: newVisitors });
-                                            }}
-                                            className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-orange-200 text-slate-400 rounded-full flex items-center justify-center hover:text-red-500 hover:border-red-200 shadow-sm opacity-0 group-hover:opacity-100 transition-all"
-                                        >
-                                            <i className="fa-solid fa-xmark text-xs"></i>
-                                        </button>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="space-y-1">
-                                                <label className="text-[9px] font-bold text-orange-400 uppercase">Visitor Name</label>
-                                                <input
-                                                    type="text"
-                                                    value={visitor.name}
-                                                    onChange={(e) => {
-                                                        const newVisitors = [...props.lead.visitors];
-                                                        newVisitors[idx] = { ...visitor, name: e.target.value };
-                                                        setEditingLead({ ...props.lead, visitors: newVisitors });
-                                                    }}
-                                                    className="w-full px-2 py-1 bg-orange-50/30 border border-orange-100 rounded text-xs font-medium focus:ring-1 focus:ring-orange-500 outline-none"
-                                                />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-[9px] font-bold text-orange-400 uppercase">Visit Count</label>
-                                                <input
-                                                    type="number"
-                                                    value={visitor.visitCount}
-                                                    onChange={(e) => {
-                                                        const newVisitors = [...props.lead.visitors];
-                                                        newVisitors[idx] = { ...visitor, visitCount: Number(e.target.value) };
-                                                        setEditingLead({ ...props.lead, visitors: newVisitors });
-                                                    }}
-                                                    className="w-full px-2 py-1 bg-orange-50/30 border border-orange-100 rounded text-xs font-medium focus:ring-1 focus:ring-orange-500 outline-none"
-                                                />
-                                            </div>
-                                            <div
-                                                className="flex items-center justify-between col-span-2 py-1.5 px-3 bg-orange-50/50 border border-orange-100 rounded-lg cursor-pointer group/toggle"
-                                                onClick={() => {
-                                                    const newVisitors = [...props.lead.visitors];
-                                                    newVisitors[idx] = { ...visitor, isInterested: !visitor.isInterested };
-                                                    setEditingLead({ ...props.lead, visitors: newVisitors });
-                                                }}
-                                            >
-                                                <span className="text-[9px] font-black text-orange-600 uppercase tracking-widest group-hover/toggle:text-orange-700 transition-colors">Mark as Interested</span>
-                                                <div className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out ${visitor.isInterested ? 'bg-orange-500' : 'bg-slate-200'}`}>
-                                                    <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${visitor.isInterested ? 'translate-x-3' : 'translate-x-0'}`} />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {(!props.lead.visitors || props.lead.visitors.length === 0) && (
-                                    <div className="text-center py-4 text-orange-400 text-[10px] italic">No visitors recorded yet.</div>
-                                )}
-                            </div>
-                        </div>
-                    )
-                }
             ]
         },
         {
@@ -688,6 +700,7 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
             title: 'Closing',
             fields: [
                 { key: 'leaseEndDate', label: 'Lease End Date', type: 'date', showIf: (l) => l.leadType === 'Buyer' },
+                { key: 'closingStatus', label: 'Closing Status', type: 'select', options: ['', 'In Contract', 'On Track', 'Delayed', 'At Risk', 'Rescinded'], funnelVisibility: ['Contract'] },
                 { key: 'sellWhen', label: 'When to Sell', type: 'text', showIf: (l) => l.leadType === 'Seller' },
                 {
                     key: 'receivedAt', label: 'Received At', colSpan: 1, disabled: true,
@@ -1057,10 +1070,10 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 <div className="flex-1 overflow-y-auto p-5 scrollbar-hide">
                     <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                         {FORM_SECTIONS.filter(section => {
-                            if (activeTab === 'profile') return ['contact_info', 'persona_context'].includes(section.id);
-                            if (activeTab === 'deal') return ['intent_readiness', 'property_details', 'referral_source'].includes(section.id);
-                            if (activeTab === 'context') return ['timings', 'system_metadata'].includes(section.id);
-                            if (activeTab === 'notes') return ['client_comm', 'activity'].includes(section.id);
+                            if (activeTab === 'profile') return ['contact_info', 'nurture_info'].includes(section.id);
+                            if (activeTab === 'deal') return ['intent_readiness', 'property_details', 'referral_source', 'offer_info'].includes(section.id);
+                            if (activeTab === 'context') return ['closing', 'system_metadata'].includes(section.id);
+                            if (activeTab === 'notes') return ['client_comm', 'active_search'].includes(section.id);
                             return false;
                         }).map((section) => (
                             <React.Fragment key={section.id}>

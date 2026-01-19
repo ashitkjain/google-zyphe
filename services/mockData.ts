@@ -130,7 +130,11 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
             appraisalDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
             closingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         },
-        dealHealth: getRandom(['On Track', 'Delayed', 'At Risk', 'Rescinded']),
+        leadStatus: getRandom(['New', 'Qualified', 'Attempted to Contact']),
+        nurtureStatus: getRandom(['Meeting Fixed', 'Broker Agreement Sent']),
+        activeSearchStatus: getRandom(['Broker Agreement Signed', 'Actively Searching', 'Showing']),
+        offerStatus: getRandom(['Offer Submitted', 'Offer Received']),
+        closingStatus: getRandom(['In Contract', 'On Track', 'Delayed', 'At Risk', 'Rescinded']),
 
         // --- Lifecycle Tracking ---
         daysInCurrentStage: Math.floor(Math.random() * 30),

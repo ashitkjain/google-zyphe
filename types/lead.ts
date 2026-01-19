@@ -175,12 +175,62 @@ export const LEAD_FIELD_CONFIG = [
         description: "Subjective rating of lead interest level.",
         funnelVisibility: ['Leads', 'Nurture']
     },
+    {
+        id: 'leadStatus',
+        label: 'Lead Status',
+        category: 'Leads Info',
+        visibility: ['Buyer', 'Seller'],
+        type: 'enum',
+        options: ['New', 'Qualified', 'Attempted to Contact'],
+        description: "Specific status tracker for the Leads funnel stage.",
+        funnelVisibility: ['Leads']
+    },
+    {
+        id: 'nurtureStatus',
+        label: 'Nurture Status',
+        category: 'Nurture Info',
+        visibility: ['Buyer', 'Seller'],
+        type: 'enum',
+        options: ['Meeting Fixed', 'Broker Agreement Sent'],
+        description: "Specific status tracker for the Nurture funnel stage.",
+        funnelVisibility: ['Nurture']
+    },
+    {
+        id: 'activeSearchStatus',
+        label: 'Active Search Status',
+        category: 'Active Search',
+        visibility: ['Buyer', 'Seller'],
+        type: 'enum',
+        options: ['Broker Agreement Signed', 'Actively Searching', 'Showing'],
+        description: "Specific status tracker for the Active Search funnel stage.",
+        funnelVisibility: ['Active Search']
+    },
+    {
+        id: 'offerStatus',
+        label: 'Offer Status',
+        category: 'Offer Info',
+        visibility: ['Buyer', 'Seller'],
+        type: 'enum',
+        options: ['Offer Submitted', 'Offer Received'],
+        description: "Specific status tracker for the Offer funnel stage.",
+        funnelVisibility: ['Offer']
+    },
+    {
+        id: 'closingStatus',
+        label: 'Closing Status',
+        category: 'Closing',
+        visibility: ['Buyer', 'Seller'],
+        type: 'enum',
+        options: ['In Contract', 'On Track', 'Delayed', 'At Risk', 'Rescinded'],
+        description: "Specific status tracker for the Closing/Contract funnel stage.",
+        funnelVisibility: ['Contract']
+    },
 
     // --- Phase 2: Relationship Building (Stage: Nurture) ---
     {
         id: 'motivation',
         label: 'Motivation & Why',
-        category: 'Leads Info',
+        category: 'Nurture Info',
         visibility: ['Buyer', 'Seller'],
         type: 'string',
         description: "The core reason the client is buying or selling.",
@@ -285,7 +335,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'tourFeedback',
         label: 'Showing Activity',
-        category: 'Activity',
+        category: 'Active Search',
         visibility: ['Buyer'],
         type: 'list',
         description: "Log of properties visited and client reactions.",
@@ -316,7 +366,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'historicalOffers',
         label: 'Offer History & Rejections',
-        category: 'Activity',
+        category: 'Active Search',
         visibility: ['Buyer', 'Seller'],
         type: 'list',
         description: "Log of past offers that were rejected or withdrawn.",
@@ -346,7 +396,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'tours',
         label: 'Property Tours Log',
-        category: 'Activity',
+        category: 'Active Search',
         visibility: ['Buyer'],
         type: 'list',
         description: 'Scheduled and completed property tours.',
@@ -360,7 +410,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'visitors',
         label: 'Property Visitors',
-        category: 'Activity',
+        category: 'Active Search',
         visibility: ['Seller'],
         type: 'list',
         description: 'Visitors log for open houses or showings.',
@@ -401,16 +451,7 @@ export const LEAD_FIELD_CONFIG = [
         ],
         funnelVisibility: ['Contract']
     },
-    {
-        id: 'dealHealth',
-        label: 'Transaction Health',
-        category: 'Closing',
-        visibility: ['Buyer', 'Seller'],
-        type: 'enum',
-        options: ['On Track', 'Delayed', 'At Risk', 'Rescinded'],
-        description: "Status of the current transaction/contract.",
-        funnelVisibility: ['Contract']
-    },
+
 ] as const;
 
 export const LEAD_STAGE_LIFECYCLE_CONFIG = [
@@ -484,7 +525,11 @@ export interface Lead {
     historicalOffers?: HistoricalOffer[];
     transactionTeam?: TransactionTeam;
     criticalDates?: CriticalDates;
-    dealHealth?: 'On Track' | 'Delayed' | 'At Risk' | 'Rescinded';
+    closingStatus?: 'In Contract' | 'On Track' | 'Delayed' | 'At Risk' | 'Rescinded';
+    leadStatus?: 'New' | 'Qualified' | 'Attempted to Contact';
+    nurtureStatus?: 'Meeting Fixed' | 'Broker Agreement Sent';
+    activeSearchStatus?: 'Broker Agreement Signed' | 'Actively Searching' | 'Showing';
+    offerStatus?: 'Offer Submitted' | 'Offer Received';
 
     // --- System Metadata (Maintained for App Logic) ---
     status: LeadStatus;
