@@ -60,16 +60,19 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
     const isBuyer = type === 'Buyer';
     const isSeller = type === 'Seller';
     const receivedDate = new Date(Date.now() - Math.floor(Math.random() * 90 * 24 * 60 * 60 * 1000));
+    const preferredMethod = getRandom(['Phone', 'Email', 'SMS', 'WhatsApp']);
+    const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${getRandom(MOCK_GMAIL_DOMAINS)}`;
+    const phone = `(555) ${Math.floor(100 + Math.random() * 900)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     return {
         id: customId || `mock_${Math.random().toString(36).substr(2, 9)}`,
 
         // --- Phase 1: Contact ---
         fullName,
-        primaryContact: {
-            email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${getRandom(MOCK_GMAIL_DOMAINS)}`,
-            phone: `(555) ${Math.floor(100 + Math.random() * 900)}-${Math.floor(1000 + Math.random() * 9000)}`,
-            preferredMethod: getRandom(['Phone', 'Email', 'SMS', 'WhatsApp']),
+        primaryContactInfo: {
+            email,
+            phone,
+            preferredMethod,
             smsConsent: Math.random() > 0.3,
             clientPhotoUrl: Math.random() > 0.7 ? `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=random` : undefined,
             homeAddress: fullAddress
@@ -89,8 +92,13 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
         personaProfile: getRandom(['First-Time', 'Investor', 'Past Client', 'Relocation']),
         leaseEndDate: isBuyer && Math.random() > 0.5 ? new Date(Date.now() + Math.floor(Math.random() * 180) * 24 * 60 * 60 * 1000) : undefined,
         nurtureLog: [
-            { lastCallDate: new Date(), callCount: Math.floor(Math.random() * 5), lastNote: "Discussed timeline and budget." }
+            {
+                CallDate: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000),
+                CommChannel: getRandom(['Text', 'Email', 'Phone', 'In-person']),
+                Note: "Discussed timeline and budget."
+            }
         ],
+        callCount: Math.floor(Math.random() * 8) + 1,
 
         // --- Phase 3: Active Search ---
         financialVitals: isBuyer ? {
@@ -99,17 +107,17 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
             budgetMax: Math.floor(400000 + Math.random() * 1000000)
         } : undefined,
         searchCriteria: isBuyer ? {
-            locations: getRandomSubset(MOCK_LOCATIONS, 2),
-            mustHaves: getRandomSubset(MOCK_MUST_HAVES, 2),
-            dealBreakers: getRandomSubset(MOCK_DEAL_BREAKERS, 1)
+            locations: getRandomSubset(MOCK_LOCATIONS, 2).join(', '),
+            mustHaves: getRandomSubset(MOCK_MUST_HAVES, 2).join(', '),
+            dealBreakers: getRandomSubset(MOCK_DEAL_BREAKERS, 1).join(', ')
         } : undefined,
         listingStatus: isSeller ? {
-            property: { address: fullAddress, mlsId: `MLS-${Math.floor(10000 + Math.random() * 90000)}` },
+            homeAddress: fullAddress,
             estimatedValue: Math.floor(500000 + Math.random() * 500000),
             occupancyStatus: getRandom(['Owner Occupied', 'Vacant', 'Tenant Occupied'])
         } : undefined,
         tourFeedback: isBuyer ? [
-            { property: { address: "123 Mock St", mlsId: "MLS-54321" }, rating: 4, feedback: "Loved the kitchen, yard was too small." }
+            { propertyAddress: "123 Mock St", rating: 4, feedback: "Loved the kitchen, yard was too small." }
         ] : undefined,
         tours: isBuyer ? [
             { propertyAddress: "456 Oak Street", date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), status: 'Scheduled' },
@@ -121,8 +129,7 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
         ] : undefined,
 
         // --- Phase 4: Offer/Contract ---
-        activeOffer: isBuyer && Math.random() > 0.7 ? {
-            property: { address: "123 Mock St", mlsId: "MLS-54321" },
+        activeOffer: (isBuyer || isSeller) && funnelStage === 'Offer' ? {
             price: Math.floor(450000 + Math.random() * 100000),
             earnestMoney: 5000,
             contingencies: ['Inspection', 'Appraisal'],
@@ -146,24 +153,23 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
                 comment: getRandom(MOCK_COMMENTS)
             }
         ] : undefined,
-        transactionTeam: {
+        transactionTeam: funnelStage === 'Closing' ? {
             lenderPOC: "Sarah Lender",
             escrowOfficer: "Bob Escrow",
             coopAgent: "Alice Agent"
-        },
-        criticalDates: {
+        } : undefined,
+        criticalDates: funnelStage === 'Closing' ? {
             inspectionEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
             appraisalDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
             closingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        },
-        leadStatus: getRandom(['New', 'Qualified', 'Attempted to Contact']),
-        nurtureStatus: getRandom(['Meeting Fixed', 'Broker Agreement Sent']),
-        activeSearchStatus: getRandom(['Broker Agreement Signed', 'Actively Searching', 'Showing']),
-        offerStatus: getRandom(['Offer Submitted', 'Offer Received']),
-        closingStatus: getRandom(['In Contract', 'On Track', 'Delayed', 'At Risk', 'Rescinded']),
+        } : undefined,
+        leadStatus: funnelStage === 'Leads' ? getRandom(['New', 'Qualified', 'Attempted to Contact']) : undefined,
+        nurtureStatus: funnelStage === 'Nurture' ? getRandom(['Meeting Fixed', 'Broker Agreement Sent']) : undefined,
+        activeSearchStatus: funnelStage === 'Active Search' ? getRandom(['Broker Agreement Signed', 'Actively Searching', 'Showing']) : undefined,
+        offerStatus: funnelStage === 'Offer' ? getRandom(['Offer Submitted', 'Offer Received']) : undefined,
+        closingStatus: funnelStage === 'Closing' ? getRandom(['In Contract', 'On Track', 'Delayed', 'At Risk', 'Rescinded']) : undefined,
 
         // --- Lifecycle Tracking ---
-
         staleWarningDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         stageHistory: [
             {
@@ -172,9 +178,6 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
                 enteredAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000)
             }
         ],
-        rejectedOfferLog: isBuyer && Math.random() > 0.8 ? [
-            { rejectionReason: "Price too low", competitorPrice: 460000, lostToCash: false, agentNotes: "They wanted 460k firm." }
-        ] : undefined,
 
         // --- System ---
         status: status || 'New',
@@ -190,8 +193,9 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
         // --- Flat Accessors for UI (Satisfying LeadsList expectations) ---
         firstName,
         lastName,
-        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${getRandom(MOCK_GMAIL_DOMAINS)}`,
-        phone: `(555) ${Math.floor(100 + Math.random() * 900)}-${Math.floor(1000 + Math.random() * 9000)}`,
+        email,
+        phone,
+        preferredContactMethod: preferredMethod,
         source: getRandom(MOCK_SOURCES),
     };
 };

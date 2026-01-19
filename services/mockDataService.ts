@@ -24,8 +24,8 @@ export const getInitialMockLeads = (): Lead[] => {
     for (let i = 0; i < 3; i++) leads.push(generateMockLead('Seller', 'Meeting Fixed', 'Nurture', `mock_seller_nurture_${i}`));
     // Offer: 1 (Skipping Active Search as requested)
     leads.push(generateMockLead('Seller', 'Offer Received', 'Offer', `mock_seller_offer_0`));
-    // Closing (Contract): 1
-    leads.push(generateMockLead('Seller', 'In Contract', 'Contract', `mock_seller_contract_0`));
+    // Closing: 1
+    leads.push(generateMockLead('Seller', 'In Contract', 'Closing', `mock_seller_closing_0`));
 
     return leads;
 };
