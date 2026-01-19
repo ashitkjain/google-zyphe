@@ -50,7 +50,7 @@ const LeadsList: React.FC<InternalProps> = ({
     };
 
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-    const [sortField, setSortField] = useState<keyof Lead>('receivedAt');
+    const [sortField, setSortField] = useState<keyof Lead>('lastUpdated');
 
     const STATUS_OPTIONS = useMemo(() => {
         // Since LeadsList shows all leads, we might need to show a combined list of statuses
@@ -574,7 +574,15 @@ const LeadsList: React.FC<InternalProps> = ({
 
             // Normalize Date/Timestamp fields for reliable comparison
             const isDateField = ['receivedAt', 'lastUpdated', 'leaseEndDate'].includes(sortField as string);
-            if (isDateField) {
+
+            if (sortField === 'leadInfo') {
+                const getVal = (lead: Lead) => {
+                    const d = lead.leadInfo?.createdDate || lead.receivedAt;
+                    return d?.toDate ? d.toDate().getTime() : (d ? new Date(d).getTime() : 0);
+                };
+                aVal = getVal(a);
+                bVal = getVal(b);
+            } else if (isDateField) {
                 const getVal = (v: any, lead: Lead) => {
                     let dateVal = v;
                     if (sortField === 'receivedAt' && lead.stageLastChangedAt) {
@@ -799,9 +807,9 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 Source {sortField === 'source' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                             </th>
                                                         )}
-                                                        {getVisibleColumns('Buyer').has('receivedAt') && (
-                                                            <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('receivedAt')}>
-                                                                Time in {buyerFunnelCategory} {sortField === 'receivedAt' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                        {getVisibleColumns('Buyer').has('leadInfo') && (
+                                                            <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('leadInfo')}>
+                                                                Lead Info {sortField === 'leadInfo' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                             </th>
                                                         )}
                                                         {getVisibleColumns('Buyer').has('message') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Message</th>}
@@ -943,9 +951,10 @@ const LeadsList: React.FC<InternalProps> = ({
                                                             )}
                                                             {getVisibleColumns('Buyer').has('preferredNeighborhood') && <td className="px-2 py-2 border-b border-slate-100 font-medium underline text-indigo-600/80 decoration-indigo-200 underline-offset-4">{renderCell(lead, 'preferredNeighborhood' as any)}</td>}
                                                             {getVisibleColumns('Buyer').has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
-                                                            {getVisibleColumns('Buyer').has('receivedAt') && (
-                                                                <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-bold whitespace-nowrap uppercase">
-                                                                    {formatLeadAge(lead.stageLastChangedAt || lead.receivedAt)}
+                                                            {getVisibleColumns('Buyer').has('leadInfo') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-medium">
+                                                                    <div>{lead.leadInfo?.createdDate ? (lead.leadInfo.createdDate.toDate ? lead.leadInfo.createdDate.toDate().toLocaleDateString() : new Date(lead.leadInfo.createdDate).toLocaleDateString()) : '--'}</div>
+                                                                    <div className="text-[10px] text-slate-400">{lead.leadInfo?.origin || lead.source || '--'}</div>
                                                                 </td>
                                                             )}
                                                             {getVisibleColumns('Buyer').has('message') && (
@@ -1158,9 +1167,9 @@ const LeadsList: React.FC<InternalProps> = ({
                                                                 Source {sortField === 'source' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                             </th>
                                                         )}
-                                                        {getVisibleColumns('Seller').has('receivedAt') && (
-                                                            <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('receivedAt')}>
-                                                                Time in {sellerFunnelCategory} {sortField === 'receivedAt' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                        {getVisibleColumns('Seller').has('leadInfo') && (
+                                                            <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('leadInfo')}>
+                                                                Lead Info {sortField === 'leadInfo' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                             </th>
                                                         )}
                                                         {getVisibleColumns('Seller').has('reasonForSelling') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Reason for Selling</th>}
@@ -1289,9 +1298,10 @@ const LeadsList: React.FC<InternalProps> = ({
                                                             {getVisibleColumns('Seller').has('sellWhen') && <td className="px-2 py-2 border-b border-slate-100 font-medium whitespace-nowrap">{renderCell(lead, 'sellWhen' as any)}</td>}
                                                             {getVisibleColumns('Seller').has('occupancyStatus') && <td className="px-2 py-2 border-b border-slate-100 font-medium">{renderCell(lead, 'occupancyStatus' as any)}</td>}
                                                             {getVisibleColumns('Seller').has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
-                                                            {getVisibleColumns('Seller').has('receivedAt') && (
-                                                                <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-bold whitespace-nowrap uppercase">
-                                                                    {formatLeadAge(lead.stageLastChangedAt || lead.receivedAt)}
+                                                            {getVisibleColumns('Seller').has('leadInfo') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-medium">
+                                                                    <div>{lead.leadInfo?.createdDate ? (lead.leadInfo.createdDate.toDate ? lead.leadInfo.createdDate.toDate().toLocaleDateString() : new Date(lead.leadInfo.createdDate).toLocaleDateString()) : '--'}</div>
+                                                                    <div className="text-[10px] text-slate-400">{lead.leadInfo?.origin || lead.source || '--'}</div>
                                                                 </td>
                                                             )}
                                                             {getVisibleColumns('Seller').has('reasonForSelling') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.reasonForSelling || '--'}</td>}

@@ -7,7 +7,7 @@ export const availableBuyerColumns = [
     { id: 'financialVitals', label: 'Buying Power' }, // Object
     { id: 'searchCriteria', label: 'Criteria' }, // Object
     { id: 'leadSource', label: 'Source' }, // Object
-    { id: 'receivedAt', label: 'Date Created' },
+    { id: 'leadInfo', label: 'Lead Info' },
     { id: 'motivation', label: 'Motivation' },
     { id: 'targetTimeline', label: 'Timeline' },
     { id: 'personaProfile', label: 'Persona' },
@@ -28,7 +28,7 @@ export const availableSellerColumns = [
     { id: 'targetTimeline', label: 'Timeline' },
     { id: 'motivation', label: 'Reason for Selling' },
     { id: 'leadSource', label: 'Source' },
-    { id: 'receivedAt', label: 'Date Created' },
+    { id: 'leadInfo', label: 'Lead Info' },
     { id: 'funnelStage', label: 'Pipeline Stage' },
     { id: 'leadStatus', label: 'Lead Stage Status' },
     { id: 'nurtureStatus', label: 'Nurture Stage Status' },
@@ -38,8 +38,8 @@ export const availableSellerColumns = [
     { id: 'personaProfile', label: 'Persona' }
 ];
 
-export const defaultBuyerVisible = ['status', 'fullName', 'primaryContact', 'engagementScore', 'targetTimeline', 'motivation', 'leadSource', 'receivedAt'];
-export const defaultSellerVisible = ['status', 'fullName', 'primaryContact', 'listingStatus', 'targetTimeline', 'motivation', 'leadSource', 'receivedAt'];
+export const defaultBuyerVisible = ['status', 'fullName', 'primaryContact', 'engagementScore', 'targetTimeline', 'motivation', 'leadSource', 'leadInfo'];
+export const defaultSellerVisible = ['status', 'fullName', 'primaryContact', 'listingStatus', 'targetTimeline', 'motivation', 'leadSource', 'leadInfo'];
 
 type FunnelStage = 'Leads' | 'Nurture' | 'Active Search' | 'Offer' | 'Contract' | 'Closed';
 type ViewMode = 'list' | 'gallery';
@@ -51,7 +51,7 @@ export const stageDefaultColumns: Record<
 > = {
     Buyer: {
         'Leads': {
-            list: ['status', 'fullName', 'primaryContact', 'leadSource', 'receivedAt', 'engagementScore', 'lastUpdated'],
+            list: ['status', 'fullName', 'primaryContact', 'leadSource', 'leadInfo', 'engagementScore', 'lastUpdated'],
             gallery: ['status', 'fullName', 'primaryContact', 'engagementScore', 'leadSource']
         },
         'Nurture': {
@@ -71,13 +71,13 @@ export const stageDefaultColumns: Record<
             gallery: ['status', 'fullName', 'health', 'closingStatus']
         },
         'Closed': {
-            list: ['status', 'fullName', 'receivedAt', 'leadSource'],
-            gallery: ['status', 'fullName', 'receivedAt']
+            list: ['status', 'fullName', 'leadInfo', 'leadSource'],
+            gallery: ['status', 'fullName', 'leadInfo']
         }
     },
     Seller: {
         'Leads': {
-            list: ['status', 'fullName', 'primaryContact', 'leadSource', 'receivedAt', 'engagementScore'],
+            list: ['status', 'fullName', 'primaryContact', 'leadSource', 'leadInfo', 'engagementScore'],
             gallery: ['status', 'fullName', 'primaryContact', 'engagementScore']
         },
         'Nurture': {
@@ -97,7 +97,7 @@ export const stageDefaultColumns: Record<
             gallery: ['status', 'fullName', 'closingStatus']
         },
         'Closed': {
-            list: ['status', 'fullName', 'receivedAt', 'leadSource'],
+            list: ['status', 'fullName', 'leadInfo', 'leadSource'],
             gallery: ['status', 'fullName', 'leadSource']
         }
     }

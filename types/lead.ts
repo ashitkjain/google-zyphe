@@ -114,15 +114,7 @@ export interface OfferLogEntry {
 
 export const LEAD_FIELD_CONFIG = [
     // --- Phase 1: Contact & Discovery (Stage: Leads) ---
-    {
-        id: 'receivedAt',
-        label: 'Lead Received',
-        category: 'Leads',
-        visibility: ['Buyer', 'Seller'],
-        type: 'date',
-        isLocked: true,
-        description: "Exact timestamp when the lead was ingested into the system."
-    },
+
     {
         id: 'fullName',
         label: 'Full Name',

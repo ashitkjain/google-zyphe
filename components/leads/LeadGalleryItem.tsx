@@ -58,7 +58,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
         return () => clearInterval(interval);
     }, []);
 
-    const receivedDate = lead.receivedAt?.toDate ? lead.receivedAt.toDate() : (lead.receivedAt ? new Date(lead.receivedAt) : null);
+    const receivedDate = lead.leadInfo?.createdDate ? new Date(lead.leadInfo.createdDate) : (lead.receivedAt?.toDate ? lead.receivedAt.toDate() : (lead.receivedAt ? new Date(lead.receivedAt) : null));
     const minsSinceReceived = receivedDate ? (now.getTime() - receivedDate.getTime()) / 60000 : 0;
 
     React.useEffect(() => {
@@ -145,7 +145,18 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
             if (score === 'Warm') return <i className="fa-solid fa-mug-hot text-amber-500 text-sm" title="Warm"></i>;
             if (score === 'Cold') return <i className="fa-solid fa-snowflake text-sky-300 text-sm" title="Cold"></i>;
             if (score === 'Stale') return <i className="fa-solid fa-ghost text-slate-300 text-sm" title="Stale"></i>;
+
             return '--';
+        }
+
+        if (field === 'leadInfo' && val) {
+            const parts = [];
+            if (val.createdDate) {
+                const d = val.createdDate.toDate ? val.createdDate.toDate() : new Date(val.createdDate);
+                parts.push(`Created: ${d.toLocaleDateString()}`);
+            }
+            if (val.origin) parts.push(`Source: ${val.origin}`);
+            return parts.join(', ') || '--';
         }
 
         // Complex Object Rendering
@@ -197,8 +208,9 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
         isAlsoBuying: { label: 'Also Buying?', icon: 'fa-cart-shopping' },
         preQualified: { label: 'Pre-qualified?', icon: 'fa-certificate', color: 'text-emerald-600' },
         preferredNeighborhood: { label: 'Neighborhood', icon: 'fa-map-location-dot', color: 'text-indigo-600' },
+
         source: { label: 'Source', icon: 'fa-globe', color: 'text-slate-400' },
-        receivedAt: { label: `Time in ${stage}`, icon: 'fa-calendar-plus', color: 'text-slate-400' },
+        leadInfo: { label: 'Lead Info', icon: 'fa-info-circle', color: 'text-slate-500' },
         message: { label: 'Message', icon: 'fa-comment' },
         timeframe: { label: 'Timeframe', icon: 'fa-hourglass-half' },
         leaseEndDate: { label: 'Lease End Date', icon: 'fa-file-signature' },
@@ -350,7 +362,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
     // Combine explicit required fields with user-selected columns
     const gridFields = Array.from(new Set([
         ...Array.from(getVisibleColumns()),
-        'receivedAt',
+        'leadInfo',
         'smsConsent',
         'status',
         'staleWarningDate'
@@ -481,7 +493,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
 
                             <div className="flex flex-col flex-1 min-w-0 pt-0.5">
                                 <div className="font-bold text-black text-sm group-hover:text-indigo-600 transition-colors tracking-tight truncate leading-tight mb-0.5" >
-                                    {lead.firstName} {lead.lastName}
+                                    {lead.fullName || (lead.firstName || lead.lastName ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim() : 'Unknown Client')}
                                 </div>
 
                                 {isLeadsStage && lead.initialContactIn30Mins === undefined && (

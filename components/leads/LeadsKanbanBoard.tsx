@@ -51,11 +51,15 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
             }
         });
 
-        // Sort by receivedAt desc
+        // Sort by createdDate desc (using leadInfo.createdDate or falling back to a safe default)
         Object.keys(cols).forEach(key => {
             cols[key].sort((a, b) => {
-                const da = a.receivedAt?.toDate ? a.receivedAt.toDate() : new Date(a.receivedAt || 0);
-                const db = b.receivedAt?.toDate ? b.receivedAt.toDate() : new Date(b.receivedAt || 0);
+                const getDate = (lead: Lead) => {
+                    const dateVal = lead.leadInfo?.createdDate || lead.receivedAt;
+                    return dateVal?.toDate ? dateVal.toDate() : new Date(dateVal || 0);
+                };
+                const da = getDate(a);
+                const db = getDate(b);
                 return db.getTime() - da.getTime();
             });
         });
@@ -245,7 +249,7 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
 
                 <div className="min-w-0 flex-1">
                     <div className="font-bold text-slate-800 text-sm truncate leading-tight mb-1">
-                        {lead.firstName || lead.lastName ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim() : 'Unknown Client'}
+                        {lead.fullName || (lead.firstName || lead.lastName ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim() : 'Unknown Client')}
                     </div>
 
                     <div className="flex flex-col gap-0.5">
