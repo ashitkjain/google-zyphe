@@ -207,9 +207,27 @@ export const LEAD_FIELD_CONFIG = [
         funnelVisibility: ['Nurture']
     },
     {
+        id: 'leaseEndDate',
+        label: 'Lease End Date',
+        category: 'Nurture Info',
+        visibility: ['Buyer'],
+        type: 'date',
+        description: "Date the client's current lease ends.",
+        funnelVisibility: ['Nurture', 'Active Search']
+    },
+    {
+        id: 'sellWhen',
+        label: 'When to Sell',
+        category: 'Nurture Info',
+        visibility: ['Seller'],
+        type: 'string',
+        description: "Client's target timeframe for listing their home.",
+        funnelVisibility: ['Nurture']
+    },
+    {
         id: 'nurtureLog',
         label: 'Communication History',
-        category: 'Activity',
+        category: 'Nurture Info',
         visibility: ['Buyer', 'Seller'],
         type: 'list',
         description: "History of calls and notes during the nurture phase.",
@@ -283,7 +301,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'activeOffer',
         label: 'Current Offer Terms',
-        category: 'Negotiation',
+        category: 'Offer Info',
         visibility: ['Buyer', 'Seller'],
         type: 'object',
         description: "Details of the offer currently in play.",
@@ -314,7 +332,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'transactionTeam',
         label: 'Deal Partners',
-        category: 'Network',
+        category: 'Closing',
         visibility: ['Buyer', 'Seller'],
         type: 'object',
         description: "Contact info for external partners on this deal.",
@@ -356,7 +374,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'offers',
         label: 'Offers Activity',
-        category: 'Negotiation',
+        category: 'Offer Info',
         visibility: ['Buyer', 'Seller'],
         type: 'list',
         description: 'List of all offers made or received.',
@@ -372,7 +390,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'criticalDates',
         label: 'Escrow Countdown',
-        category: 'Timings',
+        category: 'Closing',
         visibility: ['Buyer', 'Seller'],
         type: 'object',
         description: "Key deadlines and milestones for the transaction.",
@@ -386,7 +404,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'dealHealth',
         label: 'Transaction Health',
-        category: 'System',
+        category: 'Closing',
         visibility: ['Buyer', 'Seller'],
         type: 'enum',
         options: ['On Track', 'Delayed', 'At Risk', 'Rescinded'],
@@ -425,7 +443,7 @@ export const LEAD_STAGE_LIFECYCLE_CONFIG = [
     {
         id: 'staleWarningDate',
         label: 'Follow-up Deadline',
-        category: 'Timings',
+        category: 'Leads Info',
         visibility: ['Buyer', 'Seller'],
         type: 'date',
         description: 'System calculated date when the lead is considered "Stale" for this stage.',
@@ -448,6 +466,8 @@ export interface Lead {
     motivation?: string;
     targetTimeline?: 'ASAP' | '1-3 Months' | '3-6 Months' | '6-12 Months' | 'Just Browsing';
     personaProfile?: 'First-Time' | 'Investor' | 'Past Client' | 'Relocation';
+    leaseEndDate?: Date;
+    sellWhen?: string;
     nurtureLog?: NurtureLogEntry[];
 
     // --- Phase 3 ---

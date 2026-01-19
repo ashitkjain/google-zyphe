@@ -684,8 +684,8 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({
             ]
         },
         {
-            id: 'timings',
-            title: 'Timings',
+            id: 'closing',
+            title: 'Closing',
             fields: [
                 { key: 'leaseEndDate', label: 'Lease End Date', type: 'date', showIf: (l) => l.leadType === 'Buyer' },
                 { key: 'sellWhen', label: 'When to Sell', type: 'text', showIf: (l) => l.leadType === 'Seller' },

@@ -36,10 +36,8 @@ const PROPERTY_CATEGORIES = [
     'Leads Info',
     'Nurture Info',
     'Activity',
-    'Timings',
-    'Negotiation',
-    'Network',
-    'System',
+    'Closing',
+    'Offer Info',
     'System Metadata' // For lifecycle fields
 ];
 
@@ -170,6 +168,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                         options: defaultConfig.options || p.options, // SYNC options
                         fields: defaultConfig.fields || p.fields, // SYNC fields (sub-structure)
                         isLocked: defaultConfig.isLocked || false, // SYNC locked status
+                        visibility: defaultConfig.visibility || p.visibility, // SYNC visibility
                         funnelVisibility: defaultConfig.isLocked
                             ? (defaultConfig.funnelVisibility || ['All'])
                             : ((p.funnelVisibility && p.funnelVisibility.length > 0 && !(p.funnelVisibility.length === 1 && p.funnelVisibility[0] === 'All' && defaultConfig.funnelVisibility && defaultConfig.funnelVisibility.length > 0 && !defaultConfig.funnelVisibility.includes('All')))
