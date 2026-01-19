@@ -349,23 +349,60 @@ const LeadsList: React.FC<InternalProps> = ({
             return '--';
         }
 
-        if (field === 'financialVitals' && lead.financialVitals) {
-            const parts = [];
-            if (lead.financialVitals.budgetMax) parts.push(`$${(lead.financialVitals.budgetMax / 1000).toFixed(0)}k`);
-            if (lead.financialVitals.isAllCash) parts.push('Cash');
-            return parts.join(', ') || '--';
+        const fieldConfig = [...LEAD_FIELD_CONFIG, ...LEAD_STAGE_LIFECYCLE_CONFIG].find(c => c.id === field);
+        const currentStage = lead.funnelStage || (lead.leadType === 'Seller' ? sellerFunnelCategory : buyerFunnelCategory);
+
+        const isStageVisible = (stages: readonly string[] | string[] | undefined) => {
+            if (!stages || stages.includes('All')) return true;
+            const effectiveStage = currentStage === 'Closed & Archived' ? 'Closed' : currentStage;
+            return stages.includes(effectiveStage as any);
+        };
+
+        if (fieldConfig?.type === 'object' && lead[field as keyof Lead]) {
+            const data = lead[field as keyof Lead] as any;
+            const visibleFields = (fieldConfig.fields || [])
+                .filter((f: any) => typeof f === 'object' && isStageVisible(f.funnelVisibility))
+                .map((f: any) => {
+                    const val = data[f.name];
+                    if (val === undefined || val === null || val === '') return null;
+                    if (f.type === 'currency') return `$${(val / 1000).toFixed(0)}k`;
+                    if (f.type === 'date' || f.type === 'timestamp') {
+                        const d = val?.toDate ? val.toDate() : new Date(val);
+                        return d.toLocaleDateString();
+                    }
+                    return val.toString();
+                })
+                .filter(Boolean);
+
+            return visibleFields.join(', ') || '--';
         }
 
-        if (field === 'searchCriteria' && lead.searchCriteria) {
-            return lead.searchCriteria.locations?.join(', ') || '--';
-        }
+        if (fieldConfig?.type === 'list' && lead[field as keyof Lead]) {
+            const list = lead[field as keyof Lead] as any[];
+            if (!list.length) return '--';
 
-        if (field === 'primaryContact' && lead.primaryContact) {
-            const { clientPhotoUrl, ...rest } = lead.primaryContact;
-            return Object.entries(rest)
-                .filter(([_, v]) => v)
-                .map(([k, v]) => `${k}: ${v}`)
-                .join(', ') || '--';
+            // Special handling for common list types or generic fallback
+            if (field === 'stageHistory' || field === 'nurtureLog') {
+                const last = list[list.length - 1];
+                const prefix = field === 'stageHistory' ? 'Last' : 'Latest';
+                const separator = field === 'stageHistory' ? ' -> ' : ', ';
+
+                const visibleParts = (fieldConfig.fields || [])
+                    .filter((f: any) => typeof f === 'object' && isStageVisible(f.funnelVisibility))
+                    .map((f: any) => {
+                        const val = last[f.name];
+                        if (val === undefined || val === null || val === '') return null;
+                        if (f.type === 'timestamp' || f.type === 'date') {
+                            const d = val?.toDate ? val.toDate() : new Date(val);
+                            return d.toLocaleDateString();
+                        }
+                        return val.toString();
+                    })
+                    .filter(Boolean);
+                return `${prefix}: ${visibleParts.join(separator)}`;
+            }
+
+            return `${list.length} entries`;
         }
 
         return (
@@ -391,7 +428,7 @@ const LeadsList: React.FC<InternalProps> = ({
                             );
                         }
                         if (typeof lead[field] === 'boolean') return lead[field] ? 'Yes' : 'No';
-                        if (Array.isArray(lead[field])) return (lead[field] as any[]).join(', ');
+                        if (Array.isArray(lead[field])) return (lead[field] as any[]).length + ' entries';
                         if (typeof lead[field] === 'object' && lead[field] !== null) {
                             if ((lead[field] as any).toDate) return (lead[field] as any).toDate().toLocaleDateString();
                             return JSON.stringify(lead[field]);

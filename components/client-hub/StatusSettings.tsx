@@ -251,6 +251,14 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
         });
     };
 
+    const handleUpdateSubField = (parentIndex: number, subIndex: number, nestedUpdates: any) => {
+        const parentProperty = allProperties[parentIndex];
+        const nextFields = [...(parentProperty.fields || [])];
+        const currentField = typeof nextFields[subIndex] === 'string' ? { name: nextFields[subIndex] } : nextFields[subIndex];
+        nextFields[subIndex] = { ...currentField, ...nestedUpdates };
+        handleUpdateItem(parentIndex, { fields: nextFields }, 'property');
+    };
+
     const handleAddItem = (group: string, type: 'status' | 'property') => {
         if (type === 'status') {
             const newStatus: ManagedStatus = {
@@ -790,9 +798,13 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                                                                                                     </div>
                                                                                                                 </td>
 
-                                                                                                                {/* 3. Visibility (Pseudo) */}
+                                                                                                                {/* 3. Visibility */}
                                                                                                                 <td className="w-[110px] px-4 py-2 align-top">
-
+                                                                                                                    <FunnelVisibilitySelect
+                                                                                                                        selected={field.funnelVisibility || ['All']}
+                                                                                                                        onChange={(next) => handleUpdateSubField(originalIndex, idx, { funnelVisibility: next })}
+                                                                                                                        disabled={item.isLocked}
+                                                                                                                    />
                                                                                                                 </td>
 
                                                                                                                 {/* 4. Type */}

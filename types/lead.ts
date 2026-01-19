@@ -25,9 +25,9 @@ export interface LeadInfo {
 }
 
 export interface NurtureLogEntry {
-    lastCallDate: Date;
-    callCount: number;
-    lastNote: string;
+    CallDate: Date;
+    CommChannel: 'Text' | 'Email' | 'Phone' | 'In-person';
+    Note: string;
 }
 
 export interface FinancialVitals {
@@ -131,12 +131,12 @@ export const LEAD_FIELD_CONFIG = [
         type: 'object',
         description: "Essential contact details including email, phone, and preferences.",
         fields: [
-            { name: 'email', type: 'string', description: 'Primary email address' },
-            { name: 'phone', type: 'string', description: 'Primary phone number' },
-            { name: 'preferredMethod', type: 'enum', description: 'Preferred contact method', options: ['Phone', 'Email', 'SMS', 'WhatsApp'] },
-            { name: 'smsConsent', type: 'boolean', description: 'Consent to receive SMS' },
-            { name: 'clientPhotoUrl', type: 'url', description: 'Link to profile photo' },
-            { name: 'homeAddress', type: 'string', description: 'Current home address' }
+            { name: 'email', type: 'string', description: 'Primary email address', funnelVisibility: ['All'] },
+            { name: 'phone', type: 'string', description: 'Primary phone number', funnelVisibility: ['All'] },
+            { name: 'preferredMethod', type: 'enum', description: 'Preferred contact method', options: ['Phone', 'Email', 'SMS', 'WhatsApp'], funnelVisibility: ['Nurture', 'Active Search'] },
+            { name: 'smsConsent', type: 'boolean', description: 'Consent to receive SMS', funnelVisibility: ['Nurture'] },
+            { name: 'clientPhotoUrl', type: 'url', description: 'Link to profile photo', funnelVisibility: ['All'] },
+            { name: 'homeAddress', type: 'string', description: 'Current home address', funnelVisibility: ['Active Search', 'Offer'] }
         ],
         funnelVisibility: ['All']
     },
@@ -148,11 +148,11 @@ export const LEAD_FIELD_CONFIG = [
         type: 'object',
         description: "Source and origin details for attribution.",
         fields: [
-            { name: 'origin', type: 'string', description: 'Source of the lead' },
-            { name: 'referralType', type: 'string', description: 'Type of referral' },
-            { name: 'campaign', type: 'string', description: 'Marketing campaign' },
-            { name: 'createdDate', type: 'date', description: 'Date lead was created' },
-            { name: 'leadType', type: 'enum', description: 'Buyer or Seller', options: ['Buyer', 'Seller'] }
+            { name: 'origin', type: 'string', description: 'Source of the lead', funnelVisibility: ['Leads', 'Nurture'] },
+            { name: 'referralType', type: 'string', description: 'Type of referral', funnelVisibility: ['Leads'] },
+            { name: 'campaign', type: 'string', description: 'Marketing campaign', funnelVisibility: ['Leads'] },
+            { name: 'createdDate', type: 'date', description: 'Date lead was created', funnelVisibility: ['All'] },
+            { name: 'leadType', type: 'enum', description: 'Buyer or Seller', options: ['Buyer', 'Seller'], funnelVisibility: ['All'] }
         ],
         funnelVisibility: ['Leads']
     },
@@ -273,53 +273,62 @@ export const LEAD_FIELD_CONFIG = [
         type: 'list',
         description: "History of calls and notes during the nurture phase.",
         fields: [
-            { name: 'lastCallDate', type: 'date', description: 'Date of last call' },
-            { name: 'callCount', type: 'integer', description: 'Total calls made' },
-            { name: 'lastNote', type: 'string', description: 'Last interaction note' }
+            { name: 'CallDate', type: 'date', description: 'Date of call', funnelVisibility: ['Nurture', 'Active Search'] },
+            { name: 'CommChannel', type: 'enum', description: 'Method of communication', options: ['Text', 'Email', 'Phone', 'In-person'], funnelVisibility: ['All'] },
+            { name: 'Note', type: 'string', description: 'Interaction note', funnelVisibility: ['All'] }
         ],
         funnelVisibility: ['Nurture', 'Active Search']
+    },
+    {
+        id: 'callCount',
+        label: 'Call Tracker',
+        category: 'Nurture',
+        visibility: ['Buyer', 'Seller'],
+        type: 'integer',
+        description: 'Total calls made to this lead.',
+        funnelVisibility: ['Nurture']
     },
 
     // --- Phase 3: Property Hunting (Stage: Active Search) ---
     {
         id: 'financialVitals',
         label: 'Buying Power',
-        category: 'Nurture',
+        category: 'Active Search',
         visibility: ['Buyer'],
         type: 'object',
         description: "Qualification status and budget details.",
         fields: [
-            { name: 'preApprovalStatus', type: 'boolean', description: 'Is pre-approved?' },
-            { name: 'isAllCash', type: 'boolean', description: 'Cash buyer?' },
-            { name: 'budgetMax', type: 'currency', description: 'Max budget' }
+            { name: 'preApprovalStatus', type: 'boolean', description: 'Is pre-approved?', funnelVisibility: ['Active Search', 'Offer'] },
+            { name: 'isAllCash', type: 'boolean', description: 'Cash buyer?', funnelVisibility: ['Offer'] },
+            { name: 'budgetMax', type: 'currency', description: 'Max budget', funnelVisibility: ['All'] }
         ],
         funnelVisibility: ['Active Search']
     },
     {
         id: 'searchCriteria',
         label: 'Hard Requirements',
-        category: 'Nurture',
+        category: 'Active Search',
         visibility: ['Buyer'],
         type: 'object',
         description: "Location, price, and feature requirements.",
         fields: [
-            { name: 'locations', type: 'list<string>', description: 'Target locations' },
-            { name: 'mustHaves', type: 'list<string>', description: 'Must have features' },
-            { name: 'dealBreakers', type: 'list<string>', description: 'Deal breakers' }
+            { name: 'locations', type: 'list<string>', description: 'Target locations', funnelVisibility: ['All'] },
+            { name: 'mustHaves', type: 'list<string>', description: 'Must have features', funnelVisibility: ['Active Search'] },
+            { name: 'dealBreakers', type: 'list<string>', description: 'Deal breakers', funnelVisibility: ['Active Search'] }
         ],
         funnelVisibility: ['Active Search']
     },
     {
         id: 'listingStatus',
         label: 'Listing Readiness',
-        category: 'Nurture',
+        category: 'Active Search',
         visibility: ['Seller'],
         type: 'object',
         description: "Details about the property being sold.",
         fields: [
-            { name: 'homeAddress', type: 'string', description: 'Property address' },
-            { name: 'estimatedValue', type: 'currency', description: 'Estimated value' },
-            { name: 'occupancyStatus', type: 'string', description: 'Occupancy status' }
+            { name: 'homeAddress', type: 'string', description: 'Property address', funnelVisibility: ['All'] },
+            { name: 'estimatedValue', type: 'currency', description: 'Estimated value', funnelVisibility: ['Active Search', 'Offer'] },
+            { name: 'occupancyStatus', type: 'string', description: 'Occupancy status', funnelVisibility: ['Active Search'] }
         ],
         funnelVisibility: ['Active Search']
     },
@@ -331,9 +340,9 @@ export const LEAD_FIELD_CONFIG = [
         type: 'list',
         description: "Log of properties visited and client reactions.",
         fields: [
-            { name: 'propertyAddress', type: 'string', description: 'Address toured' },
-            { name: 'rating', type: 'integer', description: 'Rating (1-5)' },
-            { name: 'feedback', type: 'string', description: 'Client feedback' }
+            { name: 'propertyAddress', type: 'string', description: 'Address toured', funnelVisibility: ['All'] },
+            { name: 'rating', type: 'integer', description: 'Rating (1-5)', funnelVisibility: ['Active Search'] },
+            { name: 'feedback', type: 'string', description: 'Client feedback', funnelVisibility: ['Active Search', 'Offer'] }
         ],
         funnelVisibility: ['Active Search']
     },
@@ -347,10 +356,10 @@ export const LEAD_FIELD_CONFIG = [
         type: 'object',
         description: "Details of the offer currently in play.",
         fields: [
-            { name: 'price', type: 'currency', description: 'Offer price' },
-            { name: 'earnestMoney', type: 'currency', description: 'EMD amount' },
-            { name: 'contingencies', type: 'list<string>', description: 'List of contingencies' },
-            { name: 'offerDate', type: 'date', description: 'Date offer made' }
+            { name: 'price', type: 'currency', description: 'Offer price', funnelVisibility: ['All'] },
+            { name: 'earnestMoney', type: 'currency', description: 'EMD amount', funnelVisibility: ['Offer', 'Contract'] },
+            { name: 'contingencies', type: 'list<string>', description: 'List of contingencies', funnelVisibility: ['Contract'] },
+            { name: 'offerDate', type: 'date', description: 'Date offer made', funnelVisibility: ['Offer'] }
         ],
         funnelVisibility: ['Offer']
     },
@@ -362,11 +371,11 @@ export const LEAD_FIELD_CONFIG = [
         type: 'list',
         description: "Log of past offers that were rejected or withdrawn.",
         fields: [
-            { name: 'propertyAddress', type: 'string', description: 'Property address' },
-            { name: 'offerPrice', type: 'currency', description: 'Offer price' },
-            { name: 'rejectionDate', type: 'date', description: 'Date rejected' },
-            { name: 'rejectionReason', type: 'enum', description: 'Reason for rejection', options: ['Price', 'Terms', 'Financing', 'Timing', 'Inspection/Appraisal', 'Multiple Offers', 'Lost to Cash'] },
-            { name: 'agentNotes', type: 'string', description: 'Notes' }
+            { name: 'propertyAddress', type: 'string', description: 'Property address', funnelVisibility: ['All'] },
+            { name: 'offerPrice', type: 'currency', description: 'Offer price', funnelVisibility: ['All'] },
+            { name: 'rejectionDate', type: 'date', description: 'Date rejected', funnelVisibility: ['All'] },
+            { name: 'rejectionReason', type: 'enum', description: 'Reason for rejection', options: ['Price', 'Terms', 'Financing', 'Timing', 'Inspection/Appraisal', 'Multiple Offers', 'Lost to Cash'], funnelVisibility: ['All'] },
+            { name: 'agentNotes', type: 'string', description: 'Notes', funnelVisibility: ['All'] }
         ],
         funnelVisibility: ['Offer', 'Contract', 'Archived']
     },
@@ -378,9 +387,9 @@ export const LEAD_FIELD_CONFIG = [
         type: 'object',
         description: "Contact info for external partners on this deal.",
         fields: [
-            { name: 'lenderPOC', type: 'string', description: 'Lender contact' },
-            { name: 'escrowOfficer', type: 'string', description: 'Escrow officer' },
-            { name: 'coopAgent', type: 'string', description: 'Cooperating agent' }
+            { name: 'lenderPOC', type: 'string', description: 'Lender contact', funnelVisibility: ['All'] },
+            { name: 'escrowOfficer', type: 'string', description: 'Escrow officer', funnelVisibility: ['All'] },
+            { name: 'coopAgent', type: 'string', description: 'Cooperating agent', funnelVisibility: ['All'] }
         ],
         funnelVisibility: ['Offer', 'Contract']
     },
@@ -392,9 +401,9 @@ export const LEAD_FIELD_CONFIG = [
         type: 'list',
         description: 'Scheduled and completed property tours.',
         fields: [
-            { name: 'propertyAddress', type: 'string', description: 'Address to tour' },
-            { name: 'date', type: 'date', description: 'Date of tour' },
-            { name: 'status', type: 'enum', description: 'Scheduled/Completed/Cancelled', options: ['Scheduled', 'Completed', 'Cancelled', 'No Show'] }
+            { name: 'propertyAddress', type: 'string', description: 'Address to tour', funnelVisibility: ['All'] },
+            { name: 'date', type: 'date', description: 'Date of tour', funnelVisibility: ['All'] },
+            { name: 'status', type: 'enum', description: 'Scheduled/Completed/Cancelled', options: ['Scheduled', 'Completed', 'Cancelled', 'No Show'], funnelVisibility: ['All'] }
         ],
         funnelVisibility: ['Active Search']
     },
@@ -406,9 +415,9 @@ export const LEAD_FIELD_CONFIG = [
         type: 'list',
         description: 'Visitors log for open houses or showings.',
         fields: [
-            { name: 'name', type: 'string', description: 'Visitor Name' },
-            { name: 'visitCount', type: 'integer', description: 'Number of visits' },
-            { name: 'isInterested', type: 'boolean', description: 'Marked as interested' }
+            { name: 'name', type: 'string', description: 'Visitor Name', funnelVisibility: ['All'] },
+            { name: 'visitCount', type: 'integer', description: 'Number of visits', funnelVisibility: ['All'] },
+            { name: 'isInterested', type: 'boolean', description: 'Marked as interested', funnelVisibility: ['All'] }
         ],
         funnelVisibility: ['Active Search']
     },
@@ -420,11 +429,11 @@ export const LEAD_FIELD_CONFIG = [
         type: 'list',
         description: 'List of all offers made or received.',
         fields: [
-            { name: 'property', type: 'string', description: 'Property Address' },
-            { name: 'bidPrice', type: 'currency', description: 'Bid Amount' },
-            { name: 'outcome', type: 'enum', description: 'Pending/Accepted/Rejected', options: ['Pending', 'Accepted', 'Rejected', 'Countered', 'Withdrawn'] },
-            { name: 'date', type: 'date', description: 'Date of offer' },
-            { name: 'comment', type: 'string', description: 'Notes' }
+            { name: 'property', type: 'string', description: 'Property Address', funnelVisibility: ['All'] },
+            { name: 'bidPrice', type: 'currency', description: 'Bid Amount', funnelVisibility: ['All'] },
+            { name: 'outcome', type: 'enum', description: 'Pending/Accepted/Rejected', options: ['Pending', 'Accepted', 'Rejected', 'Countered', 'Withdrawn'], funnelVisibility: ['All'] },
+            { name: 'date', type: 'date', description: 'Date of offer', funnelVisibility: ['All'] },
+            { name: 'comment', type: 'string', description: 'Notes', funnelVisibility: ['All'] }
         ],
         funnelVisibility: ['Offer']
     },
@@ -436,9 +445,9 @@ export const LEAD_FIELD_CONFIG = [
         type: 'object',
         description: "Key deadlines and milestones for the transaction.",
         fields: [
-            { name: 'inspectionEnd', type: 'date', description: 'Inspection deadline' },
-            { name: 'appraisalDate', type: 'date', description: 'Appraisal deadline' },
-            { name: 'closingDate', type: 'date', description: 'Closing date' }
+            { name: 'inspectionEnd', type: 'date', description: 'Inspection deadline', funnelVisibility: ['Contract'] },
+            { name: 'appraisalDate', type: 'date', description: 'Appraisal deadline', funnelVisibility: ['Contract'] },
+            { name: 'closingDate', type: 'date', description: 'Closing date', funnelVisibility: ['All'] }
         ],
         funnelVisibility: ['Contract']
     },
@@ -455,10 +464,10 @@ export const LEAD_STAGE_LIFECYCLE_CONFIG = [
         type: 'list',
         description: 'Historical log of every stage move with duration.',
         fields: [
-            { name: 'fromStage', type: 'enum', description: 'Previous stage' },
-            { name: 'toStage', type: 'enum', description: 'New stage' },
-            { name: 'enteredAt', type: 'timestamp', description: 'Entry time' },
-            { name: 'exitedAt', type: 'timestamp', description: 'Exit time' }
+            { name: 'fromStage', type: 'enum', description: 'Previous stage', funnelVisibility: ['All'] },
+            { name: 'toStage', type: 'enum', description: 'New stage', funnelVisibility: ['All'] },
+            { name: 'enteredAt', type: 'timestamp', description: 'Entry time', funnelVisibility: ['All'] },
+            { name: 'exitedAt', type: 'timestamp', description: 'Exit time', funnelVisibility: ['Contract'] }
         ],
         funnelVisibility: ['All']
     },

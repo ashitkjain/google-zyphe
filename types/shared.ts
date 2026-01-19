@@ -15,6 +15,7 @@ export interface NestedFieldDefinition {
     name: string;
     type: string;
     description?: string;
+    funnelVisibility?: string[];
 }
 
 export interface PropertyOption {

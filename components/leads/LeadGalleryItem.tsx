@@ -153,12 +153,56 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
             }
             return '--';
         }
-        if (field === 'primaryContact' && lead.primaryContact) {
-            const { clientPhotoUrl, ...rest } = lead.primaryContact;
-            return Object.entries(rest)
-                .filter(([_, v]) => v)
-                .map(([k, v]) => `${(v as string).toString()}`)
-                .join(', ') || '--';
+        const fieldConfig = [...LEAD_FIELD_CONFIG, ...LEAD_STAGE_LIFECYCLE_CONFIG].find(c => c.id === field);
+        const currentStage = lead.funnelStage || (lead.leadType === 'Seller' ? 'Leads' : 'Leads'); // In Gallery we might not have the tab context easily, but we can infer from funnelStage
+
+        const isStageVisible = (stages: readonly string[] | string[] | undefined) => {
+            if (!stages || stages.includes('All')) return true;
+            return stages.includes(currentStage as any);
+        };
+
+        if (fieldConfig?.type === 'object' && val) {
+            const data = val as any;
+            const visibleFields = (fieldConfig.fields || [])
+                .filter((f: any) => typeof f === 'object' && isStageVisible(f.funnelVisibility))
+                .map((f: any) => {
+                    const fieldVal = data[f.name];
+                    if (fieldVal === undefined || fieldVal === null || fieldVal === '') return null;
+                    if (f.type === 'currency') return `$${(fieldVal / 1000).toFixed(0)}k`;
+                    if (f.type === 'date' || f.type === 'timestamp') {
+                        const d = fieldVal?.toDate ? fieldVal.toDate() : new Date(fieldVal);
+                        return d.toLocaleDateString();
+                    }
+                    return fieldVal.toString();
+                })
+                .filter(Boolean);
+
+            return visibleFields.join(', ') || '--';
+        }
+
+        if (fieldConfig?.type === 'list' && val) {
+            const list = val as any[];
+            if (!list.length) return '--';
+
+            if (field === 'stageHistory' || field === 'nurtureLog') {
+                const last = list[list.length - 1];
+                const separator = field === 'stageHistory' ? ' -> ' : ', ';
+                const visibleParts = (fieldConfig.fields || [])
+                    .filter((f: any) => typeof f === 'object' && isStageVisible(f.funnelVisibility))
+                    .map((f: any) => {
+                        const subVal = last[f.name];
+                        if (subVal === undefined || subVal === null || subVal === '') return null;
+                        if (f.type === 'timestamp' || f.type === 'date') {
+                            const d = subVal?.toDate ? subVal.toDate() : new Date(subVal);
+                            return d.toLocaleDateString();
+                        }
+                        return subVal.toString();
+                    })
+                    .filter(Boolean);
+                return visibleParts.join(separator) || '--';
+            }
+
+            return `${list.length} entries`;
         }
 
         if (field === 'engagementScore') {
@@ -171,53 +215,13 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
             return '--';
         }
 
-        if (field === 'leadInfo' && val) {
-            const parts = [];
-            if (val.createdDate) {
-                const d = val.createdDate.toDate ? val.createdDate.toDate() : new Date(val.createdDate);
-                parts.push(`Created: ${d.toLocaleDateString()}`);
-            }
-            if (val.origin) parts.push(`Source: ${val.origin}`);
-            return parts.join(', ') || '--';
-        }
-
-        // Complex Object Rendering
-        if (field === 'financialVitals' && val) {
-            const parts = [];
-            if (val.budgetMax) parts.push(`$${(val.budgetMax / 1000).toFixed(0)}k`);
-            if (val.isAllCash) parts.push('Cash');
-            if (val.preApprovalStatus) parts.push('Pre-Approved');
-            return parts.join(', ') || '--';
-        }
-        if (field === 'searchCriteria' && val) {
-            const parts = [];
-            if (val.locations?.length) parts.push(`${val.locations.length} locs`);
-            if (val.mustHaves?.length) parts.push(`${val.mustHaves.length} must-haves`);
-            return parts.join(', ') || '--';
-        }
-        if (field === 'activeOffer' && val) {
-            return val.price ? `$${(val.price / 1000).toFixed(0)}k (${new Date(val.offerDate).toLocaleDateString()})` : '--';
-        }
-        if (field === 'criticalDates' && val) {
-            return val.closingDate ? `Closing: ${new Date(val.closingDate).toLocaleDateString()}` : '--';
-        }
-        if (field === 'listingStatus' && val) {
-            return val.estimatedValue ? `$${(val.estimatedValue / 1000).toFixed(0)}k Est.` : '--';
-        }
-        if (field === 'transactionTeam' && val) {
-            const team = [];
-            if (val.lenderPOC) team.push('Lender');
-            if (val.escrowOfficer) team.push('Escrow');
-            return team.join(', ') || '--';
-        }
-
         if (typeof val === 'boolean') return val ? 'Yes' : 'No';
         if (field === 'price') {
             const priceVal = val || lead.price;
             return priceVal ? `$${(priceVal / 1000).toFixed(0)}k` : '--';
         }
-        if (Array.isArray(val)) return val.join(', ') || '--';
-        if (typeof val === 'object' && val !== null) return JSON.stringify(val); // Fallback for other objects
+        if (Array.isArray(val)) return val.length + ' entries';
+        if (typeof val === 'object' && val !== null) return JSON.stringify(val);
         return val || '--';
     };
 
