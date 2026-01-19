@@ -13,9 +13,11 @@ export interface StatusOption {
 
 export interface NestedFieldDefinition {
     name: string;
+    label?: string;
     type: string;
     description?: string;
     funnelVisibility?: string[];
+    options?: string[];
 }
 
 export interface PropertyOption {

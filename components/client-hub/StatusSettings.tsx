@@ -193,13 +193,16 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                     order: syncedProperties.length // Append at end, will be re-ordered if needed or user can re-order
                 }));
 
-            // Combine and map final structure
-            return [...syncedProperties, ...missingProperties].map(p => ({
-                ...p,
-                applicableTo: (p.visibility?.length === 2) ? 'Both' : (p.visibility?.[0] || 'Both'),
-                funnelVisibility: p.isLocked ? (p.funnelVisibility || ['All']) : (p.funnelVisibility || ['All']),
-                isLocked: p.isLocked || false
-            })) as ManagedProperty[];
+            // Combine and map final structure, filtering out hidden system fields
+            const HIDDEN_FIELD_IDS = ['id', 'isMock', 'collectionName', 'clientId'];
+            return [...syncedProperties, ...missingProperties]
+                .filter(p => !HIDDEN_FIELD_IDS.includes(p.id))
+                .map(p => ({
+                    ...p,
+                    applicableTo: (p.visibility?.length === 2) ? 'Both' : (p.visibility?.[0] || 'Both'),
+                    funnelVisibility: p.isLocked ? (p.funnelVisibility || ['All']) : (p.funnelVisibility || ['All']),
+                    isLocked: p.isLocked || false
+                })) as ManagedProperty[];
         }
 
     });
@@ -792,6 +795,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                                                                                     item.fields.map((field: any, idx: number) => {
                                                                                                         const isObj = typeof field === 'object';
                                                                                                         const name = isObj ? field.name : field;
+                                                                                                        const label = isObj ? (field.label || field.name) : field;
                                                                                                         const type = isObj ? field.type : 'string';
                                                                                                         const desc = isObj ? field.description : '';
 
@@ -805,7 +809,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                                                                                                     <div className="flex items-center gap-2 pl-6">
                                                                                                                         <div className="w-4 h-4 border-l-2 border-b-2 border-indigo-200 rounded-bl-md -mt-3.5"></div>
                                                                                                                         <div className="flex flex-col">
-                                                                                                                            <span className="text-xs font-bold text-slate-700 font-mono">{name}</span>
+                                                                                                                            <span className="text-xs font-bold text-slate-700">{label}</span>
                                                                                                                         </div>
                                                                                                                     </div>
                                                                                                                 </td>
