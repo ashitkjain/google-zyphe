@@ -79,8 +79,8 @@ const LeadsList: React.FC<InternalProps> = ({
 
 
 
-    const [buyerFunnelCategory, setBuyerFunnelCategory] = useState<FunnelStage>('Leads');
-    const [sellerFunnelCategory, setSellerFunnelCategory] = useState<FunnelStage>('Leads');
+    const [buyerFunnelCategory, setBuyerFunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
+    const [sellerFunnelCategory, setSellerFunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
 
     const [visibleColumns, setVisibleColumns] = useState<Record<string, Set<string>>>(() => {
         const initial: Record<string, Set<string>> = {
@@ -95,7 +95,7 @@ const LeadsList: React.FC<InternalProps> = ({
         return initial;
     });
 
-    const computeVisibleColumns = (type: 'Buyer' | 'Seller', stage: FunnelStage) => {
+    const computeVisibleColumns = (type: 'Buyer' | 'Seller', stage: FunnelStage | 'Closed & Archived') => {
         // Use user settings if available, otherwise defaults
         // We cast to PropertyOption[] because strict typing might miss some runtime properties or optional mismatch
         const properties = (realtorSettings?.leadProperties || LEAD_FIELD_CONFIG) as PropertyOption[];
@@ -106,7 +106,8 @@ const LeadsList: React.FC<InternalProps> = ({
 
             // Check Funnel Visibility
             const stages = p.funnelVisibility || ['All'];
-            const isVisibleForStage = stages.includes('All') || stages.includes(stage);
+            const isVisibleForStage = stages.includes('All') ||
+                (stage === 'Closed & Archived' ? (stages.includes('Closed') || stages.includes('Archived')) : stages.includes(stage as FunnelStage));
 
             return isVisibleForPersona && isVisibleForStage;
         });
@@ -120,11 +121,13 @@ const LeadsList: React.FC<InternalProps> = ({
 
     const getVisibleColumns = (type: 'Buyer' | 'Seller') => {
         const stage = type === 'Buyer' ? buyerFunnelCategory : sellerFunnelCategory;
-        const key = `${type}:${stage}`;
+        // Map 'Closed & Archived' to 'Closed' for column config purposes (or handle specifically if needed)
+        const effectiveStage = stage === 'Closed & Archived' ? 'Closed' : stage;
+        const key = `${type}:${effectiveStage}`;
 
         // If user has manually toggled columns for this specific view (key), use that.
         // Otherwise, compute based on Status Settings (This "Connects" the two features).
-        return visibleColumns[key] || computeVisibleColumns(type, stage);
+        return visibleColumns[key] || computeVisibleColumns(type, effectiveStage as FunnelStage);
     };
 
     const toggleColumn = (type: 'Buyer' | 'Seller', colId: string) => {
@@ -429,10 +432,13 @@ const LeadsList: React.FC<InternalProps> = ({
 
         const getStatsForType = (type: 'Buyer' | 'Seller') => {
             const category = type === 'Buyer' ? buyerFunnelCategory : sellerFunnelCategory;
-            const typed = leads.filter(l =>
-                l.leadType === type &&
-                getFunnelStageForStatus(l.status, l.leadType, realtorSettings) === category
-            );
+            const typed = leads.filter(l => {
+                const stage = getFunnelStageForStatus(l.status, l.leadType, realtorSettings);
+                if (category === 'Closed & Archived') {
+                    return l.leadType === type && (stage === 'Closed' || stage === 'Archived');
+                }
+                return l.leadType === type && stage === category;
+            });
             return {
                 past6Months: typed.filter(l => {
                     const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
@@ -464,12 +470,20 @@ const LeadsList: React.FC<InternalProps> = ({
                 stage = l.funnelStage;
             }
 
-            if (stage !== buyerFunnelCategory) return false;
+            if (buyerFunnelCategory === 'Closed & Archived') {
+                if (stage !== 'Closed' && stage !== 'Archived') return false;
+            } else {
+                if (stage !== buyerFunnelCategory) return false;
+            }
 
             // KANBAN EXCEPTION: If in Kanban mode, we want ALL stages visible (so we can drag between columns)
             // But we still respect the viewMode (Past 6 months vs Older) and Type filters.
             const isKanban = globalDisplayMode === 'kanban';
-            if (!isKanban && stage !== buyerFunnelCategory) return false;
+            if (!isKanban) {
+                if (buyerFunnelCategory === 'Closed & Archived') {
+                    if (stage !== 'Closed' && stage !== 'Archived') return false;
+                } else if (stage !== buyerFunnelCategory) return false;
+            }
 
             const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
 
@@ -531,8 +545,13 @@ const LeadsList: React.FC<InternalProps> = ({
             }
 
             // KANBAN EXCEPTION
+            // KANBAN EXCEPTION
             const isKanban = globalDisplayMode === 'kanban';
-            if (!isKanban && stage !== sellerFunnelCategory) return false;
+            if (!isKanban) {
+                if (sellerFunnelCategory === 'Closed & Archived') {
+                    if (stage !== 'Closed' && stage !== 'Archived') return false;
+                } else if (stage !== sellerFunnelCategory) return false;
+            }
 
             const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
 

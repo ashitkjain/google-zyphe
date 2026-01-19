@@ -717,7 +717,6 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                                                                             <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${item.type === 'boolean' ? 'bg-amber-50 text-amber-700 border border-amber-100' : item.type === 'integer' ? 'bg-purple-50 text-purple-700 border border-purple-100' : item.type === 'enum' ? 'bg-blue-50 text-blue-700 border border-blue-100' : (item.type === 'object' || item.type === 'list') ? 'bg-teal-50 text-teal-700 border border-teal-100' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}>
                                                                                                 {item.type || 'string'}
                                                                                             </div>
-                                                                                            <i className="fa-solid fa-lock text-[8px] text-slate-300"></i>
                                                                                         </div>
                                                                                     </div>
                                                                                 </td>

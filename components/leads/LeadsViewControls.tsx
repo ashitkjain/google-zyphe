@@ -4,8 +4,8 @@ import PostItPalette from './PostItPalette';
 
 interface LeadsViewControlsProps {
     activeTab: 'Buyer' | 'Seller';
-    activeFunnelCategory: FunnelStage;
-    onFunnelCategoryChange: (cat: FunnelStage) => void;
+    activeFunnelCategory: FunnelStage | 'Closed & Archived';
+    onFunnelCategoryChange: (cat: FunnelStage | 'Closed & Archived') => void;
     viewMode: 'past6Months' | 'older';
     onViewModeChange: (mode: 'past6Months' | 'older') => void;
     timeStats: { past6Months: number; older: number };
@@ -54,13 +54,13 @@ const LeadsViewControls: React.FC<LeadsViewControlsProps> = ({
                 <div className="flex items-center gap-4">
                     {/* Sub-Category Selector */}
                     <div className="flex bg-slate-100/50 p-1 rounded-xl border border-slate-200/60 shadow-sm">
-                        {['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed', 'Archived'].map((cat) => (
+                        {['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed & Archived'].map((cat) => (
                             <button
                                 key={cat}
                                 onClick={() => onFunnelCategoryChange(cat as any)}
                                 className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeFunnelCategory === cat ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                             >
-                                {cat}
+                                {cat === 'Contract' ? 'Closing' : cat}
                             </button>
                         ))}
                     </div>
