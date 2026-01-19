@@ -87,7 +87,6 @@ export interface StageHistoryEntry {
     toStage: FunnelStage;
     enteredAt: Date;
     exitedAt?: Date;
-    durationDays?: number;
 }
 
 
@@ -459,20 +458,11 @@ export const LEAD_STAGE_LIFECYCLE_CONFIG = [
             { name: 'fromStage', type: 'enum', description: 'Previous stage' },
             { name: 'toStage', type: 'enum', description: 'New stage' },
             { name: 'enteredAt', type: 'timestamp', description: 'Entry time' },
-            { name: 'exitedAt', type: 'timestamp', description: 'Exit time' },
-            { name: 'durationDays', type: 'integer', description: 'Days in stage' }
+            { name: 'exitedAt', type: 'timestamp', description: 'Exit time' }
         ],
         funnelVisibility: ['All']
     },
-    {
-        id: 'daysInCurrentStage',
-        label: 'Days in Stage',
-        category: 'System Metadata',
-        visibility: ['Buyer', 'Seller'],
-        type: 'integer',
-        description: 'Auto-calculated days since last funnelStage change.',
-        funnelVisibility: ['All']
-    },
+
     {
         id: 'staleWarningDate',
         label: 'Follow-up Deadline',
@@ -532,7 +522,7 @@ export interface Lead {
 
     // --- Lifecycle Tracking ---
     stageHistory?: StageHistoryEntry[];
-    daysInCurrentStage?: number;
+
     staleWarningDate?: Date;
 
     // Legacy / Shared fields that might be used by generic components

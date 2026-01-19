@@ -163,14 +163,13 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
         closingStatus: getRandom(['In Contract', 'On Track', 'Delayed', 'At Risk', 'Rescinded']),
 
         // --- Lifecycle Tracking ---
-        daysInCurrentStage: Math.floor(Math.random() * 30),
+
         staleWarningDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         stageHistory: [
             {
                 fromStage: 'Leads',
                 toStage: funnelStage || 'Leads',
-                enteredAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-                durationDays: 5
+                enteredAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000)
             }
         ],
         rejectedOfferLog: isBuyer && Math.random() > 0.8 ? [

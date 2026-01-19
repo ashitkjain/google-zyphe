@@ -173,7 +173,7 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
     const photoUrl = lead.clientPhotoUrl || lead.primaryContact?.clientPhotoUrl;
 
     // Helper for formatting follow up date
-    const followUpDate = lead.staleWarningDate ? (lead.staleWarningDate instanceof Date ? lead.staleWarningDate : new Date(lead.staleWarningDate)) : null;
+    const followUpDate = lead.staleWarningDate ? (typeof (lead.staleWarningDate as any).toDate === 'function' ? (lead.staleWarningDate as any).toDate() : (lead.staleWarningDate instanceof Date ? lead.staleWarningDate : new Date(lead.staleWarningDate))) : null;
     const isOverdue = followUpDate && followUpDate < new Date();
 
     const getPreferredMethodIcon = (method?: string) => {
@@ -274,11 +274,33 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
             <div className="space-y-2">
                 {/* Footer: Follow Up & Status */}
                 <div className="pt-2 mt-2 border-t border-slate-50 flex items-center justify-between text-[10px]">
-                    <div className={`flex items-center gap-1.5 font-medium ${isOverdue ? 'text-rose-500' : 'text-slate-400'}`} title="Follow-up Deadline">
-                        <i className={`fa-solid fa-bell ${isOverdue ? 'animate-pulse' : ''}`}></i>
-                        <span>
-                            {followUpDate ? followUpDate.toLocaleDateString() : 'No deadline'}
-                        </span>
+                    <div className="flex flex-col gap-0.5">
+                        <div className={`flex items-center gap-1.5 font-medium ${isOverdue ? 'text-rose-500' : 'text-slate-400'}`} title="Follow-up Deadline">
+                            <i className={`fa-solid fa-bell ${isOverdue ? 'animate-pulse' : ''}`}></i>
+                            <span className="whitespace-nowrap">
+                                {followUpDate ? `Follow up: ${followUpDate.toLocaleDateString()}` : 'No deadline'}
+                            </span>
+                        </div>
+                        {(() => {
+                            const currentStageEntry = lead.stageHistory?.find(
+                                entry => entry.toStage === currentFunnelStage && !entry.exitedAt
+                            );
+                            const startDate = currentStageEntry?.enteredAt || lead.stageLastChangedAt || lead.leadInfo?.createdDate || lead.receivedAt;
+                            if (startDate) {
+                                const start = typeof startDate.toDate === 'function' ? startDate.toDate() : new Date(startDate);
+                                const diff = Math.max(0, new Date().getTime() - start.getTime());
+                                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                                return (
+                                    <div className="text-slate-400 font-medium flex items-center gap-1.5 opacity-80 pl-4">
+                                        <i className="fa-solid fa-hourglass-start text-[8px]"></i>
+                                        <span>
+                                            {days} day{days === 1 ? '' : 's'} in stage
+                                        </span>
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })()}
                     </div>
 
                     <div className="flex items-center gap-1" title={displayStatusLabel}>

@@ -591,13 +591,9 @@ export const updateFunnelStage = async (id: string, stage: FunnelStage, reason?:
           enteredDate = enteredParams;
         }
 
-        const diffTime = Math.abs(now.getTime() - enteredDate.getTime());
-        const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
         stageHistory[stageHistory.length - 1] = {
           ...lastEntry,
-          exitedAt: now,
-          durationDays
+          exitedAt: now
         };
       }
     }
@@ -613,7 +609,7 @@ export const updateFunnelStage = async (id: string, stage: FunnelStage, reason?:
       funnelStage: stage,
       updatedAt: serverTimestamp(),
       stageHistory: stageHistory,
-      daysInCurrentStage: 0 // Reset
+
     }, { merge: true });
 
     // Log Journey Event
