@@ -138,6 +138,7 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
                                                         lead={lead}
                                                         provided={provided}
                                                         snapshot={snapshot}
+                                                        realtorSettings={realtorSettings}
                                                     />
                                                 )}
                                             </Draggable>
@@ -154,86 +155,132 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
     );
 };
 
-const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any }> = ({ lead, provided, snapshot }) => {
+const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSettings: any }> = ({ lead, provided, snapshot, realtorSettings }) => {
     // Determine border color based on temperature/score
     let accentColor = 'border-l-indigo-500';
     if (lead.engagementScore === 'Hot') accentColor = 'border-l-orange-500';
     else if (lead.engagementScore === 'Warm') accentColor = 'border-l-amber-500';
     else if (lead.engagementScore === 'Cold') accentColor = 'border-l-sky-300';
 
+    // Helper to safely access contact info
+    const email = lead.email || lead.primaryContact?.email;
+    const phone = lead.phone || lead.primaryContact?.phone;
+    const preferredMethod = lead.preferredContactMethod || lead.primaryContact?.preferredMethod || 'Email';
+    const photoUrl = lead.clientPhotoUrl || lead.primaryContact?.clientPhotoUrl;
+
+    // Helper for formatting follow up date
+    const followUpDate = lead.staleWarningDate ? (lead.staleWarningDate instanceof Date ? lead.staleWarningDate : new Date(lead.staleWarningDate)) : null;
+    const isOverdue = followUpDate && followUpDate < new Date();
+
+    const getPreferredMethodIcon = (method?: string) => {
+        switch (method?.toLowerCase()) {
+            case 'phone': return 'fa-phone';
+            case 'sms': return 'fa-comment-sms';
+            case 'whatsapp': return 'fa-whatsapp';
+            case 'email': default: return 'fa-envelope';
+        }
+    };
+
+    // Determine relevant status based on stage
+    const currentFunnelStage = getFunnelStageForStatus(lead.status, lead.leadType, realtorSettings);
+    let displayStatusLabel = 'Status';
+    let displayStatusValue = lead.status;
+
+    // Map stages to specific status fields if they exist
+    // This replicates the logic in finding which specific status matches the stage
+    if (currentFunnelStage === 'Leads' && lead.leadStatus) {
+        displayStatusLabel = 'Lead Status';
+        displayStatusValue = lead.leadStatus;
+    } else if (currentFunnelStage === 'Nurture' && lead.nurtureStatus) {
+        displayStatusLabel = 'Nurture Status';
+        displayStatusValue = lead.nurtureStatus;
+    } else if (currentFunnelStage === 'Active Search' && lead.activeSearchStatus) {
+        displayStatusLabel = 'Search Status';
+        displayStatusValue = lead.activeSearchStatus;
+    } else if (currentFunnelStage === 'Offer' && lead.offerStatus) {
+        displayStatusLabel = 'Offer Status';
+        displayStatusValue = lead.offerStatus;
+    } else if (currentFunnelStage === 'Contract' && lead.closingStatus) {
+        displayStatusLabel = 'Closing Status';
+        displayStatusValue = lead.closingStatus;
+    }
+
     return (
         <div
             ref={provided.innerRef}
             {...provided.draggableProps}
             {...provided.dragHandleProps}
-            className={`bg-white p-4 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-all group border-l-4 ${accentColor} ${snapshot.isDragging ? 'shadow-2xl rotate-2 scale-105 z-50' : ''}`}
+            className={`bg-white p-3 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-all group border-l-4 relative ${accentColor} ${snapshot.isDragging ? 'shadow-2xl rotate-2 scale-105 z-50' : ''}`}
             style={provided.draggableProps.style}
         >
-            <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-white shadow-sm flex-shrink-0">
-                        {lead.clientPhotoUrl ? (
-                            <img src={lead.clientPhotoUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                            <span className="text-xs font-black text-indigo-300">
-                                {lead.firstName?.charAt(0)}{lead.lastName?.charAt(0)}
-                            </span>
+            {/* Top Right Temperature Badge */}
+            {lead.engagementScore && (
+                <div className="absolute top-3 right-3 filter drop-shadow-sm flex items-center justify-center">
+                    {lead.engagementScore === 'Hot' && (
+                        <div className="w-6 h-6">
+                            <svg viewBox="0 0 100 100" className="w-full h-full filter drop-shadow-sm animate-pulse">
+                                <path d="M50 95C30 95 15 75 15 50C15 35 25 20 45 5C45 15 50 25 55 35C65 25 75 35 85 50C85 75 70 95 50 95Z" fill="#ff4d00" />
+                                <path d="M50 90C35 90 25 75 25 55C25 45 30 35 45 25C45 35 50 45 55 50C62 40 70 45 75 55C75 75 65 90 50 90Z" fill="#ff9900" />
+                                <path d="M50 85C42 85 35 75 35 60C35 50 40 45 45 40C48 50 50 55 55 60C58 55 62 55 65 60C65 75 58 85 50 85Z" fill="#ffcc00" />
+                            </svg>
+                        </div>
+                    )}
+                    {lead.engagementScore === 'Warm' && <i className="fa-solid fa-mug-hot text-amber-500 text-lg" title="Warm"></i>}
+                    {lead.engagementScore === 'Cold' && <i className="fa-solid fa-snowflake text-sky-300 text-lg" title="Cold"></i>}
+                    {lead.engagementScore === 'Stale' && <img src="/assets/stale-icon.png" alt="Stale" className="w-5 h-5 object-contain opacity-60 grayscale" />}
+                </div>
+            )}
+
+            {/* Header: Photo + Info (Name, Email, Phone) */}
+            <div className="flex items-start gap-3 mb-3 pr-10"> {/* pr-10 to avoid overlap with badge */}
+                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-white shadow-sm flex-shrink-0 mt-0.5">
+                    {photoUrl ? (
+                        <img src={photoUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                        <span className="text-xs font-black text-indigo-300">
+                            {lead.firstName?.charAt(0)}{lead.lastName?.charAt(0)}
+                        </span>
+                    )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                    <div className="font-bold text-slate-800 text-sm truncate leading-tight mb-1">
+                        {lead.firstName || lead.lastName ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim() : 'Unknown Client'}
+                    </div>
+
+                    <div className="flex flex-col gap-0.5">
+                        {email && (
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-500 truncate" title={email}>
+                                <i className="fa-regular fa-envelope text-slate-300 w-2.5"></i>
+                                <span className="truncate">{email}</span>
+                                {preferredMethod === 'Email' && <i className="fa-solid fa-star text-[6px] text-amber-400" title="Preferred"></i>}
+                            </div>
+                        )}
+                        {phone && (
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-500 truncate" title={phone}>
+                                <i className="fa-solid fa-phone text-slate-300 w-2.5 text-[8px]"></i>
+                                <span className="truncate">{phone}</span>
+                                {(preferredMethod === 'Phone' || preferredMethod === 'SMS') && <i className="fa-solid fa-star text-[6px] text-amber-400" title="Preferred"></i>}
+                            </div>
                         )}
                     </div>
-                    <div className="min-w-0">
-                        <div className="font-bold text-slate-800 text-sm truncate leading-tight">
-                            {lead.firstName} {lead.lastName}
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-medium truncate mt-0.5">
-                            {lead.status}
-                        </div>
-                    </div>
                 </div>
-                {lead.engagementScore === 'Hot' && <i className="fa-solid fa-fire text-orange-500 animate-pulse text-xs"></i>}
             </div>
 
             <div className="space-y-2">
-                {/* Stats Row */}
-                <div className="flex items-center gap-3 text-[11px] text-slate-500">
-                    {lead.price && (
-                        <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded">
-                            <i className="fa-solid fa-dollar-sign text-[9px] text-emerald-500"></i>
-                            <span className="font-bold text-slate-700">${(lead.price / 1000).toFixed(0)}k</span>
-                        </div>
-                    )}
-                    {lead.timeframe && (
-                        <div className="flex items-center gap-1">
-                            <i className="fa-regular fa-clock text-[9px]"></i>
-                            <span className="truncate max-w-[80px]">{lead.timeframe}</span>
-                        </div>
-                    )}
-                </div>
-
-                {/* Tags (limited) */}
-                {lead.tags && lead.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-1">
-                        {lead.tags.slice(0, 2).map((tag, i) => (
-                            <span key={i} className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[9px] font-bold rounded uppercase tracking-wider">
-                                {tag}
-                            </span>
-                        ))}
-                        {lead.tags.length > 2 && (
-                            <span className="px-1.5 py-0.5 bg-slate-50 text-slate-400 text-[9px] font-bold rounded">+{lead.tags.length - 2}</span>
-                        )}
-                    </div>
-                )}
-
-                {/* Last Update Date */}
-                <div className="pt-2 mt-2 border-t border-slate-50 flex items-center justify-between text-[10px] text-slate-300">
-                    <div className="flex items-center gap-1">
-                        <i className="fa-solid fa-calendar-check"></i>
+                {/* Footer: Follow Up & Status */}
+                <div className="pt-2 mt-2 border-t border-slate-50 flex items-center justify-between text-[10px]">
+                    <div className={`flex items-center gap-1.5 font-medium ${isOverdue ? 'text-rose-500' : 'text-slate-400'}`} title="Follow-up Deadline">
+                        <i className={`fa-solid fa-bell ${isOverdue ? 'animate-pulse' : ''}`}></i>
                         <span>
-                            {lead.receivedAt?.toDate ? lead.receivedAt.toDate().toLocaleDateString() : (lead.receivedAt ? new Date(lead.receivedAt).toLocaleDateString() : '--')}
+                            {followUpDate ? followUpDate.toLocaleDateString() : 'No deadline'}
                         </span>
                     </div>
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <i className="fa-solid fa-phone hover:text-indigo-500 cursor-pointer"></i>
-                        <i className="fa-solid fa-envelope hover:text-indigo-500 cursor-pointer"></i>
+
+                    <div className="flex items-center gap-1" title={displayStatusLabel}>
+                        <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">
+                            {displayStatusValue}
+                        </span>
                     </div>
                 </div>
             </div>
