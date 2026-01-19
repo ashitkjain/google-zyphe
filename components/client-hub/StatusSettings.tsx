@@ -33,11 +33,11 @@ interface ManagedProperty extends PropertyOption {
 const FUNNEL_STAGES = ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed', 'Archived'];
 
 const PROPERTY_CATEGORIES = [
-    'Leads Info',
-    'Nurture Info',
-    'Activity',
+    'Leads',
+    'Nurture',
+    'Active Search',
+    'Offer',
     'Closing',
-    'Offer Info',
     'System Metadata' // For lifecycle fields
 ];
 
@@ -123,7 +123,8 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
     onResetData,
     defaultTab,
 }) => {
-    const [activeTab, setActiveTab] = useState<'statuses' | 'properties'>(defaultTab || 'properties');
+    // Forced to 'properties' as we removed the tab switcher
+    const [activeTab, setActiveTab] = useState<'statuses' | 'properties'>('properties');
 
     // --- Status Logic ---
     const initialStatusData = useMemo(() => {
@@ -136,6 +137,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
     }, [initialStatuses]);
 
     const [allStatuses, setAllStatuses] = useState<ManagedStatus[]>(initialStatusData);
+    const [activeCategory, setActiveCategory] = useState<string>('Leads');
 
     // --- Property Logic ---
     // Initialize properties with category synchronization
@@ -865,37 +867,44 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
     };
 
     return (
-        <div className="flex-1 overflow-y-auto bg-[#F8FAFC] p-4 md:p-8">
+        <div className="flex-1 overflow-y-auto bg-[#F8FAFC] p-2">
             <DragDropContext onDragEnd={onDragEnd}>
                 <div className="w-full max-w-5xl mx-auto pb-24">
                     {/* Header Controls */}
-                    <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center justify-between mb-2">
                         <div>
-                            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Data Fields</h2>
-                            <p className="text-xs text-slate-500 font-medium mt-1">Configure your data model ({activeTab === 'statuses' ? allStatuses.length : allProperties.length} items)</p>
+                            <p className="text-xs text-slate-500 font-medium">Configure your data model ({activeTab === 'statuses' ? allStatuses.length : allProperties.length} items)</p>
                         </div>
                         <div className="flex items-center gap-3">
                             {/* Tabs */}
-                            <div className="flex bg-white rounded-lg p-1 border border-slate-200 shadow-sm mr-4">
-                                <button onClick={() => setActiveTab('properties')} className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === 'properties' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
-                                    Leads Fields
-                                </button>
-                                <button onClick={() => setActiveTab('statuses')} className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === 'statuses' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
-                                    Funnel Stages Fields
-                                </button>
-                            </div>
+                            {/* Tabs Removed - only showing Leads Fields now */}
 
-                            <button type="button" onClick={handleResetDefaults} disabled={isSaving} className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition-colors">
-                                Reset Tab Defaults
+                            <button type="button" onClick={handleResetDefaults} disabled={isSaving} className="px-3 py-1 text-slate-400 hover:text-rose-600 transition-colors" title="Reset Tab Defaults">
+                                <i className="fa-solid fa-arrow-rotate-left text-lg"></i>
                             </button>
-                            <button onClick={handleSave} disabled={isSaving} className={`px-6 py-2.5 rounded-xl font-bold text-xs shadow-lg transition-all ${isSaving ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-xl active:scale-95'} flex items-center gap-2`}>
-                                {isSaving ? <><i className="fa-solid fa-spinner fa-spin"></i><span>Saving...</span></> : <><i className="fa-solid fa-floppy-disk"></i><span>Save</span></>}
+                            <button onClick={handleSave} disabled={isSaving} className="px-3 py-1 text-indigo-600 hover:text-indigo-800 transition-colors disabled:opacity-50" title="Save Changes">
+                                {isSaving ? <i className="fa-solid fa-spinner fa-spin text-lg"></i> : <i className="fa-solid fa-floppy-disk text-lg"></i>}
                             </button>
                         </div>
                     </div>
 
-                    {activeTab === 'statuses' && renderTable(FUNNEL_STAGES, 'status')}
-                    {activeTab === 'properties' && renderTable(PROPERTY_CATEGORIES, 'property')}
+                    {/* Category Tabs */}
+                    <div className="flex p-1 bg-slate-100 rounded-xl mb-4 overflow-x-auto no-scrollbar border border-slate-200">
+                        {PROPERTY_CATEGORIES.map((cat) => (
+                            <button
+                                key={cat}
+                                onClick={() => setActiveCategory(cat)}
+                                className={`flex-1 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${activeCategory === cat
+                                    ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5'
+                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50'
+                                    }`}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+
+                    {renderTable([activeCategory], 'property')}
 
                     {/* Legend Section */}
                     <div className="mt-12">

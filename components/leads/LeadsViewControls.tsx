@@ -169,22 +169,7 @@ const LeadsViewControls: React.FC<LeadsViewControlsProps> = ({
                             <i className="fa-solid fa-filter text-lg"></i>
                         </button>
                     </div>
-                    <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm">
-                        <button
-                            onClick={() => setDisplayMode('list')}
-                            className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${displayMode === 'list' ? (activeTab === 'Buyer' ? 'bg-white text-indigo-600' : 'bg-white text-emerald-600') + ' shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            <i className="fa-solid fa-list-ul"></i>
-                            List
-                        </button>
-                        <button
-                            onClick={() => setDisplayMode('gallery')}
-                            className={`px-3 py-0 min-h-[42px] rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${displayMode === 'gallery' ? (activeTab === 'Buyer' ? 'bg-white text-indigo-600' : 'bg-white text-emerald-600') + ' shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            <i className="fa-solid fa-table-cells-large"></i>
-                            Gallery
-                        </button>
-                    </div>
+
                 </div>
             </div>
         </div>

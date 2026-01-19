@@ -117,7 +117,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'receivedAt',
         label: 'Lead Received',
-        category: 'Leads Info',
+        category: 'Leads',
         visibility: ['Buyer', 'Seller'],
         type: 'date',
         isLocked: true,
@@ -126,7 +126,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'fullName',
         label: 'Full Name',
-        category: 'Leads Info',
+        category: 'Leads',
         visibility: ['Buyer', 'Seller'],
         type: 'string',
         isLocked: true,
@@ -135,7 +135,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'primaryContact',
         label: 'Primary Contact Info',
-        category: 'Leads Info',
+        category: 'Leads',
         visibility: ['Buyer', 'Seller'],
         type: 'object',
         description: "Essential contact details including email, phone, and preferences.",
@@ -152,7 +152,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'leadInfo',
         label: 'Lead Info',
-        category: 'Leads Info',
+        category: 'Leads',
         visibility: ['Buyer', 'Seller'],
         type: 'object',
         description: "Source and origin details for attribution.",
@@ -168,7 +168,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'engagementScore',
         label: 'Lead Temperature',
-        category: 'Leads Info',
+        category: 'Leads',
         visibility: ['Buyer', 'Seller'],
         type: 'enum',
         options: ['Cold', 'Warm', 'Hot', 'Stale'],
@@ -178,7 +178,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'leadStatus',
         label: 'Lead Status',
-        category: 'Leads Info',
+        category: 'Leads',
         visibility: ['Buyer', 'Seller'],
         type: 'enum',
         options: ['New', 'Qualified', 'Attempted to Contact'],
@@ -188,7 +188,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'nurtureStatus',
         label: 'Nurture Status',
-        category: 'Nurture Info',
+        category: 'Nurture',
         visibility: ['Buyer', 'Seller'],
         type: 'enum',
         options: ['Meeting Fixed', 'Broker Agreement Sent'],
@@ -208,7 +208,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'offerStatus',
         label: 'Offer Status',
-        category: 'Offer Info',
+        category: 'Offer',
         visibility: ['Buyer', 'Seller'],
         type: 'enum',
         options: ['Offer Submitted', 'Offer Received'],
@@ -230,7 +230,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'motivation',
         label: 'Motivation & Why',
-        category: 'Nurture Info',
+        category: 'Nurture',
         visibility: ['Buyer', 'Seller'],
         type: 'string',
         description: "The core reason the client is buying or selling.",
@@ -239,7 +239,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'targetTimeline',
         label: 'Target Window',
-        category: 'Nurture Info',
+        category: 'Nurture',
         visibility: ['Buyer', 'Seller'],
         type: 'enum',
         options: ['ASAP', '1-3 Months', '3-6 Months', '6-12 Months', 'Just Browsing'],
@@ -249,7 +249,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'personaProfile',
         label: 'Client Persona',
-        category: 'Nurture Info',
+        category: 'Nurture',
         visibility: ['Buyer', 'Seller'],
         type: 'enum',
         options: ['First-Time', 'Investor', 'Past Client', 'Relocation'],
@@ -259,7 +259,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'leaseEndDate',
         label: 'Lease End Date',
-        category: 'Nurture Info',
+        category: 'Nurture',
         visibility: ['Buyer'],
         type: 'date',
         description: "Date the client's current lease ends.",
@@ -268,7 +268,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'sellWhen',
         label: 'When to Sell',
-        category: 'Nurture Info',
+        category: 'Nurture',
         visibility: ['Seller'],
         type: 'string',
         description: "Client's target timeframe for listing their home.",
@@ -277,7 +277,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'nurtureLog',
         label: 'Communication History',
-        category: 'Nurture Info',
+        category: 'Nurture',
         visibility: ['Buyer', 'Seller'],
         type: 'list',
         description: "History of calls and notes during the nurture phase.",
@@ -293,7 +293,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'financialVitals',
         label: 'Buying Power',
-        category: 'Nurture Info',
+        category: 'Nurture',
         visibility: ['Buyer'],
         type: 'object',
         description: "Qualification status and budget details.",
@@ -307,7 +307,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'searchCriteria',
         label: 'Hard Requirements',
-        category: 'Nurture Info',
+        category: 'Nurture',
         visibility: ['Buyer'],
         type: 'object',
         description: "Location, price, and feature requirements.",
@@ -321,7 +321,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'listingStatus',
         label: 'Listing Readiness',
-        category: 'Nurture Info',
+        category: 'Nurture',
         visibility: ['Seller'],
         type: 'object',
         description: "Details about the property being sold.",
@@ -351,7 +351,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'activeOffer',
         label: 'Current Offer Terms',
-        category: 'Offer Info',
+        category: 'Offer',
         visibility: ['Buyer', 'Seller'],
         type: 'object',
         description: "Details of the offer currently in play.",
@@ -424,7 +424,7 @@ export const LEAD_FIELD_CONFIG = [
     {
         id: 'offers',
         label: 'Offers Activity',
-        category: 'Offer Info',
+        category: 'Offer',
         visibility: ['Buyer', 'Seller'],
         type: 'list',
         description: 'List of all offers made or received.',
@@ -484,7 +484,7 @@ export const LEAD_STAGE_LIFECYCLE_CONFIG = [
     {
         id: 'staleWarningDate',
         label: 'Follow-up Deadline',
-        category: 'Leads Info',
+        category: 'Leads',
         visibility: ['Buyer', 'Seller'],
         type: 'date',
         description: 'System calculated date when the lead is considered "Stale" for this stage.',

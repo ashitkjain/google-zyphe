@@ -21,4 +21,4 @@ export interface InternalProps {
 }
 
 export type ViewMode = 'past6Months' | 'older';
-export type DisplayMode = 'list' | 'gallery';
+export type DisplayMode = 'list' | 'gallery' | 'kanban';

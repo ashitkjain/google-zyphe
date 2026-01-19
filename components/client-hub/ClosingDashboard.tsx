@@ -814,7 +814,7 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                                     <img src={lead.avatarUrl} alt={lead.firstName} className="w-full h-full object-cover" />
                                 ) : (
                                     <div className="w-full h-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                                        {lead.firstName.charAt(0)}{lead.lastName.charAt(0)}
+                                        {lead.firstName?.charAt(0) || ''}{lead.lastName?.charAt(0) || ''}
                                     </div>
                                 )}
                             </div>
@@ -845,7 +845,7 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                                             <img src={activeLead.avatarUrl} alt={activeLead.firstName} className="w-full h-full object-cover" />
                                         ) : (
                                             <div className="w-full h-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold text-xl">
-                                                {activeLead.firstName.charAt(0)}{activeLead.lastName.charAt(0)}
+                                                {activeLead.firstName?.charAt(0) || ''}{activeLead.lastName?.charAt(0) || ''}
                                             </div>
                                         )}
                                     </div>

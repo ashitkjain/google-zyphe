@@ -10,6 +10,7 @@ import LeadsHeader from './leads/LeadsHeader';
 import LeadsViewControls from './leads/LeadsViewControls';
 import { noteTypes } from './leads/PostItPalette';
 import { availableBuyerColumns, availableSellerColumns, defaultBuyerVisible, defaultSellerVisible } from './leads/constants';
+import LeadsKanbanBoard from './leads/LeadsKanbanBoard';
 
 
 const LeadsList: React.FC<InternalProps> = ({
@@ -198,30 +199,12 @@ const LeadsList: React.FC<InternalProps> = ({
     // Display Mode Mapping (Default: Past 6 Months -> Gallery, Older -> List)
     const [viewMode, setViewMode] = useState<'past6Months' | 'older'>('past6Months'); // Legacy
 
-    const [displayModes, setDisplayModes] = useState<Record<string, 'list' | 'gallery'>>({
-        past6Months: 'gallery',
-        older: 'list',
-        Archived: 'list'
-    });
+    const [globalDisplayMode, setGlobalDisplayMode] = useState<DisplayMode>('list');
 
-    const currentFunnelCategory = activeTab === 'Buyer' ? buyerFunnelCategory : sellerFunnelCategory;
-
-    const currentDisplayMode = useMemo(() => {
-        if (currentFunnelCategory === 'Archived') return displayModes.Archived || 'list';
-        const viewMode = activeTab === 'Buyer' ? buyerViewMode : sellerViewMode;
-        return displayModes[viewMode] || 'list';
-    }, [activeTab, currentFunnelCategory, buyerViewMode, sellerViewMode, displayModes]);
+    const currentDisplayMode = globalDisplayMode;
 
     const toggleDisplayMode = (mode: 'list' | 'gallery') => {
-        if (currentFunnelCategory === 'Archived') {
-            setDisplayModes(prev => ({ ...prev, Archived: mode }));
-            return;
-        }
-        const targetViewMode = activeTab === 'Buyer' ? buyerViewMode : sellerViewMode;
-        setDisplayModes(prev => ({
-            ...prev,
-            [targetViewMode]: mode
-        }));
+        setGlobalDisplayMode(mode);
     };
 
     // Clear selection on view change
@@ -483,6 +466,11 @@ const LeadsList: React.FC<InternalProps> = ({
 
             if (stage !== buyerFunnelCategory) return false;
 
+            // KANBAN EXCEPTION: If in Kanban mode, we want ALL stages visible (so we can drag between columns)
+            // But we still respect the viewMode (Past 6 months vs Older) and Type filters.
+            const isKanban = globalDisplayMode === 'kanban';
+            if (!isKanban && stage !== buyerFunnelCategory) return false;
+
             const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
 
             if (buyerFunnelCategory === 'Leads') {
@@ -527,7 +515,7 @@ const LeadsList: React.FC<InternalProps> = ({
             const comparison = aVal > bVal ? 1 : -1;
             return sortDirection === 'asc' ? comparison : -comparison;
         });
-    }, [leads, buyerViewMode, buyerFunnelCategory, columnFilters, sortField, sortDirection, realtorSettings]);
+    }, [leads, buyerViewMode, buyerFunnelCategory, columnFilters, sortField, sortDirection, realtorSettings, globalDisplayMode]);
 
     const filteredSellerLeads = useMemo(() => {
         const { startOf6Months } = dateRanges;
@@ -541,7 +529,10 @@ const LeadsList: React.FC<InternalProps> = ({
             if (stage === 'Leads' && l.funnelStage && l.funnelStage !== 'Leads') {
                 stage = l.funnelStage;
             }
-            if (stage !== sellerFunnelCategory) return false;
+
+            // KANBAN EXCEPTION
+            const isKanban = globalDisplayMode === 'kanban';
+            if (!isKanban && stage !== sellerFunnelCategory) return false;
 
             const d = l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt);
 
@@ -586,7 +577,7 @@ const LeadsList: React.FC<InternalProps> = ({
             const comparison = aVal > bVal ? 1 : -1;
             return sortDirection === 'asc' ? comparison : -comparison;
         });
-    }, [leads, sellerViewMode, sellerFunnelCategory, columnFilters, sortField, sortDirection, realtorSettings]);
+    }, [leads, sellerViewMode, sellerFunnelCategory, columnFilters, sortField, sortDirection, realtorSettings, globalDisplayMode]);
 
     const filteredLeads = useMemo(() => [...filteredBuyerLeads, ...filteredSellerLeads], [filteredBuyerLeads, filteredSellerLeads]);
 
@@ -669,776 +660,792 @@ const LeadsList: React.FC<InternalProps> = ({
                 }
             `}} />
 
-            <DragDropContext onDragEnd={handleDragEnd}>
-                <LeadsHeader
-                    activeTab={activeTab}
-                    setActiveTab={setActiveTab}
-                    onCreateLead={onCreateLead}
-                />
+            <LeadsHeader
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                onCreateLead={onCreateLead}
+                displayMode={globalDisplayMode}
+                setDisplayMode={setGlobalDisplayMode}
+            />
 
-                {/* Content Area */}
-                <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white mb-0 space-y-4 py-4">
-                    {/* Buyer Section */}
-                    {activeTab === 'Buyer' && (
-                        <section className="px-4 animate-in fade-in slide-in-from-left-4 duration-300">
-                            <LeadsViewControls
-                                activeTab="Buyer"
-                                activeFunnelCategory={buyerFunnelCategory}
-                                onFunnelCategoryChange={setBuyerFunnelCategory}
-                                viewMode={buyerViewMode}
-                                onViewModeChange={setBuyerViewMode}
-                                timeStats={timeStats.Buyer}
-                                dateRangeLabels={dateRanges.labels}
-                                selectedCount={selectedIds.size}
-                                onArchive={handleBulkArchive}
-                                showColumnSelector={showColumnSelector}
-                                setShowColumnSelector={setShowColumnSelector}
-                                showFilters={showFilters}
-                                setShowFilters={setShowFilters}
-                                displayMode={currentDisplayMode}
-                                setDisplayMode={toggleDisplayMode}
-                                columnSelectorRef={columnSelectorRef}
-                                availableColumns={availableBuyerColumns}
-                                visibleColumns={getVisibleColumns('Buyer')}
-                                onToggleColumn={(colId) => toggleColumn('Buyer', colId)}
-                                onTabChange={onTabChange}
-                            />
-                            {
-                                showFilters && (
-                                    <div className="mt-[-1rem] mb-4 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-5 gap-2 flex-shrink-0 w-full animate-in slide-in-from-top-2">
-                                        <input
-                                            type="text"
-                                            placeholder="Filter Name..."
-                                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                            value={columnFilters.name}
-                                            onChange={(e) => setColumnFilters({ ...columnFilters, name: e.target.value })}
-                                        />
-                                        <input
-                                            type="text"
-                                            placeholder="Filter Phone..."
-                                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                            value={columnFilters.phone}
-                                            onChange={(e) => setColumnFilters({ ...columnFilters, phone: e.target.value })}
-                                        />
-                                        <input
-                                            type="text"
-                                            placeholder="Filter Email..."
-                                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                            value={columnFilters.email}
-                                            onChange={(e) => setColumnFilters({ ...columnFilters, email: e.target.value })}
-                                        />
-                                        <select
-                                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                            value={columnFilters.status}
-                                            onChange={(e) => setColumnFilters({ ...columnFilters, status: e.target.value })}
-                                        >
-                                            <option value="">All Statuses</option>
-                                            {STATUS_OPTIONS.map(s => (
-                                                <option key={s} value={s}>{s}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )
-                            }
+            {globalDisplayMode === 'kanban' ? (
+                <div className="flex-1 overflow-hidden bg-slate-50 p-4">
+                    <LeadsKanbanBoard
+                        leads={filteredLeads}
+                        onUpdateLead={onUpdateLead}
+                        realtorSettings={realtorSettings}
+                        leadType={activeTab}
+                    />
+                </div>
+            ) : (
+                <DragDropContext onDragEnd={handleDragEnd}>
+                    {/* Content Area */}
+                    <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white mb-0 space-y-4 py-4">
+                        {/* Buyer Section */}
+                        {activeTab === 'Buyer' && (
+                            <section className="px-4 animate-in fade-in slide-in-from-left-4 duration-300">
+                                <LeadsViewControls
+                                    activeTab="Buyer"
+                                    activeFunnelCategory={buyerFunnelCategory}
+                                    onFunnelCategoryChange={setBuyerFunnelCategory}
+                                    viewMode={buyerViewMode}
+                                    onViewModeChange={setBuyerViewMode}
+                                    timeStats={timeStats.Buyer}
+                                    dateRangeLabels={dateRanges.labels}
+                                    selectedCount={selectedIds.size}
+                                    onArchive={handleBulkArchive}
+                                    showColumnSelector={showColumnSelector}
+                                    setShowColumnSelector={setShowColumnSelector}
+                                    showFilters={showFilters}
+                                    setShowFilters={setShowFilters}
+                                    displayMode={currentDisplayMode}
+                                    setDisplayMode={toggleDisplayMode}
+                                    columnSelectorRef={columnSelectorRef}
+                                    availableColumns={availableBuyerColumns}
+                                    visibleColumns={getVisibleColumns('Buyer')}
+                                    onToggleColumn={(colId) => toggleColumn('Buyer', colId)}
+                                    onTabChange={onTabChange}
+                                />
+                                {
+                                    showFilters && (
+                                        <div className="mt-[-1rem] mb-4 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-5 gap-2 flex-shrink-0 w-full animate-in slide-in-from-top-2">
+                                            <input
+                                                type="text"
+                                                placeholder="Filter Name..."
+                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                                value={columnFilters.name}
+                                                onChange={(e) => setColumnFilters({ ...columnFilters, name: e.target.value })}
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Filter Phone..."
+                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                                value={columnFilters.phone}
+                                                onChange={(e) => setColumnFilters({ ...columnFilters, phone: e.target.value })}
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Filter Email..."
+                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                                value={columnFilters.email}
+                                                onChange={(e) => setColumnFilters({ ...columnFilters, email: e.target.value })}
+                                            />
+                                            <select
+                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                                value={columnFilters.status}
+                                                onChange={(e) => setColumnFilters({ ...columnFilters, status: e.target.value })}
+                                            >
+                                                <option value="">All Statuses</option>
+                                                {STATUS_OPTIONS.map(s => (
+                                                    <option key={s} value={s}>{s}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )
+                                }
 
-                            {filteredBuyerLeads.length > 0 ? (
-                                currentDisplayMode === 'list' ? (
-                                    <div className="overflow-x-auto w-full pb-6">
-                                        <table className="w-full text-left border-collapse min-w-full">
-                                            <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500">
-                                                <tr>
-                                                    <th className="w-12 px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">#</th>
-                                                    <th className="w-10 px-2 py-3 border-b border-slate-200/60 bg-slate-50">
-                                                        <input type="checkbox" onChange={(e) => handleSelectAll(filteredBuyerLeads, e.target.checked)} checked={filteredBuyerLeads.length > 0 && filteredBuyerLeads.every(l => selectedIds.has(l.id))} className="rounded border-slate-300" />
-                                                    </th>
-                                                    <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Profile Picture</th>
-                                                    <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('firstName')}>
-                                                        Full Name {sortField === 'firstName' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                    </th>
-                                                    {getVisibleColumns('Buyer').has('funnelStage') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Funnel Stage</th>}
-                                                    {getVisibleColumns('Buyer').has('status') && (
-                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('status')}>
-                                                            Lead Status {sortField === 'status' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                {filteredBuyerLeads.length > 0 ? (
+                                    currentDisplayMode === 'list' ? (
+                                        <div className="overflow-x-auto w-full pb-6">
+                                            <table className="w-full text-left border-collapse min-w-full">
+                                                <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500">
+                                                    <tr>
+                                                        <th className="w-12 px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">#</th>
+                                                        <th className="w-10 px-2 py-3 border-b border-slate-200/60 bg-slate-50">
+                                                            <input type="checkbox" onChange={(e) => handleSelectAll(filteredBuyerLeads, e.target.checked)} checked={filteredBuyerLeads.length > 0 && filteredBuyerLeads.every(l => selectedIds.has(l.id))} className="rounded border-slate-300" />
                                                         </th>
-                                                    )}
-
-                                                    {getVisibleColumns('Buyer').has('phone') && (
-                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('phone')}>
-                                                            Contact Info {sortField === 'phone' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Profile Picture</th>
+                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('firstName')}>
+                                                            Full Name {sortField === 'firstName' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
                                                         </th>
-                                                    )}
-                                                    {getVisibleColumns('Buyer').has('callCount') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Call Tracker</th>}
-                                                    {getVisibleColumns('Buyer').has('lastUpdated') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Last Updated On</th>}
-                                                    {getVisibleColumns('Buyer').has('isAlsoSelling') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Also Selling?</th>}
-                                                    {getVisibleColumns('Buyer').has('preQualified') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Pre-qualified?</th>}
-                                                    {getVisibleColumns('Buyer').has('preferredNeighborhood') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Preferred Neighborhood</th>}
-                                                    {getVisibleColumns('Buyer').has('source') && (
-                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('source')}>
-                                                            Source {sortField === 'source' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                        </th>
-                                                    )}
-                                                    {getVisibleColumns('Buyer').has('receivedAt') && (
-                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('receivedAt')}>
-                                                            Time in {buyerFunnelCategory} {sortField === 'receivedAt' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                        </th>
-                                                    )}
-                                                    {getVisibleColumns('Buyer').has('message') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Message</th>}
-                                                    {getVisibleColumns('Buyer').has('timeframe') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Timeframe</th>}
-                                                    {getVisibleColumns('Buyer').has('leaseEndDate') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Lease End Date</th>}
-                                                    {getVisibleColumns('Buyer').has('tags') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Tags</th>}
-
-                                                    {getVisibleColumns('Buyer').has('notes') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Call Notes</th>}
-
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100">
-                                                {filteredBuyerLeads.map((lead, index) => (
-                                                    <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80">
-                                                        <td className="px-2 py-2 border-b border-slate-100 text-center text-slate-400 font-bold opacity-50">{index + 1}</td>
-                                                        <td className="px-2 py-2 border-b border-slate-100">
-                                                            <input type="checkbox" checked={selectedIds.has(lead.id)} onChange={() => handleSelectOne(lead.id)} className="rounded border-slate-300" />
-                                                        </td>
-                                                        <td className="px-2 py-2 border-b border-slate-100">
-                                                            <div className="w-8 h-8 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shadow-sm">
-                                                                {lead.clientPhotoUrl ? (
-                                                                    <img src={lead.clientPhotoUrl} alt="" className="w-full h-full object-cover" />
-                                                                ) : (
-                                                                    <i className="fa-solid fa-user text-slate-300 text-[10px]"></i>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-2 py-2 border-b border-slate-100 font-bold text-slate-900">
-                                                            {lead.firstName} {lead.lastName}
-                                                        </td>
-                                                        {getVisibleColumns('Buyer').has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs text-indigo-500 uppercase tracking-tighter">{lead.funnelStage || '--'}</td>}
+                                                        {getVisibleColumns('Buyer').has('funnelStage') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Funnel Stage</th>}
                                                         {getVisibleColumns('Buyer').has('status') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100">
-                                                                {renderCell(lead, 'status', 'select', getStatusOptions(lead.leadType, realtorSettings).map((o: any) => o.label))}
-                                                            </td>
+                                                            <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('status')}>
+                                                                Lead Status {sortField === 'status' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                            </th>
                                                         )}
 
                                                         {getVisibleColumns('Buyer').has('phone') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100">
-                                                                <div className="flex flex-col">
-                                                                    <div className="text-xs font-semibold text-slate-700 leading-tight mb-0.5 flex items-center gap-2">
-                                                                        <span>{renderCell(lead, 'phone')}</span>
-                                                                        {['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) && (
-                                                                            <span className="text-[9px] text-slate-400 font-medium italic whitespace-nowrap flex-shrink-0">
-                                                                                preferred - {(lead.preferredContactMethod || '').toLowerCase() === 'call' ? 'call' : 'text'}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="text-[10px] text-blue-600 font-medium leading-tight flex items-center gap-2">
-                                                                        <span className="truncate">{renderCell(lead, 'email')}</span>
-                                                                        {(lead.preferredContactMethod || '').toLowerCase() === 'email' && (
-                                                                            <span className="text-[9px] text-slate-400 font-medium italic whitespace-nowrap flex-shrink-0">
-                                                                                preferred
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </td>
+                                                            <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('phone')}>
+                                                                Contact Info {sortField === 'phone' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                            </th>
                                                         )}
-                                                        {getVisibleColumns('Buyer').has('callCount') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-center">
-                                                                <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-full text-xs font-bold border border-slate-200">
-                                                                    {lead.callCount || 0}
-                                                                </span>
-                                                            </td>
+                                                        {getVisibleColumns('Buyer').has('callCount') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Call Tracker</th>}
+                                                        {getVisibleColumns('Buyer').has('lastUpdated') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Last Updated On</th>}
+                                                        {getVisibleColumns('Buyer').has('isAlsoSelling') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Also Selling?</th>}
+                                                        {getVisibleColumns('Buyer').has('preQualified') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Pre-qualified?</th>}
+                                                        {getVisibleColumns('Buyer').has('preferredNeighborhood') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Preferred Neighborhood</th>}
+                                                        {getVisibleColumns('Buyer').has('source') && (
+                                                            <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('source')}>
+                                                                Source {sortField === 'source' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                            </th>
                                                         )}
-                                                        {getVisibleColumns('Buyer').has('lastUpdated') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-500 font-medium whitespace-nowrap">
-                                                                {lead.lastUpdated ? (lead.lastUpdated?.toDate ? lead.lastUpdated.toDate().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(lead.lastUpdated).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '--'}
-                                                            </td>
-                                                        )}
-                                                        {getVisibleColumns('Buyer').has('isAlsoSelling') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-center">
-                                                                <div
-                                                                    className="flex justify-center cursor-pointer"
-                                                                    onClick={(e) => startEditing(e, lead.id, 'isAlsoSelling', lead.isAlsoSelling ? 'Yes' : 'No')}
-                                                                >
-                                                                    {editingCell?.id === lead.id && editingCell?.field === 'isAlsoSelling' ? (
-                                                                        <div onClick={e => e.stopPropagation()}>
-                                                                            <select
-                                                                                autoFocus
-                                                                                className="bg-white border border-indigo-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-20"
-                                                                                defaultValue={lead.isAlsoSelling ? 'Yes' : 'No'}
-                                                                                onChange={(e) => {
-                                                                                    const val = e.target.value === 'Yes';
-                                                                                    onUpdateLead(lead.id, { isAlsoSelling: val });
-                                                                                    setEditingCell(null);
-                                                                                }}
-                                                                                onBlur={() => setEditingCell(null)}
-                                                                                onClick={e => e.stopPropagation()}
-                                                                            >
-                                                                                <option value="Yes">Yes</option>
-                                                                                <option value="No">No</option>
-                                                                            </select>
-                                                                        </div>
-                                                                    ) : (
-                                                                        lead.isAlsoSelling === true ? (
-                                                                            <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        ) : (
-                                                                            <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        )
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                        )}
-                                                        {getVisibleColumns('Buyer').has('preQualified') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-center font-semibold">
-                                                                <div
-                                                                    className="flex justify-center cursor-pointer"
-                                                                    onClick={(e) => startEditing(e, lead.id, 'preQualified', lead.preQualified ? 'Yes' : 'No')}
-                                                                >
-                                                                    {editingCell?.id === lead.id && editingCell?.field === 'preQualified' ? (
-                                                                        <div onClick={e => e.stopPropagation()}>
-                                                                            <select
-                                                                                autoFocus
-                                                                                className="bg-white border border-indigo-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-20"
-                                                                                defaultValue={lead.preQualified ? 'Yes' : 'No'}
-                                                                                onChange={(e) => {
-                                                                                    const val = e.target.value === 'Yes';
-                                                                                    onUpdateLead(lead.id, { preQualified: val });
-                                                                                    setEditingCell(null);
-                                                                                }}
-                                                                                onBlur={() => setEditingCell(null)}
-                                                                                onClick={e => e.stopPropagation()}
-                                                                            >
-                                                                                <option value="Yes">Yes</option>
-                                                                                <option value="No">No</option>
-                                                                            </select>
-                                                                        </div>
-                                                                    ) : (
-                                                                        lead.preQualified === true ? (
-                                                                            <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        ) : (
-                                                                            <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        )
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                        )}
-                                                        {getVisibleColumns('Buyer').has('preferredNeighborhood') && <td className="px-2 py-2 border-b border-slate-100 font-medium underline text-indigo-600/80 decoration-indigo-200 underline-offset-4">{renderCell(lead, 'preferredNeighborhood' as any)}</td>}
-                                                        {getVisibleColumns('Buyer').has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
                                                         {getVisibleColumns('Buyer').has('receivedAt') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-bold whitespace-nowrap uppercase">
-                                                                {formatLeadAge(lead.stageLastChangedAt || lead.receivedAt)}
-                                                            </td>
+                                                            <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('receivedAt')}>
+                                                                Time in {buyerFunnelCategory} {sortField === 'receivedAt' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                            </th>
                                                         )}
-                                                        {getVisibleColumns('Buyer').has('message') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-600 max-w-[200px] whitespace-normal" title={lead.message}>
-                                                                {lead.message || '--'}
-                                                            </td>
-                                                        )}
-                                                        {getVisibleColumns('Buyer').has('timeframe') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.timeframe || '--'}</td>}
-                                                        {getVisibleColumns('Buyer').has('leaseEndDate') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-[10px] text-slate-500 font-medium">
-                                                                {lead.leaseEndDate ? (lead.leaseEndDate?.toDate ? lead.leaseEndDate.toDate().toLocaleDateString() : new Date(lead.leaseEndDate).toLocaleDateString()) : '--'}
-                                                            </td>
-                                                        )}
-                                                        {getVisibleColumns('Buyer').has('tags') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100">
-                                                                <div className="flex flex-wrap gap-1">
-                                                                    {lead.tags?.map((tag, i) => (
-                                                                        <span key={i} className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-medium border border-slate-200">{tag}</span>
-                                                                    ))}
-                                                                    {(!lead.tags || lead.tags.length === 0) && <span className="text-xs text-slate-300">--</span>}
-                                                                </div>
-                                                            </td>
-                                                        )}
-                                                        {getVisibleColumns('Buyer').has('notes') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 min-w-[200px] max-w-[300px]">
-                                                                <div className="flex flex-col gap-2 max-h-[100px] overflow-y-auto custom-scrollbar">
-                                                                    {/* Last Call Note */}
-                                                                    {lead.callNotes && lead.callNotes.length > 0 && (() => {
-                                                                        const lastCallNote = [...lead.callNotes].sort((a, b) => b.callNumber - a.callNumber)[0];
-                                                                        return (
-                                                                            <div className="flex items-start gap-2 bg-indigo-50 rounded-lg p-1.5 border border-indigo-100">
-                                                                                <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                                                                                    <span className="text-[8px] font-black text-indigo-600">#{lastCallNote.callNumber}</span>
-                                                                                </div>
-                                                                                <div className="flex-1 min-w-0">
-                                                                                    <div className="flex items-center gap-1 mb-0.5">
-                                                                                        <span className={`px-1 py-0 rounded text-[7px] font-bold uppercase ${lastCallNote.outcome === 'Connected' ? 'bg-emerald-100 text-emerald-600' :
-                                                                                            lastCallNote.outcome === 'Voicemail' ? 'bg-amber-100 text-amber-600' :
-                                                                                                'bg-slate-100 text-slate-500'
-                                                                                            }`}>
-                                                                                            {lastCallNote.outcome || 'Connected'}
-                                                                                        </span>
-                                                                                    </div>
-                                                                                    <p className="text-[10px] text-slate-700 line-clamp-2">{lastCallNote.note}</p>
-                                                                                </div>
-                                                                            </div>
-                                                                        );
-                                                                    })()}
-                                                                    {/* Comments */}
-                                                                    {(lead.notesLog || []).length > 0 ? (
-                                                                        lead.notesLog!.slice(-2).reverse().map((note, i) => (
-                                                                            <div key={note.id || i} className="text-[11px] leading-tight text-slate-600">
-                                                                                <span className="opacity-50 text-[10px] mr-1">
-                                                                                    {note.timestamp?.toDate ? note.timestamp.toDate().toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(note.timestamp).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                                                                </span>
-                                                                                {note.content}
-                                                                            </div>
-                                                                        ))
-                                                                    ) : (
-                                                                        !lead.callNotes?.length && <span className="text-xs text-slate-300">--</span>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                        )}
+                                                        {getVisibleColumns('Buyer').has('message') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Message</th>}
+                                                        {getVisibleColumns('Buyer').has('timeframe') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Timeframe</th>}
+                                                        {getVisibleColumns('Buyer').has('leaseEndDate') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Lease End Date</th>}
+                                                        {getVisibleColumns('Buyer').has('tags') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Tags</th>}
+
+                                                        {getVisibleColumns('Buyer').has('notes') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Call Notes</th>}
 
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-24">
-                                        {filteredBuyerLeads.map((lead, index) => (
-                                            <LeadGalleryItem
-                                                onUpdateAvatar={onUpdateAvatar}
-                                                key={lead.id}
-                                                lead={lead}
-                                                stage={buyerFunnelCategory}
-                                                index={index}
-                                                selectedIds={selectedIds}
-                                                handleSelectOne={handleSelectOne}
-                                                notes={notes}
-                                                editNoteId={editNoteId}
-                                                setEditNoteId={setEditNoteId}
-                                                editContent={editContent}
-                                                setEditContent={setEditContent}
-                                                handleUpdateNote={handleUpdateNote}
-                                                onDoneToggle={onDoneToggle}
-                                                onDeleteClick={onDeleteClick}
-                                                pendingNote={pendingNote}
-                                                draftContent={draftContent}
-                                                setDraftContent={setDraftContent}
-                                                handleSaveNote={handleSaveNote}
-                                                setPendingNote={setPendingNote}
-                                                deleteCoords={deleteCoords}
-                                                deletingNoteId={deletingNoteId}
-                                                celebratingNoteId={celebratingNoteId}
-                                                isFlyingUpId={isFlyingUpId}
-                                                onArchive={(id) => onUpdateLead(id, { status: 'Archived' })}
-                                                onActivate={(id) => onUpdateLead(id, { status: 'New' })}
-                                                visibleColumns={getVisibleColumns('Buyer')}
-                                                activeTab="Buyer"
-                                                onUpdateLead={onUpdateLead}
-                                                realtorSettings={realtorSettings}
-                                            />
-                                        ))}
-                                    </div>
-                                )
-                            ) : (
-                                <div className="py-12 text-center text-slate-400 border-2 border-dashed border-slate-100 rounded-[2rem]">
-                                    No buyers found in funnel for this period.
-                                </div>
-                            )}
-                        </section>
-                    )}
-
-                    {/* Seller Section */}
-                    {activeTab === 'Seller' && (
-                        <section className="px-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                            <LeadsViewControls
-                                activeTab="Seller"
-                                activeFunnelCategory={sellerFunnelCategory}
-                                onFunnelCategoryChange={setSellerFunnelCategory}
-                                viewMode={sellerViewMode}
-                                onViewModeChange={setSellerViewMode}
-                                timeStats={timeStats.Seller}
-                                dateRangeLabels={dateRanges.labels}
-                                selectedCount={selectedIds.size}
-                                onArchive={handleBulkArchive}
-                                showColumnSelector={showColumnSelector}
-                                setShowColumnSelector={setShowColumnSelector}
-                                showFilters={showFilters}
-                                setShowFilters={setShowFilters}
-                                displayMode={currentDisplayMode}
-                                setDisplayMode={toggleDisplayMode}
-                                columnSelectorRef={columnSelectorRef}
-                                availableColumns={availableSellerColumns}
-                                visibleColumns={getVisibleColumns('Seller')}
-                                onToggleColumn={(colId) => toggleColumn('Seller', colId)}
-                                onTabChange={onTabChange}
-                            />
-                            {
-                                showFilters && (
-                                    <div className="mt-[-1rem] mb-4 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-5 gap-2 flex-shrink-0 w-full animate-in slide-in-from-top-2">
-                                        <input
-                                            type="text"
-                                            placeholder="Filter Name..."
-                                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                            value={columnFilters.name}
-                                            onChange={(e) => setColumnFilters({ ...columnFilters, name: e.target.value })}
-                                        />
-                                        <input
-                                            type="text"
-                                            placeholder="Filter Phone..."
-                                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                            value={columnFilters.phone}
-                                            onChange={(e) => setColumnFilters({ ...columnFilters, phone: e.target.value })}
-                                        />
-                                        <input
-                                            type="text"
-                                            placeholder="Filter Email..."
-                                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                            value={columnFilters.email}
-                                            onChange={(e) => setColumnFilters({ ...columnFilters, email: e.target.value })}
-                                        />
-                                        <select
-                                            className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
-                                            value={columnFilters.status}
-                                            onChange={(e) => setColumnFilters({ ...columnFilters, status: e.target.value })}
-                                        >
-                                            <option value="">All Statuses</option>
-                                            {STATUS_OPTIONS.map(s => (
-                                                <option key={s} value={s}>{s}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )
-                            }
-                            {filteredSellerLeads.length > 0 ? (
-                                currentDisplayMode === 'list' ? (
-                                    <div className="overflow-x-auto w-full pb-6">
-                                        <table className="w-full text-left border-collapse min-w-full">
-                                            <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500">
-                                                <tr>
-                                                    <th className="w-12 px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">#</th>
-                                                    <th className="w-10 px-2 py-3 border-b border-slate-200/60 bg-slate-50">
-                                                        <input type="checkbox" onChange={(e) => handleSelectAll(filteredSellerLeads, e.target.checked)} checked={filteredSellerLeads.length > 0 && filteredSellerLeads.every(l => selectedIds.has(l.id))} className="rounded border-slate-300" />
-                                                    </th>
-                                                    <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Profile Picture</th>
-                                                    <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('firstName')}>
-                                                        Full Name {sortField === 'firstName' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                    </th>
-                                                    {getVisibleColumns('Seller').has('funnelStage') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Funnel Stage</th>}
-                                                    {getVisibleColumns('Seller').has('status') && (
-                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('status')}>
-                                                            Lead Status {sortField === 'status' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                        </th>
-                                                    )}
-                                                    {getVisibleColumns('Seller').has('phone') && (
-                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('phone')}>
-                                                            Contact Info {sortField === 'phone' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                        </th>
-                                                    )}
-                                                    {getVisibleColumns('Seller').has('isAlsoBuying') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Also Buying?</th>}
-                                                    {getVisibleColumns('Seller').has('homeValueNeeded') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Home Value Needed?</th>}
-                                                    {getVisibleColumns('Seller').has('sellWhen') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Sell When?</th>}
-                                                    {getVisibleColumns('Seller').has('occupancyStatus') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Occupancy Status</th>}
-                                                    {getVisibleColumns('Seller').has('source') && (
-                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('source')}>
-                                                            Source {sortField === 'source' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                        </th>
-                                                    )}
-                                                    {getVisibleColumns('Seller').has('receivedAt') && (
-                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('receivedAt')}>
-                                                            Time in {sellerFunnelCategory} {sortField === 'receivedAt' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
-                                                        </th>
-                                                    )}
-                                                    {getVisibleColumns('Seller').has('reasonForSelling') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Reason for Selling</th>}
-                                                    {getVisibleColumns('Seller').has('existingAgentName') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Existing Agent?</th>}
-                                                    {getVisibleColumns('Seller').has('message') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Message</th>}
-                                                    {getVisibleColumns('Seller').has('tags') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Tags</th>}
-
-                                                    {getVisibleColumns('Seller').has('notes') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Comments / Notes</th>}
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100">
-                                                {filteredSellerLeads.map((lead, index) => (
-                                                    <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80">
-                                                        <td className="px-2 py-2 border-b border-slate-100 text-center text-slate-400 font-bold opacity-50">{index + 1}</td>
-                                                        <td className="px-2 py-2 border-b border-slate-100">
-                                                            <input type="checkbox" checked={selectedIds.has(lead.id)} onChange={() => handleSelectOne(lead.id)} className="rounded border-slate-300" />
-                                                        </td>
-                                                        <td className="px-2 py-2 border-b border-slate-100">
-                                                            <div className="w-8 h-8 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shadow-sm">
-                                                                {lead.avatarUrl ? (
-                                                                    <img src={lead.avatarUrl} alt="" className="w-full h-full object-cover" />
-                                                                ) : (
-                                                                    <i className="fa-solid fa-user text-slate-300 text-[10px]"></i>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-2 py-2 border-b border-slate-100 font-bold text-slate-900">
-                                                            {lead.firstName} {lead.lastName}
-                                                        </td>
-                                                        {getVisibleColumns('Seller').has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs text-emerald-500 uppercase tracking-tighter">{lead.funnelStage || '--'}</td>}
-                                                        {getVisibleColumns('Seller').has('status') && (
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {filteredBuyerLeads.map((lead, index) => (
+                                                        <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80">
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-center text-slate-400 font-bold opacity-50">{index + 1}</td>
                                                             <td className="px-2 py-2 border-b border-slate-100">
-                                                                {renderCell(lead, 'status', 'select', getStatusOptions(lead.leadType, realtorSettings).map((o: any) => o.label))}
+                                                                <input type="checkbox" checked={selectedIds.has(lead.id)} onChange={() => handleSelectOne(lead.id)} className="rounded border-slate-300" />
                                                             </td>
+                                                            <td className="px-2 py-2 border-b border-slate-100">
+                                                                <div className="w-8 h-8 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shadow-sm">
+                                                                    {lead.clientPhotoUrl ? (
+                                                                        <img src={lead.clientPhotoUrl} alt="" className="w-full h-full object-cover" />
+                                                                    ) : (
+                                                                        <i className="fa-solid fa-user text-slate-300 text-[10px]"></i>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-2 py-2 border-b border-slate-100 font-bold text-slate-900">
+                                                                {lead.firstName} {lead.lastName}
+                                                            </td>
+                                                            {getVisibleColumns('Buyer').has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs text-indigo-500 uppercase tracking-tighter">{lead.funnelStage || '--'}</td>}
+                                                            {getVisibleColumns('Buyer').has('status') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100">
+                                                                    {renderCell(lead, 'status', 'select', getStatusOptions(lead.leadType, realtorSettings).map((o: any) => o.label))}
+                                                                </td>
+                                                            )}
+
+                                                            {getVisibleColumns('Buyer').has('phone') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100">
+                                                                    <div className="flex flex-col">
+                                                                        <div className="text-xs font-semibold text-slate-700 leading-tight mb-0.5 flex items-center gap-2">
+                                                                            <span>{renderCell(lead, 'phone')}</span>
+                                                                            {['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) && (
+                                                                                <span className="text-[9px] text-slate-400 font-medium italic whitespace-nowrap flex-shrink-0">
+                                                                                    preferred - {(lead.preferredContactMethod || '').toLowerCase() === 'call' ? 'call' : 'text'}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="text-[10px] text-blue-600 font-medium leading-tight flex items-center gap-2">
+                                                                            <span className="truncate">{renderCell(lead, 'email')}</span>
+                                                                            {(lead.preferredContactMethod || '').toLowerCase() === 'email' && (
+                                                                                <span className="text-[9px] text-slate-400 font-medium italic whitespace-nowrap flex-shrink-0">
+                                                                                    preferred
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                            )}
+                                                            {getVisibleColumns('Buyer').has('callCount') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100 text-center">
+                                                                    <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-full text-xs font-bold border border-slate-200">
+                                                                        {lead.callCount || 0}
+                                                                    </span>
+                                                                </td>
+                                                            )}
+                                                            {getVisibleColumns('Buyer').has('lastUpdated') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-500 font-medium whitespace-nowrap">
+                                                                    {lead.lastUpdated ? (lead.lastUpdated?.toDate ? lead.lastUpdated.toDate().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(lead.lastUpdated).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '--'}
+                                                                </td>
+                                                            )}
+                                                            {getVisibleColumns('Buyer').has('isAlsoSelling') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100 text-center">
+                                                                    <div
+                                                                        className="flex justify-center cursor-pointer"
+                                                                        onClick={(e) => startEditing(e, lead.id, 'isAlsoSelling', lead.isAlsoSelling ? 'Yes' : 'No')}
+                                                                    >
+                                                                        {editingCell?.id === lead.id && editingCell?.field === 'isAlsoSelling' ? (
+                                                                            <div onClick={e => e.stopPropagation()}>
+                                                                                <select
+                                                                                    autoFocus
+                                                                                    className="bg-white border border-indigo-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-20"
+                                                                                    defaultValue={lead.isAlsoSelling ? 'Yes' : 'No'}
+                                                                                    onChange={(e) => {
+                                                                                        const val = e.target.value === 'Yes';
+                                                                                        onUpdateLead(lead.id, { isAlsoSelling: val });
+                                                                                        setEditingCell(null);
+                                                                                    }}
+                                                                                    onBlur={() => setEditingCell(null)}
+                                                                                    onClick={e => e.stopPropagation()}
+                                                                                >
+                                                                                    <option value="Yes">Yes</option>
+                                                                                    <option value="No">No</option>
+                                                                                </select>
+                                                                            </div>
+                                                                        ) : (
+                                                                            lead.isAlsoSelling === true ? (
+                                                                                <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
+                                                                            ) : (
+                                                                                <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
+                                                                            )
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                            )}
+                                                            {getVisibleColumns('Buyer').has('preQualified') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100 text-center font-semibold">
+                                                                    <div
+                                                                        className="flex justify-center cursor-pointer"
+                                                                        onClick={(e) => startEditing(e, lead.id, 'preQualified', lead.preQualified ? 'Yes' : 'No')}
+                                                                    >
+                                                                        {editingCell?.id === lead.id && editingCell?.field === 'preQualified' ? (
+                                                                            <div onClick={e => e.stopPropagation()}>
+                                                                                <select
+                                                                                    autoFocus
+                                                                                    className="bg-white border border-indigo-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-20"
+                                                                                    defaultValue={lead.preQualified ? 'Yes' : 'No'}
+                                                                                    onChange={(e) => {
+                                                                                        const val = e.target.value === 'Yes';
+                                                                                        onUpdateLead(lead.id, { preQualified: val });
+                                                                                        setEditingCell(null);
+                                                                                    }}
+                                                                                    onBlur={() => setEditingCell(null)}
+                                                                                    onClick={e => e.stopPropagation()}
+                                                                                >
+                                                                                    <option value="Yes">Yes</option>
+                                                                                    <option value="No">No</option>
+                                                                                </select>
+                                                                            </div>
+                                                                        ) : (
+                                                                            lead.preQualified === true ? (
+                                                                                <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
+                                                                            ) : (
+                                                                                <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
+                                                                            )
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                            )}
+                                                            {getVisibleColumns('Buyer').has('preferredNeighborhood') && <td className="px-2 py-2 border-b border-slate-100 font-medium underline text-indigo-600/80 decoration-indigo-200 underline-offset-4">{renderCell(lead, 'preferredNeighborhood' as any)}</td>}
+                                                            {getVisibleColumns('Buyer').has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
+                                                            {getVisibleColumns('Buyer').has('receivedAt') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-bold whitespace-nowrap uppercase">
+                                                                    {formatLeadAge(lead.stageLastChangedAt || lead.receivedAt)}
+                                                                </td>
+                                                            )}
+                                                            {getVisibleColumns('Buyer').has('message') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-600 max-w-[200px] whitespace-normal" title={lead.message}>
+                                                                    {lead.message || '--'}
+                                                                </td>
+                                                            )}
+                                                            {getVisibleColumns('Buyer').has('timeframe') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.timeframe || '--'}</td>}
+                                                            {getVisibleColumns('Buyer').has('leaseEndDate') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100 text-[10px] text-slate-500 font-medium">
+                                                                    {lead.leaseEndDate ? (lead.leaseEndDate?.toDate ? lead.leaseEndDate.toDate().toLocaleDateString() : new Date(lead.leaseEndDate).toLocaleDateString()) : '--'}
+                                                                </td>
+                                                            )}
+                                                            {getVisibleColumns('Buyer').has('tags') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100">
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {lead.tags?.map((tag, i) => (
+                                                                            <span key={i} className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-medium border border-slate-200">{tag}</span>
+                                                                        ))}
+                                                                        {(!lead.tags || lead.tags.length === 0) && <span className="text-xs text-slate-300">--</span>}
+                                                                    </div>
+                                                                </td>
+                                                            )}
+                                                            {getVisibleColumns('Buyer').has('notes') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100 min-w-[200px] max-w-[300px]">
+                                                                    <div className="flex flex-col gap-2 max-h-[100px] overflow-y-auto custom-scrollbar">
+                                                                        {/* Last Call Note */}
+                                                                        {lead.callNotes && lead.callNotes.length > 0 && (() => {
+                                                                            const lastCallNote = [...lead.callNotes].sort((a, b) => b.callNumber - a.callNumber)[0];
+                                                                            return (
+                                                                                <div className="flex items-start gap-2 bg-indigo-50 rounded-lg p-1.5 border border-indigo-100">
+                                                                                    <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                                                        <span className="text-[8px] font-black text-indigo-600">#{lastCallNote.callNumber}</span>
+                                                                                    </div>
+                                                                                    <div className="flex-1 min-w-0">
+                                                                                        <div className="flex items-center gap-1 mb-0.5">
+                                                                                            <span className={`px-1 py-0 rounded text-[7px] font-bold uppercase ${lastCallNote.outcome === 'Connected' ? 'bg-emerald-100 text-emerald-600' :
+                                                                                                lastCallNote.outcome === 'Voicemail' ? 'bg-amber-100 text-amber-600' :
+                                                                                                    'bg-slate-100 text-slate-500'
+                                                                                                }`}>
+                                                                                                {lastCallNote.outcome || 'Connected'}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <p className="text-[10px] text-slate-700 line-clamp-2">{lastCallNote.note}</p>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })()}
+                                                                        {/* Comments */}
+                                                                        {(lead.notesLog || []).length > 0 ? (
+                                                                            lead.notesLog!.slice(-2).reverse().map((note, i) => (
+                                                                                <div key={note.id || i} className="text-[11px] leading-tight text-slate-600">
+                                                                                    <span className="opacity-50 text-[10px] mr-1">
+                                                                                        {note.timestamp?.toDate ? note.timestamp.toDate().toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(note.timestamp).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                                                    </span>
+                                                                                    {note.content}
+                                                                                </div>
+                                                                            ))
+                                                                        ) : (
+                                                                            !lead.callNotes?.length && <span className="text-xs text-slate-300">--</span>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                            )}
+
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-24">
+                                            {filteredBuyerLeads.map((lead, index) => (
+                                                <LeadGalleryItem
+                                                    onUpdateAvatar={onUpdateAvatar}
+                                                    key={lead.id}
+                                                    lead={lead}
+                                                    stage={buyerFunnelCategory}
+                                                    index={index}
+                                                    selectedIds={selectedIds}
+                                                    handleSelectOne={handleSelectOne}
+                                                    notes={notes}
+                                                    editNoteId={editNoteId}
+                                                    setEditNoteId={setEditNoteId}
+                                                    editContent={editContent}
+                                                    setEditContent={setEditContent}
+                                                    handleUpdateNote={handleUpdateNote}
+                                                    onDoneToggle={onDoneToggle}
+                                                    onDeleteClick={onDeleteClick}
+                                                    pendingNote={pendingNote}
+                                                    draftContent={draftContent}
+                                                    setDraftContent={setDraftContent}
+                                                    handleSaveNote={handleSaveNote}
+                                                    setPendingNote={setPendingNote}
+                                                    deleteCoords={deleteCoords}
+                                                    deletingNoteId={deletingNoteId}
+                                                    celebratingNoteId={celebratingNoteId}
+                                                    isFlyingUpId={isFlyingUpId}
+                                                    onArchive={(id) => onUpdateLead(id, { status: 'Archived' })}
+                                                    onActivate={(id) => onUpdateLead(id, { status: 'New' })}
+                                                    visibleColumns={getVisibleColumns('Buyer')}
+                                                    activeTab="Buyer"
+                                                    onUpdateLead={onUpdateLead}
+                                                    realtorSettings={realtorSettings}
+                                                />
+                                            ))}
+                                        </div>
+                                    )
+                                ) : (
+                                    <div className="py-12 text-center text-slate-400 border-2 border-dashed border-slate-100 rounded-[2rem]">
+                                        No buyers found in funnel for this period.
+                                    </div>
+                                )}
+                            </section>
+                        )}
+
+                        {/* Seller Section */}
+                        {activeTab === 'Seller' && (
+                            <section className="px-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                                <LeadsViewControls
+                                    activeTab="Seller"
+                                    activeFunnelCategory={sellerFunnelCategory}
+                                    onFunnelCategoryChange={setSellerFunnelCategory}
+                                    viewMode={sellerViewMode}
+                                    onViewModeChange={setSellerViewMode}
+                                    timeStats={timeStats.Seller}
+                                    dateRangeLabels={dateRanges.labels}
+                                    selectedCount={selectedIds.size}
+                                    onArchive={handleBulkArchive}
+                                    showColumnSelector={showColumnSelector}
+                                    setShowColumnSelector={setShowColumnSelector}
+                                    showFilters={showFilters}
+                                    setShowFilters={setShowFilters}
+                                    displayMode={currentDisplayMode}
+                                    setDisplayMode={toggleDisplayMode}
+                                    columnSelectorRef={columnSelectorRef}
+                                    availableColumns={availableSellerColumns}
+                                    visibleColumns={getVisibleColumns('Seller')}
+                                    onToggleColumn={(colId) => toggleColumn('Seller', colId)}
+                                    onTabChange={onTabChange}
+                                />
+                                {
+                                    showFilters && (
+                                        <div className="mt-[-1rem] mb-4 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-5 gap-2 flex-shrink-0 w-full animate-in slide-in-from-top-2">
+                                            <input
+                                                type="text"
+                                                placeholder="Filter Name..."
+                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                                value={columnFilters.name}
+                                                onChange={(e) => setColumnFilters({ ...columnFilters, name: e.target.value })}
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Filter Phone..."
+                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                                value={columnFilters.phone}
+                                                onChange={(e) => setColumnFilters({ ...columnFilters, phone: e.target.value })}
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Filter Email..."
+                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                                value={columnFilters.email}
+                                                onChange={(e) => setColumnFilters({ ...columnFilters, email: e.target.value })}
+                                            />
+                                            <select
+                                                className="px-3 py-2 bg-white border border-slate-200 rounded text-xs focus:outline-none focus:border-indigo-500"
+                                                value={columnFilters.status}
+                                                onChange={(e) => setColumnFilters({ ...columnFilters, status: e.target.value })}
+                                            >
+                                                <option value="">All Statuses</option>
+                                                {STATUS_OPTIONS.map(s => (
+                                                    <option key={s} value={s}>{s}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )
+                                }
+                                {filteredSellerLeads.length > 0 ? (
+                                    currentDisplayMode === 'list' ? (
+                                        <div className="overflow-x-auto w-full pb-6">
+                                            <table className="w-full text-left border-collapse min-w-full">
+                                                <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500">
+                                                    <tr>
+                                                        <th className="w-12 px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">#</th>
+                                                        <th className="w-10 px-2 py-3 border-b border-slate-200/60 bg-slate-50">
+                                                            <input type="checkbox" onChange={(e) => handleSelectAll(filteredSellerLeads, e.target.checked)} checked={filteredSellerLeads.length > 0 && filteredSellerLeads.every(l => selectedIds.has(l.id))} className="rounded border-slate-300" />
+                                                        </th>
+                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Profile Picture</th>
+                                                        <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('firstName')}>
+                                                            Full Name {sortField === 'firstName' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                        </th>
+                                                        {getVisibleColumns('Seller').has('funnelStage') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Funnel Stage</th>}
+                                                        {getVisibleColumns('Seller').has('status') && (
+                                                            <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('status')}>
+                                                                Lead Status {sortField === 'status' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                            </th>
                                                         )}
                                                         {getVisibleColumns('Seller').has('phone') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100">
-                                                                <div className="flex flex-col">
-                                                                    <div className="text-xs font-semibold text-slate-700 leading-tight mb-0.5 flex items-center gap-2">
-                                                                        <span>{renderCell(lead, 'phone')}</span>
-                                                                        {['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) && (
-                                                                            <span className="text-[9px] text-slate-400 font-medium italic whitespace-nowrap flex-shrink-0">
-                                                                                preferred - {(lead.preferredContactMethod || '').toLowerCase() === 'call' ? 'call' : 'text'}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="text-[10px] text-blue-600 font-medium leading-tight flex items-center gap-2">
-                                                                        <span className="truncate">{renderCell(lead, 'email')}</span>
-                                                                        {(lead.preferredContactMethod || '').toLowerCase() === 'email' && (
-                                                                            <span className="text-[9px] text-slate-400 font-medium italic whitespace-nowrap flex-shrink-0">
-                                                                                preferred
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </td>
+                                                            <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('phone')}>
+                                                                Contact Info {sortField === 'phone' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                            </th>
                                                         )}
-                                                        {getVisibleColumns('Seller').has('isAlsoBuying') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-center">
-                                                                <div
-                                                                    className="flex justify-center cursor-pointer"
-                                                                    onClick={(e) => startEditing(e, lead.id, 'isAlsoBuying', lead.isAlsoBuying ? 'Yes' : 'No')}
-                                                                >
-                                                                    {editingCell?.id === lead.id && editingCell?.field === 'isAlsoBuying' ? (
-                                                                        <div onClick={e => e.stopPropagation()}>
-                                                                            <select
-                                                                                autoFocus
-                                                                                className="bg-white border border-indigo-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-20"
-                                                                                defaultValue={lead.isAlsoBuying ? 'Yes' : 'No'}
-                                                                                onChange={(e) => {
-                                                                                    const val = e.target.value === 'Yes';
-                                                                                    onUpdateLead(lead.id, { isAlsoBuying: val });
-                                                                                    setEditingCell(null);
-                                                                                }}
-                                                                                onBlur={() => setEditingCell(null)}
-                                                                                onClick={e => e.stopPropagation()}
-                                                                            >
-                                                                                <option value="Yes">Yes</option>
-                                                                                <option value="No">No</option>
-                                                                            </select>
-                                                                        </div>
-                                                                    ) : (
-                                                                        lead.isAlsoBuying === true ? (
-                                                                            <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        ) : (
-                                                                            <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        )
-                                                                    )}
-                                                                </div>
-                                                            </td>
+                                                        {getVisibleColumns('Seller').has('isAlsoBuying') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Also Buying?</th>}
+                                                        {getVisibleColumns('Seller').has('homeValueNeeded') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">Home Value Needed?</th>}
+                                                        {getVisibleColumns('Seller').has('sellWhen') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Sell When?</th>}
+                                                        {getVisibleColumns('Seller').has('occupancyStatus') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Occupancy Status</th>}
+                                                        {getVisibleColumns('Seller').has('source') && (
+                                                            <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('source')}>
+                                                                Source {sortField === 'source' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                            </th>
                                                         )}
-                                                        {getVisibleColumns('Seller').has('homeValueNeeded') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-center font-semibold">
-                                                                <div
-                                                                    className="flex justify-center cursor-pointer"
-                                                                    onClick={(e) => startEditing(e, lead.id, 'homeValueNeeded', lead.homeValueNeeded ? 'Yes' : 'No')}
-                                                                >
-                                                                    {editingCell?.id === lead.id && editingCell?.field === 'homeValueNeeded' ? (
-                                                                        <div onClick={e => e.stopPropagation()}>
-                                                                            <select
-                                                                                autoFocus
-                                                                                className="bg-white border border-indigo-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-20"
-                                                                                defaultValue={lead.homeValueNeeded ? 'Yes' : 'No'}
-                                                                                onChange={(e) => {
-                                                                                    const val = e.target.value === 'Yes';
-                                                                                    onUpdateLead(lead.id, { homeValueNeeded: val });
-                                                                                    setEditingCell(null);
-                                                                                }}
-                                                                                onBlur={() => setEditingCell(null)}
-                                                                                onClick={e => e.stopPropagation()}
-                                                                            >
-                                                                                <option value="Yes">Yes</option>
-                                                                                <option value="No">No</option>
-                                                                            </select>
-                                                                        </div>
-                                                                    ) : (
-                                                                        lead.homeValueNeeded === true ? (
-                                                                            <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        ) : (
-                                                                            <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
-                                                                        )
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                        )}
-                                                        {getVisibleColumns('Seller').has('sellWhen') && <td className="px-2 py-2 border-b border-slate-100 font-medium whitespace-nowrap">{renderCell(lead, 'sellWhen' as any)}</td>}
-                                                        {getVisibleColumns('Seller').has('occupancyStatus') && <td className="px-2 py-2 border-b border-slate-100 font-medium">{renderCell(lead, 'occupancyStatus' as any)}</td>}
-                                                        {getVisibleColumns('Seller').has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
                                                         {getVisibleColumns('Seller').has('receivedAt') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-bold whitespace-nowrap uppercase">
-                                                                {formatLeadAge(lead.stageLastChangedAt || lead.receivedAt)}
-                                                            </td>
+                                                            <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('receivedAt')}>
+                                                                Time in {sellerFunnelCategory} {sortField === 'receivedAt' && <i className={`fa-solid fa-sort-${sortDirection} ml-1`}></i>}
+                                                            </th>
                                                         )}
-                                                        {getVisibleColumns('Seller').has('reasonForSelling') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.reasonForSelling || '--'}</td>}
-                                                        {getVisibleColumns('Seller').has('existingAgentName') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.existingAgentName || '--'}</td>}
-                                                        {getVisibleColumns('Seller').has('message') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-600 max-w-[200px] whitespace-normal" title={lead.message}>
-                                                                {lead.message || '--'}
-                                                            </td>
-                                                        )}
-                                                        {getVisibleColumns('Seller').has('tags') && (
+                                                        {getVisibleColumns('Seller').has('reasonForSelling') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Reason for Selling</th>}
+                                                        {getVisibleColumns('Seller').has('existingAgentName') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Existing Agent?</th>}
+                                                        {getVisibleColumns('Seller').has('message') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Message</th>}
+                                                        {getVisibleColumns('Seller').has('tags') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Tags</th>}
+
+                                                        {getVisibleColumns('Seller').has('notes') && <th className="px-2 py-3 border-b border-slate-200/60 bg-slate-50">Comments / Notes</th>}
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {filteredSellerLeads.map((lead, index) => (
+                                                        <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80">
+                                                            <td className="px-2 py-2 border-b border-slate-100 text-center text-slate-400 font-bold opacity-50">{index + 1}</td>
                                                             <td className="px-2 py-2 border-b border-slate-100">
-                                                                <div className="flex flex-wrap gap-1">
-                                                                    {lead.tags?.map((tag, i) => (
-                                                                        <span key={i} className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-medium border border-slate-200">{tag}</span>
-                                                                    ))}
-                                                                    {(!lead.tags || lead.tags.length === 0) && <span className="text-xs text-slate-300">--</span>}
-                                                                </div>
+                                                                <input type="checkbox" checked={selectedIds.has(lead.id)} onChange={() => handleSelectOne(lead.id)} className="rounded border-slate-300" />
                                                             </td>
-                                                        )}
-                                                        {getVisibleColumns('Seller').has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.funnelStage || '--'}</td>}
-                                                        {getVisibleColumns('Seller').has('notes') && (
-                                                            <td className="px-2 py-2 border-b border-slate-100 min-w-[200px] max-w-[300px]">
-                                                                <div className="flex flex-col gap-2 max-h-[100px] overflow-y-auto custom-scrollbar">
-                                                                    {/* Last Call Note */}
-                                                                    {lead.callNotes && lead.callNotes.length > 0 && (() => {
-                                                                        const lastCallNote = [...lead.callNotes].sort((a, b) => b.callNumber - a.callNumber)[0];
-                                                                        return (
-                                                                            <div className="flex items-start gap-2 bg-emerald-50 rounded-lg p-1.5 border border-emerald-100">
-                                                                                <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                                                                                    <span className="text-[8px] font-black text-emerald-600">#{lastCallNote.callNumber}</span>
-                                                                                </div>
-                                                                                <div className="flex-1 min-w-0">
-                                                                                    <div className="flex items-center gap-1 mb-0.5">
-                                                                                        <span className={`px-1 py-0 rounded text-[7px] font-bold uppercase ${lastCallNote.outcome === 'Connected' ? 'bg-emerald-100 text-emerald-600' :
-                                                                                            lastCallNote.outcome === 'Voicemail' ? 'bg-amber-100 text-amber-600' :
-                                                                                                'bg-slate-100 text-slate-500'
-                                                                                            }`}>
-                                                                                            {lastCallNote.outcome || 'Connected'}
-                                                                                        </span>
-                                                                                    </div>
-                                                                                    <p className="text-[10px] text-slate-700 line-clamp-2">{lastCallNote.note}</p>
-                                                                                </div>
-                                                                            </div>
-                                                                        );
-                                                                    })()}
-                                                                    {/* Comments */}
-                                                                    {(lead.notesLog || []).length > 0 ? (
-                                                                        lead.notesLog!.slice(-2).reverse().map((note, i) => (
-                                                                            <div key={note.id || i} className="text-[11px] leading-tight text-slate-600">
-                                                                                <span className="opacity-50 text-[10px] mr-1">
-                                                                                    {note.timestamp?.toDate ? note.timestamp.toDate().toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(note.timestamp).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                                                                </span>
-                                                                                {note.content}
-                                                                            </div>
-                                                                        ))
+                                                            <td className="px-2 py-2 border-b border-slate-100">
+                                                                <div className="w-8 h-8 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shadow-sm">
+                                                                    {lead.avatarUrl ? (
+                                                                        <img src={lead.avatarUrl} alt="" className="w-full h-full object-cover" />
                                                                     ) : (
-                                                                        !lead.callNotes?.length && <span className="text-xs text-slate-300">--</span>
+                                                                        <i className="fa-solid fa-user text-slate-300 text-[10px]"></i>
                                                                     )}
                                                                 </div>
                                                             </td>
-                                                        )}
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                                            <td className="px-2 py-2 border-b border-slate-100 font-bold text-slate-900">
+                                                                {lead.firstName} {lead.lastName}
+                                                            </td>
+                                                            {getVisibleColumns('Seller').has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs text-emerald-500 uppercase tracking-tighter">{lead.funnelStage || '--'}</td>}
+                                                            {getVisibleColumns('Seller').has('status') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100">
+                                                                    {renderCell(lead, 'status', 'select', getStatusOptions(lead.leadType, realtorSettings).map((o: any) => o.label))}
+                                                                </td>
+                                                            )}
+                                                            {getVisibleColumns('Seller').has('phone') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100">
+                                                                    <div className="flex flex-col">
+                                                                        <div className="text-xs font-semibold text-slate-700 leading-tight mb-0.5 flex items-center gap-2">
+                                                                            <span>{renderCell(lead, 'phone')}</span>
+                                                                            {['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) && (
+                                                                                <span className="text-[9px] text-slate-400 font-medium italic whitespace-nowrap flex-shrink-0">
+                                                                                    preferred - {(lead.preferredContactMethod || '').toLowerCase() === 'call' ? 'call' : 'text'}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="text-[10px] text-blue-600 font-medium leading-tight flex items-center gap-2">
+                                                                            <span className="truncate">{renderCell(lead, 'email')}</span>
+                                                                            {(lead.preferredContactMethod || '').toLowerCase() === 'email' && (
+                                                                                <span className="text-[9px] text-slate-400 font-medium italic whitespace-nowrap flex-shrink-0">
+                                                                                    preferred
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                            )}
+                                                            {getVisibleColumns('Seller').has('isAlsoBuying') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100 text-center">
+                                                                    <div
+                                                                        className="flex justify-center cursor-pointer"
+                                                                        onClick={(e) => startEditing(e, lead.id, 'isAlsoBuying', lead.isAlsoBuying ? 'Yes' : 'No')}
+                                                                    >
+                                                                        {editingCell?.id === lead.id && editingCell?.field === 'isAlsoBuying' ? (
+                                                                            <div onClick={e => e.stopPropagation()}>
+                                                                                <select
+                                                                                    autoFocus
+                                                                                    className="bg-white border border-indigo-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-20"
+                                                                                    defaultValue={lead.isAlsoBuying ? 'Yes' : 'No'}
+                                                                                    onChange={(e) => {
+                                                                                        const val = e.target.value === 'Yes';
+                                                                                        onUpdateLead(lead.id, { isAlsoBuying: val });
+                                                                                        setEditingCell(null);
+                                                                                    }}
+                                                                                    onBlur={() => setEditingCell(null)}
+                                                                                    onClick={e => e.stopPropagation()}
+                                                                                >
+                                                                                    <option value="Yes">Yes</option>
+                                                                                    <option value="No">No</option>
+                                                                                </select>
+                                                                            </div>
+                                                                        ) : (
+                                                                            lead.isAlsoBuying === true ? (
+                                                                                <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
+                                                                            ) : (
+                                                                                <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
+                                                                            )
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                            )}
+                                                            {getVisibleColumns('Seller').has('homeValueNeeded') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100 text-center font-semibold">
+                                                                    <div
+                                                                        className="flex justify-center cursor-pointer"
+                                                                        onClick={(e) => startEditing(e, lead.id, 'homeValueNeeded', lead.homeValueNeeded ? 'Yes' : 'No')}
+                                                                    >
+                                                                        {editingCell?.id === lead.id && editingCell?.field === 'homeValueNeeded' ? (
+                                                                            <div onClick={e => e.stopPropagation()}>
+                                                                                <select
+                                                                                    autoFocus
+                                                                                    className="bg-white border border-indigo-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-20"
+                                                                                    defaultValue={lead.homeValueNeeded ? 'Yes' : 'No'}
+                                                                                    onChange={(e) => {
+                                                                                        const val = e.target.value === 'Yes';
+                                                                                        onUpdateLead(lead.id, { homeValueNeeded: val });
+                                                                                        setEditingCell(null);
+                                                                                    }}
+                                                                                    onBlur={() => setEditingCell(null)}
+                                                                                    onClick={e => e.stopPropagation()}
+                                                                                >
+                                                                                    <option value="Yes">Yes</option>
+                                                                                    <option value="No">No</option>
+                                                                                </select>
+                                                                            </div>
+                                                                        ) : (
+                                                                            lead.homeValueNeeded === true ? (
+                                                                                <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '0% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
+                                                                            ) : (
+                                                                                <div className="w-8 h-6 bg-no-repeat bg-contain" style={{ backgroundImage: 'url(/assets/checkmark-cross.png)', backgroundPosition: '100% center', backgroundSize: '200% 100%', mixBlendMode: 'multiply' }}></div>
+                                                                            )
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                            )}
+                                                            {getVisibleColumns('Seller').has('sellWhen') && <td className="px-2 py-2 border-b border-slate-100 font-medium whitespace-nowrap">{renderCell(lead, 'sellWhen' as any)}</td>}
+                                                            {getVisibleColumns('Seller').has('occupancyStatus') && <td className="px-2 py-2 border-b border-slate-100 font-medium">{renderCell(lead, 'occupancyStatus' as any)}</td>}
+                                                            {getVisibleColumns('Seller').has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
+                                                            {getVisibleColumns('Seller').has('receivedAt') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-bold whitespace-nowrap uppercase">
+                                                                    {formatLeadAge(lead.stageLastChangedAt || lead.receivedAt)}
+                                                                </td>
+                                                            )}
+                                                            {getVisibleColumns('Seller').has('reasonForSelling') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.reasonForSelling || '--'}</td>}
+                                                            {getVisibleColumns('Seller').has('existingAgentName') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.existingAgentName || '--'}</td>}
+                                                            {getVisibleColumns('Seller').has('message') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-600 max-w-[200px] whitespace-normal" title={lead.message}>
+                                                                    {lead.message || '--'}
+                                                                </td>
+                                                            )}
+                                                            {getVisibleColumns('Seller').has('tags') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100">
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {lead.tags?.map((tag, i) => (
+                                                                            <span key={i} className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-medium border border-slate-200">{tag}</span>
+                                                                        ))}
+                                                                        {(!lead.tags || lead.tags.length === 0) && <span className="text-xs text-slate-300">--</span>}
+                                                                    </div>
+                                                                </td>
+                                                            )}
+                                                            {getVisibleColumns('Seller').has('funnelStage') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.funnelStage || '--'}</td>}
+                                                            {getVisibleColumns('Seller').has('notes') && (
+                                                                <td className="px-2 py-2 border-b border-slate-100 min-w-[200px] max-w-[300px]">
+                                                                    <div className="flex flex-col gap-2 max-h-[100px] overflow-y-auto custom-scrollbar">
+                                                                        {/* Last Call Note */}
+                                                                        {lead.callNotes && lead.callNotes.length > 0 && (() => {
+                                                                            const lastCallNote = [...lead.callNotes].sort((a, b) => b.callNumber - a.callNumber)[0];
+                                                                            return (
+                                                                                <div className="flex items-start gap-2 bg-emerald-50 rounded-lg p-1.5 border border-emerald-100">
+                                                                                    <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                                                                                        <span className="text-[8px] font-black text-emerald-600">#{lastCallNote.callNumber}</span>
+                                                                                    </div>
+                                                                                    <div className="flex-1 min-w-0">
+                                                                                        <div className="flex items-center gap-1 mb-0.5">
+                                                                                            <span className={`px-1 py-0 rounded text-[7px] font-bold uppercase ${lastCallNote.outcome === 'Connected' ? 'bg-emerald-100 text-emerald-600' :
+                                                                                                lastCallNote.outcome === 'Voicemail' ? 'bg-amber-100 text-amber-600' :
+                                                                                                    'bg-slate-100 text-slate-500'
+                                                                                                }`}>
+                                                                                                {lastCallNote.outcome || 'Connected'}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <p className="text-[10px] text-slate-700 line-clamp-2">{lastCallNote.note}</p>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })()}
+                                                                        {/* Comments */}
+                                                                        {(lead.notesLog || []).length > 0 ? (
+                                                                            lead.notesLog!.slice(-2).reverse().map((note, i) => (
+                                                                                <div key={note.id || i} className="text-[11px] leading-tight text-slate-600">
+                                                                                    <span className="opacity-50 text-[10px] mr-1">
+                                                                                        {note.timestamp?.toDate ? note.timestamp.toDate().toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date(note.timestamp).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                                                    </span>
+                                                                                    {note.content}
+                                                                                </div>
+                                                                            ))
+                                                                        ) : (
+                                                                            !lead.callNotes?.length && <span className="text-xs text-slate-300">--</span>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                            )}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-24">
+                                            {filteredSellerLeads.map((lead, index) => (
+                                                <LeadGalleryItem
+                                                    onUpdateAvatar={onUpdateAvatar}
+                                                    key={lead.id}
+                                                    lead={lead}
+                                                    stage={sellerFunnelCategory}
+                                                    index={index + filteredBuyerLeads.length}
+                                                    selectedIds={selectedIds}
+                                                    handleSelectOne={handleSelectOne}
+                                                    notes={notes}
+                                                    editNoteId={editNoteId}
+                                                    setEditNoteId={setEditNoteId}
+                                                    editContent={editContent}
+                                                    setEditContent={setEditContent}
+                                                    handleUpdateNote={handleUpdateNote}
+                                                    onDoneToggle={onDoneToggle}
+                                                    onDeleteClick={onDeleteClick}
+                                                    pendingNote={pendingNote}
+                                                    draftContent={draftContent}
+                                                    setDraftContent={setDraftContent}
+                                                    handleSaveNote={handleSaveNote}
+                                                    setPendingNote={setPendingNote}
+                                                    deleteCoords={deleteCoords}
+                                                    deletingNoteId={deletingNoteId}
+                                                    celebratingNoteId={celebratingNoteId}
+                                                    isFlyingUpId={isFlyingUpId}
+                                                    onArchive={(id) => onUpdateLead(id, { status: 'Archived' })}
+                                                    onActivate={(id) => onUpdateLead(id, { status: 'New' })}
+                                                    visibleColumns={getVisibleColumns('Seller')}
+                                                    activeTab="Seller"
+                                                    onUpdateLead={onUpdateLead}
+                                                    realtorSettings={realtorSettings}
+                                                />
+                                            ))}
+                                        </div>
+                                    )
                                 ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-24">
-                                        {filteredSellerLeads.map((lead, index) => (
-                                            <LeadGalleryItem
-                                                onUpdateAvatar={onUpdateAvatar}
-                                                key={lead.id}
-                                                lead={lead}
-                                                stage={sellerFunnelCategory}
-                                                index={index + filteredBuyerLeads.length}
-                                                selectedIds={selectedIds}
-                                                handleSelectOne={handleSelectOne}
-                                                notes={notes}
-                                                editNoteId={editNoteId}
-                                                setEditNoteId={setEditNoteId}
-                                                editContent={editContent}
-                                                setEditContent={setEditContent}
-                                                handleUpdateNote={handleUpdateNote}
-                                                onDoneToggle={onDoneToggle}
-                                                onDeleteClick={onDeleteClick}
-                                                pendingNote={pendingNote}
-                                                draftContent={draftContent}
-                                                setDraftContent={setDraftContent}
-                                                handleSaveNote={handleSaveNote}
-                                                setPendingNote={setPendingNote}
-                                                deleteCoords={deleteCoords}
-                                                deletingNoteId={deletingNoteId}
-                                                celebratingNoteId={celebratingNoteId}
-                                                isFlyingUpId={isFlyingUpId}
-                                                onArchive={(id) => onUpdateLead(id, { status: 'Archived' })}
-                                                onActivate={(id) => onUpdateLead(id, { status: 'New' })}
-                                                visibleColumns={getVisibleColumns('Seller')}
-                                                activeTab="Seller"
-                                                onUpdateLead={onUpdateLead}
-                                                realtorSettings={realtorSettings}
-                                            />
-                                        ))}
+                                    <div className="py-12 text-center text-slate-400 border-2 border-dashed border-slate-100 rounded-[2rem]">
+                                        No sellers found in funnel for this period.
                                     </div>
-                                )
-                            ) : (
-                                <div className="py-12 text-center text-slate-400 border-2 border-dashed border-slate-100 rounded-[2rem]">
-                                    No sellers found in funnel for this period.
-                                </div>
-                            )}
-                        </section>
+                                )}
+                            </section>
+                        )}
+
+                    </div>
+
+                    {/* Trash Bin for Fly-away Animation & Flying Clones */}
+                    {deletingNoteId && (
+                        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[10000] flex flex-col items-center gap-2 pointer-events-none">
+                            <div className="w-16 h-16 bg-rose-500 rounded-full flex items-center justify-center text-white shadow-2xl bin-active">
+                                <i className="fa-solid fa-trash-can text-2xl"></i>
+                            </div>
+                            <span className="text-rose-600 font-bold text-xs uppercase tracking-widest bg-white px-3 py-1 rounded-full shadow-sm">Discarding...</span>
+                        </div>
                     )}
-                </div>
 
-                {/* Trash Bin for Fly-away Animation & Flying Clones */}
-                {deletingNoteId && (
-                    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[10000] flex flex-col items-center gap-2 pointer-events-none">
-                        <div className="w-16 h-16 bg-rose-500 rounded-full flex items-center justify-center text-white shadow-2xl bin-active">
-                            <i className="fa-solid fa-trash-can text-2xl"></i>
+                    {/* The Floating Animation Clone */}
+                    {(deletingNoteId || isFlyingUpId) && animatingNoteData && deleteCoords && (
+                        <div
+                            className={`p-2.5 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[12px] font-bold post-it-font whitespace-normal shadow-2xl flex flex-col fixed z-[10001] pointer-events-none ${animatingNoteData.color || 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]'} ${deletingNoteId ? 'animate-fly-away' : 'animate-fly-up'}`}
+                            style={{
+                                '--start-top': `${deleteCoords.top}px`,
+                                '--start-left': `${deleteCoords.left}px`,
+                                '--rotation': '0deg' // We'll just use 0deg for the clone to keep it simple or we could pass rotation
+                            } as React.CSSProperties}
+                        >
+                            <div className="text-[7px] opacity-40 mb-1 font-sans leading-none uppercase tracking-tighter">
+                                {new Date(animatingNoteData.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                            <div className="text-slate-800 line-clamp-4 leading-tight">{animatingNoteData.content}</div>
                         </div>
-                        <span className="text-rose-600 font-bold text-xs uppercase tracking-widest bg-white px-3 py-1 rounded-full shadow-sm">Discarding...</span>
-                    </div>
-                )}
-
-                {/* The Floating Animation Clone */}
-                {(deletingNoteId || isFlyingUpId) && animatingNoteData && deleteCoords && (
-                    <div
-                        className={`p-2.5 pt-4 w-24 h-24 rounded-sm border-t border-black/5 text-[12px] font-bold post-it-font whitespace-normal shadow-2xl flex flex-col fixed z-[10001] pointer-events-none ${animatingNoteData.color || 'bg-[#ffff88] text-slate-800 border-[#eeee77] shadow-[5px_5px_7px_rgba(33,33,33,.1)]'} ${deletingNoteId ? 'animate-fly-away' : 'animate-fly-up'}`}
-                        style={{
-                            '--start-top': `${deleteCoords.top}px`,
-                            '--start-left': `${deleteCoords.left}px`,
-                            '--rotation': '0deg' // We'll just use 0deg for the clone to keep it simple or we could pass rotation
-                        } as React.CSSProperties}
-                    >
-                        <div className="text-[7px] opacity-40 mb-1 font-sans leading-none uppercase tracking-tighter">
-                            {new Date(animatingNoteData.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                        <div className="text-slate-800 line-clamp-4 leading-tight">{animatingNoteData.content}</div>
-                    </div>
-                )}
-            </DragDropContext>
+                    )}
+                </DragDropContext>
+            )}
 
             {/* Custom Confirmation Modal */}
-            {confirmModal && confirmModal.show && (
-                <div className="fixed inset-0 z-[1000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6">
-                    <div className="bg-white max-w-sm w-full rounded-[2rem] shadow-2xl p-8 animate-in zoom-in duration-200">
-                        <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 mb-6 border border-amber-100 mx-auto">
-                            <i className="fa-solid fa-triangle-exclamation text-2xl"></i>
-                        </div>
-                        <h3 className="text-xl font-black text-slate-900 text-center mb-2">{confirmModal.title}</h3>
-                        <p className="text-sm text-slate-500 text-center font-medium leading-relaxed mb-8">{confirmModal.message}</p>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setConfirmModal(null)}
-                                className="flex-1 px-6 py-4 rounded-2xl bg-slate-50 text-slate-400 font-bold text-xs uppercase tracking-widest hover:bg-slate-100 transition-all"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                id="confirm-bulk-action"
-                                onClick={confirmModal.onConfirm}
-                                className="flex-1 px-6 py-4 rounded-2xl bg-indigo-600 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
-                            >
-                                Confirm
-                            </button>
+            {
+                confirmModal && confirmModal.show && (
+                    <div className="fixed inset-0 z-[1000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6">
+                        <div className="bg-white max-w-sm w-full rounded-[2rem] shadow-2xl p-8 animate-in zoom-in duration-200">
+                            <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 mb-6 border border-amber-100 mx-auto">
+                                <i className="fa-solid fa-triangle-exclamation text-2xl"></i>
+                            </div>
+                            <h3 className="text-xl font-black text-slate-900 text-center mb-2">{confirmModal.title}</h3>
+                            <p className="text-sm text-slate-500 text-center font-medium leading-relaxed mb-8">{confirmModal.message}</p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setConfirmModal(null)}
+                                    className="flex-1 px-6 py-4 rounded-2xl bg-slate-50 text-slate-400 font-bold text-xs uppercase tracking-widest hover:bg-slate-100 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    id="confirm-bulk-action"
+                                    onClick={confirmModal.onConfirm}
+                                    className="flex-1 px-6 py-4 rounded-2xl bg-indigo-600 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                                >
+                                    Confirm
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 

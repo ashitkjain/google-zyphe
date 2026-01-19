@@ -4,9 +4,11 @@ interface LeadsHeaderProps {
     activeTab: 'Buyer' | 'Seller';
     setActiveTab: (tab: 'Buyer' | 'Seller') => void;
     onCreateLead: (initialUpdates?: any) => void;
+    displayMode: 'list' | 'gallery' | 'kanban';
+    setDisplayMode: (mode: 'list' | 'gallery' | 'kanban') => void;
 }
 
-const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCreateLead }) => {
+const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCreateLead, displayMode, setDisplayMode }) => {
     return (
         <div className="bg-slate-50 border-b border-slate-200 px-4 py-2 flex-shrink-0 w-full">
             <div className="flex items-center justify-between">
@@ -35,6 +37,31 @@ const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCr
                         title={`Create New ${activeTab} Lead`}
                     >
                         <i className="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+
+                {/* View Toggles */}
+                <div className="flex bg-slate-200/50 p-1 rounded-2xl items-center">
+                    <button
+                        onClick={() => setDisplayMode('kanban')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${displayMode === 'kanban' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <i className="fa-solid fa-columns"></i>
+                        Kanban
+                    </button>
+                    <button
+                        onClick={() => setDisplayMode('gallery')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${displayMode === 'gallery' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <i className="fa-solid fa-table-cells-large"></i>
+                        Gallery
+                    </button>
+                    <button
+                        onClick={() => setDisplayMode('list')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${displayMode === 'list' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <i className="fa-solid fa-list-ul"></i>
+                        List
                     </button>
                 </div>
             </div>
