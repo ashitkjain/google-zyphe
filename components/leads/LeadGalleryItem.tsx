@@ -426,34 +426,6 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                         {/* skipping to grid for brevity in replacement search */}
 
                         <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
-                            {/* Contacted Status Leaves */}
-                            {lead.initialContactIn30Mins === true && (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onUpdateLead(lead.id, { initialContactIn30Mins: false });
-                                    }}
-                                    className="flex items-center gap-1 bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm border border-emerald-100 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 transition-colors cursor-pointer"
-                                    title="Manually mark as missed"
-                                >
-                                    <i className="fa-solid fa-leaf text-[8px]"></i>
-                                    got it
-                                </button>
-                            )}
-                            {lead.initialContactIn30Mins === false && (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onUpdateLead(lead.id, { initialContactIn30Mins: true });
-                                    }}
-                                    className="flex items-center gap-1 bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm border border-rose-100 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-100 transition-colors cursor-pointer"
-                                    title="Manually mark as contacted"
-                                >
-                                    <i className="fa-solid fa-leaf text-[8px]"></i>
-                                    missed
-                                </button>
-                            )}
-
                             <div className="flex items-center gap-1">
                                 <button
                                     onClick={(e) => {
@@ -522,42 +494,41 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                     {lead.fullName || (lead.firstName || lead.lastName ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim() : 'Unknown Client')}
                                 </div>
 
-                                {isLeadsStage && lead.initialContactIn30Mins === undefined && (
-                                    <button
-                                        onClick={handleContacted}
-                                        className="mt-1 flex items-center justify-center gap-1.5 px-3 py-1 bg-indigo-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md shadow-indigo-200 active:scale-95 self-start"
-                                    >
-                                        <i className="fa-solid fa-paper-plane text-[8px]"></i>
-                                        Contacted
-                                    </button>
-                                )}
-
-                                {getVisibleColumns().has('phone') && (
-                                    <div className="flex flex-col gap-0.5 text-[12px] text-slate-400 font-bold whitespace-nowrap overflow-hidden">
-                                        {lead.email && (
-                                            <div className="flex items-center gap-1.5 pr-2 min-w-0 pb-1">
-                                                <i className="fa-solid fa-envelope opacity-30 text-[8px] flex-shrink-0"></i>
-                                                <span className="truncate">{lead.email}</span>
-                                                {(lead.preferredContactMethod || '').toLowerCase() === 'email' && (
-                                                    <span className="text-[9px] text-indigo-400 font-medium italic whitespace-nowrap flex-shrink-0">
-                                                        - preferred
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
-                                        {lead.phone && (
-                                            <div className="flex items-center gap-1.5 pr-2 min-w-0">
-                                                <i className="fa-solid fa-phone opacity-30 text-[8px] flex-shrink-0"></i>
-                                                <span className="truncate">{lead.phone}</span>
-                                                {['text', 'call', 'sms'].includes((lead.preferredContactMethod || '').toLowerCase()) && (
-                                                    <span className="text-[9px] text-indigo-400 font-medium italic whitespace-nowrap flex-shrink-0">
-                                                        - preferred {(lead.preferredContactMethod || '').toLowerCase() === 'call' ? 'call' : 'text'}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                                <div className="flex flex-col gap-0.5 text-[12px] text-slate-400 font-bold whitespace-nowrap overflow-hidden">
+                                    {lead.email && (
+                                        <div className="flex items-center gap-1.5 pr-2 min-w-0 pb-1">
+                                            <i className="fa-solid fa-envelope opacity-30 text-[8px] flex-shrink-0"></i>
+                                            <span className="truncate">{lead.email}</span>
+                                            {(() => {
+                                                const preferredMethod = lead.primaryContactInfo?.preferredMethod || lead.preferredContactMethod;
+                                                return preferredMethod === 'Email' && (
+                                                    <i className="fa-solid fa-star text-yellow-500 text-[10px] flex-shrink-0" title="Preferred contact method"></i>
+                                                );
+                                            })()}
+                                        </div>
+                                    )}
+                                    {lead.phone && (
+                                        <div className="flex items-center gap-1.5 pr-2 min-w-0">
+                                            <i className="fa-solid fa-phone opacity-30 text-[8px] flex-shrink-0"></i>
+                                            <span className="truncate">{lead.phone}</span>
+                                            {(() => {
+                                                const preferredMethod = lead.primaryContactInfo?.preferredMethod || lead.preferredContactMethod;
+                                                if (preferredMethod === 'Phone') {
+                                                    return <i className="fa-solid fa-star text-yellow-500 text-[10px] flex-shrink-0" title="Preferred contact method"></i>;
+                                                }
+                                                if (preferredMethod === 'SMS') {
+                                                    return (
+                                                        <div className="flex items-center gap-1 flex-shrink-0">
+                                                            <i className="fa-solid fa-star text-yellow-500 text-[10px]" title="Preferred contact method"></i>
+                                                            <span className="text-[9px] text-indigo-500 font-bold uppercase">SMS</span>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 

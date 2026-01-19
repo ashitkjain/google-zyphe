@@ -134,7 +134,7 @@ export const LEAD_FIELD_CONFIG = [
             { name: 'email', label: 'Email Address', type: 'string', description: 'Primary email address', funnelVisibility: ['All'] },
             { name: 'phone', label: 'Phone Number', type: 'string', description: 'Primary phone number', funnelVisibility: ['All'] },
             { name: 'preferredMethod', label: 'Preferred Contact Method', type: 'enum', description: 'Preferred contact method', options: ['Phone', 'Email', 'SMS', 'WhatsApp'], funnelVisibility: ['All'] },
-            { name: 'smsConsent', label: 'SMS Consent', type: 'boolean', description: 'Consent to receive SMS', funnelVisibility: ['Nurture'] },
+            { name: 'smsConsent', label: 'SMS Consent', type: 'boolean', description: 'Consent to receive SMS', funnelVisibility: ['Leads', 'Nurture'] },
             { name: 'clientPhotoUrl', label: 'Client Photo URL', type: 'url', description: 'Link to profile photo', funnelVisibility: ['All'] },
             { name: 'homeAddress', label: 'Home Address', type: 'string', description: 'Current home address', funnelVisibility: [] }
         ],
@@ -271,9 +271,9 @@ export const LEAD_FIELD_CONFIG = [
         type: 'list',
         description: "History of calls and notes during the nurture phase.",
         fields: [
-            { name: 'CallDate', label: 'Call Date', type: 'date', description: 'Date of call', funnelVisibility: ['Nurture', 'Active Search'] },
-            { name: 'CommChannel', label: 'Communication Channel', type: 'enum', description: 'Method of communication', options: ['Text', 'Email', 'Phone', 'In-person'], funnelVisibility: ['Nurture', 'Active Search'] },
-            { name: 'Note', label: 'Notes', type: 'string', description: 'Summary of Discussion', funnelVisibility: ['Nurture', 'Active Search'] }
+            { name: 'CallDate', label: 'Call Date', type: 'date', description: 'Date of call', funnelVisibility: ['Leads', 'Nurture', 'Active Search'] },
+            { name: 'CommChannel', label: 'Communication Channel', type: 'enum', description: 'Method of communication', options: ['Text', 'Email', 'Phone', 'In-person'], funnelVisibility: ['Leads', 'Nurture', 'Active Search'] },
+            { name: 'Note', label: 'Notes', type: 'string', description: 'Summary of Discussion', funnelVisibility: ['Leads', 'Nurture', 'Active Search'] }
         ],
     },
     {
