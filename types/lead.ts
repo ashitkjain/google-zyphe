@@ -133,10 +133,10 @@ export const LEAD_FIELD_CONFIG = [
         fields: [
             { name: 'email', type: 'string', description: 'Primary email address', funnelVisibility: ['All'] },
             { name: 'phone', type: 'string', description: 'Primary phone number', funnelVisibility: ['All'] },
-            { name: 'preferredMethod', type: 'enum', description: 'Preferred contact method', options: ['Phone', 'Email', 'SMS', 'WhatsApp'], funnelVisibility: ['Nurture', 'Active Search'] },
+            { name: 'preferredMethod', type: 'enum', description: 'Preferred contact method', options: ['Phone', 'Email', 'SMS', 'WhatsApp'], funnelVisibility: ['All'] },
             { name: 'smsConsent', type: 'boolean', description: 'Consent to receive SMS', funnelVisibility: ['Nurture'] },
             { name: 'clientPhotoUrl', type: 'url', description: 'Link to profile photo', funnelVisibility: ['All'] },
-            { name: 'homeAddress', type: 'string', description: 'Current home address', funnelVisibility: ['Active Search', 'Offer'] }
+            { name: 'homeAddress', type: 'string', description: 'Current home address', funnelVisibility: [] }
         ],
     },
     {
@@ -145,13 +145,13 @@ export const LEAD_FIELD_CONFIG = [
         category: 'Leads',
         visibility: ['Buyer', 'Seller'],
         type: 'object',
-        description: "Source and origin details for attribution.",
+        description: "Source and origin details for the lead.",
         fields: [
-            { name: 'origin', type: 'string', description: 'Source of the lead', funnelVisibility: ['Leads', 'Nurture'] },
+            { name: 'origin', type: 'string', description: 'Source of the lead', funnelVisibility: ['Leads'] },
             { name: 'referralType', type: 'string', description: 'Type of referral', funnelVisibility: ['Leads'] },
             { name: 'campaign', type: 'string', description: 'Marketing campaign', funnelVisibility: ['Leads'] },
-            { name: 'createdDate', type: 'date', description: 'Date lead was created', funnelVisibility: ['All'] },
-            { name: 'leadType', type: 'enum', description: 'Buyer or Seller', options: ['Buyer', 'Seller'], funnelVisibility: ['All'] }
+            { name: 'createdDate', type: 'date', description: 'Date lead was created', funnelVisibility: ['Leads'] },
+            { name: 'leadType', type: 'enum', description: 'Buyer or Seller', options: ['Buyer', 'Seller'], funnelVisibility: ['Leads'] }
         ],
     },
     {
@@ -162,7 +162,7 @@ export const LEAD_FIELD_CONFIG = [
         type: 'enum',
         options: ['Cold', 'Warm', 'Hot', 'Stale'],
         description: "Subjective rating of lead interest level.",
-        funnelVisibility: ['Leads', 'Nurture']
+        funnelVisibility: ['Leads']
     },
     {
         id: 'leadStatus',
@@ -463,8 +463,8 @@ export const LEAD_STAGE_LIFECYCLE_CONFIG = [
         category: 'Leads',
         visibility: ['Buyer', 'Seller'],
         type: 'date',
-        description: 'System calculated date when the lead is considered "Stale" for this stage.',
-        funnelVisibility: ['Leads', 'Nurture', 'Active Search']
+        description: 'Deadline to follow up with the lead',
+        funnelVisibility: ['Leads']
     },
 
     {

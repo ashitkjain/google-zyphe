@@ -876,7 +876,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                         <div className="p-2 border-t border-slate-50">
                                             <button onClick={() => handleAddItem(group, type)} className="w-full py-2 flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition-all">
                                                 <i className="fa-solid fa-plus"></i>
-                                                Add Item to {group}
+                                                Add field to {group}
                                             </button>
                                         </div>
                                     )}
