@@ -73,7 +73,6 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
             email,
             phone,
             preferredMethod,
-            smsConsent: Math.random() > 0.3,
             clientPhotoUrl: Math.random() > 0.7 ? `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=random` : undefined,
             homeAddress: fullAddress
         },

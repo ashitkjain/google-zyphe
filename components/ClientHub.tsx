@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getLeads, getTasks, getTemplates, getPipelineNotes, seedMockData, saveUserProfile, getUserProfile, deleteUserAccount, resetPassword, updateLead, getRealtorClients, getClientActivity, persistCommMessage, updateSmsConsent, addPipelineNote, updatePipelineNote, deletePipelineNote, getReminderRules, updateReminderRule, seedReminderRules, deleteAllMockData } from '../services/firebaseService';
+import { getLeads, getTasks, getTemplates, getPipelineNotes, seedMockData, saveUserProfile, getUserProfile, deleteUserAccount, resetPassword, updateLead, getRealtorClients, getClientActivity, persistCommMessage, addPipelineNote, updatePipelineNote, deletePipelineNote, getReminderRules, updateReminderRule, seedReminderRules, deleteAllMockData } from '../services/firebaseService';
 import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates } from '../services/mockDataService';
 import { getDefaultReminderRules } from '../services/reminderRulesService';
 import { UserProfile, Lead, LeadNote, CRMTask, CommMessage, CommTemplate, FunnelStage, PipelineNote, LeadStatus, ReminderRule } from '../types';
@@ -229,13 +229,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         await persistCommMessage(msg, selectedClient.uid);
     };
 
-    const handleGrantConsent = async () => {
-        if (!selectedClient || !('uid' in selectedClient)) return;
-        const success = await updateSmsConsent(selectedClient.uid, true);
-        if (success) {
-            setSelectedClient({ ...selectedClient, smsConsent: true });
-        }
-    };
+
 
     const handleUpdateLead = async (leadId: string, updates: Partial<Lead>) => {
         const currentLead = leads.find(l => l.id === leadId);
@@ -576,8 +570,25 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     const handleResetMockData = async () => {
         if (confirm("Are you sure you want to delete all mock data and reload? This cannot be undone.")) {
             setLoadingData(true);
-            await deleteAllMockData(realtorId);
-            window.location.reload();
+            try {
+                // 1. Delete existing data
+                await deleteAllMockData(realtorId);
+
+                // 2. Generate and seed new data immediately
+                const initialLeads = getInitialMockLeads();
+                const initialTasks = getInitialMockTasks(realtorId);
+                const initialTemplates = getInitialMockTemplates(realtorId);
+
+                // 3. Wait for seeding to complete
+                await seedMockData(realtorId, initialLeads, initialTasks, initialTemplates);
+
+                // 4. Reload page (data is now guaranteed to inevitably be there)
+                window.location.reload();
+            } catch (error) {
+                console.error("Error resetting data:", error);
+                alert("Failed to reset data. Please try again.");
+                setLoadingData(false);
+            }
         }
     };
 

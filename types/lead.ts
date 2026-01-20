@@ -11,7 +11,6 @@ export interface PrimaryContact {
     email: string;
     phone: string;
     preferredMethod: 'Phone' | 'Email' | 'SMS' | 'WhatsApp';
-    smsConsent?: boolean;
     clientPhotoUrl?: string;
     homeAddress?: string;
 }
@@ -134,7 +133,6 @@ export const LEAD_FIELD_CONFIG = [
             { name: 'email', label: 'Email Address', type: 'string', description: 'Primary email address', funnelVisibility: ['All'] },
             { name: 'phone', label: 'Phone Number', type: 'string', description: 'Primary phone number', funnelVisibility: ['All'] },
             { name: 'preferredMethod', label: 'Preferred Contact Method', type: 'enum', description: 'Preferred contact method', options: ['Phone', 'Email', 'SMS', 'WhatsApp'], funnelVisibility: ['All'] },
-            { name: 'smsConsent', label: 'SMS Consent', type: 'boolean', description: 'Consent to receive SMS', funnelVisibility: ['Leads', 'Nurture'] },
             { name: 'clientPhotoUrl', label: 'Client Photo URL', type: 'url', description: 'Link to profile photo', funnelVisibility: ['All'] },
             { name: 'homeAddress', label: 'Home Address', type: 'string', description: 'Current home address', funnelVisibility: [] }
         ],
@@ -507,11 +505,35 @@ export const LEAD_STAGE_LIFECYCLE_CONFIG = [
         funnelVisibility: [],
         isLocked: true
     },
-
+    {
+        id: 'realtorComments',
+        label: 'Realtor Comments',
+        category: 'System Metadata',
+        visibility: ['Buyer', 'Seller'],
+        type: 'object',
+        description: 'Sticky notes / comments added by the realtor.',
+        funnelVisibility: ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed & Archived'],
+        fields: [
+            { name: 'General', label: 'General Note', type: 'string', funnelVisibility: ['All'] },
+            { name: 'Leads', label: 'Leads Note', type: 'string', funnelVisibility: ['All'] },
+            { name: 'Nurture', label: 'Nurture Note', type: 'string', funnelVisibility: ['All'] },
+            { name: 'Active Search', label: 'Active Search Note', type: 'string', funnelVisibility: ['All'] },
+            { name: 'Offer', label: 'Offer Note', type: 'string', funnelVisibility: ['All'] },
+            { name: 'Contract', label: 'Closing Note', type: 'string', funnelVisibility: ['All'] },
+            { name: 'Closed & Archived', label: 'Archived Note', type: 'string', funnelVisibility: ['All'] }
+        ]
+    }
 ] as const;
 
 
+export interface RealtorComment {
+    note: string;
+    color: 'yellow' | 'blue' | 'green' | 'pink' | 'purple';
+    date: Date | any;
+}
+
 export interface Lead {
+    realtorComments?: Record<string, RealtorComment>;
     id: string;
 
     // --- Phase 1 ---

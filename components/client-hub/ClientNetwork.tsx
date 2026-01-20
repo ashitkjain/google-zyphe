@@ -400,12 +400,7 @@ const ClientNetwork: React.FC<ClientNetworkProps> = ({
                                                 Prefers: {(selectedClient as Lead).preferredContactMethod}
                                             </span>
                                         )}
-                                        {(selectedClient as Lead).smsConsent !== undefined && (
-                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border flex items-center gap-2 ${(selectedClient as Lead).smsConsent ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
-                                                <i className={`fa-solid ${(selectedClient as Lead).smsConsent ? 'fa-comment-dots' : 'fa-comment-slash'} text-[8px]`}></i>
-                                                SMS {(selectedClient as Lead).smsConsent ? 'Enabled' : 'Disabled'}
-                                            </span>
-                                        )}
+
                                     </div>
                                 </div>
                             </div>

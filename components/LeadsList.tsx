@@ -360,11 +360,12 @@ const LeadsList: React.FC<InternalProps> = ({
 
         if (fieldConfig?.type === 'object' && lead[field as keyof Lead]) {
             const data = lead[field as keyof Lead] as any;
-            const visibleFields = (fieldConfig.fields || [])
+            const visibleFields = ((fieldConfig as any).fields || [])
                 .filter((f: any) => typeof f === 'object' && isStageVisible(f.funnelVisibility))
                 .map((f: any) => {
                     const val = data[f.name];
                     if (val === undefined || val === null || val === '') return null;
+                    if (typeof val === 'object' && val.note) return val.note;
                     if (f.type === 'currency') return `$${(val / 1000).toFixed(0)}k`;
                     if (f.type === 'date' || f.type === 'timestamp') {
                         const d = val?.toDate ? val.toDate() : new Date(val);

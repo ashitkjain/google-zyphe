@@ -543,20 +543,7 @@ export const verifyFirestoreConnection = async () => {
   }
 };
 
-export const updateSmsConsent = async (uid: string, consent: boolean, isLead = false) => {
-  if (!db) return false;
-  try {
-    const docRef = doc(db, isLead ? "leads" : "users", uid);
-    await setDoc(docRef, {
-      smsConsent: consent,
-      smsConsentTimestamp: serverTimestamp()
-    }, { merge: true });
-    return true;
-  } catch (error) {
-    handleFirestoreError(error, "updateSmsConsent");
-    return false;
-  }
-};
+
 
 export const updateFunnelStage = async (id: string, stage: FunnelStage, reason?: string, isLead = false) => {
   if (!db) return false;

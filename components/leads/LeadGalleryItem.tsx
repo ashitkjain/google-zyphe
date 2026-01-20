@@ -1,9 +1,37 @@
 import React from 'react';
-import { Lead, PipelineNote, LEAD_FIELD_CONFIG, LEAD_STAGE_LIFECYCLE_CONFIG } from '../../types';
+import { Lead, PipelineNote, LEAD_FIELD_CONFIG, LEAD_STAGE_LIFECYCLE_CONFIG, RealtorComment } from '../../types';
 import { Droppable } from '@hello-pangea/dnd';
 import { getStatusOptions } from '../../services/statusService';
 
-const TypedDroppable = Droppable as any;
+const TypedDroppable = ({ children, ...props }: any) => {
+    const [enabled, setEnabled] = React.useState(false);
+    React.useEffect(() => {
+        const animation = requestAnimationFrame(() => setEnabled(true));
+        return () => {
+            cancelAnimationFrame(animation);
+            setEnabled(false);
+        };
+    }, []);
+
+    if (!enabled) {
+        return children(
+            {
+                innerRef: (el: any) => { },
+                droppableProps: {
+                    'data-rbd-droppable-id': props.droppableId,
+                    'data-rbd-droppable-context-id': '0' // dummy context
+                },
+                placeholder: null
+            },
+            {
+                isDraggingOver: false,
+                draggingOverWith: null
+            }
+        );
+    }
+
+    return <Droppable {...props}>{children}</Droppable>;
+};
 
 interface LeadGalleryItemProps {
     lead: Lead;
@@ -48,6 +76,21 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
 }) => {
     const [editingCell, setEditingCell] = React.useState<string | null>(null);
     const [editValue, setEditValue] = React.useState<string>('');
+    const [isAddingComment, setIsAddingComment] = React.useState(false);
+    const [commentDraft, setCommentDraft] = React.useState<{ section: string, note: string, color: string }>({ section: 'General', note: '', color: 'yellow' });
+
+    const handleSaveRealtorComment = () => {
+        if (!commentDraft.note.trim()) return;
+        const comments = { ...(lead.realtorComments || {}) };
+        comments[commentDraft.section] = {
+            note: commentDraft.note,
+            color: commentDraft.color as any,
+            date: new Date()
+        };
+        onUpdateLead(lead.id, { realtorComments: comments });
+        setIsAddingComment(false);
+        setCommentDraft({ section: 'General', note: '', color: 'yellow' });
+    };
     // ... helper functions ...
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -58,7 +101,13 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
         return () => clearInterval(interval);
     }, []);
 
-    const receivedDate = lead.leadInfo?.createdDate ? new Date(lead.leadInfo.createdDate) : (lead.receivedAt?.toDate ? lead.receivedAt.toDate() : (lead.receivedAt ? new Date(lead.receivedAt) : null));
+    const getDate = (val: any) => {
+        if (!val) return null;
+        if (val.toDate && typeof val.toDate === 'function') return val.toDate();
+        if (val instanceof Date) return val;
+        return new Date(val);
+    };
+    const receivedDate = getDate(lead.leadInfo?.createdDate) || getDate(lead.receivedAt);
     const minsSinceReceived = receivedDate ? (now.getTime() - receivedDate.getTime()) / 60000 : 0;
 
     React.useEffect(() => {
@@ -163,7 +212,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
 
         if (fieldConfig?.type === 'object' && val) {
             const data = val as any;
-            const visibleFields = (fieldConfig.fields || [])
+            const visibleFields = ((fieldConfig as any).fields || [])
                 .filter((f: any) => typeof f === 'object' && isStageVisible(f.funnelVisibility))
                 .map((f: any) => {
                     const fieldVal = data[f.name];
@@ -187,7 +236,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
             if (field === 'stageHistory' || field === 'nurtureLog') {
                 const last = list[list.length - 1];
                 const separator = field === 'stageHistory' ? ' -> ' : ', ';
-                const visibleParts = (fieldConfig.fields || [])
+                const visibleParts = ((fieldConfig as any).fields || [])
                     .filter((f: any) => typeof f === 'object' && isStageVisible(f.funnelVisibility))
                     .map((f: any) => {
                         const subVal = last[f.name];
@@ -229,7 +278,6 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
         status: { label: 'Lead Status', icon: 'fa-signal', color: 'text-indigo-600' },
         engagementScore: { label: 'Lead Temperature', icon: 'fa-temperature-half', color: 'text-orange-500' },
         staleWarningDate: { label: 'Follow-up Deadline', icon: 'fa-clock', color: 'text-red-500' },
-        smsConsent: { label: 'SMS Consent', icon: 'fa-comments', color: 'text-blue-500' },
         isAlsoSelling: { label: 'Also Selling?', icon: 'fa-house-user' },
         isAlsoBuying: { label: 'Also Buying?', icon: 'fa-cart-shopping' },
         preQualified: { label: 'Pre-qualified?', icon: 'fa-certificate', color: 'text-emerald-600' },
@@ -251,6 +299,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
         existingAgentName: { label: 'Existing Agent?', icon: 'fa-user-tie' },
         callCount: { label: 'Call Tracker', icon: 'fa-phone-volume' },
         lastUpdated: { label: 'Last Updated On', icon: 'fa-pen-to-square' },
+        realtorComments: { label: 'Realtor Notes', icon: 'fa-note-sticky' },
 
         // New Fields
         motivation: { label: 'Motivation', icon: 'fa-lightbulb' },
@@ -395,33 +444,31 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
     ]));
 
     return (
-        <div
-            className={`p-4 rounded-[2rem] border transition-all border-l-4 group relative cursor-pointer flex flex-col ${selectedIds.has(lead.id)
-                ? (lead.leadType === 'Seller'
-                    ? 'ring-4 ring-emerald-500/50 border-emerald-200 bg-emerald-50/30 shadow-2xl scale-[1.02] z-10'
-                    : 'ring-4 ring-indigo-500/50 border-indigo-200 bg-indigo-50/30 shadow-2xl scale-[1.02] z-10')
-                : 'border-slate-200/60 shadow-sm hover:shadow-xl hover:scale-[1.01]'
-                } ${isFlashing ? 'animate-urgent-flash' : ''} ${rednessAlpha >= 1 ? 'bg-red-50 border-red-200' : 'bg-white'}`}
-            style={{
-                borderLeftColor: lead.leadType === 'Seller' ? '#10b981' : '#6366f1',
-                backgroundColor: rednessAlpha > 0 && rednessAlpha < 1 ? `rgba(255, 0, 0, ${rednessAlpha * 0.1})` : undefined
-            }}
-            onClick={(e) => { handleSelectOne(lead.id); }}
+        <TypedDroppable droppableId={lead.id} type="POSTIT_PALETTE">
+            {(noteProvided: any, noteSnapshot: any) => (
+                <div
+                    ref={noteProvided.innerRef}
+                    {...noteProvided.droppableProps}
+                    className={`p-4 rounded-[2rem] border border-l-4 group relative cursor-pointer flex flex-col ${selectedIds.has(lead.id)
+                        ? (lead.leadType === 'Seller'
+                            ? 'ring-4 ring-emerald-500/50 border-emerald-200 bg-emerald-50/30 shadow-2xl z-10'
+                            : 'ring-4 ring-indigo-500/50 border-indigo-200 bg-indigo-50/30 shadow-2xl z-10')
+                        : 'border-slate-200/60 shadow-sm hover:shadow-xl'
+                        } ${isFlashing ? 'animate-urgent-flash' : ''} ${rednessAlpha >= 1 ? 'bg-red-50 border-red-200' : 'bg-white'} ${noteSnapshot.isDraggingOver ? 'ring-2 ring-indigo-400 bg-indigo-50/30' : ''}`}
+                    style={{
+                        borderLeftColor: lead.leadType === 'Seller' ? '#10b981' : '#6366f1',
+                        backgroundColor: rednessAlpha > 0 && rednessAlpha < 1 ? `rgba(255, 0, 0, ${rednessAlpha * 0.1})` : undefined
+                    }}
+                    onClick={(e) => { handleSelectOne(lead.id); }}
 
-        >
-            {/* Selection Badge */}
-            {selectedIds.has(lead.id) && (
-                <div className={`absolute -top-2 -right-2 w-8 h-8 ${lead.leadType === 'Seller' ? 'bg-emerald-600' : 'bg-indigo-600'} text-white rounded-full flex items-center justify-center shadow-lg animate-in zoom-in duration-200 z-30 ring-4 ring-white`}>
-                    <i className="fa-solid fa-check text-sm"></i>
-                </div>
-            )}
-            <TypedDroppable droppableId={lead.id} type="POSTIT_PALETTE">
-                {(noteProvided: any, noteSnapshot: any) => (
-                    <div
-                        ref={noteProvided.innerRef}
-                        {...noteProvided.droppableProps}
-                        className={`flex-1 flex flex-col min-h-[130px] ${noteSnapshot.isDraggingOver ? 'bg-indigo-50/20' : ''}`}
-                    >
+                >
+                    {/* Selection Badge */}
+                    {selectedIds.has(lead.id) && (
+                        <div className={`absolute -top-2 -right-2 w-8 h-8 ${lead.leadType === 'Seller' ? 'bg-emerald-600' : 'bg-indigo-600'} text-white rounded-full flex items-center justify-center shadow-lg animate-in zoom-in duration-200 z-30 ring-4 ring-white`}>
+                            <i className="fa-solid fa-check text-sm"></i>
+                        </div>
+                    )}
+                    <div className="flex-1 flex flex-col min-h-[130px]">
                         {/* Top Right Actions code is unchanged and below... */}
                         {/* skipping to grid for brevity in replacement search */}
 
@@ -451,6 +498,13 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                             <div className="absolute inset-x-0 bottom-0 top-1/2 bg-orange-500/30 blur-xl rounded-full -z-10 animate-pulse"></div>
                                         </>
                                     )}
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setIsAddingComment(true); }}
+                                    className="w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-yellow-600 hover:border-yellow-200 hover:bg-yellow-50 flex items-center justify-center transition-all shadow-sm"
+                                    title="Add Comment"
+                                >
+                                    <i className="fa-solid fa-note-sticky text-[10px]"></i>
                                 </button>
                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
                                     <button
@@ -494,6 +548,8 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                     {lead.fullName || (lead.firstName || lead.lastName ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim() : 'Unknown Client')}
                                 </div>
 
+
+
                                 <div className="flex flex-col gap-0.5 text-[12px] text-slate-400 font-bold whitespace-nowrap overflow-hidden">
                                     {lead.email && (
                                         <div className="flex items-center gap-1.5 pr-2 min-w-0 pb-1">
@@ -520,7 +576,15 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                                     return (
                                                         <div className="flex items-center gap-1 flex-shrink-0">
                                                             <i className="fa-solid fa-star text-yellow-500 text-[10px]" title="Preferred contact method"></i>
-                                                            <span className="text-[9px] text-indigo-500 font-bold uppercase">SMS</span>
+                                                            <img src="/sms-icon.png" alt="SMS" className="w-4 h-4 object-contain" />
+                                                        </div>
+                                                    );
+                                                }
+                                                if (preferredMethod === 'WhatsApp') {
+                                                    return (
+                                                        <div className="flex items-center gap-1 flex-shrink-0">
+                                                            <i className="fa-solid fa-star text-yellow-500 text-[10px]" title="Preferred contact method"></i>
+                                                            <img src="/whatsapp-icon.png" alt="WhatsApp" className="w-4 h-4 object-contain" />
                                                         </div>
                                                     );
                                                 }
@@ -529,15 +593,28 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                         </div>
                                     )}
                                 </div>
+                                <div className="flex items-center gap-1.5 text-xs text-slate-400 font-bold mt-2 flex-wrap leading-tight">
+                                    <span className="">Source: <span className="text-slate-600">{lead.source || 'Unknown'}</span></span>
+                                    <span className="text-slate-300">•</span>
+                                    <span className="">Lead Since: <span className="text-slate-600">{receivedDate ? receivedDate.toLocaleDateString() : 'N/A'}</span></span>
+                                    <span className="text-slate-300">•</span>
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${(lead.status || '').includes('New') ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                        (lead.status || '').includes('Attempted') ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                                            (lead.status || '').includes('Unresponsive') ? 'bg-red-50 text-red-600 border-red-100' :
+                                                'bg-indigo-50 text-indigo-600 border-indigo-100'
+                                        }`}>
+                                        {lead.status || 'Status'}
+                                    </span>
+                                </div>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-4">
                             {gridFields
-                                .filter(colId => !['phone', 'email', 'firstName', 'lastName', 'message', 'notes'].includes(colId as string))
+                                .filter(colId => !['phone', 'email', 'firstName', 'lastName', 'message', 'notes', 'source', 'leadInfo', 'campaign', 'leadType', 'status', 'realtorComments'].includes(colId as string))
                                 .filter(colId => {
                                     const val = (lead as any)[colId as string];
-                                    if (colId === 'engagementScore' || colId === 'staleWarningDate' || colId === 'smsConsent') return true; // Always show even if empty for these important fields
+                                    if (colId === 'engagementScore' || colId === 'staleWarningDate') return true; // Always show even if empty for these important fields
                                     if (val === null || val === undefined || val === '' || val === false) return false;
                                     if (Array.isArray(val) && val.length === 0) return false;
                                     return true;
@@ -611,6 +688,101 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                 </div>
                             );
                         })()}
+
+                        {/* Realtor Comments Display */}
+                        {getVisibleColumns().has('realtorComments') && lead.realtorComments && Object.keys(lead.realtorComments).length > 0 && (
+                            <div className="mt-3 grid gap-2">
+                                {Object.entries(lead.realtorComments).map(([section, commentData]) => {
+                                    const comment = commentData as RealtorComment;
+                                    const colors: any = {
+                                        yellow: 'bg-yellow-50 text-yellow-900 border-yellow-200',
+                                        blue: 'bg-blue-50 text-blue-900 border-blue-200',
+                                        green: 'bg-emerald-50 text-emerald-900 border-emerald-200',
+                                        pink: 'bg-pink-50 text-pink-900 border-pink-200',
+                                        purple: 'bg-purple-50 text-purple-900 border-purple-200'
+                                    };
+                                    const styleClass = colors[comment.color] || colors.yellow;
+
+                                    return (
+                                        <div key={section} className={`p-3 rounded-xl border ${styleClass} relative group/note`}>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-[9px] font-black uppercase tracking-widest opacity-60">{section}</span>
+                                                <span className="text-[9px] font-black opacity-40">{comment.date?.toDate ? comment.date.toDate().toLocaleDateString() : new Date(comment.date).toLocaleDateString()}</span>
+                                            </div>
+                                            <div className="text-[11px] font-medium leading-relaxed italic">
+                                                "{comment.note}"
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* Add Note Overlay */}
+                        {isAddingComment && (
+                            <div className="absolute inset-x-2 bottom-2 z-50 bg-white shadow-2xl rounded-[2rem] border border-slate-200 p-5 flex flex-col animate-in slide-in-from-bottom-5 duration-300" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                                        <i className="fa-solid fa-note-sticky text-indigo-500"></i> Add Realtor Note
+                                    </h4>
+                                    <button onClick={() => setIsAddingComment(false)} className="w-6 h-6 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors">
+                                        <i className="fa-solid fa-xmark text-[10px]"></i>
+                                    </button>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1 mb-1 block">Category</label>
+                                        <select
+                                            value={commentDraft.section}
+                                            onChange={e => setCommentDraft({ ...commentDraft, section: e.target.value })}
+                                            className="w-full text-[11px] font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-50 transition-all appearance-none"
+                                        >
+                                            <option value="General">General Note</option>
+                                            {LEAD_FIELD_CONFIG.map(c => c.category).filter((v, i, a) => a.indexOf(v) === i && v).map(cat => (
+                                                <option key={cat} value={cat}>{cat}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1 mb-1 block">Tag Color</label>
+                                        <div className="flex items-center gap-3">
+                                            {['yellow', 'blue', 'green', 'pink', 'purple'].map(color => (
+                                                <button
+                                                    key={color}
+                                                    onClick={() => setCommentDraft({ ...commentDraft, color })}
+                                                    className={`w-8 h-8 rounded-full border-[3px] flex items-center justify-center ${commentDraft.color === color ? 'border-slate-300 scale-110' : 'border-transparent hover:scale-110'} transition-all`}
+                                                >
+                                                    <div className={`w-6 h-6 rounded-full ${color === 'yellow' ? 'bg-yellow-400' :
+                                                        color === 'blue' ? 'bg-blue-400' :
+                                                            color === 'green' ? 'bg-emerald-400' :
+                                                                color === 'pink' ? 'bg-pink-400' :
+                                                                    'bg-purple-400'
+                                                        } shadow-sm`}></div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <textarea
+                                        value={commentDraft.note}
+                                        onChange={e => setCommentDraft({ ...commentDraft, note: e.target.value })}
+                                        className="w-full h-24 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium text-slate-700 resize-none outline-none focus:ring-2 focus:ring-indigo-50 focus:border-indigo-500 transition-all placeholder:text-slate-400"
+                                        placeholder="Write your note here..."
+                                        autoFocus
+                                    />
+
+                                    <button
+                                        onClick={handleSaveRealtorComment}
+                                        className="w-full py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                    >
+                                        Save Information
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         {getVisibleColumns().has('notes') && (
                             <div
                                 className="flex flex-wrap gap-3 mt-4 relative min-h-[40px] flex-1 rounded-xl transition-colors"
@@ -689,9 +861,9 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                             </div>
                         )}
                     </div>
-                )}
-            </TypedDroppable>
-        </div >
+                </div>
+            )}
+        </TypedDroppable>
     );
 };
 
