@@ -156,7 +156,7 @@ export const LEAD_FIELD_CONFIG = [
             { name: 'referralType', label: 'Referral Type', type: 'string', description: 'Type of referral', funnelVisibility: ['Leads'] },
             { name: 'campaign', label: 'Marketing Campaign', type: 'string', description: 'Marketing campaign', funnelVisibility: ['Leads'] },
             { name: 'createdDate', label: 'Created Date', type: 'date', description: 'Date lead was created', funnelVisibility: ['Leads'] },
-            { name: 'leadType', label: 'Lead Type', type: 'enum', description: 'Buyer or Seller', options: ['Buyer', 'Seller'], funnelVisibility: ['Leads'] },
+            { name: 'leadType', label: 'Lead Type', type: 'enum', description: 'Buyer or Seller', options: ['Buyer', 'Seller'], funnelVisibility: [] },
             { name: 'legalName', label: 'Legal Name', type: 'string', description: 'Client legal name', funnelVisibility: ['Leads'] },
             { name: 'customerMessage', label: 'Customer Message', type: 'string', description: 'Message from customer', funnelVisibility: ['Leads'] },
             { name: 'earnestMoneyDue', label: 'Earnest Money Due', type: 'string', description: 'EMD due details', funnelVisibility: ['Leads'] },

@@ -604,14 +604,15 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                 const fieldsToRender: { id: string, label: string, value: any, isSubfield?: boolean, parentId?: string }[] = [];
 
                                 allConfigs.forEach((config: any) => {
+                                    const skipFields = ['phone', 'email', 'firstName', 'lastName', 'message', 'notes', 'source', 'campaign', 'leadType', 'status', 'realtorComments'];
                                     if (!isStageVisible(config.funnelVisibility)) return;
-                                    if (['phone', 'email', 'firstName', 'lastName', 'message', 'notes', 'source', 'campaign', 'leadType', 'status', 'realtorComments'].includes(config.id)) return;
+                                    if (skipFields.includes(config.id)) return;
 
                                     if (config.type === 'object' && config.fields) {
                                         const parentVal = (lead as any)[config.id];
                                         if (parentVal) {
                                             config.fields.forEach((f: any) => {
-                                                if (isStageVisible(f.funnelVisibility)) {
+                                                if (isStageVisible(f.funnelVisibility) && !skipFields.includes(f.name)) {
                                                     const val = parentVal[f.name];
                                                     if (val !== undefined && val !== null && val !== '' && val !== false) {
                                                         fieldsToRender.push({

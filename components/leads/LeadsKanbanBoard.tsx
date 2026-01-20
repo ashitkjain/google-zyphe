@@ -371,15 +371,17 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
 
                     const extraFields: { label: string, value: any }[] = [];
 
+                    const skipFields = ['phone', 'email', 'firstName', 'lastName', 'message', 'notes', 'source', 'campaign', 'leadType', 'status', 'realtorComments'];
+
                     allConfigs.forEach((config: any) => {
                         if (!isStageVisible(config.funnelVisibility)) return;
-                        if (['phone', 'email', 'firstName', 'lastName', 'message', 'notes', 'source', 'campaign', 'leadType', 'status', 'realtorComments'].includes(config.id)) return;
+                        if (skipFields.includes(config.id)) return;
 
                         if (config.type === 'object' && config.fields) {
                             const parentVal = (lead as any)[config.id];
                             if (parentVal) {
                                 config.fields.forEach((f: any) => {
-                                    if (isStageVisible(f.funnelVisibility)) {
+                                    if (isStageVisible(f.funnelVisibility) && !skipFields.includes(f.name)) {
                                         const val = parentVal[f.name];
                                         if (val !== undefined && val !== null && val !== '' && val !== false) {
                                             extraFields.push({ label: f.label, value: val });
