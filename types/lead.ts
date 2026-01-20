@@ -24,6 +24,7 @@ export interface LeadInfo {
     dueDiligence?: string;
     closingInfo?: string;
     inquiryProperty?: Property;
+    budgetRange?: string;
 }
 
 export interface NurtureLogEntry {
@@ -203,7 +204,8 @@ export const LEAD_FIELD_CONFIG = [
                     { name: 'mlsId', label: 'MLS ID', type: 'string', funnelVisibility: ['Leads'] },
                     { name: 'otherInfo', label: 'Other Info', type: 'string', funnelVisibility: ['Leads'] }
                 ]
-            }
+            },
+            { name: 'budgetRange', label: 'Budget Range', type: 'string', description: 'Desired price range', funnelVisibility: ['Leads', 'Nurture', 'Active Search'] }
         ],
     },
     {
@@ -591,7 +593,22 @@ export interface RealtorComment {
     date: Date | any;
 }
 
+export interface StickyNote {
+    x: number;
+    y: number;
+    rotation: number;
+    content: string;
+}
+
+export interface RealtorNoteHistoryEntry {
+    date: any;
+    text: string;
+    color: string;
+}
+
 export interface Lead {
+    stickyNotes?: StickyNote[];
+    realtorNotes?: RealtorNoteHistoryEntry[];
     realtorComments?: RealtorComment;
     id: string;
 

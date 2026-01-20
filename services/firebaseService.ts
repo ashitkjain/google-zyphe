@@ -405,6 +405,20 @@ export const sendInviteEmail = async (email: string, subject: string, html: stri
   }
 };
 
+export const getRealtorClients = async (realtorId: string) => {
+  if (!db) return [];
+  try {
+    const usersCol = collection(db, "users");
+    const q = query(usersCol, where("realtorId", "==", realtorId));
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => doc.data() as UserProfile);
+  } catch (error) {
+    console.error("Error fetching realtor clients:", error);
+    return [];
+  }
+};
+
+
 
 
 export const saveComprehensiveAnalysisToCloud = async (zpid: string, analysis: ComprehensiveAnalysisResult) => {

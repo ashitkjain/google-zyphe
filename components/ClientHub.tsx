@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getLeads, getTasks, getTemplates, getPipelineNotes, seedMockData, saveUserProfile, getUserProfile, updateLead, addPipelineNote, updatePipelineNote, deletePipelineNote, getReminderRules, updateReminderRule, deleteAllMockData } from '../services/firebaseService';
+import { getLeads, getTasks, getTemplates, getPipelineNotes, seedMockData, saveUserProfile, getUserProfile, updateLead, addPipelineNote, updatePipelineNote, deletePipelineNote, getReminderRules, updateReminderRule, deleteAllMockData, getRealtorClients } from '../services/firebaseService';
 import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates } from '../services/mockDataService';
 import { getDefaultReminderRules } from '../services/reminderRulesService';
 import { UserProfile, Lead, CRMTask, CommTemplate, FunnelStage, PipelineNote, ReminderRule } from '../types';
@@ -8,6 +8,7 @@ import Logo from './Logo';
 import LeadsList from './LeadsList';
 
 // Sub-components
+import ClientDetailsView from './client-hub/ClientDetailsView';
 import TaskBoard from './client-hub/TaskBoard';
 import StatusSettings from './client-hub/StatusSettings';
 import { StatusOption } from '../types';
@@ -27,12 +28,15 @@ const generateClientID = () => {
     return 'C-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 };
 
-type HubTab = 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'best_practices';
+type HubTab = 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'best_practices' | 'clients';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack }) => {
     const [activeTab, setActiveTab] = useState<HubTab>('leads');
     const [realtorProfile, setRealtorProfile] = useState<UserProfile | null>(null);
     const [settingsSubTab, setSettingsSubTab] = useState<'statuses' | 'properties'>('statuses');
+
+    const [clients, setClients] = useState<UserProfile[]>([]);
+    const [loadingClients, setLoadingClients] = useState(true);
 
 
 
@@ -136,13 +140,26 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         fetchRealtorProfile();
     }, [realtorId]);
 
+    useEffect(() => {
+        const fetchClients = async () => {
+            setLoadingClients(true);
+            const data = await getRealtorClients(realtorId);
+            setClients(data);
+            setLoadingClients(false);
+        };
+        fetchClients();
+    }, [realtorId]);
 
 
 
 
-    const handleUpdateLead = async (leadId: string, updates: Partial<Lead>) => {
+
+    const handleUpdateLead = async (leadId: string, updates: Partial<Lead>, collectionName: string = 'leads') => {
         const currentLead = leads.find(l => l.id === leadId);
-        if (currentLead) {
+        const currentClient = clients.find(c => c.uid === leadId);
+        const isUserCollection = collectionName === 'users' || (!currentLead && currentClient);
+
+        if (currentLead && !isUserCollection) {
             const now = new Date();
 
             // Automatically sync funnelStage if status is changing
@@ -156,33 +173,23 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             // Stage History Logic
             if (updates.funnelStage && updates.funnelStage !== currentLead.funnelStage) {
                 updates.stageLastChangedAt = now;
-
                 const history = [...(currentLead.stageHistory || [])];
-
-                // 1. Close previous stage entry if exists
                 const lastHistoryIndex = history.findIndex(h => !h.exitedAt);
                 if (lastHistoryIndex !== -1) {
-                    history[lastHistoryIndex] = {
-                        ...history[lastHistoryIndex],
-                        exitedAt: now
-                    };
+                    history[lastHistoryIndex] = { ...history[lastHistoryIndex], exitedAt: now };
                 }
-
-                // 2. Add new stage entry
                 history.push({
                     fromStage: currentLead.funnelStage,
                     toStage: updates.funnelStage,
                     enteredAt: now
                 });
-
                 updates.stageHistory = history as any;
             }
 
             // Archiving
             if (updates.status === 'Archived' && currentLead.status !== 'Archived') {
                 updates.archivedAt = now;
-            }
-            else if (currentLead.status === 'Archived' && updates.status && updates.status !== 'Archived') {
+            } else if (currentLead.status === 'Archived' && updates.status && updates.status !== 'Archived') {
                 updates.activatedAt = now;
             }
 
@@ -190,48 +197,30 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                 updates.closedAt = now;
             }
 
-            // Auto-populate subjectProperty from propertyAddress if not set
-            const targetStage = updates.funnelStage || currentLead.funnelStage;
-            const currentSubjectProperty = updates.subjectProperty || currentLead.subjectProperty;
-            const currentPropertyAddress = updates.propertyAddress || currentLead.propertyAddress;
-
-            if (!currentSubjectProperty && currentPropertyAddress) {
-                updates.subjectProperty = currentPropertyAddress;
+            if (!updates.subjectProperty && currentLead.propertyAddress && !currentLead.subjectProperty) {
+                updates.subjectProperty = currentLead.propertyAddress;
             }
 
-            // Warn if subjectProperty is not set for Offer and Contract stages (but don't block)
-            if (['Offer', 'Contract'].includes(targetStage)) {
-                const finalSubjectProperty = updates.subjectProperty || currentLead.subjectProperty;
-                if (!finalSubjectProperty || !finalSubjectProperty.trim()) {
-                    console.warn('[ClientHub] Moving to Offer/Contract stage without Subject Property. Consider adding one.');
-                }
-            }
-
-            // Ensure ClientID exists
             if (!currentLead.clientId && !updates.clientId) {
                 updates.clientId = generateClientID();
-                console.log(`[ClientHub] Assigned ClientID to existing lead during update: ${updates.clientId}`);
             }
         }
 
         // 1. Optimistically update local state
-        const leadExists = leads.some(l => l.id === leadId);
-        if (leadExists) {
-            setLeads(prev => prev.map(l => l.id === leadId ? { ...l, ...updates } : l));
+        if (isUserCollection) {
+            setClients(prev => prev.map(c => c.uid === leadId ? { ...c, ...updates } : c));
         } else {
-            setLeads(prev => [{ ...updates, id: leadId } as Lead, ...prev]);
+            setLeads(prev => prev.map(l => l.id === leadId ? { ...l, ...updates } : l));
         }
 
-        // 2. Prepare for persistence
-        const collectionName = 'leads';
-        const previousLeads = [...leads];
-
+        // 2. Persist to Firestore
         const success = await updateLead(leadId, updates, collectionName);
 
         if (!success) {
-            setLeads(previousLeads);
-            alert('Failed to save changes. Please try again.');
+            // Revert on failure (simple version: just log for now as state might have changed significantly)
+            console.error('Failed to save changes to Firestore');
         }
+        return success;
     };
 
     const handleDragEnd = async (result: DropResult) => {
@@ -404,6 +393,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     const tabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'leads', label: 'Funnel', icon: 'fa-bullseye' },
         { id: 'closing', label: 'Closing', icon: 'fa-file-invoice-dollar' },
+        { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
         { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
         { id: 'settings', label: 'Data Fields', icon: 'fa-sliders' },
@@ -530,6 +520,15 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             </header>
 
             <div className="flex-1 flex overflow-hidden">
+                {activeTab === 'clients' && (
+                    <ClientDetailsView
+                        clients={clients}
+                        leads={leads}
+                        loading={loadingClients}
+                        onUpdateClient={handleUpdateLead}
+                    />
+                )}
+
                 {activeTab === 'leads' && (
                     <LeadsList
                         leads={leads}

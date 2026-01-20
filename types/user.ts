@@ -26,4 +26,6 @@ export interface UserProfile {
         leadProperties?: PropertyOption[];
         columnSettings?: Record<string, string[]>;
     };
+    stickyNotes?: any[]; // Simplified for UserProfile to avoid circular imports if any
+    realtorNotes?: any[];
 }
