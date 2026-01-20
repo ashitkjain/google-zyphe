@@ -1,17 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { getLeads, getTasks, getTemplates, getPipelineNotes, seedMockData, saveUserProfile, getUserProfile, deleteUserAccount, resetPassword, updateLead, getRealtorClients, getClientActivity, persistCommMessage, addPipelineNote, updatePipelineNote, deletePipelineNote, getReminderRules, updateReminderRule, seedReminderRules, deleteAllMockData } from '../services/firebaseService';
+import React, { useState, useEffect } from 'react';
+import { getLeads, getTasks, getTemplates, getPipelineNotes, seedMockData, saveUserProfile, getUserProfile, updateLead, addPipelineNote, updatePipelineNote, deletePipelineNote, getReminderRules, updateReminderRule, deleteAllMockData } from '../services/firebaseService';
 import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates } from '../services/mockDataService';
 import { getDefaultReminderRules } from '../services/reminderRulesService';
-import { UserProfile, Lead, LeadNote, CRMTask, CommMessage, CommTemplate, FunnelStage, PipelineNote, LeadStatus, ReminderRule } from '../types';
+import { UserProfile, Lead, CRMTask, CommTemplate, FunnelStage, PipelineNote, ReminderRule } from '../types';
 import { DropResult } from '@hello-pangea/dnd';
 import Logo from './Logo';
 import LeadsList from './LeadsList';
 
 // Sub-components
-import ClientNetwork from './client-hub/ClientNetwork';
-
 import TaskBoard from './client-hub/TaskBoard';
-import KYCModal from './client-hub/KYCModal';
 import StatusSettings from './client-hub/StatusSettings';
 import { StatusOption } from '../types';
 import { isTerminalStatus, getFunnelStageForStatus, getStatusOptions } from '../services/statusService';
@@ -30,23 +27,14 @@ const generateClientID = () => {
     return 'C-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 };
 
-type HubTab = 'clients' | 'leads' | 'tasks' | 'comms' | 'settings' | 'whiteboard' | 'closing' | 'status_settings' | 'best_practices';
+type HubTab = 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'best_practices';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack }) => {
     const [activeTab, setActiveTab] = useState<HubTab>('leads');
-    const [clients, setClients] = useState<UserProfile[]>([]);
-    const [selectedClient, setSelectedClient] = useState<UserProfile | Lead | null>(null);
-    const [clientActivity, setClientActivity] = useState<{ favorites: any[], views: any[] }>({ favorites: [], views: [] });
-    const [loadingClients, setLoadingClients] = useState(true);
-    const [loadingActivity, setLoadingActivity] = useState(false);
     const [realtorProfile, setRealtorProfile] = useState<UserProfile | null>(null);
     const [settingsSubTab, setSettingsSubTab] = useState<'statuses' | 'properties'>('statuses');
 
-    // Communication Hub State
-    const [messages, setMessages] = useState<CommMessage[]>([]);
-    const [newMessage, setNewMessage] = useState('');
-    const [activeChannel, setActiveChannel] = useState<'SMS' | 'Email'>('SMS');
-    const scrollRef = useRef<HTMLDivElement>(null);
+
 
     const [leads, setLeads] = useState<Lead[]>([]);
     const [tasks, setTasks] = useState<CRMTask[]>([]);
@@ -58,17 +46,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     // Pipeline Notes State
     const [pipelineNotes, setPipelineNotes] = useState<PipelineNote[]>([]);
     const [pendingNote, setPendingNote] = useState<{ leadId: string, color: string } | null>(null);
-    const [kycLead, setKycLead] = useState<Lead | null>(null);
 
-    useEffect(() => {
-        // Global listener for KYC modal
-        (window as any).dispatchKYCEvent = (lead: Lead) => {
-            setKycLead(lead);
-        };
-        return () => {
-            (window as any).dispatchKYCEvent = undefined;
-        };
-    }, []);
 
     useEffect(() => {
         const initializeHubData = async () => {
@@ -145,15 +123,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             setPipelineNotes(_notes);
             setLoadingData(false);
 
-            // Refresh selectedClient to ensure it has the latest data (including KYC)
-            setSelectedClient(prev => {
-                if (!prev) return null;
-                const prevId = 'uid' in prev ? (prev as any).uid : (prev as any).id;
-                const updated = finalLeads.find(l => l.id === prevId);
-                // For users, they might be in the 'clients' state (which we haven't updated here as it's separate)
-                // but since Sarah is a lead, this will work for her.
-                return updated || prev;
-            });
+
         };
         initializeHubData();
     }, [realtorId]);
@@ -166,68 +136,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         fetchRealtorProfile();
     }, [realtorId]);
 
-    useEffect(() => {
-        const fetchClients = async () => {
-            setLoadingClients(true);
-            const data = await getRealtorClients(realtorId);
-            setClients(data);
-            if (data.length > 0) {
-                setSelectedClient(data[0]);
-            }
-            setLoadingClients(false);
-        };
-        fetchClients();
-    }, [realtorId]);
 
-    useEffect(() => {
-        const fetchActivity = async () => {
-            if (!selectedClient || !('uid' in selectedClient)) {
-                setClientActivity({ favorites: [], views: [] });
-                setMessages([]);
-                return;
-            }
-            setLoadingActivity(true);
-            const data = await getClientActivity(selectedClient.uid);
-            setClientActivity(data);
-
-            // Mock initial messages
-            setMessages([
-                { id: 'm1', threadId: 't1', senderId: selectedClient.uid, receiverId: realtorId, content: "Hi, I'm interested in the 123 Maple St property you shared.", timestamp: new Date(Date.now() - 3600000), channel: 'SMS', status: 'sent' },
-                { id: 'm2', threadId: 't1', senderId: realtorId, receiverId: selectedClient.uid, content: "Great! I just pulled the AI market report for it. It looks like a solid investment.", timestamp: new Date(Date.now() - 3000000), channel: 'SMS', status: 'delivered' },
-                { id: 'm3', threadId: 't1', senderId: selectedClient.uid, receiverId: realtorId, content: "Thanks! Can we see it tomorrow?", timestamp: new Date(Date.now() - 500000), channel: 'SMS', status: 'sent' },
-            ]);
-
-            setLoadingActivity(false);
-        };
-        fetchActivity();
-    }, [selectedClient, realtorId]);
-
-    useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-    }, [messages]);
-
-    const handleSendMessage = async () => {
-        if (!newMessage.trim() || !selectedClient || !('uid' in selectedClient)) return;
-
-        const msg: Partial<CommMessage> = {
-            threadId: 't1',
-            senderId: realtorId,
-            receiverId: selectedClient.uid,
-            content: newMessage,
-            channel: activeChannel,
-            status: 'sent'
-        };
-
-        // UI Optimistic Update
-        const localMsg: CommMessage = { ...msg, id: Date.now().toString(), timestamp: new Date() } as CommMessage;
-        setMessages([...messages, localMsg]);
-        setNewMessage('');
-
-        // Persist to Firestore
-        await persistCommMessage(msg, selectedClient.uid);
-    };
 
 
 
@@ -495,40 +404,13 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     const tabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'leads', label: 'Funnel', icon: 'fa-bullseye' },
         { id: 'closing', label: 'Closing', icon: 'fa-file-invoice-dollar' },
-        { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
         { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
         { id: 'settings', label: 'Data Fields', icon: 'fa-sliders' },
         { id: 'best_practices', label: 'Best Practices', icon: 'fa-book-open' },
     ];
 
-    const handleSaveKYC = async (updates: any) => {
-        if (!kycLead) return;
-        const _isUser = 'uid' in kycLead;
 
-        if (_isUser) {
-            // Mapping back normalized fields for UserProfile
-            const normalizedUpdates = { ...updates };
-            if (updates.name) {
-                normalizedUpdates.displayName = updates.name;
-                delete normalizedUpdates.name;
-            }
-            if (updates.phone) {
-                normalizedUpdates.phoneNumber = updates.phone;
-                delete normalizedUpdates.phone;
-            }
-
-            // Update UserProfile
-            const uid = (kycLead as UserProfile).uid;
-            setClients(prev => prev.map(c => c.uid === uid ? { ...c, ...normalizedUpdates } : c));
-            await saveUserProfile(uid, normalizedUpdates);
-        } else {
-            // Update Lead
-            const leadId = (kycLead as Lead).id;
-            handleUpdateLead(leadId, updates);
-        }
-        setKycLead(null);
-    };
 
     const handleUpdateStatuses = async (statuses: StatusOption[]) => {
         const success = await saveUserProfile(realtorId, {
@@ -648,25 +530,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             </header>
 
             <div className="flex-1 flex overflow-hidden">
-                {activeTab === 'clients' && (
-                    <ClientNetwork
-                        clients={clients}
-                        manualContacts={leads}
-                        selectedClient={selectedClient}
-                        setSelectedClient={setSelectedClient}
-                        onUpdateKYC={handleSaveKYC}
-                        clientActivity={clientActivity}
-                        loadingClients={loadingClients}
-                        loadingManual={loadingData}
-                        loadingActivity={loadingActivity}
-                        agentSettings={realtorProfile?.settings}
-                        onUpdateAgentSettings={(settings) => {
-                            saveUserProfile(realtorId, { settings });
-                            setRealtorProfile(prev => prev ? { ...prev, settings } : null);
-                        }}
-                    />
-                )}
-
                 {activeTab === 'leads' && (
                     <LeadsList
                         leads={leads}
@@ -803,16 +666,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
 
 
-            {/* KYC Modal */}
-            {
-                kycLead && (
-                    <KYCModal
-                        lead={kycLead}
-                        onClose={() => setKycLead(null)}
-                        onSave={handleSaveKYC}
-                    />
-                )
-            }
+
 
             <style dangerouslySetInnerHTML={{
                 __html: `

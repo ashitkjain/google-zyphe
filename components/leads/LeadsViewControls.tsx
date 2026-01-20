@@ -14,8 +14,8 @@ interface LeadsViewControlsProps {
     onArchive: () => void;
     showFilters: boolean;
     setShowFilters: (show: boolean) => void;
-    displayMode: 'list' | 'gallery';
-    setDisplayMode: (mode: 'list' | 'gallery') => void;
+    displayMode: 'gallery' | 'kanban';
+    setDisplayMode: (mode: 'gallery' | 'kanban') => void;
     onTabChange?: (tab: any) => void;
 }
 

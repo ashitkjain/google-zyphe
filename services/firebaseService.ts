@@ -405,34 +405,7 @@ export const sendInviteEmail = async (email: string, subject: string, html: stri
   }
 };
 
-export const getRealtorClients = async (realtorId: string) => {
-  if (!db) return [];
-  try {
-    const usersCol = collection(db, "users");
-    const q = query(usersCol, where("realtorId", "==", realtorId));
-    const snap = await getDocs(q);
-    return snap.docs.map(doc => doc.data() as UserProfile);
-  } catch (error) {
-    console.error("Error fetching realtor clients:", error);
-    return [];
-  }
-};
 
-export const getClientActivity = async (uid: string) => {
-  if (!db) return { favorites: [], views: [] };
-  try {
-    const favs = await getUserFavorites(uid);
-    const historyCol = collection(db, "users", uid, "viewHistory");
-    const q = query(historyCol, orderBy("timestamp", "desc"));
-    const historySnap = await getDocs(q);
-    const views = historySnap.docs.map(doc => doc.data());
-
-    return { favorites: favs, views };
-  } catch (error) {
-    console.error("Error fetching client activity:", error);
-    return { favorites: [], views: [] };
-  }
-};
 
 export const saveComprehensiveAnalysisToCloud = async (zpid: string, analysis: ComprehensiveAnalysisResult) => {
   if (!db) return false;
@@ -782,32 +755,7 @@ export const deletePipelineNote = async (noteId: string) => {
   }
 };
 
-export const persistCommMessage = async (message: Partial<CommMessage>, clientId?: string) => {
-  if (!db) return null;
-  try {
-    const messagesCol = collection(db, "messages");
-    const docRef = await addDoc(messagesCol, {
-      ...message,
-      timestamp: serverTimestamp()
-    });
 
-    // Auto-log to Activity Timeline
-    if (clientId) {
-      const activityCol = collection(db, "users", clientId, "activity");
-      await addDoc(activityCol, {
-        type: 'SMS',
-        content: message.content,
-        timestamp: serverTimestamp(),
-        authorId: message.senderId
-      });
-    }
-
-    return docRef.id;
-  } catch (error) {
-    handleFirestoreError(error, "persistCommMessage");
-    return null;
-  }
-};
 
 export const saveWhiteboard = async (userId: string, items: any[]) => {
   if (!db) return { success: false, error: "Database not initialized" };
