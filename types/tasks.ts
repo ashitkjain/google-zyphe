@@ -7,8 +7,6 @@ export interface CRMTask {
     dueDate: any;
     status: 'Pending' | 'Completed';
     priority: 'Low' | 'Normal' | 'High' | 'Urgent';
-    type: 'Call' | 'Email' | 'Showing' | 'Follow-up' | 'Closing';
-    isMock?: boolean;
 }
 
 export type ReminderRuleCategory = 'lead' | 'buyer' | 'seller' | 'relationship';

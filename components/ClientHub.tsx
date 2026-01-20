@@ -140,6 +140,11 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         fetchRealtorProfile();
     }, [realtorId]);
 
+    const handleRefreshTasks = async () => {
+        const _tasks = await getTasks(realtorId);
+        setTasks(_tasks);
+    };
+
     useEffect(() => {
         const fetchClients = async () => {
             setLoadingClients(true);
@@ -590,8 +595,11 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
                 {activeTab === 'tasks' && (
                     <TaskBoard
+                        realtorId={realtorId}
                         tasks={tasks}
+                        leads={leads}
                         reminderRules={reminderRules}
+                        onTasksUpdated={handleRefreshTasks}
                         onUpdateRule={(ruleId, updates) => {
                             // Local-only update to allow "Discard" to work
                             setReminderRules(prev => prev.map(r => r.id === ruleId ? { ...r, ...updates } : r));

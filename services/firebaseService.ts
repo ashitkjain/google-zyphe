@@ -1,6 +1,6 @@
 
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
-import { getStorage } from "firebase/storage";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
   getFirestore,
   doc,
@@ -157,7 +157,9 @@ const sanitizeForFirestore = (data: any): any => {
   if (data === undefined || data === null) return null;
   if (Array.isArray(data)) return data.map(sanitizeForFirestore);
   if (typeof data === 'object') {
-    if (data instanceof Date) return data;
+    // Prevent decomposition of Date objects and Firestore Timestamps
+    if (data instanceof Date || typeof data.toDate === 'function') return data;
+
     return Object.fromEntries(
       Object.entries(data).map(([key, value]) => [key, sanitizeForFirestore(value)])
     );
@@ -887,6 +889,48 @@ export const seedReminderRules = async (realtorId: string, rules: Omit<ReminderR
     return true;
   } catch (error) {
     handleFirestoreError(error, "seedReminderRules");
+    return false;
+  }
+};
+
+export const updateTask = async (taskId: string, updates: Partial<CRMTask>) => {
+  if (!db) return false;
+  try {
+    const docRef = doc(db, "tasks", taskId);
+    await setDoc(docRef, {
+      ...sanitizeForFirestore(updates),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "updateTask");
+    return false;
+  }
+};
+
+export const addTask = async (task: Partial<CRMTask>) => {
+  if (!db) return null;
+  try {
+    const docRef = await addDoc(collection(db, "tasks"), {
+      ...sanitizeForFirestore(task),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    return docRef.id;
+  } catch (error) {
+    handleFirestoreError(error, "addTask");
+    return null;
+  }
+};
+
+export const deleteTask = async (taskId: string) => {
+  if (!db) return false;
+  try {
+    const docRef = doc(db, "tasks", taskId);
+    await deleteDoc(docRef);
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "deleteTask");
     return false;
   }
 };
