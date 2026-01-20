@@ -150,13 +150,13 @@ const LeadsList: React.FC<InternalProps> = ({
             {/* Header */}
             <LeadsHeader
                 activeTab={activeTab}
-                onTabChange={(tab) => {
+                setActiveTab={(tab) => {
                     setActiveTab(tab);
                     onTabChange?.(tab);
                 }}
-                buyerCount={buyerLeads.length}
-                sellerCount={sellerLeads.length}
                 onCreateLead={onCreateLead}
+                displayMode={currentDisplayMode}
+                setDisplayMode={setCurrentDisplayMode}
             />
 
             {/* Kanban View */}
