@@ -443,7 +443,7 @@ export const LEAD_STAGE_LIFECYCLE_CONFIG = [
     {
         id: 'stageHistory',
         label: 'Stage History Log',
-        category: 'System Metadata',
+        category: 'General',
         visibility: ['Buyer', 'Seller'],
         type: 'list',
         description: 'Historical log of every stage move with duration.',
@@ -469,7 +469,7 @@ export const LEAD_STAGE_LIFECYCLE_CONFIG = [
     {
         id: 'clientId',
         label: 'Client ID',
-        category: 'System Metadata',
+        category: 'General',
         visibility: ['Buyer', 'Seller'],
         type: 'string',
         description: 'Unique Client Reference ID',
@@ -478,7 +478,7 @@ export const LEAD_STAGE_LIFECYCLE_CONFIG = [
     {
         id: 'id',
         label: 'System ID',
-        category: 'System Metadata',
+        category: 'General',
         visibility: ['Buyer', 'Seller'],
         type: 'string',
         description: 'Internal Database ID',
@@ -488,7 +488,7 @@ export const LEAD_STAGE_LIFECYCLE_CONFIG = [
     {
         id: 'isMock',
         label: 'Is Mock',
-        category: 'System Metadata',
+        category: 'General',
         visibility: ['Buyer', 'Seller'],
         type: 'boolean',
         description: 'Test data flag',
@@ -498,7 +498,7 @@ export const LEAD_STAGE_LIFECYCLE_CONFIG = [
     {
         id: 'collectionName',
         label: 'Collection Name',
-        category: 'System Metadata',
+        category: 'General',
         visibility: ['Buyer', 'Seller'],
         type: 'string',
         description: 'Database collection reference',
@@ -508,7 +508,7 @@ export const LEAD_STAGE_LIFECYCLE_CONFIG = [
     {
         id: 'realtorComments',
         label: 'Realtor Comments',
-        category: 'System Metadata',
+        category: 'General',
         visibility: ['Buyer', 'Seller'],
         type: 'object',
         description: 'Sticky notes / comments added by the realtor.',
@@ -566,7 +566,7 @@ export interface Lead {
     activeSearchStatus?: 'Broker Agreement Signed' | 'Actively Searching' | 'Showing';
     offerStatus?: 'Offer Submitted' | 'Offer Received';
 
-    // --- System Metadata (Maintained for App Logic) ---
+    // --- General (Maintained for App Logic) ---
     status: LeadStatus;
     funnelStage: FunnelStage;
     receivedAt: any;

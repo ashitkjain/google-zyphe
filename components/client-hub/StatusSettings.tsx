@@ -38,7 +38,7 @@ const PROPERTY_CATEGORIES = [
     'Active Search',
     'Offer',
     'Closing',
-    'System Metadata' // For lifecycle fields
+    'General' // For lifecycle fields
 ];
 
 const FunnelVisibilitySelect: React.FC<{
