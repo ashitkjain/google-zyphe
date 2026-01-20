@@ -51,8 +51,8 @@ export const stageDefaultColumns: Record<
 > = {
     Buyer: {
         'Leads': {
-            list: ['status', 'fullName', 'primaryContact', 'leadSource', 'leadInfo', 'engagementScore', 'lastUpdated'],
-            gallery: ['status', 'fullName', 'primaryContact', 'engagementScore', 'leadSource']
+            list: ['status', 'fullName', 'primaryContact', 'leadSource', 'leadInfo', 'motivation', 'engagementScore', 'lastUpdated'],
+            gallery: ['status', 'fullName', 'primaryContact', 'engagementScore', 'motivation', 'leadSource']
         },
         'Nurture': {
             list: ['status', 'fullName', 'targetTimeline', 'motivation', 'personaProfile', 'nurtureLog'],
@@ -77,8 +77,8 @@ export const stageDefaultColumns: Record<
     },
     Seller: {
         'Leads': {
-            list: ['status', 'fullName', 'primaryContact', 'leadSource', 'leadInfo', 'engagementScore'],
-            gallery: ['status', 'fullName', 'primaryContact', 'engagementScore']
+            list: ['status', 'fullName', 'primaryContact', 'leadSource', 'leadInfo', 'motivation', 'engagementScore'],
+            gallery: ['status', 'fullName', 'primaryContact', 'engagementScore', 'motivation']
         },
         'Nurture': {
             list: ['status', 'fullName', 'targetTimeline', 'motivation', 'personaProfile'],

@@ -221,7 +221,7 @@ export const LEAD_FIELD_CONFIG = [
         visibility: ['Buyer', 'Seller'],
         type: 'string',
         description: "The core reason the client is buying or selling.",
-        funnelVisibility: ['Nurture']
+        funnelVisibility: ['Leads', 'Nurture']
     },
     {
         id: 'targetTimeline',
