@@ -81,7 +81,18 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
             referralType: getRandom(MOCK_REFERRAL_TYPES),
             campaign: getRandom(MOCK_CAMPAIGNS),
             createdDate: receivedDate,
-            leadType: type
+            leadType: type,
+            legalName: fullName, // Default to full name as requested
+            customerMessage: Math.random() > 0.5 ? "I'm interested in viewing properties near the Highlands area." : "Looking for a home with a large backyard and modern kitchen.",
+            earnestMoneyDue: "$5,000 within 3 days",
+            mutualAcceptance: "Pending seller signature",
+            dueDiligence: "Inspections scheduled for next Tuesday",
+            closingInfo: "Targeting late next month for move-in",
+            inquiryProperty: {
+                address: fullAddress,
+                mlsId: `MLS-${Math.floor(Math.random() * 900000) + 100000}`,
+                otherInfo: "Inquired via Zillow"
+            }
         },
         engagementScore: getRandom(['Cold', 'Warm', 'Hot', 'Stale']),
 
@@ -152,12 +163,12 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
                 comment: getRandom(MOCK_COMMENTS)
             }
         ] : undefined,
-        transactionTeam: funnelStage === 'Closing' ? {
+        transactionTeam: funnelStage === 'Contract' ? {
             lenderPOC: "Sarah Lender",
             escrowOfficer: "Bob Escrow",
             coopAgent: "Alice Agent"
         } : undefined,
-        criticalDates: funnelStage === 'Closing' ? {
+        criticalDates: funnelStage === 'Contract' ? {
             inspectionEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
             appraisalDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
             closingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
@@ -166,7 +177,7 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
         nurtureStatus: funnelStage === 'Nurture' ? getRandom(['Meeting Fixed', 'Broker Agreement Sent']) : undefined,
         activeSearchStatus: funnelStage === 'Active Search' ? getRandom(['Broker Agreement Signed', 'Actively Searching', 'Showing']) : undefined,
         offerStatus: funnelStage === 'Offer' ? getRandom(['Offer Submitted', 'Offer Received']) : undefined,
-        closingStatus: funnelStage === 'Closing' ? getRandom(['In Contract', 'On Track', 'Delayed', 'At Risk', 'Rescinded']) : undefined,
+        closingStatus: funnelStage === 'Contract' ? getRandom(['In Contract', 'On Track', 'Delayed', 'At Risk', 'Rescinded']) : undefined,
 
         // --- Lifecycle Tracking ---
         staleWarningDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
