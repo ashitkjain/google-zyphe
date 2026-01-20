@@ -514,13 +514,9 @@ export const LEAD_STAGE_LIFECYCLE_CONFIG = [
         description: 'Sticky notes / comments added by the realtor.',
         funnelVisibility: ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed & Archived'],
         fields: [
-            { name: 'General', label: 'General Note', type: 'string', funnelVisibility: ['All'] },
-            { name: 'Leads', label: 'Leads Note', type: 'string', funnelVisibility: ['All'] },
-            { name: 'Nurture', label: 'Nurture Note', type: 'string', funnelVisibility: ['All'] },
-            { name: 'Active Search', label: 'Active Search Note', type: 'string', funnelVisibility: ['All'] },
-            { name: 'Offer', label: 'Offer Note', type: 'string', funnelVisibility: ['All'] },
-            { name: 'Contract', label: 'Closing Note', type: 'string', funnelVisibility: ['All'] },
-            { name: 'Closed & Archived', label: 'Archived Note', type: 'string', funnelVisibility: ['All'] }
+            { name: 'notes', label: 'Notes', type: 'string', funnelVisibility: ['All'] },
+            { name: 'date', label: 'Date', type: 'date', funnelVisibility: ['All'] },
+            { name: 'color', label: 'Post it color', type: 'string', funnelVisibility: ['All'] }
         ]
     }
 ] as const;
@@ -533,7 +529,7 @@ export interface RealtorComment {
 }
 
 export interface Lead {
-    realtorComments?: Record<string, RealtorComment>;
+    realtorComments?: RealtorComment;
     id: string;
 
     // --- Phase 1 ---

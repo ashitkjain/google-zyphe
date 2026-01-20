@@ -49,19 +49,19 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
     const [editingCell, setEditingCell] = React.useState<string | null>(null);
     const [editValue, setEditValue] = React.useState<string>('');
     const [isAddingComment, setIsAddingComment] = React.useState(false);
-    const [commentDraft, setCommentDraft] = React.useState<{ section: string, note: string, color: string }>({ section: 'General', note: '', color: 'yellow' });
+    const [commentDraft, setCommentDraft] = React.useState<{ note: string, color: string }>({ note: '', color: 'yellow' });
 
     const handleSaveRealtorComment = () => {
         if (!commentDraft.note.trim()) return;
-        const comments = { ...(lead.realtorComments || {}) };
-        comments[commentDraft.section] = {
-            note: commentDraft.note,
-            color: commentDraft.color as any,
-            date: new Date()
-        };
-        onUpdateLead(lead.id, { realtorComments: comments });
+        onUpdateLead(lead.id, {
+            realtorComments: {
+                note: commentDraft.note,
+                color: commentDraft.color as any,
+                date: new Date()
+            }
+        });
         setIsAddingComment(false);
-        setCommentDraft({ section: 'General', note: '', color: 'yellow' });
+        setCommentDraft({ note: '', color: 'yellow' });
     };
     // ... helper functions ...
     const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -662,10 +662,10 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                         })()}
 
                         {/* Realtor Comments Display */}
-                        {getVisibleColumns().has('realtorComments') && lead.realtorComments && Object.keys(lead.realtorComments).length > 0 && (
-                            <div className="mt-3 grid gap-2">
-                                {Object.entries(lead.realtorComments).map(([section, commentData]) => {
-                                    const comment = commentData as RealtorComment;
+                        {getVisibleColumns().has('realtorComments') && lead.realtorComments && lead.realtorComments.note && (
+                            <div className="mt-3">
+                                {(() => {
+                                    const comment = lead.realtorComments;
                                     const colors: any = {
                                         yellow: 'bg-yellow-50 text-yellow-900 border-yellow-200',
                                         blue: 'bg-blue-50 text-blue-900 border-blue-200',
@@ -676,17 +676,17 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                     const styleClass = colors[comment.color] || colors.yellow;
 
                                     return (
-                                        <div key={section} className={`p-3 rounded-xl border ${styleClass} relative group/note`}>
+                                        <div className={`p-3 rounded-xl border ${styleClass} relative group/note`}>
                                             <div className="flex items-center justify-between mb-1">
-                                                <span className="text-[9px] font-black uppercase tracking-widest opacity-60">{section}</span>
-                                                <span className="text-[9px] font-black opacity-40">{comment.date?.toDate ? comment.date.toDate().toLocaleDateString() : new Date(comment.date).toLocaleDateString()}</span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest opacity-60">Realtor Note</span>
+                                                <span className="text-[9px] font-black opacity-40">{comment.date?.toDate ? comment.date.toDate().toLocaleDateString() : (comment.date ? new Date(comment.date).toLocaleDateString() : '')}</span>
                                             </div>
                                             <div className="text-[11px] font-medium leading-relaxed italic">
                                                 "{comment.note}"
                                             </div>
                                         </div>
                                     );
-                                })}
+                                })()}
                             </div>
                         )}
 
@@ -703,19 +703,6 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                 </div>
 
                                 <div className="space-y-4">
-                                    <div>
-                                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1 mb-1 block">Category</label>
-                                        <select
-                                            value={commentDraft.section}
-                                            onChange={e => setCommentDraft({ ...commentDraft, section: e.target.value })}
-                                            className="w-full text-[11px] font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-50 transition-all appearance-none"
-                                        >
-                                            <option value="General">General Note</option>
-                                            {LEAD_FIELD_CONFIG.map(c => c.category).filter((v, i, a) => a.indexOf(v) === i && v).map(cat => (
-                                                <option key={cat} value={cat}>{cat}</option>
-                                            ))}
-                                        </select>
-                                    </div>
 
                                     <div>
                                         <label className="text-[9px] font-black text-slate-400 uppercase ml-1 mb-1 block">Tag Color</label>
