@@ -27,6 +27,7 @@ export interface LeadInfo {
     mutualAcceptance?: string;
     dueDiligence?: string;
     closingInfo?: string;
+    inquiryProperty?: Property;
 }
 
 export interface NurtureLogEntry {
@@ -161,7 +162,19 @@ export const LEAD_FIELD_CONFIG = [
             { name: 'earnestMoneyDue', label: 'Earnest Money Due', type: 'string', description: 'EMD due details', funnelVisibility: ['Leads'] },
             { name: 'mutualAcceptance', label: 'Mutual Acceptance', type: 'string', description: 'Mutual acceptance details', funnelVisibility: ['Leads'] },
             { name: 'dueDiligence', label: 'Due Diligence', type: 'string', description: 'Due diligence details', funnelVisibility: ['Leads'] },
-            { name: 'closingInfo', label: 'Closing Info', type: 'string', description: 'Closing information', funnelVisibility: ['Leads'] }
+            { name: 'closingInfo', label: 'Closing Info', type: 'string', description: 'Closing information', funnelVisibility: ['Leads'] },
+            {
+                name: 'inquiryProperty',
+                label: 'Inquiry Property',
+                type: 'object',
+                description: 'Property of interest',
+                funnelVisibility: ['Leads'],
+                fields: [
+                    { name: 'address', label: 'Property Address', type: 'string', funnelVisibility: ['Leads'] },
+                    { name: 'mlsId', label: 'MLS ID', type: 'string', funnelVisibility: ['Leads'] },
+                    { name: 'otherInfo', label: 'Other Info', type: 'string', funnelVisibility: ['Leads'] }
+                ]
+            }
         ],
     },
     {
