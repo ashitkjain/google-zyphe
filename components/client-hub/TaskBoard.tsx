@@ -247,7 +247,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                         )}
 
                         {calendarPreference === 'zyphe' && (
-                            <ZypheCalendar onSwitch={() => setCalendarPreference('none')} />
+                            <ZypheCalendar onSwitch={() => setCalendarPreference('none')} leads={leads} />
                         )}
                     </div>
                 )}

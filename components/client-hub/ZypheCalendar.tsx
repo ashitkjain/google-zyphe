@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 
+import { Lead } from '../../types';
+
 type ViewMode = 'month' | 'week' | 'day';
 
 interface CalendarEvent {
@@ -9,16 +11,20 @@ interface CalendarEvent {
     end: Date;
     type: 'appointment' | 'open-house' | 'task';
     client?: string;
+    clientId?: string;
     description?: string;
 }
 
 interface ZypheCalendarProps {
     onSwitch?: () => void;
+    leads?: Lead[];
 }
 
-const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
+const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch, leads = [] }) => {
     const [viewMode, setViewMode] = useState<ViewMode>('month');
     const [currentDate, setCurrentDate] = useState(new Date());
+    const [clientSearchTerm, setClientSearchTerm] = useState('');
+    const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
     const [events, setEvents] = useState<CalendarEvent[]>([
         {
             id: '1',
@@ -41,10 +47,65 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
     const [isEditing, setIsEditing] = useState(false);
 
+    const isPast = (date: Date) => {
+        return date.getTime() < new Date().getTime();
+    };
+
     const handleSaveEvent = (updatedEvent: CalendarEvent) => {
-        setEvents(prev => prev.map(e => e.id === updatedEvent.id ? updatedEvent : e));
+        if (isPast(updatedEvent.start)) {
+            alert("Cannot move an event into the past.");
+            return;
+        }
+
+        // Final safety check: if end is before start, set end to start + 30 mins
+        let finalEvent = { ...updatedEvent };
+        if (finalEvent.end.getTime() < finalEvent.start.getTime()) {
+            finalEvent.end = new Date(finalEvent.start.getTime() + 30 * 60 * 1000);
+        }
+
+        setEvents(prev => {
+            const exists = prev.find(e => e.id === finalEvent.id);
+            if (exists) {
+                return prev.map(e => e.id === finalEvent.id ? finalEvent : e);
+            } else {
+                return [...prev, finalEvent];
+            }
+        });
         setSelectedEvent(null);
         setIsEditing(false);
+    };
+
+    const handleCreateNewEvent = (date: Date, hour?: number) => {
+        const start = new Date(date);
+        if (hour !== undefined) {
+            start.setHours(hour, 0, 0, 0);
+        } else {
+            const now = new Date();
+            if (date.toDateString() === now.toDateString()) {
+                start.setHours(now.getHours() + 1, 0, 0, 0);
+            } else {
+                start.setHours(9, 0, 0, 0);
+            }
+        }
+
+        if (isPast(start)) {
+            alert("Cannot create events in the past.");
+            return;
+        }
+
+        const end = new Date(start.getTime() + 60 * 60 * 1000); // 1 hour default
+
+        const newEvent: CalendarEvent = {
+            id: `new-${Date.now()}`,
+            title: 'New Event',
+            start,
+            end,
+            type: 'appointment',
+            description: ''
+        };
+
+        setSelectedEvent(newEvent);
+        setIsEditing(true);
     };
 
     const formatTimeToInput = (date: Date) => {
@@ -69,10 +130,29 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
     };
 
     const handleEndTimeChange = (newTimeStr: string) => {
-        if (!selectedEvent) return;
+        if (!selectedEvent || !newTimeStr) return;
         const newEnd = updateTimeFromInput(selectedEvent.end, newTimeStr);
-        if (newEnd.getTime() < selectedEvent.start.getTime()) return;
         setSelectedEvent({ ...selectedEvent, end: newEnd });
+    };
+
+    const formatDateToInput = (date: Date) => {
+        const y = date.getFullYear();
+        const m = (date.getMonth() + 1).toString().padStart(2, '0');
+        const d = date.getDate().toString().padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
+
+    const handleDateChange = (dateStr: string) => {
+        if (!selectedEvent) return;
+        const [y, m, d] = dateStr.split('-').map(Number);
+
+        const newStart = new Date(selectedEvent.start);
+        newStart.setFullYear(y, m - 1, d);
+
+        const newEnd = new Date(selectedEvent.end);
+        newEnd.setFullYear(y, m - 1, d);
+
+        setSelectedEvent({ ...selectedEvent, start: newStart, end: newEnd });
     };
 
     const handleDeleteEvent = (eventId: string) => {
@@ -203,22 +283,37 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
             );
 
             cells.push(
-                <div key={i} className={`min-h-[140px] p-4 border border-slate-100 group transition-all relative ${isWeekend ? 'bg-slate-100/40' : ''} hover:bg-white`}>
-                    <span className={`text-sm font-bold transition-all inline-flex items-center justify-center mb-2 ${isToday ? 'bg-indigo-600 text-white w-8 h-8 rounded-xl shadow-lg shadow-indigo-200' : 'text-slate-600 group-hover:text-indigo-600 group-hover:scale-110'}`}>
-                        {i}
-                    </span>
+                <div
+                    key={i}
+                    onDoubleClick={() => handleCreateNewEvent(date)}
+                    className={`min-h-[140px] p-4 border border-slate-100 group transition-all relative cursor-pointer ${isToday ? 'bg-indigo-50/30' : ''} ${isWeekend ? 'bg-slate-100/40' : ''} hover:bg-white`}
+                >
+                    <div className="flex justify-between items-start mb-2">
+                        <span className={`text-sm font-bold transition-all inline-flex items-center justify-center ${isToday ? 'bg-indigo-600 text-white w-8 h-8 rounded-xl shadow-lg shadow-indigo-200' : 'text-slate-600 group-hover:text-indigo-600 group-hover:scale-110'}`}>
+                            {i}
+                        </span>
+                        {isToday && (
+                            <span className="text-[8px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-100 px-2 py-1 rounded-full">Today</span>
+                        )}
+                    </div>
                     <div className="space-y-1">
                         {dayEvents.map(event => (
                             <div
                                 key={event.id}
-                                onDoubleClick={() => { setSelectedEvent(event); setIsEditing(true); }}
-                                className={`p-1.5 text-[10px] font-bold rounded-lg border truncate shadow-sm cursor-pointer hover:scale-[1.02] transition-transform ${event.type === 'open-house' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                onClick={() => { setSelectedEvent(event); setIsEditing(true); }}
+                                className={`p-1.5 text-[10px] font-bold rounded-lg border break-words whitespace-normal shadow-sm cursor-pointer hover:scale-[1.02] transition-transform ${event.type === 'open-house' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
                                     event.type === 'task' ? 'bg-amber-50 text-amber-700 border-amber-100' :
                                         'bg-indigo-50 text-indigo-700 border-indigo-100'
                                     }`}
                             >
                                 <i className={`fa-solid ${event.type === 'open-house' ? 'fa-house-chimney' : event.type === 'task' ? 'fa-list-check' : 'fa-handshake'} mr-1.5 opacity-60`}></i>
                                 {event.title}
+                                {event.client && (
+                                    <div className="mt-0.5 opacity-60 font-medium truncate">
+                                        <i className="fa-solid fa-user-tag text-[8px] mr-1"></i>
+                                        {event.client}
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -244,9 +339,9 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
 
     const renderTimeGrid = (numColumns: number, columnDateFetcher: (colIdx: number) => Date) => {
         return (
-            <div className="bg-white rounded-[40px] shadow-2xl border border-slate-200/50 overflow-hidden flex flex-col h-[700px]">
+            <div className="bg-white rounded-[40px] shadow-2xl border border-slate-200/50 overflow-hidden relative">
                 {/* Header */}
-                <div className="flex border-b border-slate-100 bg-slate-50/50">
+                <div className="flex border-b border-slate-100 bg-slate-50/90 backdrop-blur-md sticky top-0 z-50">
                     <div className="w-20 border-r border-slate-100"></div>
                     {Array.from({ length: numColumns }).map((_, i) => {
                         const date = columnDateFetcher(i);
@@ -254,11 +349,14 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
                         const dayOfWeek = (date.getDay() + 6) % 7;
                         const isWeekend = dayOfWeek >= 5;
                         return (
-                            <div key={i} className={`flex-1 py-6 text-center border-r border-slate-100 last:border-r-0 ${isWeekend ? 'bg-slate-200/30' : ''}`}>
+                            <div key={i} className={`flex-1 py-6 text-center border-r border-slate-100 last:border-r-0 relative ${isWeekend ? 'bg-slate-200/30' : ''}`}>
+                                {isToday && (
+                                    <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-600"></div>
+                                )}
                                 <div className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isToday ? 'text-indigo-600' : 'text-slate-400'}`}>
                                     {daysOfWeek[dayOfWeek]}
                                 </div>
-                                <div className={`text-xl font-black ${isToday ? 'text-indigo-600' : 'text-slate-900'}`}>
+                                <div className={`text-xl font-black inline-flex items-center justify-center ${isToday ? 'bg-indigo-600 text-white w-10 h-10 rounded-2xl shadow-lg shadow-indigo-100' : 'text-slate-900'}`}>
                                     {date.getDate()}
                                 </div>
                             </div>
@@ -267,8 +365,8 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
                 </div>
 
                 {/* Grid */}
-                <div className="flex-1 overflow-y-auto relative scrollbar-hide">
-                    <div className="flex min-h-full">
+                <div className="relative">
+                    <div className="flex">
                         {/* Time labels */}
                         <div className="w-20 border-r border-slate-100 bg-slate-50/20">
                             {hours.map(hour => (
@@ -281,11 +379,31 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
                         {/* Columns */}
                         {Array.from({ length: numColumns }).map((_, i) => {
                             const date = columnDateFetcher(i);
+                            const isToday = date.toDateString() === new Date().toDateString();
                             const isWeekend = ((date.getDay() + 6) % 7) >= 5;
+
+                            // Current time line calculation
+                            const now = new Date();
+                            const currentHour = now.getHours() + (now.getMinutes() / 60);
+                            const relativeNow = currentHour >= 6 ? currentHour - 6 : currentHour + 18;
+
                             return (
                                 <div key={i} className={`flex-1 relative border-r border-slate-50 last:border-r-0 group ${isWeekend ? 'bg-slate-100/40' : ''}`}>
+                                    {isToday && (
+                                        <div
+                                            className="absolute left-0 right-0 z-40 pointer-events-none flex items-center"
+                                            style={{ top: `${relativeNow * 80}px` }}
+                                        >
+                                            <div className="w-2 h-2 rounded-full bg-rose-500 shadow-sm -ml-1"></div>
+                                            <div className="flex-1 border-t-2 border-rose-500 border-dotted shadow-[0_1px_2px_rgba(244,63,94,0.2)]"></div>
+                                        </div>
+                                    )}
                                     {hours.map(hour => (
-                                        <div key={hour} className="h-20 border-b border-slate-50 relative group-hover:bg-indigo-50/10 transition-colors">
+                                        <div
+                                            key={hour}
+                                            onDoubleClick={() => handleCreateNewEvent(date, hour)}
+                                            className="h-20 border-b border-slate-50 relative group-hover:bg-indigo-50/10 transition-colors cursor-crosshair"
+                                        >
                                             {/* Half hour line */}
                                             <div className="absolute top-1/2 left-0 right-0 border-t border-slate-50/50 border-dashed"></div>
                                         </div>
@@ -302,7 +420,7 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
                                         return (
                                             <div
                                                 key={event.id}
-                                                onDoubleClick={() => { setSelectedEvent(event); setIsEditing(false); }}
+                                                onClick={() => { setSelectedEvent(event); setIsEditing(true); }}
                                                 style={{
                                                     top: `${relativeStart * 80}px`,
                                                     height: `${duration * 80}px`
@@ -315,7 +433,7 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
                                                 <div className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">
                                                     {event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {event.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </div>
-                                                <div className="font-bold text-xs">{event.title}</div>
+                                                <div className="font-bold text-xs break-words whitespace-normal">{event.title}</div>
                                                 {event.client && (
                                                     <div className="text-[10px] mt-2 flex items-center gap-1 opacity-90 font-medium">
                                                         <i className="fa-solid fa-user-tag text-[8px]"></i> {event.client}
@@ -383,20 +501,36 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
                             }`} />
 
                         <div className="p-10">
-                            <div className="flex justify-between items-start mb-8">
-                                <div>
-                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">
-                                        Event Details
-                                    </span>
+                            <div className="flex justify-between items-start mb-8 gap-4">
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 block">
+                                            Event Details
+                                        </span>
+                                        {isPast(selectedEvent.start) && (
+                                            <span className="text-[8px] font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full uppercase tracking-widest border border-rose-100 italic">
+                                                Past Event
+                                            </span>
+                                        )}
+                                    </div>
                                     {isEditing ? (
-                                        <input
-                                            type="text"
-                                            className="text-3xl font-black text-slate-900 border-b-2 border-slate-100 focus:border-indigo-600 outline-none w-full pb-1"
+                                        <textarea
+                                            rows={1}
+                                            className="text-xl font-bold text-slate-900 border-b border-slate-100 focus:border-indigo-600 outline-none w-full pb-1 bg-transparent resize-none overflow-hidden"
                                             defaultValue={selectedEvent.title}
-                                            onChange={(e) => setSelectedEvent({ ...selectedEvent, title: e.target.value })}
+                                            onChange={(e) => {
+                                                setSelectedEvent({ ...selectedEvent, title: e.target.value });
+                                                // Auto-resize
+                                                e.target.style.height = 'auto';
+                                                e.target.style.height = e.target.scrollHeight + 'px';
+                                            }}
+                                            onFocus={(e) => {
+                                                e.target.style.height = 'auto';
+                                                e.target.style.height = e.target.scrollHeight + 'px';
+                                            }}
                                         />
                                     ) : (
-                                        <h3 className="text-3xl font-black text-slate-900">{selectedEvent.title}</h3>
+                                        <h3 className="text-xl font-bold text-slate-900 break-words">{selectedEvent.title}</h3>
                                     )}
                                 </div>
                                 <button
@@ -410,55 +544,148 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
                             <div className="space-y-6">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
+                                        <i className="fa-solid fa-calendar-day"></i>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Date</p>
+                                        {isEditing ? (
+                                            <input
+                                                type="date"
+                                                className="bg-slate-50 border-none rounded-lg px-3 py-1 text-slate-900 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none w-full"
+                                                value={formatDateToInput(selectedEvent.start)}
+                                                onChange={(e) => handleDateChange(e.target.value)}
+                                            />
+                                        ) : (
+                                            <p className="text-slate-900 font-semibold">
+                                                {selectedEvent.start.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
                                         <i className="fa-solid fa-clock-rotate-left"></i>
                                     </div>
                                     <div className="flex-1">
-                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Time Range</p>
+                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Time Range</p>
                                         {isEditing ? (
                                             <div className="flex items-center gap-2">
                                                 <input
                                                     type="time"
-                                                    className="bg-slate-50 border-none rounded-lg px-3 py-1 text-slate-900 font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    className="bg-slate-50 border-none rounded-lg px-3 py-1 text-slate-900 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none"
                                                     value={formatTimeToInput(selectedEvent.start)}
                                                     onChange={(e) => handleStartTimeChange(e.target.value)}
                                                 />
-                                                <span className="text-slate-400 font-bold">to</span>
+                                                <span className="text-slate-400 font-semibold">to</span>
                                                 <input
                                                     type="time"
-                                                    className="bg-slate-50 border-none rounded-lg px-3 py-1 text-slate-900 font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    className="bg-slate-50 border-none rounded-lg px-3 py-1 text-slate-900 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none"
                                                     value={formatTimeToInput(selectedEvent.end)}
                                                     onChange={(e) => handleEndTimeChange(e.target.value)}
                                                 />
                                             </div>
                                         ) : (
-                                            <p className="text-slate-900 font-bold">
+                                            <p className="text-slate-900 font-semibold">
                                                 {selectedEvent.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {selectedEvent.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </p>
                                         )}
                                     </div>
                                 </div>
 
-                                {selectedEvent.client && (
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
-                                            <i className="fa-solid fa-user-tie"></i>
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Client</p>
-                                            <p className="text-slate-900 font-bold">{selectedEvent.client}</p>
-                                        </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
+                                        <i className="fa-solid fa-user-tie"></i>
                                     </div>
-                                )}
+                                    <div className="flex-1 relative">
+                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Client</p>
+                                        {isEditing ? (
+                                            <div className="relative">
+                                                <div className="relative group">
+                                                    <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-xs group-focus-within:text-indigo-500 transition-colors"></i>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search or Select Client..."
+                                                        className="w-full bg-slate-50 border-none rounded-lg pl-9 pr-3 py-2 text-slate-900 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none placeholder:text-slate-300 text-sm"
+                                                        value={isClientDropdownOpen ? clientSearchTerm : (selectedEvent.client || '')}
+                                                        onChange={(e) => {
+                                                            setClientSearchTerm(e.target.value);
+                                                            setIsClientDropdownOpen(true);
+                                                        }}
+                                                        onFocus={() => {
+                                                            setIsClientDropdownOpen(true);
+                                                            setClientSearchTerm('');
+                                                        }}
+                                                    />
+                                                </div>
+
+                                                {isClientDropdownOpen && (
+                                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 max-h-[300px] overflow-y-auto z-[110] p-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                        {['Leads', 'Active Search', 'Nurture', 'Offer', 'Closing'].map(stage => {
+                                                            const stageLeads = leads.filter(l =>
+                                                                l.funnelStage === stage &&
+                                                                (l.fullName || '').toLowerCase().includes(clientSearchTerm.toLowerCase())
+                                                            );
+
+                                                            if (stageLeads.length === 0) return null;
+
+                                                            return (
+                                                                <div key={stage} className="mb-3 last:mb-0">
+                                                                    <div className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-50/50 rounded-lg mb-1">
+                                                                        {stage}
+                                                                    </div>
+                                                                    {stageLeads.map(lead => (
+                                                                        <button
+                                                                            key={lead.id}
+                                                                            onClick={() => {
+                                                                                setSelectedEvent({ ...selectedEvent, client: lead.fullName, clientId: lead.id });
+                                                                                setIsClientDropdownOpen(false);
+                                                                                setClientSearchTerm('');
+                                                                            }}
+                                                                            className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-indigo-50 transition-colors group flex items-center justify-between"
+                                                                        >
+                                                                            <span className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 transition-colors">{lead.fullName}</span>
+                                                                            <i className="fa-solid fa-chevron-right text-[10px] text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all"></i>
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                        {leads.filter(l => (l.fullName || '').toLowerCase().includes(clientSearchTerm.toLowerCase())).length === 0 && (
+                                                            <div className="p-8 text-center">
+                                                                <div className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-2">
+                                                                    <i className="fa-solid fa-user-slash text-sm"></i>
+                                                                </div>
+                                                                <p className="text-xs font-bold text-slate-400">No clients found</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {isClientDropdownOpen && (
+                                                    <div
+                                                        className="fixed inset-0 z-[105]"
+                                                        onClick={() => {
+                                                            setIsClientDropdownOpen(false);
+                                                            setClientSearchTerm('');
+                                                        }}
+                                                    />
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <p className="text-slate-900 font-semibold">{selectedEvent.client || "No client assigned"}</p>
+                                        )}
+                                    </div>
+                                </div>
 
                                 <div className="flex items-start gap-4">
                                     <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 mt-1">
                                         <i className="fa-solid fa-align-left"></i>
                                     </div>
                                     <div className="flex-1">
-                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Description</p>
+                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Description</p>
                                         {isEditing ? (
                                             <textarea
-                                                className="w-full text-slate-600 font-medium border-2 border-slate-100 rounded-2xl p-4 focus:border-indigo-600 outline-none min-h-[100px]"
+                                                className="w-full text-slate-600 font-medium border border-slate-100 rounded-2xl p-4 focus:border-indigo-600 outline-none min-h-[100px]"
                                                 defaultValue={selectedEvent.description}
                                                 onChange={(e) => setSelectedEvent({ ...selectedEvent, description: e.target.value })}
                                             />
@@ -476,34 +703,36 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
                                     <>
                                         <button
                                             onClick={() => handleSaveEvent(selectedEvent)}
-                                            className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
+                                            className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl font-bold uppercase tracking-wider text-[11px] shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
                                         >
                                             Save Changes
                                         </button>
                                         <button
                                             onClick={() => setIsEditing(false)}
-                                            className="px-8 py-4 bg-slate-50 text-slate-400 rounded-2xl font-black uppercase tracking-widest hover:text-slate-600 transition-all"
+                                            className="px-6 py-2.5 bg-slate-50 text-slate-400 rounded-xl font-bold uppercase tracking-wider text-[11px] hover:text-slate-600 transition-all"
                                         >
                                             Cancel
                                         </button>
                                     </>
                                 ) : (
                                     <>
-                                        <button
-                                            onClick={() => setIsEditing(true)}
-                                            className="flex-1 py-4 bg-white border border-slate-200 text-slate-900 rounded-2xl font-black uppercase tracking-widest shadow-sm hover:border-indigo-600 hover:text-indigo-600 transition-all flex items-center justify-center gap-2 group"
-                                        >
-                                            <i className="fa-solid fa-pen-to-square text-slate-400 group-hover:text-indigo-600"></i> Edit
-                                        </button>
+                                        {!isPast(selectedEvent.start) && (
+                                            <button
+                                                onClick={() => setIsEditing(true)}
+                                                className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-900 rounded-xl font-bold uppercase tracking-wider text-[11px] shadow-sm hover:border-indigo-600 hover:text-indigo-600 transition-all flex items-center justify-center gap-2 group"
+                                            >
+                                                <i className="fa-solid fa-pen-to-square text-slate-400 group-hover:text-indigo-600"></i> Edit
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => handleDeleteEvent(selectedEvent.id)}
-                                            className="flex-1 py-4 bg-white border border-rose-100 text-rose-500 rounded-2xl font-black uppercase tracking-widest shadow-sm hover:bg-rose-50 transition-all flex items-center justify-center gap-2 group"
+                                            className="flex-1 py-2.5 bg-white border border-rose-100 text-rose-500 rounded-xl font-bold uppercase tracking-wider text-[11px] shadow-sm hover:bg-rose-50 transition-all flex items-center justify-center gap-2 group"
                                         >
-                                            <i className="fa-solid fa-trash-can opacity-60"></i> Delete
+                                            <i className="fa-solid fa-trash-can opacity-60"></i> {isPast(selectedEvent.start) ? 'Cancel Past Event' : 'Delete'}
                                         </button>
                                         <button
                                             onClick={() => setSelectedEvent(null)}
-                                            className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
+                                            className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold uppercase tracking-wider text-[11px] hover:bg-slate-800 transition-all"
                                         >
                                             Close
                                         </button>
