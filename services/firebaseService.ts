@@ -27,7 +27,7 @@ import {
   deleteUser,
   sendPasswordResetEmail
 } from "firebase/auth";
-import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult, InvestmentResearchResult, CommMessage, FunnelStage, LeadHealth, Lead, CRMTask, CommTemplate, PipelineNote, ReminderRule } from "../types";
+import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult, InvestmentResearchResult, CommMessage, FunnelStage, LeadHealth, Lead, CRMTask, CommTemplate, PipelineNote, ReminderRule, CalendarEvent } from "../types";
 
 /**
  * FIRESTORE SECURITY RULES (REQUIRED):
@@ -98,6 +98,9 @@ import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, User
       allow read, write: if request.auth != null && (resource.data.realtorId == request.auth.uid || request.resource.data.realtorId == request.auth.uid);
     }
     match /templates/{templateId} {
+      allow read, write: if request.auth != null && (resource.data.realtorId == request.auth.uid || request.resource.data.realtorId == request.auth.uid);
+    }
+    match /calendar_events/{eventId} {
       allow read, write: if request.auth != null && (resource.data.realtorId == request.auth.uid || request.resource.data.realtorId == request.auth.uid);
     }
 
@@ -931,6 +934,67 @@ export const deleteTask = async (taskId: string) => {
     return true;
   } catch (error) {
     handleFirestoreError(error, "deleteTask");
+    return false;
+  }
+};
+
+// ===== CALENDAR EVENTS =====
+export const getCalendarEvents = async (realtorId: string) => {
+  if (!db) return [];
+  try {
+    const q = query(collection(db, "calendar_events"), where("realtorId", "==", realtorId));
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => {
+      const data = doc.data();
+      return {
+        ...data,
+        id: doc.id,
+        start: data.start?.toDate() || new Date(),
+        end: data.end?.toDate() || new Date()
+      } as CalendarEvent;
+    });
+  } catch (error) {
+    handleFirestoreError(error, "getCalendarEvents");
+    return [];
+  }
+};
+
+export const saveCalendarEvent = async (event: Partial<CalendarEvent>) => {
+  if (!db) return null;
+  try {
+    const eventId = event.id;
+    const sanitized = sanitizeForFirestore(event);
+
+    if (eventId && !eventId.startsWith('new-')) {
+      const docRef = doc(db, "calendar_events", eventId);
+      await setDoc(docRef, {
+        ...sanitized,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      return eventId;
+    } else {
+      const { id, ...rest } = sanitized;
+      const docRef = await addDoc(collection(db, "calendar_events"), {
+        ...rest,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      return docRef.id;
+    }
+  } catch (error) {
+    handleFirestoreError(error, "saveCalendarEvent");
+    return null;
+  }
+};
+
+export const deleteCalendarEvent = async (eventId: string) => {
+  if (!db) return false;
+  try {
+    const docRef = doc(db, "calendar_events", eventId);
+    await deleteDoc(docRef);
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "deleteCalendarEvent");
     return false;
   }
 };

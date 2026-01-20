@@ -1,78 +1,66 @@
-import React, { useState } from 'react';
-
-import { Lead } from '../../types';
+import React, { useState, useEffect } from 'react';
+import ClientSelector from './ClientSelector';
+import { getCalendarEvents, saveCalendarEvent, deleteCalendarEvent } from '../../services/firebaseService';
+import { Lead, CalendarEvent } from '../../types';
 
 type ViewMode = 'month' | 'week' | 'day';
 
-interface CalendarEvent {
-    id: string;
-    title: string;
-    start: Date;
-    end: Date;
-    type: 'appointment' | 'open-house' | 'task';
-    client?: string;
-    clientId?: string;
-    description?: string;
-}
-
 interface ZypheCalendarProps {
+    realtorId: string;
     onSwitch?: () => void;
     leads?: Lead[];
 }
 
-const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch, leads = [] }) => {
+const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, leads = [] }) => {
     const [viewMode, setViewMode] = useState<ViewMode>('month');
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [clientSearchTerm, setClientSearchTerm] = useState('');
-    const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
-    const [events, setEvents] = useState<CalendarEvent[]>([
-        {
-            id: '1',
-            title: 'Property Showing: 123 Maple St.',
-            start: new Date(new Date().setHours(13, 0, 0, 0)),
-            end: new Date(new Date().setHours(14, 30, 0, 0)),
-            type: 'appointment',
-            client: 'John Smith',
-            description: 'Show the backyard and master suite specifically.'
-        },
-        {
-            id: '2',
-            title: 'Open House: 456 Oak Ave',
-            start: new Date(new Date().setDate(new Date().getDate() + 2)),
-            end: new Date(new Date().setDate(new Date().getDate() + 2)),
-            type: 'open-house',
-            description: 'Provide refreshments.'
-        }
-    ]);
+    const [events, setEvents] = useState<CalendarEvent[]>([]);
+    const [isFetching, setIsFetching] = useState(true);
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
     const [isEditing, setIsEditing] = useState(false);
+
+    useEffect(() => {
+        const fetchEvents = async () => {
+            setIsFetching(true);
+            const fetched = await getCalendarEvents(realtorId);
+            setEvents(fetched);
+            setIsFetching(false);
+        };
+        fetchEvents();
+    }, [realtorId]);
 
     const isPast = (date: Date) => {
         return date.getTime() < new Date().getTime();
     };
 
-    const handleSaveEvent = (updatedEvent: CalendarEvent) => {
+    const handleSaveEvent = async (updatedEvent: CalendarEvent) => {
         if (isPast(updatedEvent.start)) {
             alert("Cannot move an event into the past.");
             return;
         }
 
         // Final safety check: if end is before start, set end to start + 30 mins
-        let finalEvent = { ...updatedEvent };
+        let finalEvent = { ...updatedEvent, realtorId };
         if (finalEvent.end.getTime() < finalEvent.start.getTime()) {
             finalEvent.end = new Date(finalEvent.start.getTime() + 30 * 60 * 1000);
         }
 
-        setEvents(prev => {
-            const exists = prev.find(e => e.id === finalEvent.id);
-            if (exists) {
-                return prev.map(e => e.id === finalEvent.id ? finalEvent : e);
-            } else {
-                return [...prev, finalEvent];
-            }
-        });
-        setSelectedEvent(null);
-        setIsEditing(false);
+        const savedId = await saveCalendarEvent(finalEvent);
+        if (savedId) {
+            const persistedEvent = { ...finalEvent, id: savedId };
+            setEvents(prev => {
+                const exists = prev.find(e => e.id === finalEvent.id || e.id === savedId);
+                if (exists) {
+                    return prev.map(e => (e.id === finalEvent.id || e.id === savedId) ? persistedEvent : e);
+                } else {
+                    return [...prev, persistedEvent];
+                }
+            });
+            setSelectedEvent(null);
+            setIsEditing(false);
+        } else {
+            alert("Failed to save event. Please check your connection.");
+        }
     };
 
     const handleCreateNewEvent = (date: Date, hour?: number) => {
@@ -97,6 +85,7 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch, leads = [] }) =
 
         const newEvent: CalendarEvent = {
             id: `new-${Date.now()}`,
+            realtorId,
             title: 'New Event',
             start,
             end,
@@ -155,10 +144,15 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch, leads = [] }) =
         setSelectedEvent({ ...selectedEvent, start: newStart, end: newEnd });
     };
 
-    const handleDeleteEvent = (eventId: string) => {
-        if (confirm('Are you sure you want to delete this event?')) {
+    const handleDeleteEvent = async (eventId: string) => {
+        if (!confirm('Are you sure you want to delete this event?')) return;
+
+        const success = await deleteCalendarEvent(eventId);
+        if (success) {
             setEvents(prev => prev.filter(e => e.id !== eventId));
             setSelectedEvent(null);
+        } else {
+            alert("Failed to delete event. Please check your connection.");
         }
     };
 
@@ -471,9 +465,18 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch, leads = [] }) =
             <div className="p-12 max-w-screen-2xl mx-auto">
                 {renderHeader()}
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    {viewMode === 'month' && renderMonthView()}
-                    {viewMode === 'week' && renderWeekView()}
-                    {viewMode === 'day' && renderDayView()}
+                    {isFetching ? (
+                        <div className="flex flex-col items-center justify-center py-40 bg-white/50 rounded-3xl border border-dashed border-slate-200">
+                            <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+                            <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Syncing Schedule...</p>
+                        </div>
+                    ) : (
+                        <>
+                            {viewMode === 'month' && renderMonthView()}
+                            {viewMode === 'week' && renderWeekView()}
+                            {viewMode === 'day' && renderDayView()}
+                        </>
+                    )}
                 </div>
 
                 <div className="mt-12 flex items-center justify-between text-slate-400 text-[10px] font-bold uppercase tracking-widest bg-white/50 backdrop-blur-md p-6 rounded-3xl border border-white">
@@ -600,77 +603,11 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch, leads = [] }) =
                                     <div className="flex-1 relative">
                                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Client</p>
                                         {isEditing ? (
-                                            <div className="relative">
-                                                <div className="relative group">
-                                                    <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-xs group-focus-within:text-indigo-500 transition-colors"></i>
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Search or Select Client..."
-                                                        className="w-full bg-slate-50 border-none rounded-lg pl-9 pr-3 py-2 text-slate-900 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none placeholder:text-slate-300 text-sm"
-                                                        value={isClientDropdownOpen ? clientSearchTerm : (selectedEvent.client || '')}
-                                                        onChange={(e) => {
-                                                            setClientSearchTerm(e.target.value);
-                                                            setIsClientDropdownOpen(true);
-                                                        }}
-                                                        onFocus={() => {
-                                                            setIsClientDropdownOpen(true);
-                                                            setClientSearchTerm('');
-                                                        }}
-                                                    />
-                                                </div>
-
-                                                {isClientDropdownOpen && (
-                                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 max-h-[300px] overflow-y-auto z-[110] p-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                                                        {['Leads', 'Active Search', 'Nurture', 'Offer', 'Closing'].map(stage => {
-                                                            const stageLeads = leads.filter(l =>
-                                                                l.funnelStage === stage &&
-                                                                (l.fullName || '').toLowerCase().includes(clientSearchTerm.toLowerCase())
-                                                            );
-
-                                                            if (stageLeads.length === 0) return null;
-
-                                                            return (
-                                                                <div key={stage} className="mb-3 last:mb-0">
-                                                                    <div className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-50/50 rounded-lg mb-1">
-                                                                        {stage}
-                                                                    </div>
-                                                                    {stageLeads.map(lead => (
-                                                                        <button
-                                                                            key={lead.id}
-                                                                            onClick={() => {
-                                                                                setSelectedEvent({ ...selectedEvent, client: lead.fullName, clientId: lead.id });
-                                                                                setIsClientDropdownOpen(false);
-                                                                                setClientSearchTerm('');
-                                                                            }}
-                                                                            className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-indigo-50 transition-colors group flex items-center justify-between"
-                                                                        >
-                                                                            <span className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 transition-colors">{lead.fullName}</span>
-                                                                            <i className="fa-solid fa-chevron-right text-[10px] text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all"></i>
-                                                                        </button>
-                                                                    ))}
-                                                                </div>
-                                                            );
-                                                        })}
-                                                        {leads.filter(l => (l.fullName || '').toLowerCase().includes(clientSearchTerm.toLowerCase())).length === 0 && (
-                                                            <div className="p-8 text-center">
-                                                                <div className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-2">
-                                                                    <i className="fa-solid fa-user-slash text-sm"></i>
-                                                                </div>
-                                                                <p className="text-xs font-bold text-slate-400">No clients found</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                                {isClientDropdownOpen && (
-                                                    <div
-                                                        className="fixed inset-0 z-[105]"
-                                                        onClick={() => {
-                                                            setIsClientDropdownOpen(false);
-                                                            setClientSearchTerm('');
-                                                        }}
-                                                    />
-                                                )}
-                                            </div>
+                                            <ClientSelector
+                                                leads={leads}
+                                                selectedClientId={selectedEvent.clientId}
+                                                onSelect={(id, name) => setSelectedEvent({ ...selectedEvent, clientId: id, client: name })}
+                                            />
                                         ) : (
                                             <p className="text-slate-900 font-semibold">{selectedEvent.client || "No client assigned"}</p>
                                         )}

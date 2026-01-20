@@ -3,6 +3,7 @@ import { CRMTask, ReminderRule, Lead } from '../../types';
 import ReminderRulesManager from './ReminderRulesManager';
 import { updateTask, addTask, deleteTask } from '../../services/firebaseService';
 import ZypheCalendar from './ZypheCalendar';
+import ClientSelector from './ClientSelector';
 
 interface TaskBoardProps {
     realtorId: string;
@@ -34,11 +35,6 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
     const [activeTab, setActiveTab] = useState<'calendar' | 'tasks' | 'rules'>('calendar');
     const [isSaving, setIsSaving] = useState(false);
     const [calendarPreference, setCalendarPreference] = useState<'none' | 'third-party' | 'zyphe'>('none');
-
-    // Filter leads to show only those in specific stages
-    const clientOptions = leads.filter(l =>
-        ['Leads', 'Nurture', 'Active Search', 'Offer', 'Closing'].includes(l.funnelStage)
-    );
 
     // Manage tasks locally for editing
     const [tasks, setTasks] = useState<CRMTask[]>(initialTasks);
@@ -247,7 +243,11 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                         )}
 
                         {calendarPreference === 'zyphe' && (
-                            <ZypheCalendar onSwitch={() => setCalendarPreference('none')} leads={leads} />
+                            <ZypheCalendar
+                                realtorId={realtorId}
+                                onSwitch={() => setCalendarPreference('none')}
+                                leads={leads}
+                            />
                         )}
                     </div>
                 )}
@@ -316,16 +316,14 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                                                             </button>
                                                         </td>
                                                         <td className="border border-slate-200 p-0 align-top">
-                                                            <select
-                                                                className="w-full h-full px-3 py-2 bg-transparent border-none text-xs text-slate-600 focus:ring-1 focus:ring-indigo-500 outline-none appearance-none"
-                                                                value={item.clientId || ''}
-                                                                onChange={(e) => handleTaskChange(item.id, 'clientId', e.target.value)}
-                                                            >
-                                                                <option value="">- Select Client -</option>
-                                                                {clientOptions.map(client => (
-                                                                    <option key={client.id} value={client.id}>{client.fullName}</option>
-                                                                ))}
-                                                            </select>
+                                                            <ClientSelector
+                                                                leads={leads}
+                                                                selectedClientId={item.clientId}
+                                                                onSelect={(id) => handleTaskChange(item.id, 'clientId', id)}
+                                                                className="h-full"
+                                                                hideIcon={true}
+                                                                inputClassName="bg-transparent font-normal text-slate-600 !px-3"
+                                                            />
                                                         </td>
                                                         <td className="border border-slate-200 p-0 align-top">
                                                             <select
@@ -391,16 +389,14 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                                                             </button>
                                                         </td>
                                                         <td className="border border-slate-200 p-0 align-top">
-                                                            <select
-                                                                className="w-full h-full px-3 py-2 bg-transparent border-none text-xs text-slate-400 focus:ring-1 focus:ring-indigo-500 outline-none appearance-none"
-                                                                value={row.clientId || ''}
-                                                                onChange={(e) => handleExtraRowChange(sIdx, i, 'clientId', e.target.value)}
-                                                            >
-                                                                <option value="">- Select Client -</option>
-                                                                {clientOptions.map(client => (
-                                                                    <option key={client.id} value={client.id}>{client.fullName}</option>
-                                                                ))}
-                                                            </select>
+                                                            <ClientSelector
+                                                                leads={leads}
+                                                                selectedClientId={row.clientId}
+                                                                onSelect={(id) => handleExtraRowChange(sIdx, i, 'clientId', id)}
+                                                                className="h-full"
+                                                                hideIcon={true}
+                                                                inputClassName="bg-transparent font-normal text-slate-400 !px-3"
+                                                            />
                                                         </td>
                                                         <td className="border border-slate-200 p-0 align-top">
                                                             <select
