@@ -521,6 +521,9 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                             </div>
 
                             <div className="flex flex-col flex-1 min-w-0 pt-0.5">
+                                <div className="font-bold text-black text-sm group-hover:text-indigo-600 transition-colors tracking-tight truncate leading-tight mb-2">
+                                    {lead.fullName || (lead.firstName || lead.lastName ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim() : 'Unknown Client')}
+                                </div>
                                 <div className="flex flex-col gap-0.5 text-[12px] text-slate-400 font-bold whitespace-nowrap overflow-hidden">
                                     {lead.email && (
                                         <div className="flex items-center gap-1.5 pr-2 min-w-0 pb-1">
@@ -554,36 +557,33 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                         <div className="flex flex-col gap-4 mb-6 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
                             {/* Fixed Fields Section: Message, Property, Motivation */}
                             {(lead.message || lead.leadInfo?.customerMessage) && (
-                                <div className="flex flex-col gap-1.5">
-                                    <div className="flex items-center gap-2 opacity-40">
-                                        <i className="fa-solid fa-quote-left text-[10px] text-indigo-500"></i>
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Customer Message</span>
+                                <div className="flex items-start gap-2.5 ml-0.5 group/message" title="Customer Message">
+                                    <div className="mt-0.5 w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0 group-hover/message:bg-indigo-100 transition-colors shadow-sm border border-indigo-100">
+                                        <i className="fa-solid fa-comment-dots text-[10px] text-indigo-500"></i>
                                     </div>
-                                    <p className="text-[13px] text-slate-700 font-medium italic leading-relaxed pl-4 border-l-2 border-indigo-100">
+                                    <p className="text-[13px] text-slate-700 font-medium italic leading-relaxed py-0.5">
                                         "{lead.message || lead.leadInfo?.customerMessage}"
                                     </p>
                                 </div>
                             )}
 
                             {(lead.propertyAddress || lead.leadInfo?.inquiryProperty?.address || (lead as any).subjectProperty) && (
-                                <div className="flex flex-col gap-1.5">
-                                    <div className="flex items-center gap-2 opacity-40">
-                                        <i className="fa-solid fa-house-chimney text-[10px] text-indigo-500"></i>
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Inquiry Property</span>
+                                <div className="flex items-start gap-2.5 ml-0.5 group/property" title="Inquired Property">
+                                    <div className="mt-0.5 w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0 group-hover/property:bg-indigo-100 transition-colors shadow-sm border border-indigo-100">
+                                        <i className="fa-solid fa-arrow-pointer text-[10px] text-indigo-500"></i>
                                     </div>
-                                    <div className="text-[13px] font-black text-indigo-600 pl-4">
+                                    <div className="text-[13px] font-black text-indigo-700 leading-tight py-1">
                                         {lead.propertyAddress || lead.leadInfo?.inquiryProperty?.address || (lead as any).subjectProperty}
                                     </div>
                                 </div>
                             )}
 
                             {lead.motivation && (
-                                <div className="flex flex-col gap-1.5">
-                                    <div className="flex items-center gap-2 opacity-40">
+                                <div className="flex items-start gap-2.5 ml-0.5 group/motivation" title="Motivation">
+                                    <div className="mt-0.5 w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0 group-hover/motivation:bg-indigo-100 transition-colors shadow-sm border border-indigo-100">
                                         <i className="fa-solid fa-bullseye text-[10px] text-indigo-500"></i>
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Motivation</span>
                                     </div>
-                                    <div className="text-[13px] font-bold text-slate-700 pl-4">
+                                    <div className="text-[13px] font-bold text-slate-700 leading-tight py-1">
                                         {lead.motivation}
                                     </div>
                                 </div>

@@ -319,6 +319,9 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
                 </div>
 
                 <div className="min-w-0 flex-1">
+                    <div className="font-bold text-slate-800 text-sm truncate leading-tight mb-2">
+                        {lead.fullName || (lead.firstName || lead.lastName ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim() : 'Unknown Client')}
+                    </div>
                     <div className="flex flex-col gap-1">
                         {email && (
                             <div className="flex items-center gap-1.5 text-[10px] text-slate-500 truncate" title={email}>
@@ -343,12 +346,11 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
                 <div className="flex flex-col gap-2.5 py-3 border-y border-slate-50">
                     {/* Customer Message */}
                     {(lead.message || lead.leadInfo?.customerMessage) && (
-                        <div className="flex flex-col gap-0.5">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                <i className="fa-solid fa-quote-left text-[8px] text-indigo-300"></i>
-                                Customer Message
-                            </span>
-                            <p className="text-[11px] text-slate-600 line-clamp-2 italic leading-relaxed pl-3 border-l border-slate-100">
+                        <div className="flex items-start gap-2 group/message" title="Customer Message">
+                            <div className="mt-0.5 w-4 h-4 rounded bg-indigo-50 flex items-center justify-center flex-shrink-0 group-hover/message:bg-indigo-100 transition-colors">
+                                <i className="fa-solid fa-comment-dots text-[9px] text-indigo-500"></i>
+                            </div>
+                            <p className="text-[11px] text-slate-600 line-clamp-2 italic leading-tight">
                                 "{lead.message || lead.leadInfo?.customerMessage}"
                             </p>
                         </div>
@@ -356,12 +358,11 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
 
                     {/* Inquiry Property */}
                     {(lead.propertyAddress || lead.leadInfo?.inquiryProperty?.address || (lead as any).subjectProperty) && (
-                        <div className="flex flex-col gap-0.5">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                <i className="fa-solid fa-house text-[8px] text-indigo-300"></i>
-                                Inquiry Property
-                            </span>
-                            <span className="text-[11px] font-bold text-slate-700 truncate pl-3">
+                        <div className="flex items-start gap-2 group/property" title="Inquired Property">
+                            <div className="mt-0.5 w-4 h-4 rounded bg-indigo-50 flex items-center justify-center flex-shrink-0 group-hover/property:bg-indigo-100 transition-colors">
+                                <i className="fa-solid fa-arrow-pointer text-[9px] text-indigo-500"></i>
+                            </div>
+                            <span className="text-[11px] font-bold text-slate-700 truncate leading-tight">
                                 {lead.propertyAddress || lead.leadInfo?.inquiryProperty?.address || (lead as any).subjectProperty}
                             </span>
                         </div>
@@ -369,12 +370,11 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
 
                     {/* Motivation */}
                     {lead.motivation && (
-                        <div className="flex flex-col gap-0.5">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                <i className="fa-solid fa-bullseye text-[8px] text-indigo-300"></i>
-                                Motivation
-                            </span>
-                            <span className="text-[11px] font-bold text-slate-700 line-clamp-1 pl-3">
+                        <div className="flex items-start gap-2 group/motivation" title="Motivation">
+                            <div className="mt-0.5 w-4 h-4 rounded bg-indigo-50 flex items-center justify-center flex-shrink-0 group-hover/motivation:bg-indigo-100 transition-colors">
+                                <i className="fa-solid fa-bullseye text-[9px] text-indigo-500"></i>
+                            </div>
+                            <span className="text-[11px] font-bold text-slate-700 line-clamp-1 leading-tight">
                                 {lead.motivation}
                             </span>
                         </div>
