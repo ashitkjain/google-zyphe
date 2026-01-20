@@ -218,7 +218,11 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ clients, leads, o
                             </div>
                             <div className="flex-1 text-left min-w-0">
                                 <div className="text-xs font-normal text-slate-900 truncate">{getName(client)}</div>
-                                <div className="text-[10px] font-medium text-slate-400 truncate">{getEmail(client)}</div>
+                                <div className="truncate">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{(client as any).funnelStage || 'Leads'}</span>
+                                    <span className="text-slate-300 mx-1">•</span>
+                                    <span className="text-[10px] font-medium text-slate-500 font-mono italic">{(client as any).status || getStageStatus(client) || 'New'}</span>
+                                </div>
                             </div>
                             {client.isUser && (
                                 <div className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase rounded">App</div>
@@ -233,9 +237,9 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ clients, leads, o
                 {selectedClient ? (
                     <>
                         {/* Header */}
-                        <div className="p-10 bg-white border-b border-slate-200">
+                        <div className="px-5 pb-5 pt-2 bg-white border-b border-slate-200">
                             <div className="flex items-start justify-between">
-                                <div className="flex items-center gap-6">
+                                <div className="flex items-center gap-4 -mt-1">
                                     <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-3xl text-white font-black shadow-xl overflow-hidden ${selectedClient.isUser ? 'bg-emerald-500 shadow-emerald-200' : 'bg-indigo-500 shadow-indigo-200'}`}>
                                         {(selectedClient as any).avatarUrl || (selectedClient as any).clientPhotoUrl ? (
                                             <img
@@ -247,7 +251,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ clients, leads, o
                                             getName(selectedClient).charAt(0)
                                         )}
                                     </div>
-                                    <div className="space-y-3">
+                                    <div className="space-y-0">
                                         <div className="flex items-center gap-4">
                                             <h1 className="text-3xl font-black text-slate-900 tracking-tight">{getName(selectedClient)}</h1>
                                             <div className="flex items-center gap-3">
@@ -290,7 +294,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ clients, leads, o
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="flex flex-col gap-2">
+                                        <div className="flex flex-col gap-0.5 mt-1">
                                             {/* Email Row */}
                                             <div className="flex items-center gap-2 text-slate-500 font-medium">
                                                 <i className="fa-solid fa-envelope text-slate-300 w-5 text-center"></i>
@@ -495,6 +499,123 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ clients, leads, o
                                         </div>
                                     </div>
                                 ))}
+
+                                {/* Offer Snapshot (Only for Offer Stage) */}
+                                {(selectedClient as any).funnelStage === 'Offer' && (
+                                    <>
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <div className="w-8 h-8 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600">
+                                                <i className="fa-solid fa-file-signature text-sm"></i>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-base font-black text-slate-900">Offer Snapshot</h3>
+                                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest leading-none">Current Offer Details</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8 relative">
+                                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-y-6 gap-x-4">
+                                                <div className="space-y-1">
+                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Offer Price</div>
+                                                    <div className="text-sm font-medium text-slate-800">
+                                                        {(selectedClient as any).activeOffer?.price
+                                                            ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format((selectedClient as any).activeOffer.price)
+                                                            : (selectedClient as any).offers?.[0]?.bidPrice
+                                                                ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format((selectedClient as any).offers[0].bidPrice)
+                                                                : '---'}
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Offer Date</div>
+                                                    <div className="text-sm font-medium text-slate-800">
+                                                        {(selectedClient as any).activeOffer?.offerDate
+                                                            ? formatDate((selectedClient as any).activeOffer.offerDate)
+                                                            : (selectedClient as any).offers?.[0]?.date
+                                                                ? formatDate((selectedClient as any).offers[0].date)
+                                                                : '---'}
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Earnest Money</div>
+                                                    <div className="text-sm font-medium text-slate-800">
+                                                        {(selectedClient as any).activeOffer?.earnestMoney
+                                                            ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format((selectedClient as any).activeOffer.earnestMoney)
+                                                            : '---'}
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1 md:col-span-2">
+                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contingencies</div>
+                                                    <div className="text-sm font-medium text-slate-800 truncate">
+                                                        {(selectedClient as any).activeOffer?.contingencies?.join(', ') || 'None'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* Search Snapshot (Active Search OR Offer Stage) */}
+                                {['Active Search', 'Offer'].includes((selectedClient as any).funnelStage) && (
+                                    <>
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <div className="w-8 h-8 rounded-xl bg-sky-50 flex items-center justify-center text-sky-600">
+                                                <i className="fa-solid fa-magnifying-glass text-sm"></i>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-base font-black text-slate-900">Search Snapshot</h3>
+                                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest leading-none">Active Search Activity</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8 relative">
+                                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-y-6 gap-x-4">
+                                                {(selectedClient as any).leadType === 'Buyer' ? (
+                                                    <>
+                                                        <div className="space-y-1">
+                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Search Status</div>
+                                                            <div className="text-sm font-medium text-slate-800">{(selectedClient as any).status || '---'}</div>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Must Haves</div>
+                                                            <div className="text-sm font-medium text-slate-800">{(selectedClient as any).searchCriteria?.mustHaves || '---'}</div>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Target Areas</div>
+                                                            <div className="text-sm font-medium text-slate-800">{(selectedClient as any).searchCriteria?.location || '---'}</div>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Property Tours</div>
+                                                            <div className="text-sm font-medium text-slate-800">{(selectedClient as any).tours?.length || 0} Scheduled</div>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Past Offers</div>
+                                                            <div className="text-sm font-medium text-slate-800">{(selectedClient as any).historicalOffers?.length || 0} Rejected</div>
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div className="space-y-1">
+                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Listing Status</div>
+                                                            <div className="text-sm font-medium text-slate-800">{(selectedClient as any).status || '---'}</div>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Visitors</div>
+                                                            <div className="text-sm font-medium text-slate-800">
+                                                                {(selectedClient as any).visitors?.reduce((acc: number, v: any) => acc + (v.visitCount || 0), 0) || 0} Visits
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Interested Buyers</div>
+                                                            <div className="text-sm font-medium text-emerald-600">
+                                                                {(selectedClient as any).visitors?.filter((v: any) => v.isInterested).length || 0} Interested
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                                 <div className="flex items-center gap-2 mb-6 pb-3 border-b border-slate-50">
                                     <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
                                         <i className="fa-solid fa-bolt text-sm"></i>
