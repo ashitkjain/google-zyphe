@@ -604,7 +604,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                 const fieldsToRender: { id: string, label: string, value: any, isSubfield?: boolean, parentId?: string }[] = [];
 
                                 allConfigs.forEach((config: any) => {
-                                    const skipFields = ['phone', 'email', 'firstName', 'lastName', 'message', 'notes', 'source', 'campaign', 'leadType', 'status', 'realtorComments'];
+                                    const skipFields = ['phone', 'email', 'firstName', 'lastName', 'message', 'notes', 'source', 'campaign', 'leadType', 'status', 'realtorComments', 'engagementScore', 'fullName', 'leadStatus'];
                                     if (!isStageVisible(config.funnelVisibility)) return;
                                     if (skipFields.includes(config.id)) return;
 
@@ -639,9 +639,6 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                 });
 
                                 // Add special forced fields if they exist
-                                if (lead.engagementScore && !fieldsToRender.find(f => f.id === 'engagementScore')) {
-                                    fieldsToRender.push({ id: 'engagementScore', label: 'Temperature', value: lead.engagementScore });
-                                }
                                 if (lead.staleWarningDate && !fieldsToRender.find(f => f.id === 'staleWarningDate')) {
                                     fieldsToRender.push({ id: 'staleWarningDate', label: 'Follow-up', value: lead.staleWarningDate });
                                 }
