@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 type ViewMode = 'month' | 'week' | 'day';
 
@@ -40,11 +40,77 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
     ]);
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
     const [isEditing, setIsEditing] = useState(false);
+    const [activeNotification, setActiveNotification] = useState<CalendarEvent | null>(null);
+    const [notifiedEventIds, setNotifiedEventIds] = useState<Set<string>>(new Set());
+
+    // Check for upcoming events every minute
+    useEffect(() => {
+        const checkEvents = () => {
+            const now = new Date();
+            const fifteenMinutesFromNow = new Date(now.getTime() + 15 * 60000);
+
+            events.forEach(event => {
+                if (notifiedEventIds.has(event.id)) return;
+
+                // If event starts precisely in the 15-16 minute window from now
+                const timeDiff = event.start.getTime() - now.getTime();
+                const minutesDiff = timeDiff / 60000;
+
+                if (minutesDiff > 0 && minutesDiff <= 15) {
+                    setActiveNotification(event);
+                    setNotifiedEventIds(prev => new Set(prev).add(event.id));
+
+                    // Auto-hide notification after 10 seconds
+                    setTimeout(() => setActiveNotification(null), 10000);
+                }
+            });
+        };
+
+        const interval = setInterval(checkEvents, 60000); // Check every minute
+        checkEvents(); // Initial check
+
+        return () => clearInterval(interval);
+    }, [events, notifiedEventIds]);
 
     const handleSaveEvent = (updatedEvent: CalendarEvent) => {
         setEvents(prev => prev.map(e => e.id === updatedEvent.id ? updatedEvent : e));
         setSelectedEvent(null);
         setIsEditing(false);
+    };
+
+    const formatTimeToInput = (date: Date) => {
+        const h = date.getHours().toString().padStart(2, '0');
+        const m = date.getMinutes().toString().padStart(2, '0');
+        return `${h}:${m}`;
+    };
+
+    const updateTimeFromInput = (originalDate: Date, timeStr: string) => {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        const newDate = new Date(originalDate);
+        newDate.setHours(hours, minutes, 0, 0);
+        return newDate;
+    };
+
+    const handleStartTimeChange = (newTimeStr: string) => {
+        if (!selectedEvent) return;
+        const originalDuration = selectedEvent.end.getTime() - selectedEvent.start.getTime();
+        const newStart = updateTimeFromInput(selectedEvent.start, newTimeStr);
+        const newEnd = new Date(newStart.getTime() + originalDuration);
+        setSelectedEvent({ ...selectedEvent, start: newStart, end: newEnd });
+    };
+
+    const handleEndTimeChange = (newTimeStr: string) => {
+        if (!selectedEvent) return;
+        const newEnd = updateTimeFromInput(selectedEvent.end, newTimeStr);
+        if (newEnd.getTime() < selectedEvent.start.getTime()) return;
+        setSelectedEvent({ ...selectedEvent, end: newEnd });
+    };
+
+    const handleDeleteEvent = (eventId: string) => {
+        if (confirm('Are you sure you want to delete this event?')) {
+            setEvents(prev => prev.filter(e => e.id !== eventId));
+            setSelectedEvent(null);
+        }
     };
 
     const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -58,7 +124,7 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
         return (day + 6) % 7; // Adjust Sunday (0) to 6, Monday (1) to 0, etc.
     };
 
-    const hours = Array.from({ length: 24 }, (_, i) => i);
+    const hours = Array.from({ length: 24 }, (_, i) => (i + 6) % 24);
 
     const renderHeader = () => {
         return (
@@ -262,12 +328,14 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
                                         const endHour = event.end.getHours() + (event.end.getMinutes() / 60);
                                         const duration = endHour - startHour;
 
+                                        const relativeStart = startHour >= 6 ? startHour - 6 : startHour + 18;
+
                                         return (
                                             <div
                                                 key={event.id}
                                                 onDoubleClick={() => { setSelectedEvent(event); setIsEditing(false); }}
                                                 style={{
-                                                    top: `${startHour * 80}px`,
+                                                    top: `${relativeStart * 80}px`,
                                                     height: `${duration * 80}px`
                                                 }}
                                                 className={`absolute left-2 right-2 p-3 rounded-2xl shadow-xl z-10 hover:scale-[1.02] transition-transform cursor-pointer overflow-hidden border ${event.type === 'open-house' ? 'bg-emerald-600/90 border-emerald-500' :
@@ -312,7 +380,32 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
     };
 
     return (
-        <div className="flex-1 overflow-y-auto bg-[#F8FAFC]">
+        <div className="flex-1 overflow-y-auto bg-[#F8FAFC] relative">
+            {/* Upcoming Event Notification */}
+            {activeNotification && (
+                <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[200] w-full max-w-md animate-in fade-in slide-in-from-top-8 duration-500">
+                    <div className="mx-4 bg-slate-900 text-white p-6 rounded-[32px] shadow-2xl flex items-center gap-5 border border-slate-800 backdrop-blur-xl">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 animate-pulse ${activeNotification.type === 'open-house' ? 'bg-emerald-500' :
+                            activeNotification.type === 'task' ? 'bg-amber-500' :
+                                'bg-indigo-500'
+                            }`}>
+                            <i className="fa-solid fa-bell text-xl"></i>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Upcoming in 15m</p>
+                            <h4 className="font-bold truncate">{activeNotification.title}</h4>
+                            <p className="text-xs text-slate-400 font-medium">Starts at {activeNotification.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                        <button
+                            onClick={() => setActiveNotification(null)}
+                            className="w-10 h-10 rounded-2xl bg-slate-800 flex items-center justify-center hover:bg-slate-700 transition-colors"
+                        >
+                            <i className="fa-solid fa-xmark text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="p-12 max-w-screen-2xl mx-auto">
                 {renderHeader()}
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -377,9 +470,27 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
                                     </div>
                                     <div className="flex-1">
                                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Time Range</p>
-                                        <p className="text-slate-900 font-bold">
-                                            {selectedEvent.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {selectedEvent.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </p>
+                                        {isEditing ? (
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="time"
+                                                    className="bg-slate-50 border-none rounded-lg px-3 py-1 text-slate-900 font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    value={formatTimeToInput(selectedEvent.start)}
+                                                    onChange={(e) => handleStartTimeChange(e.target.value)}
+                                                />
+                                                <span className="text-slate-400 font-bold">to</span>
+                                                <input
+                                                    type="time"
+                                                    className="bg-slate-50 border-none rounded-lg px-3 py-1 text-slate-900 font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    value={formatTimeToInput(selectedEvent.end)}
+                                                    onChange={(e) => handleEndTimeChange(e.target.value)}
+                                                />
+                                            </div>
+                                        ) : (
+                                            <p className="text-slate-900 font-bold">
+                                                {selectedEvent.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {selectedEvent.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
 
@@ -438,7 +549,13 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
                                             onClick={() => setIsEditing(true)}
                                             className="flex-1 py-4 bg-white border border-slate-200 text-slate-900 rounded-2xl font-black uppercase tracking-widest shadow-sm hover:border-indigo-600 hover:text-indigo-600 transition-all flex items-center justify-center gap-2 group"
                                         >
-                                            <i className="fa-solid fa-pen-to-square text-slate-400 group-hover:text-indigo-600"></i> Edit Event
+                                            <i className="fa-solid fa-pen-to-square text-slate-400 group-hover:text-indigo-600"></i> Edit
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteEvent(selectedEvent.id)}
+                                            className="flex-1 py-4 bg-white border border-rose-100 text-rose-500 rounded-2xl font-black uppercase tracking-widest shadow-sm hover:bg-rose-50 transition-all flex items-center justify-center gap-2 group"
+                                        >
+                                            <i className="fa-solid fa-trash-can opacity-60"></i> Delete
                                         </button>
                                         <button
                                             onClick={() => setSelectedEvent(null)}
