@@ -98,21 +98,23 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
         const allOptions = getStatusOptions(leadType, realtorSettings);
         const stageOptions = allOptions.filter((o: any) => o.funnelStage === primaryStage);
 
-        if (stageOptions.length > 1) {
-            // If multiple options, prompt the user
+        if (stageOptions.length >= 1) {
+            // Always prompt the user for consistency, even if only one option exists
             setPendingMove({
                 lead,
                 targetStage: primaryStage,
                 options: stageOptions
             });
-        } else if (stageOptions.length === 1) {
-            // If only one option, just update
-            onUpdateLead(draggableId, { status: stageOptions[0].label });
         } else {
-            // Fallback for stages with no specific statuses defined in settings
+            // Fallback for stages with no specific statuses defined in settings 
+            // We still prompt with a fallback if any option for that stage exists in the full list
             const fallbackStatus = allOptions.find((o: any) => o.funnelStage === primaryStage);
             if (fallbackStatus) {
-                onUpdateLead(draggableId, { status: fallbackStatus.label });
+                setPendingMove({
+                    lead,
+                    targetStage: primaryStage,
+                    options: [fallbackStatus]
+                });
             }
         }
     };
