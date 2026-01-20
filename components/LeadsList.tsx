@@ -339,7 +339,7 @@ const LeadsList: React.FC<InternalProps> = ({
             const currentStageEntry = lead.stageHistory?.find(
                 entry => entry.toStage === currentStage && !entry.exitedAt
             );
-            const startDate = currentStageEntry?.enteredAt || lead.stageLastChangedAt || lead.leadInfo?.createdDate || lead.receivedAt;
+            const startDate = currentStageEntry?.enteredAt || lead.stageLastChangedAt || lead.createdDate || lead.receivedAt;
             if (startDate) {
                 const start = typeof startDate.toDate === 'function' ? startDate.toDate() : new Date(startDate);
                 const diff = Math.max(0, new Date().getTime() - start.getTime());
@@ -607,7 +607,7 @@ const LeadsList: React.FC<InternalProps> = ({
 
             if (sortField === 'leadInfo') {
                 const getVal = (lead: Lead) => {
-                    const d = lead.leadInfo?.createdDate || lead.receivedAt;
+                    const d = lead.createdDate || lead.receivedAt;
                     return d?.toDate ? d.toDate().getTime() : (d ? new Date(d).getTime() : 0);
                 };
                 aVal = getVal(a);
@@ -988,8 +988,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                                             {getVisibleColumns('Buyer').has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
                                                             {getVisibleColumns('Buyer').has('leadInfo') && (
                                                                 <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-medium">
-                                                                    <div>{lead.leadInfo?.createdDate ? (lead.leadInfo.createdDate.toDate ? lead.leadInfo.createdDate.toDate().toLocaleDateString() : new Date(lead.leadInfo.createdDate).toLocaleDateString()) : '--'}</div>
-                                                                    <div className="text-[10px] text-slate-400">{lead.leadInfo?.origin || lead.source || '--'}</div>
+                                                                    <div>{lead.createdDate ? (lead.createdDate.toDate ? lead.createdDate.toDate().toLocaleDateString() : new Date(lead.createdDate).toLocaleDateString()) : '--'}</div>
+                                                                    <div className="text-[10px] text-slate-400">{lead.source || '--'}</div>
                                                                 </td>
                                                             )}
                                                             {getVisibleColumns('Buyer').has('message') && (
@@ -1347,8 +1347,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                                             {getVisibleColumns('Seller').has('source') && <td className="px-2 py-2 border-b border-slate-100 text-xs font-semibold text-indigo-500">{lead.source}</td>}
                                                             {getVisibleColumns('Seller').has('leadInfo') && (
                                                                 <td className="px-2 py-2 border-b border-slate-100 text-xs text-slate-900 font-medium">
-                                                                    <div>{lead.leadInfo?.createdDate ? (lead.leadInfo.createdDate.toDate ? lead.leadInfo.createdDate.toDate().toLocaleDateString() : new Date(lead.leadInfo.createdDate).toLocaleDateString()) : '--'}</div>
-                                                                    <div className="text-[10px] text-slate-400">{lead.leadInfo?.origin || lead.source || '--'}</div>
+                                                                    <div>{lead.createdDate ? (lead.createdDate.toDate ? lead.createdDate.toDate().toLocaleDateString() : new Date(lead.createdDate).toLocaleDateString()) : '--'}</div>
+                                                                    <div className="text-[10px] text-slate-400">{lead.source || '--'}</div>
                                                                 </td>
                                                             )}
                                                             {getVisibleColumns('Seller').has('reasonForSelling') && <td className="px-2 py-2 border-b border-slate-100 font-medium text-xs">{lead.reasonForSelling || '--'}</td>}

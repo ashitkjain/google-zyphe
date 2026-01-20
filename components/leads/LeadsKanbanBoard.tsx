@@ -431,7 +431,7 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
                             const currentStageEntry = lead.stageHistory?.find(
                                 entry => entry.toStage === currentFunnelStage && !entry.exitedAt
                             );
-                            const startDate = currentStageEntry?.enteredAt || lead.stageLastChangedAt || lead.leadInfo?.createdDate || lead.receivedAt;
+                            const startDate = currentStageEntry?.enteredAt || lead.stageLastChangedAt || lead.createdDate || lead.receivedAt;
                             if (startDate) {
                                 const start = typeof startDate.toDate === 'function' ? startDate.toDate() : new Date(startDate);
                                 const diff = Math.max(0, new Date().getTime() - start.getTime());

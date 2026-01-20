@@ -16,12 +16,8 @@ export interface PrimaryContact {
 }
 
 export interface LeadInfo {
-    origin: string;
     referralType: string;
     campaign: string;
-    createdDate: Date;
-    leadType: 'Buyer' | 'Seller';
-    legalName?: string;
     customerMessage?: string;
     earnestMoneyDue?: string;
     mutualAcceptance?: string;
@@ -130,6 +126,43 @@ export const LEAD_FIELD_CONFIG = [
         description: "The client's full legal name."
     },
     {
+        id: 'leadType',
+        label: 'Lead Type',
+        category: 'Leads',
+        visibility: ['Buyer', 'Seller'],
+        type: 'enum',
+        options: ['Buyer', 'Seller'],
+        description: "Whether the lead is a Buyer or Seller.",
+        funnelVisibility: [] // None, as requested
+    },
+    {
+        id: 'source',
+        label: 'Lead Source',
+        category: 'Leads',
+        visibility: ['Buyer', 'Seller'],
+        type: 'string',
+        description: "The origin of the lead.",
+        funnelVisibility: ['Leads']
+    },
+    {
+        id: 'createdDate',
+        label: 'Created Date',
+        category: 'Leads',
+        visibility: ['Buyer', 'Seller'],
+        type: 'date',
+        description: 'Date lead was created',
+        funnelVisibility: ['Leads']
+    },
+    {
+        id: 'legalName',
+        label: 'Legal Name',
+        category: 'Leads',
+        visibility: ['Buyer', 'Seller'],
+        type: 'string',
+        description: 'Client legal name',
+        funnelVisibility: ['Leads']
+    },
+    {
         id: 'primaryContact',
         label: 'Primary Contact Info',
         category: 'Leads',
@@ -152,12 +185,8 @@ export const LEAD_FIELD_CONFIG = [
         type: 'object',
         description: "Source and origin details for the lead.",
         fields: [
-            { name: 'origin', label: 'Lead Source', type: 'string', description: 'Source of the lead', funnelVisibility: ['Leads'] },
             { name: 'referralType', label: 'Referral Type', type: 'string', description: 'Type of referral', funnelVisibility: ['Leads'] },
             { name: 'campaign', label: 'Marketing Campaign', type: 'string', description: 'Marketing campaign', funnelVisibility: ['Leads'] },
-            { name: 'createdDate', label: 'Created Date', type: 'date', description: 'Date lead was created', funnelVisibility: ['Leads'] },
-            { name: 'leadType', label: 'Lead Type', type: 'enum', description: 'Buyer or Seller', options: ['Buyer', 'Seller'], funnelVisibility: [] },
-            { name: 'legalName', label: 'Legal Name', type: 'string', description: 'Client legal name', funnelVisibility: ['Leads'] },
             { name: 'customerMessage', label: 'Customer Message', type: 'string', description: 'Message from customer', funnelVisibility: ['Leads'] },
             { name: 'earnestMoneyDue', label: 'Earnest Money Due', type: 'string', description: 'EMD due details', funnelVisibility: ['Leads'] },
             { name: 'mutualAcceptance', label: 'Mutual Acceptance', type: 'string', description: 'Mutual acceptance details', funnelVisibility: ['Leads'] },
@@ -612,6 +641,8 @@ export interface Lead {
     email?: string; // Flat accessor for primaryContact.email
     phone?: string; // Flat accessor for primaryContact.phone
     source?: string; // Flat accessor for leadInfo.origin
+    createdDate?: any; // New top-level field
+    legalName?: string; // New top-level field
     notes?: string;
     notesLog?: any[];
     isAlsoSelling?: boolean;

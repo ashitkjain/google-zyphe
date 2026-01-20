@@ -77,12 +77,8 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
             homeAddress: fullAddress
         },
         leadInfo: {
-            origin: getRandom(MOCK_SOURCES),
             referralType: getRandom(MOCK_REFERRAL_TYPES),
             campaign: getRandom(MOCK_CAMPAIGNS),
-            createdDate: receivedDate,
-            leadType: type,
-            legalName: fullName, // Default to full name as requested
             customerMessage: Math.random() > 0.5 ? "I'm interested in viewing properties near the Highlands area." : "Looking for a home with a large backyard and modern kitchen.",
             earnestMoneyDue: "$5,000 within 3 days",
             mutualAcceptance: "Pending seller signature",
@@ -207,5 +203,7 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
         phone,
         preferredContactMethod: preferredMethod,
         source: getRandom(MOCK_SOURCES),
+        createdDate: receivedDate,
+        legalName: fullName,
     };
 };
