@@ -610,6 +610,12 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                                                                 <div className="flex-1 min-w-0 font-semibold text-slate-900 text-sm leading-snug px-0 py-0.5 font-sans">
                                                                                     {item.label}
                                                                                 </div>
+                                                                                {item.visibility && item.visibility.length === 1 && item.visibility.includes('Buyer') && (
+                                                                                    <div className="w-5 h-5 rounded bg-sky-500 flex items-center justify-center text-[8px] font-black text-white shadow-sm" title="Buyer Only">B</div>
+                                                                                )}
+                                                                                {item.visibility && item.visibility.length === 1 && item.visibility.includes('Seller') && (
+                                                                                    <div className="w-5 h-5 rounded bg-emerald-500 flex items-center justify-center text-[8px] font-black text-white shadow-sm" title="Seller Only">S</div>
+                                                                                )}
                                                                             </div>
                                                                         </td>
 
