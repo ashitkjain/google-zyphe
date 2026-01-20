@@ -319,11 +319,7 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
                 </div>
 
                 <div className="min-w-0 flex-1">
-                    <div className="font-bold text-slate-800 text-sm truncate leading-tight mb-1">
-                        {lead.fullName || (lead.firstName || lead.lastName ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim() : 'Unknown Client')}
-                    </div>
-
-                    <div className="flex flex-col gap-0.5">
+                    <div className="flex flex-col gap-1">
                         {email && (
                             <div className="flex items-center gap-1.5 text-[10px] text-slate-500 truncate" title={email}>
                                 <i className="fa-regular fa-envelope text-slate-300 w-2.5"></i>
@@ -342,65 +338,48 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
                 </div>
             </div>
 
-            <div className="space-y-2">
-                {/* Dynamic Fields Section */}
-                {(() => {
-                    const allConfigs = [...LEAD_FIELD_CONFIG, ...LEAD_STAGE_LIFECYCLE_CONFIG];
-
-                    const isStageVisible = (stages: readonly string[] | string[] | undefined) => {
-                        if (!stages || stages.includes('All')) return true;
-                        return stages.includes(currentFunnelStage as any);
-                    };
-
-                    const extraFields: { label: string, value: any }[] = [];
-
-                    const skipFields = ['phone', 'email', 'firstName', 'lastName', 'message', 'notes', 'source', 'campaign', 'leadType', 'status', 'realtorComments'];
-
-                    allConfigs.forEach((config: any) => {
-                        if (!isStageVisible(config.funnelVisibility)) return;
-                        if (skipFields.includes(config.id)) return;
-
-                        if (config.type === 'object' && config.fields) {
-                            const parentVal = (lead as any)[config.id];
-                            if (parentVal) {
-                                config.fields.forEach((f: any) => {
-                                    if (isStageVisible(f.funnelVisibility) && !skipFields.includes(f.name)) {
-                                        const val = parentVal[f.name];
-                                        if (val !== undefined && val !== null && val !== '' && val !== false) {
-                                            extraFields.push({ label: f.label, value: val });
-                                        }
-                                    }
-                                });
-                            }
-                        } else {
-                            const val = (lead as any)[config.id];
-                            if (val !== undefined && val !== null && val !== '' && val !== false) {
-                                extraFields.push({ label: config.label, value: val });
-                            }
-                        }
-                    });
-
-                    if (extraFields.length === 0) return null;
-
-                    return (
-                        <div className="flex flex-wrap gap-x-3 gap-y-1.5 mt-2 py-2 border-y border-slate-50">
-                            {extraFields.slice(0, 4).map((f, i) => (
-                                <div key={i} className="flex items-center gap-1 min-w-0">
-                                    <span className="text-[8px] font-black text-slate-300 uppercase tracking-tighter shrink-0">{f.label.replace(/[^a-zA-Z]/g, '').slice(0, 8)}:</span>
-                                    <span className="text-[10px] font-bold text-slate-600 truncate">
-                                        {typeof f.value === 'boolean' ? 'Yes' :
-                                            (f.value instanceof Date || f.value?.toDate) ?
-                                                (f.value?.toDate ? f.value.toDate() : new Date(f.value)).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) :
-                                                f.value.toString()}
-                                    </span>
-                                </div>
-                            ))}
-                            {extraFields.length > 4 && (
-                                <div className="text-[8px] font-black text-indigo-400 uppercase tracking-tighter">+{extraFields.length - 4} more</div>
-                            )}
+            <div className="space-y-3">
+                {/* Fixed Fields Section: Message, Property, Motivation */}
+                <div className="flex flex-col gap-2.5 py-3 border-y border-slate-50">
+                    {/* Customer Message */}
+                    {(lead.message || lead.leadInfo?.customerMessage) && (
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                <i className="fa-solid fa-quote-left text-[8px] text-indigo-300"></i>
+                                Customer Message
+                            </span>
+                            <p className="text-[11px] text-slate-600 line-clamp-2 italic leading-relaxed pl-3 border-l border-slate-100">
+                                "{lead.message || lead.leadInfo?.customerMessage}"
+                            </p>
                         </div>
-                    );
-                })()}
+                    )}
+
+                    {/* Inquiry Property */}
+                    {(lead.propertyAddress || lead.leadInfo?.inquiryProperty?.address || (lead as any).subjectProperty) && (
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                <i className="fa-solid fa-house text-[8px] text-indigo-300"></i>
+                                Inquiry Property
+                            </span>
+                            <span className="text-[11px] font-bold text-slate-700 truncate pl-3">
+                                {lead.propertyAddress || lead.leadInfo?.inquiryProperty?.address || (lead as any).subjectProperty}
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Motivation */}
+                    {lead.motivation && (
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                <i className="fa-solid fa-bullseye text-[8px] text-indigo-300"></i>
+                                Motivation
+                            </span>
+                            <span className="text-[11px] font-bold text-slate-700 line-clamp-1 pl-3">
+                                {lead.motivation}
+                            </span>
+                        </div>
+                    )}
+                </div>
                 {/* Footer: Follow Up & Status */}
                 <div className="pt-2 mt-2 border-t border-slate-50 flex items-center justify-between text-[10px]">
                     <div className="flex flex-col gap-0.5">

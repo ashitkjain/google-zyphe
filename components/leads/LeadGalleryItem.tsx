@@ -521,52 +521,17 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                             </div>
 
                             <div className="flex flex-col flex-1 min-w-0 pt-0.5">
-                                <div className="font-bold text-black text-sm group-hover:text-indigo-600 transition-colors tracking-tight truncate leading-tight mb-0.5" >
-                                    {lead.fullName || (lead.firstName || lead.lastName ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim() : 'Unknown Client')}
-                                </div>
-
-
-
                                 <div className="flex flex-col gap-0.5 text-[12px] text-slate-400 font-bold whitespace-nowrap overflow-hidden">
                                     {lead.email && (
                                         <div className="flex items-center gap-1.5 pr-2 min-w-0 pb-1">
                                             <i className="fa-solid fa-envelope opacity-30 text-[8px] flex-shrink-0"></i>
                                             <span className="truncate">{lead.email}</span>
-                                            {(() => {
-                                                const preferredMethod = lead.primaryContactInfo?.preferredMethod || lead.preferredContactMethod;
-                                                return preferredMethod === 'Email' && (
-                                                    <i className="fa-solid fa-star text-yellow-500 text-[10px] flex-shrink-0" title="Preferred contact method"></i>
-                                                );
-                                            })()}
                                         </div>
                                     )}
                                     {lead.phone && (
                                         <div className="flex items-center gap-1.5 pr-2 min-w-0">
                                             <i className="fa-solid fa-phone opacity-30 text-[8px] flex-shrink-0"></i>
                                             <span className="truncate">{lead.phone}</span>
-                                            {(() => {
-                                                const preferredMethod = lead.primaryContactInfo?.preferredMethod || lead.preferredContactMethod;
-                                                if (preferredMethod === 'Phone') {
-                                                    return <i className="fa-solid fa-star text-yellow-500 text-[10px] flex-shrink-0" title="Preferred contact method"></i>;
-                                                }
-                                                if (preferredMethod === 'SMS') {
-                                                    return (
-                                                        <div className="flex items-center gap-1 flex-shrink-0">
-                                                            <i className="fa-solid fa-star text-yellow-500 text-[10px]" title="Preferred contact method"></i>
-                                                            <img src="/sms-icon.png" alt="SMS" className="w-4 h-4 object-contain" />
-                                                        </div>
-                                                    );
-                                                }
-                                                if (preferredMethod === 'WhatsApp') {
-                                                    return (
-                                                        <div className="flex items-center gap-1 flex-shrink-0">
-                                                            <i className="fa-solid fa-star text-yellow-500 text-[10px]" title="Preferred contact method"></i>
-                                                            <img src="/whatsapp-icon.png" alt="WhatsApp" className="w-4 h-4 object-contain" />
-                                                        </div>
-                                                    );
-                                                }
-                                                return null;
-                                            })()}
                                         </div>
                                     )}
                                 </div>
@@ -586,125 +551,43 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-6 bg-slate-50/50 p-4 rounded-3xl border border-slate-100">
-                            {(() => {
-                                // Gather ALL fields that should be visible for this stage based on schema
-                                const allConfigs = [...LEAD_FIELD_CONFIG, ...LEAD_STAGE_LIFECYCLE_CONFIG];
-                                const currentFunnelStage = lead.funnelStage || stage || 'Leads';
+                        <div className="flex flex-col gap-4 mb-6 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
+                            {/* Fixed Fields Section: Message, Property, Motivation */}
+                            {(lead.message || lead.leadInfo?.customerMessage) && (
+                                <div className="flex flex-col gap-1.5">
+                                    <div className="flex items-center gap-2 opacity-40">
+                                        <i className="fa-solid fa-quote-left text-[10px] text-indigo-500"></i>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Customer Message</span>
+                                    </div>
+                                    <p className="text-[13px] text-slate-700 font-medium italic leading-relaxed pl-4 border-l-2 border-indigo-100">
+                                        "{lead.message || lead.leadInfo?.customerMessage}"
+                                    </p>
+                                </div>
+                            )}
 
-                                const isStageVisible = (stages: readonly string[] | string[] | undefined) => {
-                                    if (!stages || stages.includes('All')) return true;
-                                    return stages.includes(currentFunnelStage as any);
-                                };
+                            {(lead.propertyAddress || lead.leadInfo?.inquiryProperty?.address || (lead as any).subjectProperty) && (
+                                <div className="flex flex-col gap-1.5">
+                                    <div className="flex items-center gap-2 opacity-40">
+                                        <i className="fa-solid fa-house-chimney text-[10px] text-indigo-500"></i>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Inquiry Property</span>
+                                    </div>
+                                    <div className="text-[13px] font-black text-indigo-600 pl-4">
+                                        {lead.propertyAddress || lead.leadInfo?.inquiryProperty?.address || (lead as any).subjectProperty}
+                                    </div>
+                                </div>
+                            )}
 
-                                const fieldsToRender: { id: string, label: string, value: any, isSubfield?: boolean, parentId?: string }[] = [];
-
-                                allConfigs.forEach((config: any) => {
-                                    const skipFields = ['phone', 'email', 'firstName', 'lastName', 'message', 'notes', 'source', 'campaign', 'leadType', 'status', 'realtorComments', 'engagementScore', 'fullName', 'leadStatus'];
-                                    if (!isStageVisible(config.funnelVisibility)) return;
-                                    if (skipFields.includes(config.id)) return;
-
-                                    if (config.type === 'object' && config.fields) {
-                                        const parentVal = (lead as any)[config.id];
-                                        if (parentVal) {
-                                            config.fields.forEach((f: any) => {
-                                                if (isStageVisible(f.funnelVisibility) && !skipFields.includes(f.name)) {
-                                                    let val = parentVal[f.name];
-                                                    // Handle Boolean Logic: Null/Undefined/Empty -> False if type is boolean
-                                                    if (f.type === 'boolean') {
-                                                        val = val === true; // normalizing
-                                                        // Always show booleans? "unless they are boolean where empty or null implies false"
-                                                        // This implies we show 'false' for empty booleans.
-                                                        fieldsToRender.push({
-                                                            id: f.name,
-                                                            label: f.label,
-                                                            value: val,
-                                                            isSubfield: true,
-                                                            parentId: config.id
-                                                        });
-                                                    } else {
-                                                        // Non-Boolean: Hide if empty/null
-                                                        const isEmptyArray = Array.isArray(val) && val.length === 0;
-                                                        if (val !== undefined && val !== null && val !== '' && !isEmptyArray) {
-                                                            fieldsToRender.push({
-                                                                id: f.name,
-                                                                label: f.label,
-                                                                value: val,
-                                                                isSubfield: true,
-                                                                parentId: config.id
-                                                            });
-                                                        }
-                                                    }
-                                                }
-                                            });
-                                        }
-                                    } else {
-                                        let val = (lead as any)[config.id];
-                                        // Handle Boolean Logic
-                                        if (config.type === 'boolean') {
-                                            val = val === true; // normalizing
-                                            fieldsToRender.push({
-                                                id: config.id,
-                                                label: config.label,
-                                                value: val
-                                            });
-                                        } else {
-                                            // Non-Boolean: Hide if empty/null
-                                            const isEmptyArray = Array.isArray(val) && val.length === 0;
-                                            if (val !== undefined && val !== null && val !== '' && !isEmptyArray) {
-                                                fieldsToRender.push({
-                                                    id: config.id,
-                                                    label: config.label,
-                                                    value: val
-                                                });
-                                            }
-                                        }
-                                    }
-                                });
-
-                                // Add special forced fields if they exist
-                                if (lead.staleWarningDate && !fieldsToRender.find(f => f.id === 'staleWarningDate')) {
-                                    fieldsToRender.push({ id: 'staleWarningDate', label: 'Follow-up', value: lead.staleWarningDate });
-                                }
-
-                                return fieldsToRender
-                                    .slice(0, 12) // Keep it elegant, don't overload the card
-                                    .map((field) => {
-                                        const meta = COLUMN_METADATA[field.id] || { label: field.label, icon: 'fa-circle-info' };
-
-                                        const renderValueContent = () => {
-                                            const val = field.value;
-                                            if (field.id === 'engagementScore') {
-                                                if (val === 'Hot') return <i className="fa-solid fa-fire text-orange-500 text-xs shadow-sm"></i>;
-                                                if (val === 'Warm') return <i className="fa-solid fa-mug-hot text-amber-500 text-xs shadow-sm"></i>;
-                                                if (val === 'Cold') return <i className="fa-solid fa-snowflake text-sky-400 text-xs shadow-sm"></i>;
-                                                return <span className="text-slate-400 text-[10px] font-bold">STALE</span>;
-                                            }
-                                            if (field.id === 'earnestMoneyDue' || field.id === 'budgetMax' || field.id === 'price') {
-                                                if (typeof val === 'number') return `$${(val / 1000).toFixed(0)}k`;
-                                            }
-                                            if (val instanceof Date || (val?.toDate)) {
-                                                const d = val?.toDate ? val.toDate() : new Date(val);
-                                                return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                                            }
-                                            if (typeof val === 'boolean') return val ? 'Yes' : 'No';
-                                            if (typeof val === 'object') return '...';
-                                            return val.toString();
-                                        };
-
-                                        return (
-                                            <div key={`${field.parentId || ''}-${field.id}`} className="flex flex-col min-w-0" title={field.label}>
-                                                <div className="flex items-center gap-1.5 mb-0.5 opacity-40">
-                                                    <i className={`fa-solid ${meta.icon} text-[8px]`}></i>
-                                                    <span className="text-[9px] font-black uppercase tracking-tighter truncate">{field.label}</span>
-                                                </div>
-                                                <div className="text-[11px] font-bold text-slate-700 truncate leading-tight">
-                                                    {renderValueContent()}
-                                                </div>
-                                            </div>
-                                        );
-                                    });
-                            })()}
+                            {lead.motivation && (
+                                <div className="flex flex-col gap-1.5">
+                                    <div className="flex items-center gap-2 opacity-40">
+                                        <i className="fa-solid fa-bullseye text-[10px] text-indigo-500"></i>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Motivation</span>
+                                    </div>
+                                    <div className="text-[13px] font-bold text-slate-700 pl-4">
+                                        {lead.motivation}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
 
