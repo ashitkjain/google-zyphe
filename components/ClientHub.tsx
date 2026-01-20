@@ -527,6 +527,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             <div className="flex-1 flex overflow-hidden">
                 {activeTab === 'clients' && (
                     <ClientDetailsView
+                        realtorId={realtorId}
                         clients={clients}
                         leads={leads}
                         loading={loadingClients}

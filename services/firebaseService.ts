@@ -999,4 +999,44 @@ export const deleteCalendarEvent = async (eventId: string) => {
   }
 };
 
+export const getClientTasks = async (realtorId: string, clientId: string) => {
+  if (!db) return [];
+  try {
+    const q = query(
+      collection(db, "tasks"),
+      where("realtorId", "==", realtorId),
+      where("clientId", "==", clientId)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CRMTask));
+  } catch (error) {
+    handleFirestoreError(error, "getClientTasks");
+    return [];
+  }
+};
+
+export const getClientCalendarEvents = async (realtorId: string, clientId: string) => {
+  if (!db) return [];
+  try {
+    const q = query(
+      collection(db, "calendar_events"),
+      where("realtorId", "==", realtorId),
+      where("clientId", "==", clientId)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => {
+      const data = doc.data();
+      return {
+        ...data,
+        id: doc.id,
+        start: data.start?.toDate() || new Date(),
+        end: data.end?.toDate() || new Date()
+      } as CalendarEvent;
+    });
+  } catch (error) {
+    handleFirestoreError(error, "getClientCalendarEvents");
+    return [];
+  }
+};
+
 console.log(`[Firebase] Initialized for Project: ${firebaseConfig.projectId}`);

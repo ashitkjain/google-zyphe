@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UserProfile, Lead } from '../../types';
+import { UserProfile, Lead, CRMTask, CalendarEvent } from '../../types';
+import { getClientTasks, getClientCalendarEvents } from '../../services/firebaseService';
 
 const formatDate = (date: any) => {
     if (!date) return '---';
@@ -8,13 +9,14 @@ const formatDate = (date: any) => {
 };
 
 interface ClientDetailsViewProps {
+    realtorId: string;
     clients: UserProfile[];
     leads: Lead[];
     onUpdateClient: (id: string, updates: any, collectionName: string) => Promise<boolean>;
     loading?: boolean;
 }
 
-const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ clients, leads, onUpdateClient, loading }) => {
+const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, clients, leads, onUpdateClient, loading }) => {
     // Combine both into a unified list
     const allClients = [
         ...clients.map(c => ({ ...c, isUser: true, id: c.uid })),
@@ -63,13 +65,29 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ clients, leads, o
     const [movingNoteIndex, setMovingNoteIndex] = useState<number | null>(null);
     const snapshotRef = useRef<HTMLDivElement>(null);
 
+    const [clientTasks, setClientTasks] = useState<CRMTask[]>([]);
+    const [clientEvents, setClientEvents] = useState<CalendarEvent[]>([]);
+    const [loadingEvents, setLoadingEvents] = useState(false);
+
     // Sync with selected client when it changes
     useEffect(() => {
         if (selectedClient) {
             setStuckNotes(prev => ({ ...prev, [selectedClient.id]: (selectedClient as any).stickyNotes || [] }));
             setRealtorNotes(prev => ({ ...prev, [selectedClient.id]: (selectedClient as any).realtorNotes || [] }));
+
+            const fetchClientData = async () => {
+                setLoadingEvents(true);
+                const [tasks, events] = await Promise.all([
+                    getClientTasks(realtorId, selectedClient.id),
+                    getClientCalendarEvents(realtorId, selectedClient.id)
+                ]);
+                setClientTasks(tasks);
+                setClientEvents(events);
+                setLoadingEvents(false);
+            };
+            fetchClientData();
         }
-    }, [selectedClient?.id]);
+    }, [selectedClient?.id, realtorId]);
 
     const persistChanges = async (cliendId: string, updates: { stickyNotes?: any[], realtorNotes?: any[] }) => {
         const client = allClients.find(c => c.id === cliendId);
@@ -775,96 +793,195 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ clients, leads, o
                                     </div>
                                 </div>
 
-                                {/* Miscellaneous Data Fields */}
-                                <div className="mt-8 pt-6 border-t border-slate-200">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shadow-inner border border-slate-100">
-                                            <i className="fa-solid fa-list-check text-xs"></i>
+                            </div>
+
+                            {/* Events & Tasks Container */}
+                            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+                                <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-50">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm">
+                                            <i className="fa-solid fa-calendar-check text-xl"></i>
                                         </div>
-                                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Wait! There's More</h4>
+                                        <div>
+                                            <h3 className="text-xl font-black text-slate-900 tracking-tight">Events & Tasks</h3>
+                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] leading-none mt-1">Scheduled activity with this client</p>
+                                        </div>
                                     </div>
-
-                                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
-
-                                            <div className="space-y-1">
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Created Date</div>
-                                                <div className="text-sm font-medium text-slate-800">{formatDate((selectedClient as any).receivedAt || (selectedClient as any).createdAt)}</div>
-                                            </div>
-
-                                            <div className="space-y-1">
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Referral Type</div>
-                                                <div className="text-sm font-medium text-slate-800">{(selectedClient as any).leadInfo?.referralType || '---'}</div>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Marketing Campaign</div>
-                                                <div className="text-sm font-medium text-slate-800">{(selectedClient as any).leadInfo?.campaign || '---'}</div>
-                                            </div>
-                                            {(selectedClient as any).leadType === 'Buyer' && (
-                                                <div className="space-y-1">
-                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lease End Date</div>
-                                                    <div className="text-sm font-medium text-slate-800">{formatDate((selectedClient as any).leaseEndDate)}</div>
-                                                </div>
-                                            )}
-
-                                            <div className="space-y-1 md:col-span-2">
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Home Address</div>
-                                                <div className="text-sm font-medium text-slate-800 truncate">{(selectedClient as any).primaryContact?.homeAddress || '---'}</div>
-                                            </div>
+                                    <div className="flex gap-2">
+                                        <div className="px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100">
+                                            {clientEvents.length} Events
+                                        </div>
+                                        <div className="px-4 py-1.5 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-100">
+                                            {clientTasks.length} Tasks
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Stage History Log */}
-                                <div className="mt-8 pt-6 border-t border-slate-200">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shadow-inner border border-slate-100">
-                                            <i className="fa-solid fa-code-branch text-xs"></i>
-                                        </div>
-                                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Stage History Log</h4>
+                                <div className="overflow-hidden rounded-[2rem] border border-slate-100 shadow-inner bg-slate-50/30">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-white border-b border-slate-100">
+                                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] w-48">Date & Time</th>
+                                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] w-32">Category</th>
+                                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-[0.15em]">Activity Details</th>
+                                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] text-right">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {loadingEvents ? (
+                                                <tr>
+                                                    <td colSpan={4} className="px-6 py-12 text-center bg-white/50">
+                                                        <div className="flex flex-col items-center gap-3">
+                                                            <div className="w-6 h-6 border-2 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin"></div>
+                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fetching schedule...</span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ) : clientEvents.length === 0 && clientTasks.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={4} className="px-6 py-20 text-center bg-white/50">
+                                                        <div className="flex flex-col items-center opacity-40">
+                                                            <i className="fa-solid fa-calendar-day text-4xl mb-4 text-slate-300"></i>
+                                                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No activities scheduled yet</p>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                <>
+                                                    {/* Merge and Sort Events and Tasks */}
+                                                    {[
+                                                        ...clientEvents.map(e => ({ ...e, cat: 'Event' })),
+                                                        ...clientTasks.map(t => ({ ...t, cat: 'Task', start: t.dueDate ? (t.dueDate instanceof Date ? t.dueDate : (t.dueDate as any).toDate ? (t.dueDate as any).toDate() : new Date(t.dueDate)) : new Date() }))
+                                                    ].sort((a, b) => b.start.getTime() - a.start.getTime()).map((item: any, i) => (
+                                                        <tr key={i} className="group hover:bg-white transition-all">
+                                                            <td className="px-6 py-5">
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-xs font-black text-slate-900">{formatDate(item.start)}</span>
+                                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight mt-0.5">
+                                                                        {item.cat === 'Event' ? item.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Due Today'}
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-5">
+                                                                <div className={`
+                                                                    inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-wider
+                                                                    ${item.cat === 'Event' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-amber-50 border-amber-100 text-amber-600'}
+                                                                `}>
+                                                                    <i className={`fa-solid ${item.cat === 'Event' ? 'fa-calendar' : 'fa-list-check'} text-[8px]`}></i>
+                                                                    {item.cat}
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-5">
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-sm font-bold text-slate-800">{item.title}</span>
+                                                                    {item.description && (
+                                                                        <span className="text-xs text-slate-500 line-clamp-1 mt-0.5">{item.description}</span>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-5 text-right">
+                                                                <span className={`
+                                                                    px-3 py-1 bg-white border border-slate-100 text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm
+                                                                    ${item.status === 'Completed' || item.status === 'Done' ? 'text-emerald-500' : 'text-slate-400'}
+                                                                `}>
+                                                                    {item.status || 'Active'}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Miscellaneous Data Fields */}
+                            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+                                <div className="flex items-center gap-2 mb-6 pb-3 border-b border-slate-50">
+                                    <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shadow-inner border border-slate-100">
+                                        <i className="fa-solid fa-list-check text-xs"></i>
+                                    </div>
+                                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider">Wait! There's More</h4>
+                                </div>
+
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-6">
+                                    <div className="space-y-1.5">
+                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Created Date</div>
+                                        <div className="text-base font-bold text-slate-800">{formatDate((selectedClient as any).receivedAt || (selectedClient as any).createdAt)}</div>
                                     </div>
 
-                                    <div className="overflow-hidden rounded-2xl border border-slate-100 shadow-sm bg-white">
-                                        <table className="w-full text-left border-collapse">
-                                            <thead className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                                <tr>
-                                                    <th className="px-4 py-3 w-32">Date</th>
-                                                    <th className="px-4 py-3">Previous Stage</th>
-                                                    <th className="px-4 py-3">New Stage</th>
-                                                    <th className="px-4 py-3 text-right">Duration</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100">
-                                                {((selectedClient as any).stageHistory || []).map((history: any, i: number) => (
-                                                    <tr key={i} className="hover:bg-slate-50/40 transition-colors">
-                                                        <td className="px-4 py-3 text-xs font-medium text-slate-500 font-mono italic">
-                                                            {formatDate(history.enteredAt)}
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            <span className="px-2 py-1 bg-slate-100 text-slate-500 text-[9px] font-bold uppercase rounded tracking-wide border border-slate-200">
-                                                                {history.fromStage}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            <span className="px-2 py-1 bg-indigo-50 text-indigo-600 text-[9px] font-bold uppercase rounded tracking-wide border border-indigo-100">
-                                                                {history.toStage}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-4 py-3 text-xs font-medium text-slate-400 text-right">
-                                                            ---
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                                {(!((selectedClient as any).stageHistory) || (selectedClient as any).stageHistory.length === 0) && (
-                                                    <tr>
-                                                        <td colSpan={4} className="px-4 py-8 text-center text-slate-400 text-xs italic">
-                                                            No stage history available.
-                                                        </td>
-                                                    </tr>
-                                                )}
-                                            </tbody>
-                                        </table>
+                                    <div className="space-y-1.5">
+                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Referral Type</div>
+                                        <div className="text-base font-bold text-slate-800">{(selectedClient as any).leadInfo?.referralType || '---'}</div>
                                     </div>
+                                    <div className="space-y-1.5">
+                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Marketing Campaign</div>
+                                        <div className="text-base font-bold text-slate-800">{(selectedClient as any).leadInfo?.campaign || '---'}</div>
+                                    </div>
+                                    {(selectedClient as any).leadType === 'Buyer' && (
+                                        <div className="space-y-1.5">
+                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lease End Date</div>
+                                            <div className="text-base font-bold text-slate-800">{formatDate((selectedClient as any).leaseEndDate)}</div>
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-1.5 md:col-span-2">
+                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Home Address</div>
+                                        <div className="text-base font-bold text-slate-800 truncate">{(selectedClient as any).primaryContact?.homeAddress || '---'}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Stage History Log */}
+                            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+                                <div className="flex items-center gap-2 mb-6 pb-3 border-b border-slate-50">
+                                    <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shadow-inner border border-slate-100">
+                                        <i className="fa-solid fa-code-branch text-xs"></i>
+                                    </div>
+                                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider">Stage History Log</h4>
+                                </div>
+
+                                <div className="overflow-hidden rounded-2xl border border-slate-100 shadow-inner bg-slate-50/30">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead className="bg-white border-b border-slate-100 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                            <tr>
+                                                <th className="px-6 py-4 w-40">Date</th>
+                                                <th className="px-6 py-4">Previous Stage</th>
+                                                <th className="px-6 py-4">New Stage</th>
+                                                <th className="px-6 py-4 text-right">Duration</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {((selectedClient as any).stageHistory || []).map((history: any, i: number) => (
+                                                <tr key={i} className="hover:bg-white transition-colors">
+                                                    <td className="px-6 py-5 text-xs font-black text-slate-900 font-mono italic">
+                                                        {formatDate(history.enteredAt)}
+                                                    </td>
+                                                    <td className="px-6 py-5">
+                                                        <span className="px-3 py-1 bg-slate-100 text-slate-500 text-[9px] font-black uppercase rounded-lg tracking-wider border border-slate-200">
+                                                            {history.fromStage}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-5">
+                                                        <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[9px] font-black uppercase rounded-lg tracking-wider border border-indigo-100">
+                                                            {history.toStage}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-5 text-xs font-bold text-slate-400 text-right">
+                                                        ---
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {(!((selectedClient as any).stageHistory) || (selectedClient as any).stageHistory.length === 0) && (
+                                                <tr>
+                                                    <td colSpan={4} className="px-6 py-12 text-center text-slate-400 text-xs italic bg-white/50">
+                                                        No stage history available.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
