@@ -603,6 +603,27 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
 
                                 const fieldsToRender: { id: string, label: string, value: any, isSubfield?: boolean, parentId?: string }[] = [];
 
+                                // Helper helper to check deep emptiness
+                                const isEffectivelyEmpty = (val: any): boolean => {
+                                    if (val === undefined || val === null || val === '') return true;
+                                    if (typeof val === 'boolean') return false; // Booleans are always meaningful
+                                    if (typeof val === 'number') return false; // Numbers are meaningful (even 0)
+                                    if (val instanceof Date) return false;
+                                    if (val?.toDate) return false; // Firestore Timestamp
+
+                                    if (Array.isArray(val)) {
+                                        return val.length === 0 || val.every(item => isEffectivelyEmpty(item));
+                                    }
+
+                                    if (typeof val === 'object') {
+                                        const keys = Object.keys(val);
+                                        if (keys.length === 0) return true;
+                                        return keys.every(key => isEffectivelyEmpty(val[key]));
+                                    }
+
+                                    return false;
+                                };
+
                                 allConfigs.forEach((config: any) => {
                                     const skipFields = ['phone', 'email', 'firstName', 'lastName', 'message', 'notes', 'source', 'campaign', 'leadType', 'status', 'realtorComments', 'engagementScore', 'fullName', 'leadStatus'];
                                     if (!isStageVisible(config.funnelVisibility)) return;
@@ -627,13 +648,8 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                                             parentId: config.id
                                                         });
                                                     } else {
-                                                        // Non-Boolean: Hide if empty/null/empty object/empty array
-                                                        const isArray = Array.isArray(val);
-                                                        const isEmptyArray = isArray && val.length === 0;
-                                                        const isObject = typeof val === 'object' && val !== null && !isArray && !(val instanceof Date) && !(val?.toDate);
-                                                        const isEmptyObject = isObject && Object.keys(val).length === 0;
-
-                                                        if (val !== undefined && val !== null && val !== '' && !isEmptyArray && !isEmptyObject) {
+                                                        // Non-Boolean: Hide if effectively empty
+                                                        if (!isEffectivelyEmpty(val)) {
                                                             fieldsToRender.push({
                                                                 id: f.name,
                                                                 label: f.label,
@@ -657,13 +673,8 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                                 value: val
                                             });
                                         } else {
-                                            // Non-Boolean: Hide if empty/null
-                                            const isArray = Array.isArray(val);
-                                            const isEmptyArray = isArray && val.length === 0;
-                                            const isObject = typeof val === 'object' && val !== null && !isArray && !(val instanceof Date) && !(val?.toDate);
-                                            const isEmptyObject = isObject && Object.keys(val).length === 0;
-
-                                            if (val !== undefined && val !== null && val !== '' && !isEmptyArray && !isEmptyObject) {
+                                            // Non-Boolean: Hide if effectively empty
+                                            if (!isEffectivelyEmpty(val)) {
                                                 fieldsToRender.push({
                                                     id: config.id,
                                                     label: config.label,
