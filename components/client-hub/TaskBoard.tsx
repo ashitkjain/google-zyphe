@@ -23,22 +23,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, reminderRules = [], onUpda
             {/* Header with Tabs */}
             <div className="bg-white border-b border-slate-200/60 shadow-sm relative z-20">
                 <div className="p-10 pb-0">
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-4">
-                            {activeTab === 'tasks' && (
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 animate-pulse flex items-center gap-2">
-                                    <i className="fa-solid fa-brain text-indigo-500"></i> AI Priority Sorting Active
-                                </span>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-4">
-                            {activeTab === 'tasks' && (
-                                <button className="bg-slate-900 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10">
-                                    Add Task
-                                </button>
-                            )}
-                        </div>
-                    </div>
+
 
                     {/* Tab Navigation */}
                     <div className="flex gap-2">

@@ -20,6 +20,11 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ clients, leads, o
         ...clients.map(c => ({ ...c, isUser: true, id: c.uid })),
         ...leads.map(l => ({ ...l, isUser: false }))
     ].sort((a, b) => {
+        // Sort by isUser (false first - Off-Zyphe, true last - On-Zyphe)
+        if (a.isUser !== b.isUser) {
+            return a.isUser ? 1 : -1;
+        }
+        // Then sort by date
         const dateA = a.isUser ? (a.createdAt || 0) : (a.receivedAt || 0);
         const dateB = b.isUser ? (b.createdAt || 0) : (b.receivedAt || 0);
         return new Date(dateB).getTime() - new Date(dateA).getTime();
@@ -807,6 +812,58 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ clients, leads, o
                                                 <div className="text-sm font-medium text-slate-800 truncate">{(selectedClient as any).primaryContact?.homeAddress || '---'}</div>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+
+                                {/* Stage History Log */}
+                                <div className="mt-8 pt-6 border-t border-slate-200">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shadow-inner border border-slate-100">
+                                            <i className="fa-solid fa-code-branch text-xs"></i>
+                                        </div>
+                                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Stage History Log</h4>
+                                    </div>
+
+                                    <div className="overflow-hidden rounded-2xl border border-slate-100 shadow-sm bg-white">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                <tr>
+                                                    <th className="px-4 py-3 w-32">Date</th>
+                                                    <th className="px-4 py-3">Previous Stage</th>
+                                                    <th className="px-4 py-3">New Stage</th>
+                                                    <th className="px-4 py-3 text-right">Duration</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {((selectedClient as any).stageHistory || []).map((history: any, i: number) => (
+                                                    <tr key={i} className="hover:bg-slate-50/40 transition-colors">
+                                                        <td className="px-4 py-3 text-xs font-medium text-slate-500 font-mono italic">
+                                                            {formatDate(history.enteredAt)}
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <span className="px-2 py-1 bg-slate-100 text-slate-500 text-[9px] font-bold uppercase rounded tracking-wide border border-slate-200">
+                                                                {history.fromStage}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <span className="px-2 py-1 bg-indigo-50 text-indigo-600 text-[9px] font-bold uppercase rounded tracking-wide border border-indigo-100">
+                                                                {history.toStage}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-xs font-medium text-slate-400 text-right">
+                                                            ---
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {(!((selectedClient as any).stageHistory) || (selectedClient as any).stageHistory.length === 0) && (
+                                                    <tr>
+                                                        <td colSpan={4} className="px-4 py-8 text-center text-slate-400 text-xs italic">
+                                                            No stage history available.
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
                             </div>
