@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
 type ViewMode = 'month' | 'week' | 'day';
 
@@ -40,37 +40,6 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
     ]);
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
     const [isEditing, setIsEditing] = useState(false);
-    const [activeNotification, setActiveNotification] = useState<CalendarEvent | null>(null);
-    const [notifiedEventIds, setNotifiedEventIds] = useState<Set<string>>(new Set());
-
-    // Check for upcoming events every minute
-    useEffect(() => {
-        const checkEvents = () => {
-            const now = new Date();
-            const fifteenMinutesFromNow = new Date(now.getTime() + 15 * 60000);
-
-            events.forEach(event => {
-                if (notifiedEventIds.has(event.id)) return;
-
-                // If event starts precisely in the 15-16 minute window from now
-                const timeDiff = event.start.getTime() - now.getTime();
-                const minutesDiff = timeDiff / 60000;
-
-                if (minutesDiff > 0 && minutesDiff <= 15) {
-                    setActiveNotification(event);
-                    setNotifiedEventIds(prev => new Set(prev).add(event.id));
-
-                    // Auto-hide notification after 10 seconds
-                    setTimeout(() => setActiveNotification(null), 10000);
-                }
-            });
-        };
-
-        const interval = setInterval(checkEvents, 60000); // Check every minute
-        checkEvents(); // Initial check
-
-        return () => clearInterval(interval);
-    }, [events, notifiedEventIds]);
 
     const handleSaveEvent = (updatedEvent: CalendarEvent) => {
         setEvents(prev => prev.map(e => e.id === updatedEvent.id ? updatedEvent : e));
@@ -380,32 +349,7 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ onSwitch }) => {
     };
 
     return (
-        <div className="flex-1 overflow-y-auto bg-[#F8FAFC] relative">
-            {/* Upcoming Event Notification */}
-            {activeNotification && (
-                <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[200] w-full max-w-md animate-in fade-in slide-in-from-top-8 duration-500">
-                    <div className="mx-4 bg-slate-900 text-white p-6 rounded-[32px] shadow-2xl flex items-center gap-5 border border-slate-800 backdrop-blur-xl">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 animate-pulse ${activeNotification.type === 'open-house' ? 'bg-emerald-500' :
-                            activeNotification.type === 'task' ? 'bg-amber-500' :
-                                'bg-indigo-500'
-                            }`}>
-                            <i className="fa-solid fa-bell text-xl"></i>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Upcoming in 15m</p>
-                            <h4 className="font-bold truncate">{activeNotification.title}</h4>
-                            <p className="text-xs text-slate-400 font-medium">Starts at {activeNotification.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                        </div>
-                        <button
-                            onClick={() => setActiveNotification(null)}
-                            className="w-10 h-10 rounded-2xl bg-slate-800 flex items-center justify-center hover:bg-slate-700 transition-colors"
-                        >
-                            <i className="fa-solid fa-xmark text-xs"></i>
-                        </button>
-                    </div>
-                </div>
-            )}
-
+        <div className="flex-1 overflow-y-auto bg-[#F8FAFC]">
             <div className="p-12 max-w-screen-2xl mx-auto">
                 {renderHeader()}
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
