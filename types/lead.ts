@@ -385,6 +385,7 @@ export const LEAD_FIELD_CONFIG = [
         visibility: ['Buyer'],
         type: 'list',
         description: "Log of properties visited and client reactions.",
+        funnelVisibility: ['Active Search'], // Added visibility
         fields: [
             { name: 'propertyAddress', label: 'Property Address', type: 'string', description: 'Address toured', funnelVisibility: ['Active Search'] },
             { name: 'rating', label: 'Rating', type: 'integer', description: 'Rating (1-5)', funnelVisibility: ['Active Search'] },
@@ -442,6 +443,7 @@ export const LEAD_FIELD_CONFIG = [
         visibility: ['Buyer'],
         type: 'list',
         description: 'Scheduled and completed property tours.',
+        funnelVisibility: ['Active Search'],
         fields: [
             { name: 'propertyAddress', label: 'Property Address', type: 'string', description: 'Address to tour', funnelVisibility: ['Active Search'] },
             { name: 'date', label: 'Tour Date', type: 'date', description: 'Date of tour', funnelVisibility: ['Active Search'] },
@@ -501,6 +503,7 @@ export const LEAD_STAGE_LIFECYCLE_CONFIG = [
         visibility: ['Buyer', 'Seller'],
         type: 'list',
         description: 'Historical log of every stage move with duration.',
+        funnelVisibility: [], // Hidden from card grid
         fields: [
             { name: 'fromStage', label: 'From Stage', type: 'enum', description: 'Previous stage', funnelVisibility: [] },
             { name: 'toStage', label: 'To Stage', type: 'enum', description: 'New stage', funnelVisibility: [] },
