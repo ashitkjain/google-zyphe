@@ -3,35 +3,7 @@ import { Lead, PipelineNote, LEAD_FIELD_CONFIG, LEAD_STAGE_LIFECYCLE_CONFIG, Rea
 import { Droppable } from '@hello-pangea/dnd';
 import { getStatusOptions } from '../../services/statusService';
 
-const TypedDroppable = ({ children, ...props }: any) => {
-    const [enabled, setEnabled] = React.useState(false);
-    React.useEffect(() => {
-        const animation = requestAnimationFrame(() => setEnabled(true));
-        return () => {
-            cancelAnimationFrame(animation);
-            setEnabled(false);
-        };
-    }, []);
-
-    if (!enabled) {
-        return children(
-            {
-                innerRef: (el: any) => { },
-                droppableProps: {
-                    'data-rbd-droppable-id': props.droppableId,
-                    'data-rbd-droppable-context-id': '0' // dummy context
-                },
-                placeholder: null
-            },
-            {
-                isDraggingOver: false,
-                draggingOverWith: null
-            }
-        );
-    }
-
-    return <Droppable {...props}>{children}</Droppable>;
-};
+const TypedDroppable = Droppable as any;
 
 interface LeadGalleryItemProps {
     lead: Lead;
@@ -444,7 +416,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
     ]));
 
     return (
-        <TypedDroppable droppableId={lead.id} type="POSTIT_PALETTE">
+        <Droppable droppableId={`note-drop-${lead.id}`} type="POSTIT_PALETTE">
             {(noteProvided: any, noteSnapshot: any) => (
                 <div
                     ref={noteProvided.innerRef}
@@ -783,7 +755,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                             </div>
                         )}
 
-                        {getVisibleColumns().has('notes') && (
+                        {(getVisibleColumns().has('notes') || (pendingNote && pendingNote.leadId === lead.id) || (lead.notesLog && lead.notesLog.length > 0)) && (
                             <div
                                 className="flex flex-wrap gap-3 mt-4 relative min-h-[40px] flex-1 rounded-xl transition-colors"
                                 onClick={(e) => e.stopPropagation()}
@@ -863,7 +835,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                     </div>
                 </div>
             )}
-        </TypedDroppable>
+        </Droppable>
     );
 };
 

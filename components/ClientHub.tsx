@@ -305,8 +305,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         const { destination, source, draggableId } = result;
 
         // Custom Note Handling (Palette Drop onto Lead)
-        if (draggableId.startsWith('note-') && destination && destination.droppableId !== 'palette' && destination.droppableId !== 'palette-buyer' && destination.droppableId !== 'palette-seller') {
-            const leadId = destination.droppableId;
+        if (draggableId.startsWith('note-') && destination && destination.droppableId.startsWith('note-drop-')) {
+            const leadId = destination.droppableId.replace('note-drop-', '');
             // Extract base ID (e.g., 'note-yellow' from 'note-yellow-buyer')
             const baseNoteId = draggableId.split('-').slice(0, 2).join('-');
 
