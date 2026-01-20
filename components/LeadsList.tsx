@@ -737,7 +737,7 @@ const LeadsList: React.FC<InternalProps> = ({
             ) : (
                 <DragDropContext onDragEnd={handleDragEnd}>
                     {/* Content Area */}
-                    <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white mb-0 space-y-4 py-4">
+                    <div className="flex-1 overflow-y-auto bg-white mb-0 space-y-4 py-4">
                         {/* Buyer Section */}
                         {activeTab === 'Buyer' && (
                             <section className="px-4 animate-in fade-in slide-in-from-left-4 duration-300">
@@ -798,8 +798,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                 {filteredBuyerLeads.length > 0 ? (
                                     currentDisplayMode === 'list' ? (
                                         <div className="overflow-x-auto w-full pb-6">
-                                            <table className="w-full text-left border-collapse min-w-full">
-                                                <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500">
+                                            <table className="text-left border-collapse min-w-full">
+                                                <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500 whitespace-nowrap">
                                                     <tr>
                                                         <th className="w-12 px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">#</th>
                                                         <th className="w-10 px-2 py-3 border-b border-slate-200/60 bg-slate-50">
@@ -858,7 +858,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100">
                                                     {filteredBuyerLeads.map((lead, index) => (
-                                                        <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80">
+                                                        <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80 whitespace-nowrap">
                                                             <td className="px-2 py-2 border-b border-slate-100 text-center text-slate-400 font-bold opacity-50">{index + 1}</td>
                                                             <td className="px-2 py-2 border-b border-slate-100">
                                                                 <input type="checkbox" checked={selectedIds.has(lead.id)} onChange={() => handleSelectOne(lead.id)} className="rounded border-slate-300" />
@@ -1172,8 +1172,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                 {filteredSellerLeads.length > 0 ? (
                                     currentDisplayMode === 'list' ? (
                                         <div className="overflow-x-auto w-full pb-6">
-                                            <table className="w-full text-left border-collapse min-w-full">
-                                                <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500">
+                                            <table className="text-left border-collapse min-w-full">
+                                                <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500 whitespace-nowrap">
                                                     <tr>
                                                         <th className="w-12 px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">#</th>
                                                         <th className="w-10 px-2 py-3 border-b border-slate-200/60 bg-slate-50">
@@ -1229,7 +1229,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100">
                                                     {filteredSellerLeads.map((lead, index) => (
-                                                        <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80">
+                                                        <tr key={lead.id} className="group text-slate-700 text-sm transition-colors hover:bg-slate-50/80 whitespace-nowrap">
                                                             <td className="px-2 py-2 border-b border-slate-100 text-center text-slate-400 font-bold opacity-50">{index + 1}</td>
                                                             <td className="px-2 py-2 border-b border-slate-100">
                                                                 <input type="checkbox" checked={selectedIds.has(lead.id)} onChange={() => handleSelectOne(lead.id)} className="rounded border-slate-300" />
