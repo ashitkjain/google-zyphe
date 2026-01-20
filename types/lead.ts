@@ -516,7 +516,7 @@ export const LEAD_STAGE_LIFECYCLE_CONFIG = [
         fields: [
             { name: 'notes', label: 'Notes', type: 'string', funnelVisibility: ['All'] },
             { name: 'date', label: 'Date', type: 'date', funnelVisibility: ['All'] },
-            { name: 'color', label: 'Post it color', type: 'string', funnelVisibility: ['All'] }
+            { name: 'color', label: 'Post it color', type: 'enum', options: ['yellow', 'blue', 'red', 'green'], funnelVisibility: ['All'] }
         ]
     }
 ] as const;
@@ -524,7 +524,7 @@ export const LEAD_STAGE_LIFECYCLE_CONFIG = [
 
 export interface RealtorComment {
     note: string;
-    color: 'yellow' | 'blue' | 'green' | 'pink' | 'purple';
+    color: 'yellow' | 'blue' | 'red' | 'green';
     date: Date | any;
 }
 

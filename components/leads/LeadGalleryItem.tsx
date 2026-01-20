@@ -670,8 +670,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                         yellow: 'bg-yellow-50 text-yellow-900 border-yellow-200',
                                         blue: 'bg-blue-50 text-blue-900 border-blue-200',
                                         green: 'bg-emerald-50 text-emerald-900 border-emerald-200',
-                                        pink: 'bg-pink-50 text-pink-900 border-pink-200',
-                                        purple: 'bg-purple-50 text-purple-900 border-purple-200'
+                                        red: 'bg-rose-50 text-rose-900 border-rose-200'
                                     };
                                     const styleClass = colors[comment.color] || colors.yellow;
 
@@ -707,7 +706,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                     <div>
                                         <label className="text-[9px] font-black text-slate-400 uppercase ml-1 mb-1 block">Tag Color</label>
                                         <div className="flex items-center gap-3">
-                                            {['yellow', 'blue', 'green', 'pink', 'purple'].map(color => (
+                                            {['yellow', 'blue', 'red', 'green'].map(color => (
                                                 <button
                                                     key={color}
                                                     onClick={() => setCommentDraft({ ...commentDraft, color })}
@@ -715,9 +714,8 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                                 >
                                                     <div className={`w-6 h-6 rounded-full ${color === 'yellow' ? 'bg-yellow-400' :
                                                         color === 'blue' ? 'bg-blue-400' :
-                                                            color === 'green' ? 'bg-emerald-400' :
-                                                                color === 'pink' ? 'bg-pink-400' :
-                                                                    'bg-purple-400'
+                                                            color === 'red' ? 'bg-rose-400' :
+                                                                'bg-emerald-400'
                                                         } shadow-sm`}></div>
                                                 </button>
                                             ))}
