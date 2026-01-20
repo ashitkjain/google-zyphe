@@ -151,7 +151,7 @@ export const LEAD_FIELD_CONFIG = [
         visibility: ['Buyer', 'Seller'],
         type: 'date',
         description: 'Date lead was created',
-        funnelVisibility: ['Leads']
+        funnelVisibility: [] // None, as requested
     },
     {
         id: 'legalName',
@@ -160,7 +160,7 @@ export const LEAD_FIELD_CONFIG = [
         visibility: ['Buyer', 'Seller'],
         type: 'string',
         description: 'Client legal name',
-        funnelVisibility: ['Leads']
+        funnelVisibility: [] // None, as requested
     },
     {
         id: 'primaryContact',
