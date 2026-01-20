@@ -798,7 +798,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                 {filteredBuyerLeads.length > 0 ? (
                                     currentDisplayMode === 'list' ? (
                                         <div className="overflow-x-auto w-full pb-6">
-                                            <table className="w-full text-left border-collapse min-w-full">
+                                            <table className="text-left border-collapse">
                                                 <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500">
                                                     <tr>
                                                         <th className="w-12 px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">#</th>
@@ -1172,7 +1172,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                 {filteredSellerLeads.length > 0 ? (
                                     currentDisplayMode === 'list' ? (
                                         <div className="overflow-x-auto w-full pb-6">
-                                            <table className="w-full text-left border-collapse min-w-full">
+                                            <table className="text-left border-collapse">
                                                 <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500">
                                                     <tr>
                                                         <th className="w-12 px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">#</th>
