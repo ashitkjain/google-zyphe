@@ -153,8 +153,8 @@ export const DynamicLeadsTable: React.FC<DynamicLeadsTableProps> = ({
                 <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500">
                     {/* Row 1: Parent headers */}
                     <tr>
-                        <th rowSpan={2} className="w-12 px-2 py-3 border-b border-slate-200/60 bg-slate-50 text-center">#</th>
-                        <th rowSpan={2} className="w-10 px-2 py-3 border-b border-slate-200/60 bg-slate-50">
+                        <th rowSpan={2} className="w-12 px-2 py-3 border-b border-r border-slate-200/60 bg-slate-50 text-center">#</th>
+                        <th rowSpan={2} className="w-10 px-2 py-3 border-b border-r border-slate-200/60 bg-slate-50">
                             <input
                                 type="checkbox"
                                 onChange={(e) => onSelectAll(leads, e.target.checked)}
@@ -168,7 +168,7 @@ export const DynamicLeadsTable: React.FC<DynamicLeadsTableProps> = ({
                                 <th
                                     key={idx}
                                     colSpan={field.colSpan}
-                                    className="px-2 py-2 border-b border-slate-200/60 bg-slate-100 text-center font-bold"
+                                    className="px-2 py-2 border-b border-r border-slate-200/60 bg-slate-100 text-center font-bold"
                                 >
                                     {field.parent.label}
                                 </th>
@@ -176,7 +176,7 @@ export const DynamicLeadsTable: React.FC<DynamicLeadsTableProps> = ({
                                 <th
                                     key={idx}
                                     rowSpan={2}
-                                    className="px-2 py-3 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100 whitespace-nowrap"
+                                    className="px-2 py-3 border-b border-r border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100 whitespace-nowrap"
                                     onClick={() => onSort(field.parent.id)}
                                 >
                                     {field.parent.label}
@@ -194,7 +194,7 @@ export const DynamicLeadsTable: React.FC<DynamicLeadsTableProps> = ({
                             field.children.map((child: any, childIdx: number) => (
                                 <th
                                     key={`${idx}-${childIdx}`}
-                                    className="px-2 py-2 border-b border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100 whitespace-nowrap text-xs"
+                                    className="px-2 py-2 border-b border-r border-slate-200/60 bg-slate-50 cursor-pointer hover:bg-slate-100 whitespace-nowrap text-xs"
                                     onClick={() => onSort(`${field.parent.id}.${child.id}`)}
                                 >
                                     {child.label}
