@@ -668,7 +668,7 @@ const LeadsList: React.FC<InternalProps> = ({
     };
 
     return (
-        <div className="flex flex-col h-full w-full bg-white text-sm font-sans overflow-hidden min-w-0">
+        <div className="flex flex-col h-full w-full bg-white text-sm font-sans overflow-clip min-w-0">
             {/* DEBUG BANNER - TEMPORARY */}
             <div className="bg-red-100 border-b border-red-200 p-2 text-xs font-mono text-red-800 flex flex-wrap gap-4 items-center z-50">
                 <span><strong>Total:</strong> {leads.length}</span>
@@ -797,7 +797,7 @@ const LeadsList: React.FC<InternalProps> = ({
 
                                 {filteredBuyerLeads.length > 0 ? (
                                     currentDisplayMode === 'list' ? (
-                                        <div className="overflow-x-auto w-full pb-6">
+                                        <div className="overflow-x-auto w-full pb-6 -mx-4 px-4">
                                             <table className="text-left border-collapse">
                                                 <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500">
                                                     <tr>
@@ -1171,7 +1171,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                 }
                                 {filteredSellerLeads.length > 0 ? (
                                     currentDisplayMode === 'list' ? (
-                                        <div className="overflow-x-auto w-full pb-6">
+                                        <div className="overflow-x-auto w-full pb-6 -mx-4 px-4">
                                             <table className="text-left border-collapse">
                                                 <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500">
                                                     <tr>
