@@ -145,7 +145,7 @@ const LeadsList: React.FC<InternalProps> = ({
     // Display Mode Mapping (Default: Past 6 Months -> Gallery, Older -> List)
     const [viewMode, setViewMode] = useState<'past6Months' | 'older'>('past6Months'); // Legacy
 
-    const [globalDisplayMode, setGlobalDisplayMode] = useState<DisplayMode>('list');
+    const [globalDisplayMode, setGlobalDisplayMode] = useState<DisplayMode>('kanban');
 
     const currentDisplayMode = globalDisplayMode;
 
