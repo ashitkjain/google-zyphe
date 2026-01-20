@@ -613,8 +613,12 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                         if (parentVal) {
                                             config.fields.forEach((f: any) => {
                                                 if (isStageVisible(f.funnelVisibility) && !skipFields.includes(f.name)) {
-                                                    const val = parentVal[f.name];
-                                                    if (val !== undefined && val !== null && val !== '' && val !== false) {
+                                                    let val = parentVal[f.name];
+                                                    // Handle Boolean Logic: Null/Undefined/Empty -> False if type is boolean
+                                                    if (f.type === 'boolean') {
+                                                        val = val === true; // normalizing
+                                                        // Always show booleans? "unless they are boolean where empty or null implies false"
+                                                        // This implies we show 'false' for empty booleans.
                                                         fieldsToRender.push({
                                                             id: f.name,
                                                             label: f.label,
@@ -622,18 +626,42 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                                             isSubfield: true,
                                                             parentId: config.id
                                                         });
+                                                    } else {
+                                                        // Non-Boolean: Hide if empty/null
+                                                        const isEmptyArray = Array.isArray(val) && val.length === 0;
+                                                        if (val !== undefined && val !== null && val !== '' && !isEmptyArray) {
+                                                            fieldsToRender.push({
+                                                                id: f.name,
+                                                                label: f.label,
+                                                                value: val,
+                                                                isSubfield: true,
+                                                                parentId: config.id
+                                                            });
+                                                        }
                                                     }
                                                 }
                                             });
                                         }
                                     } else {
-                                        const val = (lead as any)[config.id];
-                                        if (val !== undefined && val !== null && val !== '' && val !== false) {
+                                        let val = (lead as any)[config.id];
+                                        // Handle Boolean Logic
+                                        if (config.type === 'boolean') {
+                                            val = val === true; // normalizing
                                             fieldsToRender.push({
                                                 id: config.id,
                                                 label: config.label,
                                                 value: val
                                             });
+                                        } else {
+                                            // Non-Boolean: Hide if empty/null
+                                            const isEmptyArray = Array.isArray(val) && val.length === 0;
+                                            if (val !== undefined && val !== null && val !== '' && !isEmptyArray) {
+                                                fieldsToRender.push({
+                                                    id: config.id,
+                                                    label: config.label,
+                                                    value: val
+                                                });
+                                            }
                                         }
                                     }
                                 });
