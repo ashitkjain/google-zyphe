@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CRMTask, ReminderRule, Lead } from '../../types';
 import ReminderRulesManager from './ReminderRulesManager';
 import { updateTask, addTask, deleteTask } from '../../services/firebaseService';
+import ZypheCalendar from './ZypheCalendar';
 
 interface TaskBoardProps {
     realtorId: string;
@@ -32,6 +33,7 @@ const formatDate = (val: any) => {
 const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, leads = [], reminderRules = [], onTasksUpdated, onUpdateRule, onSaveRules }) => {
     const [activeTab, setActiveTab] = useState<'calendar' | 'tasks' | 'rules'>('calendar');
     const [isSaving, setIsSaving] = useState(false);
+    const [calendarPreference, setCalendarPreference] = useState<'none' | 'third-party' | 'zyphe'>('none');
 
     // Filter leads to show only those in specific stages
     const clientOptions = leads.filter(l =>
@@ -183,17 +185,70 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
 
             {/* Content Area */}
             <div className="flex-1 overflow-y-auto">
-                {/* Calendar Placeholder View */}
+                {/* Calendar View */}
                 {activeTab === 'calendar' && (
-                    <div className="flex-1 h-full p-10 flex flex-col items-center justify-center text-center">
-                        <div className="w-24 h-24 bg-indigo-50 rounded-3xl flex items-center justify-center text-indigo-600 mb-6 shadow-sm border border-indigo-100/50">
-                            <i className="fa-solid fa-calendar-days text-4xl"></i>
-                        </div>
-                        <h3 className="text-2xl font-black text-slate-900 mb-2">My Calendar</h3>
-                        <p className="text-slate-500 font-medium max-w-sm">Connect your Google or Outlook calendar to manage your real estate appointments here.</p>
-                        <button className="mt-8 px-8 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95">
-                            Connect Calendar
-                        </button>
+                    <div className="flex-1 h-full">
+                        {calendarPreference === 'none' && (
+                            <div className="flex-1 h-full p-10 flex flex-col items-center justify-center text-center">
+                                <div className="w-24 h-24 bg-indigo-50 rounded-3xl flex items-center justify-center text-indigo-600 mb-6 shadow-sm border border-indigo-100/50">
+                                    <i className="fa-solid fa-calendar-days text-4xl"></i>
+                                </div>
+                                <h3 className="text-2xl font-black text-slate-900 mb-2">My Calendar</h3>
+                                <p className="text-slate-500 font-medium max-w-sm mb-10">Choose how you want to manage your schedule and appointments.</p>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl w-full">
+                                    <button
+                                        onClick={() => setCalendarPreference('third-party')}
+                                        className="p-8 bg-white border border-slate-200 rounded-3xl hover:border-indigo-600 hover:shadow-xl hover:shadow-indigo-100 transition-all text-left group"
+                                    >
+                                        <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-600 mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                                            <i className="fa-brands fa-google text-lg"></i>
+                                        </div>
+                                        <h4 className="text-lg font-bold text-slate-900 mb-1">3rd Party Integration</h4>
+                                        <p className="text-sm text-slate-500">Connect Google or Outlook calendar to sync all your existing appointments.</p>
+                                    </button>
+
+                                    <button
+                                        onClick={() => setCalendarPreference('zyphe')}
+                                        className="p-8 bg-white border border-slate-200 rounded-3xl hover:border-indigo-600 hover:shadow-xl hover:shadow-indigo-100 transition-all text-left group"
+                                    >
+                                        <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-600 mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                                            <i className="fa-solid fa-rocket text-lg"></i>
+                                        </div>
+                                        <h4 className="text-lg font-bold text-slate-900 mb-1">Zyphe Calendar</h4>
+                                        <p className="text-sm text-slate-500">Use our built-in premium calendar designed specifically for realtors.</p>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {calendarPreference === 'third-party' && (
+                            <div className="flex-1 h-full p-10 flex flex-col items-center justify-center text-center">
+                                <button
+                                    onClick={() => setCalendarPreference('none')}
+                                    className="absolute top-10 left-10 text-slate-400 hover:text-indigo-600 transition-colors"
+                                >
+                                    <i className="fa-solid fa-arrow-left mr-2"></i> Back to options
+                                </button>
+                                <div className="w-24 h-24 bg-indigo-50 rounded-3xl flex items-center justify-center text-indigo-600 mb-6 shadow-sm border border-indigo-100/50">
+                                    <i className="fa-solid fa-link text-4xl"></i>
+                                </div>
+                                <h3 className="text-2xl font-black text-slate-900 mb-2">Connect Your Calendar</h3>
+                                <p className="text-slate-500 font-medium max-w-sm">Manage your external appointments directly within Zyphe.</p>
+                                <div className="flex gap-4 mt-8">
+                                    <button className="px-8 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-black uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-2">
+                                        <i className="fa-brands fa-google text-red-500"></i> Google Calendar
+                                    </button>
+                                    <button className="px-8 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-black uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-2">
+                                        <i className="fa-brands fa-microsoft text-blue-500"></i> Outlook
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {calendarPreference === 'zyphe' && (
+                            <ZypheCalendar onSwitch={() => setCalendarPreference('none')} />
+                        )}
                     </div>
                 )}
 
