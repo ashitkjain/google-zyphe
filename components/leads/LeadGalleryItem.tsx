@@ -627,9 +627,13 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                                             parentId: config.id
                                                         });
                                                     } else {
-                                                        // Non-Boolean: Hide if empty/null
-                                                        const isEmptyArray = Array.isArray(val) && val.length === 0;
-                                                        if (val !== undefined && val !== null && val !== '' && !isEmptyArray) {
+                                                        // Non-Boolean: Hide if empty/null/empty object/empty array
+                                                        const isArray = Array.isArray(val);
+                                                        const isEmptyArray = isArray && val.length === 0;
+                                                        const isObject = typeof val === 'object' && val !== null && !isArray && !(val instanceof Date) && !(val?.toDate);
+                                                        const isEmptyObject = isObject && Object.keys(val).length === 0;
+
+                                                        if (val !== undefined && val !== null && val !== '' && !isEmptyArray && !isEmptyObject) {
                                                             fieldsToRender.push({
                                                                 id: f.name,
                                                                 label: f.label,
@@ -654,8 +658,12 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                             });
                                         } else {
                                             // Non-Boolean: Hide if empty/null
-                                            const isEmptyArray = Array.isArray(val) && val.length === 0;
-                                            if (val !== undefined && val !== null && val !== '' && !isEmptyArray) {
+                                            const isArray = Array.isArray(val);
+                                            const isEmptyArray = isArray && val.length === 0;
+                                            const isObject = typeof val === 'object' && val !== null && !isArray && !(val instanceof Date) && !(val?.toDate);
+                                            const isEmptyObject = isObject && Object.keys(val).length === 0;
+
+                                            if (val !== undefined && val !== null && val !== '' && !isEmptyArray && !isEmptyObject) {
                                                 fieldsToRender.push({
                                                     id: config.id,
                                                     label: config.label,
