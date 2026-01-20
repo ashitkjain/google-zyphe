@@ -401,6 +401,7 @@ export const LEAD_FIELD_CONFIG = [
         visibility: ['Buyer', 'Seller'],
         type: 'object',
         description: "Details of the offer currently in play.",
+        funnelVisibility: ['Offer'],
         fields: [
             { name: 'price', label: 'Offer Price', type: 'currency', description: 'Offer price', funnelVisibility: ['Offer'] },
             { name: 'earnestMoney', label: 'Earnest Money Deposit', type: 'currency', description: 'EMD amount', funnelVisibility: ['Offer'] },
@@ -415,6 +416,7 @@ export const LEAD_FIELD_CONFIG = [
         visibility: ['Buyer', 'Seller'],
         type: 'list',
         description: "Log of past offers that were rejected or withdrawn.",
+        funnelVisibility: ['Active Search'],
         fields: [
             { name: 'propertyAddress', label: 'Property Address', type: 'string', description: 'Property address', funnelVisibility: ['Active Search'] },
             { name: 'offerPrice', label: 'Offer Price', type: 'currency', description: 'Offer price', funnelVisibility: ['Active Search'] },
@@ -430,6 +432,7 @@ export const LEAD_FIELD_CONFIG = [
         visibility: ['Buyer', 'Seller'],
         type: 'object',
         description: "Contact info for external partners on this deal.",
+        funnelVisibility: ['Closing'],
         fields: [
             { name: 'lenderPOC', label: 'Lender Contact', type: 'string', description: 'Lender contact', funnelVisibility: ['Closing'] },
             { name: 'escrowOfficer', label: 'Escrow Officer', type: 'string', description: 'Escrow officer', funnelVisibility: ['Closing'] },
@@ -457,6 +460,7 @@ export const LEAD_FIELD_CONFIG = [
         visibility: ['Seller'],
         type: 'list',
         description: 'Visitors log for open houses or showings.',
+        funnelVisibility: ['Active Search'],
         fields: [
             { name: 'name', label: 'Visitor Name', type: 'string', description: 'Visitor Name', funnelVisibility: ['Active Search'] },
             { name: 'visitCount', label: 'Visit Count', type: 'integer', description: 'Number of visits', funnelVisibility: ['Active Search'] },
@@ -470,6 +474,7 @@ export const LEAD_FIELD_CONFIG = [
         visibility: ['Buyer', 'Seller'],
         type: 'list',
         description: 'List of all offers made or received.',
+        funnelVisibility: ['Offer'],
         fields: [
             { name: 'property', label: 'Property Address', type: 'string', description: 'Property Address', funnelVisibility: ['Offer'] },
             { name: 'bidPrice', label: 'Bid Amount', type: 'currency', description: 'Bid Amount', funnelVisibility: ['Offer'] },
@@ -485,6 +490,7 @@ export const LEAD_FIELD_CONFIG = [
         visibility: ['Buyer', 'Seller'],
         type: 'object',
         description: "Key deadlines and milestones for the transaction.",
+        funnelVisibility: ['Closing'],
         fields: [
             { name: 'inspectionEnd', label: 'Inspection Deadline', type: 'date', description: 'Inspection deadline', funnelVisibility: ['Closing'] },
             { name: 'appraisalDate', label: 'Appraisal Date', type: 'date', description: 'Appraisal deadline', funnelVisibility: ['Closing'] },
