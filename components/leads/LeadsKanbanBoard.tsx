@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Lead } from '../../types';
+import { Lead, LEAD_FIELD_CONFIG, LEAD_STAGE_LIFECYCLE_CONFIG } from '../../types';
 import { getFunnelStageForStatus, getStatusOptions } from '../../services/statusService';
 
 interface LeadsKanbanBoardProps {
@@ -360,6 +360,62 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
             </div>
 
             <div className="space-y-2">
+                {/* Dynamic Fields Section */}
+                {(() => {
+                    const allConfigs = [...LEAD_FIELD_CONFIG, ...LEAD_STAGE_LIFECYCLE_CONFIG];
+
+                    const isStageVisible = (stages: readonly string[] | string[] | undefined) => {
+                        if (!stages || stages.includes('All')) return true;
+                        return stages.includes(currentFunnelStage as any);
+                    };
+
+                    const extraFields: { label: string, value: any }[] = [];
+
+                    allConfigs.forEach((config: any) => {
+                        if (!isStageVisible(config.funnelVisibility)) return;
+                        if (['phone', 'email', 'firstName', 'lastName', 'message', 'notes', 'source', 'campaign', 'leadType', 'status', 'realtorComments'].includes(config.id)) return;
+
+                        if (config.type === 'object' && config.fields) {
+                            const parentVal = (lead as any)[config.id];
+                            if (parentVal) {
+                                config.fields.forEach((f: any) => {
+                                    if (isStageVisible(f.funnelVisibility)) {
+                                        const val = parentVal[f.name];
+                                        if (val !== undefined && val !== null && val !== '' && val !== false) {
+                                            extraFields.push({ label: f.label, value: val });
+                                        }
+                                    }
+                                });
+                            }
+                        } else {
+                            const val = (lead as any)[config.id];
+                            if (val !== undefined && val !== null && val !== '' && val !== false) {
+                                extraFields.push({ label: config.label, value: val });
+                            }
+                        }
+                    });
+
+                    if (extraFields.length === 0) return null;
+
+                    return (
+                        <div className="flex flex-wrap gap-x-3 gap-y-1.5 mt-2 py-2 border-y border-slate-50">
+                            {extraFields.slice(0, 4).map((f, i) => (
+                                <div key={i} className="flex items-center gap-1 min-w-0">
+                                    <span className="text-[8px] font-black text-slate-300 uppercase tracking-tighter shrink-0">{f.label.replace(/[^a-zA-Z]/g, '').slice(0, 8)}:</span>
+                                    <span className="text-[10px] font-bold text-slate-600 truncate">
+                                        {typeof f.value === 'boolean' ? 'Yes' :
+                                            (f.value instanceof Date || f.value?.toDate) ?
+                                                (f.value?.toDate ? f.value.toDate() : new Date(f.value)).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) :
+                                                f.value.toString()}
+                                    </span>
+                                </div>
+                            ))}
+                            {extraFields.length > 4 && (
+                                <div className="text-[8px] font-black text-indigo-400 uppercase tracking-tighter">+{extraFields.length - 4} more</div>
+                            )}
+                        </div>
+                    );
+                })()}
                 {/* Footer: Follow Up & Status */}
                 <div className="pt-2 mt-2 border-t border-slate-50 flex items-center justify-between text-[10px]">
                     <div className="flex flex-col gap-0.5">

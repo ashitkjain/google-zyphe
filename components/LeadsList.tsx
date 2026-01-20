@@ -101,7 +101,7 @@ const LeadsList: React.FC<InternalProps> = ({
         // Sort by order if available (user defined order), otherwise keep existing order
         const sorted = valid.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
 
-        // Limit to 10 fields and return IDs
+        // Return all valid IDs (no more 10-field limit)
         return new Set(sorted.map(p => p.id));
     };
 

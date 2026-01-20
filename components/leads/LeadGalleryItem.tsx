@@ -175,11 +175,11 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
             return '--';
         }
         const fieldConfig = [...LEAD_FIELD_CONFIG, ...LEAD_STAGE_LIFECYCLE_CONFIG].find(c => c.id === field);
-        const currentStage = lead.funnelStage || (lead.leadType === 'Seller' ? 'Leads' : 'Leads'); // In Gallery we might not have the tab context easily, but we can infer from funnelStage
+        const currentFunnelStage = lead.funnelStage || stage || 'Leads';
 
         const isStageVisible = (stages: readonly string[] | string[] | undefined) => {
             if (!stages || stages.includes('All')) return true;
-            return stages.includes(currentStage as any);
+            return stages.includes(currentFunnelStage as any);
         };
 
         if (fieldConfig?.type === 'object' && val) {
@@ -273,25 +273,34 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
         lastUpdated: { label: 'Last Updated On', icon: 'fa-pen-to-square' },
         realtorComments: { label: 'Realtor Notes', icon: 'fa-note-sticky' },
 
-        // New Fields
-        motivation: { label: 'Motivation', icon: 'fa-lightbulb' },
-        targetTimeline: { label: 'Timeline', icon: 'fa-clock' },
-        personaProfile: { label: 'Persona', icon: 'fa-id-card' },
+        // New Fields & Subfields
+        motivation: { label: 'Motivation', icon: 'fa-lightbulb', color: 'text-amber-500' },
+        targetTimeline: { label: 'Timeline', icon: 'fa-clock-rotate-left' },
+        personaProfile: { label: 'Persona', icon: 'fa-id-card-clip' },
+        legalName: { label: 'Legal Name', icon: 'fa-signature' },
+        customerMessage: { label: 'Query', icon: 'fa-message' },
+        earnestMoneyDue: { label: 'EMD Details', icon: 'fa-money-bill-transfer' },
+        mutualAcceptance: { label: 'Mutual Acceptance', icon: 'fa-handshake' },
+        dueDiligence: { label: 'Due Diligence', icon: 'fa-search-plus' },
+        closingInfo: { label: 'Closing Tips', icon: 'fa-house-circle-check' },
+        inquiryProperty: { label: 'Inquiry Propery', icon: 'fa-house-chimney' },
+        origin: { label: 'Source', icon: 'fa-bullhorn' },
+        referralType: { label: 'Referral', icon: 'fa-users-between-lines' },
 
         // Complex Objects
-        financialVitals: { label: 'Buying Power', icon: 'fa-wallet' },
+        financialVitals: { label: 'Buying Power', icon: 'fa-wallet', color: 'text-emerald-500' },
         searchCriteria: { label: 'Criteria', icon: 'fa-magnifying-glass' },
-        listingStatus: { label: 'Listing Info', icon: 'fa-home' },
-        activeOffer: { label: 'Active Offer', icon: 'fa-file-contract' },
-        transactionTeam: { label: 'Team', icon: 'fa-users' },
-        criticalDates: { label: 'Key Dates', icon: 'fa-calendar-check' },
+        listingStatus: { label: 'Listing Info', icon: 'fa-house' },
+        activeOffer: { label: 'Active Offer', icon: 'fa-file-invoice-dollar' },
+        transactionTeam: { label: 'Partners', icon: 'fa-users-gear' },
+        criticalDates: { label: 'Key Deadlines', icon: 'fa-calendar-day' },
 
         // Specific Status Fields
-        leadStatus: { label: 'Lead Status', icon: 'fa-tasks' },
-        nurtureStatus: { label: 'Nurture Status', icon: 'fa-tasks' },
-        activeSearchStatus: { label: 'Search Status', icon: 'fa-tasks' },
-        offerStatus: { label: 'Offer Status', icon: 'fa-tasks' },
-        closingStatus: { label: 'Closing Status', icon: 'fa-tasks' }
+        leadStatus: { label: 'Leads Stage', icon: 'fa-bars-staggered' },
+        nurtureStatus: { label: 'Nurture Stage', icon: 'fa-bars-staggered' },
+        activeSearchStatus: { label: 'Search Stage', icon: 'fa-bars-staggered' },
+        offerStatus: { label: 'Offer Stage', icon: 'fa-bars-staggered' },
+        closingStatus: { label: 'Closing Stage', icon: 'fa-bars-staggered' }
     };
 
     const startEditing = (e: React.MouseEvent, field: string, value: any) => {
@@ -581,43 +590,99 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-4">
-                            {gridFields
-                                .filter(colId => !['phone', 'email', 'firstName', 'lastName', 'message', 'notes', 'source', 'leadInfo', 'campaign', 'leadType', 'status', 'realtorComments'].includes(colId as string))
-                                .filter(colId => {
-                                    const val = (lead as any)[colId as string];
-                                    if (colId === 'engagementScore' || colId === 'staleWarningDate') return true; // Always show even if empty for these important fields
-                                    if (val === null || val === undefined || val === '' || val === false) return false;
-                                    if (Array.isArray(val) && val.length === 0) return false;
-                                    return true;
-                                })
-                                .map((colId: any) => {
-                                    const allConfigs = [...LEAD_FIELD_CONFIG, ...LEAD_STAGE_LIFECYCLE_CONFIG];
-                                    const fieldConfig = allConfigs.find(c => c.id === colId);
-                                    const meta = COLUMN_METADATA[colId as string] || (fieldConfig ? { label: fieldConfig.label, icon: 'fa-circle-info' } : null);
-                                    if (!meta) return null;
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-6 bg-slate-50/50 p-4 rounded-3xl border border-slate-100">
+                            {(() => {
+                                // Gather ALL fields that should be visible for this stage based on schema
+                                const allConfigs = [...LEAD_FIELD_CONFIG, ...LEAD_STAGE_LIFECYCLE_CONFIG];
+                                const currentFunnelStage = lead.funnelStage || stage || 'Leads';
 
-                                    if (colId === 'status') {
+                                const isStageVisible = (stages: readonly string[] | string[] | undefined) => {
+                                    if (!stages || stages.includes('All')) return true;
+                                    return stages.includes(currentFunnelStage as any);
+                                };
+
+                                const fieldsToRender: { id: string, label: string, value: any, isSubfield?: boolean, parentId?: string }[] = [];
+
+                                allConfigs.forEach((config: any) => {
+                                    if (!isStageVisible(config.funnelVisibility)) return;
+                                    if (['phone', 'email', 'firstName', 'lastName', 'message', 'notes', 'source', 'campaign', 'leadType', 'status', 'realtorComments'].includes(config.id)) return;
+
+                                    if (config.type === 'object' && config.fields) {
+                                        const parentVal = (lead as any)[config.id];
+                                        if (parentVal) {
+                                            config.fields.forEach((f: any) => {
+                                                if (isStageVisible(f.funnelVisibility)) {
+                                                    const val = parentVal[f.name];
+                                                    if (val !== undefined && val !== null && val !== '' && val !== false) {
+                                                        fieldsToRender.push({
+                                                            id: f.name,
+                                                            label: f.label,
+                                                            value: val,
+                                                            isSubfield: true,
+                                                            parentId: config.id
+                                                        });
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    } else {
+                                        const val = (lead as any)[config.id];
+                                        if (val !== undefined && val !== null && val !== '' && val !== false) {
+                                            fieldsToRender.push({
+                                                id: config.id,
+                                                label: config.label,
+                                                value: val
+                                            });
+                                        }
+                                    }
+                                });
+
+                                // Add special forced fields if they exist
+                                if (lead.engagementScore && !fieldsToRender.find(f => f.id === 'engagementScore')) {
+                                    fieldsToRender.push({ id: 'engagementScore', label: 'Temperature', value: lead.engagementScore });
+                                }
+                                if (lead.staleWarningDate && !fieldsToRender.find(f => f.id === 'staleWarningDate')) {
+                                    fieldsToRender.push({ id: 'staleWarningDate', label: 'Follow-up', value: lead.staleWarningDate });
+                                }
+
+                                return fieldsToRender
+                                    .slice(0, 12) // Keep it elegant, don't overload the card
+                                    .map((field) => {
+                                        const meta = COLUMN_METADATA[field.id] || { label: field.label, icon: 'fa-circle-info' };
+
+                                        const renderValueContent = () => {
+                                            const val = field.value;
+                                            if (field.id === 'engagementScore') {
+                                                if (val === 'Hot') return <i className="fa-solid fa-fire text-orange-500 text-xs shadow-sm"></i>;
+                                                if (val === 'Warm') return <i className="fa-solid fa-mug-hot text-amber-500 text-xs shadow-sm"></i>;
+                                                if (val === 'Cold') return <i className="fa-solid fa-snowflake text-sky-400 text-xs shadow-sm"></i>;
+                                                return <span className="text-slate-400 text-[10px] font-bold">STALE</span>;
+                                            }
+                                            if (field.id === 'earnestMoneyDue' || field.id === 'budgetMax' || field.id === 'price') {
+                                                if (typeof val === 'number') return `$${(val / 1000).toFixed(0)}k`;
+                                            }
+                                            if (val instanceof Date || (val?.toDate)) {
+                                                const d = val?.toDate ? val.toDate() : new Date(val);
+                                                return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                                            }
+                                            if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+                                            if (typeof val === 'object') return '...';
+                                            return val.toString();
+                                        };
+
                                         return (
-                                            <div key={colId as string} className="grid grid-cols-[auto_1fr] gap-x-1.5 text-[14px] font-bold text-black leading-tight min-w-0 items-center">
-                                                {renderEditableValue(colId as string)}
+                                            <div key={`${field.parentId || ''}-${field.id}`} className="flex flex-col min-w-0" title={field.label}>
+                                                <div className="flex items-center gap-1.5 mb-0.5 opacity-40">
+                                                    <i className={`fa-solid ${meta.icon} text-[8px]`}></i>
+                                                    <span className="text-[9px] font-black uppercase tracking-tighter truncate">{field.label}</span>
+                                                </div>
+                                                <div className="text-[11px] font-bold text-slate-700 truncate leading-tight">
+                                                    {renderValueContent()}
+                                                </div>
                                             </div>
                                         );
-                                    }
-
-                                    const displayLabel = meta.label
-                                        .replace(/[^a-zA-Z0-9\s]/g, '')
-                                        .split(' ')
-                                        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                                        .join(' ') + (meta.label.includes('?') ? '?' : '');
-
-                                    return (
-                                        <div key={colId as string} className="grid grid-cols-[auto_1fr] gap-x-1.5 text-[14px] font-bold text-black leading-tight min-w-0 items-start">
-                                            <span className="whitespace-nowrap">{displayLabel}:</span>
-                                            {renderEditableValue(colId as string)}
-                                        </div>
-                                    );
-                                })}
+                                    });
+                            })()}
                         </div>
 
 
