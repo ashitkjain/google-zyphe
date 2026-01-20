@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Lead } from '../../types';
 import { getFunnelStageForStatus, getStatusOptions } from '../../services/statusService';
@@ -11,11 +11,11 @@ interface LeadsKanbanBoardProps {
 }
 
 const KANBAN_COLUMNS = [
-    { id: 'leads', label: 'Leads', stages: ['Leads'] },
-    { id: 'nurture', label: 'Nurture', stages: ['Nurture'] },
-    { id: 'active-search', label: 'Active Search', stages: ['Active Search'] },
-    { id: 'offer', label: 'Offer', stages: ['Offer'] },
-    { id: 'closing', label: 'Closing', stages: ['Contract'] }
+    { id: 'leads', label: 'Leads', stages: ['Leads'], color: 'indigo' },
+    { id: 'nurture', label: 'Nurture', stages: ['Nurture'], color: 'amber' },
+    { id: 'active-search', label: 'Active Search', stages: ['Active Search'], color: 'sky' },
+    { id: 'offer', label: 'Offer', stages: ['Offer'], color: 'purple' },
+    { id: 'closing', label: 'Closing', stages: ['Contract'], color: 'emerald' }
 ];
 
 const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
@@ -24,9 +24,16 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
     realtorSettings,
     leadType
 }) => {
+    const [pendingMove, setPendingMove] = useState<{ lead: Lead, targetStage: string, options: any[] } | null>(null);
 
     const getColumnIdForLead = (lead: Lead) => {
-        const stage = getFunnelStageForStatus(lead.status, lead.leadType, realtorSettings);
+        let stage = getFunnelStageForStatus(lead.status, lead.leadType, realtorSettings);
+
+        // Fallback: If status mapping falls back to 'Leads' (default) but the lead has a specific funnelStage, trust the explicit stage.
+        if (stage === 'Leads' && lead.funnelStage && lead.funnelStage !== 'Leads') {
+            stage = lead.funnelStage;
+        }
+
         if (stage === 'Leads') return 'leads';
         if (stage === 'Nurture') return 'nurture';
         if (stage === 'Active Search') return 'active-search';
@@ -77,26 +84,43 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
         const sourceColumnId = source.droppableId;
 
         if (targetColumnId === sourceColumnId) {
-            // Reordering within same column - currently only sorting by date is supported so we might just ignore reorder or implement manual order later
             return;
         }
 
+        const lead = leads.find(l => l.id === draggableId);
+        if (!lead) return;
+
         // Determine new status
-        // We pick the default status for the target column's MAIN stage
         const targetColDef = KANBAN_COLUMNS.find(c => c.id === targetColumnId);
         if (!targetColDef) return;
 
-        const primaryStage = targetColDef.stages[0]; // e.g. 'Nurture'
-        const options = getStatusOptions(leadType, realtorSettings);
+        const primaryStage = targetColDef.stages[0];
+        const allOptions = getStatusOptions(leadType, realtorSettings);
+        const stageOptions = allOptions.filter((o: any) => o.funnelStage === primaryStage);
 
-        // Find default status for this stage
-        const targetStatus = options.find((o: any) => o.funnelStage === primaryStage && o.isDefault);
-        const fallbackStatus = options.find((o: any) => o.funnelStage === primaryStage);
+        if (stageOptions.length > 1) {
+            // If multiple options, prompt the user
+            setPendingMove({
+                lead,
+                targetStage: primaryStage,
+                options: stageOptions
+            });
+        } else if (stageOptions.length === 1) {
+            // If only one option, just update
+            onUpdateLead(draggableId, { status: stageOptions[0].label });
+        } else {
+            // Fallback for stages with no specific statuses defined in settings
+            const fallbackStatus = allOptions.find((o: any) => o.funnelStage === primaryStage);
+            if (fallbackStatus) {
+                onUpdateLead(draggableId, { status: fallbackStatus.label });
+            }
+        }
+    };
 
-        const newStatus = targetStatus?.label || fallbackStatus?.label;
-
-        if (newStatus) {
-            onUpdateLead(draggableId, { status: newStatus });
+    const handleConfirmMove = (status: string) => {
+        if (pendingMove) {
+            onUpdateLead(pendingMove.lead.id, { status });
+            setPendingMove(null);
         }
     };
 
@@ -159,6 +183,53 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
                     ))}
                 </div>
             </DragDropContext>
+
+            {/* Status Selection Modal */}
+            {pendingMove && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-8">
+                            <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6">
+                                <i className="fa-solid fa-route text-2xl text-indigo-600"></i>
+                            </div>
+
+                            <h2 className="text-2xl font-black text-slate-800 tracking-tight mb-2">
+                                Select {pendingMove.targetStage} Status
+                            </h2>
+                            <p className="text-slate-500 text-sm mb-8">
+                                Please specify the current status for <strong>{pendingMove.lead.fullName || 'this client'}</strong> in the {pendingMove.targetStage} stage.
+                            </p>
+
+                            <div className="space-y-3">
+                                {pendingMove.options.map((option) => (
+                                    <button
+                                        key={option.label}
+                                        onClick={() => handleConfirmMove(option.label)}
+                                        className="w-full text-left p-4 rounded-2xl border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50/50 transition-all group flex items-center justify-between"
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-slate-700 group-hover:text-indigo-700">{option.label}</span>
+                                            {option.description && (
+                                                <span className="text-xs text-slate-400 group-hover:text-indigo-400">{option.description}</span>
+                                            )}
+                                        </div>
+                                        <i className="fa-solid fa-chevron-right text-slate-300 group-hover:translate-x-1 group-hover:text-indigo-400 transition-all"></i>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end">
+                            <button
+                                onClick={() => setPendingMove(null)}
+                                className="px-6 py-2.5 rounded-xl font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 transition-all uppercase text-[10px] tracking-widest"
+                            >
+                                Cancel Move
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

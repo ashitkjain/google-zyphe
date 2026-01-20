@@ -234,27 +234,51 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     const handleUpdateLead = async (leadId: string, updates: Partial<Lead>) => {
         const currentLead = leads.find(l => l.id === leadId);
         if (currentLead) {
+            const now = new Date();
+
             // Automatically sync funnelStage if status is changing
             if (updates.status && updates.status !== currentLead.status) {
                 const newStage = getFunnelStageForStatus(updates.status, currentLead.leadType, realtorProfile?.settings) as any;
                 if (newStage !== currentLead.funnelStage) {
                     updates.funnelStage = newStage;
-                    updates.stageLastChangedAt = new Date();
                 }
-            } else if (updates.funnelStage && updates.funnelStage !== currentLead.funnelStage) {
-                updates.stageLastChangedAt = new Date();
+            }
+
+            // Stage History Logic
+            if (updates.funnelStage && updates.funnelStage !== currentLead.funnelStage) {
+                updates.stageLastChangedAt = now;
+
+                const history = [...(currentLead.stageHistory || [])];
+
+                // 1. Close previous stage entry if exists
+                const lastHistoryIndex = history.findIndex(h => !h.exitedAt);
+                if (lastHistoryIndex !== -1) {
+                    history[lastHistoryIndex] = {
+                        ...history[lastHistoryIndex],
+                        exitedAt: now
+                    };
+                }
+
+                // 2. Add new stage entry
+                history.push({
+                    fromStage: currentLead.funnelStage,
+                    toStage: updates.funnelStage,
+                    enteredAt: now
+                });
+
+                updates.stageHistory = history as any;
             }
 
             // Archiving
             if (updates.status === 'Archived' && currentLead.status !== 'Archived') {
-                updates.archivedAt = new Date();
+                updates.archivedAt = now;
             }
             else if (currentLead.status === 'Archived' && updates.status && updates.status !== 'Archived') {
-                updates.activatedAt = new Date();
+                updates.activatedAt = now;
             }
 
             if (isTerminalStatus(updates.status || '', currentLead.leadType, realtorProfile?.settings) && !isTerminalStatus(currentLead.status, currentLead.leadType, realtorProfile?.settings)) {
-                updates.closedAt = new Date();
+                updates.closedAt = now;
             }
 
             // Auto-populate subjectProperty from propertyAddress if not set
@@ -346,31 +370,9 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             additionalUpdates.subjectProperty = lead.propertyAddress;
         }
 
-        // Optimistically update the UI
-        setLeads(prev => prev.map(l => {
-            if (l.id === leadId) {
-                const stageChanged = l.funnelStage !== newStage;
-                return {
-                    ...l,
-                    ...additionalUpdates,
-                    funnelStage: newStage,
-                    stageLastChangedAt: stageChanged ? new Date() : (l.stageLastChangedAt || l.receivedAt)
-                };
-            }
-            return l;
-        }));
-
-        // Persist to database
-        const collectionName = 'leads';
+        // Delegate to handleUpdateLead which handles history, persistence and state syncing
         const updates: any = { funnelStage: newStage, ...additionalUpdates };
-        if (lead.funnelStage !== newStage) {
-            updates.stageLastChangedAt = new Date();
-        }
-        const success = await updateLead(leadId, updates, collectionName);
-        if (!success) {
-            console.error("Failed to update lead stage");
-            setLeads(leads);
-        }
+        await handleUpdateLead(leadId, updates);
     };
 
 

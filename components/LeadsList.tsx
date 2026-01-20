@@ -506,12 +506,6 @@ const LeadsList: React.FC<InternalProps> = ({
                 stage = l.funnelStage;
             }
 
-            if (buyerFunnelCategory === 'Closed & Archived') {
-                if (stage !== 'Closed' && stage !== 'Archived') return false;
-            } else {
-                if (stage !== buyerFunnelCategory) return false;
-            }
-
             // KANBAN EXCEPTION: If in Kanban mode, we want ALL stages visible (so we can drag between columns)
             // But we still respect the viewMode (Past 6 months vs Older) and Type filters.
             const isKanban = globalDisplayMode === 'kanban';
