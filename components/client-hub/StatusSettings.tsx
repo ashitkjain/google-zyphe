@@ -41,78 +41,7 @@ const PROPERTY_CATEGORIES = [
     'General' // For lifecycle fields
 ];
 
-const FunnelVisibilitySelect: React.FC<{
-    selected: string[];
-    onChange: (next: string[]) => void;
-    disabled?: boolean;
-}> = ({ selected, onChange, disabled }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const options = ['All', ...FUNNEL_STAGES, 'None'];
 
-    const toggleOption = (option: string) => {
-        if (option === 'All') {
-            onChange(['All']);
-        } else if (option === 'None') {
-            onChange(['None']);
-        } else {
-            let next = selected.filter(s => s !== 'All' && s !== 'None');
-            if (next.includes(option)) {
-                next = next.filter(s => s !== option);
-            } else {
-                next.push(option);
-            }
-            if (next.length === 0) next = ['None'];
-            if (next.length === FUNNEL_STAGES.length) next = ['All'];
-            onChange(next);
-        }
-    };
-
-    const displayText = selected.includes('All')
-        ? 'All'
-        : selected.includes('None')
-            ? 'None'
-            : selected.length > 1
-                ? 'Multiple'
-                : (selected[0] || 'None');
-
-    return (
-        <div className="relative">
-            <button
-                onClick={() => !disabled && setIsOpen(!isOpen)}
-                className={`w-full text-left px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:border-indigo-300 transition-all flex items-center justify-between min-w-[100px] ${disabled ? 'opacity-70 cursor-not-allowed bg-slate-25/50' : ''}`}
-            >
-                <span className="truncate max-w-[80px]">{displayText}</span>
-                {disabled ? (
-                    <i className="fa-solid fa-lock text-[8px] text-slate-300"></i>
-                ) : (
-                    <i className={`fa-solid fa-chevron-down transition-transform ${isOpen ? 'rotate-180' : ''}`}></i>
-                )}
-            </button>
-            {isOpen && (
-                <>
-                    <div className="fixed inset-0 z-[100]" onClick={() => setIsOpen(false)}></div>
-                    <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-[101] py-2 max-h-60 overflow-y-auto">
-                        {options.map(opt => {
-                            const isSelected = selected.includes(opt);
-                            return (
-                                <button
-                                    key={opt}
-                                    onClick={() => toggleOption(opt)}
-                                    className={`w-full text-left px-4 py-2 text-[10px] font-bold flex items-center gap-3 hover:bg-slate-50 transition-colors ${isSelected ? 'text-indigo-600' : 'text-slate-600'}`}
-                                >
-                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 bg-white'}`}>
-                                        {isSelected && <i className="fa-solid fa-check text-[8px]"></i>}
-                                    </div>
-                                    {opt}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </>
-            )}
-        </div>
-    );
-};
 
 const StatusSettings: React.FC<StatusSettingsProps> = ({
     realtorId,
@@ -194,7 +123,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                 }));
 
             // Combine and map final structure, filtering out hidden system fields
-            const HIDDEN_FIELD_IDS = ['id', 'isMock', 'collectionName', 'clientId'];
+            const HIDDEN_FIELD_IDS = ['id', 'isMock', 'collectionName', 'clientId', 'leadStatus', 'nurtureStatus', 'activeSearchStatus', 'offerStatus', 'closingStatus'];
             return [...syncedProperties, ...missingProperties]
                 .filter(p => !HIDDEN_FIELD_IDS.includes(p.id))
                 .map(p => ({
@@ -628,264 +557,176 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                     const groupItemsWithIndex = groupItems.map(item => ({ item, originalIndex: items.indexOf(item) }));
 
                     if (searchQuery && groupItems.length === 0) return null;
-                    const isExpanded = expandedGroups.has(group);
+
 
                     return (
-                        <div key={group} className={`bg-white rounded-2xl border transition-all duration-300 ${isExpanded ? 'border-indigo-100 shadow-sm' : 'border-slate-100'}`}>
-                            <div onClick={() => toggleGroup(group)} className={`flex items-center justify-between py-2.5 px-4 cursor-pointer select-none transition-colors ${isExpanded ? 'bg-indigo-50/30' : 'hover:bg-slate-50'}`}>
+                        <div key={group} className="bg-white rounded-2xl border transition-all duration-300 border-indigo-100 shadow-sm">
+                            <div className="flex items-center justify-between py-2.5 px-4 bg-indigo-50/30">
                                 <div className="flex items-center gap-3">
-                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] transition-colors ${isExpanded ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
-                                        <i className={`fa-solid ${isExpanded ? 'fa-folder-open' : 'fa-folder'}`}></i>
+                                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] transition-colors bg-indigo-100 text-indigo-600">
+                                        <i className="fa-solid fa-folder"></i>
                                     </div>
                                     <div>
-                                        <h3 className={`text-[10px] font-black uppercase tracking-[0.1em] ${isExpanded ? 'text-indigo-900' : 'text-slate-500'}`}>{group}</h3>
+                                        <h3 className="text-[10px] font-black uppercase tracking-[0.1em] text-indigo-900">{group}</h3>
                                         <p className="text-[9px] text-slate-400 font-medium leading-none mt-0.5">{groupItems.length} {isStatus ? 'Statuses' : 'Fields'}</p>
                                     </div>
                                 </div>
-                                <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${isExpanded ? 'bg-indigo-100 text-indigo-600 rotate-180' : 'text-slate-300'}`}>
-                                    <i className="fa-solid fa-chevron-down text-[8px]"></i>
-                                </div>
                             </div>
 
-                            {isExpanded && (
-                                <div className="border-t border-indigo-50/50">
-                                    <TypedDroppable droppableId={group} isDropDisabled={!!searchQuery}>
-                                        {(provided: any) => (
-                                            <table className="w-full text-left" {...provided.droppableProps} ref={provided.innerRef}>
-                                                <thead className="bg-slate-50 border-b border-slate-100">
-                                                    <tr>
-                                                        <th className="w-10 py-2"></th>
-                                                        <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[240px]">Name</th>
-                                                        {type !== 'status' && <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[110px]">Visibility</th>}
-                                                        {type !== 'status' && <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[140px]">Field Type</th>}
-                                                        <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Description</th>
-                                                        <th className="w-8 py-2"></th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-50">
-                                                    {groupItemsWithIndex.map(({ item, originalIndex }, index) => (
-                                                        <TypedDraggable
-                                                            key={`${type}-${originalIndex}`}
-                                                            draggableId={`${type}::${originalIndex}`}
-                                                            index={index}
-                                                            isDragDisabled={!!searchQuery}
-                                                        >
-                                                            {(provided: any, snapshot: any) => {
-                                                                const isObject = item.type === 'object' || item.type === 'list';
-                                                                const isFieldExpanded = expandedFields.has(item.id || `field-${index}`);
+                            <div className="border-t border-indigo-50/50">
+                                <TypedDroppable droppableId={group} isDropDisabled={!!searchQuery}>
+                                    {(provided: any) => (
+                                        <table className="w-full text-left" {...provided.droppableProps} ref={provided.innerRef}>
+                                            <thead className="bg-slate-50 border-b border-slate-100">
+                                                <tr>
+                                                    <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[240px]">Name</th>
+                                                    {type !== 'status' && <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[140px]">Field Type</th>}
+                                                    <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Description</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-50">
+                                                {groupItemsWithIndex.map(({ item, originalIndex }, index) => (
+                                                    <TypedDraggable
+                                                        key={`${type}-${originalIndex}`}
+                                                        draggableId={`${type}::${originalIndex}`}
+                                                        index={index}
+                                                        isDragDisabled={!!searchQuery}
+                                                    >
+                                                        {(provided: any, snapshot: any) => {
+                                                            const isObject = item.type === 'object' || item.type === 'list';
+                                                            const isFieldExpanded = expandedFields.has(item.id || `field-${index}`);
 
-                                                                return (
-                                                                    <React.Fragment key={`${type}-${originalIndex}-fragment`}>
-                                                                        <tr ref={provided.innerRef} {...provided.draggableProps} className={`group hover:bg-slate-50/80 transition-colors ${snapshot.isDragging ? 'bg-white shadow-xl z-50 ring-2 ring-indigo-500/20 rounded-lg' : ''}`}>
-                                                                            {!searchQuery && (
-                                                                                <td className="px-4 py-2 w-10 align-top">
-                                                                                    <div {...provided.dragHandleProps} className="text-slate-300 hover:text-indigo-400 cursor-grab active:cursor-grabbing transition-colors flex justify-center pt-2">
-                                                                                        <i className="fa-solid fa-grip-vertical text-[10px]"></i>
-                                                                                    </div>
-                                                                                </td>
-                                                                            )}
-                                                                            <td className="px-4 py-2 w-[240px] align-middle">
-                                                                                <div className="flex items-center gap-2.5 group/field">
-                                                                                    {isObject && (
-                                                                                        <button onClick={() => toggleField(item.id || `field-${index}`)} className="text-slate-400 hover:text-indigo-600 transition-colors">
-                                                                                            <i className={`fa-solid fa-chevron-right text-[10px] transition-transform ${isFieldExpanded ? 'rotate-90' : ''}`}></i>
-                                                                                        </button>
-                                                                                    )}
-                                                                                    <div className="relative group/select flex-shrink-0">
-                                                                                        {item.applicableTo !== 'Both' ? (
-                                                                                            <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black transition-all cursor-pointer shadow-sm border ${item.applicableTo === 'Buyer' ? 'bg-sky-500 text-white border-sky-600' : 'bg-emerald-500 text-white border-emerald-600'} ${item.isLocked ? 'cursor-not-allowed' : ''}`}>
-                                                                                                {item.isLocked ? <i className="fa-solid fa-lock text-[6px]"></i> : (item.applicableTo === 'Buyer' ? 'B' : 'S')}
-                                                                                            </div>
-                                                                                        ) : (
-                                                                                            <div className={`w-4 h-4 rounded-full flex items-center justify-center text-slate-300 transition-opacity cursor-pointer border border-dashed border-slate-200 ${item.isLocked ? 'opacity-100 bg-slate-50 border-slate-300' : 'opacity-0 group-hover/field:opacity-100'}`}>
-                                                                                                <i className={`fa-solid ${item.isLocked ? 'fa-lock text-[6px]' : 'fa-plus text-[8px]'}`}></i>
-                                                                                            </div>
-                                                                                        )}
-                                                                                        <select
-                                                                                            value={item.applicableTo}
-                                                                                            onChange={(e) => handleUpdateItem(originalIndex, { applicableTo: e.target.value as any }, type)}
-                                                                                            className={`absolute inset-0 w-full h-full opacity-0 ${item.isLocked ? 'cursor-not-allowed pointer-events-none' : 'cursor-pointer'}`}
-                                                                                            disabled={item.isLocked}
-                                                                                        >
-                                                                                            <option value="Both">Common (All Tabs)</option>
-                                                                                            <option value="Buyer">Buyer Only</option>
-                                                                                            <option value="Seller">Seller Only</option>
-                                                                                        </select>
-                                                                                    </div>
-                                                                                    <input
-                                                                                        type="text"
-                                                                                        value={item.label}
-                                                                                        onChange={(e) => handleUpdateItem(originalIndex, { label: e.target.value }, type)}
-                                                                                        className="flex-1 min-w-0 bg-transparent font-semibold text-slate-900 text-sm leading-snug focus:outline-none focus:text-indigo-700 placeholder:text-slate-300 px-0 py-0.5 border-b border-transparent focus:border-indigo-100 transition-all font-sans"
-                                                                                    />
-                                                                                </div>
-                                                                            </td>
-                                                                            {type !== 'status' && (
-                                                                                <td className="px-4 py-2 w-[110px] align-top">
-                                                                                    {isObject ? (
-                                                                                        <span className="text-[10px] text-slate-300 italic font-medium px-2">—</span>
-                                                                                    ) : (
-                                                                                        <FunnelVisibilitySelect
-                                                                                            selected={item.funnelVisibility || ['All']}
-                                                                                            onChange={(next) => handleUpdateItem(originalIndex, { funnelVisibility: next }, type)}
-                                                                                            disabled={(item as any).isLocked}
-                                                                                        />
-                                                                                    )}
-                                                                                </td>
-                                                                            )}
-                                                                            {type !== 'status' && (
-                                                                                <td className="px-4 py-2 w-[140px] align-top">
-                                                                                    <div className="flex flex-col gap-1.5 pt-1">
-                                                                                        <div className="flex items-center gap-2">
-                                                                                            <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${item.type === 'boolean' ? 'bg-amber-50 text-amber-700 border border-amber-100' : item.type === 'integer' ? 'bg-purple-50 text-purple-700 border border-purple-100' : item.type === 'enum' ? 'bg-blue-50 text-blue-700 border border-blue-100' : (item.type === 'object' || item.type === 'list') ? 'bg-teal-50 text-teal-700 border border-teal-100' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}>
-                                                                                                {item.type || 'string'}
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </td>
-                                                                            )}
-                                                                            <td className="px-4 py-2 align-top">
-                                                                                <div className="flex flex-col">
-                                                                                    <textarea
-                                                                                        value={item.description}
-                                                                                        onChange={(e) => handleUpdateItem(originalIndex, { description: e.target.value }, type)}
-                                                                                        className="w-full bg-transparent text-slate-600 text-sm leading-snug font-medium focus:outline-none focus:text-slate-900 px-0 py-0.5 font-sans resize-none overflow-hidden min-h-[1.5rem]"
-                                                                                        rows={1}
-                                                                                        onInput={(e) => {
-                                                                                            const target = e.target as HTMLTextAreaElement;
-                                                                                            target.style.height = 'auto';
-                                                                                            target.style.height = target.scrollHeight + 'px';
-                                                                                        }}
-                                                                                        ref={(el) => {
-                                                                                            if (el) {
-                                                                                                el.style.height = 'auto';
-                                                                                                el.style.height = el.scrollHeight + 'px';
-                                                                                            }
-                                                                                        }}
-                                                                                    />
-                                                                                    {item.type === 'enum' && (
-                                                                                        <div className="flex flex-wrap gap-1 mt-2">
-                                                                                            {item.options?.map((opt: string) => (
-                                                                                                <span key={opt} className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-[9px] font-bold text-slate-500 shadow-sm">
-                                                                                                    {opt}
-                                                                                                </span>
-                                                                                            ))}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            </td>
-                                                                            <td className="px-4 py-2 w-8 text-right align-top">
-                                                                                {!((item as any).isDefault || false) && (
-                                                                                    <button onClick={() => handleRemoveItem(originalIndex, type)} className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-md hover:bg-rose-50 text-slate-300 hover:text-rose-500 transition-all flex items-center justify-center pt-2">
-                                                                                        <i className="fa-solid fa-trash-can text-[10px]"></i>
+                                                            return (
+                                                                <React.Fragment key={`${type}-${originalIndex}-fragment`}>
+                                                                    <tr ref={provided.innerRef} {...provided.draggableProps} className={`group hover:bg-slate-50/80 transition-colors ${snapshot.isDragging ? 'bg-white shadow-xl z-50 ring-2 ring-indigo-500/20 rounded-lg' : ''}`}>
+
+                                                                        <td className="px-4 py-2 w-[240px] align-middle">
+                                                                            <div className="flex items-center gap-2.5 group/field">
+                                                                                {isObject && (
+                                                                                    <button onClick={() => toggleField(item.id || `field-${index}`)} className="text-slate-400 hover:text-indigo-600 transition-colors">
+                                                                                        <i className={`fa-solid fa-chevron-right text-[10px] transition-transform ${isFieldExpanded ? 'rotate-90' : ''}`}></i>
                                                                                     </button>
                                                                                 )}
+                                                                                <div className="flex-1 min-w-0 font-semibold text-slate-900 text-sm leading-snug px-0 py-0.5 font-sans">
+                                                                                    {item.label}
+                                                                                </div>
+                                                                            </div>
+                                                                        </td>
+
+                                                                        {type !== 'status' && (
+                                                                            <td className="px-4 py-2 w-[140px] align-top">
+                                                                                <div className="flex flex-col gap-1.5 pt-1">
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${item.type === 'boolean' ? 'bg-amber-50 text-amber-700 border border-amber-100' : item.type === 'integer' ? 'bg-purple-50 text-purple-700 border border-purple-100' : item.type === 'enum' ? 'bg-blue-50 text-blue-700 border border-blue-100' : (item.type === 'object' || item.type === 'list') ? 'bg-teal-50 text-teal-700 border border-teal-100' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}>
+                                                                                            {item.type || 'string'}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </td>
+                                                                        )}
+                                                                        <td className="px-4 py-2 align-top">
+                                                                            <div className="flex flex-col">
+                                                                                <div className="w-full text-slate-600 text-sm leading-snug font-medium px-0 py-0.5 font-sans">
+                                                                                    {item.description}
+                                                                                </div>
+                                                                                {item.type === 'enum' && (
+                                                                                    <div className="flex flex-wrap gap-1 mt-2">
+                                                                                        {item.options?.map((opt: string) => (
+                                                                                            <span key={opt} className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-[9px] font-bold text-slate-500 shadow-sm">
+                                                                                                {opt}
+                                                                                            </span>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </td>
+
+                                                                    </tr>
+                                                                    {isObject && isFieldExpanded && (
+                                                                        <tr className="bg-slate-50/50">
+                                                                            <td colSpan={6} className="p-0 border-b border-slate-100">
+                                                                                <div className="w-full relative">
+                                                                                    {/* Indentation line on the left to visually group */}
+                                                                                    <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-indigo-100"></div>
+
+                                                                                    <table className="w-full">
+                                                                                        <tbody>
+                                                                                            {item.fields && item.fields.length > 0 ? (
+                                                                                                item.fields.map((field: any, idx: number) => {
+                                                                                                    const isObj = typeof field === 'object';
+                                                                                                    const name = isObj ? field.name : field;
+                                                                                                    const label = isObj ? (field.label || field.name) : field;
+                                                                                                    const type = isObj ? field.type : 'string';
+                                                                                                    const desc = isObj ? field.description : '';
+
+                                                                                                    return (
+                                                                                                        <tr key={`${originalIndex}-sub-${idx}`} className="hover:bg-indigo-50/20 transition-colors">
+                                                                                                            {/* 2. Indented Name */}
+                                                                                                            <td className="w-[240px] px-4 py-2 align-top">
+                                                                                                                <div className="flex items-center gap-2 pl-6">
+                                                                                                                    <div className="w-4 h-4 border-l-2 border-b-2 border-indigo-200 rounded-bl-md -mt-3.5"></div>
+                                                                                                                    <div className="flex flex-col">
+                                                                                                                        <span className="text-xs font-bold text-slate-700">{label}</span>
+                                                                                                                    </div>
+                                                                                                                </div>
+                                                                                                            </td>
+
+                                                                                                            {/* 4. Type */}
+                                                                                                            <td className="w-[140px] px-4 py-2 align-top">
+                                                                                                                <div className="flex gap-2">
+                                                                                                                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${type === 'date' || type === 'timestamp' ? 'bg-orange-50 text-orange-700 border-orange-100' : type === 'currency' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : type === 'enum' ? 'bg-blue-50 text-blue-700 border-blue-100' : type?.startsWith('list') ? 'bg-purple-50 text-purple-700 border-purple-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                                                                                                                        {type}
+                                                                                                                    </span>
+                                                                                                                </div>
+                                                                                                            </td>
+
+                                                                                                            {/* 5. Description */}
+                                                                                                            <td className="px-4 py-2 align-top">
+                                                                                                                <p className="text-xs text-slate-500 font-medium leading-relaxed">{desc || 'No description provided.'}</p>
+                                                                                                                {type === 'enum' && field.options && (
+                                                                                                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                                                                                                        {field.options.map((opt: string) => (
+                                                                                                                            <span key={opt} className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-[9px] font-bold text-slate-500 shadow-sm">
+                                                                                                                                {opt}
+                                                                                                                            </span>
+                                                                                                                        ))}
+                                                                                                                    </div>
+                                                                                                                )}
+                                                                                                            </td>
+
+                                                                                                            {/* 6. Action Spacer */}
+                                                                                                            {/* 6. Action Spacer */}
+                                                                                                            <td className="w-1"></td>
+                                                                                                        </tr>
+                                                                                                    );
+                                                                                                })
+                                                                                            ) : (
+                                                                                                <tr>
+
+                                                                                                    <td colSpan={4} className="px-10 py-3 text-xs text-slate-400 italic">
+                                                                                                        Complex defined structure (no breakdown available).
+                                                                                                    </td>
+                                                                                                    <td className="w-1"></td>
+                                                                                                </tr>
+                                                                                            )}
+                                                                                        </tbody>
+                                                                                    </table>
+                                                                                </div>
                                                                             </td>
                                                                         </tr>
-                                                                        {isObject && isFieldExpanded && (
-                                                                            <tr className="bg-slate-50/50">
-                                                                                <td colSpan={6} className="p-0 border-b border-slate-100">
-                                                                                    <div className="w-full relative">
-                                                                                        {/* Indentation line on the left to visually group */}
-                                                                                        <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-indigo-100"></div>
-
-                                                                                        <table className="w-full">
-                                                                                            <tbody>
-                                                                                                {item.fields && item.fields.length > 0 ? (
-                                                                                                    item.fields.map((field: any, idx: number) => {
-                                                                                                        const isObj = typeof field === 'object';
-                                                                                                        const name = isObj ? field.name : field;
-                                                                                                        const label = isObj ? (field.label || field.name) : field;
-                                                                                                        const type = isObj ? field.type : 'string';
-                                                                                                        const desc = isObj ? field.description : '';
-
-                                                                                                        return (
-                                                                                                            <tr key={`${originalIndex}-sub-${idx}`} className="hover:bg-indigo-50/20 transition-colors">
-                                                                                                                {/* 1. Drag Spacer */}
-                                                                                                                <td className="w-10 p-0"></td>
-
-                                                                                                                {/* 2. Indented Name */}
-                                                                                                                <td className="w-[240px] px-4 py-2 align-top">
-                                                                                                                    <div className="flex items-center gap-2 pl-6">
-                                                                                                                        <div className="w-4 h-4 border-l-2 border-b-2 border-indigo-200 rounded-bl-md -mt-3.5"></div>
-                                                                                                                        <div className="flex flex-col">
-                                                                                                                            <span className="text-xs font-bold text-slate-700">{label}</span>
-                                                                                                                        </div>
-                                                                                                                    </div>
-                                                                                                                </td>
-
-                                                                                                                {/* 3. Visibility */}
-                                                                                                                <td className="w-[110px] px-4 py-2 align-top">
-                                                                                                                    <FunnelVisibilitySelect
-                                                                                                                        selected={field.funnelVisibility || ['All']}
-                                                                                                                        onChange={(next) => handleUpdateSubField(originalIndex, idx, { funnelVisibility: next })}
-                                                                                                                        disabled={item.isLocked}
-                                                                                                                    />
-                                                                                                                </td>
-
-                                                                                                                {/* 4. Type */}
-                                                                                                                <td className="w-[140px] px-4 py-2 align-top">
-                                                                                                                    <div className="flex gap-2">
-                                                                                                                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${type === 'date' || type === 'timestamp' ? 'bg-orange-50 text-orange-700 border-orange-100' : type === 'currency' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : type === 'enum' ? 'bg-blue-50 text-blue-700 border-blue-100' : type?.startsWith('list') ? 'bg-purple-50 text-purple-700 border-purple-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                                                                                                                            {type}
-                                                                                                                        </span>
-                                                                                                                    </div>
-                                                                                                                </td>
-
-                                                                                                                {/* 5. Description */}
-                                                                                                                <td className="px-4 py-2 align-top">
-                                                                                                                    <p className="text-xs text-slate-500 font-medium leading-relaxed">{desc || 'No description provided.'}</p>
-                                                                                                                    {type === 'enum' && field.options && (
-                                                                                                                        <div className="flex flex-wrap gap-1 mt-1.5">
-                                                                                                                            {field.options.map((opt: string) => (
-                                                                                                                                <span key={opt} className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-[9px] font-bold text-slate-500 shadow-sm">
-                                                                                                                                    {opt}
-                                                                                                                                </span>
-                                                                                                                            ))}
-                                                                                                                        </div>
-                                                                                                                    )}
-                                                                                                                </td>
-
-                                                                                                                {/* 6. Action Spacer */}
-                                                                                                                <td className="w-8"></td>
-                                                                                                            </tr>
-                                                                                                        );
-                                                                                                    })
-                                                                                                ) : (
-                                                                                                    <tr>
-                                                                                                        <td className="w-10"></td>
-                                                                                                        <td colSpan={4} className="px-10 py-3 text-xs text-slate-400 italic">
-                                                                                                            Complex defined structure (no breakdown available).
-                                                                                                        </td>
-                                                                                                        <td className="w-8"></td>
-                                                                                                    </tr>
-                                                                                                )}
-                                                                                            </tbody>
-                                                                                        </table>
-                                                                                    </div>
-                                                                                </td>
-                                                                            </tr>
-                                                                        )}
-                                                                    </React.Fragment>
-                                                                );
-                                                            }}
-                                                        </TypedDraggable>
-                                                    ))}
-                                                    {provided.placeholder}
-                                                </tbody>
-                                            </table>
-                                        )}
-                                    </TypedDroppable>
-                                    {!searchQuery && (
-                                        <div className="p-2 border-t border-slate-50">
-                                            <button onClick={() => handleAddItem(group, type)} className="w-full py-2 flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition-all">
-                                                <i className="fa-solid fa-plus"></i>
-                                                Add field to {group}
-                                            </button>
-                                        </div>
+                                                                    )}
+                                                                </React.Fragment>
+                                                            );
+                                                        }}
+                                                    </TypedDraggable>
+                                                ))}
+                                                {provided.placeholder}
+                                            </tbody>
+                                        </table>
                                     )}
-                                </div>
-                            )}
+                                </TypedDroppable>
+
+                            </div>
                         </div>
                     );
                 })}
@@ -900,18 +741,10 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                     {/* Header Controls */}
                     <div className="flex items-center justify-between mb-2">
                         <div>
-                            <p className="text-xs text-slate-500 font-medium">Configure your data model ({activeTab === 'statuses' ? allStatuses.length : allProperties.length} items)</p>
                         </div>
                         <div className="flex items-center gap-3">
                             {/* Tabs */}
                             {/* Tabs Removed - only showing Leads Fields now */}
-
-                            <button type="button" onClick={handleResetDefaults} disabled={isSaving} className="px-3 py-1 text-slate-400 hover:text-rose-600 transition-colors" title="Reset Tab Defaults">
-                                <i className="fa-solid fa-arrow-rotate-left text-lg"></i>
-                            </button>
-                            <button onClick={handleSave} disabled={isSaving} className="px-3 py-1 text-indigo-600 hover:text-indigo-800 transition-colors disabled:opacity-50" title="Save Changes">
-                                {isSaving ? <i className="fa-solid fa-spinner fa-spin text-lg"></i> : <i className="fa-solid fa-floppy-disk text-lg"></i>}
-                            </button>
                         </div>
                     </div>
 

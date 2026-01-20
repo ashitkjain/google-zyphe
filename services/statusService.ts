@@ -17,8 +17,7 @@ export const DEFAULT_STATUSES: StatusOption[] = [
     { label: 'Showing', description: 'Property is being shown to potential buyers', isDefault: true, funnelStage: 'Active Search', order: 9, visibility: ['Seller'] },
 
     // Offer
-    { label: 'Offer Submitted', description: 'An offer has been submitted for a property', isDefault: true, funnelStage: 'Offer', order: 10, visibility: ['Buyer'] },
-    { label: 'Offer Received', description: 'Offer has been received from a potential buyer', isDefault: true, funnelStage: 'Offer', order: 10, visibility: ['Seller'] },
+    { label: 'Offer', description: 'Offer in progress', isDefault: true, funnelStage: 'Offer', order: 10, visibility: ['Buyer', 'Seller'] },
 
     // Contract
     { label: 'In Contract', description: 'Property under contract/in escrow', isDefault: true, funnelStage: 'Contract', order: 11, visibility: ['Buyer', 'Seller'] },

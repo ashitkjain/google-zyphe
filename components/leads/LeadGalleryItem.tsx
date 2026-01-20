@@ -296,11 +296,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
         criticalDates: { label: 'Key Deadlines', icon: 'fa-calendar-day' },
 
         // Specific Status Fields
-        leadStatus: { label: 'Leads Stage', icon: 'fa-bars-staggered' },
-        nurtureStatus: { label: 'Nurture Stage', icon: 'fa-bars-staggered' },
-        activeSearchStatus: { label: 'Search Stage', icon: 'fa-bars-staggered' },
-        offerStatus: { label: 'Offer Stage', icon: 'fa-bars-staggered' },
-        closingStatus: { label: 'Closing Stage', icon: 'fa-bars-staggered' }
+
     };
 
     const startEditing = (e: React.MouseEvent, field: string, value: any) => {

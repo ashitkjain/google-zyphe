@@ -169,11 +169,16 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
             appraisalDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
             closingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         } : undefined,
-        leadStatus: funnelStage === 'Leads' ? getRandom(['New', 'Qualified', 'Attempted to Contact']) : undefined,
-        nurtureStatus: funnelStage === 'Nurture' ? getRandom(['Meeting Fixed', 'Broker Agreement Sent']) : undefined,
-        activeSearchStatus: funnelStage === 'Active Search' ? getRandom(['Broker Agreement Signed', 'Actively Searching', 'Showing']) : undefined,
-        offerStatus: funnelStage === 'Offer' ? getRandom(['Offer Submitted', 'Offer Received']) : undefined,
-        closingStatus: funnelStage === 'Contract' ? getRandom(['In Contract', 'On Track', 'Delayed', 'At Risk', 'Rescinded']) : undefined,
+        closingHealth: funnelStage === 'Contract' ? getRandom(['On Track', 'Delayed', 'At Risk', 'Rescinded']) : undefined,
+        // --- System ---
+        status: status || (() => {
+            if (funnelStage === 'Leads') return getRandom(['New', 'Qualified', 'Attempted to Contact']);
+            if (funnelStage === 'Nurture') return getRandom(['Meeting Fixed', 'Broker Agreement Sent']);
+            if (funnelStage === 'Active Search') return getRandom(['Broker Agreement Signed', 'Actively Searching', 'Showing']);
+            if (funnelStage === 'Offer') return 'Offer';
+            if (funnelStage === 'Contract' || funnelStage === 'Closed') return 'In Contract';
+            return 'New';
+        })(),
 
         // --- Lifecycle Tracking ---
         staleWarningDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -186,7 +191,6 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
         ],
 
         // --- System ---
-        status: status || 'New',
         funnelStage: funnelStage || 'Leads',
         receivedAt: receivedDate,
         leadType: type,

@@ -12,11 +12,7 @@ export const availableBuyerColumns = [
     { id: 'targetTimeline', label: 'Timeline' },
     { id: 'personaProfile', label: 'Persona' },
     { id: 'funnelStage', label: 'Pipeline Stage' },
-    { id: 'leadStatus', label: 'Lead Stage Status' },
-    { id: 'nurtureStatus', label: 'Nurture Stage Status' },
-    { id: 'activeSearchStatus', label: 'Search Stage Status' },
-    { id: 'offerStatus', label: 'Offer Stage Status' },
-    { id: 'closingStatus', label: 'Closing Stage Status' },
+
     { id: 'nurtureLog', label: 'Log' }
 ];
 
@@ -30,11 +26,7 @@ export const availableSellerColumns = [
     { id: 'leadSource', label: 'Source' },
     { id: 'leadInfo', label: 'Lead Info' },
     { id: 'funnelStage', label: 'Pipeline Stage' },
-    { id: 'leadStatus', label: 'Lead Stage Status' },
-    { id: 'nurtureStatus', label: 'Nurture Stage Status' },
-    { id: 'activeSearchStatus', label: 'Search Stage Status' },
-    { id: 'offerStatus', label: 'Offer Stage Status' },
-    { id: 'closingStatus', label: 'Closing Stage Status' },
+
     { id: 'personaProfile', label: 'Persona' }
 ];
 

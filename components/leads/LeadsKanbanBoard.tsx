@@ -62,7 +62,7 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
         Object.keys(cols).forEach(key => {
             cols[key].sort((a, b) => {
                 const getDate = (lead: Lead) => {
-                    const dateVal = lead.leadInfo?.createdDate || lead.receivedAt;
+                    const dateVal = lead.receivedAt;
                     return dateVal?.toDate ? dateVal.toDate() : new Date(dateVal || 0);
                 };
                 const da = getDate(a);
@@ -267,24 +267,7 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
     let displayStatusLabel = 'Status';
     let displayStatusValue = lead.status;
 
-    // Map stages to specific status fields if they exist
-    // This replicates the logic in finding which specific status matches the stage
-    if (currentFunnelStage === 'Leads' && lead.leadStatus) {
-        displayStatusLabel = 'Lead Status';
-        displayStatusValue = lead.leadStatus;
-    } else if (currentFunnelStage === 'Nurture' && lead.nurtureStatus) {
-        displayStatusLabel = 'Nurture Status';
-        displayStatusValue = lead.nurtureStatus;
-    } else if (currentFunnelStage === 'Active Search' && lead.activeSearchStatus) {
-        displayStatusLabel = 'Search Status';
-        displayStatusValue = lead.activeSearchStatus;
-    } else if (currentFunnelStage === 'Offer' && lead.offerStatus) {
-        displayStatusLabel = 'Offer Status';
-        displayStatusValue = lead.offerStatus;
-    } else if (currentFunnelStage === 'Contract' && lead.closingStatus) {
-        displayStatusLabel = 'Closing Status';
-        displayStatusValue = lead.closingStatus;
-    }
+
 
     return (
         <div

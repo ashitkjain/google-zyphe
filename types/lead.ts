@@ -146,7 +146,24 @@ export const LEAD_FIELD_CONFIG = [
         funnelVisibility: ['Leads']
     },
     {
-        id: 'createdDate',
+        id: 'status',
+        label: 'Status',
+        category: 'General',
+        visibility: ['Buyer', 'Seller'],
+        type: 'enum',
+        options: [
+            'New', 'Qualified', 'Attempted to Contact',
+            'Meeting Fixed', 'Broker Agreement Sent',
+            'Broker Agreement Signed', 'Actively Searching', 'Showing',
+            'Offer',
+            'In Contract'
+        ],
+        description: 'Current status of the client in the pipeline',
+        funnelVisibility: ['All'],
+        isLocked: false
+    },
+    {
+        id: 'receivedAt',
         label: 'Created Date',
         category: 'Leads',
         visibility: ['Buyer', 'Seller'],
@@ -218,56 +235,7 @@ export const LEAD_FIELD_CONFIG = [
         description: "Subjective rating of lead interest level.",
         funnelVisibility: ['Leads']
     },
-    {
-        id: 'leadStatus',
-        label: 'Lead Status',
-        category: 'Leads',
-        visibility: ['Buyer', 'Seller'],
-        type: 'enum',
-        options: ['New', 'Qualified', 'Attempted to Contact'],
-        description: "Specific status tracker for the Leads funnel stage.",
-        funnelVisibility: ['Leads']
-    },
-    {
-        id: 'nurtureStatus',
-        label: 'Nurture Status',
-        category: 'Nurture',
-        visibility: ['Buyer', 'Seller'],
-        type: 'enum',
-        options: ['Meeting Fixed', 'Broker Agreement Sent'],
-        description: "Specific status tracker for the Nurture funnel stage.",
-        funnelVisibility: ['Nurture']
-    },
-    {
-        id: 'activeSearchStatus',
-        label: 'Active Search Status',
-        category: 'Active Search',
-        visibility: ['Buyer', 'Seller'],
-        type: 'enum',
-        options: ['Broker Agreement Signed', 'Actively Searching', 'Showing'],
-        description: "Specific status tracker for the Active Search funnel stage.",
-        funnelVisibility: ['Active Search']
-    },
-    {
-        id: 'offerStatus',
-        label: 'Offer Status',
-        category: 'Offer',
-        visibility: ['Buyer', 'Seller'],
-        type: 'enum',
-        options: ['Offer Submitted', 'Offer Received'],
-        description: "Specific status tracker for the Offer funnel stage.",
-        funnelVisibility: ['Offer']
-    },
-    {
-        id: 'closingStatus',
-        label: 'Closing Status',
-        category: 'Closing',
-        visibility: ['Buyer', 'Seller'],
-        type: 'enum',
-        options: ['In Contract', 'On Track', 'Delayed', 'At Risk', 'Rescinded'],
-        description: "Specific status tracker for the Closing/Contract funnel stage.",
-        funnelVisibility: ['Closing']
-    },
+
 
     // --- Phase 2: Relationship Building (Stage: Nurture) ---
     {
@@ -499,11 +467,32 @@ export const LEAD_FIELD_CONFIG = [
             { name: 'closingDate', label: 'Closing Date', type: 'date', description: 'Closing date', funnelVisibility: ['Closing'] }
         ],
     },
+    {
+        id: 'closingHealth',
+        label: 'Closing Health',
+        category: 'Closing',
+        visibility: ['Buyer', 'Seller'],
+        type: 'enum',
+        options: ['On Track', 'Delayed', 'At Risk', 'Rescinded'],
+        description: "Status health tracking for closing phase.",
+        funnelVisibility: ['Closing']
+    },
 
 ] as const;
 
 export const LEAD_STAGE_LIFECYCLE_CONFIG = [
     // --- Lifecycle Tracking ---
+    {
+        id: 'funnelStage',
+        label: 'Funnel Stage',
+        category: 'General',
+        visibility: ['Buyer', 'Seller'],
+        type: 'enum',
+        options: ['Leads', 'Nurture', 'Active Search', 'Offer', 'Closing', 'Closed', 'Archived'],
+        description: 'Current stage in the sales pipeline',
+        funnelVisibility: ['All'],
+        isLocked: true
+    },
     {
         id: 'stageHistory',
         label: 'Stage History Log',
@@ -640,11 +629,7 @@ export interface Lead {
     historicalOffers?: HistoricalOffer[];
     transactionTeam?: TransactionTeam;
     criticalDates?: CriticalDates;
-    closingStatus?: 'In Contract' | 'On Track' | 'Delayed' | 'At Risk' | 'Rescinded';
-    leadStatus?: 'New' | 'Qualified' | 'Attempted to Contact';
-    nurtureStatus?: 'Meeting Fixed' | 'Broker Agreement Sent';
-    activeSearchStatus?: 'Broker Agreement Signed' | 'Actively Searching' | 'Showing';
-    offerStatus?: 'Offer Submitted' | 'Offer Received';
+    closingHealth?: 'On Track' | 'Delayed' | 'At Risk' | 'Rescinded';
 
     // --- General (Maintained for App Logic) ---
     status: LeadStatus;

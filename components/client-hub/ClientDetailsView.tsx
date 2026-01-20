@@ -143,7 +143,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ clients, leads, o
                     const y = (y_px / rect.height) * 100;
                     const rotation = Math.floor(Math.random() * 15) - 7.5;
 
-                    const newNotes = [...(stuckNotes[selectedId] || []), { x, y, rotation, content: '' }];
+                    const newNotes = [...(stuckNotes[selectedId] || []), { x, y, rotation, content: '', createdAt: new Date() }];
                     setStuckNotes(prev => ({
                         ...prev,
                         [selectedId]: newNotes
@@ -252,14 +252,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ clients, leads, o
                                         <div className="flex items-center gap-4">
                                             <h1 className="text-3xl font-black text-slate-900 tracking-tight">{getName(selectedClient)}</h1>
                                             <div className="flex items-center gap-3">
-                                                <div className="flex flex-col gap-1 items-start">
-                                                    <div className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-indigo-100 shadow-sm">
-                                                        {(selectedClient as any).funnelStage || 'Leads'}
-                                                    </div>
-                                                    <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 leading-none">
-                                                        {getStageStatus(selectedClient) || 'No Status Set'}
-                                                    </div>
-                                                </div>
+
                                                 <div className="flex items-center">
                                                     {selectedClient.engagementScore === 'Hot' && (
                                                         <div className="w-10 h-10 relative animate-flame">
@@ -278,19 +271,24 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ clients, leads, o
                                             </div>
 
                                             {/* Post-it Stack */}
-                                            <div className="relative ml-4 flex items-center">
+                                            <div className="relative ml-6 flex flex-col items-center">
                                                 <div
                                                     onMouseDown={handleMouseDownOnStack}
-                                                    className="group cursor-grab active:cursor-grabbing relative w-10 h-10 select-none pb-1"
+                                                    className="group cursor-grab active:cursor-grabbing relative w-14 h-14 select-none mb-1"
                                                 >
                                                     {/* Stack Visual */}
-                                                    <div className="absolute inset-0 bg-yellow-100 border border-yellow-200 shadow-sm rotate-6 rounded-sm translate-x-1 translate-y-1"></div>
-                                                    <div className="absolute inset-0 bg-yellow-50 border border-yellow-200 shadow-sm -rotate-3 rounded-sm"></div>
-                                                    <div className="absolute inset-0 bg-yellow-200 border border-yellow-300 shadow-md group-hover:scale-110 group-hover:-rotate-6 transition-all rounded-sm flex items-center justify-center">
-                                                        <i className="fa-solid fa-plus text-yellow-600 text-[10px]"></i>
+                                                    <div className="absolute inset-0 bg-yellow-100 border border-yellow-200 shadow-sm rotate-6 rounded-md translate-x-1 translate-y-1"></div>
+                                                    <div className="absolute inset-0 bg-yellow-50 border border-yellow-200 shadow-sm -rotate-3 rounded-md"></div>
+                                                    <div className="absolute inset-0 bg-yellow-200 border border-yellow-300 shadow-md group-hover:scale-110 group-hover:-rotate-6 transition-all rounded-md flex items-center justify-center">
+                                                        <i className="fa-solid fa-plus text-yellow-600 text-lg"></i>
                                                     </div>
                                                 </div>
-                                                <div className="ml-3 text-[9px] font-black text-slate-300 uppercase tracking-widest hidden group-hover:block transition-all italic">Drag Note</div>
+                                                <div className="flex items-center gap-1.5 mt-1">
+                                                    <i className="fa-solid fa-circle-info text-slate-400 text-[10px]"></i>
+                                                    <div className="text-[10px] text-slate-900 font-bold text-center w-28 leading-tight">
+                                                        Drag to snapshot to add comments
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="flex flex-col gap-2">
@@ -339,7 +337,103 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ clients, leads, o
                         </div>
 
                         {/* Content */}
-                        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+                        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 space-y-6">
+                            {/* Funnel Stage Timeline */}
+                            <div className="bg-white rounded-[2rem] py-5 px-8 border border-slate-100 shadow-sm relative overflow-hidden group">
+                                {/* Decorative Gradient Background */}
+                                <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-50/30 rounded-full blur-3xl -mr-24 -mt-24 pointer-events-none group-hover:bg-indigo-100/40 transition-colors duration-1000"></div>
+
+                                <div className="relative pt-6 pb-2">
+                                    {/* Progress Track Background */}
+                                    <div className="absolute top-[44px] left-2 right-2 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                        {/* Dynamic Progress Fill */}
+                                        <div
+                                            className="h-full bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 shadow-[0_0_15px_rgba(79,70,229,0.3)] transition-all duration-1000 ease-out"
+                                            style={{
+                                                width: `${(() => {
+                                                    const stages = ['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed'];
+                                                    const currentStage = (selectedClient as any).funnelStage || 'Leads';
+                                                    const index = stages.indexOf(currentStage);
+                                                    if (index === -1) return 0;
+                                                    return (index / (stages.length - 1)) * 100;
+                                                })()}%`
+                                            }}
+                                        ></div>
+                                    </div>
+
+                                    {/* Milestone Points */}
+                                    <div className="relative flex justify-between">
+                                        {[
+                                            { label: 'Leads', icon: 'fa-user-tag' },
+                                            { label: 'Nurture', icon: 'fa-seedling' },
+                                            { label: 'Active Search', icon: 'fa-house-magnifying-glass' },
+                                            { label: 'Offer', icon: 'fa-file-signature' },
+                                            { label: 'Contract', icon: 'fa-handshake' },
+                                            { label: 'Closed', icon: 'fa-trophy' }
+                                        ].map((stage, idx, arr) => {
+                                            const currentStage = (selectedClient as any).funnelStage || 'Leads';
+                                            const currentIndex = arr.map(s => s.label).indexOf(currentStage);
+                                            const isCompleted = idx < currentIndex;
+                                            const isCurrent = idx === currentIndex;
+                                            const isPending = idx > currentIndex;
+
+                                            // Find the date the client entered this stage
+                                            let entryDate = null;
+                                            if (!isPending) {
+                                                const history = (selectedClient as any).stageHistory || [];
+                                                const historyEntry = history.find((h: any) => h.toStage === stage.label);
+                                                if (historyEntry) {
+                                                    entryDate = historyEntry.enteredAt;
+                                                } else if (stage.label === 'Leads') {
+                                                    entryDate = (selectedClient as any).receivedAt || (selectedClient as any).createdAt || (selectedClient as any).createdDate;
+                                                }
+                                            }
+
+                                            return (
+                                                <div key={idx} className="flex flex-col items-center relative z-10 group/milestone min-w-[70px]">
+                                                    {/* Entered At Date */}
+                                                    {entryDate && (
+                                                        <div className="absolute -top-6 text-[8px] font-black text-slate-900 uppercase tracking-widest whitespace-nowrap z-20 animate-in fade-in slide-in-from-bottom-1 duration-500">
+                                                            {formatDate(entryDate)}
+                                                        </div>
+                                                    )}
+
+                                                    {/* The Milestone Circle */}
+                                                    <div className={`
+                                                        w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-500 border-2
+                                                        ${isCompleted ? 'bg-indigo-600 border-white shadow-lg shadow-indigo-100 scale-90' : ''}
+                                                        ${isCurrent ? 'bg-white border-indigo-600 shadow-xl shadow-indigo-100 ring-4 ring-indigo-50 scale-110' : ''}
+                                                        ${isPending ? 'bg-white border-slate-50 text-slate-300 shadow-sm' : ''}
+                                                    `}>
+                                                        <i className={`
+                                                            fa-solid ${stage.icon} text-sm transition-colors duration-500
+                                                            ${isCompleted ? 'text-white' : ''}
+                                                            ${isCurrent ? 'text-indigo-600' : ''}
+                                                            ${isPending ? 'text-slate-200' : ''}
+                                                        `}></i>
+                                                    </div>
+
+                                                    {/* Label */}
+                                                    <div className="mt-2.5 text-center">
+                                                        <p className={`
+                                                            text-[9px] font-black uppercase tracking-widest transition-colors duration-500 whitespace-nowrap
+                                                            ${isCurrent ? 'text-indigo-600' : 'text-slate-400'}
+                                                            ${isCompleted ? 'text-slate-800' : ''}
+                                                        `}>
+                                                            {stage.label}
+                                                        </p>
+                                                        {isCurrent && (selectedClient as any).status && (
+                                                            <div className="mt-1 px-2 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase tracking-widest rounded-md animate-in fade-in zoom-in-95 duration-500">
+                                                                {(selectedClient as any).status}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
                             {/* Snapshot Box */}
                             <div
                                 ref={snapshotRef}
@@ -389,7 +483,9 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ clients, leads, o
                                             <div className="text-[6px] font-bold text-yellow-700/30 uppercase flex items-center gap-1">
                                                 <i className="fa-solid fa-i-cursor text-[6px]"></i> Editable
                                             </div>
-                                            <div className="text-[7px] font-black text-yellow-600/50 uppercase tracking-widest uppercase">Sticky</div>
+                                            <div className="text-[6px] font-black text-black uppercase tracking-widest uppercase">
+                                                {note.createdAt ? formatDate(note.createdAt) : formatDate(new Date())}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
