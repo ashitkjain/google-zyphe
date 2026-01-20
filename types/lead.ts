@@ -21,6 +21,12 @@ export interface LeadInfo {
     campaign: string;
     createdDate: Date;
     leadType: 'Buyer' | 'Seller';
+    legalName?: string;
+    customerMessage?: string;
+    earnestMoneyDue?: string;
+    mutualAcceptance?: string;
+    dueDiligence?: string;
+    closingInfo?: string;
 }
 
 export interface NurtureLogEntry {
@@ -149,7 +155,13 @@ export const LEAD_FIELD_CONFIG = [
             { name: 'referralType', label: 'Referral Type', type: 'string', description: 'Type of referral', funnelVisibility: ['Leads'] },
             { name: 'campaign', label: 'Marketing Campaign', type: 'string', description: 'Marketing campaign', funnelVisibility: ['Leads'] },
             { name: 'createdDate', label: 'Created Date', type: 'date', description: 'Date lead was created', funnelVisibility: ['Leads'] },
-            { name: 'leadType', label: 'Lead Type', type: 'enum', description: 'Buyer or Seller', options: ['Buyer', 'Seller'], funnelVisibility: ['Leads'] }
+            { name: 'leadType', label: 'Lead Type', type: 'enum', description: 'Buyer or Seller', options: ['Buyer', 'Seller'], funnelVisibility: ['Leads'] },
+            { name: 'legalName', label: 'Legal Name', type: 'string', description: 'Client legal name', funnelVisibility: ['Leads'] },
+            { name: 'customerMessage', label: 'Customer Message', type: 'string', description: 'Message from customer', funnelVisibility: ['Leads'] },
+            { name: 'earnestMoneyDue', label: 'Earnest Money Due', type: 'string', description: 'EMD due details', funnelVisibility: ['Leads'] },
+            { name: 'mutualAcceptance', label: 'Mutual Acceptance', type: 'string', description: 'Mutual acceptance details', funnelVisibility: ['Leads'] },
+            { name: 'dueDiligence', label: 'Due Diligence', type: 'string', description: 'Due diligence details', funnelVisibility: ['Leads'] },
+            { name: 'closingInfo', label: 'Closing Info', type: 'string', description: 'Closing information', funnelVisibility: ['Leads'] }
         ],
     },
     {
