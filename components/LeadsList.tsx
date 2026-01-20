@@ -30,8 +30,9 @@ const LeadsList: React.FC<InternalProps> = ({
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [sortField, setSortField] = useState<keyof Lead>('lastUpdated');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-    const [activeTab, setActiveTab] = useState<'Buyer' | 'Seller'>('Buyer');
+    const [activeTab, setActiveTab] = useState<'Buyer' | 'Buyer2' | 'Seller'>('Buyer');
     const [buyerFunnelCategory, setBuyerFunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
+    const [buyer2FunnelCategory, setBuyer2FunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
     const [sellerFunnelCategory, setSellerFunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
     const [currentDisplayMode, setCurrentDisplayMode] = useState<DisplayMode>('list');
 
@@ -46,6 +47,13 @@ const LeadsList: React.FC<InternalProps> = ({
         }
         return buyerLeads.filter(l => l.funnelStage === buyerFunnelCategory);
     }, [buyerLeads, buyerFunnelCategory]);
+
+    const filteredBuyer2Leads = useMemo(() => {
+        if (buyer2FunnelCategory === 'Closed & Archived') {
+            return sellerLeads.filter(l => l.funnelStage === 'Closed' || l.funnelStage === 'Archived');
+        }
+        return sellerLeads.filter(l => l.funnelStage === buyer2FunnelCategory);
+    }, [sellerLeads, buyer2FunnelCategory]);
 
     const filteredSellerLeads = useMemo(() => {
         if (sellerFunnelCategory === 'Closed & Archived') {
@@ -68,6 +76,20 @@ const LeadsList: React.FC<InternalProps> = ({
             return sortDirection === 'asc' ? comparison : -comparison;
         });
     }, [filteredBuyerLeads, sortField, sortDirection]);
+
+    const sortedBuyer2Leads = useMemo(() => {
+        return [...filteredBuyer2Leads].sort((a, b) => {
+            const aVal = (a as any)[sortField];
+            const bVal = (b as any)[sortField];
+
+            if (aVal === bVal) return 0;
+            if (aVal == null) return 1;
+            if (bVal == null) return -1;
+
+            const comparison = aVal < bVal ? -1 : 1;
+            return sortDirection === 'asc' ? comparison : -comparison;
+        });
+    }, [filteredBuyer2Leads, sortField, sortDirection]);
 
     const sortedSellerLeads = useMemo(() => {
         return [...filteredSellerLeads].sort((a, b) => {
@@ -135,6 +157,10 @@ const LeadsList: React.FC<InternalProps> = ({
             'Past 6 Months': buyerLeads.length,
             'Older': 0
         },
+        Buyer2: {
+            'Past 6 Months': sellerLeads.length,
+            'Older': 0
+        },
         Seller: {
             'Past 6 Months': sellerLeads.length,
             'Older': 0
@@ -150,7 +176,7 @@ const LeadsList: React.FC<InternalProps> = ({
             {/* Header */}
             <LeadsHeader
                 activeTab={activeTab}
-                setActiveTab={(tab) => {
+                setActiveTab={(tab: any) => {
                     setActiveTab(tab);
                     onTabChange?.(tab);
                 }}
@@ -162,8 +188,8 @@ const LeadsList: React.FC<InternalProps> = ({
             {/* Kanban View */}
             {currentDisplayMode === 'kanban' ? (
                 <LeadsKanbanBoard
-                    leads={activeTab === 'Buyer' ? buyerLeads : sellerLeads}
-                    leadType={activeTab}
+                    leads={activeTab === 'Buyer' ? buyerLeads : (activeTab === 'Buyer2' ? sellerLeads : sellerLeads)}
+                    leadType={activeTab === 'Buyer2' ? 'Seller' : activeTab}
                     onUpdateLead={onUpdateLead}
                     selectedIds={selectedIds}
                     onSelectOne={handleSelectOne}
@@ -259,16 +285,16 @@ const LeadsList: React.FC<InternalProps> = ({
                             </section>
                         )}
 
-                        {/* Seller Section */}
-                        {activeTab === 'Seller' && (
-                            <section className="px-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                        {/* Buyer2 Section */}
+                        {activeTab === 'Buyer2' && (
+                            <section className="px-4 animate-in fade-in slide-in-from-left-4 duration-300">
                                 <LeadsViewControls
                                     activeTab="Seller"
-                                    activeFunnelCategory={sellerFunnelCategory}
-                                    onFunnelCategoryChange={setSellerFunnelCategory}
+                                    activeFunnelCategory={buyer2FunnelCategory}
+                                    onFunnelCategoryChange={setBuyer2FunnelCategory}
                                     viewMode="list"
                                     onViewModeChange={() => { }}
-                                    timeStats={timeStats.Seller}
+                                    timeStats={timeStats.Buyer2}
                                     dateRangeLabels={dateRanges.labels}
                                     selectedCount={selectedIds.size}
                                     onArchive={handleBulkArchive}
@@ -279,12 +305,12 @@ const LeadsList: React.FC<InternalProps> = ({
                                     onTabChange={onTabChange}
                                 />
 
-                                {sortedSellerLeads.length > 0 ? (
+                                {sortedBuyer2Leads.length > 0 ? (
                                     currentDisplayMode === 'list' ? (
                                         <DynamicLeadsTable
-                                            leads={sortedSellerLeads}
+                                            leads={sortedBuyer2Leads}
                                             leadType="Seller"
-                                            funnelStage={sellerFunnelCategory}
+                                            funnelStage={buyer2FunnelCategory}
                                             selectedIds={selectedIds}
                                             onSelectOne={handleSelectOne}
                                             onSelectAll={handleSelectAll}
@@ -295,12 +321,12 @@ const LeadsList: React.FC<InternalProps> = ({
                                         />
                                     ) : (
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-24">
-                                            {sortedSellerLeads.map((lead, index) => (
+                                            {sortedBuyer2Leads.map((lead, index) => (
                                                 <LeadGalleryItem
                                                     onUpdateAvatar={onUpdateAvatar}
                                                     key={lead.id}
                                                     lead={lead}
-                                                    stage={sellerFunnelCategory}
+                                                    stage={buyer2FunnelCategory}
                                                     index={index}
                                                     selectedIds={selectedIds}
                                                     handleSelectOne={handleSelectOne}
@@ -332,11 +358,13 @@ const LeadsList: React.FC<InternalProps> = ({
                                     )
                                 ) : (
                                     <div className="text-center py-12 text-slate-400">
-                                        No seller leads in this stage
+                                        No buyer leads in this stage
                                     </div>
                                 )}
                             </section>
                         )}
+
+
                     </div>
                 </DragDropContext>
             )}

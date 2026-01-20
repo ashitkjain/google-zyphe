@@ -714,7 +714,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                             if (tab === 'settings:properties') {
                                 setSettingsSubTab('properties');
                                 setActiveTab('settings');
-                            } else {
+                            } else if (tab !== 'Buyer' && tab !== 'Buyer2' && tab !== 'Seller') {
                                 setActiveTab(tab);
                             }
                         }}
