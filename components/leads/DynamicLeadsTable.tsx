@@ -44,6 +44,19 @@ export const DynamicLeadsTable: React.FC<DynamicLeadsTableProps> = ({
         return isVisibleForPersona && isVisibleForStage;
     });
 
+
+    // Helper to safely convert timestamps to strings
+    const formatDate = (dateValue: any): string => {
+        if (!dateValue) return '--';
+        try {
+            if (dateValue.toDate) return dateValue.toDate().toLocaleDateString();
+            if (dateValue.seconds) return new Date(dateValue.seconds * 1000).toLocaleDateString();
+            return new Date(dateValue).toLocaleDateString();
+        } catch {
+            return '--';
+        }
+    };
+
     // Render cell value based on field type
     const renderCellValue = (lead: Lead, config: any) => {
         const value = (lead as any)[config.id];
@@ -54,12 +67,8 @@ export const DynamicLeadsTable: React.FC<DynamicLeadsTableProps> = ({
         switch (config.type) {
             case 'date':
             case 'timestamp':
-                try {
-                    if (value.toDate) return value.toDate().toLocaleDateString();
-                    return new Date(value).toLocaleDateString();
-                } catch {
-                    return <span className="text-slate-300">--</span>;
-                }
+                const dateStr = formatDate(value);
+                return <span>{dateStr}</span>;
 
             case 'boolean':
                 return (
@@ -130,7 +139,7 @@ export const DynamicLeadsTable: React.FC<DynamicLeadsTableProps> = ({
                     return (
                         <div className="flex flex-col text-xs space-y-0.5">
                             {value.price && <div className="text-green-600 font-semibold">${value.price.toLocaleString()}</div>}
-                            {value.offerDate && <div className="text-slate-500">{new Date(value.offerDate).toLocaleDateString()}</div>}
+                            {value.offerDate && <div className="text-slate-500">{formatDate(value.offerDate)}</div>}
                         </div>
                     );
                 }
@@ -140,12 +149,12 @@ export const DynamicLeadsTable: React.FC<DynamicLeadsTableProps> = ({
                         <div className="flex flex-col text-xs space-y-0.5">
                             {value.closingDate && (
                                 <div className="text-red-600 font-semibold">
-                                    Close: {new Date(value.closingDate).toLocaleDateString()}
+                                    Close: {formatDate(value.closingDate)}
                                 </div>
                             )}
                             {value.inspectionEnd && (
                                 <div className="text-slate-500 text-[10px]">
-                                    Inspection: {new Date(value.inspectionEnd).toLocaleDateString()}
+                                    Inspection: {formatDate(value.inspectionEnd)}
                                 </div>
                             )}
                         </div>
@@ -156,11 +165,22 @@ export const DynamicLeadsTable: React.FC<DynamicLeadsTableProps> = ({
                 const entries = Object.entries(value).filter(([_, v]) => v != null && v !== '');
                 if (entries.length === 0) return <span className="text-slate-300">--</span>;
 
+                // Helper to safely convert any value to string
+                const safeStringify = (val: any): string => {
+                    if (val == null) return '';
+                    if (typeof val === 'string') return val;
+                    if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+                    if (val.toDate) return formatDate(val);
+                    if (val.seconds) return formatDate(val);
+                    if (typeof val === 'object') return JSON.stringify(val).substring(0, 30) + '...';
+                    return String(val);
+                };
+
                 return (
                     <div className="flex flex-col text-xs space-y-0.5 max-w-[200px]">
                         {entries.slice(0, 2).map(([key, val]) => (
                             <div key={key} className="text-slate-600 truncate">
-                                <span className="text-slate-400">{key}:</span> {String(val)}
+                                <span className="text-slate-400">{key}:</span> {safeStringify(val)}
                             </div>
                         ))}
                         {entries.length > 2 && <div className="text-slate-400 text-[10px]">+{entries.length - 2} more</div>}
@@ -176,11 +196,18 @@ export const DynamicLeadsTable: React.FC<DynamicLeadsTableProps> = ({
                 return (
                     <div className="flex flex-col text-xs">
                         <div className="font-semibold text-indigo-600">{value.length} item{value.length !== 1 ? 's' : ''}</div>
-                        {typeof value[0] === 'object' && value[0] !== null && (
-                            <div className="text-slate-500 text-[10px] truncate max-w-[150px]">
-                                {Object.values(value[0])[0]}
-                            </div>
-                        )}
+                        {typeof value[0] === 'object' && value[0] !== null && (() => {
+                            const firstVal = Object.values(value[0])[0];
+                            const preview = typeof firstVal === 'string' ? firstVal :
+                                typeof firstVal === 'number' ? String(firstVal) :
+                                    firstVal?.toDate ? formatDate(firstVal) :
+                                        firstVal?.seconds ? formatDate(firstVal) : '';
+                            return preview ? (
+                                <div className="text-slate-500 text-[10px] truncate max-w-[150px]">
+                                    {preview}
+                                </div>
+                            ) : null;
+                        })()}
                     </div>
                 );
 
