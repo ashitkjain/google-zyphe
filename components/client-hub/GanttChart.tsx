@@ -1,13 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { ChecklistCategory } from '../../types/transaction';
-import { CRMTask } from '../../types';
-
-export interface CategoryWithTasks extends ChecklistCategory {
-    tasks: CRMTask[];
-}
 
 interface GanttChartProps {
-    categories: CategoryWithTasks[];
+    categories: ChecklistCategory[];
     startDate?: Date;
     onTaskStatusChange?: (catId: string, taskId: string, newStatus: 'Pending' | 'Completed') => void;
     onAddComment?: (catId: string, taskId: string, comment: string) => void;
@@ -23,11 +18,11 @@ interface ProcessedTask {
     duration: number;
     endDay: number;
     dependsOn: string[];
-    row: number; // Assigned later for display
-    status: 'Pending' | 'Completed' | 'Rejected' | 'TODO' | 'IN_PROGRESS' | 'DONE'; // Expanded to cover CRMTask statuses
+    row: number;
+    status: 'Pending' | 'Completed' | 'Rejected';
     comments?: string;
     type: 'task';
-    rawTask: any; // CRMTask
+    rawTask: any;
 }
 
 interface CategoryBar {
@@ -76,7 +71,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
             cat.tasks.forEach(task => {
                 const newTask: ProcessedTask = {
                     id: task.id,
-                    name: task.title || task.name || 'Untitled Task',
+                    name: task.name,
                     catId: cat.id,
                     catName: cat.name,
                     catColor: colorClass,
@@ -85,7 +80,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
                     endDay: 0,
                     dependsOn: task.dependsOn || [],
                     row: 0, // Assigned later for display
-                    status: task.status as any, // Cast to compatible status
+                    status: task.status,
                     comments: task.comments,
                     type: 'task',
                     rawTask: task

@@ -1043,7 +1043,20 @@ export const seedReminderRules = async (realtorId: string, rules: Omit<ReminderR
   }
 };
 
-
+export const updateTask = async (taskId: string, updates: Partial<CRMTask>) => {
+  if (!db) return false;
+  try {
+    const taskRef = doc(db, "tasks", taskId);
+    await updateDoc(taskRef, sanitizeForFirestore({
+      ...updates,
+      updatedAt: serverTimestamp()
+    }));
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "updateTask");
+    return false;
+  }
+};
 
 
 
@@ -1206,60 +1219,6 @@ export const deleteTask = async (taskId: string) => {
     return true;
   } catch (error) {
     handleFirestoreError(error, "deleteTask");
-    return false;
-  }
-};
-
-export const updateTask = async (taskId: string, updates: Partial<CRMTask>) => {
-  if (!db || !taskId) return false;
-  try {
-    const docRef = doc(db, "tasks", taskId);
-    logFirestoreQuery('updateDoc', 'tasks', { taskId });
-    await updateDoc(docRef, sanitizeForFirestore({
-      ...updates,
-      updatedAt: serverTimestamp()
-    }));
-    return true;
-  } catch (error) {
-    handleFirestoreError(error, "updateTask");
-    return false;
-  }
-};
-
-export const getTasksByTransactionId = async (transactionId: string) => {
-  if (!db || !transactionId) return [];
-  try {
-    const q = query(
-      collection(db, "tasks"),
-      where("transaction_id", "==", transactionId)
-    );
-    logFirestoreQuery('getDocs', 'tasks', { transactionId });
-    const snap = await getDocs(q);
-    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CRMTask));
-  } catch (error) {
-    handleFirestoreError(error, "getTasksByTransactionId");
-    return [];
-  }
-};
-
-export const addTasksBatch = async (tasks: Partial<CRMTask>[]) => {
-  if (!db || tasks.length === 0) return false;
-  try {
-    const batch = writeBatch(db);
-    tasks.forEach(task => {
-      const docRef = doc(collection(db, "tasks")); // Auto-ID
-      batch.set(docRef, sanitizeForFirestore({
-        ...task,
-        id: docRef.id, // Ensure ID is saved in doc
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      }));
-    });
-    logFirestoreQuery('batch.commit', 'tasks', { count: tasks.length });
-    await batch.commit();
-    return true;
-  } catch (error) {
-    handleFirestoreError(error, "addTasksBatch");
     return false;
   }
 };

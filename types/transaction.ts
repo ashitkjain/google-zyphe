@@ -272,6 +272,15 @@ export interface ChecklistCategory {
     name: string;
     icon: string;
     description: string;
+    tasks: {
+        id: string;
+        name: string;
+        status: 'Pending' | 'Completed' | 'Rejected';
+        comments: string;
+        emoji?: string;
+        durationDays?: number;
+        dependsOn?: string[];
+    }[];
 }
 
 // Phase schedule interface for calendar view

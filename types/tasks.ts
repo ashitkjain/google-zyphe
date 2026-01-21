@@ -16,14 +16,6 @@ export interface CRMTask {
     source?: TaskSource;
     created_at?: Date | any;
     updated_at?: Date | any;
-
-    // Checklist/Gantt specific fields
-    comments?: string;
-    emoji?: string;
-    durationDays?: number;
-    dependsOn?: string[]; // Array of task IDs
-    name?: string; // Legacy support for checklist items (mapped to title)
-    categoryId?: string; // For grouping in Gantt chart/Checklist
 }
 
 export type ReminderRuleCategory = 'lead' | 'buyer' | 'seller' | 'relationship';
