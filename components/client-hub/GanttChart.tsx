@@ -18,11 +18,11 @@ interface ProcessedTask {
     duration: number;
     endDay: number;
     dependsOn: string[];
-    row: number;
-    status: 'Pending' | 'Completed' | 'Rejected';
+    row: number; // Assigned later for display
+    status: 'Pending' | 'Completed' | 'Rejected' | 'TODO' | 'IN_PROGRESS' | 'DONE'; // Expanded to cover CRMTask statuses
     comments?: string;
     type: 'task';
-    rawTask: any;
+    rawTask: any; // CRMTask
 }
 
 interface CategoryBar {
@@ -71,7 +71,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
             cat.tasks.forEach(task => {
                 const newTask: ProcessedTask = {
                     id: task.id,
-                    name: task.name,
+                    name: task.title || task.name || 'Untitled Task',
                     catId: cat.id,
                     catName: cat.name,
                     catColor: colorClass,
@@ -80,7 +80,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
                     endDay: 0,
                     dependsOn: task.dependsOn || [],
                     row: 0, // Assigned later for display
-                    status: task.status,
+                    status: task.status as any, // Cast to compatible status
                     comments: task.comments,
                     type: 'task',
                     rawTask: task
