@@ -1,8 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { ChecklistCategory } from '../../types/transaction';
+import { CRMTask } from '../../types';
+
+export interface CategoryWithTasks extends ChecklistCategory {
+    tasks: CRMTask[];
+}
 
 interface GanttChartProps {
-    categories: ChecklistCategory[];
+    categories: CategoryWithTasks[];
     startDate?: Date;
     onTaskStatusChange?: (catId: string, taskId: string, newStatus: 'Pending' | 'Completed') => void;
     onAddComment?: (catId: string, taskId: string, comment: string) => void;

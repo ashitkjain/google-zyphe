@@ -272,7 +272,6 @@ export interface ChecklistCategory {
     name: string;
     icon: string;
     description: string;
-    tasks: CRMTask[];
 }
 
 // Phase schedule interface for calendar view

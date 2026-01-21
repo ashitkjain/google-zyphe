@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChecklistCategory, PhaseSchedule } from '../../types/transaction';
+import { CategoryWithTasks } from './GanttChart';
 
 // Timeline phases for transaction progress
 export const timelinePhases = [
@@ -43,7 +44,7 @@ interface CommentModalData {
 }
 
 interface TransactionTimelineProps {
-    categories: ChecklistCategory[];
+    categories: CategoryWithTasks[];
     onScrollToPhase?: (phaseIndex: number) => void;
     onAddComment?: (catId: string, taskId: string, comment: string) => void;
 }

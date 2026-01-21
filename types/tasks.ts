@@ -23,6 +23,7 @@ export interface CRMTask {
     durationDays?: number;
     dependsOn?: string[]; // Array of task IDs
     name?: string; // Legacy support for checklist items (mapped to title)
+    categoryId?: string; // For grouping in Gantt chart/Checklist
 }
 
 export type ReminderRuleCategory = 'lead' | 'buyer' | 'seller' | 'relationship';
