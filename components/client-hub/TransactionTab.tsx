@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Lead, Transaction } from '../../types';
 import { createTransaction, getTransactions, getTransactionByClientId } from '../../services/firebaseService';
-import TransactionTimeline from './TransactionTimeline';
+import GanttChart from './GanttChart';
 import { ChecklistCategory } from '../../types/transaction';
 
 interface Props {
@@ -10,9 +10,10 @@ interface Props {
     categories: ChecklistCategory[];
     onScrollToPhase: (phaseIndex: number) => void;
     onAddComment: (catId: string, taskId: string, comment: string) => void;
+    onUpdateTaskStatus: (catId: string, taskId: string, status: 'Pending' | 'Completed' | 'Rejected') => void;
 }
 
-const TransactionTab: React.FC<Props> = ({ lead, realtorId, categories, onScrollToPhase, onAddComment }) => {
+const TransactionTab: React.FC<Props> = ({ lead, realtorId, categories, onScrollToPhase, onAddComment, onUpdateTaskStatus }) => {
     const [transaction, setTransaction] = useState<Transaction | null>(null);
     const [loading, setLoading] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
@@ -104,31 +105,31 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId, categories, onScroll
     }
 
     return (
-        <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* Property Side */}
-                <div className="p-4 bg-slate-50/50 rounded-3xl border border-slate-100/60">
-                    <div className="flex items-center gap-2 mb-3">
-                        <div className="w-6 h-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center">
-                            <i className="fa-solid fa-house text-slate-400 text-[10px]"></i>
+                <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100/60">
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="w-5 h-5 rounded-md bg-white border border-slate-200 flex items-center justify-center">
+                            <i className="fa-solid fa-house text-slate-400 text-[9px]"></i>
                         </div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Property Info</span>
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Property Info</span>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                         <div>
-                            <label className="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">Address</label>
-                            <div className="text-sm font-bold text-slate-800 leading-tight">{transaction.property?.address || 'N/A'}</div>
+                            <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Address</label>
+                            <div className="text-xs font-bold text-slate-800 leading-tight">{transaction.property?.address || 'N/A'}</div>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-2">
                             <div>
-                                <label className="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">Price</label>
-                                <div className="text-sm font-bold text-slate-800">
+                                <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Price</label>
+                                <div className="text-xs font-bold text-slate-800">
                                     {transaction.purchase_price ? `$${transaction.purchase_price.toLocaleString()}` : '--'}
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">Comm.</label>
-                                <div className="text-sm font-bold text-emerald-600">
+                                <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Comm.</label>
+                                <div className="text-xs font-bold text-emerald-600">
                                     {transaction.commission || '--'}
                                 </div>
                             </div>
@@ -137,31 +138,31 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId, categories, onScroll
                 </div>
 
                 {/* Dates Side */}
-                <div className="p-4 bg-slate-50/50 rounded-3xl border border-slate-100/60">
-                    <div className="flex items-center gap-2 mb-3">
-                        <div className="w-6 h-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center">
-                            <i className="fa-solid fa-calendar-days text-slate-400 text-[10px]"></i>
+                <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100/60">
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="w-5 h-5 rounded-md bg-white border border-slate-200 flex items-center justify-center">
+                            <i className="fa-solid fa-calendar-days text-slate-400 text-[9px]"></i>
                         </div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Key Dates</span>
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Key Dates</span>
                     </div>
-                    <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
                             <div>
-                                <label className="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">Acceptance</label>
-                                <div className="text-sm font-bold text-slate-800">
+                                <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Acceptance</label>
+                                <div className="text-xs font-bold text-slate-800">
                                     {transaction.important_dates?.acceptance_date?.toDate ? new Date(transaction.important_dates.acceptance_date.toDate()).toLocaleDateString() : (transaction.important_dates?.acceptance_date ? new Date(transaction.important_dates.acceptance_date).toLocaleDateString() : '--')}
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">Closing</label>
-                                <div className="text-sm font-bold text-indigo-600">
+                                <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Closing</label>
+                                <div className="text-xs font-bold text-indigo-600">
                                     {transaction.close_of_escrow_date?.toDate ? new Date(transaction.close_of_escrow_date.toDate()).toLocaleDateString() : (transaction.close_of_escrow_date ? new Date(transaction.close_of_escrow_date).toLocaleDateString() : '--')}
                                 </div>
                             </div>
                         </div>
                         <div>
-                            <label className="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">Contingency removal</label>
-                            <div className="text-sm font-bold text-slate-800">
+                            <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Contingency removal</label>
+                            <div className="text-xs font-bold text-slate-800">
                                 {transaction.important_dates?.contingency_removal_date?.toDate ? new Date(transaction.important_dates.contingency_removal_date.toDate()).toLocaleDateString() : (transaction.important_dates?.contingency_removal_date ? new Date(transaction.important_dates.contingency_removal_date).toLocaleDateString() : '--')}
                             </div>
                         </div>
@@ -169,10 +170,9 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId, categories, onScroll
                 </div>
             </div>
 
-            <TransactionTimeline
+            <GanttChart
                 categories={categories}
-                onScrollToPhase={onScrollToPhase}
-                onAddComment={onAddComment}
+                onTaskStatusChange={onUpdateTaskStatus}
             />
         </div>
     );

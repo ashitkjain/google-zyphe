@@ -277,7 +277,9 @@ export interface ChecklistCategory {
         name: string;
         status: 'Pending' | 'Completed' | 'Rejected';
         comments: string;
-        emoji?: string;  // Optional emoji for the task
+        emoji?: string;
+        durationDays?: number;
+        dependsOn?: string[];
     }[];
 }
 

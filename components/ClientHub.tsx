@@ -37,6 +37,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
     const [clients, setClients] = useState<UserProfile[]>([]);
     const [loadingClients, setLoadingClients] = useState(true);
+    const [explicitlySelectedClientId, setExplicitlySelectedClientId] = useState<string | undefined>(undefined);
 
 
 
@@ -544,6 +545,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                         leads={leads}
                         loading={loadingClients}
                         onUpdateClient={handleUpdateLead}
+                        initialSelectedId={explicitlySelectedClientId}
                     />
                 )}
 
@@ -608,6 +610,18 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                         leads={leads}
                         onUpdateLead={handleUpdateLead}
                         realtorId={realtorId}
+                        onNavigateToClient={(clientId) => {
+                            // Find the client to ensure we have valid ID
+                            const client = clients.find(c => c.uid === clientId) || leads.find(l => l.id === clientId);
+                            if (client) {
+                                // Add a slightly delayed state update to ensure the tab switch happens cleanly
+                                // We use a specific state in ClientDetailsView to handle selection, but here we can just rely on props if we pass selectedId
+                                // However, ClientDetailsView uses internal state for selection. 
+                                // We'll pass a prop "initialSelectedId" which we are already doing via a new state variable we need to add.
+                                setExplicitlySelectedClientId(clientId);
+                                setActiveTab('clients');
+                            }
+                        }}
                     />
                 )}
 
