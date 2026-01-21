@@ -54,6 +54,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
     const [resetLogs, setResetLogs] = useState<string[]>([]);
     const [isResetting, setIsResetting] = useState(false);
+    const [showResetConfirm, setShowResetConfirm] = useState(false);
 
 
     useEffect(() => {
@@ -452,35 +453,34 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
 
     const handleResetMockData = async () => {
-        if (confirm("Are you sure you want to delete all mock data and reload? This cannot be undone.")) {
-            setIsResetting(true);
-            setResetLogs(["[System] Initializing database reset..."]);
+        setShowResetConfirm(false);
+        setIsResetting(true);
+        setResetLogs(["[System] Initializing database reset..."]);
 
-            const addLog = (msg: string) => {
-                setResetLogs(prev => [...prev, msg].slice(-20)); // Keep last 20
-            };
+        const addLog = (msg: string) => {
+            setResetLogs(prev => [...prev, msg].slice(-20)); // Keep last 20
+        };
 
-            try {
-                // 1. Delete existing data
-                await deleteAllMockData(realtorId, addLog);
+        try {
+            // 1. Delete existing data
+            await deleteAllMockData(realtorId, addLog);
 
-                // 2. Generate and seed new data immediately
-                addLog("[System] Generating mock objects...");
-                const initialLeads = getInitialMockLeads();
-                const initialTasks = getInitialMockTasks(realtorId);
-                const initialTemplates = getInitialMockTemplates(realtorId);
-                const initialTransactions = getInitialMockTransactions(realtorId);
+            // 2. Generate and seed new data immediately
+            addLog("[System] Generating mock objects...");
+            const initialLeads = getInitialMockLeads();
+            const initialTasks = getInitialMockTasks(realtorId);
+            const initialTemplates = getInitialMockTemplates(realtorId);
+            const initialTransactions = getInitialMockTransactions(realtorId);
 
-                // 3. Wait for seeding to complete
-                await seedMockData(realtorId, initialLeads, initialTasks, initialTemplates, initialTransactions, addLog);
+            // 3. Wait for seeding to complete
+            await seedMockData(realtorId, initialLeads, initialTasks, initialTemplates, initialTransactions, addLog);
 
-                addLog("[System] Database Reset Complete. You can now browse the updated data.");
-            } catch (error) {
-                console.error("Error resetting data:", error);
-                addLog(`[Error] ${error instanceof Error ? error.message : 'Unknown error'}`);
-            } finally {
-                setIsResetting(false);
-            }
+            addLog("[System] Database Reset Complete. You can now browse the updated data.");
+        } catch (error) {
+            console.error("Error resetting data:", error);
+            addLog(`[Error] ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } finally {
+            setIsResetting(false);
         }
     };
 
@@ -687,7 +687,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                         onUpdateProperties={handleUpdateProperties}
                         initialStatuses={realtorProfile?.settings?.leadStatuses}
                         initialProperties={realtorProfile?.settings?.leadProperties}
-                        onResetData={handleResetMockData}
+                        onResetData={() => setShowResetConfirm(true)}
                         resetLogs={resetLogs}
                         isResetting={isResetting}
                         defaultTab={settingsSubTab}
@@ -708,6 +708,37 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
 
 
+
+            {/* Reset Confirmation Modal */}
+            {showResetConfirm && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-300">
+                        <div className="p-10 text-center">
+                            <div className="w-20 h-20 rounded-3xl bg-rose-50 flex items-center justify-center mb-8 mx-auto">
+                                <i className="fa-solid fa-triangle-exclamation text-3xl text-rose-500"></i>
+                            </div>
+                            <h3 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Factory Reset</h3>
+                            <p className="text-slate-500 text-sm font-medium leading-relaxed">
+                                This will delete all mock leads, tasks, and transactions and regenerate the default demo data. <span className="text-rose-600 font-bold">This cannot be undone.</span>
+                            </p>
+                        </div>
+                        <div className="p-8 bg-slate-50 flex flex-col gap-3">
+                            <button
+                                onClick={handleResetMockData}
+                                className="w-full py-4 bg-rose-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-rose-700 shadow-lg shadow-rose-600/20 active:scale-[0.98] transition-all"
+                            >
+                                Confirm Reset
+                            </button>
+                            <button
+                                onClick={() => setShowResetConfirm(false)}
+                                className="w-full py-4 bg-white text-slate-400 rounded-2xl text-xs font-black uppercase tracking-widest hover:text-slate-600 hover:bg-slate-100 transition-all"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <style dangerouslySetInnerHTML={{
                 __html: `

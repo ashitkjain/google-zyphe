@@ -116,8 +116,8 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                     if (row.task && row.task.trim()) {
                         await addTask({
                             realtorId,
-                            title: row.task,
-                            description: row.notes || '',
+                            name: row.task,
+                            comment: row.notes || '',
                             dueDate: ensureDate(row.date),
                             priority: row.priority || 'Normal',
                             status: row.done === 'Yes' ? 'Completed' : 'Pending',
@@ -340,9 +340,9 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                                                         <td className="border border-slate-200 p-0 align-top">
                                                             <textarea
                                                                 className="w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-xs font-medium text-slate-800 focus:ring-1 focus:ring-indigo-500 outline-none resize-none overflow-hidden"
-                                                                value={item.title}
+                                                                value={item.name}
                                                                 rows={1}
-                                                                onChange={(e) => handleTaskChange(item.id, 'title', e.target.value)}
+                                                                onChange={(e) => handleTaskChange(item.id, 'name', e.target.value)}
                                                             />
                                                         </td>
                                                         <td className="border border-slate-200 p-0 align-top">
@@ -356,9 +356,9 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                                                         <td className="border border-slate-200 p-0 align-top">
                                                             <textarea
                                                                 className="w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-xs text-slate-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none overflow-hidden"
-                                                                value={item.description || ''}
+                                                                value={item.comment || ''}
                                                                 rows={1}
-                                                                onChange={(e) => handleTaskChange(item.id, 'description', e.target.value)}
+                                                                onChange={(e) => handleTaskChange(item.id, 'comment', e.target.value)}
                                                             />
                                                         </td>
                                                         <td className="border border-slate-200 p-0 text-center align-middle">

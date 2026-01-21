@@ -683,7 +683,7 @@ export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMT
       const docRef = doc(collection(db, "tasks"), task.id);
       const taskData = { ...task, isMock: true, realtorId };
       batch.set(docRef, sanitizeForFirestore(taskData), { merge: true });
-      log(`[Seed] Added task: ${task.title}`);
+      log(`[Seed] Added task: ${task.name}`);
     });
 
     log(`[Seed] Processing ${templates.length} templates...`);

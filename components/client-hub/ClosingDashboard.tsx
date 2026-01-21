@@ -376,7 +376,7 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
                                                     <p className={`text-sm font-bold ${task.status === 'Completed' ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
                                                         {task.name}
                                                     </p>
-                                                    {task.comments && (
+                                                    {task.comment && (
                                                         <div className="relative group/taskcomment">
                                                             <div className="flex items-center gap-1.5 text-indigo-500 animate-in fade-in slide-in-from-left-1 duration-300 cursor-help">
                                                                 <i className="fa-solid fa-comment-dots text-[10px]"></i>
@@ -390,7 +390,7 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
                                                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Task Note</span>
                                                                 </div>
                                                                 <p className="text-xs font-medium leading-relaxed text-slate-200">
-                                                                    {task.comments}
+                                                                    {task.comment}
                                                                 </p>
                                                                 <div className="absolute -bottom-1.5 left-6 w-3 h-3 bg-slate-900 rotate-45"></div>
                                                             </div>
@@ -401,7 +401,7 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
                                             <td className="px-8 py-6">
                                                 <input
                                                     type="text"
-                                                    value={task.comments}
+                                                    value={task.comment}
                                                     onChange={(e) => onUpdateTaskComment?.(cat.id, task.id, e.target.value)}
                                                     placeholder="Task notes..."
                                                     className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all font-medium text-slate-700 hover:bg-white"

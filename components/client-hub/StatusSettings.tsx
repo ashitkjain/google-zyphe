@@ -156,6 +156,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
     const [isSaving, setIsSaving] = useState(false);
     const [isMigrating, setIsMigrating] = useState(false);
     const [logs, setLogs] = useState<string[]>([]);
+    const [showResetDefaultsConfirm, setShowResetDefaultsConfirm] = useState(false);
 
     const db = db_instance;
 
@@ -325,7 +326,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
     };
 
     const handleResetDefaults = async () => {
-        if (!confirm('Reset current tab to defaults? This cannot be undone.')) return;
+        setShowResetDefaultsConfirm(false);
         setIsSaving(true);
         try {
             if (activeTab === 'statuses') {
@@ -802,14 +803,25 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                         <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Developer Tools</h3>
                         <div className="flex flex-col gap-4">
                             {onResetData && (
-                                <button
-                                    type="button"
-                                    onClick={(e) => { e.preventDefault(); onResetData(); }}
-                                    className="text-rose-500 hover:text-rose-700 text-xs font-bold flex items-center gap-2 transition-all hover:translate-x-1"
-                                >
-                                    <i className="fa-solid fa-trash-can"></i>
-                                    Reset & Seed Mock Database
-                                </button>
+                                <div className="flex items-center gap-6">
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.preventDefault(); onResetData(); }}
+                                        className="text-rose-500 hover:text-rose-700 text-xs font-bold flex items-center gap-2 transition-all hover:translate-x-1"
+                                    >
+                                        <i className="fa-solid fa-trash-can"></i>
+                                        Reset & Seed Mock Database
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.preventDefault(); setShowResetDefaultsConfirm(true); }}
+                                        className="text-amber-500 hover:text-amber-700 text-xs font-bold flex items-center gap-2 transition-all hover:translate-x-1"
+                                    >
+                                        <i className="fa-solid fa-rotate-left"></i>
+                                        Restore Current Tab Defaults
+                                    </button>
+                                </div>
                             )}
 
                             {resetLogs.length > 0 && (
@@ -849,6 +861,36 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                             </div>
                         </div>
                     </div>
+                    {/* Reset Defaults Confirmation Modal */}
+                    {showResetDefaultsConfirm && (
+                        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                            <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-300">
+                                <div className="p-10 text-center">
+                                    <div className="w-20 h-20 rounded-3xl bg-amber-50 flex items-center justify-center mb-8 mx-auto">
+                                        <i className="fa-solid fa-rotate-left text-3xl text-amber-500"></i>
+                                    </div>
+                                    <h3 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Restore Defaults</h3>
+                                    <p className="text-slate-500 text-sm font-medium leading-relaxed">
+                                        This will restore all <span className="font-bold text-slate-700">{activeTab}</span> to their original system defaults. <span className="text-amber-600 font-bold">Your customizations will be lost.</span>
+                                    </p>
+                                </div>
+                                <div className="p-8 bg-slate-50 flex flex-col gap-3">
+                                    <button
+                                        onClick={handleResetDefaults}
+                                        className="w-full py-4 bg-amber-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-amber-600 shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all"
+                                    >
+                                        Restore Defaults
+                                    </button>
+                                    <button
+                                        onClick={() => setShowResetDefaultsConfirm(false)}
+                                        className="w-full py-4 bg-white text-slate-400 rounded-2xl text-xs font-black uppercase tracking-widest hover:text-slate-600 hover:bg-slate-100 transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </DragDropContext>
         </div>

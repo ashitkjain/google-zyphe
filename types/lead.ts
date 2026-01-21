@@ -605,6 +605,7 @@ export interface Lead {
     fullName?: string;
     primaryContact?: PrimaryContact;
     leadInfo?: LeadInfo;
+    zpid?: string;
     engagementScore?: 'Cold' | 'Warm' | 'Hot' | 'Stale';
 
     // --- Phase 2 ---

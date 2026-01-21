@@ -1,8 +1,8 @@
 
 import { normalizeAddress, fetchPropertyData, fetchPropertyImages } from './apiService.ts';
 import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, analyzeImageQuality, AiResponseError } from './geminiService.ts';
-import { 
-  savePropertyToCloud, 
+import {
+  savePropertyToCloud,
   saveVisualAnalysisToCloud,
   saveComprehensiveAnalysisToCloud,
   saveImageQualityAnalysisToCloud
@@ -16,7 +16,7 @@ export interface PipelineProgress {
 }
 
 export const runFullIntelligencePipeline = async (
-  rawAddress: string, 
+  rawAddress: string,
   onProgress: (p: PipelineProgress) => void
 ): Promise<string> => {
   try {
@@ -34,9 +34,9 @@ export const runFullIntelligencePipeline = async (
     onProgress({ step: 'Property Data', status: 'running', message: 'Fetching specifications...' });
     const propData = await fetchPropertyData(address, true);
     const zpid = propData.zpid;
-    
+
     if (!zpid) throw new Error("Could not resolve ZPID for property.");
-    
+
     const enrichedData: PropertyData = {
       ...propData,
       coordinates: radar.coordinates,
@@ -94,7 +94,7 @@ export const runFullIntelligencePipeline = async (
     const compResult = await analyzeComprehensive(enrichedData, visualResult);
     await saveComprehensiveAnalysisToCloud(zpid, compResult);
     onProgress({ step: 'Narrative AI', status: 'completed', message: 'Comprehensive fresh report generated.' });
-    
+
     onProgress({ step: 'Status', status: 'completed', message: 'Fresh Property Intelligence Suite is ready.' });
     return zpid;
   } catch (error: any) {

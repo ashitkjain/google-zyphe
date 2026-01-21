@@ -81,7 +81,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
                     dependsOn: task.dependsOn || [],
                     row: 0, // Assigned later for display
                     status: task.status,
-                    comments: task.comments,
+                    comments: task.comment,
                     type: 'task',
                     rawTask: task
                 };
@@ -345,15 +345,15 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
                                                             isOpen: true,
                                                             catId: task.catId,
                                                             taskId: task.id,
-                                                            currentComment: task.comments || '',
+                                                            currentComment: task.comment || '',
                                                             taskName: task.name
                                                         });
                                                     }}
-                                                    className={`w-5 h-5 flex-shrink-0 flex items-center justify-center mr-1 transition-colors ${(item as ProcessedTask).comments ? 'text-indigo-600' : 'text-slate-300 hover:text-slate-500'
+                                                    className={`w-5 h-5 flex-shrink-0 flex items-center justify-center mr-1 transition-colors ${(item as ProcessedTask).comment ? 'text-indigo-600' : 'text-slate-300 hover:text-slate-500'
                                                         }`}
-                                                    title={(item as ProcessedTask).comments || "Add Note"}
+                                                    title={(item as ProcessedTask).comment || "Add Note"}
                                                 >
-                                                    <i className={`${(item as ProcessedTask).comments ? 'fa-solid' : 'fa-regular'} fa-comment-dots text-xs`}></i>
+                                                    <i className={`${(item as ProcessedTask).comment ? 'fa-solid' : 'fa-regular'} fa-comment-dots text-xs`}></i>
                                                 </button>
 
                                                 {/* Toggle Button (Replaces Serial #) */}

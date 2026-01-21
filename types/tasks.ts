@@ -6,16 +6,19 @@ export interface CRMTask {
     clientId?: string;
     realtorId: string; // assigned_to_user_id (usually the executing agent)
     transaction_id?: string; // FK -> Transaction
-    title: string;
-    description?: string;
+    name: string;
+    comment?: string;
     dueDate: any; // due_date
+    startDate: any; // start_date
     status: TaskStatus;
     priority: 'Low' | 'Normal' | 'High' | 'Urgent';
     completed_at?: Date | any;
     related_document_id?: string; // FK -> Document
     source?: TaskSource;
     created_at?: Date | any;
+    createDate?: Date | any;
     updated_at?: Date | any;
+    dependsOn?: string[];
 }
 
 export type ReminderRuleCategory = 'lead' | 'buyer' | 'seller' | 'relationship';

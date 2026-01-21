@@ -33,9 +33,9 @@ export const getInitialMockLeads = (): Lead[] => {
 };
 
 export const getInitialMockTasks = (realtorId: string): CRMTask[] => [
-    { id: 'mt_1', realtorId, title: 'Call Sarah Miller', description: 'Follow up on Zillow inquiry', dueDate: new Date(Date.now() + 3600000), status: 'Pending', priority: 'Urgent', isMock: true } as any,
-    { id: 'mt_2', realtorId, title: 'Send analysis to David', description: 'He liked the modern kitchen in Malibu house', dueDate: new Date(Date.now() + 7200000), status: 'Pending', priority: 'High', isMock: true } as any,
-    { id: 'mt_3', realtorId, title: 'Schedule showing', description: '456 Oak St for the Ross family', dueDate: new Date(Date.now() + 86400000), status: 'Pending', priority: 'Normal', isMock: true } as any
+    { id: 'mt_1', realtorId, name: 'Call Sarah Miller', comment: 'Follow up on Zillow inquiry', dueDate: new Date(Date.now() + 3600000), status: 'Pending', priority: 'Urgent', isMock: true } as any,
+    { id: 'mt_2', realtorId, name: 'Send analysis to David', comment: 'He liked the modern kitchen in Malibu house', dueDate: new Date(Date.now() + 7200000), status: 'Pending', priority: 'High', isMock: true } as any,
+    { id: 'mt_3', realtorId, name: 'Schedule showing', comment: '456 Oak St for the Ross family', dueDate: new Date(Date.now() + 86400000), status: 'Pending', priority: 'Normal', isMock: true } as any
 ];
 
 export const getInitialMockTemplates = (realtorId: string): CommTemplate[] => [
