@@ -29,11 +29,16 @@ const getStatusBadgeColor = (status: string) => {
 
 // Default documentation checklist for a transaction
 const getDefaultDocumentation = (): DocItem[] => [
-    { id: 'doc_1', name: 'Purchase Contract', status: 'Pending', comments: '' },
-    { id: 'doc_2', name: 'Listing Agreement', status: 'Pending', comments: '' },
-    { id: 'doc_3', name: 'EMD', status: 'Pending', comments: '' },
-    { id: 'doc_4', name: 'Disclosures', status: 'Pending', comments: '' },
-    { id: 'doc_5', name: 'Inspections', status: 'Pending', comments: '' },
+    { id: 'doc_1', name: 'Purchase Agreement (RPA)', status: 'Completed', comments: 'Signed by all parties' },
+    { id: 'doc_2', name: 'Agency Disclosure (AD)', status: 'Completed', comments: '' },
+    { id: 'doc_3', name: 'Transfer Disclosure Statement (TDS)', status: 'Pending', comments: 'Waiting on seller signature' },
+    { id: 'doc_4', name: 'Seller Property Questionnaire (SPQ)', status: 'Pending', comments: '' },
+    { id: 'doc_5', name: 'Preliminary Title Report', status: 'Completed', comments: 'Clear title confirmed' },
+    { id: 'doc_6', name: 'Home Inspection Report', status: 'Completed', comments: 'Received, no major issues' },
+    { id: 'doc_7', name: 'Natural Hazard Disclosure (NHD)', status: 'Pending', comments: '' },
+    { id: 'doc_8', name: 'Lead-Based Paint Disclosure', status: 'Pending', comments: '' },
+    { id: 'doc_9', name: 'HOA Documents', status: 'Pending', comments: 'Requested from management co.' },
+    { id: 'doc_10', name: 'Termite Inspection', status: 'Rejected', comments: 'Needs re-inspection for Section 1 items' },
 ];
 
 // Initial categories for the checklist
@@ -168,7 +173,7 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
 
     const [activeSubTab, setActiveSubTab] = useState('CHECKLIST');
 
-    const subTabs = ['TRANSACTION', 'PARTIES', 'CHECKLIST', 'DOCUMENTS', 'LOG', 'TASKS', 'PROPERTY'];
+    const subTabs = ['TRANSACTION', 'CHECKLIST', 'PARTIES', 'DOCUMENTS', 'LOG', 'TASKS', 'PROPERTY'];
 
     // Checklist categories state - shared between Timeline and ChecklistSection
     const [categories, setCategories] = useState<ChecklistCategory[]>(getInitialCategories());
@@ -313,7 +318,7 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
 
                         {/* Documentation / Checklist Section */}
                         <div className="bg-white rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-indigo-500/5 overflow-hidden">
-                            {activeSubTab !== 'TRANSACTION' && activeSubTab !== 'CHECKLIST' && (
+                            {activeSubTab !== 'TRANSACTION' && activeSubTab !== 'CHECKLIST' && activeSubTab !== 'PARTIES' && activeSubTab !== 'DOCUMENTS' && (
                                 <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                                     <div className="flex items-center gap-4">
                                         <h2 className="text-2xl font-black text-slate-900 tracking-tight">
@@ -405,19 +410,21 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                 )}
             </div>
 
-            {showWizard && (
-                <TransactionWizard
-                    leads={leads}
-                    realtorId={realtorId}
-                    onClose={() => setShowWizard(false)}
-                    onComplete={(tx) => {
-                        setShowWizard(false);
-                        // In a real app we might redirect or refresh
-                        alert(`Transaction ${tx.id} created successfully!`);
-                    }}
-                />
-            )}
-        </div>
+            {
+                showWizard && (
+                    <TransactionWizard
+                        leads={leads}
+                        realtorId={realtorId}
+                        onClose={() => setShowWizard(false)}
+                        onComplete={(tx) => {
+                            setShowWizard(false);
+                            // In a real app we might redirect or refresh
+                            alert(`Transaction ${tx.id} created successfully!`);
+                        }}
+                    />
+                )
+            }
+        </div >
     );
 };
 

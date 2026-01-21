@@ -697,12 +697,16 @@ export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMT
 
     log(`[Seed] Processing ${transactions.length} transactions...`);
     // Seed Transactions
-    transactions.forEach(transaction => {
+    for (const transaction of transactions) {
       const docRef = doc(collection(db, "transactions"), transaction.id);
       const transactionData = { ...transaction, isMock: true, realtorId };
       batch.set(docRef, sanitizeForFirestore(transactionData), { merge: true });
       log(`[Seed] Added transaction for: ${transaction.property?.address}`);
-    });
+
+      // Seed Parties for this transaction
+      await seedPartiesForTransaction(transaction.id);
+      log(`[Seed] Seeded parties for transaction: ${transaction.id}`);
+    }
 
     log("[Seed] Committing all changes to Firestore...");
     await batch.commit();
@@ -711,6 +715,55 @@ export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMT
   } catch (error) {
     handleFirestoreError(error, "seedMockData");
     return false;
+  }
+};
+
+export const seedPartiesForTransaction = async (transactionId: string) => {
+  if (!db) return;
+  const MOCK_PARTIES_DATA = [
+    {
+      role: 'BUYER',
+      display_name: 'John Doe',
+      email: 'john@example.com',
+      phone: '555-0101',
+      address: '123 Buyer St, New York, NY',
+      signing_required: true,
+      signer_order: 1
+    },
+    {
+      role: 'SELLER',
+      display_name: 'Jane Smith',
+      email: 'jane@example.com',
+      phone: '555-0102',
+      address: '456 Seller Ave, Los Angeles, CA',
+      signing_required: true,
+      signer_order: 1
+    },
+    {
+      role: 'LENDER',
+      display_name: 'Bob Banker',
+      email: 'bob@bank.com',
+      phone: '555-0103',
+      address: '789 Finance Blvd, Chicago, IL',
+      signing_required: false
+    },
+    {
+      role: 'AGENT',
+      display_name: 'Alice Agent',
+      email: 'alice@agency.com',
+      phone: '555-0104',
+      address: 'Real Estate Office',
+      signing_required: true,
+      signer_order: 2
+    }
+  ];
+
+  try {
+    for (const party of MOCK_PARTIES_DATA) {
+      await addTransactionParty(transactionId, party as any);
+    }
+  } catch (error) {
+    console.error("Error seeding parties:", error);
   }
 };
 

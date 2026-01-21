@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TransactionParty, Lead, TransactionRole } from '../../types';
-import { getTransactionParties, addTransactionParty, updateTransactionParty, deleteTransactionParty, getTransactionByClientId } from '../../services/firebaseService';
+import { getTransactionParties, addTransactionParty, updateTransactionParty, deleteTransactionParty, getTransactionByClientId, seedPartiesForTransaction } from '../../services/firebaseService';
 
 interface PartiesTabProps {
     lead: Lead;
@@ -17,6 +17,44 @@ const PartiesTab: React.FC<PartiesTabProps> = ({ lead, realtorId }) => {
     const [editForm, setEditForm] = useState<Partial<TransactionParty>>({});
     const [isAdding, setIsAdding] = useState(false);
 
+    const MOCK_PARTIES: TransactionParty[] = [
+        {
+            id: 'mock_1',
+            transaction_id: 'tx_123',
+            role: 'BUYER',
+            display_name: 'John Doe',
+            email: 'john@example.com',
+            phone: '555-0101',
+            address: '123 Buyer St, New York, NY',
+            signing_required: true,
+            signer_order: 1,
+            created_at: new Date()
+        },
+        {
+            id: 'mock_2',
+            transaction_id: 'tx_123',
+            role: 'SELLER',
+            display_name: 'Jane Smith',
+            email: 'jane@example.com',
+            phone: '555-0102',
+            address: '456 Seller Ave, Los Angeles, CA',
+            signing_required: true,
+            signer_order: 1,
+            created_at: new Date()
+        },
+        {
+            id: 'mock_3',
+            transaction_id: 'tx_123',
+            role: 'LENDER',
+            display_name: 'Bob Banker',
+            email: 'bob@bank.com',
+            phone: '555-0103',
+            address: '789 Finance Blvd, Chicago, IL',
+            signing_required: false,
+            created_at: new Date()
+        }
+    ];
+
     useEffect(() => {
         const fetchTransactionAndParties = async () => {
             setLoading(true);
@@ -25,10 +63,15 @@ const PartiesTab: React.FC<PartiesTabProps> = ({ lead, realtorId }) => {
                 if (tx) {
                     setTransactionId(tx.id);
                     const partiesData = await getTransactionParties(tx.id);
-                    setParties(partiesData);
+                    setParties(partiesData.length > 0 ? partiesData : MOCK_PARTIES);
+                } else {
+                    // Fallback to mock data if no transaction exists
+                    setTransactionId('mock_tx_id');
+                    setParties(MOCK_PARTIES);
                 }
             } catch (error) {
                 console.error("Error fetching parties:", error);
+                setParties(MOCK_PARTIES); // Fallback on error
             } finally {
                 setLoading(false);
             }
@@ -36,6 +79,11 @@ const PartiesTab: React.FC<PartiesTabProps> = ({ lead, realtorId }) => {
 
         if (lead.clientId) {
             fetchTransactionAndParties();
+        } else {
+            // Demo mode if no clientId
+            setParties(MOCK_PARTIES);
+            setLoading(false);
+            setTransactionId('mock_tx_id');
         }
     }, [lead.clientId, realtorId]);
 
@@ -86,6 +134,16 @@ const PartiesTab: React.FC<PartiesTabProps> = ({ lead, realtorId }) => {
         }
     };
 
+    const handleSeedData = async () => {
+        if (!transactionId || transactionId === 'mock_tx_id') return;
+        setLoading(true);
+        await seedPartiesForTransaction(transactionId);
+        // Refresh
+        const partiesData = await getTransactionParties(transactionId);
+        setParties(partiesData);
+        setLoading(false);
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center py-20">
@@ -107,14 +165,26 @@ const PartiesTab: React.FC<PartiesTabProps> = ({ lead, realtorId }) => {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">Transaction Parties</h3>
-                <button
-                    onClick={() => { setIsAdding(true); setEditForm({ role: 'OTHER', signing_required: false }); }}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100"
-                >
-                    <i className="fa-solid fa-plus"></i>
-                    Add Party
-                </button>
+                <div className="flex items-center gap-2">
+                    {/* Only show seed button if we have a real transaction but no/few parties (or just useful for demo) */}
+                    {transactionId && transactionId !== 'mock_tx_id' && (
+                        <button
+                            onClick={handleSeedData}
+                            className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200"
+                            title="Upload mock data to firebase"
+                        >
+                            <i className="fa-solid fa-cloud-upload"></i>
+                            Seed Data
+                        </button>
+                    )}
+                    <button
+                        onClick={() => { setIsAdding(true); setEditForm({ role: 'OTHER', signing_required: false }); }}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100"
+                    >
+                        <i className="fa-solid fa-plus"></i>
+                        Add Party
+                    </button>
+                </div>
             </div>
 
             <div className="overflow-x-auto">
