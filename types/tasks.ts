@@ -1,12 +1,21 @@
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'SKIPPED' | 'Pending' | 'Completed';
+export type TaskSource = 'TEMPLATE' | 'MANUAL' | 'AUTO_FROM_CONTRACT' | 'OTHER';
+
 export interface CRMTask {
     id: string;
     clientId?: string;
-    realtorId: string;
+    realtorId: string; // assigned_to_user_id (usually the executing agent)
+    transaction_id?: string; // FK -> Transaction
     title: string;
     description?: string;
-    dueDate: any;
-    status: 'Pending' | 'Completed';
+    dueDate: any; // due_date
+    status: TaskStatus;
     priority: 'Low' | 'Normal' | 'High' | 'Urgent';
+    completed_at?: Date | any;
+    related_document_id?: string; // FK -> Document
+    source?: TaskSource;
+    created_at?: Date | any;
+    updated_at?: Date | any;
 }
 
 export type ReminderRuleCategory = 'lead' | 'buyer' | 'seller' | 'relationship';

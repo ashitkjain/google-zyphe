@@ -309,7 +309,7 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
             {...provided.draggableProps}
             {...provided.dragHandleProps}
             onClick={onClick}
-            className={`bg-white p-3 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-all group border-l-4 relative ${accentColor} ${snapshot.isDragging ? 'shadow-2xl rotate-2 scale-105 z-50' : ''} cursor-pointer`}
+            className={`bg-white p-3 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-all group border-l-4 relative ${accentColor} ${snapshot.isDragging ? 'shadow-2xl rotate-2 scale-105 z-50' : ''} cursor-grab active:cursor-grabbing`}
             style={provided.draggableProps.style}
         >
             {/* Top Right Temperature Badge */}
@@ -450,6 +450,13 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
                         <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">
                             {displayStatusValue}
                         </span>
+                    </div>
+                </div>
+
+                {/* View Details Action */}
+                <div className="pt-2 flex items-center justify-center">
+                    <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-indigo-600 transition-colors flex items-center gap-1.5 bg-slate-50/50 px-3 py-1 rounded-full group-hover:bg-indigo-50 group-hover:shadow-sm border border-transparent group-hover:border-indigo-100 cursor-pointer">
+                        <i className="fa-solid fa-expand"></i> More Details
                     </div>
                 </div>
             </div>

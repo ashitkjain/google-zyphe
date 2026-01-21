@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserProfile, Lead, CRMTask, CalendarEvent } from '../../types';
-import { getClientTasks, getClientCalendarEvents } from '../../services/firebaseService';
+import { getClientTasks, getClientCalendarEvents, saveCalendarEvent } from '../../services/firebaseService';
+import ClientSelector from './ClientSelector';
 
 const formatDate = (date: any) => {
     if (!date) return '---';
@@ -116,6 +117,63 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
         setRealtorNotes(prev => ({ ...prev, [clientId]: updatedHistory }));
         await persistChanges(clientId, { realtorNotes: updatedHistory, stickyNotes: stuckNotes[clientId] });
     };
+
+    // --- CALENDAR EVENT CREATION LOGIC ---
+    const [draftEvent, setDraftEvent] = useState<CalendarEvent | null>(null);
+
+    const formatDateToInput = (date: Date) => {
+        const y = date.getFullYear();
+        const m = (date.getMonth() + 1).toString().padStart(2, '0');
+        const d = date.getDate().toString().padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
+
+    const formatTimeToInput = (date: Date) => {
+        const h = date.getHours().toString().padStart(2, '0');
+        const m = date.getMinutes().toString().padStart(2, '0');
+        return `${h}:${m}`;
+    };
+
+    const handleCreateEventClick = () => {
+        const now = new Date();
+        const start = new Date(now);
+        start.setHours(now.getHours() + 1, 0, 0, 0); // Next hour
+        const end = new Date(start.getTime() + 60 * 60 * 1000); // 1 hour duration
+
+        const clientName = getName(selectedClient);
+
+        setDraftEvent({
+            id: `new-${Date.now()}`,
+            realtorId,
+            title: `Meeting with ${clientName}`,
+            start,
+            end,
+            type: 'appointment',
+            description: '',
+            clientId: selectedClient.id,
+            client: clientName
+        });
+    };
+
+    const handleSaveNewEvent = async () => {
+        if (!draftEvent) return;
+
+        // Basic validation
+        if (draftEvent.end.getTime() < draftEvent.start.getTime()) {
+            alert("End time cannot be before start time.");
+            return;
+        }
+
+        const savedId = await saveCalendarEvent(draftEvent);
+        if (savedId) {
+            const newEventWithId = { ...draftEvent, id: savedId };
+            setClientEvents(prev => [...prev, newEventWithId].sort((a, b) => b.start.getTime() - a.start.getTime()));
+            setDraftEvent(null);
+        } else {
+            alert("Failed to save event.");
+        }
+    };
+
 
     const handleMouseDownOnStack = (e: React.MouseEvent) => {
         setDraggingNote({ x: e.clientX, y: e.clientY });
@@ -361,8 +419,22 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                             </div>
                                         </div>
                                     </div>
+
+
                                 </div>
                                 <div className="flex gap-2">
+                                    <button
+                                        onClick={handleCreateEventClick}
+                                        className="px-3 py-2 bg-white border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-2"
+                                    >
+                                        <i className="fa-solid fa-calendar-plus text-indigo-500"></i> Event
+                                    </button>
+                                    <button
+                                        onClick={() => alert('Task creation coming soon')}
+                                        className="px-3 py-2 bg-white border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-2"
+                                    >
+                                        <i className="fa-solid fa-list-check text-amber-500"></i> Task
+                                    </button>
                                     <button className="px-4 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95">
                                         Message
                                     </button>
@@ -1001,9 +1073,11 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                         </div>
                     </>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center bg-slate-50">
-                        <i className="fa-solid fa-users text-6xl text-slate-200 mb-4"></i>
-                        <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">Select a client to view details</p>
+                    <div className="flex-1 flex items-center justify-center text-slate-400">
+                        <div className="text-center">
+                            <i className="fa-regular fa-folder-open text-4xl mb-4 opacity-30"></i>
+                            <p className="text-sm font-medium">Select a client to view details</p>
+                        </div>
                     </div>
                 )}
             </div>
@@ -1019,6 +1093,148 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                     }}
                 >
                     <div className="w-full border-t border-yellow-400 opacity-20 h-0.5 mt-2"></div>
+                </div>
+            )}
+
+            {/* CREATE EVENT MODAL */}
+            {draftEvent && (
+                <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-xl rounded-[40px] shadow-2xl overflow-hidden border border-white animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
+                        <div className={`h-3 ${draftEvent.type === 'open-house' ? 'bg-emerald-500' : draftEvent.type === 'task' ? 'bg-amber-500' : 'bg-indigo-500'}`} />
+
+                        <div className="p-10">
+                            <div className="flex justify-between items-start mb-8 gap-4">
+                                <div className="flex-1 min-w-0">
+                                    <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 block mb-2">
+                                        New Event
+                                    </span>
+                                    <textarea
+                                        rows={1}
+                                        className="text-xl font-bold text-slate-900 border-b border-slate-100 focus:border-indigo-600 outline-none w-full pb-1 bg-transparent resize-none overflow-hidden"
+                                        defaultValue={draftEvent.title}
+                                        onChange={(e) => {
+                                            setDraftEvent({ ...draftEvent, title: e.target.value });
+                                            e.target.style.height = 'auto';
+                                            e.target.style.height = e.target.scrollHeight + 'px';
+                                        }}
+                                        autoFocus
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => setDraftEvent(null)}
+                                    className="w-10 h-10 flex items-center justify-center rounded-2xl bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors"
+                                >
+                                    <i className="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+
+                            <div className="space-y-6">
+                                {/* Date */}
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
+                                        <i className="fa-solid fa-calendar-day"></i>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Date</p>
+                                        <input
+                                            type="date"
+                                            className="bg-slate-50 border-none rounded-lg px-3 py-1 text-slate-900 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none w-full"
+                                            value={formatDateToInput(draftEvent.start)}
+                                            onChange={(e) => {
+                                                const [y, m, d] = e.target.value.split('-').map(Number);
+                                                const newStart = new Date(draftEvent.start);
+                                                newStart.setFullYear(y, m - 1, d);
+                                                const newEnd = new Date(draftEvent.end);
+                                                newEnd.setFullYear(y, m - 1, d);
+                                                setDraftEvent({ ...draftEvent, start: newStart, end: newEnd });
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Time */}
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
+                                        <i className="fa-solid fa-clock-rotate-left"></i>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Time Range</p>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="time"
+                                                className="bg-slate-50 border-none rounded-lg px-3 py-1 text-slate-900 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                value={formatTimeToInput(draftEvent.start)}
+                                                onChange={(e) => {
+                                                    const [h, m] = e.target.value.split(':').map(Number);
+                                                    const newStart = new Date(draftEvent.start);
+                                                    newStart.setHours(h, m);
+                                                    const duration = draftEvent.end.getTime() - draftEvent.start.getTime();
+                                                    setDraftEvent({ ...draftEvent, start: newStart, end: new Date(newStart.getTime() + duration) });
+                                                }}
+                                            />
+                                            <span className="text-slate-400 font-semibold">to</span>
+                                            <input
+                                                type="time"
+                                                className="bg-slate-50 border-none rounded-lg px-3 py-1 text-slate-900 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                value={formatTimeToInput(draftEvent.end)}
+                                                onChange={(e) => {
+                                                    const [h, m] = e.target.value.split(':').map(Number);
+                                                    const newEnd = new Date(draftEvent.end);
+                                                    newEnd.setHours(h, m);
+                                                    setDraftEvent({ ...draftEvent, end: newEnd });
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Client */}
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
+                                        <i className="fa-solid fa-user-tie"></i>
+                                    </div>
+                                    <div className="flex-1 relative">
+                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Client</p>
+                                        <ClientSelector
+                                            leads={allClients.map(c => ({ ...c, id: c.id, fullName: getName(c) } as unknown as Lead))}
+                                            selectedClientId={draftEvent.clientId}
+                                            onSelect={(id, name) => setDraftEvent({ ...draftEvent, clientId: id, client: name })}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Description */}
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 mt-1">
+                                        <i className="fa-solid fa-align-left"></i>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Description</p>
+                                        <textarea
+                                            className="w-full text-slate-600 font-medium border border-slate-100 rounded-2xl p-4 focus:border-indigo-600 outline-none min-h-[100px]"
+                                            defaultValue={draftEvent.description}
+                                            onChange={(e) => setDraftEvent({ ...draftEvent, description: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-12 flex gap-4">
+                                <button
+                                    onClick={handleSaveNewEvent}
+                                    className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl font-bold uppercase tracking-wider text-[11px] shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
+                                >
+                                    Create Event
+                                </button>
+                                <button
+                                    onClick={() => setDraftEvent(null)}
+                                    className="px-6 py-2.5 bg-slate-50 text-slate-400 rounded-xl font-bold uppercase tracking-wider text-[11px] hover:text-slate-600 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
