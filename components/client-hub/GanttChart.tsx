@@ -6,6 +6,7 @@ interface GanttChartProps {
     startDate?: Date;
     onTaskStatusChange?: (catId: string, taskId: string, newStatus: 'Pending' | 'Completed') => void;
     onAddComment?: (catId: string, taskId: string, comment: string) => void;
+    onUpdateTask?: (catId: string, taskId: string, updates: { name?: string; comment?: string; startDate?: Date; dueDate?: Date }) => void;
 }
 
 interface ProcessedTask {
@@ -49,16 +50,19 @@ const CATEGORY_COLORS = [
     'bg-blue-600',
 ];
 
-const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate, onTaskStatusChange, onAddComment }) => {
+const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate, onTaskStatusChange, onAddComment, onUpdateTask }) => {
     const [zoom, setZoom] = useState<'day' | 'week'>('week');
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['c1']));
-    const [commentModal, setCommentModal] = useState<{
+    const [editModal, setEditModal] = useState<{
         isOpen: boolean;
         catId: string;
         taskId: string;
-        currentComment: string;
         taskName: string;
+        currentComment: string;
+        startDate: string; // YYYY-MM-DD
+        dueDate: string;   // YYYY-MM-DD
     } | null>(null);
+    const [dateError, setDateError] = useState<string | null>(null);
 
     // Determine chart start date based on earliest task
     const chartStartDate = useMemo(() => {
@@ -272,7 +276,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate, onTaskSt
                         <i className="fa-solid fa-list-check text-white text-sm"></i>
                     </div>
                     <div>
-                        <h3 className="text-base font-bold text-slate-800 tracking-tight">Project Schedule</h3>
+                        <h3 className="text-base font-bold text-slate-800 tracking-tight">Closing Checklist and Schedule</h3>
                     </div>
                 </div>
                 <div className="flex bg-slate-100 p-1 rounded-lg">
@@ -375,19 +379,30 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate, onTaskSt
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         const task = item as ProcessedTask;
-                                                        setCommentModal({
+
+                                                        // Helper to format date for input type="date"
+                                                        const formatDate = (date: any) => {
+                                                            if (!date) return '';
+                                                            const d = date.toDate ? date.toDate() : new Date(date);
+                                                            return d.toISOString().split('T')[0];
+                                                        };
+
+                                                        setEditModal({
                                                             isOpen: true,
                                                             catId: task.catId,
                                                             taskId: task.id,
+                                                            taskName: task.name,
                                                             currentComment: task.comments || '',
-                                                            taskName: task.name
+                                                            startDate: formatDate(task.rawTask.startDate),
+                                                            dueDate: formatDate(task.rawTask.dueDate)
                                                         });
+                                                        setDateError(null);
                                                     }}
                                                     className={`w-5 h-5 flex-shrink-0 flex items-center justify-center mr-1 transition-colors ${(item as ProcessedTask).comments ? 'text-indigo-600' : 'text-slate-300 hover:text-slate-500'
                                                         }`}
-                                                    title={(item as ProcessedTask).comments || "Add Note"}
+                                                    title="Edit Task"
                                                 >
-                                                    <i className={`${(item as ProcessedTask).comments ? 'fa-solid' : 'fa-regular'} fa-comment-dots text-xs`}></i>
+                                                    <i className="fa-solid fa-pen-to-square text-xs"></i>
                                                 </button>
 
                                                 {/* Toggle Button (Replaces Serial #) */}
@@ -512,76 +527,130 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate, onTaskSt
                 </div>
             </div>
 
-            {/* Comment Modal */}
+            {/* Edit Task Modal */}
             {
-                commentModal && commentModal.isOpen && (
+                editModal && editModal.isOpen && (
                     <div
-                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
-                        onClick={() => setCommentModal(null)}
+                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md"
+                        onClick={() => setEditModal(null)}
                     >
                         <div
-                            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all animate-in zoom-in-95 duration-200"
+                            className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden transform transition-all animate-in zoom-in-95 duration-200 border border-white/20"
                             onClick={e => e.stopPropagation()}
                         >
-                            <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
-                                        <i className="fa-solid fa-comment-dots text-sm"></i>
+                            <div className="bg-slate-50/50 px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20">
+                                        <i className="fa-solid fa-pen-to-square text-sm"></i>
                                     </div>
-                                    <h3 className="font-bold text-slate-800 text-sm">Add Note</h3>
+                                    <div>
+                                        <h3 className="font-black text-slate-800 text-base">Edit Task Details</h3>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Ref: {editModal.taskId}</p>
+                                    </div>
                                 </div>
                                 <button
-                                    onClick={() => setCommentModal(null)}
-                                    className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                                    onClick={() => setEditModal(null)}
+                                    className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:bg-white hover:text-slate-600 transition-all border border-transparent hover:border-slate-100"
                                 >
                                     <i className="fa-solid fa-times"></i>
                                 </button>
                             </div>
-                            <div className="p-6">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-                                    Task: <span className="text-indigo-600">{commentModal.taskName}</span>
-                                </label>
-                                <textarea
-                                    autoFocus
-                                    className="w-full h-32 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all text-sm text-slate-700 resize-none font-medium mb-6 placeholder:text-slate-400 focus:bg-white"
-                                    placeholder="Type your notes here..."
-                                    value={commentModal.currentComment}
-                                    onChange={(e) => setCommentModal({ ...commentModal, currentComment: e.target.value })}
-                                ></textarea>
 
-                                <div className="flex items-center gap-3">
-                                    {/* Delete Button - Only show if there is an existing comment to delete */}
-                                    {commentModal.currentComment && (
-                                        <button
-                                            onClick={() => {
-                                                if (onAddComment) {
-                                                    onAddComment(commentModal.catId, commentModal.taskId, '');
-                                                }
-                                                setCommentModal(null);
-                                            }}
-                                            className="px-4 py-3 rounded-xl bg-red-50 text-red-500 font-bold text-xs uppercase tracking-wider hover:bg-red-100 transition-colors"
-                                            title="Delete Note"
-                                        >
-                                            <i className="fa-solid fa-trash-can"></i>
-                                        </button>
-                                    )}
+                            <div className="p-8 space-y-6">
+                                {/* Task Name */}
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Task Title</label>
+                                    <input
+                                        type="text"
+                                        className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all text-sm font-bold text-slate-800 placeholder:text-slate-300"
+                                        value={editModal.taskName}
+                                        onChange={(e) => setEditModal({ ...editModal, taskName: e.target.value })}
+                                        placeholder="Enter task name..."
+                                    />
+                                </div>
 
+                                {/* Dates Row */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Start Date</label>
+                                        <div className="relative">
+                                            <i className="fa-solid fa-calendar-day absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                                            <input
+                                                type="date"
+                                                className="w-full pl-10 pr-4 py-3.5 rounded-2xl bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all text-sm font-bold text-slate-800"
+                                                value={editModal.startDate}
+                                                onChange={(e) => setEditModal({ ...editModal, startDate: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Due Date</label>
+                                        <div className="relative">
+                                            <i className="fa-solid fa-calendar-check absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                                            <input
+                                                type="date"
+                                                className="w-full pl-10 pr-4 py-3.5 rounded-2xl bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all text-sm font-bold text-slate-800"
+                                                value={editModal.dueDate}
+                                                onChange={(e) => setEditModal({ ...editModal, dueDate: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Comments */}
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Notes & Comments</label>
+                                    <textarea
+                                        className="w-full h-32 px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all text-sm text-slate-700 resize-none font-medium placeholder:text-slate-300"
+                                        placeholder="Add notes for your client or internal team..."
+                                        value={editModal.currentComment}
+                                        onChange={(e) => setEditModal({ ...editModal, currentComment: e.target.value })}
+                                    ></textarea>
+                                </div>
+
+                                {/* Error Message */}
+                                {dateError && (
+                                    <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <i className="fa-solid fa-circle-exclamation text-red-500 text-sm"></i>
+                                        <span className="text-xs font-bold text-red-600">{dateError}</span>
+                                    </div>
+                                )}
+
+                                <div className="flex items-center gap-3 pt-2">
                                     <button
-                                        onClick={() => setCommentModal(null)}
-                                        className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider hover:bg-slate-50 transition-colors"
+                                        onClick={() => {
+                                            setEditModal(null);
+                                            setDateError(null);
+                                        }}
+                                        className="flex-1 py-4 rounded-2xl border border-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider hover:bg-slate-50 transition-all active:scale-[0.98]"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         onClick={() => {
-                                            if (onAddComment) {
-                                                onAddComment(commentModal.catId, commentModal.taskId, commentModal.currentComment);
+                                            if (editModal.startDate && editModal.dueDate) {
+                                                const start = new Date(editModal.startDate);
+                                                const end = new Date(editModal.dueDate);
+                                                if (end < start) {
+                                                    setDateError("Due date cannot be before start date");
+                                                    return;
+                                                }
                                             }
-                                            setCommentModal(null);
+
+                                            if (onUpdateTask) {
+                                                onUpdateTask(editModal.catId, editModal.taskId, {
+                                                    name: editModal.taskName,
+                                                    comment: editModal.currentComment,
+                                                    startDate: editModal.startDate ? new Date(editModal.startDate) : undefined,
+                                                    dueDate: editModal.dueDate ? new Date(editModal.dueDate) : undefined
+                                                });
+                                            }
+                                            setEditModal(null);
+                                            setDateError(null);
                                         }}
-                                        className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold text-xs uppercase tracking-wider hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition-all transform active:scale-95"
+                                        className="flex-[2] py-4 rounded-2xl bg-indigo-600 text-white font-bold text-xs uppercase tracking-wider hover:bg-indigo-700 shadow-xl shadow-indigo-600/20 transition-all transform active:scale-[0.98]"
                                     >
-                                        Save Note
+                                        Update Task
                                     </button>
                                 </div>
                             </div>

@@ -149,6 +149,40 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
         }
     };
 
+    const handleUpdateTask = async (catId: string, taskId: string, updates: { name?: string; comment?: string; startDate?: Date; dueDate?: Date }) => {
+        // Update local state for immediate UI response
+        setCategories(prev => prev.map(cat => {
+            if (cat.id !== catId) return cat;
+            return {
+                ...cat,
+                tasks: cat.tasks.map(t => {
+                    if (t.id === taskId) {
+                        return {
+                            ...t,
+                            name: updates.name ?? t.name,
+                            comments: updates.comment ?? t.comments,
+                            startDate: updates.startDate ?? t.startDate,
+                            dueDate: updates.dueDate ?? t.dueDate
+                        };
+                    }
+                    return t;
+                })
+            };
+        }));
+
+        // Persist change to CRMTasks collection
+        try {
+            await updateTask(taskId, {
+                name: updates.name,
+                comment: updates.comment,
+                startDate: updates.startDate,
+                dueDate: updates.dueDate
+            });
+        } catch (err) {
+            console.error("Error updating task details:", err);
+        }
+    };
+
     if (loading) {
         return <div className="p-10 text-center text-slate-400">Loading transaction details...</div>;
     }
@@ -259,6 +293,7 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
                         startDate={txStartDate}
                         onTaskStatusChange={handleUpdateTaskStatus}
                         onAddComment={handleAddTaskComment}
+                        onUpdateTask={handleUpdateTask}
                     />
                 );
             })()}
