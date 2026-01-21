@@ -278,6 +278,8 @@ export interface ChecklistCategory {
         status: 'Pending' | 'Completed' | 'Rejected';
         comments: string;
         emoji?: string;
+        startDate?: Date | any;
+        dueDate?: Date | any;
         durationDays?: number;
         dependsOn?: string[];
     }[];

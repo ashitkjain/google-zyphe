@@ -27,7 +27,8 @@ import {
   deleteUser,
   sendPasswordResetEmail
 } from "firebase/auth";
-import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult, InvestmentResearchResult, CommMessage, FunnelStage, LeadHealth, Lead, CRMTask, CommTemplate, PipelineNote, ReminderRule, CalendarEvent } from "../types";
+import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult, InvestmentResearchResult, CommMessage, FunnelStage, LeadHealth, Lead, CRMTask, CommTemplate, PipelineNote, ReminderRule, CalendarEvent, ChecklistCategory } from "../types";
+import { getInitialCategories, calculateChecklistSchedule } from "./transactionService";
 
 /**
  * FIRESTORE SECURITY RULES (REQUIRED):
@@ -698,8 +699,11 @@ export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMT
     log(`[Seed] Processing ${transactions.length} transactions...`);
     // Seed Transactions
     for (const transaction of transactions) {
+      const initialCats = getInitialCategories();
+      const finalChecklist = seedTasksForTransaction(batch, transaction, initialCats);
+
       const docRef = doc(collection(db, "transactions"), transaction.id);
-      const transactionData = { ...transaction, isMock: true, realtorId };
+      const transactionData = { ...transaction, checklist: finalChecklist, isMock: true, realtorId };
       batch.set(docRef, sanitizeForFirestore(transactionData), { merge: true });
       log(`[Seed] Added transaction for: ${transaction.property?.address}`);
 
@@ -1064,19 +1068,75 @@ export const updateTask = async (taskId: string, updates: Partial<CRMTask>) => {
 
 import { Transaction } from "../types";
 
-export const createTransaction = async (transaction: Transaction) => {
-  if (!db) return null;
-  try {
-    // If ID is provided, use it, otherwise auto-gen (though interface says ID is required)
-    const docRef = transaction.id ? doc(db, "transactions", transaction.id) : doc(collection(db, "transactions"));
-    const finalTransaction = { ...transaction, id: docRef.id };
+export const seedTasksForTransaction = (batch: any, transaction: Transaction, initialCategories: ChecklistCategory[]): ChecklistCategory[] => {
+  const oldIdToNewId: Record<string, string> = {};
 
-    logFirestoreQuery('setDoc', 'transactions', { id: docRef.id });
-    await setDoc(docRef, sanitizeForFirestore({
+  // First pass: Pre-generate IDs to ensure they are available for dependency mapping
+  for (const cat of initialCategories) {
+    for (const t of cat.tasks) {
+      oldIdToNewId[t.id] = doc(collection(db, "tasks")).id;
+    }
+  }
+
+  // Second pass: Use shared scheduling logic to calculate all dates and map IDs
+  const finalChecklist = calculateChecklistSchedule(initialCategories, new Date(), oldIdToNewId);
+
+  // Third pass: Add individual CRMTask documents to the batch
+  finalChecklist.forEach(cat => {
+    cat.tasks.forEach(t => {
+      const taskDocRef = doc(db, "tasks", t.id);
+      const taskData = {
+        id: t.id,
+        realtorId: transaction.realtorId,
+        clientId: transaction.clientId,
+        transaction_id: transaction.id,
+        name: t.name,
+        comment: t.comments || '',
+        status: t.status,
+        priority: 'Normal',
+        startDate: t.startDate,
+        dueDate: t.dueDate,
+        createDate: new Date(),
+        dependsOn: t.dependsOn,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+      batch.set(taskDocRef, sanitizeForFirestore(taskData));
+    });
+  });
+
+  return finalChecklist;
+};
+
+export const createTransaction = async (transaction: Transaction, initialCategories?: ChecklistCategory[]) => {
+  if (!db) return null;
+  const batch = writeBatch(db);
+  try {
+    const docRef = transaction.id ? doc(db, "transactions", transaction.id) : doc(collection(db, "transactions"));
+    const transactionId = docRef.id;
+    const finalTransactionObj = { ...transaction, id: transactionId };
+
+    let finalChecklist: ChecklistCategory[] = [];
+
+    if (initialCategories) {
+      finalChecklist = seedTasksForTransaction(batch, finalTransactionObj, initialCategories);
+    } else {
+      finalChecklist = transaction.checklist as any || [];
+    }
+
+    const finalTransaction = {
+      ...finalTransactionObj,
+      checklist: finalChecklist
+    };
+
+    logFirestoreQuery('setDoc (batch)', 'transactions', { id: transactionId });
+    batch.set(docRef, sanitizeForFirestore({
       ...finalTransaction,
       created_at: serverTimestamp(),
       updated_at: serverTimestamp()
     }));
+
+    await batch.commit();
     return finalTransaction;
   } catch (error) {
     handleFirestoreError(error, "createTransaction");
