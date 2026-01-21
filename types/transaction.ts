@@ -13,7 +13,8 @@ export type TransactionStatus =
 
 export interface Transaction {
     id: string; // UUID
-    owner_user_id: string; // FK -> User
+    realtorId: string; // FK -> User
+    clientId?: string; // FK -> Lead/Client
     type: TransactionType;
     status: TransactionStatus;
     property: PropertyData; // Address or simple string property identifier
@@ -192,3 +193,76 @@ export interface AuditEvent {
         summary?: string;
     };
 }
+
+export interface DocumentTypeDefinition {
+    label: string;
+    category: DocumentCategory;
+    requires_signature: boolean;
+    required_for_close: boolean;
+    signers: string[];
+    triggers: {
+        on_signed?: string[];
+        on_upload?: string[];
+    };
+}
+
+export const DOCUMENT_TYPE_METADATA: Record<DocumentType, DocumentTypeDefinition> = {
+    "RPA": {
+        "label": "Residential Purchase Agreement",
+        "category": "CONTRACT",
+        "requires_signature": true,
+        "required_for_close": true,
+        "signers": ["BUYER", "SELLER"],
+        "triggers": {
+            "on_signed": ["SET_STAGE_ACCEPTED", "ENABLE_ESCROW_TIMELINE"]
+        }
+    },
+    "TDS": {
+        "label": "Transfer Disclosure Statement",
+        "category": "DISCLOSURE",
+        "requires_signature": true,
+        "required_for_close": true,
+        "signers": ["SELLER", "BUYER_ACK"],
+        "triggers": {
+            "on_upload": ["CREATE_TASK_BUYER_ACK"]
+        }
+    },
+    "AVID": {
+        "label": "Agent Visual Inspection Disclosure",
+        "category": "DISCLOSURE",
+        "requires_signature": true,
+        "required_for_close": true,
+        "signers": ["AGENT", "BUYER_ACK"],
+        "triggers": {
+            "on_upload": ["CREATE_TASK_COMPLETE_AVID"]
+        }
+    },
+    "SPQ": {
+        "label": "Seller Property Questionnaire",
+        "category": "DISCLOSURE",
+        "requires_signature": true,
+        "required_for_close": false,
+        "signers": ["SELLER", "BUYER_ACK"],
+        "triggers": {
+            "on_upload": ["CREATE_TASK_BUYER_ACK"]
+        }
+    },
+    "ADDENDUM": {
+        "label": "Contract Addendum",
+        "category": "CONTRACT",
+        "requires_signature": true,
+        "required_for_close": false,
+        "signers": ["BUYER", "SELLER"],
+        "triggers": {
+            "on_signed": ["RECALCULATE_TIMELINE"]
+        }
+    },
+    "OTHER": {
+        "label": "Other Document",
+        "category": "OTHER",
+        "requires_signature": false,
+        "required_for_close": false,
+        "signers": [],
+        "triggers": {}
+    }
+};

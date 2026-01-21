@@ -170,10 +170,19 @@ const sanitizeForFirestore = (data: any): any => {
   return data;
 };
 
+const logFirestoreQuery = (operation: string, collection: string, details: any) => {
+  console.log(`%c[Firestore] ${operation}`, 'color: #6366f1; font-weight: bold;', {
+    collection,
+    ...details,
+    timestamp: new Date().toISOString()
+  });
+};
+
 const handleFirestoreError = (error: any, context: string) => {
   const message = error?.message || String(error);
   if (error?.code === 'permission-denied') {
-    const permError = `[Firestore ${context}] Permission Denied. Ensure your security rules allow write access to this collection.`;
+    const uid = auth?.currentUser?.uid || 'NOT_LOGGED_IN';
+    const permError = `[Firestore ${context}] Permission Denied (UID: ${uid}). Ensure your security rules allow the current user to access this collection.`;
     console.warn(permError);
     return permError;
   }
@@ -191,6 +200,7 @@ export const saveUserProfile = async (uid: string, profile: Partial<UserProfile>
     console.log(`[Firestore] Attempting to save profile for UID: ${uid}`, profile);
     const userRef = doc(db, "users", uid);
     const sanitized = sanitizeForFirestore(profile);
+    logFirestoreQuery('setDoc', 'users', { uid });
     await setDoc(userRef, {
       ...sanitized,
       uid,
@@ -211,6 +221,7 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
   }
   try {
     const userRef = doc(db, "users", uid);
+    logFirestoreQuery('getDoc', 'users', { uid });
     const snap = await getDoc(userRef);
     return snap.exists() ? (snap.data() as UserProfile) : null;
   } catch (error: any) {
@@ -230,6 +241,7 @@ export const deleteUserAccount = async (uid: string) => {
     if (db) {
       const profileRef = doc(db, "users", uid);
       const historyCol = collection(db, "users", uid, "viewHistory");
+      logFirestoreQuery('getDocs', 'users/viewHistory', { uid });
       const historySnap = await getDocs(historyCol);
       const batch = writeBatch(db);
 
@@ -271,6 +283,7 @@ export const trackUserPropertyView = async (uid: string, property: PropertyData)
   if (!db || !property.zpid) return;
   try {
     const historyRef = doc(db, "users", uid, "viewHistory", property.zpid);
+    logFirestoreQuery('setDoc', 'users/viewHistory', { uid, zpid: property.zpid });
     await setDoc(historyRef, {
       zpid: property.zpid,
       address: property.address,
@@ -289,6 +302,7 @@ export const getUserViewHistory = async (uid: string, maxItems = 6) => {
   try {
     const historyCol = collection(db, "users", uid, "viewHistory");
     const q = query(historyCol, orderBy("timestamp", "desc"), limit(maxItems));
+    logFirestoreQuery('getDocs', 'users/viewHistory', { uid, limit: maxItems });
     const snap = await getDocs(q);
     return snap.docs.map(doc => doc.data());
   } catch (error) {
@@ -303,9 +317,11 @@ export const toggleFavorite = async (uid: string, property: PropertyData) => {
   try {
     const zpidStr = String(property.zpid);
     const favRef = doc(db, "users", uid, "favorites", zpidStr);
+    logFirestoreQuery('getDoc', 'users/favorites', { uid, zpid: zpidStr });
     const favSnap = await getDoc(favRef);
 
     if (favSnap.exists()) {
+      logFirestoreQuery('deleteDoc', 'users/favorites', { uid, zpid: zpidStr });
       await deleteDoc(favRef);
       return { success: true, favorited: false };
     } else {
@@ -316,6 +332,7 @@ export const toggleFavorite = async (uid: string, property: PropertyData) => {
         images: property.images || [],
         timestamp: serverTimestamp()
       };
+      logFirestoreQuery('setDoc', 'users/favorites', { uid, zpid: zpidStr });
       await setDoc(favRef, sanitizedProperty);
       return { success: true, favorited: true };
     }
@@ -329,6 +346,7 @@ export const getUserFavorites = async (uid: string) => {
   try {
     const favCol = collection(db, "users", uid, "favorites");
     const q = query(favCol, orderBy("timestamp", "desc"));
+    logFirestoreQuery('getDocs', 'users/favorites', { uid });
     const snap = await getDocs(q);
     return snap.docs.map(doc => doc.data());
   } catch (error: any) {
@@ -341,6 +359,7 @@ export const savePropertyToCloud = async (zpid: string, data: Partial<PropertyDa
   try {
     const docRef = doc(db, "properties", zpid);
     const sanitized = sanitizeForFirestore(data);
+    logFirestoreQuery('setDoc', 'properties', { zpid });
     await setDoc(docRef, {
       ...sanitized,
       lastUpdated: serverTimestamp()
@@ -355,6 +374,7 @@ export const getPropertyFromCloud = async (zpid: string): Promise<PropertyData |
   if (!db) return null;
   try {
     const docRef = doc(db, "properties", zpid);
+    logFirestoreQuery('getDoc', 'properties', { zpid });
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       return docSnap.data() as PropertyData;
@@ -370,6 +390,7 @@ export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAI
   if (!db) return { success: false, error: "Database not initialized" };
   try {
     const docRef = doc(db, "property_analyses_visual", zpid);
+    logFirestoreQuery('setDoc', 'property_analyses_visual', { zpid });
     await setDoc(docRef, {
       ...sanitizeForFirestore(analysis),
       timestamp: serverTimestamp()
@@ -384,6 +405,7 @@ export const getVisualAnalysisFromCloud = async (zpid: string): Promise<CustomAI
   if (!db) return null;
   try {
     const docRef = doc(db, "property_analyses_visual", zpid);
+    logFirestoreQuery('getDoc', 'property_analyses_visual', { zpid });
     const docSnap = await getDoc(docRef);
     return docSnap.exists() ? (docSnap.data() as CustomAIAnalysisResult) : null;
   } catch (error) {
@@ -396,6 +418,7 @@ export const sendInviteEmail = async (email: string, subject: string, html: stri
   if (!db) return { success: false, error: "Database not initialized" };
   try {
     const mailCol = collection(db, "mail");
+    logFirestoreQuery('addDoc', 'mail', { to: email });
     await addDoc(mailCol, {
       to: email,
       message: {
@@ -415,6 +438,7 @@ export const getRealtorClients = async (realtorId: string) => {
   try {
     const usersCol = collection(db, "users");
     const q = query(usersCol, where("realtorId", "==", realtorId));
+    logFirestoreQuery('getDocs', 'users', { realtorId });
     const snap = await getDocs(q);
     return snap.docs.map(doc => doc.data() as UserProfile);
   } catch (error) {
@@ -430,6 +454,7 @@ export const saveComprehensiveAnalysisToCloud = async (zpid: string, analysis: C
   if (!db) return false;
   try {
     const docRef = doc(db, "property_analyses_comprehensive", zpid);
+    logFirestoreQuery('setDoc', 'property_analyses_comprehensive', { zpid });
     await setDoc(docRef, {
       ...sanitizeForFirestore(analysis),
       timestamp: serverTimestamp()
@@ -444,6 +469,7 @@ export const getComprehensiveAnalysisFromCloud = async (zpid: string): Promise<C
   if (!db) return null;
   try {
     const docRef = doc(db, "property_analyses_comprehensive", zpid);
+    logFirestoreQuery('getDoc', 'property_analyses_comprehensive', { zpid });
     const docSnap = await getDoc(docRef);
     return docSnap.exists() ? (docSnap.data() as ComprehensiveAnalysisResult) : null;
   } catch (error) {
@@ -460,6 +486,7 @@ export const saveImageQualityAnalysisToCloud = async (zpid: string, analysis: Im
     const user = auth?.currentUser;
     console.log(`[Firestore] Attempting save picture quality audit for ZPID: "${zpid}". Current Auth: ${user ? user.email : 'NOT_LOGGED_IN'}`);
     const docRef = doc(db, "image_quality_analysis", zpid);
+    logFirestoreQuery('setDoc', 'image_quality_analysis', { zpid });
     await setDoc(docRef, {
       ...sanitizeForFirestore(analysis),
       timestamp: serverTimestamp()
@@ -476,6 +503,7 @@ export const getImageQualityAnalysisFromCloud = async (zpid: string): Promise<Im
   if (!db) return null;
   try {
     const docRef = doc(db, "image_quality_analysis", zpid);
+    logFirestoreQuery('getDoc', 'image_quality_analysis', { zpid });
     const docSnap = await getDoc(docRef);
     return docSnap.exists() ? (docSnap.data() as ImageQualityAnalysisResult) : null;
   } catch (error) {
@@ -489,6 +517,7 @@ export const saveInvestmentResearchToCloud = async (zpid: string, research: Inve
     const user = auth?.currentUser;
     console.log(`[Firestore] Saving investment research for ZPID: "${zpid}". Auth: ${user ? user.email : 'GUEST'}`);
     const docRef = doc(db, "market_research", zpid);
+    logFirestoreQuery('setDoc', 'market_research', { zpid });
     await setDoc(docRef, {
       ...sanitizeForFirestore(research),
       timestamp: serverTimestamp()
@@ -503,6 +532,7 @@ export const getInvestmentResearchFromCloud = async (zpid: string): Promise<Inve
   if (!db) return null;
   try {
     const docRef = doc(db, "market_research", zpid);
+    logFirestoreQuery('getDoc', 'market_research', { zpid });
     const docSnap = await getDoc(docRef);
     return docSnap.exists() ? (docSnap.data() as InvestmentResearchResult) : null;
   } catch (error) {
@@ -524,6 +554,7 @@ export const verifyFirestoreConnection = async () => {
 
   try {
     const testRef = doc(db, "system_test", "connectivity");
+    logFirestoreQuery('setDoc', 'system_test', { id: 'connectivity' });
     await setDoc(testRef, {
       lastTest: serverTimestamp(),
       status: "online",
@@ -541,6 +572,7 @@ export const updateFunnelStage = async (id: string, stage: FunnelStage, reason?:
   if (!db) return false;
   try {
     const docRef = doc(db, isLead ? "leads" : "users", id);
+    logFirestoreQuery('getDoc', isLead ? "leads" : "users", { id });
     const snap = await getDoc(docRef);
 
     if (!snap.exists()) {
@@ -584,6 +616,7 @@ export const updateFunnelStage = async (id: string, stage: FunnelStage, reason?:
       enteredAt: serverTimestamp()
     });
 
+    logFirestoreQuery('setDoc', isLead ? 'leads' : 'users', { id });
     await setDoc(docRef, {
       funnelStage: stage,
       updatedAt: serverTimestamp(),
@@ -609,7 +642,8 @@ export const updateFunnelStage = async (id: string, stage: FunnelStage, reason?:
   }
 };
 
-export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMTask[], templates: CommTemplate[]) => {
+export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMTask[], templates: CommTemplate[], transactions: Transaction[], onLog?: (msg: string) => void) => {
+  const log = (msg: string) => { console.log(msg); onLog?.(msg); };
   if (!db) return false;
   try {
     const batch = writeBatch(db);
@@ -639,25 +673,40 @@ export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMT
       const docRef = doc(collection(db, targetColl), lead.id);
       const leadData = { ...lead, clientPhotoUrl: finalPhotoUrl || null, isMock: true, realtorId };
       batch.set(docRef, sanitizeForFirestore(leadData), { merge: true });
+      log(`[Seed] Saved lead: ${lead.firstName} ${lead.lastName}`);
       return { ...lead, clientPhotoUrl: finalPhotoUrl };
     }));
 
+    log(`[Seed] Processing ${tasks.length} tasks...`);
     // Seed Tasks
     tasks.forEach(task => {
       const docRef = doc(collection(db, "tasks"), task.id);
       const taskData = { ...task, isMock: true, realtorId };
       batch.set(docRef, sanitizeForFirestore(taskData), { merge: true });
+      log(`[Seed] Added task: ${task.title}`);
     });
 
+    log(`[Seed] Processing ${templates.length} templates...`);
     // Seed Templates
     templates.forEach(template => {
       const docRef = doc(collection(db, "templates"), template.id);
       const templateData = { ...template, isMock: true, realtorId };
       batch.set(docRef, sanitizeForFirestore(templateData), { merge: true });
+      log(`[Seed] Added template: ${template.name}`);
     });
 
+    log(`[Seed] Processing ${transactions.length} transactions...`);
+    // Seed Transactions
+    transactions.forEach(transaction => {
+      const docRef = doc(collection(db, "transactions"), transaction.id);
+      const transactionData = { ...transaction, isMock: true, realtorId };
+      batch.set(docRef, sanitizeForFirestore(transactionData), { merge: true });
+      log(`[Seed] Added transaction for: ${transaction.property?.address}`);
+    });
+
+    log("[Seed] Committing all changes to Firestore...");
     await batch.commit();
-    console.log("[Seeding] Mock data successfully committed to Firestore.");
+    log("[Seed] Database successfully seeded! Reloading application...");
     return true;
   } catch (error) {
     handleFirestoreError(error, "seedMockData");
@@ -689,6 +738,7 @@ export const getLeads = async (realtorId: string, collectionNames: string[] = ['
     const allLeads: Lead[] = [];
     for (const name of collectionNames) {
       const q = query(collection(db, name), where("realtorId", "==", realtorId));
+      logFirestoreQuery('getDocs', name, { realtorId });
       const snap = await getDocs(q);
       allLeads.push(...snap.docs.map(doc => ({
         id: doc.id,
@@ -707,6 +757,7 @@ export const getTasks = async (realtorId: string) => {
   if (!db) return [];
   try {
     const q = query(collection(db, "tasks"), where("realtorId", "==", realtorId));
+    logFirestoreQuery('getDocs', 'tasks', { realtorId });
     const snap = await getDocs(q);
     return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CRMTask));
   } catch (error) {
@@ -719,6 +770,7 @@ export const getTemplates = async (realtorId: string) => {
   if (!db) return [];
   try {
     const q = query(collection(db, "templates"), where("realtorId", "==", realtorId));
+    logFirestoreQuery('getDocs', 'templates', { realtorId });
     const snap = await getDocs(q);
     return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CommTemplate));
   } catch (error) {
@@ -730,6 +782,7 @@ export const getTemplates = async (realtorId: string) => {
 export const addPipelineNote = async (note: Partial<PipelineNote>) => {
   if (!db) return null;
   try {
+    logFirestoreQuery('addDoc', 'notes', note);
     const docRef = await addDoc(collection(db, "notes"), sanitizeForFirestore(note));
     return docRef.id;
   } catch (error) {
@@ -742,6 +795,7 @@ export const getPipelineNotes = async (realtorId: string) => {
   if (!db) return [];
   try {
     const q = query(collection(db, "notes"), where("realtorId", "==", realtorId));
+    logFirestoreQuery('getDocs', 'notes', { realtorId });
     const snap = await getDocs(q);
     return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PipelineNote));
   } catch (error) {
@@ -807,6 +861,7 @@ export const getReminderRules = async (realtorId: string) => {
   if (!db) return [];
   try {
     const q = query(collection(db, "reminderRules"), where("realtorId", "==", realtorId));
+    logFirestoreQuery('getDocs', 'reminderRules', { realtorId });
     const snap = await getDocs(q);
     return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReminderRule));
   } catch (error) {
@@ -815,41 +870,80 @@ export const getReminderRules = async (realtorId: string) => {
   }
 };
 
-export const deleteAllMockData = async (realtorId: string) => {
+export const deleteAllMockData = async (realtorId: string, onLog?: (msg: string) => void) => {
+  const log = (msg: string) => { console.log(msg); onLog?.(msg); };
   if (!db) return false;
   try {
+    log("[Cleanup] Starting mock data removal...");
     const batch = writeBatch(db);
     let count = 0;
 
     // 1. Leads
+    log("[Cleanup] Searching for mock leads...");
     const leadsQ = query(collection(db, "leads"), where("realtorId", "==", realtorId), where("isMock", "==", true));
     const leadsSnap = await getDocs(leadsQ);
     leadsSnap.forEach(doc => {
       batch.delete(doc.ref);
+      log(`[Cleanup] Deleting lead: ${doc.id}`);
       count++;
     });
 
     // 2. Tasks
+    log("[Cleanup] Searching for mock tasks...");
     const tasksQ = query(collection(db, "tasks"), where("realtorId", "==", realtorId), where("isMock", "==", true));
     const tasksSnap = await getDocs(tasksQ);
     tasksSnap.forEach(doc => {
       batch.delete(doc.ref);
+      log(`[Cleanup] Deleting task: ${doc.id}`);
       count++;
     });
 
     // 3. Templates
+    log("[Cleanup] Searching for mock templates...");
     const templatesQ = query(collection(db, "templates"), where("realtorId", "==", realtorId), where("isMock", "==", true));
     const templatesSnap = await getDocs(templatesQ);
     templatesSnap.forEach(doc => {
       batch.delete(doc.ref);
+      log(`[Cleanup] Deleting template: ${doc.id}`);
       count++;
     });
 
+    // 3b. Notes
+    log("[Cleanup] Searching for mock notes...");
+    const notesQ = query(collection(db, "notes"), where("realtorId", "==", realtorId), where("isMock", "==", true));
+    const notesSnap = await getDocs(notesQ);
+    notesSnap.forEach(doc => {
+      batch.delete(doc.ref);
+      log(`[Cleanup] Deleting note: ${doc.id}`);
+      count++;
+    });
+
+    // 4. Transactions
+    log("[Cleanup] Searching for mock transactions...");
+    // Try new realtorId field
+    const txQ1 = query(collection(db, "transactions"), where("realtorId", "==", realtorId), where("isMock", "==", true));
+    // Try legacy owner_user_id field
+    const txQ2 = query(collection(db, "transactions"), where("owner_user_id", "==", realtorId), where("isMock", "==", true));
+
+    const [snap1, snap2] = await Promise.all([getDocs(txQ1), getDocs(txQ2)]);
+
+    const processDocs = (snap: any) => {
+      snap.forEach((doc: any) => {
+        batch.delete(doc.ref);
+        log(`[Cleanup] Deleting transaction: ${doc.id}`);
+        count++;
+      });
+    };
+
+    processDocs(snap1);
+    processDocs(snap2);
+
     if (count > 0) {
+      log(`[Cleanup] Committing deletion of ${count} items...`);
       await batch.commit();
-      console.log(`[MockData] Deleted ${count} mock items.`);
+      log("[Cleanup] Deletion complete.");
     } else {
-      console.log("[MockData] No mock items found to delete.");
+      log("[Cleanup] No mock items found to delete.");
     }
     return true;
   } catch (error) {
@@ -899,11 +993,11 @@ export const seedReminderRules = async (realtorId: string, rules: Omit<ReminderR
 export const updateTask = async (taskId: string, updates: Partial<CRMTask>) => {
   if (!db) return false;
   try {
-    const docRef = doc(db, "tasks", taskId);
-    await setDoc(docRef, {
-      ...sanitizeForFirestore(updates),
+    const taskRef = doc(db, "tasks", taskId);
+    await updateDoc(taskRef, sanitizeForFirestore({
+      ...updates,
       updatedAt: serverTimestamp()
-    }, { merge: true });
+    }));
     return true;
   } catch (error) {
     handleFirestoreError(error, "updateTask");
@@ -911,9 +1005,87 @@ export const updateTask = async (taskId: string, updates: Partial<CRMTask>) => {
   }
 };
 
+
+
+// ===== TRANSACTIONS =====
+
+import { Transaction } from "../types";
+
+export const createTransaction = async (transaction: Transaction) => {
+  if (!db) return null;
+  try {
+    // If ID is provided, use it, otherwise auto-gen (though interface says ID is required)
+    const docRef = transaction.id ? doc(db, "transactions", transaction.id) : doc(collection(db, "transactions"));
+    const finalTransaction = { ...transaction, id: docRef.id };
+
+    logFirestoreQuery('setDoc', 'transactions', { id: docRef.id });
+    await setDoc(docRef, sanitizeForFirestore({
+      ...finalTransaction,
+      created_at: serverTimestamp(),
+      updated_at: serverTimestamp()
+    }));
+    return finalTransaction;
+  } catch (error) {
+    handleFirestoreError(error, "createTransaction");
+    return null;
+  }
+};
+
+export const getTransactions = async (realtorId: string) => {
+  if (!db || !realtorId) return [];
+  try {
+    logFirestoreQuery('getDocs', 'transactions', { realtorId });
+    const q = query(collection(db, "transactions"), where("realtorId", "==", realtorId));
+    const snap = await getDocs(q);
+    // Convert timestamps back to dates if needed, or rely on client to handle
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
+  } catch (error) {
+    handleFirestoreError(error, "getTransactions");
+    return [];
+  }
+};
+
+export const getTransactionByClientId = async (clientId: string, realtorId: string) => {
+  if (!db || !clientId || !realtorId) return null;
+  try {
+    logFirestoreQuery('getDocs', 'transactions', { clientId, realtorId });
+    const q = query(
+      collection(db, "transactions"),
+      where("realtorId", "==", realtorId),
+      where("clientId", "==", clientId)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return null;
+    const data = snap.docs[0].data();
+    return { id: snap.docs[0].id, ...data } as Transaction;
+  } catch (error) {
+    handleFirestoreError(error, "getTransactionByClientId");
+    return null;
+  }
+};
+
+export const updateTransaction = async (transactionId: string, updates: Partial<Transaction>) => {
+  if (!db) return false;
+  try {
+    const docRef = doc(db, "transactions", transactionId);
+    logFirestoreQuery('setDoc', 'transactions', { transactionId });
+    await setDoc(docRef, sanitizeForFirestore({
+      ...updates,
+      updated_at: serverTimestamp()
+    }), { merge: true });
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "updateTransaction");
+    return false;
+  }
+};
+
+
+
 export const addTask = async (task: Partial<CRMTask>) => {
   if (!db) return null;
   try {
+    logFirestoreQuery('addDoc', 'tasks', task);
     const docRef = await addDoc(collection(db, "tasks"), {
       ...sanitizeForFirestore(task),
       createdAt: serverTimestamp(),
@@ -930,6 +1102,7 @@ export const deleteTask = async (taskId: string) => {
   if (!db) return false;
   try {
     const docRef = doc(db, "tasks", taskId);
+    logFirestoreQuery('deleteDoc', 'tasks', { taskId });
     await deleteDoc(docRef);
     return true;
   } catch (error) {
@@ -943,6 +1116,7 @@ export const getCalendarEvents = async (realtorId: string) => {
   if (!db) return [];
   try {
     const q = query(collection(db, "calendar_events"), where("realtorId", "==", realtorId));
+    logFirestoreQuery('getDocs', 'calendar_events', { realtorId });
     const snap = await getDocs(q);
     return snap.docs.map(doc => {
       const data = doc.data();
@@ -967,6 +1141,7 @@ export const saveCalendarEvent = async (event: Partial<CalendarEvent>) => {
 
     if (eventId && !eventId.startsWith('new-')) {
       const docRef = doc(db, "calendar_events", eventId);
+      logFirestoreQuery('setDoc', 'calendar_events', { eventId });
       await setDoc(docRef, {
         ...sanitized,
         updatedAt: serverTimestamp()
@@ -974,6 +1149,7 @@ export const saveCalendarEvent = async (event: Partial<CalendarEvent>) => {
       return eventId;
     } else {
       const { id, ...rest } = sanitized;
+      logFirestoreQuery('addDoc', 'calendar_events', rest);
       const docRef = await addDoc(collection(db, "calendar_events"), {
         ...rest,
         createdAt: serverTimestamp(),
@@ -991,6 +1167,7 @@ export const deleteCalendarEvent = async (eventId: string) => {
   if (!db) return false;
   try {
     const docRef = doc(db, "calendar_events", eventId);
+    logFirestoreQuery('deleteDoc', 'calendar_events', { eventId });
     await deleteDoc(docRef);
     return true;
   } catch (error) {
@@ -1007,6 +1184,7 @@ export const getClientTasks = async (realtorId: string, clientId: string) => {
       where("realtorId", "==", realtorId),
       where("clientId", "==", clientId)
     );
+    logFirestoreQuery('getDocs', 'tasks', { realtorId, clientId });
     const snap = await getDocs(q);
     return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CRMTask));
   } catch (error) {
@@ -1023,6 +1201,7 @@ export const getClientCalendarEvents = async (realtorId: string, clientId: strin
       where("realtorId", "==", realtorId),
       where("clientId", "==", clientId)
     );
+    logFirestoreQuery('getDocs', 'calendar_events', { realtorId, clientId });
     const snap = await getDocs(q);
     return snap.docs.map(doc => {
       const data = doc.data();

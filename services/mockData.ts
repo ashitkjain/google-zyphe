@@ -1,4 +1,5 @@
 import { CommChannel, FunnelStage, LeadHealth, LeadSource, LeadStatus, LeadType } from '../types/enums';
+import { Transaction, TransactionParty, TransactionType, TransactionStatus } from '../types/transaction';
 // Note: We are generating data matching the NEW Lead schema in types/lead.ts
 
 export const MOCK_FIRST_NAMES = [
@@ -209,5 +210,38 @@ export const generateMockLead = (type: LeadType, status?: LeadStatus, funnelStag
         source: getRandom(MOCK_SOURCES),
         createdDate: receivedDate,
         legalName: fullName,
+        subjectProperty: fullAddress,
+        propertyAddress: fullAddress,
+    };
+};
+
+export const generateMockTransaction = (type: TransactionType, realtorId: string, clientId?: string, customId?: string): Transaction => {
+    const streetNum = Math.floor(100 + Math.random() * 900);
+    const streetName = getRandom(MOCK_STREETS);
+    const city = getRandom(MOCK_CITIES);
+    const fullAddress = `${streetNum} ${streetName}, ${city}, CO 80202`;
+
+    return {
+        id: customId || `mock_tx_${Math.random().toString(36).substr(2, 9)}`,
+        realtorId,
+        clientId,
+        type,
+        status: getRandom(['ACTIVE', 'PENDING_SIGNATURES', 'UNDER_CONTRACT', 'CLOSED']),
+        property: {
+            address: fullAddress,
+            zpid: `zpid_${Math.floor(Math.random() * 1000000)}`
+        },
+        apn: `APN-${Math.floor(Math.random() * 1000000)}`,
+        state: 'CO',
+        purchase_price: Math.floor(500000 + Math.random() * 1000000),
+        close_of_escrow_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        commission: "2.5%",
+        important_dates: {
+            acceptance_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+            contingency_removal_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)
+        },
+        checklist: [],
+        created_at: new Date(),
+        updated_at: new Date()
     };
 };

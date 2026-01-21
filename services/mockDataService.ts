@@ -1,7 +1,6 @@
 
-import { Lead, CRMTask, CommTemplate } from '../types';
-
-import { generateMockLead } from './mockData';
+import { Lead, CRMTask, CommTemplate, Transaction } from '../types';
+import { generateMockLead, generateMockTransaction } from './mockData';
 
 export const getInitialMockLeads = (): Lead[] => {
     const leads: Lead[] = [];
@@ -27,16 +26,16 @@ export const getInitialMockLeads = (): Lead[] => {
     for (let i = 0; i < 2; i++) leads.push(generateMockLead('Seller', 'Showing', 'Active Search', `mock_seller_active_${i}`));
     // Offer: 1 (Skipping Active Search as requested) -- Wait, now we are adding it back
     leads.push(generateMockLead('Seller', 'Offer Received', 'Offer', `mock_seller_offer_0`));
-    // Closing: 1
-    leads.push(generateMockLead('Seller', 'In Contract', 'Closing', `mock_seller_closing_0`));
+    // Contract: 1
+    leads.push(generateMockLead('Seller', 'In Contract', 'Contract', `mock_seller_closing_0`));
 
     return leads;
 };
 
 export const getInitialMockTasks = (realtorId: string): CRMTask[] => [
-    { id: 'mt_1', realtorId, title: 'Call Sarah Miller', description: 'Follow up on Zillow inquiry', dueDate: new Date(Date.now() + 3600000), status: 'Pending', priority: 'Urgent', type: 'Call', isMock: true },
-    { id: 'mt_2', realtorId, title: 'Send analysis to David', description: 'He liked the modern kitchen in Malibu house', dueDate: new Date(Date.now() + 7200000), status: 'Pending', priority: 'High', type: 'Email', isMock: true },
-    { id: 'mt_3', realtorId, title: 'Schedule showing', description: '456 Oak St for the Ross family', dueDate: new Date(Date.now() + 86400000), status: 'Pending', priority: 'Normal', type: 'Showing', isMock: true }
+    { id: 'mt_1', realtorId, title: 'Call Sarah Miller', description: 'Follow up on Zillow inquiry', dueDate: new Date(Date.now() + 3600000), status: 'Pending', priority: 'Urgent', isMock: true } as any,
+    { id: 'mt_2', realtorId, title: 'Send analysis to David', description: 'He liked the modern kitchen in Malibu house', dueDate: new Date(Date.now() + 7200000), status: 'Pending', priority: 'High', isMock: true } as any,
+    { id: 'mt_3', realtorId, title: 'Schedule showing', description: '456 Oak St for the Ross family', dueDate: new Date(Date.now() + 86400000), status: 'Pending', priority: 'Normal', isMock: true } as any
 ];
 
 export const getInitialMockTemplates = (realtorId: string): CommTemplate[] => [
@@ -44,3 +43,12 @@ export const getInitialMockTemplates = (realtorId: string): CommTemplate[] => [
     { id: 'tpl_2', name: 'Property Analysis Follow-up', content: "Hello {{name}}, following up on the AI analysis of {{address}}. Based on the data, this property is {{sentiment}}. Would you like to schedule a viewing?", channel: 'Email', category: 'Follow-up', isMock: true },
     { id: 'tpl_3', name: 'Viewing Scheduled', content: "Confirmation: We're set to view {{address}} at {{time}}. I'll meet you at the front entrance. See you soon!", channel: 'SMS', category: 'Viewing', isMock: true }
 ];
+
+export const getInitialMockTransactions = (realtorId: string): Transaction[] => {
+    const transactions: Transaction[] = [];
+    transactions.push(generateMockTransaction('BUY', realtorId, undefined, 'mock_tx_buy_1'));
+    // Link this one to our mock seller in closing
+    transactions.push(generateMockTransaction('SELL', realtorId, 'mock_seller_closing_0', 'mock_tx_sell_1'));
+    transactions.push(generateMockTransaction('BUY', realtorId, undefined, 'mock_tx_buy_2'));
+    return transactions;
+};

@@ -19,6 +19,8 @@ interface StatusSettingsProps {
     initialClientProperties?: PropertyOption[];
     onUpdateClientProperties?: (properties: PropertyOption[]) => void;
     onResetData?: () => void;
+    resetLogs?: string[];
+    isResetting?: boolean;
     defaultTab?: 'statuses' | 'properties';
 }
 
@@ -50,6 +52,8 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
     initialStatuses,
     initialProperties,
     onResetData,
+    resetLogs = [],
+    isResetting = false,
     defaultTab,
 }) => {
     // Forced to 'properties' as we removed the tab switcher
@@ -807,7 +811,40 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                     Reset & Seed Mock Database
                                 </button>
                             )}
-                            <div className="text-[10px] text-slate-400 font-medium italic">
+
+                            {resetLogs.length > 0 && (
+                                <div className="mt-4 bg-slate-950 rounded-2xl border border-white/5 overflow-hidden shadow-2xl flex flex-col">
+                                    <div className="bg-slate-900 px-6 py-3 border-b border-white/5 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse"></div>
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">System Protocol Output</span>
+                                        </div>
+                                        {isResetting && <i className="fa-solid fa-spinner fa-spin text-indigo-400 text-xs"></i>}
+                                    </div>
+                                    <div className="p-6 h-64 overflow-y-auto font-mono text-[10px] leading-relaxed flex flex-col gap-2 scrollbar-thin">
+                                        {resetLogs.map((log, i) => (
+                                            <div key={i} className="flex gap-4 group">
+                                                <span className="text-slate-700 flex-shrink-0">[{new Date().toLocaleTimeString([], { hour12: false })}]</span>
+                                                <span className={
+                                                    log.includes('[Error]') ? 'text-rose-400 font-bold' :
+                                                        log.includes('[Cleanup]') ? 'text-amber-400/80' :
+                                                            log.includes('[Seed]') ? 'text-emerald-400/80' :
+                                                                log.includes('[System]') ? 'text-indigo-400 font-bold' :
+                                                                    'text-slate-400'
+                                                }>
+                                                    {log}
+                                                </span>
+                                            </div>
+                                        ))}
+                                        {isResetting && (
+                                            <div className="text-white/20 italic animate-pulse">Executing Firestore batch queries...</div>
+                                        )}
+                                        <div id="logs-end"></div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="text-[10px] text-slate-400 font-medium italic mt-2">
                                 Note: Resetting mock data will delete all existing leads and reload the default demonstration data.
                             </div>
                         </div>

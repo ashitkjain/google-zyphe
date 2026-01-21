@@ -1,9 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { Lead } from '../../types';
+import { Lead, Transaction } from '../../types';
+import TransactionTab from './TransactionTab';
+import TransactionWizard from './TransactionWizard';
 
 interface ClosingDashboardProps {
     leads: Lead[];
     onUpdateLead?: (leadId: string, updates: Partial<Lead>) => void;
+    realtorId: string;
 }
 
 interface DocItem {
@@ -682,7 +685,8 @@ const TransactionCalendar: React.FC<TransactionCalendarProps> = ({
 };
 
 
-const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead }) => {
+const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead, realtorId }) => {
+    const [showWizard, setShowWizard] = useState(false);
     // Filter leads that are in closing stage (funnelStage === 'Contract' or status === 'In Contract')
     const closingLeads = useMemo(() => {
         return leads.filter(lead =>
@@ -917,32 +921,34 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                             ))}
                         </div>
 
-                        {/* Details Grid */}
-                        <div className="bg-white rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-indigo-500/5 p-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
-                            <div className="space-y-6">
-                                <DetailItem label="SUBJECT PROPERTY" value={activeLead.subjectProperty || activeLead.propertyAddress || 'TBD'} />
-                                <DetailItem label="ACCEPTANCE DATE" value={activeLead.stageLastChangedAt ? new Date(activeLead.stageLastChangedAt).toLocaleDateString() : '--'} />
-                                <DetailItem label="PROPERTY TYPE" value={activeLead.propertyType || '--'} />
+                        {/* Details Grid - Hide on Transaction Tab (as it has its own) */}
+                        {activeSubTab !== 'TRANSACTION' && (
+                            <div className="bg-white rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-indigo-500/5 p-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
+                                <div className="space-y-6">
+                                    <DetailItem label="SUBJECT PROPERTY" value={activeLead.subjectProperty || activeLead.propertyAddress || 'TBD'} />
+                                    <DetailItem label="ACCEPTANCE DATE" value={activeLead.stageLastChangedAt ? new Date(activeLead.stageLastChangedAt).toLocaleDateString() : '--'} />
+                                    <DetailItem label="PROPERTY TYPE" value={activeLead.propertyType || '--'} />
+                                </div>
+                                <div className="space-y-6">
+                                    <DetailItem label="CLIENT NAME" value={`${activeLead.firstName} ${activeLead.lastName}`} />
+                                    <DetailItem label="PHONE" value={activeLead.phone || '--'} />
+                                    <DetailItem label="TYPE" value={activeLead.leadType} />
+                                </div>
+                                <div className="space-y-6">
+                                    <DetailItem label="CLOSE OF ESCROW" value="TBD" />
+                                    <DetailItem label="EMAIL" value={activeLead.email || '--'} isLink />
+                                    <DetailItem label="MLS NUMBER" value={activeLead.mlsNumber || '--'} />
+                                </div>
+                                <div className="space-y-6">
+                                    <DetailItem label="PRICE" value={activeLead.price ? `$${activeLead.price.toLocaleString()}` : '--'} />
+                                    <DetailItem label="BEDROOMS" value={activeLead.bedrooms?.toString() || '--'} />
+                                </div>
+                                <div className="space-y-6">
+                                    <DetailItem label="BATHROOMS" value={activeLead.bathrooms?.toString() || '--'} />
+                                    <DetailItem label="SQ FT" value={activeLead.sqft?.toString() || '--'} />
+                                </div>
                             </div>
-                            <div className="space-y-6">
-                                <DetailItem label="CLIENT NAME" value={`${activeLead.firstName} ${activeLead.lastName}`} />
-                                <DetailItem label="PHONE" value={activeLead.phone || '--'} />
-                                <DetailItem label="TYPE" value={activeLead.leadType} />
-                            </div>
-                            <div className="space-y-6">
-                                <DetailItem label="CLOSE OF ESCROW" value="TBD" />
-                                <DetailItem label="EMAIL" value={activeLead.email || '--'} isLink />
-                                <DetailItem label="MLS NUMBER" value={activeLead.mlsNumber || '--'} />
-                            </div>
-                            <div className="space-y-6">
-                                <DetailItem label="PRICE" value={activeLead.price ? `$${activeLead.price.toLocaleString()}` : '--'} />
-                                <DetailItem label="BEDROOMS" value={activeLead.bedrooms?.toString() || '--'} />
-                            </div>
-                            <div className="space-y-6">
-                                <DetailItem label="BATHROOMS" value={activeLead.bathrooms?.toString() || '--'} />
-                                <DetailItem label="SQ FT" value={activeLead.sqft?.toString() || '--'} />
-                            </div>
-                        </div>
+                        )}
 
                         {/* Toolbar Actions */}
                         <div className="flex flex-wrap items-center gap-3 py-4">
@@ -966,17 +972,26 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                             <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                                 <div className="flex items-center gap-4">
                                     <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                                        {activeSubTab === 'CHECKLIST' ? 'Transaction Checklist' : 'Documentation'}
+                                        {activeSubTab === 'CHECKLIST' ? 'Transaction Checklist' :
+                                            activeSubTab === 'TRANSACTION' ? 'Transaction Record' :
+                                                'Documentation'}
                                     </h2>
-                                    <button className="flex items-center gap-2 px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100">
+                                    <button
+                                        onClick={() => setShowWizard(true)}
+                                        className="flex items-center gap-2 px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100"
+                                    >
                                         <i className="fa-solid fa-plus"></i>
-                                        {activeSubTab === 'CHECKLIST' ? 'Add Task' : 'Add New'}
+                                        <span className="font-bold">New</span>
                                     </button>
                                 </div>
                             </div>
 
                             <div className="p-10">
-                                {activeSubTab === 'CHECKLIST' ? (
+                                {activeSubTab === 'TRANSACTION' && (
+                                    <TransactionTab lead={activeLead} realtorId={realtorId} />
+                                )}
+
+                                {activeSubTab === 'CHECKLIST' && (
                                     <ChecklistSection
                                         categories={categories}
                                         expandedCategories={expandedCategories}
@@ -985,7 +1000,9 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                                         onUpdateTaskEmoji={updateTaskEmoji}
                                         onUpdateTaskComment={addTaskComment}
                                     />
-                                ) : (
+                                )}
+
+                                {activeSubTab !== 'CHECKLIST' && activeSubTab !== 'TRANSACTION' && (
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-left">
                                             <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
@@ -1037,7 +1054,19 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                     </>
                 )}
             </div>
-        </div>
+            {showWizard && (
+                <TransactionWizard
+                    leads={leads}
+                    realtorId={realtorId}
+                    onClose={() => setShowWizard(false)}
+                    onComplete={(tx) => {
+                        setShowWizard(false);
+                        // In a real app we might redirect or refresh
+                        alert(`Transaction ${tx.id} created successfully!`);
+                    }}
+                />
+            )}
+        </div >
     );
 };
 

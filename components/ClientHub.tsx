@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getLeads, getTasks, getTemplates, getPipelineNotes, seedMockData, saveUserProfile, getUserProfile, updateLead, addPipelineNote, updatePipelineNote, deletePipelineNote, getReminderRules, updateReminderRule, deleteAllMockData, getRealtorClients } from '../services/firebaseService';
-import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates } from '../services/mockDataService';
+import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates, getInitialMockTransactions } from '../services/mockDataService';
 import { getDefaultReminderRules } from '../services/reminderRulesService';
 import { UserProfile, Lead, CRMTask, CommTemplate, FunnelStage, PipelineNote, ReminderRule } from '../types';
 import { DropResult } from '@hello-pangea/dnd';
@@ -51,6 +51,9 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     const [pipelineNotes, setPipelineNotes] = useState<PipelineNote[]>([]);
     const [pendingNote, setPendingNote] = useState<{ leadId: string, color: string } | null>(null);
 
+    const [resetLogs, setResetLogs] = useState<string[]>([]);
+    const [isResetting, setIsResetting] = useState(false);
+
 
     useEffect(() => {
         const initializeHubData = async () => {
@@ -97,7 +100,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
             if (shouldSeed) {
                 console.log("[ClientHub] Missing mock data detected. Seeding...");
-                const seedResult = await seedMockData(realtorId, initialLeads, initialTasks, initialTemplates);
+                const initialTransactions = getInitialMockTransactions(realtorId);
+                const seedResult = await seedMockData(realtorId, initialLeads, initialTasks, initialTemplates, initialTransactions);
                 console.log("[ClientHub] Seed result:", seedResult);
 
                 // Re-fetch after seeding
@@ -448,25 +452,33 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
     const handleResetMockData = async () => {
         if (confirm("Are you sure you want to delete all mock data and reload? This cannot be undone.")) {
-            setLoadingData(true);
+            setIsResetting(true);
+            setResetLogs(["[System] Initializing database reset..."]);
+
+            const addLog = (msg: string) => {
+                setResetLogs(prev => [...prev, msg].slice(-20)); // Keep last 20
+            };
+
             try {
                 // 1. Delete existing data
-                await deleteAllMockData(realtorId);
+                await deleteAllMockData(realtorId, addLog);
 
                 // 2. Generate and seed new data immediately
+                addLog("[System] Generating mock objects...");
                 const initialLeads = getInitialMockLeads();
                 const initialTasks = getInitialMockTasks(realtorId);
                 const initialTemplates = getInitialMockTemplates(realtorId);
+                const initialTransactions = getInitialMockTransactions(realtorId);
 
                 // 3. Wait for seeding to complete
-                await seedMockData(realtorId, initialLeads, initialTasks, initialTemplates);
+                await seedMockData(realtorId, initialLeads, initialTasks, initialTemplates, initialTransactions, addLog);
 
-                // 4. Reload page (data is now guaranteed to inevitably be there)
-                window.location.reload();
+                addLog("[System] Database Reset Complete. You can now browse the updated data.");
             } catch (error) {
                 console.error("Error resetting data:", error);
-                alert("Failed to reset data. Please try again.");
-                setLoadingData(false);
+                addLog(`[Error] ${error instanceof Error ? error.message : 'Unknown error'}`);
+            } finally {
+                setIsResetting(false);
             }
         }
     };
@@ -592,7 +604,11 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
 
                 {activeTab === 'closing' && (
-                    <ClosingDashboard leads={leads} onUpdateLead={handleUpdateLead} />
+                    <ClosingDashboard
+                        leads={leads}
+                        onUpdateLead={handleUpdateLead}
+                        realtorId={realtorId}
+                    />
                 )}
 
                 {activeTab === 'tasks' && (
@@ -658,6 +674,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                         initialStatuses={realtorProfile?.settings?.leadStatuses}
                         initialProperties={realtorProfile?.settings?.leadProperties}
                         onResetData={handleResetMockData}
+                        resetLogs={resetLogs}
+                        isResetting={isResetting}
                         defaultTab={settingsSubTab}
                     />
                 )}
