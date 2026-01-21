@@ -341,9 +341,9 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
                 </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-1.5">
                 {/* Fixed Fields Section: Message, Property, Motivation */}
-                <div className="flex flex-col gap-2.5 py-3 border-y border-slate-50">
+                <div className="flex flex-col gap-2.5 pb-2 pt-1 border-b border-slate-50">
                     {/* Customer Message */}
                     {(lead.message || lead.leadInfo?.customerMessage) && (
                         <div className="flex items-start gap-2 group/message" title="Customer Message">
@@ -372,7 +372,7 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
                     {lead.motivation && (
                         <div className="flex items-start gap-2 group/motivation" title="Motivation">
                             <div className="mt-0.5 w-4 h-4 rounded bg-indigo-50 flex items-center justify-center flex-shrink-0 group-hover/motivation:bg-indigo-100 transition-colors">
-                                <i className="fa-solid fa-bullseye text-[9px] text-indigo-500"></i>
+                                <i className="fa-solid fa-heart text-[9px] text-indigo-500"></i>
                             </div>
                             <span className="text-[11px] font-bold text-slate-700 line-clamp-1 leading-tight">
                                 {lead.motivation}
@@ -381,7 +381,7 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
                     )}
                 </div>
                 {/* Footer: Follow Up & Status */}
-                <div className="pt-2 mt-2 border-t border-slate-50 flex items-center justify-between text-[10px]">
+                <div className="pt-0.5 border-t border-slate-50 flex items-center justify-between text-[10px]">
                     <div className="flex flex-col gap-0.5">
                         <div className={`flex items-center gap-1.5 font-medium ${isOverdue ? 'text-rose-500' : 'text-slate-400'}`} title="Follow-up Deadline">
                             <i className={`fa-solid fa-bell ${isOverdue ? 'animate-pulse' : ''}`}></i>

@@ -581,7 +581,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                             {lead.motivation && (
                                 <div className="flex items-start gap-2.5 ml-0.5 group/motivation" title="Motivation">
                                     <div className="mt-0.5 w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0 group-hover/motivation:bg-indigo-100 transition-colors shadow-sm border border-indigo-100">
-                                        <i className="fa-solid fa-bullseye text-[10px] text-indigo-500"></i>
+                                        <i className="fa-solid fa-heart text-[10px] text-indigo-500"></i>
                                     </div>
                                     <div className="text-[13px] font-bold text-slate-700 leading-tight py-1">
                                         {lead.motivation}
