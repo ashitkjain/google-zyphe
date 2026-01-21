@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Lead, Transaction } from '../../types';
-import { createTransaction, getTransactions, getTransactionByClientId, updateTransaction } from '../../services/firebaseService';
+import { createTransaction, getTransactions, getTransactionByClientId, updateTransaction, getTransactionTasks, updateTask } from '../../services/firebaseService';
 import GanttChart from './GanttChart';
 import { ChecklistCategory } from '../../types/transaction';
 import { getInitialCategories } from '../../services/transactionService';
@@ -34,11 +34,35 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
 
             setTransaction(match || null);
 
-            // Initialize categories from transaction if exists
-            if (match && match.checklist && match.checklist.length > 0) {
-                // Simple check if it matches the expected structure
-                // Using 'any' cast to avoid strict type mismatch if ChecklistCategory vs CRMTask differs
-                setCategories(match.checklist as any);
+            // Hydrate categories from CRMTasks collection
+            if (match) {
+                const blueprint = getInitialCategories();
+                const dbTasks = await getTransactionTasks(match.id, realtorId);
+
+                // Group standalone tasks by their categoryId
+                const tasksByCategory = new Map<string, any[]>();
+                dbTasks.forEach(task => {
+                    const catId = task.categoryId || 'uncategorized';
+                    if (!tasksByCategory.has(catId)) tasksByCategory.set(catId, []);
+                    tasksByCategory.get(catId)?.push({
+                        id: task.id,
+                        name: task.name,
+                        status: task.status as any,
+                        comments: task.comment || '',
+                        startDate: task.startDate,
+                        dueDate: task.dueDate,
+                        dependsOn: task.dependsOn || [],
+                        durationDays: task.durationDays || 1
+                    });
+                });
+
+                // Reconstruct the categories using the blueprint structure but DB task data
+                const hydratedCats = blueprint.map(cat => ({
+                    ...cat,
+                    tasks: tasksByCategory.get(cat.id) || []
+                })).filter(cat => cat.tasks.length > 0 || cat.id === 'c1'); // Show c1 even if empty, hide others if no tasks
+
+                setCategories(hydratedCats as any);
             }
         } catch (error) {
             console.error("Error fetching transaction:", error);
@@ -89,39 +113,40 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
         }
     };
 
-    // Handlers for Gantt Chart interactions with Persistence
-    const updateCategoriesAndPersist = async (newCategories: ChecklistCategory[]) => {
-        setCategories(newCategories);
-        if (transaction) {
-            try {
-                // Save to Firebase
-                await updateTransaction(transaction.id, { checklist: newCategories as any });
-            } catch (err) {
-                console.error("Failed to persist checklist:", err);
-            }
-        }
-    };
-
-    const handleUpdateTaskStatus = (catId: string, taskId: string, status: 'Pending' | 'Completed' | 'Rejected') => {
-        const newCats = categories.map(cat => {
+    const handleUpdateTaskStatus = async (catId: string, taskId: string, status: 'Pending' | 'Completed' | 'Rejected') => {
+        // Update local state for immediate UI response
+        setCategories(prev => prev.map(cat => {
             if (cat.id !== catId) return cat;
             return {
                 ...cat,
                 tasks: cat.tasks.map(t => t.id === taskId ? { ...t, status } : t)
             };
-        });
-        updateCategoriesAndPersist(newCats);
+        }));
+
+        // Persist change to CRMTasks collection (Source of Truth)
+        try {
+            await updateTask(taskId, { status: status as any });
+        } catch (err) {
+            console.error("Error updating task status:", err);
+        }
     };
 
-    const handleAddTaskComment = (catId: string, taskId: string, comment: string) => {
-        const newCats = categories.map(cat => {
+    const handleAddTaskComment = async (catId: string, taskId: string, comment: string) => {
+        // Update local state for immediate UI response
+        setCategories(prev => prev.map(cat => {
             if (cat.id !== catId) return cat;
             return {
                 ...cat,
                 tasks: cat.tasks.map(t => t.id === taskId ? { ...t, comments: comment } : t)
             };
-        });
-        updateCategoriesAndPersist(newCats);
+        }));
+
+        // Persist change to CRMTasks collection (Source of Truth)
+        try {
+            await updateTask(taskId, { comment });
+        } catch (err) {
+            console.error("Error adding task comment:", err);
+        }
     };
 
     if (loading) {
@@ -129,6 +154,8 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
     }
 
     if (!transaction) {
+        const isClosingStage = lead.funnelStage === 'Contract';
+
         return (
             <div className="flex flex-col items-center justify-center p-12 bg-white rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-indigo-500/5">
                 <div className="w-20 h-20 rounded-3xl bg-indigo-50 flex items-center justify-center mb-6">
@@ -136,12 +163,18 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
                 </div>
                 <h3 className="text-xl font-black text-slate-900 mb-2">No Transaction Record</h3>
                 <p className="text-slate-500 text-center max-w-sm mb-8">
-                    Start a new transaction record for {lead.firstName} to track documents, dates, and signers.
+                    {isClosingStage
+                        ? `Start a new transaction record for ${lead.firstName} to track documents, dates, and signers.`
+                        : `Transactions can only be managed for leads in the "Closing" stage. Move ${lead.firstName} to the Contract stage to begin.`
+                    }
                 </p>
                 <button
                     onClick={handleCreateTransaction}
-                    disabled={isCreating}
-                    className="px-8 py-4 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition-all disabled:opacity-70"
+                    disabled={isCreating || !isClosingStage}
+                    className={`px-8 py-4 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg transition-all ${isClosingStage
+                        ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'
+                        : 'bg-slate-300 cursor-not-allowed shadow-none'
+                        }`}
                 >
                     {isCreating ? 'Creating...' : 'Initialize Transaction'}
                 </button>

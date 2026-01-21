@@ -46,9 +46,7 @@ export const getInitialMockTemplates = (realtorId: string): CommTemplate[] => [
 
 export const getInitialMockTransactions = (realtorId: string): Transaction[] => {
     const transactions: Transaction[] = [];
-    transactions.push(generateMockTransaction('BUY', realtorId, undefined, 'mock_tx_buy_1'));
-    // Link this one to our mock seller in closing
+    // Link this to our mock seller who IS in the 'Contract' stage (mock_seller_closing_0)
     transactions.push(generateMockTransaction('SELL', realtorId, 'mock_seller_closing_0', 'mock_tx_sell_1'));
-    transactions.push(generateMockTransaction('BUY', realtorId, undefined, 'mock_tx_buy_2'));
     return transactions;
 };

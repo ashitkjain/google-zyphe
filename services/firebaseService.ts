@@ -699,11 +699,12 @@ export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMT
     log(`[Seed] Processing ${transactions.length} transactions...`);
     // Seed Transactions
     for (const transaction of transactions) {
+      transaction.isMock = true; // Ensure isMock is set before seeding tasks
       const initialCats = getInitialCategories();
       const finalChecklist = seedTasksForTransaction(batch, transaction, initialCats);
 
       const docRef = doc(collection(db, "transactions"), transaction.id);
-      const transactionData = { ...transaction, checklist: finalChecklist, isMock: true, realtorId };
+      const transactionData = { ...transaction, isMock: true, realtorId };
       batch.set(docRef, sanitizeForFirestore(transactionData), { merge: true });
       log(`[Seed] Added transaction for: ${transaction.property?.address}`);
 
@@ -1088,7 +1089,7 @@ export const seedTasksForTransaction = (batch: any, transaction: Transaction, in
       const taskData = {
         id: t.id,
         realtorId: transaction.realtorId,
-        clientId: transaction.clientId,
+        clientId: transaction.clientId || null, // Ensuring clientId from transaction is propagated to tasks
         transaction_id: transaction.id,
         name: t.name,
         comment: t.comments || '',
@@ -1098,6 +1099,9 @@ export const seedTasksForTransaction = (batch: any, transaction: Transaction, in
         dueDate: t.dueDate,
         createDate: new Date(),
         dependsOn: t.dependsOn,
+        durationDays: t.durationDays,
+        categoryId: cat.id,
+        isMock: transaction.isMock ?? false, // Inherit mock status from transaction
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
@@ -1105,7 +1109,28 @@ export const seedTasksForTransaction = (batch: any, transaction: Transaction, in
     });
   });
 
-  return finalChecklist;
+  // Return a lean structural checklist (only IDs for tasks) to be saved in the Transaction doc
+  return finalChecklist.map(cat => ({
+    ...cat,
+    tasks: cat.tasks.map(t => ({ id: t.id }))
+  }));
+};
+
+export const getTransactionTasks = async (transactionId: string, realtorId: string) => {
+  if (!db || !transactionId || !realtorId) return [];
+  try {
+    const q = query(
+      collection(db, "tasks"),
+      where("realtorId", "==", realtorId),
+      where("transaction_id", "==", transactionId)
+    );
+    logFirestoreQuery('getDocs', 'tasks', { transactionId, realtorId });
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CRMTask));
+  } catch (error) {
+    handleFirestoreError(error, "getTransactionTasks");
+    return [];
+  }
 };
 
 export const createTransaction = async (transaction: Transaction, initialCategories?: ChecklistCategory[]) => {
@@ -1125,8 +1150,7 @@ export const createTransaction = async (transaction: Transaction, initialCategor
     }
 
     const finalTransaction = {
-      ...finalTransactionObj,
-      checklist: finalChecklist
+      ...finalTransactionObj
     };
 
     logFirestoreQuery('setDoc (batch)', 'transactions', { id: transactionId });

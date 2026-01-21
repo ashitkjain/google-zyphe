@@ -1,4 +1,4 @@
-export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'SKIPPED' | 'Pending' | 'Completed';
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'SKIPPED' | 'Pending' | 'Completed' | 'Rejected';
 export type TaskSource = 'TEMPLATE' | 'MANUAL' | 'AUTO_FROM_CONTRACT' | 'OTHER';
 
 export interface CRMTask {
@@ -19,6 +19,8 @@ export interface CRMTask {
     createDate?: Date | any;
     updated_at?: Date | any;
     dependsOn?: string[];
+    durationDays?: number;
+    categoryId?: string;
 }
 
 export type ReminderRuleCategory = 'lead' | 'buyer' | 'seller' | 'relationship';

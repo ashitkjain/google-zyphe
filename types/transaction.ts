@@ -29,10 +29,11 @@ export interface Transaction {
         contingency_removal_date?: Date | any;
         [key: string]: any;
     };
-    checklist: CRMTask[];
+    checklist?: ChecklistCategory[];
     created_at: Date | any;
     updated_at: Date | any;
     closed_at?: Date | any;
+    isMock?: boolean;
 }
 
 export type TransactionRole =
@@ -274,9 +275,9 @@ export interface ChecklistCategory {
     description: string;
     tasks: {
         id: string;
-        name: string;
-        status: 'Pending' | 'Completed' | 'Rejected';
-        comments: string;
+        name?: string;
+        status?: 'Pending' | 'Completed' | 'Rejected';
+        comments?: string;
         emoji?: string;
         startDate?: Date | any;
         dueDate?: Date | any;

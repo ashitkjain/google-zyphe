@@ -240,7 +240,6 @@ export const generateMockTransaction = (type: TransactionType, realtorId: string
             acceptance_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
             contingency_removal_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)
         },
-        checklist: [],
         created_at: new Date(),
         updated_at: new Date()
     };

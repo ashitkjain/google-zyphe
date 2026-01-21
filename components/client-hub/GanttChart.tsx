@@ -60,28 +60,56 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
         taskName: string;
     } | null>(null);
 
+    // Determine chart start date based on earliest task
+    const chartStartDate = useMemo(() => {
+        if (startDate && !isNaN(startDate.getTime()) && startDate.getFullYear() > 2000) return startDate;
+
+        let earliest = new Date();
+        categories.forEach(cat => {
+            cat.tasks.forEach(t => {
+                const d = t.startDate?.toDate ? t.startDate.toDate() : new Date(t.startDate);
+                if (d && !isNaN(d.getTime()) && d < earliest) earliest = d;
+            });
+        });
+        return earliest;
+    }, [categories, startDate]);
+
     // 1. Core Scheduling Logic (Global)
     const { globalTaskMap, globalCategoryBars } = useMemo(() => {
         const tasks: ProcessedTask[] = [];
         const taskMap = new Map<string, ProcessedTask>();
 
-        // Flatten tasks
+        // Flatten tasks and initialize days using persisted dates if available
         categories.forEach((cat, catIdx) => {
-            const colorClass = 'bg-indigo-500'; // Uniform blue tasks
+            const colorClass = 'bg-indigo-500';
             cat.tasks.forEach(task => {
+                const sDate = task.startDate?.toDate ? task.startDate.toDate() : new Date(task.startDate);
+                const eDate = task.dueDate?.toDate ? task.dueDate.toDate() : new Date(task.dueDate);
+
+                let startDay = 0;
+                let duration = task.durationDays || 1;
+
+                if (sDate && !isNaN(sDate.getTime())) {
+                    startDay = Math.floor((sDate.getTime() - chartStartDate.getTime()) / (1000 * 60 * 60 * 24));
+                }
+
+                if (eDate && !isNaN(eDate.getTime()) && sDate && !isNaN(sDate.getTime())) {
+                    duration = Math.max(1, Math.round((eDate.getTime() - sDate.getTime()) / (1000 * 60 * 60 * 24)));
+                }
+
                 const newTask: ProcessedTask = {
                     id: task.id,
                     name: task.name,
                     catId: cat.id,
                     catName: cat.name,
                     catColor: colorClass,
-                    startDay: 0,
-                    duration: task.durationDays || 1,
-                    endDay: 0,
+                    startDay,
+                    duration,
+                    endDay: startDay + duration,
                     dependsOn: task.dependsOn || [],
-                    row: 0, // Assigned later for display
+                    row: 0,
                     status: task.status,
-                    comments: task.comment,
+                    comments: task.comments,
                     type: 'task',
                     rawTask: task
                 };
@@ -90,26 +118,31 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
             });
         });
 
-        // Calculate schedule
-        let changed = true;
-        let iter = 0;
-        while (changed && iter < tasks.length) {
-            changed = false;
-            tasks.forEach(task => {
-                let maxDepEnd = 0;
-                task.dependsOn.forEach(depId => {
-                    const dep = taskMap.get(depId);
-                    if (dep) maxDepEnd = Math.max(maxDepEnd, dep.endDay);
+        // 2. Fallback dependency resolution (only if dates are missing or for non-persisted tasks)
+        // Check if we actually have any persisted dates
+        const hasPersistedDates = Array.from(taskMap.values()).some(t => t.rawTask.startDate);
+
+        if (!hasPersistedDates) {
+            let changed = true;
+            let iter = 0;
+            while (changed && iter < tasks.length) {
+                changed = false;
+                tasks.forEach(task => {
+                    let maxDepEnd = 0;
+                    task.dependsOn.forEach(depId => {
+                        const dep = taskMap.get(depId);
+                        if (dep) maxDepEnd = Math.max(maxDepEnd, dep.endDay);
+                    });
+                    if (task.startDay !== maxDepEnd) {
+                        task.startDay = maxDepEnd;
+                        task.endDay = task.startDay + task.duration;
+                        changed = true;
+                    } else {
+                        task.endDay = task.startDay + task.duration;
+                    }
                 });
-                if (task.startDay !== maxDepEnd) {
-                    task.startDay = maxDepEnd;
-                    task.endDay = task.startDay + task.duration;
-                    changed = true;
-                } else {
-                    task.endDay = task.startDay + task.duration;
-                }
-            });
-            iter++;
+                iter++;
+            }
         }
 
         // Create Category Bars (Aggregates)
@@ -345,15 +378,15 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
                                                             isOpen: true,
                                                             catId: task.catId,
                                                             taskId: task.id,
-                                                            currentComment: task.comment || '',
+                                                            currentComment: task.comments || '',
                                                             taskName: task.name
                                                         });
                                                     }}
-                                                    className={`w-5 h-5 flex-shrink-0 flex items-center justify-center mr-1 transition-colors ${(item as ProcessedTask).comment ? 'text-indigo-600' : 'text-slate-300 hover:text-slate-500'
+                                                    className={`w-5 h-5 flex-shrink-0 flex items-center justify-center mr-1 transition-colors ${(item as ProcessedTask).comments ? 'text-indigo-600' : 'text-slate-300 hover:text-slate-500'
                                                         }`}
-                                                    title={(item as ProcessedTask).comment || "Add Note"}
+                                                    title={(item as ProcessedTask).comments || "Add Note"}
                                                 >
-                                                    <i className={`${(item as ProcessedTask).comment ? 'fa-solid' : 'fa-regular'} fa-comment-dots text-xs`}></i>
+                                                    <i className={`${(item as ProcessedTask).comments ? 'fa-solid' : 'fa-regular'} fa-comment-dots text-xs`}></i>
                                                 </button>
 
                                                 {/* Toggle Button (Replaces Serial #) */}

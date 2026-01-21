@@ -105,10 +105,10 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
             <div className="max-w-7xl mx-auto space-y-6">
                 <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
                     {closingLeads.map(lead => (
-                        <button
+                        <div
                             key={lead.id}
                             onClick={() => setActiveLeadId(lead.id)}
-                            className={`flex items-center gap-3 px-5 py-3 rounded-2xl border-2 transition-all flex-shrink-0 group ${activeLeadId === lead.id
+                            className={`flex items-center gap-3 px-5 py-3 rounded-2xl border-2 transition-all flex-shrink-0 group cursor-pointer ${activeLeadId === lead.id
                                 ? 'bg-white border-indigo-500 shadow-lg shadow-indigo-500/10'
                                 : 'bg-white/50 border-slate-200 hover:border-slate-300 hover:bg-white'
                                 }`}
@@ -140,7 +140,7 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                             {activeLeadId === lead.id && (
                                 <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse ml-1"></div>
                             )}
-                        </button>
+                        </div>
                     ))}
                 </div>
 
