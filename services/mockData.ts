@@ -237,7 +237,7 @@ export const generateMockTransaction = (type: TransactionType, realtorId: string
         close_of_escrow_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         commission: "2.5%",
         important_dates: {
-            acceptance_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+            acceptance_date: new Date(),
             contingency_removal_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)
         },
         created_at: new Date(),

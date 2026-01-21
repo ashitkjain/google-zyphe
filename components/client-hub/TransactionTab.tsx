@@ -248,11 +248,20 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
                 </div>
             </div>
 
-            <GanttChart
-                categories={categories}
-                onTaskStatusChange={handleUpdateTaskStatus}
-                onAddComment={handleAddTaskComment}
-            />
+            {(() => {
+                const txStartDate = transaction?.important_dates?.acceptance_date?.toDate
+                    ? transaction.important_dates.acceptance_date.toDate()
+                    : (transaction?.important_dates?.acceptance_date ? new Date(transaction.important_dates.acceptance_date) : undefined);
+
+                return (
+                    <GanttChart
+                        categories={categories}
+                        startDate={txStartDate}
+                        onTaskStatusChange={handleUpdateTaskStatus}
+                        onAddComment={handleAddTaskComment}
+                    />
+                );
+            })()}
         </div>
     );
 };

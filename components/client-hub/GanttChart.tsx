@@ -49,7 +49,7 @@ const CATEGORY_COLORS = [
     'bg-blue-600',
 ];
 
-const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Date(), onTaskStatusChange, onAddComment }) => {
+const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate, onTaskStatusChange, onAddComment }) => {
     const [zoom, setZoom] = useState<'day' | 'week'>('week');
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['c1']));
     const [commentModal, setCommentModal] = useState<{
@@ -62,16 +62,23 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
 
     // Determine chart start date based on earliest task
     const chartStartDate = useMemo(() => {
-        if (startDate && !isNaN(startDate.getTime()) && startDate.getFullYear() > 2000) return startDate;
+        let baseDate = (startDate && !isNaN(startDate.getTime()) && startDate.getFullYear() > 2000) ? new Date(startDate) : new Date();
+        let earliest = new Date(baseDate);
 
-        let earliest = new Date();
         categories.forEach(cat => {
             cat.tasks.forEach(t => {
-                const d = t.startDate?.toDate ? t.startDate.toDate() : new Date(t.startDate);
-                if (d && !isNaN(d.getTime()) && d < earliest) earliest = d;
+                const d = t.startDate?.toDate ? t.startDate.toDate() : (t.startDate ? new Date(t.startDate) : null);
+                if (d && !isNaN(d.getTime())) {
+                    if (d < earliest) earliest = d;
+                }
             });
         });
-        return earliest;
+
+        // Snap to Sunday to ensure Week 1 aligns with the creation week
+        const sunday = new Date(earliest);
+        sunday.setDate(sunday.getDate() - sunday.getDay());
+        sunday.setHours(0, 0, 0, 0);
+        return sunday;
     }, [categories, startDate]);
 
     // 1. Core Scheduling Logic (Global)
@@ -232,7 +239,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
     const dayWidth = zoom === 'day' ? 46 : 20; // Increased to ensure content fills screen naturally
 
     const getDateLabel = (dayIndex: number) => {
-        const d = new Date(startDate);
+        const d = new Date(chartStartDate);
         d.setDate(d.getDate() + dayIndex);
         return {
             fullDate: d,
@@ -244,15 +251,12 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
     };
 
     // Calculate view boundaries based on VISIBLE content
-    const minStart = visibleItems.length ? Math.min(...visibleItems.map(i => i.startDay)) : 0;
     const maxEnd = visibleItems.length ? Math.max(...visibleItems.map(i => i.endDay)) : 30;
-
-    // Buffer: Tight fit (no extra days)
-    const startBuffer = 1;
     const endBuffer = 1;
 
-    const viewStartDay = Math.max(0, minStart - startBuffer);
-    const viewEndDay = maxEnd + endBuffer;
+    // Start from the beginning of the project (Day 0) to ensure Weeks 1, 2, 3 are visible
+    const viewStartDay = 0;
+    const viewEndDay = maxEnd + endBuffer + 7; // Add a week of padding at the end
 
     // Width is strictly content-based
     const totalWidth = (viewEndDay - viewStartDay) * dayWidth;
@@ -309,21 +313,18 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
                                     const dayIndex = viewStartDay + i;
                                     const { fullDate, isWeekend } = getDateLabel(dayIndex);
 
-                                    // Start of Week (Monday = 1)
-                                    const isStartOfWeek = fullDate.getDay() === 1;
-                                    // Show label if it's start of week, or if it's the very first column (so we have context)
+                                    // Start of Week (Project relative: every 7 days from start)
+                                    const isStartOfWeek = dayIndex % 7 === 0;
                                     const showLabel = isStartOfWeek || i === 0;
 
-                                    // Get Week Number (simple ISO-like calculation)
-                                    const startOfYear = new Date(fullDate.getFullYear(), 0, 1);
-                                    const days = Math.floor((fullDate.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
-                                    const weekNum = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+                                    // Project Week Number
+                                    const projectWeekNum = Math.floor(dayIndex / 7) + 1;
 
                                     return (
                                         <div key={`d-${dayIndex}`} style={{ width: dayWidth }} className={`flex-shrink-0 flex items-center border-r border-slate-100 relative ${isWeekend ? 'bg-slate-50' : 'bg-white'}`}>
                                             {showLabel && (
                                                 <div className="absolute left-1 whitespace-nowrap z-10 bg-white/80 px-1 rounded text-[10px] font-bold text-slate-500">
-                                                    W{weekNum} • {fullDate.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
+                                                    WEEK {projectWeekNum} • {fullDate.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
                                                 </div>
                                             )}
                                         </div>

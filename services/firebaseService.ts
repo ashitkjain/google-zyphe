@@ -1080,7 +1080,11 @@ export const seedTasksForTransaction = (batch: any, transaction: Transaction, in
   }
 
   // Second pass: Use shared scheduling logic to calculate all dates and map IDs
-  const finalChecklist = calculateChecklistSchedule(initialCategories, new Date(), oldIdToNewId);
+  const baseDate = transaction.important_dates?.acceptance_date?.toDate
+    ? transaction.important_dates.acceptance_date.toDate()
+    : (transaction.important_dates?.acceptance_date ? new Date(transaction.important_dates.acceptance_date) : new Date());
+
+  const finalChecklist = calculateChecklistSchedule(initialCategories, baseDate, oldIdToNewId);
 
   // Third pass: Add individual CRMTask documents to the batch
   finalChecklist.forEach(cat => {
