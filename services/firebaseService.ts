@@ -1080,6 +1080,65 @@ export const updateTransaction = async (transactionId: string, updates: Partial<
   }
 };
 
+// ===== TRANSACTION PARTIES =====
+
+import { TransactionParty } from "../types/transaction";
+
+export const getTransactionParties = async (transactionId: string) => {
+  if (!db || !transactionId) return [];
+  try {
+    logFirestoreQuery('getDocs', `transactions/${transactionId}/parties`, {});
+    const q = query(collection(db, "transactions", transactionId, "parties"), orderBy("created_at", "asc"));
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TransactionParty));
+  } catch (error) {
+    handleFirestoreError(error, "getTransactionParties");
+    return [];
+  }
+};
+
+export const addTransactionParty = async (transactionId: string, party: Partial<TransactionParty>) => {
+  if (!db || !transactionId) return null;
+  try {
+    logFirestoreQuery('addDoc', `transactions/${transactionId}/parties`, party);
+    const docRef = await addDoc(collection(db, "transactions", transactionId, "parties"), {
+      ...sanitizeForFirestore(party),
+      transaction_id: transactionId,
+      created_at: serverTimestamp()
+    });
+    return { id: docRef.id, ...party } as TransactionParty;
+  } catch (error) {
+    handleFirestoreError(error, "addTransactionParty");
+    return null;
+  }
+};
+
+export const updateTransactionParty = async (transactionId: string, partyId: string, updates: Partial<TransactionParty>) => {
+  if (!db || !transactionId || !partyId) return false;
+  try {
+    logFirestoreQuery('updateDoc', `transactions/${transactionId}/parties`, { partyId });
+    const docRef = doc(db, "transactions", transactionId, "parties", partyId);
+    await updateDoc(docRef, sanitizeForFirestore(updates));
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "updateTransactionParty");
+    return false;
+  }
+};
+
+export const deleteTransactionParty = async (transactionId: string, partyId: string) => {
+  if (!db || !transactionId || !partyId) return false;
+  try {
+    logFirestoreQuery('deleteDoc', `transactions/${transactionId}/parties`, { partyId });
+    const docRef = doc(db, "transactions", transactionId, "parties", partyId);
+    await deleteDoc(docRef);
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "deleteTransactionParty");
+    return false;
+  }
+};
+
 
 
 export const addTask = async (task: Partial<CRMTask>) => {

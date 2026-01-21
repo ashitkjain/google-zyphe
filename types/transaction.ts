@@ -266,3 +266,24 @@ export const DOCUMENT_TYPE_METADATA: Record<DocumentType, DocumentTypeDefinition
         "triggers": {}
     }
 };
+// Checklist category interface - for use in TransactionTimeline and ChecklistSection
+export interface ChecklistCategory {
+    id: string;
+    name: string;
+    icon: string;
+    description: string;
+    tasks: {
+        id: string;
+        name: string;
+        status: 'Pending' | 'Completed' | 'Rejected';
+        comments: string;
+        emoji?: string;  // Optional emoji for the task
+    }[];
+}
+
+// Phase schedule interface for calendar view
+export interface PhaseSchedule {
+    phaseId: number;
+    startDay: number; // Day offset from contract start
+    duration: number; // Duration in days
+}

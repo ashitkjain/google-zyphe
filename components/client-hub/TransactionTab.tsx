@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Lead, Transaction, TransactionParty, TransactionType, TransactionStatus } from '../../types';
-import { createTransaction, getTransactions, updateTransaction, getTransactionByClientId } from '../../services/firebaseService';
-import { auth } from '../../services/firebaseService';
+import { Lead, Transaction } from '../../types';
+import { createTransaction, getTransactions, getTransactionByClientId } from '../../services/firebaseService';
+import TransactionTimeline from './TransactionTimeline';
+import { ChecklistCategory } from '../../types/transaction';
 
 interface Props {
     lead: Lead;
     realtorId: string;
+    categories: ChecklistCategory[];
+    onScrollToPhase: (phaseIndex: number) => void;
+    onAddComment: (catId: string, taskId: string, comment: string) => void;
 }
 
-const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
+const TransactionTab: React.FC<Props> = ({ lead, realtorId, categories, onScrollToPhase, onAddComment }) => {
     const [transaction, setTransaction] = useState<Transaction | null>(null);
     const [loading, setLoading] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
@@ -53,6 +57,8 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
                     address: lead.subjectProperty || lead.propertyAddress || 'New Property',
                     zpid: lead.zpid // Pass zpid if available
                 }, // PropertyData
+                purchase_price: 0,
+                commission: '0%',
                 apn: '',
                 state: 'CA', // Default
                 checklist: [],
@@ -99,95 +105,75 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
 
     return (
         <div className="space-y-8">
-            {/* Header / Status Card */}
-            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-md">
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Transaction Details</h2>
-                        <div className="flex items-center gap-3 mt-2">
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">ID: {transaction.id?.substring(0, 8) || 'unknown'}...</span>
-                            <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                                Created {transaction.created_at?.toDate ? new Date(transaction.created_at.toDate()).toLocaleDateString() : (transaction.created_at ? new Date(transaction.created_at).toLocaleDateString() : 'Unknown Date')}
-                            </span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Property Side */}
+                <div className="p-4 bg-slate-50/50 rounded-3xl border border-slate-100/60">
+                    <div className="flex items-center gap-2 mb-3">
+                        <div className="w-6 h-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center">
+                            <i className="fa-solid fa-house text-slate-400 text-[10px]"></i>
                         </div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Property Info</span>
                     </div>
-                    <div>
-                        <span className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest border-2 ${transaction.status === 'CLOSED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                            transaction.status === 'CANCELLED' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                                'bg-indigo-50 text-indigo-600 border-indigo-100'
-                            }`}>
-                            {transaction.status?.replace('_', ' ') || 'ACTIVE'}
-                        </span>
+                    <div className="space-y-3">
+                        <div>
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">Address</label>
+                            <div className="text-sm font-bold text-slate-800 leading-tight">{transaction.property?.address || 'N/A'}</div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">Price</label>
+                                <div className="text-sm font-bold text-slate-800">
+                                    {transaction.purchase_price ? `$${transaction.purchase_price.toLocaleString()}` : '--'}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">Comm.</label>
+                                <div className="text-sm font-bold text-emerald-600">
+                                    {transaction.commission || '--'}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Property Side */}
-                    <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center">
-                                <i className="fa-solid fa-house text-slate-400 text-xs"></i>
-                            </div>
-                            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Property Info</span>
+                {/* Dates Side */}
+                <div className="p-4 bg-slate-50/50 rounded-3xl border border-slate-100/60">
+                    <div className="flex items-center gap-2 mb-3">
+                        <div className="w-6 h-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center">
+                            <i className="fa-solid fa-calendar-days text-slate-400 text-[10px]"></i>
                         </div>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Address</label>
-                                <div className="font-bold text-slate-800">{transaction.property?.address || 'N/A'}</div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Purchase Price</label>
-                                    <div className="font-bold text-slate-800">
-                                        {transaction.purchase_price ? `$${transaction.purchase_price.toLocaleString()}` : '--'}
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Commission</label>
-                                    <div className="font-bold text-emerald-600">
-                                        {transaction.commission || '--'}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Key Dates</span>
                     </div>
-
-                    {/* Dates Side */}
-                    <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center">
-                                <i className="fa-solid fa-calendar text-slate-400 text-xs"></i>
-                            </div>
-                            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Key Dates</span>
-                        </div>
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Acceptance</label>
-                                    <div className="font-bold text-slate-800">
-                                        {transaction.important_dates?.acceptance_date?.toDate ? new Date(transaction.important_dates.acceptance_date.toDate()).toLocaleDateString() : (transaction.important_dates?.acceptance_date ? new Date(transaction.important_dates.acceptance_date).toLocaleDateString() : '--')}
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Close of Escrow</label>
-                                    <div className="font-bold text-indigo-600">
-                                        {transaction.close_of_escrow_date?.toDate ? new Date(transaction.close_of_escrow_date.toDate()).toLocaleDateString() : (transaction.close_of_escrow_date ? new Date(transaction.close_of_escrow_date).toLocaleDateString() : '--')}
-                                    </div>
+                    <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">Acceptance</label>
+                                <div className="text-sm font-bold text-slate-800">
+                                    {transaction.important_dates?.acceptance_date?.toDate ? new Date(transaction.important_dates.acceptance_date.toDate()).toLocaleDateString() : (transaction.important_dates?.acceptance_date ? new Date(transaction.important_dates.acceptance_date).toLocaleDateString() : '--')}
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Contingency Removal</label>
-                                <div className="font-bold text-slate-800">
-                                    {transaction.important_dates?.contingency_removal_date?.toDate ? new Date(transaction.important_dates.contingency_removal_date.toDate()).toLocaleDateString() : (transaction.important_dates?.contingency_removal_date ? new Date(transaction.important_dates.contingency_removal_date).toLocaleDateString() : '--')}
+                                <label className="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">Closing</label>
+                                <div className="text-sm font-bold text-indigo-600">
+                                    {transaction.close_of_escrow_date?.toDate ? new Date(transaction.close_of_escrow_date.toDate()).toLocaleDateString() : (transaction.close_of_escrow_date ? new Date(transaction.close_of_escrow_date).toLocaleDateString() : '--')}
                                 </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">Contingency removal</label>
+                            <div className="text-sm font-bold text-slate-800">
+                                {transaction.important_dates?.contingency_removal_date?.toDate ? new Date(transaction.important_dates.contingency_removal_date.toDate()).toLocaleDateString() : (transaction.important_dates?.contingency_removal_date ? new Date(transaction.important_dates.contingency_removal_date).toLocaleDateString() : '--')}
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-
+            <TransactionTimeline
+                categories={categories}
+                onScrollToPhase={onScrollToPhase}
+                onAddComment={onAddComment}
+            />
         </div>
     );
 };
