@@ -187,45 +187,7 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
                 </div>
             </div>
 
-            {/* Logic for Parties, Documents etc would go here */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Parties Preview */}
-                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-md">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-lg font-black text-slate-900 tracking-tight">Parties</h3>
-                        <button className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-100 transition-colors">
-                            <i className="fa-solid fa-plus text-xs"></i>
-                        </button>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="p-4 rounded-2xl border border-slate-100 flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold">
-                                {lead.firstName.charAt(0)}
-                            </div>
-                            <div>
-                                <div className="text-sm font-bold text-slate-800">{lead.firstName} {lead.lastName}</div>
-                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{lead.leadType}</div>
-                            </div>
-                        </div>
-                        {/* Placeholder for other parties */}
-                        <div className="text-center py-4 text-xs text-slate-400 italic">No other parties added</div>
-                    </div>
-                </div>
 
-                {/* Documents Preview */}
-                <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-md">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-lg font-black text-slate-900 tracking-tight">Recent Documents</h3>
-                        <button className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-colors">
-                            View All
-                        </button>
-                    </div>
-                    <div className="flex flex-col items-center justify-center py-12 text-slate-400 border-2 border-dashed border-slate-100 rounded-3xl">
-                        <i className="fa-solid fa-cloud-arrow-up text-3xl mb-3 text-slate-300"></i>
-                        <span className="text-xs font-medium">No documents uploaded yet</span>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 };

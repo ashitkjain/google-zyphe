@@ -863,6 +863,13 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                                                     {activeLead.clientId}
                                                 </span>
                                             )}
+                                            <button
+                                                onClick={() => setShowWizard(true)}
+                                                className="ml-2 flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100"
+                                            >
+                                                <i className="fa-solid fa-plus text-[8px]"></i>
+                                                <span>New</span>
+                                            </button>
                                         </div>
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Mailing Address</p>
                                         <p className="text-xs text-slate-500 font-medium max-w-[200px] leading-tight">
@@ -881,21 +888,13 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                                             <h2 className="text-2xl font-black text-slate-900 tracking-tight">
                                                 {activeLead.subjectProperty || activeLead.propertyAddress || 'Property TBD'}
                                             </h2>
-                                            <span className={`px-4 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest text-white ${getStatusColor('Pending')}`}>
-                                                {activeLead.status}
-                                            </span>
                                         </div>
-                                        <p className="text-sm text-slate-400 font-bold uppercase tracking-widest mt-1">
-                                            {activeLead.leadType} Transaction
-                                        </p>
+
                                     </div>
                                 </div>
                             </div>
 
-                            <button className="flex items-center gap-3 px-6 py-3 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-all group">
-                                <span className="text-xs font-bold text-slate-700 uppercase tracking-widest">Transaction Actions</span>
-                                <i className="fa-solid fa-chevron-down text-[10px] text-slate-400 group-hover:translate-y-0.5 transition-transform"></i>
-                            </button>
+
                         </div>
 
                         {/* Transaction Calendar Timeline */}
@@ -921,51 +920,9 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                             ))}
                         </div>
 
-                        {/* Details Grid - Hide on Transaction Tab (as it has its own) */}
-                        {activeSubTab !== 'TRANSACTION' && (
-                            <div className="bg-white rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-indigo-500/5 p-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
-                                <div className="space-y-6">
-                                    <DetailItem label="SUBJECT PROPERTY" value={activeLead.subjectProperty || activeLead.propertyAddress || 'TBD'} />
-                                    <DetailItem label="ACCEPTANCE DATE" value={activeLead.stageLastChangedAt ? new Date(activeLead.stageLastChangedAt).toLocaleDateString() : '--'} />
-                                    <DetailItem label="PROPERTY TYPE" value={activeLead.propertyType || '--'} />
-                                </div>
-                                <div className="space-y-6">
-                                    <DetailItem label="CLIENT NAME" value={`${activeLead.firstName} ${activeLead.lastName}`} />
-                                    <DetailItem label="PHONE" value={activeLead.phone || '--'} />
-                                    <DetailItem label="TYPE" value={activeLead.leadType} />
-                                </div>
-                                <div className="space-y-6">
-                                    <DetailItem label="CLOSE OF ESCROW" value="TBD" />
-                                    <DetailItem label="EMAIL" value={activeLead.email || '--'} isLink />
-                                    <DetailItem label="MLS NUMBER" value={activeLead.mlsNumber || '--'} />
-                                </div>
-                                <div className="space-y-6">
-                                    <DetailItem label="PRICE" value={activeLead.price ? `$${activeLead.price.toLocaleString()}` : '--'} />
-                                    <DetailItem label="BEDROOMS" value={activeLead.bedrooms?.toString() || '--'} />
-                                </div>
-                                <div className="space-y-6">
-                                    <DetailItem label="BATHROOMS" value={activeLead.bathrooms?.toString() || '--'} />
-                                    <DetailItem label="SQ FT" value={activeLead.sqft?.toString() || '--'} />
-                                </div>
-                            </div>
-                        )}
 
-                        {/* Toolbar Actions */}
-                        <div className="flex flex-wrap items-center gap-3 py-4">
-                            <ActionButton color="bg-indigo-600" icon="fa-house-shield" label="Order Home Warranty" />
-                            <ActionButton color="bg-indigo-600" icon="fa-file-shield" label="Order NHD" />
-                            <ActionButton color="bg-indigo-600" icon="fa-money-bill-transfer" label="Get Paid Now!" />
 
-                            <div className="h-10 w-px bg-slate-200 mx-2"></div>
 
-                            <DropdownButton label="Checked" />
-                            <DropdownButton label="Update Agent" />
-                            <DropdownButton label="Docs to Review" badge="0" />
-
-                            <button className="w-12 h-12 flex items-center justify-center bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all">
-                                <i className="fa-solid fa-bullhorn"></i>
-                            </button>
-                        </div>
 
                         {/* Documentation / Checklist Section */}
                         <div className="bg-white rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-indigo-500/5 overflow-hidden">
@@ -976,13 +933,6 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                                             activeSubTab === 'TRANSACTION' ? 'Transaction Record' :
                                                 'Documentation'}
                                     </h2>
-                                    <button
-                                        onClick={() => setShowWizard(true)}
-                                        className="flex items-center gap-2 px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100"
-                                    >
-                                        <i className="fa-solid fa-plus"></i>
-                                        <span className="font-bold">New</span>
-                                    </button>
                                 </div>
                             </div>
 
