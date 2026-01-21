@@ -10,6 +10,7 @@ import LeadsKanbanBoard from './leads/LeadsKanbanBoard';
 
 const LeadsList: React.FC<InternalProps> = ({
     leads,
+    realtorId,
     onUpdateLead,
     onCreateLead,
     onActivateLead,
@@ -161,6 +162,7 @@ const LeadsList: React.FC<InternalProps> = ({
                     handleDeleteNote={handleDeleteNote}
                     onUpdateAvatar={onUpdateAvatar}
                     realtorSettings={realtorSettings}
+                    realtorId={realtorId}
                 />
             ) : (
                 <DragDropContext onDragEnd={handleDragEnd}>

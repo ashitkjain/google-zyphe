@@ -537,6 +537,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
                 {activeTab === 'leads' && (
                     <LeadsList
+                        realtorId={realtorId}
                         leads={leads}
                         onUpdateLead={(id, updates) => handleUpdateLead(id, updates)}
                         onCreateLead={handleCreateLead}

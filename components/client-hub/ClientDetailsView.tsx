@@ -14,9 +14,11 @@ interface ClientDetailsViewProps {
     leads: Lead[];
     onUpdateClient: (id: string, updates: any, collectionName: string) => Promise<boolean>;
     loading?: boolean;
+    initialSelectedId?: string;
+    hideClientList?: boolean;
 }
 
-const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, clients, leads, onUpdateClient, loading }) => {
+const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, clients, leads, onUpdateClient, loading, initialSelectedId, hideClientList }) => {
     // Combine both into a unified list
     const allClients = [
         ...clients.map(c => ({ ...c, isUser: true, id: c.uid })),
@@ -33,7 +35,13 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
     });
 
     const [activeListTab, setActiveListTab] = useState<'Buyers' | 'Sellers'>('Buyers');
-    const [selectedId, setSelectedId] = useState<string | null>(allClients.length > 0 ? allClients[0].id : null);
+    const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId || (allClients.length > 0 ? allClients[0].id : null));
+
+    useEffect(() => {
+        if (initialSelectedId) {
+            setSelectedId(initialSelectedId);
+        }
+    }, [initialSelectedId]);
 
     const filteredClients = allClients.filter(c => {
         const type = (c as any).leadType || 'Buyer';
@@ -205,65 +213,67 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
     return (
         <div className="flex-1 flex overflow-hidden bg-slate-50">
             {/* Left Column: Client List */}
-            <div className="w-80 border-r border-slate-200 bg-white flex flex-col overflow-hidden">
-                <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{filteredClients.length} {activeListTab}</p>
+            {!hideClientList && (
+                <div className="w-80 border-r border-slate-200 bg-white flex flex-col overflow-hidden">
+                    <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{filteredClients.length} {activeListTab}</p>
+                            </div>
+                        </div>
+
+                        {/* Tab Switcher */}
+                        <div className="flex bg-slate-200/50 p-1 rounded-xl">
+                            <button
+                                onClick={() => setActiveListTab('Buyers')}
+                                className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${activeListTab === 'Buyers' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                Buyers
+                            </button>
+                            <button
+                                onClick={() => setActiveListTab('Sellers')}
+                                className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${activeListTab === 'Sellers' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                Sellers
+                            </button>
                         </div>
                     </div>
-
-                    {/* Tab Switcher */}
-                    <div className="flex bg-slate-200/50 p-1 rounded-xl">
-                        <button
-                            onClick={() => setActiveListTab('Buyers')}
-                            className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${activeListTab === 'Buyers' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            Buyers
-                        </button>
-                        <button
-                            onClick={() => setActiveListTab('Sellers')}
-                            className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${activeListTab === 'Sellers' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            Sellers
-                        </button>
+                    <div className="flex-1 overflow-y-auto">
+                        {filteredClients.map((client) => (
+                            <button
+                                key={client.id}
+                                onClick={() => setSelectedId(client.id)}
+                                className={`w-full p-4 flex items-center gap-4 border-b border-slate-50 transition-all hover:bg-slate-50 ${selectedId === client.id ? 'bg-indigo-50/50 border-r-4 border-r-indigo-600' : ''}`}
+                            >
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shadow-sm ${client.isUser ? 'bg-emerald-500' : 'bg-indigo-500'}`}>
+                                    {getName(client).charAt(0)}
+                                </div>
+                                <div className="flex-1 text-left min-w-0">
+                                    <div className="text-xs font-normal text-slate-900 truncate">{getName(client)}</div>
+                                    <div className="truncate">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{(client as any).funnelStage || 'Leads'}</span>
+                                        <span className="text-slate-300 mx-1">•</span>
+                                        <span className="text-[10px] font-medium text-slate-500 font-mono italic">{(client as any).status || getStageStatus(client) || 'New'}</span>
+                                    </div>
+                                </div>
+                                {client.isUser && (
+                                    <div className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase rounded">App</div>
+                                )}
+                            </button>
+                        ))}
                     </div>
                 </div>
-                <div className="flex-1 overflow-y-auto">
-                    {filteredClients.map((client) => (
-                        <button
-                            key={client.id}
-                            onClick={() => setSelectedId(client.id)}
-                            className={`w-full p-4 flex items-center gap-4 border-b border-slate-50 transition-all hover:bg-slate-50 ${selectedId === client.id ? 'bg-indigo-50/50 border-r-4 border-r-indigo-600' : ''}`}
-                        >
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shadow-sm ${client.isUser ? 'bg-emerald-500' : 'bg-indigo-500'}`}>
-                                {getName(client).charAt(0)}
-                            </div>
-                            <div className="flex-1 text-left min-w-0">
-                                <div className="text-xs font-normal text-slate-900 truncate">{getName(client)}</div>
-                                <div className="truncate">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{(client as any).funnelStage || 'Leads'}</span>
-                                    <span className="text-slate-300 mx-1">•</span>
-                                    <span className="text-[10px] font-medium text-slate-500 font-mono italic">{(client as any).status || getStageStatus(client) || 'New'}</span>
-                                </div>
-                            </div>
-                            {client.isUser && (
-                                <div className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase rounded">App</div>
-                            )}
-                        </button>
-                    ))}
-                </div>
-            </div>
+            )}
 
             {/* Right Column: Details */}
             <div className="flex-1 flex flex-col overflow-hidden">
                 {selectedClient ? (
                     <>
                         {/* Header */}
-                        <div className="px-5 pb-5 pt-2 bg-white border-b border-slate-200">
+                        <div className="px-4 py-3 bg-white border-b border-slate-200">
                             <div className="flex items-start justify-between">
-                                <div className="flex items-center gap-4 -mt-1">
-                                    <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-3xl text-white font-black shadow-xl overflow-hidden ${selectedClient.isUser ? 'bg-emerald-500 shadow-emerald-200' : 'bg-indigo-500 shadow-indigo-200'}`}>
+                                <div className="flex items-center gap-3 -mt-1">
+                                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl text-white font-black shadow-lg overflow-hidden ${selectedClient.isUser ? 'bg-emerald-500 shadow-emerald-200' : 'bg-indigo-500 shadow-indigo-200'}`}>
                                         {(selectedClient as any).avatarUrl || (selectedClient as any).clientPhotoUrl ? (
                                             <img
                                                 src={(selectedClient as any).avatarUrl || (selectedClient as any).clientPhotoUrl}
@@ -275,13 +285,13 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                         )}
                                     </div>
                                     <div className="space-y-0">
-                                        <div className="flex items-center gap-4">
-                                            <h1 className="text-3xl font-black text-slate-900 tracking-tight">{getName(selectedClient)}</h1>
-                                            <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-3">
+                                            <h1 className="text-2xl font-black text-slate-900 tracking-tight">{getName(selectedClient)}</h1>
+                                            <div className="flex items-center gap-2">
 
                                                 <div className="flex items-center">
                                                     {selectedClient.engagementScore === 'Hot' && (
-                                                        <div className="w-10 h-10 relative animate-flame">
+                                                        <div className="w-8 h-8 relative animate-flame">
                                                             <svg viewBox="0 0 100 100" className="w-full h-full filter drop-shadow-sm">
                                                                 <path d="M50 95C30 95 15 75 15 50C15 35 25 20 45 5C45 15 50 25 55 35C65 25 75 35 85 50C85 75 70 95 50 95Z" fill="#ff4d00" />
                                                                 <path d="M50 90C35 90 25 75 25 55C25 45 30 35 45 25C45 35 50 45 55 50C62 40 70 45 75 55C75 75 65 90 50 90Z" fill="#ff9900" />
@@ -290,60 +300,61 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                                             <div className="absolute inset-x-0 bottom-0 top-1/2 bg-orange-500/20 blur-lg rounded-full -z-10 animate-pulse"></div>
                                                         </div>
                                                     )}
-                                                    {selectedClient.engagementScore === 'Warm' && <i className="fa-solid fa-mug-hot text-amber-500 text-2xl filter drop-shadow-sm"></i>}
-                                                    {selectedClient.engagementScore === 'Cold' && <i className="fa-solid fa-snowflake text-sky-400 text-2xl filter drop-shadow-sm"></i>}
-                                                    {selectedClient.engagementScore === 'Stale' && <img src="/assets/stale-icon.png" alt="Stale" className="w-7 h-7 object-contain opacity-60 grayscale filter drop-shadow-sm" />}
+                                                    {selectedClient.engagementScore === 'Warm' && <i className="fa-solid fa-mug-hot text-amber-500 text-xl filter drop-shadow-sm"></i>}
+                                                    {selectedClient.engagementScore === 'Cold' && <i className="fa-solid fa-snowflake text-sky-400 text-xl filter drop-shadow-sm"></i>}
+                                                    {selectedClient.engagementScore === 'Stale' && <img src="/assets/stale-icon.png" alt="Stale" className="w-6 h-6 object-contain opacity-60 grayscale filter drop-shadow-sm" />}
                                                 </div>
                                             </div>
 
                                             {/* Post-it Stack */}
-                                            <div className="relative ml-6 flex flex-col items-center">
+                                            <div className="relative ml-4 flex flex-col items-center">
                                                 <div
                                                     onMouseDown={handleMouseDownOnStack}
-                                                    className="group cursor-grab active:cursor-grabbing relative w-14 h-14 select-none mb-1"
+                                                    className="group cursor-grab active:cursor-grabbing relative w-10 h-10 select-none mb-0.5"
                                                 >
                                                     {/* Stack Visual */}
                                                     <div className="absolute inset-0 bg-yellow-100 border border-yellow-200 shadow-sm rotate-6 rounded-md translate-x-1 translate-y-1"></div>
                                                     <div className="absolute inset-0 bg-yellow-50 border border-yellow-200 shadow-sm -rotate-3 rounded-md"></div>
                                                     <div className="absolute inset-0 bg-yellow-200 border border-yellow-300 shadow-md group-hover:scale-110 group-hover:-rotate-6 transition-all rounded-md flex items-center justify-center">
-                                                        <i className="fa-solid fa-plus text-yellow-600 text-lg"></i>
+                                                        <i className="fa-solid fa-plus text-yellow-600 text-sm"></i>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-1.5 mt-1">
-                                                    <i className="fa-solid fa-circle-info text-slate-400 text-[10px]"></i>
-                                                    <div className="text-[10px] text-slate-900 font-bold text-center w-28 leading-tight">
-                                                        Drag to snapshot to add comments
+                                                <div className="flex items-center gap-1">
+                                                    <div className="text-[8px] text-slate-400 font-bold text-center leading-tight">
+                                                        Drag for note
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="flex flex-col gap-0.5 mt-1">
+                                        <div className="flex items-center gap-3">
                                             {/* Email Row */}
-                                            <div className="flex items-center gap-2 text-slate-500 font-medium">
-                                                <i className="fa-solid fa-envelope text-slate-300 w-5 text-center"></i>
-                                                <span className="text-sm font-semibold">{getEmail(selectedClient)}</span>
+                                            <div className="flex items-center gap-1.5 text-slate-500 font-medium">
+                                                <i className="fa-solid fa-envelope text-slate-300 text-xs"></i>
+                                                <span className="text-xs font-semibold">{getEmail(selectedClient)}</span>
                                                 {(() => {
                                                     const preferredMethod = (selectedClient as any).primaryContactInfo?.preferredMethod || (selectedClient as any).preferredContactMethod;
                                                     return preferredMethod === 'Email' && (
-                                                        <i className="fa-solid fa-star text-yellow-500 text-[10px] ml-1"></i>
+                                                        <i className="fa-solid fa-star text-yellow-500 text-[8px] ml-0.5"></i>
                                                     );
                                                 })()}
                                             </div>
 
+                                            <span className="text-slate-200 text-xs">|</span>
+
                                             {/* Phone Row */}
-                                            <div className="flex items-center gap-2 text-slate-500 font-medium">
-                                                <i className="fa-solid fa-phone text-slate-300 w-5 text-center"></i>
-                                                <span className="text-sm font-semibold">{getPhone(selectedClient) || 'No phone listed'}</span>
+                                            <div className="flex items-center gap-1.5 text-slate-500 font-medium">
+                                                <i className="fa-solid fa-phone text-slate-300 text-xs"></i>
+                                                <span className="text-xs font-semibold">{getPhone(selectedClient) || 'No phone'}</span>
                                                 {(() => {
                                                     const preferredMethod = (selectedClient as any).primaryContactInfo?.preferredMethod || (selectedClient as any).preferredContactMethod;
                                                     const isPhoneRelated = ['Phone', 'SMS', 'WhatsApp'].includes(preferredMethod);
                                                     if (!isPhoneRelated) return null;
 
                                                     return (
-                                                        <div className="flex items-center gap-2 ml-1">
-                                                            <i className="fa-solid fa-star text-yellow-500 text-[10px]"></i>
-                                                            {preferredMethod === 'SMS' && <img src="/sms-icon.png" alt="SMS" className="w-4 h-4 object-contain" />}
-                                                            {preferredMethod === 'WhatsApp' && <img src="/whatsapp-icon.png" alt="WhatsApp" className="w-4 h-4 object-contain" />}
+                                                        <div className="flex items-center gap-1 ml-0.5">
+                                                            <i className="fa-solid fa-star text-yellow-500 text-[8px]"></i>
+                                                            {preferredMethod === 'SMS' && <img src="/sms-icon.png" alt="SMS" className="w-3 h-3 object-contain" />}
+                                                            {preferredMethod === 'WhatsApp' && <img src="/whatsapp-icon.png" alt="WhatsApp" className="w-3 h-3 object-contain" />}
                                                         </div>
                                                     );
                                                 })()}
@@ -351,27 +362,27 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex gap-3">
-                                    <button className="px-6 py-2.5 bg-indigo-600 text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95">
-                                        Send Message
+                                <div className="flex gap-2">
+                                    <button className="px-4 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95">
+                                        Message
                                     </button>
-                                    <button className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all active:scale-95">
-                                        Edit Profile
+                                    <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-50 transition-all active:scale-95">
+                                        Edit
                                     </button>
                                 </div>
                             </div>
                         </div>
 
                         {/* Content */}
-                        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 space-y-6">
+                        <div className="flex-1 overflow-y-auto p-4 bg-slate-50/50 space-y-4">
                             {/* Funnel Stage Timeline */}
-                            <div className="bg-white rounded-[2rem] py-5 px-8 border border-slate-100 shadow-sm relative overflow-hidden group">
+                            <div className="bg-white rounded-2xl py-3 px-6 border border-slate-100 shadow-sm relative overflow-hidden group">
                                 {/* Decorative Gradient Background */}
                                 <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-50/30 rounded-full blur-3xl -mr-24 -mt-24 pointer-events-none group-hover:bg-indigo-100/40 transition-colors duration-1000"></div>
 
-                                <div className="relative pt-6 pb-2">
+                                <div className="relative pt-4 pb-1">
                                     {/* Progress Track Background */}
-                                    <div className="absolute top-[44px] left-2 right-2 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                    <div className="absolute top-[34px] left-2 right-2 h-1 bg-slate-100 rounded-full overflow-hidden">
                                         {/* Dynamic Progress Fill */}
                                         <div
                                             className="h-full bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 shadow-[0_0_15px_rgba(79,70,229,0.3)] transition-all duration-1000 ease-out"
@@ -416,10 +427,10 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                             }
 
                                             return (
-                                                <div key={idx} className="flex flex-col items-center relative z-10 group/milestone min-w-[70px]">
+                                                <div key={idx} className="flex flex-col items-center relative z-10 group/milestone min-w-[60px]">
                                                     {/* Entered At Date */}
                                                     {entryDate && (
-                                                        <div className="absolute -top-6 text-[8px] font-black text-slate-900 uppercase tracking-widest whitespace-nowrap z-20 animate-in fade-in slide-in-from-bottom-1 duration-500">
+                                                        <div className="absolute -top-5 text-[7px] font-black text-slate-900 uppercase tracking-widest whitespace-nowrap z-20 animate-in fade-in slide-in-from-bottom-1 duration-500">
                                                             {formatDate(entryDate)}
 
                                                         </div>
@@ -427,19 +438,19 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
 
                                                     {/* The Milestone Circle */}
                                                     <div className={`
-                                                        w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-500 border-2
+                                                        w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-500 border-2
                                                         ${isCompleted ? 'bg-indigo-600 border-white shadow-lg shadow-indigo-100 scale-90' : ''}
                                                         ${isCurrent ? 'bg-white border-indigo-600 shadow-xl shadow-indigo-100 ring-4 ring-indigo-50 scale-110' : ''}
-                                                        ${isPending ? 'bg-white border-slate-50 text-slate-300 shadow-sm' : ''}
+                                                        ${isPending ? 'bg-white border-slate-50 text-slate-200 shadow-sm' : ''}
                                                     `}>
                                                         {isCurrent && entryDate && (
-                                                            <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-indigo-500 uppercase tracking-widest whitespace-nowrap bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100 flex items-center gap-1">
-                                                                <i className="fa-regular fa-clock text-[8px]"></i>
+                                                            <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-indigo-500 uppercase tracking-widest whitespace-nowrap bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100 flex items-center gap-1">
+                                                                <i className="fa-regular fa-clock text-[7px]"></i>
                                                                 {Math.floor((new Date().getTime() - (entryDate.toDate ? entryDate.toDate() : new Date(entryDate)).getTime()) / (1000 * 60 * 60 * 24))} Days
                                                             </div>
                                                         )}
                                                         <i className={`
-                                                            fa-solid ${stage.icon} text-sm transition-colors duration-500
+                                                            fa-solid ${stage.icon} text-xs transition-colors duration-500
                                                             ${isCompleted ? 'text-white' : ''}
                                                             ${isCurrent ? 'text-indigo-600' : ''}
                                                             ${isPending ? 'text-slate-200' : ''}
@@ -447,16 +458,16 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                                     </div>
 
                                                     {/* Label */}
-                                                    <div className="mt-2.5 text-center">
+                                                    <div className="mt-2 text-center">
                                                         <p className={`
-                                                            text-[9px] font-black uppercase tracking-widest transition-colors duration-500 whitespace-nowrap
+                                                            text-[8px] font-black uppercase tracking-widest transition-colors duration-500 whitespace-nowrap
                                                             ${isCurrent ? 'text-indigo-600' : 'text-slate-400'}
                                                             ${isCompleted ? 'text-slate-800' : ''}
                                                         `}>
                                                             {stage.label}
                                                         </p>
                                                         {isCurrent && (selectedClient as any).status && (
-                                                            <div className="mt-1 px-2 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase tracking-widest rounded-md animate-in fade-in zoom-in-95 duration-500">
+                                                            <div className="mt-0.5 px-1.5 py-0 bg-slate-100 text-slate-500 text-[7px] font-black uppercase tracking-widest rounded-md animate-in fade-in zoom-in-95 duration-500">
                                                                 {(selectedClient as any).status}
                                                             </div>
                                                         )}
@@ -470,7 +481,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                             {/* Snapshot Box */}
                             <div
                                 ref={snapshotRef}
-                                className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 relative min-h-[500px]"
+                                className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 relative min-h-[300px]"
                             >
                                 {/* Stuck Notes */}
                                 {stuckNotes[selectedId || '']?.map((note, idx) => (
@@ -526,21 +537,21 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                 {/* Offer Snapshot (Only for Offer Stage) */}
                                 {(selectedClient as any).funnelStage === 'Offer' && (
                                     <>
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <div className="w-8 h-8 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600">
-                                                <i className="fa-solid fa-file-signature text-sm"></i>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="w-6 h-6 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
+                                                <i className="fa-solid fa-file-signature text-xs"></i>
                                             </div>
                                             <div>
-                                                <h3 className="text-base font-black text-slate-900">Offer Snapshot</h3>
-                                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest leading-none">Current Offer Details</p>
+                                                <h3 className="text-sm font-black text-slate-900">Offer Snapshot</h3>
+                                                <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest leading-none">Current Offer Details</p>
                                             </div>
                                         </div>
 
-                                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8 relative">
-                                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-y-6 gap-x-4">
-                                                <div className="space-y-1">
-                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Offer Price</div>
-                                                    <div className="text-sm font-medium text-slate-800">
+                                        <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-4 relative">
+                                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-y-3 gap-x-4">
+                                                <div className="space-y-0.5">
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Offer Price</div>
+                                                    <div className="text-xs font-medium text-slate-800">
                                                         {(selectedClient as any).activeOffer?.price
                                                             ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format((selectedClient as any).activeOffer.price)
                                                             : (selectedClient as any).offers?.[0]?.bidPrice
@@ -548,9 +559,9 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                                                 : '---'}
                                                     </div>
                                                 </div>
-                                                <div className="space-y-1">
-                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Offer Date</div>
-                                                    <div className="text-sm font-medium text-slate-800">
+                                                <div className="space-y-0.5">
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Offer Date</div>
+                                                    <div className="text-xs font-medium text-slate-800">
                                                         {(selectedClient as any).activeOffer?.offerDate
                                                             ? formatDate((selectedClient as any).activeOffer.offerDate)
                                                             : (selectedClient as any).offers?.[0]?.date
@@ -558,17 +569,17 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                                                 : '---'}
                                                     </div>
                                                 </div>
-                                                <div className="space-y-1">
-                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Earnest Money</div>
-                                                    <div className="text-sm font-medium text-slate-800">
+                                                <div className="space-y-0.5">
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Earnest Money</div>
+                                                    <div className="text-xs font-medium text-slate-800">
                                                         {(selectedClient as any).activeOffer?.earnestMoney
                                                             ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format((selectedClient as any).activeOffer.earnestMoney)
                                                             : '---'}
                                                     </div>
                                                 </div>
-                                                <div className="space-y-1 md:col-span-2">
-                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contingencies</div>
-                                                    <div className="text-sm font-medium text-slate-800 truncate">
+                                                <div className="space-y-0.5 md:col-span-2">
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Contingencies</div>
+                                                    <div className="text-xs font-medium text-slate-800 truncate">
                                                         {(selectedClient as any).activeOffer?.contingencies?.join(', ') || 'None'}
                                                     </div>
                                                 </div>
@@ -580,56 +591,56 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                 {/* Search Snapshot (Active Search OR Offer Stage) */}
                                 {['Active Search', 'Offer'].includes((selectedClient as any).funnelStage) && (
                                     <>
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <div className="w-8 h-8 rounded-xl bg-sky-50 flex items-center justify-center text-sky-600">
-                                                <i className="fa-solid fa-magnifying-glass text-sm"></i>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="w-6 h-6 rounded-lg bg-sky-50 flex items-center justify-center text-sky-600">
+                                                <i className="fa-solid fa-magnifying-glass text-xs"></i>
                                             </div>
                                             <div>
-                                                <h3 className="text-base font-black text-slate-900">Search Snapshot</h3>
-                                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest leading-none">Active Search Activity</p>
+                                                <h3 className="text-sm font-black text-slate-900">Search Snapshot</h3>
+                                                <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest leading-none">Active Search Activity</p>
                                             </div>
                                         </div>
 
-                                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8 relative">
-                                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-y-6 gap-x-4">
+                                        <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-4 relative">
+                                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-y-3 gap-x-4">
                                                 {(selectedClient as any).leadType === 'Buyer' ? (
                                                     <>
-                                                        <div className="space-y-1">
-                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Search Status</div>
-                                                            <div className="text-sm font-medium text-slate-800">{(selectedClient as any).status || '---'}</div>
+                                                        <div className="space-y-0.5">
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Search Status</div>
+                                                            <div className="text-xs font-medium text-slate-800">{(selectedClient as any).status || '---'}</div>
                                                         </div>
-                                                        <div className="space-y-1">
-                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Must Haves</div>
-                                                            <div className="text-sm font-medium text-slate-800">{(selectedClient as any).searchCriteria?.mustHaves || '---'}</div>
+                                                        <div className="space-y-0.5">
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Must Haves</div>
+                                                            <div className="text-xs font-medium text-slate-800">{(selectedClient as any).searchCriteria?.mustHaves || '---'}</div>
                                                         </div>
-                                                        <div className="space-y-1">
-                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Target Areas</div>
-                                                            <div className="text-sm font-medium text-slate-800">{(selectedClient as any).searchCriteria?.location || '---'}</div>
+                                                        <div className="space-y-0.5">
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Target Areas</div>
+                                                            <div className="text-xs font-medium text-slate-800">{(selectedClient as any).searchCriteria?.location || '---'}</div>
                                                         </div>
-                                                        <div className="space-y-1">
-                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Property Tours</div>
-                                                            <div className="text-sm font-medium text-slate-800">{(selectedClient as any).tours?.length || 0} Scheduled</div>
+                                                        <div className="space-y-0.5">
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Property Tours</div>
+                                                            <div className="text-xs font-medium text-slate-800">{(selectedClient as any).tours?.length || 0} Scheduled</div>
                                                         </div>
-                                                        <div className="space-y-1">
-                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Past Offers</div>
-                                                            <div className="text-sm font-medium text-slate-800">{(selectedClient as any).historicalOffers?.length || 0} Rejected</div>
+                                                        <div className="space-y-0.5">
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Past Offers</div>
+                                                            <div className="text-xs font-medium text-slate-800">{(selectedClient as any).historicalOffers?.length || 0} Rejected</div>
                                                         </div>
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <div className="space-y-1">
-                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Listing Status</div>
-                                                            <div className="text-sm font-medium text-slate-800">{(selectedClient as any).status || '---'}</div>
+                                                        <div className="space-y-0.5">
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Listing Status</div>
+                                                            <div className="text-xs font-medium text-slate-800">{(selectedClient as any).status || '---'}</div>
                                                         </div>
-                                                        <div className="space-y-1">
-                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Visitors</div>
-                                                            <div className="text-sm font-medium text-slate-800">
+                                                        <div className="space-y-0.5">
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Visitors</div>
+                                                            <div className="text-xs font-medium text-slate-800">
                                                                 {(selectedClient as any).visitors?.reduce((acc: number, v: any) => acc + (v.visitCount || 0), 0) || 0} Visits
                                                             </div>
                                                         </div>
-                                                        <div className="space-y-1">
-                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Interested Buyers</div>
-                                                            <div className="text-sm font-medium text-emerald-600">
+                                                        <div className="space-y-0.5">
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Interested Buyers</div>
+                                                            <div className="text-xs font-medium text-emerald-600">
                                                                 {(selectedClient as any).visitors?.filter((v: any) => v.isInterested).length || 0} Interested
                                                             </div>
                                                         </div>
@@ -639,47 +650,47 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                         </div>
                                     </>
                                 )}
-                                <div className="flex items-center gap-2 mb-6 pb-3 border-b border-slate-50">
-                                    <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-                                        <i className="fa-solid fa-bolt text-sm"></i>
+                                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-50">
+                                    <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                                        <i className="fa-solid fa-bolt text-xs"></i>
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-black text-slate-900">Client Snapshot</h3>
-                                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest leading-none">who the person is, what they want</p>
+                                        <h3 className="text-sm font-black text-slate-900">Client Snapshot</h3>
+                                        <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest leading-none">who the person is, what they want</p>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-y-6 gap-x-4">
-                                    <div className="space-y-1">
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Target Window</div>
-                                        <div className="text-base font-medium text-slate-800 tracking-tight">{(selectedClient as any).targetTimeline || '---'}</div>
+                                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-y-3 gap-x-4">
+                                    <div className="space-y-0.5">
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Target Window</div>
+                                        <div className="text-xs font-medium text-slate-800 tracking-tight">{(selectedClient as any).targetTimeline || '---'}</div>
                                     </div>
 
-                                    <div className="space-y-1">
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Client Persona</div>
-                                        <div className="text-base font-medium text-slate-800 tracking-tight">{(selectedClient as any).personaProfile || '---'}</div>
+                                    <div className="space-y-0.5">
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Client Persona</div>
+                                        <div className="text-xs font-medium text-slate-800 tracking-tight">{(selectedClient as any).personaProfile || '---'}</div>
                                     </div>
 
-                                    <div className="space-y-1 text-left">
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Motivation</div>
-                                        <div className="text-base font-medium text-slate-800 tracking-tight">{(selectedClient as any).motivation || '---'}</div>
+                                    <div className="space-y-0.5 text-left">
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Motivation</div>
+                                        <div className="text-xs font-medium text-slate-800 tracking-tight">{(selectedClient as any).motivation || '---'}</div>
                                     </div>
 
-                                    <div className="space-y-1 text-left">
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Source</div>
-                                        <div className="text-base font-medium text-slate-800 tracking-tight">{(selectedClient as any).source || (selectedClient as any).leadInfo?.origin || 'Direct'}</div>
+                                    <div className="space-y-0.5 text-left">
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Source</div>
+                                        <div className="text-xs font-medium text-slate-800 tracking-tight">{(selectedClient as any).source || (selectedClient as any).leadInfo?.origin || 'Direct'}</div>
                                     </div>
 
-                                    <div className="space-y-1">
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inquiry Property</div>
-                                        <div className="text-base font-medium text-slate-800 truncate">{(selectedClient as any).leadInfo?.inquiryProperty?.address || (selectedClient as any).subjectProperty || '---'}</div>
+                                    <div className="space-y-0.5">
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Inquiry Property</div>
+                                        <div className="text-xs font-medium text-slate-800 truncate">{(selectedClient as any).leadInfo?.inquiryProperty?.address || (selectedClient as any).subjectProperty || '---'}</div>
                                     </div>
 
                                     {(selectedClient as any).leadType === 'Buyer' && (
-                                        <div className="space-y-1">
-                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Buying Power</div>
+                                        <div className="space-y-0.5">
+                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Buying Power</div>
                                             <div className="flex items-center gap-2">
-                                                <div className="text-base font-medium text-emerald-600">
+                                                <div className="text-xs font-medium text-emerald-600">
                                                     {(selectedClient as any).financialVitals?.budgetMax
                                                         ? `$${((selectedClient as any).financialVitals.budgetMax).toLocaleString()}`
                                                         : (selectedClient as any).maxPrice
@@ -694,30 +705,30 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                     )}
 
                                     {(selectedClient as any).leadType === 'Buyer' && (
-                                        <div className="space-y-1">
-                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Budget Range</div>
-                                            <div className="text-base font-medium text-slate-800 tracking-tight">{(selectedClient as any).leadInfo?.budgetRange || '---'}</div>
+                                        <div className="space-y-0.5">
+                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Budget Range</div>
+                                            <div className="text-xs font-medium text-slate-800 tracking-tight">{(selectedClient as any).leadInfo?.budgetRange || '---'}</div>
                                         </div>
                                     )}
 
                                     {(selectedClient as any).leadType === 'Buyer' && (
-                                        <div className="space-y-1 md:col-span-1 lg:col-span-3">
-                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hard Requirements</div>
-                                            <div className="text-base font-medium text-slate-800 leading-tight">{(selectedClient as any).searchCriteria?.mustHaves || 'No specific requirements listed.'}</div>
+                                        <div className="space-y-0.5 md:col-span-1 lg:col-span-3">
+                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Hard Requirements</div>
+                                            <div className="text-xs font-medium text-slate-800 leading-tight">{(selectedClient as any).searchCriteria?.mustHaves || 'No specific requirements listed.'}</div>
                                         </div>
                                     )}
 
                                     {(selectedClient as any).leadType === 'Seller' && (
                                         <>
-                                            <div className="space-y-1">
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">When to Sell</div>
-                                                <div className="text-base font-medium text-slate-800 tracking-tight">{(selectedClient as any).sellWhen || '---'}</div>
+                                            <div className="space-y-0.5">
+                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">When to Sell</div>
+                                                <div className="text-xs font-medium text-slate-800 tracking-tight">{(selectedClient as any).sellWhen || '---'}</div>
                                             </div>
-                                            <div className="space-y-1 md:col-span-1 lg:col-span-2">
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Listing Readiness</div>
+                                            <div className="space-y-0.5 md:col-span-1 lg:col-span-2">
+                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Listing Readiness</div>
                                                 <div className="flex items-center gap-2">
                                                     {(selectedClient as any).listingStatus?.estimatedValue && (
-                                                        <div className="text-base font-medium text-emerald-600">
+                                                        <div className="text-xs font-medium text-emerald-600">
                                                             Est. ${(selectedClient as any).listingStatus.estimatedValue.toLocaleString()}
                                                         </div>
                                                     )}
@@ -725,46 +736,46 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                                         <div className="px-1.5 py-0.5 bg-slate-100 text-slate-600 text-[8px] font-black uppercase rounded">{(selectedClient as any).listingStatus.occupancyStatus}</div>
                                                     )}
                                                     {!(selectedClient as any).listingStatus?.estimatedValue && !(selectedClient as any).listingStatus?.occupancyStatus && (
-                                                        <div className="text-base font-medium text-slate-800 tracking-tight">---</div>
+                                                        <div className="text-xs font-medium text-slate-800 tracking-tight">---</div>
                                                     )}
                                                 </div>
                                             </div>
                                         </>
                                     )}
 
-                                    <div className="space-y-1 md:col-span-1 lg:col-span-2">
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer Message</div>
-                                        <div className="text-base font-medium text-slate-800 leading-tight">{(selectedClient as any).leadInfo?.customerMessage || 'No inquiry message provided.'}</div>
+                                    <div className="space-y-0.5 md:col-span-1 lg:col-span-2">
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Customer Message</div>
+                                        <div className="text-xs font-medium text-slate-800 leading-tight">{(selectedClient as any).leadInfo?.customerMessage || 'No inquiry message provided.'}</div>
                                     </div>
 
-                                    <div className="space-y-1">
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Follow-up Deadline</div>
-                                        <div className={`text-base font-medium tracking-tight ${(selectedClient as any).staleWarningDate && new Date((selectedClient as any).staleWarningDate) < new Date() ? 'text-rose-600' : 'text-slate-800'}`}>
+                                    <div className="space-y-0.5">
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Follow-up Deadline</div>
+                                        <div className={`text-xs font-medium tracking-tight ${(selectedClient as any).staleWarningDate && new Date((selectedClient as any).staleWarningDate) < new Date() ? 'text-rose-600' : 'text-slate-800'}`}>
                                             {(selectedClient as any).staleWarningDate ? formatDate((selectedClient as any).staleWarningDate) : '---'}
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Communication History Table (Moved outside snapshotRef container to stabilize coordinates) */}
-                                <div className="mt-8 pt-6 border-t border-slate-200">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shadow-inner border border-slate-100">
-                                            <i className="fa-solid fa-comments text-xs"></i>
+                                {/* Communication History Table */}
+                                <div className="mt-6 pt-4 border-t border-slate-200">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <div className="w-6 h-6 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 shadow-inner border border-slate-100">
+                                            <i className="fa-solid fa-comments text-[10px]"></i>
                                         </div>
-                                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Communication History</h4>
-                                        <div className="px-2 py-0.5 ml-auto bg-slate-100 text-slate-500 rounded text-[9px] font-black uppercase tracking-widest border border-slate-200">
+                                        <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-wider">Communication History</h4>
+                                        <div className="px-1.5 py-0.5 ml-auto bg-slate-100 text-slate-500 rounded text-[8px] font-black uppercase tracking-widest border border-slate-200">
                                             {(selectedClient as any).callCount || 0} Calls
                                         </div>
                                     </div>
 
-                                    <div className="overflow-hidden rounded-2xl border border-slate-100 shadow-sm bg-white">
+                                    <div className="overflow-hidden rounded-xl border border-slate-100 shadow-sm bg-white">
                                         <table className="w-full text-left border-collapse">
                                             <thead>
                                                 <tr className="bg-slate-50/60">
-                                                    <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-r border-slate-100/50 last:border-0">Date</th>
-                                                    <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-r border-slate-100/50 last:border-0">Channel</th>
-                                                    <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-r border-slate-100/50 last:border-0">Summary</th>
-                                                    <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Status</th>
+                                                    <th className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest border-r border-slate-100/50 last:border-0">Date</th>
+                                                    <th className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest border-r border-slate-100/50 last:border-0">Channel</th>
+                                                    <th className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest border-r border-slate-100/50 last:border-0">Summary</th>
+                                                    <th className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Status</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
@@ -773,16 +784,16 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                                     { date: new Date(Date.now() - 86400000), channel: 'Email', summary: 'Sent mortgage pre-approval checklist.', status: 'Delivered' },
                                                 ].map((msg, i) => (
                                                     <tr key={i} className="hover:bg-slate-50/40 transition-colors">
-                                                        <td className="px-4 py-3 text-xs font-medium text-slate-500 font-mono italic">{formatDate(msg.date)}</td>
-                                                        <td className="px-4 py-3">
-                                                            <div className="flex items-center gap-2">
-                                                                <i className={`fa-solid ${msg.channel === 'SMS' ? 'fa-message-sms text-indigo-500' : 'fa-envelope text-emerald-500'} text-[10px]`}></i>
-                                                                <span className="text-xs font-medium text-slate-900 uppercase tracking-tighter">{msg.channel}</span>
+                                                        <td className="px-3 py-2 text-[10px] font-medium text-slate-500 font-mono italic">{formatDate(msg.date)}</td>
+                                                        <td className="px-3 py-2">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <i className={`fa-solid ${msg.channel === 'SMS' ? 'fa-message-sms text-indigo-500' : 'fa-envelope text-emerald-500'} text-[9px]`}></i>
+                                                                <span className="text-[10px] font-medium text-slate-900 uppercase tracking-tighter">{msg.channel}</span>
                                                             </div>
                                                         </td>
-                                                        <td className="px-4 py-3 text-xs font-medium text-slate-600 truncate max-w-xs">{msg.summary}</td>
-                                                        <td className="px-4 py-3 text-right">
-                                                            <span className="px-2 py-1 bg-slate-100/80 text-slate-600 text-[8px] font-black uppercase rounded-md shadow-sm">
+                                                        <td className="px-3 py-2 text-[10px] font-medium text-slate-600 truncate max-w-xs">{msg.summary}</td>
+                                                        <td className="px-3 py-2 text-right">
+                                                            <span className="px-1.5 py-0.5 bg-slate-100/80 text-slate-600 text-[7px] font-black uppercase rounded-md shadow-sm">
                                                                 {msg.status}
                                                             </span>
                                                         </td>
@@ -796,186 +807,189 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                             </div>
 
                             {/* Events & Tasks Container */}
-                            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-                                <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-50">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm">
-                                            <i className="fa-solid fa-calendar-check text-xl"></i>
+                            {(loadingEvents || clientEvents.length > 0 || clientTasks.length > 0) && (
+                                <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
+                                    <div className="flex items-center justify-between mb-5 pb-3 border-b border-slate-50">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm">
+                                                <i className="fa-solid fa-calendar-check text-lg"></i>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-lg font-black text-slate-900 tracking-tight">Events & Tasks</h3>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] leading-none mt-0.5">Scheduled activity with this client</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h3 className="text-xl font-black text-slate-900 tracking-tight">Events & Tasks</h3>
-                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] leading-none mt-1">Scheduled activity with this client</p>
+                                        <div className="flex gap-1.5">
+                                            <div className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-indigo-100">
+                                                {clientEvents.length} Events
+                                            </div>
+                                            <div className="px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-amber-100">
+                                                {clientTasks.length} Tasks
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <div className="px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100">
-                                            {clientEvents.length} Events
-                                        </div>
-                                        <div className="px-4 py-1.5 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-100">
-                                            {clientTasks.length} Tasks
-                                        </div>
-                                    </div>
-                                </div>
 
-                                <div className="overflow-hidden rounded-[2rem] border border-slate-100 shadow-inner bg-slate-50/30">
-                                    <table className="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className="bg-white border-b border-slate-100">
-                                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] w-48">Date & Time</th>
-                                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] w-32">Category</th>
-                                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-[0.15em]">Activity Details</th>
-                                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] text-right">Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100">
-                                            {loadingEvents ? (
-                                                <tr>
-                                                    <td colSpan={4} className="px-6 py-12 text-center bg-white/50">
-                                                        <div className="flex flex-col items-center gap-3">
-                                                            <div className="w-6 h-6 border-2 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin"></div>
-                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fetching schedule...</span>
-                                                        </div>
-                                                    </td>
+                                    <div className="overflow-hidden rounded-2xl border border-slate-100 shadow-inner bg-slate-50/30">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="bg-white border-b border-slate-100">
+                                                    <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] w-32">Date & Time</th>
+                                                    <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] w-24">Category</th>
+                                                    <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Activity Details</th>
+                                                    <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] text-right">Status</th>
                                                 </tr>
-                                            ) : clientEvents.length === 0 && clientTasks.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={4} className="px-6 py-20 text-center bg-white/50">
-                                                        <div className="flex flex-col items-center opacity-40">
-                                                            <i className="fa-solid fa-calendar-day text-4xl mb-4 text-slate-300"></i>
-                                                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No activities scheduled yet</p>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                <>
-                                                    {/* Merge and Sort Events and Tasks */}
-                                                    {[
-                                                        ...clientEvents.map(e => ({ ...e, cat: 'Event' })),
-                                                        ...clientTasks.map(t => ({ ...t, cat: 'Task', start: t.dueDate ? (t.dueDate instanceof Date ? t.dueDate : (t.dueDate as any).toDate ? (t.dueDate as any).toDate() : new Date(t.dueDate)) : new Date() }))
-                                                    ].sort((a, b) => b.start.getTime() - a.start.getTime()).map((item: any, i) => (
-                                                        <tr key={i} className="group hover:bg-white transition-all">
-                                                            <td className="px-6 py-5">
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-xs font-black text-slate-900">{formatDate(item.start)}</span>
-                                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight mt-0.5">
-                                                                        {item.cat === 'Event' ? item.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Due Today'}
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {loadingEvents ? (
+                                                    <tr>
+                                                        <td colSpan={4} className="px-4 py-8 text-center bg-white/50">
+                                                            <div className="flex flex-col items-center gap-2">
+                                                                <div className="w-5 h-5 border-2 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin"></div>
+                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Fetching schedule...</span>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ) : clientEvents.length === 0 && clientTasks.length === 0 ? (
+                                                    // This case is theoretically unreachable now due to parent condition, but kept for type safety/fallback
+                                                    <tr>
+                                                        <td colSpan={4} className="px-4 py-12 text-center bg-white/50">
+                                                            <div className="flex flex-col items-center opacity-40">
+                                                                <i className="fa-solid fa-calendar-day text-3xl mb-3 text-slate-300"></i>
+                                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">No activities scheduled yet</p>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    <>
+                                                        {/* Merge and Sort Events and Tasks */}
+                                                        {[
+                                                            ...clientEvents.map(e => ({ ...e, cat: 'Event' })),
+                                                            ...clientTasks.map(t => ({ ...t, cat: 'Task', start: t.dueDate ? (t.dueDate instanceof Date ? t.dueDate : (t.dueDate as any).toDate ? (t.dueDate as any).toDate() : new Date(t.dueDate)) : new Date() }))
+                                                        ].sort((a, b) => b.start.getTime() - a.start.getTime()).map((item: any, i) => (
+                                                            <tr key={i} className="group hover:bg-white transition-all">
+                                                                <td className="px-4 py-3">
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-[11px] font-black text-slate-900">{formatDate(item.start)}</span>
+                                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight mt-0.5">
+                                                                            {item.cat === 'Event' ? item.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Due Today'}
+                                                                        </span>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    <div className={`
+                                                                        inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-wider
+                                                                        ${item.cat === 'Event' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-amber-50 border-amber-100 text-amber-600'}
+                                                                    `}>
+                                                                        <i className={`fa-solid ${item.cat === 'Event' ? 'fa-calendar' : 'fa-list-check'} text-[8px]`}></i>
+                                                                        {item.cat}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-xs font-bold text-slate-800">{item.title}</span>
+                                                                        {item.description && (
+                                                                            <span className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">{item.description}</span>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-4 py-3 text-right">
+                                                                    <span className={`
+                                                                        px-2.5 py-0.5 bg-white border border-slate-100 text-[8px] font-black uppercase tracking-widest rounded-lg shadow-sm
+                                                                        ${item.status === 'Completed' || item.status === 'Done' ? 'text-emerald-500' : 'text-slate-400'}
+                                                                    `}>
+                                                                        {item.status || 'Active'}
                                                                     </span>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-6 py-5">
-                                                                <div className={`
-                                                                    inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-wider
-                                                                    ${item.cat === 'Event' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-amber-50 border-amber-100 text-amber-600'}
-                                                                `}>
-                                                                    <i className={`fa-solid ${item.cat === 'Event' ? 'fa-calendar' : 'fa-list-check'} text-[8px]`}></i>
-                                                                    {item.cat}
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-6 py-5">
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-sm font-bold text-slate-800">{item.title}</span>
-                                                                    {item.description && (
-                                                                        <span className="text-xs text-slate-500 line-clamp-1 mt-0.5">{item.description}</span>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-6 py-5 text-right">
-                                                                <span className={`
-                                                                    px-3 py-1 bg-white border border-slate-100 text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm
-                                                                    ${item.status === 'Completed' || item.status === 'Done' ? 'text-emerald-500' : 'text-slate-400'}
-                                                                `}>
-                                                                    {item.status || 'Active'}
-                                                                </span>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </>
-                                            )}
-                                        </tbody>
-                                    </table>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Miscellaneous Data Fields */}
-                            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-                                <div className="flex items-center gap-2 mb-6 pb-3 border-b border-slate-50">
-                                    <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shadow-inner border border-slate-100">
-                                        <i className="fa-solid fa-list-check text-xs"></i>
+                            <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
+                                <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-50">
+                                    <div className="w-6 h-6 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 shadow-inner border border-slate-100">
+                                        <i className="fa-solid fa-list-check text-[10px]"></i>
                                     </div>
-                                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider">Wait! There's More</h4>
+                                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Wait! There's More</h4>
                                 </div>
 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-6">
-                                    <div className="space-y-1.5">
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Created Date</div>
-                                        <div className="text-base font-bold text-slate-800">{formatDate((selectedClient as any).receivedAt || (selectedClient as any).createdAt)}</div>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-6">
+                                    <div className="space-y-0.5">
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Created Date</div>
+                                        <div className="text-xs font-bold text-slate-800">{formatDate((selectedClient as any).receivedAt || (selectedClient as any).createdAt)}</div>
                                     </div>
 
-                                    <div className="space-y-1.5">
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Referral Type</div>
-                                        <div className="text-base font-bold text-slate-800">{(selectedClient as any).leadInfo?.referralType || '---'}</div>
+                                    <div className="space-y-0.5">
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Referral Type</div>
+                                        <div className="text-xs font-bold text-slate-800">{(selectedClient as any).leadInfo?.referralType || '---'}</div>
                                     </div>
-                                    <div className="space-y-1.5">
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Marketing Campaign</div>
-                                        <div className="text-base font-bold text-slate-800">{(selectedClient as any).leadInfo?.campaign || '---'}</div>
+                                    <div className="space-y-0.5">
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Marketing Campaign</div>
+                                        <div className="text-xs font-bold text-slate-800">{(selectedClient as any).leadInfo?.campaign || '---'}</div>
                                     </div>
                                     {(selectedClient as any).leadType === 'Buyer' && (
-                                        <div className="space-y-1.5">
-                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lease End Date</div>
-                                            <div className="text-base font-bold text-slate-800">{formatDate((selectedClient as any).leaseEndDate)}</div>
+                                        <div className="space-y-0.5">
+                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Lease End Date</div>
+                                            <div className="text-xs font-bold text-slate-800">{formatDate((selectedClient as any).leaseEndDate)}</div>
                                         </div>
                                     )}
 
-                                    <div className="space-y-1.5 md:col-span-2">
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Home Address</div>
-                                        <div className="text-base font-bold text-slate-800 truncate">{(selectedClient as any).primaryContact?.homeAddress || '---'}</div>
+                                    <div className="space-y-0.5 md:col-span-2">
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Home Address</div>
+                                        <div className="text-xs font-bold text-slate-800 truncate">{(selectedClient as any).primaryContact?.homeAddress || '---'}</div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Stage History Log */}
-                            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-                                <div className="flex items-center gap-2 mb-6 pb-3 border-b border-slate-50">
-                                    <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shadow-inner border border-slate-100">
-                                        <i className="fa-solid fa-code-branch text-xs"></i>
+                            <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
+                                <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-50">
+                                    <div className="w-6 h-6 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 shadow-inner border border-slate-100">
+                                        <i className="fa-solid fa-code-branch text-[10px]"></i>
                                     </div>
-                                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider">Stage History Log</h4>
+                                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Stage History Log</h4>
                                 </div>
 
-                                <div className="overflow-hidden rounded-2xl border border-slate-100 shadow-inner bg-slate-50/30">
+                                <div className="overflow-hidden rounded-xl border border-slate-100 shadow-inner bg-slate-50/30">
                                     <table className="w-full text-left border-collapse">
-                                        <thead className="bg-white border-b border-slate-100 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                        <thead className="bg-white border-b border-slate-100 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
                                             <tr>
-                                                <th className="px-6 py-4 w-40">Date</th>
-                                                <th className="px-6 py-4">Previous Stage</th>
-                                                <th className="px-6 py-4">New Stage</th>
-                                                <th className="px-6 py-4 text-right">Duration</th>
+                                                <th className="px-4 py-3 w-32">Date</th>
+                                                <th className="px-4 py-3">Previous Stage</th>
+                                                <th className="px-4 py-3">New Stage</th>
+                                                <th className="px-4 py-3 text-right">Duration</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
                                             {((selectedClient as any).stageHistory || []).map((history: any, i: number) => (
                                                 <tr key={i} className="hover:bg-white transition-colors">
-                                                    <td className="px-6 py-5 text-xs font-black text-slate-900 font-mono italic">
+                                                    <td className="px-4 py-3 text-[10px] font-black text-slate-900 font-mono italic">
                                                         {formatDate(history.enteredAt)}
                                                     </td>
-                                                    <td className="px-6 py-5">
-                                                        <span className="px-3 py-1 bg-slate-100 text-slate-500 text-[9px] font-black uppercase rounded-lg tracking-wider border border-slate-200">
+                                                    <td className="px-4 py-3">
+                                                        <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase rounded-lg tracking-wider border border-slate-200">
                                                             {history.fromStage}
                                                         </span>
                                                     </td>
-                                                    <td className="px-6 py-5">
-                                                        <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[9px] font-black uppercase rounded-lg tracking-wider border border-indigo-100">
+                                                    <td className="px-4 py-3">
+                                                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[8px] font-black uppercase rounded-lg tracking-wider border border-indigo-100">
                                                             {history.toStage}
                                                         </span>
                                                     </td>
-                                                    <td className="px-6 py-5 text-xs font-bold text-slate-400 text-right">
+                                                    <td className="px-4 py-3 text-[10px] font-bold text-slate-400 text-right">
                                                         ---
                                                     </td>
                                                 </tr>
                                             ))}
                                             {(!((selectedClient as any).stageHistory) || (selectedClient as any).stageHistory.length === 0) && (
                                                 <tr>
-                                                    <td colSpan={4} className="px-6 py-12 text-center text-slate-400 text-xs italic bg-white/50">
+                                                    <td colSpan={4} className="px-4 py-8 text-center text-slate-400 text-[10px] italic bg-white/50">
                                                         No stage history available.
                                                     </td>
                                                 </tr>

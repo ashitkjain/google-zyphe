@@ -3,6 +3,7 @@ import { DropResult } from '@hello-pangea/dnd';
 
 export interface InternalProps {
     leads: Lead[];
+    realtorId: string;
     onUpdateLead: (id: string, updates: Partial<Lead>) => void;
     onViewLead: (lead: Lead) => void;
     onCreateLead: (initialUpdates?: Partial<Lead>) => void;

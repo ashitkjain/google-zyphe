@@ -2,12 +2,14 @@ import React, { useMemo, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Lead, LEAD_FIELD_CONFIG, LEAD_STAGE_LIFECYCLE_CONFIG } from '../../types';
 import { getFunnelStageForStatus, getStatusOptions } from '../../services/statusService';
+import ClientDetailsView from '../../components/client-hub/ClientDetailsView';
 
 interface LeadsKanbanBoardProps {
     leads: Lead[];
     onUpdateLead: (id: string, updates: Partial<Lead>) => void;
     realtorSettings: any;
     leadType: 'Buyer' | 'Seller';
+    realtorId: string;
 }
 
 const KANBAN_COLUMNS = [
@@ -22,9 +24,11 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
     leads,
     onUpdateLead,
     realtorSettings,
-    leadType
+    leadType,
+    realtorId
 }) => {
     const [pendingMove, setPendingMove] = useState<{ lead: Lead, targetStage: string, options: any[] } | null>(null);
+    const [selectedLeadForOverlay, setSelectedLeadForOverlay] = useState<Lead | null>(null);
 
     const getColumnIdForLead = (lead: Lead) => {
         let stage = getFunnelStageForStatus(lead.status, lead.leadType, realtorSettings);
@@ -172,6 +176,7 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
                                                             snapshot={snapshot}
                                                             realtorSettings={realtorSettings}
                                                             onUpdateLead={onUpdateLead}
+                                                            onClick={() => setSelectedLeadForOverlay(lead)}
                                                         />
                                                     )}
                                                 </DraggableAny>
@@ -232,11 +237,40 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
                     </div>
                 </div>
             )}
+            {/* Client Details Overlay */}
+            {selectedLeadForOverlay && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white w-[1000px] h-[85vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 relative">
+                        <button
+                            onClick={() => setSelectedLeadForOverlay(null)}
+                            className="absolute top-4 right-4 z-50 w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-full text-slate-500 hover:text-slate-700 transition-colors"
+                        >
+                            <i className="fa-solid fa-times"></i>
+                        </button>
+                        <ClientDetailsView
+                            realtorId={realtorId}
+                            clients={[{
+                                ...selectedLeadForOverlay,
+                                uid: selectedLeadForOverlay.id,
+                                displayName: selectedLeadForOverlay.fullName || `${selectedLeadForOverlay.firstName || ''} ${selectedLeadForOverlay.lastName || ''}`.trim(),
+                                email: selectedLeadForOverlay.email || selectedLeadForOverlay.primaryContact?.email || ''
+                            } as any]}
+                            leads={[selectedLeadForOverlay]}
+                            onUpdateClient={async (id, updates) => {
+                                onUpdateLead(id, updates);
+                                return true;
+                            }}
+                            initialSelectedId={selectedLeadForOverlay.id}
+                            hideClientList={true}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
 
-const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSettings: any, onUpdateLead: (id: string, updates: Partial<Lead>) => void }> = ({ lead, provided, snapshot, realtorSettings, onUpdateLead }) => {
+const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSettings: any, onUpdateLead: (id: string, updates: Partial<Lead>) => void, onClick: () => void }> = ({ lead, provided, snapshot, realtorSettings, onUpdateLead, onClick }) => {
     // Determine border color based on temperature/score
     let accentColor = 'border-l-indigo-500';
     if (lead.engagementScore === 'Hot') accentColor = 'border-l-orange-500';
@@ -274,7 +308,8 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
             ref={provided.innerRef}
             {...provided.draggableProps}
             {...provided.dragHandleProps}
-            className={`bg-white p-3 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-all group border-l-4 relative ${accentColor} ${snapshot.isDragging ? 'shadow-2xl rotate-2 scale-105 z-50' : ''}`}
+            onClick={onClick}
+            className={`bg-white p-3 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-all group border-l-4 relative ${accentColor} ${snapshot.isDragging ? 'shadow-2xl rotate-2 scale-105 z-50' : ''} cursor-pointer`}
             style={provided.draggableProps.style}
         >
             {/* Top Right Temperature Badge */}
