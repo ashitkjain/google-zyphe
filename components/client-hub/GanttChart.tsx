@@ -5,6 +5,7 @@ interface GanttChartProps {
     categories: ChecklistCategory[];
     startDate?: Date;
     onTaskStatusChange?: (catId: string, taskId: string, newStatus: 'Pending' | 'Completed') => void;
+    onAddComment?: (catId: string, taskId: string, comment: string) => void;
 }
 
 interface ProcessedTask {
@@ -19,6 +20,7 @@ interface ProcessedTask {
     dependsOn: string[];
     row: number;
     status: 'Pending' | 'Completed' | 'Rejected';
+    comments?: string;
     type: 'task';
     rawTask: any;
 }
@@ -34,6 +36,7 @@ interface CategoryBar {
     row: number;
     dependsOn: string[]; // Category IDs
     rawCategory: ChecklistCategory;
+    hasComments?: boolean;
     type: 'category';
 }
 
@@ -46,9 +49,16 @@ const CATEGORY_COLORS = [
     'bg-blue-600',
 ];
 
-const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Date(), onTaskStatusChange }) => {
-    const [zoom, setZoom] = useState<'day' | 'week'>('day');
-    const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Date(), onTaskStatusChange, onAddComment }) => {
+    const [zoom, setZoom] = useState<'day' | 'week'>('week');
+    const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['c1']));
+    const [commentModal, setCommentModal] = useState<{
+        isOpen: boolean;
+        catId: string;
+        taskId: string;
+        currentComment: string;
+        taskName: string;
+    } | null>(null);
 
     // 1. Core Scheduling Logic (Global)
     const { globalTaskMap, globalCategoryBars } = useMemo(() => {
@@ -57,7 +67,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
 
         // Flatten tasks
         categories.forEach((cat, catIdx) => {
-            const colorClass = 'bg-sky-500'; // Uniform blue tasks
+            const colorClass = 'bg-indigo-500'; // Uniform blue tasks
             cat.tasks.forEach(task => {
                 const newTask: ProcessedTask = {
                     id: task.id,
@@ -71,6 +81,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
                     dependsOn: task.dependsOn || [],
                     row: 0, // Assigned later for display
                     status: task.status,
+                    comments: task.comments,
                     type: 'task',
                     rawTask: task
                 };
@@ -116,11 +127,12 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
             const start = catTasks.length ? Math.min(...catTasks.map(t => t.startDay)) : 0;
             const end = catTasks.length ? Math.max(...catTasks.map(t => t.endDay)) : 1;
             const progress = catTasks.length ? Math.round((catTasks.filter(t => t.status === 'Completed').length / catTasks.length) * 100) : 0;
+            const hasComments = catTasks.some(t => t.comments && t.comments.trim().length > 0);
 
             return {
                 id: cat.id,
                 name: cat.name,
-                color: 'bg-sky-200', // Reference style: Light blue for group
+                color: 'bg-indigo-200', // Reference style: Light blue for group
                 startDay: start,
                 endDay: end,
                 duration: end - start,
@@ -128,6 +140,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
                 row: 0, // Assigned later
                 dependsOn: Array.from(depCatIds),
                 rawCategory: cat,
+                hasComments,
                 type: 'category'
             } as CategoryBar;
         });
@@ -218,7 +231,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
             {/* Toolbar */}
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white z-20">
                 <div className="flex items-center gap-4">
-                    <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center shadow-sm">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-sm">
                         <i className="fa-solid fa-list-check text-white text-sm"></i>
                     </div>
                     <div>
@@ -226,8 +239,8 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
                     </div>
                 </div>
                 <div className="flex bg-slate-100 p-1 rounded-lg">
-                    <button onClick={() => setZoom('day')} className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all ${zoom === 'day' ? 'bg-white shadow text-orange-600' : 'text-slate-500'}`}>Daily</button>
-                    <button onClick={() => setZoom('week')} className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all ${zoom === 'week' ? 'bg-white shadow text-orange-600' : 'text-slate-500'}`}>Weekly</button>
+                    <button onClick={() => setZoom('week')} className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all ${zoom === 'week' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`}>Weekly</button>
+                    <button onClick={() => setZoom('day')} className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all ${zoom === 'day' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`}>Daily</button>
                 </div>
             </div>
 
@@ -237,7 +250,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
                     {/* Grid & Header */}
                     <div className="absolute top-0 left-[300px] right-0 bottom-0">
                         {/* Header */}
-                        <div className="h-[60px] border-b border-slate-200 flex flex-col sticky top-0 bg-white z-10 w-full shadow-sm">
+                        <div className="h-[60px] border-b border-slate-200 flex flex-col sticky top-0 bg-white z-40 w-full shadow-sm">
                             {/* Month Row */}
                             <div className="flex-1 flex border-b border-slate-100">
                                 {/* We need to span months. A simple way: render every day and check if month changes. */}
@@ -307,7 +320,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
                                     key={item.id}
                                     style={{ height: rowHeight }}
                                     className={`flex items-center px-0 border-b border-slate-100 transition-colors 
-                                        ${item.type === 'category' ? 'bg-orange-500 hover:bg-orange-600 text-white cursor-pointer' : 'hover:bg-slate-50 text-slate-700'}
+                                        ${item.type === 'category' ? 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer' : 'hover:bg-slate-50 text-slate-700'}
                                     `}
                                     onClick={() => item.type === 'category' ? toggleExpand(item.id) : null}
                                 >
@@ -315,10 +328,34 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
                                         {item.type === 'category' ? (
                                             <>
                                                 <i className={`fa-solid fa-chevron-right text-[10px] w-4 transition-transform duration-200 ${expandedIds.has(item.id) ? 'rotate-90' : ''}`}></i>
-                                                <span className="text-xs font-bold truncate tracking-tight">{item.name}</span>
+                                                <span className="text-xs font-bold truncate tracking-tight flex-1">{item.name}</span>
+                                                {/* Parent Task Dot Indicator */}
+                                                {(item as CategoryBar).hasComments && (
+                                                    <div className="w-2 h-2 rounded-full bg-white ml-2 shadow-sm animate-pulse"></div>
+                                                )}
                                             </>
                                         ) : (
                                             <>
+                                                {/* Note Icon */}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const task = item as ProcessedTask;
+                                                        setCommentModal({
+                                                            isOpen: true,
+                                                            catId: task.catId,
+                                                            taskId: task.id,
+                                                            currentComment: task.comments || '',
+                                                            taskName: task.name
+                                                        });
+                                                    }}
+                                                    className={`w-5 h-5 flex-shrink-0 flex items-center justify-center mr-1 transition-colors ${(item as ProcessedTask).comments ? 'text-indigo-600' : 'text-slate-300 hover:text-slate-500'
+                                                        }`}
+                                                    title={(item as ProcessedTask).comments || "Add Note"}
+                                                >
+                                                    <i className={`${(item as ProcessedTask).comments ? 'fa-solid' : 'fa-regular'} fa-comment-dots text-xs`}></i>
+                                                </button>
+
                                                 {/* Toggle Button (Replaces Serial #) */}
                                                 <button
                                                     onClick={(e) => {
@@ -440,7 +477,85 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate = new Dat
                     </div>
                 </div>
             </div>
-        </div>
+
+            {/* Comment Modal */}
+            {
+                commentModal && commentModal.isOpen && (
+                    <div
+                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+                        onClick={() => setCommentModal(null)}
+                    >
+                        <div
+                            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all animate-in zoom-in-95 duration-200"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
+                                        <i className="fa-solid fa-comment-dots text-sm"></i>
+                                    </div>
+                                    <h3 className="font-bold text-slate-800 text-sm">Add Note</h3>
+                                </div>
+                                <button
+                                    onClick={() => setCommentModal(null)}
+                                    className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                                >
+                                    <i className="fa-solid fa-times"></i>
+                                </button>
+                            </div>
+                            <div className="p-6">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                                    Task: <span className="text-indigo-600">{commentModal.taskName}</span>
+                                </label>
+                                <textarea
+                                    autoFocus
+                                    className="w-full h-32 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all text-sm text-slate-700 resize-none font-medium mb-6 placeholder:text-slate-400 focus:bg-white"
+                                    placeholder="Type your notes here..."
+                                    value={commentModal.currentComment}
+                                    onChange={(e) => setCommentModal({ ...commentModal, currentComment: e.target.value })}
+                                ></textarea>
+
+                                <div className="flex items-center gap-3">
+                                    {/* Delete Button - Only show if there is an existing comment to delete */}
+                                    {commentModal.currentComment && (
+                                        <button
+                                            onClick={() => {
+                                                if (onAddComment) {
+                                                    onAddComment(commentModal.catId, commentModal.taskId, '');
+                                                }
+                                                setCommentModal(null);
+                                            }}
+                                            className="px-4 py-3 rounded-xl bg-red-50 text-red-500 font-bold text-xs uppercase tracking-wider hover:bg-red-100 transition-colors"
+                                            title="Delete Note"
+                                        >
+                                            <i className="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    )}
+
+                                    <button
+                                        onClick={() => setCommentModal(null)}
+                                        className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider hover:bg-slate-50 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            if (onAddComment) {
+                                                onAddComment(commentModal.catId, commentModal.taskId, commentModal.currentComment);
+                                            }
+                                            setCommentModal(null);
+                                        }}
+                                        className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold text-xs uppercase tracking-wider hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition-all transform active:scale-95"
+                                    >
+                                        Save Note
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 };
 
