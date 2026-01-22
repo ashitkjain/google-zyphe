@@ -6,7 +6,7 @@ export interface Strategy {
     description: string;
     subject: string;
     generate: (name: string) => string;
-    type: 'email' | 'sms';
+    type: 'email' | 'sms' | 'call' | 'mail' | 'whatsapp';
 }
 
 export interface Trigger {
@@ -100,6 +100,7 @@ export const STRATEGIES: Strategy[] = [
         generate: (name: string) => `Hi ${name},\n\nWe just helped a family in your neighborhood sell their home for [Price] in just [Days] days! The market is still moving for the right properties.\n\nI wanted to share this win because it reminds me of your goals. Here is what they had to say: "[Quote]"\n\nCurious what your home might be worth in today's market?`,
         type: 'email'
     },
+
     {
         id: 'strategy_10',
         title: 'Market Report Update',
@@ -107,6 +108,217 @@ export const STRATEGIES: Strategy[] = [
         subject: 'Market Update: Is now the time?',
         generate: (name: string) => `Hi ${name},\n\nI've been tracking the local numbers, and I noticed an interesting trend this month that impacts homeowners in your area.\n\nI've summarized the key stats in the attached report. It's looking like an interesting time for [Buyers/Sellers].\n\nTake a look and let me know your thoughts!`,
         type: 'email'
+    },
+    {
+        id: 'strategy_11',
+        title: 'Quick Text Check-in',
+        description: 'Casual text to gauge interest.',
+        subject: '',
+        generate: (name: string) => `Hi ${name}, it's [Agent Name]. Saw a property that reminded me of what we discussed a while back. Are you still keeping an eye on the market?`,
+        type: 'sms'
+    },
+    {
+        id: 'strategy_12',
+        title: 'Rate Drop Alert (SMS)',
+        description: 'Urgent update about rates.',
+        subject: '',
+        generate: (name: string) => `Hi ${name}! Rates just dipped to [Rate]%. Thought of you immediately. Let me know if you want to run the numbers again on that budget.`,
+        type: 'sms'
+    },
+    // CALL SCRIPTS
+    {
+        id: 'call_1',
+        title: 'Special Date Call',
+        description: 'Call on important dates (Birthday, Anniversary).',
+        subject: 'Call Script',
+        generate: (name: string) => `(Call Script)\n"Hi ${name}! Happy [Birthday/Anniversary]! I just wanted to give you a quick ring to wish you a great day. How are you celebrating?"`,
+        type: 'call'
+    },
+    {
+        id: 'call_2',
+        title: 'Home Satisfaction Check',
+        description: 'Check how living in their home is going.',
+        subject: 'Call Script',
+        generate: (name: string) => `(Call Script)\n"Hi ${name}, checking in to see how you're settling in? Is everything working out with the house? Let me know if you need any referrals for contractors or services!"`,
+        type: 'call'
+    },
+    {
+        id: 'call_3',
+        title: 'Maintenance Check-in',
+        description: 'Offer help with property maintenance.',
+        subject: 'Call Script',
+        generate: (name: string) => `(Call Script)\n"Hey ${name}, springtime is around the corner. Do you need any recommendations for landscapers or HVAC tune-ups? I have a great list of vendors."`,
+        type: 'call'
+    },
+    {
+        id: 'call_4',
+        title: 'Cold Lead Check-in',
+        description: 'Check in on cold leads.',
+        subject: 'Call Script',
+        generate: (name: string) => `(Call Script)\n"Hi ${name}, it's [Name] from Zyphe. Just wanted to check in and see how you're doing? Are you still thinking about that move later this year?"`,
+        type: 'call'
+    },
+    {
+        id: 'call_5',
+        title: 'Event Invitation',
+        description: 'Personally invite them to an event.',
+        subject: 'Call Script',
+        generate: (name: string) => `(Call Script)\n"Hi ${name}, I'm hosting a client appreciation event at [Place] on [Date]. I'd love to see you there! Can you make it?"`,
+        type: 'call'
+    },
+    {
+        id: 'call_6',
+        title: 'CMA Offer (Longtime Client)',
+        description: 'Offer customized CMA and market update.',
+        subject: 'Call Script',
+        generate: (name: string) => `(Call Script)\n"Hi ${name}, you've been in the home for a while now. The market has moved quite a bit. I'd love to send you an updated valuation (CMA) so you know where you stand. Would that be helpful?"`,
+        type: 'call'
+    },
+    {
+        id: 'call_7',
+        title: 'Lunch/Coffee Catch-up',
+        description: 'Invite to meet up.',
+        subject: 'Call Script',
+        generate: (name: string) => `(Call Script)\n"Hey ${name}, it's been too long! I'd love to grab coffee or lunch next week and catch up. Are you around?"`,
+        type: 'call'
+    },
+    {
+        id: 'call_8',
+        title: 'Share Recent Win',
+        description: 'Share a neighbor success story.',
+        subject: 'Call Script',
+        generate: (name: string) => `(Call Script)\n"Hi ${name}, we just sold a home around the corner from you for [Price], which was well over asking. It made me think of your property value. Do you have a minute to chat?"`,
+        type: 'call'
+    },
+    // MORE TEXT PROMPTS
+    {
+        id: 'text_1',
+        title: 'Thinking of You',
+        description: 'Casual check-in.',
+        subject: '',
+        generate: (name: string) => `Hi ${name}, I was just driving past your neighborhood and thought of you! Hope you're loving the new place.`,
+        type: 'sms'
+    },
+    {
+        id: 'text_2',
+        title: 'Journey Check-in',
+        description: 'See where they are in their journey.',
+        subject: '',
+        generate: (name: string) => `Hi ${name}, just checking in! Where are you at in your home search journey? Anything I can answer for you today?`,
+        type: 'sms'
+    },
+    {
+        id: 'text_3',
+        title: 'Seasonal Greeting',
+        description: 'Photo of local foliage/season.',
+        subject: '',
+        generate: (name: string) => `[Send Photo of Foliage] Hi ${name}, the neighborhood looks beautiful this time of year! Hope you're enjoying the season.`,
+        type: 'sms'
+    },
+    {
+        id: 'text_4',
+        title: 'Personal Connection',
+        description: 'Reference a detail about them.',
+        subject: '',
+        generate: (name: string) => `Hi ${name}, I just saw [Item/Article] and it reminded me of [Detail] we talked about! Hope you're doing well.`,
+        type: 'sms'
+    },
+    {
+        id: 'text_5',
+        title: 'Event Invite (Text)',
+        description: 'Invite to event via text.',
+        subject: '',
+        generate: (name: string) => `Hi ${name}, we're hosting a [Event] on [Date]. Would love to have you come by! Let me know if you can make it.`,
+        type: 'sms'
+    },
+    {
+        id: 'text_6',
+        title: 'Home Anniversary (Text)',
+        description: 'Photo from closing day.',
+        subject: '',
+        generate: (name: string) => `[Send Closing Photo] Hi ${name}, can't believe it's been [X] years! Happy home anniversary!`,
+        type: 'sms'
+    },
+    {
+        id: 'text_7',
+        title: 'Vendor Recommendation',
+        description: 'Suggest maintenance vendors.',
+        subject: '',
+        generate: (name: string) => `Hi ${name}, doing some spring cleaning? If you need a great window washer or housekeeper, I have a few trusted contacts I can share. Let me know!`,
+        type: 'sms'
+    },
+    {
+        id: 'text_8',
+        title: 'Reconnection Request',
+        description: 'Ask cold leads to reconnect.',
+        subject: '',
+        generate: (name: string) => `Hi ${name}, long time no talk! Any interest in grabbing a quick coffee to catch up on the market?`,
+        type: 'sms'
+    },
+    {
+        id: 'text_9',
+        title: 'Market Shift Update',
+        description: 'Update on home prices/trends.',
+        subject: '',
+        generate: (name: string) => `Hi ${name}, inventory just tightened up significantly in [Area]. This is pushing prices up. Might be relevant if you're still considering selling.`,
+        type: 'sms'
+    },
+    {
+        id: 'text_10',
+        title: 'Open House Invite',
+        description: 'Text invite to open house.',
+        subject: '',
+        generate: (name: string) => `Hi ${name}, I'm holding an open house at [Address] this Sunday. It's similar to what you were looking for. Swing by if you're around!`,
+        type: 'sms'
+    },
+    // DIRECT MAIL PROMPTS
+    {
+        id: 'mail_1',
+        title: 'Special Date Card',
+        description: 'Card for birthday/anniversary.',
+        subject: 'Greeting Card',
+        generate: (name: string) => `(Handwritten Note)\n"Dear ${name},\n\nWishing you a wonderful [Birthday/Anniversary]! Hope this year brings you much happiness and success.\n\nBest,\n[Agent Name]"`,
+        type: 'mail'
+    },
+    {
+        id: 'mail_2',
+        title: 'Neighborhood Postcard',
+        description: 'Themed postcard with appreciation note.',
+        subject: 'Postcard',
+        generate: (name: string) => `(Postcard Note)\n"Hi ${name},\n\nJust wanted to send a quick note to say how much I appreciate having you as a client. Hope you're enjoying [Neighborhood]!\n\nCheers,\n[Agent Name]"`,
+        type: 'mail'
+    },
+    {
+        id: 'mail_3',
+        title: 'Cold Lead Postcard',
+        description: 'Local themed check-in.',
+        subject: 'Postcard',
+        generate: (name: string) => `(Postcard Note)\n"Hi ${name},\n\nThinking of making a move this year? The market in [Area] is shifting. Give me a call if you want the latest stats!\n\nBest,\n[Agent Name]"`,
+        type: 'mail'
+    },
+    {
+        id: 'mail_4',
+        title: 'Just Listed/Sold Mailer',
+        description: 'Show off latest listing.',
+        subject: 'Mailer',
+        generate: (name: string) => `(Mailer Note)\n"Hi ${name},\n\nCheck out this home we just [Listed/Sold] nearby! The market is [Hot/Stable]. Curious what your home is worth today?\n\nCall me,\n[Agent Name]"`,
+        type: 'mail'
+    },
+    {
+        id: 'mail_5',
+        title: 'Branded Gift',
+        description: 'Magnet, pen, or notepad.',
+        subject: 'Gift Item',
+        generate: (name: string) => `(Gift Note)\n"Hi ${name},\n\nA little something for your fridge/desk! Hope you find it useful. \n\nAlways here if you need anything,\n[Agent Name]"`,
+        type: 'mail'
+    },
+    {
+        id: 'mail_6',
+        title: 'Pop-by Gift',
+        description: 'Drop off small gift in person.',
+        subject: 'In-person Drop',
+        generate: (name: string) => `(Item: Fresh baked goods / Wine / Goodie bag)\nStop by and say:\n"Hi ${name}, was in the neighborhood and wanted to drop this off. Hope you enjoy!"`,
+        type: 'mail'
     }
 ];
 

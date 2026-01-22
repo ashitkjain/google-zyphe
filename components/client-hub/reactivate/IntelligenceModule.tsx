@@ -4,7 +4,7 @@ import { getTimeSince } from './shared';
 
 interface IntelligenceModuleProps {
     candidates: Lead[];
-    onSelectCandidate: (leadId: string) => void;
+    onSelectCandidate: (leadId: string, channel?: 'email' | 'call' | 'sms' | 'whatsapp' | 'mail') => void;
 }
 
 const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({ candidates, onSelectCandidate }) => {
@@ -107,13 +107,45 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({ candidates, onS
                                             <span className="font-bold text-xs">{prob}%</span>
                                         </div>
                                     </td>
+
                                     <td className="px-6 py-4 text-right">
-                                        <button
-                                            onClick={() => onSelectCandidate(lead.id)}
-                                            className="text-indigo-600 hover:text-indigo-800 font-bold text-xs uppercase tracking-widest hover:underline"
-                                        >
-                                            Generate Outreach
-                                        </button>
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => onSelectCandidate(lead.id, 'email')}
+                                                className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors flex items-center justify-center"
+                                                title="Email"
+                                            >
+                                                <i className="fa-solid fa-envelope text-xs"></i>
+                                            </button>
+                                            <button
+                                                onClick={() => onSelectCandidate(lead.id, 'call')}
+                                                className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition-colors flex items-center justify-center"
+                                                title="Call"
+                                            >
+                                                <i className="fa-solid fa-phone text-xs"></i>
+                                            </button>
+                                            <button
+                                                onClick={() => onSelectCandidate(lead.id, 'sms')}
+                                                className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center justify-center"
+                                                title="SMS"
+                                            >
+                                                <i className="fa-solid fa-comment text-xs"></i>
+                                            </button>
+                                            <button
+                                                onClick={() => onSelectCandidate(lead.id, 'whatsapp')}
+                                                className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors flex items-center justify-center"
+                                                title="WhatsApp"
+                                            >
+                                                <i className="fa-brands fa-whatsapp text-xs"></i>
+                                            </button>
+                                            <button
+                                                onClick={() => onSelectCandidate(lead.id, 'mail')}
+                                                className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-purple-50 hover:text-purple-600 transition-colors flex items-center justify-center"
+                                                title="Direct Mail"
+                                            >
+                                                <i className="fa-solid fa-paper-plane text-xs"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             );

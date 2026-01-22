@@ -12,6 +12,7 @@ interface ReactivateTabProps {
 const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads }) => {
     const [selectedModule, setSelectedModule] = useState<'INTELLIGENCE' | 'OUTREACH' | 'TRIGGERS'>('INTELLIGENCE');
     const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+    const [selectedChannel, setSelectedChannel] = useState<'email' | 'call' | 'sms' | 'whatsapp' | 'mail' | undefined>('email');
 
     // Filter for candidates: Archived status or Stale health
     const candidates = leads.filter(l => l.status === 'Archived' || l.health === 'Stale');
@@ -23,8 +24,9 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads }) => {
         }
     }, [selectedCandidateId]);
 
-    const handleSelectCandidate = (leadId: string) => {
+    const handleSelectCandidate = (leadId: string, channel?: 'email' | 'call' | 'sms' | 'whatsapp' | 'mail') => {
         setSelectedCandidateId(leadId);
+        if (channel) setSelectedChannel(channel);
         // Effect will switch tab
     };
 
@@ -41,16 +43,10 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads }) => {
                 </div>
 
                 <nav className="space-y-1">
+
                     <button
                         onClick={() => setSelectedModule('INTELLIGENCE')}
-                        className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all ${selectedModule === 'INTELLIGENCE' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-medium'}`}
-                    >
-                        <i className="fa-solid fa-brain w-5 text-center"></i>
-                        <span className="text-xs uppercase tracking-widest">Intelligence</span>
-                    </button>
-                    <button
-                        onClick={() => setSelectedModule('OUTREACH')}
-                        className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all ${selectedModule === 'OUTREACH' ? 'bg-purple-50 text-purple-700 font-bold' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-medium'}`}
+                        className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all ${['INTELLIGENCE', 'OUTREACH'].includes(selectedModule) ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-medium'}`}
                     >
                         <i className="fa-solid fa-wand-magic-sparkles w-5 text-center"></i>
                         <span className="text-xs uppercase tracking-widest">AI Outreach</span>
@@ -88,6 +84,7 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads }) => {
                         realtorId={realtorId}
                         leads={leads}
                         selectedCandidateId={selectedCandidateId}
+                        initialChannel={selectedChannel}
                         onClearSelection={() => setSelectedCandidateId(null)}
                         onGoToIntelligence={() => setSelectedModule('INTELLIGENCE')}
                     />
