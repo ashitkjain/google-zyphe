@@ -9,6 +9,7 @@ import { Transaction, ChecklistCategory, CRMTask } from "../../types";
 import { calculateChecklistSchedule, getInitialCategories } from "../transactionService";
 import { seedPartiesForTransaction } from "./parties";
 import { seedDocumentsForTransaction } from "./documents";
+import { logAuditEvent } from "./audit";
 
 // ===== TRANSACTIONS & TASKS =====
 
@@ -54,6 +55,16 @@ export const updateTransaction = async (transactionId: string, updates: Partial<
             ...updates,
             updated_at: serverTimestamp()
         }), { merge: true });
+
+        // Log Audit
+        await logAuditEvent({
+            transaction_id: transactionId,
+            entity_id: transactionId,
+            entity_type: 'Transaction',
+            action: 'UPDATE',
+            diff: { after: updates }
+        });
+
         return true;
     } catch (error) {
         handleFirestoreError(error, "updateTransaction");
@@ -159,6 +170,15 @@ export const createTransaction = async (transaction: Transaction, initialCategor
         }));
 
         await batch.commit();
+
+        // Log Audit
+        await logAuditEvent({
+            transaction_id: transactionId,
+            entity_id: transactionId,
+            entity_type: 'Transaction',
+            action: 'CREATE',
+            diff: { after: finalTransactionObj }
+        });
 
         // After commit, seed initial parties and documents (asynchronously)
         if (initialCategories) {

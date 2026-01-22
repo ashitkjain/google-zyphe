@@ -71,7 +71,8 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
 
     const handleDeleteTask = async (taskId: string) => {
         if (!window.confirm("Are you sure you want to delete this task?")) return;
-        const success = await deleteTask(taskId);
+        const taskToDelete = tasks.find(t => t.id === taskId);
+        const success = await deleteTask(taskId, taskToDelete?.transaction_id);
         if (success) {
             setTasks(prev => prev.filter(t => t.id !== taskId));
         } else {
@@ -104,7 +105,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                 await updateTask(task.id, {
                     ...task,
                     dueDate: ensureDate(task.dueDate)
-                });
+                }, task.transaction_id);
             }
 
             // 2. Add new ones from extraRows

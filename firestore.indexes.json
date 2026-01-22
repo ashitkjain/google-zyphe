@@ -27,6 +27,20 @@
                     "order": "ASCENDING"
                 }
             ]
+        },
+        {
+            "collectionGroup": "audit_events",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "transaction_id",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "occurred_at",
+                    "order": "DESCENDING"
+                }
+            ]
         }
     ],
     "fieldOverrides": []

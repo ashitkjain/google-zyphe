@@ -125,7 +125,7 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
 
         // Persist change to CRMTasks collection (Source of Truth)
         try {
-            await updateTask(taskId, { status: status as any });
+            await updateTask(taskId, { status: status as any }, transaction?.id);
         } catch (err) {
             console.error("Error updating task status:", err);
         }
@@ -143,7 +143,7 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
 
         // Persist change to CRMTasks collection (Source of Truth)
         try {
-            await updateTask(taskId, { comment });
+            await updateTask(taskId, { comment }, transaction?.id);
         } catch (err) {
             console.error("Error adding task comment:", err);
         }
@@ -177,7 +177,7 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
                 comment: updates.comment,
                 startDate: updates.startDate,
                 dueDate: updates.dueDate
-            });
+            }, transaction?.id);
         } catch (err) {
             console.error("Error updating task details:", err);
         }

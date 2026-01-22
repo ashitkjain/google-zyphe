@@ -289,37 +289,31 @@ export const generateMockTransactionDocuments = (transactionId: string) => {
         {
             name: 'Purchase Agreement (RPA)',
             status: 'Pending',
-            comments: 'Pending upload',
-            category: 'Contract'
+            category: 'CONTRACT'
         },
         {
             name: 'Agency Disclosure (AD)',
             status: 'Pending',
-            comments: '',
-            category: 'Disclosure'
+            category: 'DISCLOSURE'
         },
         {
             name: 'Transfer Disclosure Statement (TDS)',
             status: 'Pending',
-            comments: 'Waiting on seller signature',
-            category: 'Disclosure'
+            category: 'DISCLOSURE'
         },
         {
             name: 'Preliminary Title Report',
             status: 'Pending',
-            comments: 'Title search in progress',
-            category: 'Title'
+            category: 'TITLE'
         },
         {
             name: 'Home Inspection Report',
             status: 'Pending',
-            comments: 'Inspection scheduled',
-            category: 'Inspection'
+            category: 'INSPECTION'
         },
         {
             name: 'HOA Documents',
             status: 'Pending',
-            comments: 'Requested from management co.',
             category: 'HOA'
         }
     ];

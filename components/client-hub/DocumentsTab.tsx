@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Lead, Document } from '../../types';
-import { getTransactionDocuments, addTransactionDocument, updateTransactionDocument, deleteTransactionDocument, getTransactionByClientId, seedDocumentsForTransaction, getTransactions, uploadTransactionDocumentFile, getDocumentDownloadUrl, addDocumentVersion } from '../../services/firebaseService';
+import { getTransactionDocuments, addTransactionDocument, updateTransactionDocument, deleteTransactionDocument, getTransactionByClientId, seedDocumentsForTransaction, getTransactions, uploadTransactionDocumentFile, getDocumentDownloadUrl, addDocumentVersion, getDocumentVersions } from '../../services/firebaseService';
 
 interface DocumentsTabProps {
     lead: Lead;
@@ -83,6 +83,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<Partial<Document>>({});
     const [isAdding, setIsAdding] = useState(false);
+    const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploadTargetId, setUploadTargetId] = useState<string | null>(null); // Track which doc we are uploading to
 
@@ -248,17 +249,29 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
     };
 
     const handleViewFile = async (doc: Document) => {
-        if (!doc.storage_path) return;
+        const storagePath = doc.current_version?.storage_path || (doc as any).storage_path;
+        if (!storagePath) return;
         try {
-            const url = await getDocumentDownloadUrl(doc.storage_path);
-            if (url) {
-                window.open(url, '_blank');
-            } else {
-                alert("Could not retrieve secure link for this file.");
-            }
+            const url = await getDocumentDownloadUrl(storagePath);
+            if (url) window.open(url, '_blank');
         } catch (error) {
-            console.error("Error viewing file:", error);
+            console.error("Error opening document:", error);
         }
+    };
+
+    const handleToggleVersions = async (docId: string) => {
+        if (expandedDocId === docId) {
+            setExpandedDocId(null);
+            return;
+        }
+
+        // Fetch versions if not already present
+        const doc = documents.find(d => d.id === docId);
+        if (doc && !doc.current_version) {
+            const versions = await getDocumentVersions(docId);
+            setDocuments(documents.map(d => d.id === docId ? { ...d, current_version: versions[0], versions: versions } as any : d));
+        }
+        setExpandedDocId(docId);
     };
 
     const getStatusBadgeColor = (status: string) => {
@@ -322,14 +335,13 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
             <div className="overflow-x-auto pb-40"> {/* pb-40 for dropdown space */}
                 <table className="w-full text-left">
                     <thead>
-                        <tr className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
-                            <th className="px-6 py-4">Name</th>
-                            <th className="px-6 py-4">Category</th>
-                            <th className="px-6 py-4">Status</th>
-                            <th className="px-6 py-4">Comments</th>
-                            <th className="px-6 py-4 text-center">Attachment</th>
-                            <th className="px-6 py-4">Last Updated</th>
-                            <th className="px-6 py-4 text-right">Actions</th>
+                        <tr className="bg-slate-50 border-b border-slate-100">
+                            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</th>
+                            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</th>
+                            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                            <th className="px-6 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Attachment</th>
+                            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Last Updated</th>
+                            <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -409,104 +421,170 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
                             </tr>
                         )}
                         {documents.map(doc => (
-                            <tr key={doc.id} className="group hover:bg-slate-50/50 transition-all">
-                                {editingId === doc.id ? (
-                                    <>
-                                        <td className="px-6 py-4">
-                                            <input
-                                                type="text"
-                                                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                                                value={editForm.name || ''}
-                                                onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                                            />
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <input
-                                                type="text"
-                                                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                                                value={editForm.category || ''}
-                                                onChange={e => setEditForm({ ...editForm, category: e.target.value })}
-                                            />
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <select
-                                                className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                                                value={editForm.status || 'Pending'}
-                                                onChange={e => setEditForm({ ...editForm, status: e.target.value as any })}
-                                            >
-                                                <option value="Pending">Pending</option>
-                                                <option value="Completed" disabled={!editForm.storage_path}>Completed {!editForm.storage_path ? '(Upload Required)' : ''}</option>
-                                                <option value="Rejected">Rejected</option>
-                                            </select>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <input
-                                                type="text"
-                                                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                                                value={editForm.comments || ''}
-                                                onChange={e => setEditForm({ ...editForm, comments: e.target.value })}
-                                            />
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            {/* In edit mode, we don't allow file replace via this icon to keep it simple, use actions instead or just re-upload in normal view */}
-                                            <i className="fa-solid fa-ban text-slate-200" title="File replacement available in main view"></i>
-                                        </td>
-                                        <td className="px-6 py-4 text-xs text-slate-400">
-                                            --
-                                        </td>
-                                        <td className="px-6 py-4 text-right flex items-center justify-end gap-2 text-sm">
-                                            <button onClick={() => handleSave(doc.id)} className="text-indigo-600 hover:text-indigo-700 font-bold text-xs uppercase">Save</button>
-                                            <button onClick={() => setEditingId(null)} className="text-slate-400 hover:text-slate-500 font-bold text-xs uppercase">Cancel</button>
-                                        </td>
-                                    </>
-                                ) : (
-                                    <>
-                                        <td className="px-6 py-4 text-sm font-bold text-slate-800">{doc.name}</td>
-                                        <td className="px-6 py-4">
-                                            <span className="px-2 py-1 bg-slate-100 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-tight">
-                                                {doc.category}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${getStatusBadgeColor(doc.status)}`}>
-                                                {doc.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-slate-600 truncate max-w-[200px]">{doc.comments || '--'}</td>
-                                        <td className="px-6 py-4 text-center">
-                                            {doc.storage_path ? (
-                                                <button
-                                                    onClick={() => handleViewFile(doc)}
-                                                    className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-100 transition-colors"
-                                                    title={`View ${doc.file_name || 'Attachment'}`}
+                            <React.Fragment key={doc.id}>
+                                <tr className={`group hover:bg-slate-50/50 transition-all ${expandedDocId === doc.id ? 'bg-indigo-50/30' : ''}`}>
+                                    {editingId === doc.id ? (
+                                        <>
+                                            <td className="px-6 py-4">
+                                                <input
+                                                    type="text"
+                                                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                                    value={editForm.name || ''}
+                                                    onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                                                />
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <input
+                                                    type="text"
+                                                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                                    value={editForm.category || ''}
+                                                    onChange={e => setEditForm({ ...editForm, category: e.target.value })}
+                                                />
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <select
+                                                    className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                                    value={editForm.status || 'Pending'}
+                                                    onChange={e => setEditForm({ ...editForm, status: e.target.value as any })}
                                                 >
-                                                    <i className="fa-regular fa-file-pdf"></i>
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    onClick={() => triggerUpload(doc.id)}
-                                                    className="w-8 h-8 rounded-full bg-slate-50 text-slate-300 border border-dashed border-slate-300 flex items-center justify-center hover:bg-indigo-50 hover:text-indigo-500 hover:border-indigo-300 transition-all"
-                                                    title="Upload Document"
-                                                >
-                                                    <i className="fa-solid fa-cloud-arrow-up text-xs"></i>
-                                                </button>
-                                            )}
+                                                    <option value="Pending">Pending</option>
+                                                    <option value="Completed" disabled={!editForm.storage_path}>Completed {!editForm.storage_path ? '(Upload Required)' : ''}</option>
+                                                    <option value="Rejected">Rejected</option>
+                                                </select>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <i className="fa-solid fa-ban text-slate-200" title="File replacement available in main view"></i>
+                                            </td>
+                                            <td className="px-6 py-4 text-xs text-slate-400">
+                                                --
+                                            </td>
+                                            <td className="px-6 py-4 text-right flex items-center justify-end gap-2 text-sm">
+                                                <button onClick={() => handleSave(doc.id)} className="text-indigo-600 hover:text-indigo-700 font-bold text-xs uppercase">Save</button>
+                                                <button onClick={() => setEditingId(null)} className="text-slate-400 hover:text-slate-500 font-bold text-xs uppercase">Cancel</button>
+                                            </td>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        onClick={() => handleToggleVersions(doc.id)}
+                                                        className={`w-6 h-6 rounded flex items-center justify-center transition-all ${expandedDocId === doc.id ? 'bg-indigo-600 text-white rotate-180' : 'text-slate-400 hover:bg-slate-100'}`}
+                                                    >
+                                                        <i className="fa-solid fa-chevron-down text-[10px]"></i>
+                                                    </button>
+                                                    <span className="text-sm font-bold text-slate-800">{doc.name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="px-2 py-1 bg-slate-100 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+                                                    {doc.category}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${getStatusBadgeColor(doc.status)}`}>
+                                                    {doc.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                {doc.current_version?.storage_path ? (
+                                                    <button
+                                                        onClick={() => handleViewFile(doc)}
+                                                        className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-100 transition-colors"
+                                                        title={`View ${doc.current_version.original_filename || 'Attachment'}`}
+                                                    >
+                                                        <i className="fa-regular fa-file-pdf"></i>
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => triggerUpload(doc.id)}
+                                                        className="w-8 h-8 rounded-full bg-slate-50 text-slate-300 border border-dashed border-slate-300 flex items-center justify-center hover:bg-indigo-50 hover:text-indigo-500 hover:border-indigo-300 transition-all"
+                                                        title="Upload Document"
+                                                    >
+                                                        <i className="fa-solid fa-cloud-arrow-up text-xs"></i>
+                                                    </button>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-xs text-slate-500 font-medium">
+                                                {formatDate(doc.current_version?.updated_at || doc.current_version?.created_at || null)}
+                                            </td>
+                                            <td className="px-6 py-4 text-right flex items-center justify-end">
+                                                <ActionsDropdown
+                                                    doc={doc}
+                                                    onEdit={handleEdit}
+                                                    onDelete={handleDelete}
+                                                    onUploadVersion={(d) => triggerUpload(d.id)}
+                                                    onView={handleViewFile}
+                                                />
+                                            </td>
+                                        </>
+                                    )}
+                                </tr>
+                                {expandedDocId === doc.id && (
+                                    <tr className="bg-slate-50/50 animate-in slide-in-from-top-1 duration-200">
+                                        <td colSpan={7} className="px-14 py-4">
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">File Version History</h4>
+                                                    <button
+                                                        onClick={() => triggerUpload(doc.id)}
+                                                        className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 bg-white px-2 py-1 rounded border border-indigo-100 hover:border-indigo-200 transition-all"
+                                                    >
+                                                        + Upload New Version
+                                                    </button>
+                                                </div>
+                                                <div className="bg-white border border-slate-100 rounded-xl overflow-hidden">
+                                                    <table className="w-full text-left">
+                                                        <thead className="bg-slate-50 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                                            <tr>
+                                                                <th className="px-4 py-2">Ver</th>
+                                                                <th className="px-4 py-2">Filename</th>
+                                                                <th className="px-4 py-2">Size</th>
+                                                                <th className="px-4 py-2">Uploaded</th>
+                                                                <th className="px-4 py-2 text-right">Action</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-slate-50">
+                                                            {(doc as any).versions ? (
+                                                                (doc as any).versions.map((v: any) => (
+                                                                    <tr key={v.id} className="hover:bg-slate-50/50 transition-colors">
+                                                                        <td className="px-4 py-2 text-xs font-bold text-slate-500">v{v.version_number}</td>
+                                                                        <td className="px-4 py-2 text-xs text-slate-700">{v.original_filename}</td>
+                                                                        <td className="px-4 py-2 text-[10px] text-slate-400">{(v.size / 1024).toFixed(1)} KB</td>
+                                                                        <td className="px-4 py-2 text-[10px] text-slate-400">{formatDate(v.created_at)}</td>
+                                                                        <td className="px-4 py-2 text-right">
+                                                                            <button
+                                                                                onClick={() => handleViewFile({ ...doc, current_version: v } as any)}
+                                                                                className="text-indigo-500 hover:text-indigo-600 transition-colors"
+                                                                                title="Download / View"
+                                                                            >
+                                                                                <i className="fa-solid fa-download text-[10px]"></i>
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))
+                                                            ) : (
+                                                                <tr>
+                                                                    <td colSpan={5} className="px-4 py-6 text-center text-[10px] text-slate-400 italic">
+                                                                        Loading versions...
+                                                                    </td>
+                                                                </tr>
+                                                            )}
+                                                            {doc.versions && doc.versions.length === 0 && (
+                                                                <tr>
+                                                                    <td colSpan={5} className="px-4 py-6 text-center text-[10px] text-slate-400 italic">
+                                                                        No history found
+                                                                    </td>
+                                                                </tr>
+                                                            )}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4 text-xs text-slate-500 font-medium">
-                                            {formatDate(doc.updated_at || doc.created_at)}
-                                        </td>
-                                        <td className="px-6 py-4 text-right flex items-center justify-end">
-                                            <ActionsDropdown
-                                                doc={doc}
-                                                onEdit={handleEdit}
-                                                onDelete={handleDelete}
-                                                onUploadVersion={(d) => triggerUpload(d.id)}
-                                                onView={handleViewFile}
-                                            />
-                                        </td>
-                                    </>
+                                    </tr>
                                 )}
-                            </tr>
+                            </React.Fragment>
                         ))}
                     </tbody>
                 </table>

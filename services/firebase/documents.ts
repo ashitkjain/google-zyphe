@@ -6,8 +6,9 @@ import {
     logFirestoreQuery,
     handleFirestoreError
 } from "./config";
-import { Document, DocumentVersion } from "../../types";
+import { Document, DocumentVersion, FileMetadata } from "../../types";
 import { generateMockTransactionDocuments } from "../mockData";
+import { logAuditEvent } from "./audit";
 
 // Helper to get a secure download URL
 
@@ -38,10 +39,32 @@ const computeSHA256 = async (file: File): Promise<string> => {
     }
 };
 
+export const getDocumentWithVersions = async (docId: string): Promise<Document | null> => {
+    if (!db || !docId) return null;
+    try {
+        const docRef = doc(db, "transaction_documents", docId);
+        const [docSnap, versions] = await Promise.all([
+            getDoc(docRef),
+            getDocumentVersions(docId)
+        ]);
+
+        if (!docSnap.exists()) return null;
+
+        return {
+            id: docSnap.id,
+            ...docSnap.data(),
+            current_version: versions[0] || null
+        } as Document;
+    } catch (error) {
+        handleFirestoreError(error, "getDocumentWithVersions");
+        return null;
+    }
+};
+
 export const uploadTransactionDocumentFile = async (
     transactionId: string,
     file: File
-): Promise<{ storage_path: string; file_type: string; file_name: string; file_hash: string } | null> => {
+): Promise<FileMetadata | null> => {
     const storage = getStorage();
     // Path: transactions/{transactionId}/documents/{timestamp}_{filename}
     // Using timestamp to avoid naming collisions
@@ -55,14 +78,30 @@ export const uploadTransactionDocumentFile = async (
         ]);
 
         return {
-            storage_path: snapshot.ref.fullPath, // Use fullPath to store
+            storage_path: snapshot.ref.fullPath,
             file_type: file.type,
-            file_name: file.name,
-            file_hash: fileHash
+            original_filename: file.name,
+            sha256: fileHash
         };
     } catch (error) {
         console.error("Error uploading file:", error);
         return null;
+    }
+};
+
+export const getDocumentVersions = async (documentId: string): Promise<DocumentVersion[]> => {
+    if (!db || !documentId) return [];
+    try {
+        logFirestoreQuery('getDocs', `transaction_documents/${documentId}/versions`, {});
+        const q = query(collection(db, "transaction_documents", documentId, "versions"));
+        const snap = await getDocs(q);
+        const versions = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DocumentVersion));
+
+        // Sort by version number descending
+        return versions.sort((a, b) => (b.version_number || 0) - (a.version_number || 0));
+    } catch (error) {
+        handleFirestoreError(error, "getDocumentVersions");
+        return [];
     }
 };
 
@@ -77,24 +116,8 @@ export const getTransactionDocuments = async (transactionId: string) => {
         const snap = await getDocs(q);
 
         const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Document));
-        // Sort by created_at in memory
-        return docs.sort((a, b) => {
-            const getTime = (val: any) => {
-                if (!val) return 0;
-                if (val.toDate && typeof val.toDate === 'function') {
-                    return val.toDate().getTime(); // Firestore Timestamp
-                }
-                if (val instanceof Date) {
-                    return val.getTime(); // JS Date
-                }
-                if (typeof val === 'string') {
-                    return new Date(val).getTime(); // ISO String
-                }
-                return 0;
-            };
-
-            return getTime(a.created_at) - getTime(b.created_at);
-        });
+        // Sort by name since created_at is removed from parent
+        return docs.sort((a, b) => a.name.localeCompare(b.name));
     } catch (error) {
         handleFirestoreError(error, "getTransactionDocuments");
         return [];
@@ -108,34 +131,40 @@ export const addTransactionDocument = async (transactionId: string, docData: Par
         const now = serverTimestamp();
         const docRef = await addDoc(collection(db, "transaction_documents"), {
             ...sanitizeForFirestore(docData),
-            transaction_id: transactionId,
-            current_version_number: docData.storage_path ? 1 : 0,
-            created_at: now,
-            updated_at: now
+            transaction_id: transactionId
         });
 
         // If initial document has a file, create Version 1 record in subcollection
-        if (docData.storage_path) {
+        // If initial document has a file, create Version 1 record in subcollection
+        if (docData.current_version?.storage_path) {
             const versionData: Omit<DocumentVersion, 'id'> = {
                 document_id: docRef.id,
                 version_number: 1,
-                storage_path: docData.storage_path,
-                file_name: docData.file_name || 'Unknown',
-                file_type: docData.file_type || 'application/octet-stream',
-                file_hash: docData.file_hash || '',
-                size: 0,
+                storage_path: docData.current_version.storage_path,
+                original_filename: docData.current_version.original_filename || 'Unknown',
+                file_type: docData.current_version.file_type || 'application/octet-stream',
+                sha256: docData.current_version.sha256 || '',
+                size: docData.current_version.size || 0,
+                source: 'UPLOAD',
                 created_at: now,
+                updated_at: now,
                 created_by: 'user'
             };
             await addDoc(collection(db, "transaction_documents", docRef.id, "versions"), versionData);
         }
 
+        // Log Audit
+        await logAuditEvent({
+            transaction_id: transactionId,
+            entity_id: docRef.id,
+            entity_type: 'Document',
+            action: 'CREATE',
+            diff: { after: docData }
+        });
+
         return {
             id: docRef.id,
-            ...docData,
-            current_version_number: docData.storage_path ? 1 : 0,
-            created_at: new Date(),
-            updated_at: new Date()
+            ...docData
         } as Document;
     } catch (error) {
         handleFirestoreError(error, "addTransactionDocument");
@@ -149,13 +178,17 @@ export const updateTransactionDocument = async (transactionId: string, docId: st
         logFirestoreQuery('updateDoc', 'transaction_documents', { docId });
         const docRef = doc(db, "transaction_documents", docId);
 
-        // Auto-update timestamp
-        const updatesWithTimestamp = {
-            ...sanitizeForFirestore(updates),
-            updated_at: serverTimestamp()
-        };
+        await updateDoc(docRef, sanitizeForFirestore(updates));
 
-        await updateDoc(docRef, updatesWithTimestamp);
+        // Log Audit
+        await logAuditEvent({
+            transaction_id: transactionId,
+            entity_id: docId,
+            entity_type: 'Document',
+            action: 'UPDATE',
+            diff: { after: updates }
+        });
+
         return true;
     } catch (error) {
         handleFirestoreError(error, "updateTransactionDocument");
@@ -182,7 +215,9 @@ export const addDocumentVersion = async (
         if (!docSnap.exists()) throw new Error("Parent document not found");
 
         const currentDoc = docSnap.data() as Document;
-        const nextVersion = (currentDoc.current_version_number || 0) + 1;
+        // Get next version number by querying subcollection
+        const versionsSnap = await getDocs(query(collection(db, "transaction_documents", documentId, "versions")));
+        const nextVersion = versionsSnap.size + 1;
         const now = serverTimestamp();
 
         // 3. Create Version Record
@@ -190,33 +225,34 @@ export const addDocumentVersion = async (
             document_id: documentId,
             version_number: nextVersion,
             storage_path: uploadResult.storage_path,
-            file_name: uploadResult.file_name,
+            original_filename: uploadResult.original_filename,
             file_type: uploadResult.file_type,
-            file_hash: uploadResult.file_hash,
+            sha256: uploadResult.sha256,
             size: file.size,
+            source: 'UPLOAD',
             created_at: now,
+            updated_at: now,
             created_by: 'user' // TODO: Pass actual user ID
         };
 
-        await addDoc(collection(db, "transaction_documents", documentId, "versions"), versionData);
+        const versionRef = await addDoc(collection(db, "transaction_documents", documentId, "versions"), versionData);
 
-        // 4. Update Parent Document with Latest File Info
-        const parentUpdates: Partial<Document> = {
-            storage_path: uploadResult.storage_path,
-            file_name: uploadResult.file_name,
-            file_type: uploadResult.file_type,
-            file_hash: uploadResult.file_hash,
-            current_version_number: nextVersion,
-            updated_at: now
-        };
+        // Log Audit
+        await logAuditEvent({
+            transaction_id: transactionId,
+            entity_id: versionRef.id,
+            entity_type: 'DocumentVersion',
+            action: 'CREATE',
+            diff: { after: versionData }
+        });
 
-        await updateDoc(docRef, parentUpdates);
-
-        // Return updated document structure for UI
+        // 4. Return updated document structure for UI (Zero redundancy in parent)
         return {
             ...currentDoc,
-            ...parentUpdates,
-            updated_at: new Date() // Optimistic date
+            current_version: {
+                id: versionRef.id,
+                ...versionData
+            } as DocumentVersion
         };
 
     } catch (error) {
@@ -230,19 +266,18 @@ export const deleteTransactionDocument = async (transactionId: string, docId: st
     try {
         const docRef = doc(db, "transaction_documents", docId);
 
-        // 1. Fetch document to get storage path
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            const docData = docSnap.data() as Document;
-            // 2. Delete from storage if path exists
-            if (docData.storage_path) {
+        // 1. Fetch versions to delete files from storage
+        const versions = await getDocumentVersions(docId);
+
+        for (const version of versions) {
+            if (version.storage_path) {
                 const storage = getStorage();
-                const fileRef = ref(storage, docData.storage_path);
+                const fileRef = ref(storage, version.storage_path);
                 try {
                     await deleteObject(fileRef);
-                    console.log("Deleted file from storage:", docData.storage_path);
+                    console.log("Deleted file from storage:", version.storage_path);
                 } catch (storeError) {
-                    console.warn("Failed to delete file from storage (might act orphaned):", storeError);
+                    console.warn("Failed to delete file from storage:", storeError);
                 }
             }
         }
@@ -250,6 +285,15 @@ export const deleteTransactionDocument = async (transactionId: string, docId: st
         // 3. Delete Metadata from Firestore
         logFirestoreQuery('deleteDoc', 'transaction_documents', { docId });
         await deleteDoc(docRef);
+
+        // Log Audit
+        await logAuditEvent({
+            transaction_id: transactionId,
+            entity_id: docId,
+            entity_type: 'Document',
+            action: 'DELETE'
+        });
+
         return true;
     } catch (error) {
         handleFirestoreError(error, "deleteTransactionDocument");

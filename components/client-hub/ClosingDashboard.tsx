@@ -6,6 +6,7 @@ import DocumentsTab from './DocumentsTab';
 import TransactionWizard from './TransactionWizard';
 import { ChecklistCategory } from '../../types/transaction';
 import TransactionTimeline from './TransactionTimeline';
+import AuditTrailTab from './AuditTrailTab';
 
 interface ClosingDashboardProps {
     leads: Lead[];
@@ -148,14 +149,15 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
 
                         {/* Documentation / Checklist Section */}
                         <div className="bg-white rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-indigo-500/5 overflow-hidden">
-                            {activeSubTab !== 'TRANSACTION' && activeSubTab !== 'CHECKLIST' && activeSubTab !== 'PARTIES' && activeSubTab !== 'DOCUMENTS' && (
+                            {activeSubTab !== 'TRANSACTION' && activeSubTab !== 'CHECKLIST' && activeSubTab !== 'PARTIES' && activeSubTab !== 'DOCUMENTS' && activeSubTab !== 'LOG' && (
                                 <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                                     <div className="flex items-center gap-4">
                                         <h2 className="text-2xl font-black text-slate-900 tracking-tight">
                                             {activeSubTab === 'CHECKLIST' ? 'Transaction Checklist' :
                                                 activeSubTab === 'PARTIES' ? 'Transaction Parties' :
                                                     activeSubTab === 'TRANSACTION' ? 'Transaction Record' :
-                                                        'Documentation'}
+                                                        activeSubTab === 'LOG' ? 'Audit Trail & Logs' :
+                                                            'Documentation'}
                                         </h2>
                                     </div>
                                 </div>
@@ -173,9 +175,11 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                                     <PartiesTab lead={activeLead} realtorId={realtorId} />
                                 )}
 
+                                {activeSubTab === 'LOG' && (
+                                    <AuditTrailTab lead={activeLead} realtorId={realtorId} />
+                                )}
 
-
-                                {activeSubTab !== 'CHECKLIST' && activeSubTab !== 'TRANSACTION' && activeSubTab !== 'PARTIES' && (
+                                {activeSubTab !== 'CHECKLIST' && activeSubTab !== 'TRANSACTION' && activeSubTab !== 'PARTIES' && activeSubTab !== 'LOG' && (
                                     <DocumentsTab lead={activeLead} realtorId={realtorId} />
                                 )}
                             </div>

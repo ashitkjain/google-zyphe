@@ -6,13 +6,8 @@ import {
     logFirestoreQuery,
     handleFirestoreError
 } from "./config";
-import {
-    Lead,
-    CRMTask,
-    CommTemplate,
-    PipelineNote,
-    FunnelStage
-} from "../../types";
+import { Lead, CRMTask, CommTemplate, PipelineNote, FunnelStage } from "../../types";
+import { logAuditEvent } from "./audit";
 
 // ===== LEADS & FUNNEL =====
 
@@ -151,6 +146,18 @@ export const addTask = async (task: Partial<CRMTask>) => {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
         });
+
+        // Log Audit
+        if (task.transaction_id) {
+            await logAuditEvent({
+                transaction_id: task.transaction_id,
+                entity_id: docRef.id,
+                entity_type: 'Task',
+                action: 'CREATE',
+                diff: { after: task }
+            });
+        }
+
         return docRef.id;
     } catch (error) {
         handleFirestoreError(error, "addTask");
@@ -158,7 +165,7 @@ export const addTask = async (task: Partial<CRMTask>) => {
     }
 };
 
-export const updateTask = async (taskId: string, updates: Partial<CRMTask>) => {
+export const updateTask = async (taskId: string, updates: Partial<CRMTask>, transactionId?: string) => {
     if (!db) return false;
     try {
         const taskRef = doc(db, "tasks", taskId);
@@ -166,6 +173,19 @@ export const updateTask = async (taskId: string, updates: Partial<CRMTask>) => {
             ...updates,
             updatedAt: serverTimestamp()
         }));
+
+        // Log Audit
+        const finalTxId = transactionId || (updates as any).transaction_id;
+        if (finalTxId) {
+            await logAuditEvent({
+                transaction_id: finalTxId,
+                entity_id: taskId,
+                entity_type: 'Task',
+                action: 'UPDATE',
+                diff: { after: updates }
+            });
+        }
+
         return true;
     } catch (error) {
         handleFirestoreError(error, "updateTask");
@@ -173,12 +193,23 @@ export const updateTask = async (taskId: string, updates: Partial<CRMTask>) => {
     }
 };
 
-export const deleteTask = async (taskId: string) => {
+export const deleteTask = async (taskId: string, transactionId?: string) => {
     if (!db) return false;
     try {
         const docRef = doc(db, "tasks", taskId);
         logFirestoreQuery('deleteDoc', 'tasks', { taskId });
         await deleteDoc(docRef);
+
+        // Log Audit
+        if (transactionId) {
+            await logAuditEvent({
+                transaction_id: transactionId,
+                entity_id: taskId,
+                entity_type: 'Task',
+                action: 'DELETE'
+            });
+        }
+
         return true;
     } catch (error) {
         handleFirestoreError(error, "deleteTask");

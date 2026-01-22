@@ -7,6 +7,7 @@ import {
 } from "./config";
 import { TransactionParty } from "../../types";
 import { generateMockTransactionParties } from "../mockData";
+import { logAuditEvent } from "./audit";
 
 export const getTransactionParties = async (transactionId: string) => {
     if (!db || !transactionId) return [];
@@ -34,6 +35,16 @@ export const addTransactionParty = async (transactionId: string, party: Partial<
             transaction_id: transactionId,
             created_at: serverTimestamp()
         });
+
+        // Log Audit
+        await logAuditEvent({
+            transaction_id: transactionId,
+            entity_id: docRef.id,
+            entity_type: 'Party',
+            action: 'CREATE',
+            diff: { after: party }
+        });
+
         return { id: docRef.id, ...party } as TransactionParty;
     } catch (error) {
         handleFirestoreError(error, "addTransactionParty");
@@ -47,6 +58,16 @@ export const updateTransactionParty = async (transactionId: string, partyId: str
         logFirestoreQuery('updateDoc', 'transaction_parties', { partyId });
         const docRef = doc(db, "transaction_parties", partyId);
         await updateDoc(docRef, sanitizeForFirestore(updates));
+
+        // Log Audit
+        await logAuditEvent({
+            transaction_id: transactionId,
+            entity_id: partyId,
+            entity_type: 'Party',
+            action: 'UPDATE',
+            diff: { after: updates }
+        });
+
         return true;
     } catch (error) {
         handleFirestoreError(error, "updateTransactionParty");
@@ -60,6 +81,15 @@ export const deleteTransactionParty = async (transactionId: string, partyId: str
         logFirestoreQuery('deleteDoc', 'transaction_parties', { partyId });
         const docRef = doc(db, "transaction_parties", partyId);
         await deleteDoc(docRef);
+
+        // Log Audit
+        await logAuditEvent({
+            transaction_id: transactionId,
+            entity_id: partyId,
+            entity_type: 'Party',
+            action: 'DELETE'
+        });
+
         return true;
     } catch (error) {
         handleFirestoreError(error, "deleteTransactionParty");

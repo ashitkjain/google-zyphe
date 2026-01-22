@@ -61,58 +61,39 @@ export interface TransactionParty {
 }
 
 export type DocumentType = 'RPA' | 'TDS' | 'AVID' | 'SPQ' | 'ADDENDUM' | 'OTHER';
-export type DocumentCategory = 'CONTRACT' | 'DISCLOSURE' | 'INSPECTION' | 'ESCROW' | 'MARKETING' | 'OTHER';
+export type DocumentCategory = 'CONTRACT' | 'DISCLOSURE' | 'INSPECTION' | 'ESCROW' | 'MARKETING' | 'TITLE' | 'HOA' | 'OTHER';
 export type DocumentStatus = 'DRAFT' | 'SENT_FOR_SIGNATURE' | 'SIGNED' | 'VOIDED';
 
+
+export interface FileMetadata {
+    storage_path: string;
+    original_filename: string;
+    file_type: string;
+    sha256?: string;
+}
 
 export interface Document {
     id: string;
     transaction_id: string; // FK -> Transaction
     name: string; // Document Name
-    category: string; // DocumentCategory or string
+    category: DocumentCategory;
     status: DocumentStatus | 'Pending' | 'Completed' | 'Rejected';
-    comments?: string;
 
-    // File Metadata (Flattened for latest version access)
-    storage_path?: string;
-    file_name?: string;
-    file_type?: string;
-    file_hash?: string;
-    current_version_number?: number;
-
-    // Legacy / Detailed fields from original interface
-    doc_type?: DocumentType | string;
-    title?: string;
-    current_version_id?: string;
-    tags?: string[];
-    created_by_user_id?: string;
-    created_at: Date | any;
-    updated_at: Date | any;
+    current_version?: DocumentVersion; // The latest hydrated version
 }
 
 export type DocumentSource = 'UPLOAD' | 'MERGE' | 'ESIGN_FINAL' | 'OCR_CONVERT' | 'OTHER';
 
-export interface DocumentVersion {
+export interface DocumentVersion extends FileMetadata {
     id: string;
     document_id: string; // FK -> Document
     version_number: number;
-    storage_path: string; // Was storage_uri
-    file_name: string; // Was filename_original
-    file_type: string; // Was content_type
-    file_hash?: string; // Was sha256
-    size: number; // Was size_bytes
-
+    size: number;
+    source: DocumentSource; // Defaults to 'UPLOAD'
     created_at: Date | any;
+    updated_at?: Date | any;
     created_by?: string; // User ID/Email
-
-    // Legacy fields
-    storage_uri?: string;
-    filename_original?: string;
-    content_type?: string;
-    size_bytes?: number;
-    sha256?: string;
-    created_by_user_id?: string;
-    source?: DocumentSource;
+    tags?: string[];
     notes?: string;
 }
 
@@ -178,32 +159,25 @@ export interface SignatureEvent {
 
 export type AuditActorType = 'USER' | 'SYSTEM' | 'EXTERNAL_RECIPIENT';
 
-export type AuditAction =
-    | 'TRANSACTION_CREATED'
-    | 'PARTY_ADDED'
-    | 'DOCUMENT_UPLOADED'
-    | 'DOCUMENT_VERSION_CREATED'
-    | 'ENVELOPE_SENT'
-    | 'ENVELOPE_COMPLETED'
-    | 'TASK_COMPLETED'
-    | 'DOCUMENT_DOWNLOADED'
-    | string; // Allow extensible actions
+export type AuditActionType = 'CREATE' | 'UPDATE' | 'DELETE' | 'REPLACE';
 
 export type AuditEntityType =
     | 'Transaction'
     | 'Document'
     | 'DocumentVersion'
     | 'Task'
+    | 'Party'
     | 'SignatureEnvelope'
     | 'SignatureEvent'
     | string;
 
 export interface AuditEvent {
     id: string;
-    transaction_id?: string; // FK -> Transaction, nullable if global
+    transaction_id: string; // FK -> Transaction
     actor_user_id?: string; // nullable for external events
+    actor_name?: string;
     actor_type: AuditActorType;
-    action: AuditAction;
+    action: AuditActionType;
     entity_type: AuditEntityType;
     entity_id: string;
     ip_address?: string;
