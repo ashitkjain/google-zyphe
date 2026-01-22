@@ -244,3 +244,42 @@ export const generateMockTransaction = (type: TransactionType, realtorId: string
         updated_at: new Date()
     };
 };
+
+export const generateMockTransactionParties = (transactionId: string): Partial<TransactionParty>[] => {
+    return [
+        {
+            role: 'BUYER',
+            display_name: getRandom(MOCK_FIRST_NAMES) + ' ' + getRandom(MOCK_LAST_NAMES),
+            email: 'buyer@example.com',
+            phone: '555-0101',
+            address: getRandom(MOCK_CITIES) + ', CO',
+            signing_required: true,
+            signer_order: 1
+        },
+        {
+            role: 'SELLER',
+            display_name: getRandom(MOCK_FIRST_NAMES) + ' ' + getRandom(MOCK_LAST_NAMES),
+            email: 'seller@example.com',
+            phone: '555-0102',
+            address: getRandom(MOCK_CITIES) + ', CO',
+            signing_required: true,
+            signer_order: 1
+        },
+        {
+            role: 'AGENT',
+            display_name: 'Alice Agent',
+            email: 'alice@agency.com',
+            phone: '555-0104',
+            address: 'Real Estate Office',
+            signing_required: true,
+            signer_order: 2
+        },
+        {
+            role: 'ESCROW',
+            display_name: 'Western Title & Escrow',
+            email: 'closings@westerntitle.com',
+            phone: '555-9988',
+            signing_required: false
+        }
+    ];
+};

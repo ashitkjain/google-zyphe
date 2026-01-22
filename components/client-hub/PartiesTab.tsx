@@ -59,33 +59,43 @@ const PartiesTab: React.FC<PartiesTabProps> = ({ lead, realtorId }) => {
         const fetchTransactionAndParties = async () => {
             setLoading(true);
             try {
-                const tx = await getTransactionByClientId(lead.clientId || '', realtorId);
+                // 1. Precise Query by clientId
+                let tx = await getTransactionByClientId(lead.id, realtorId);
+
+                // 2. Fallback: Search all realtor transactions by address
+                if (!tx) {
+                    const allTransactions = await getTransactions(realtorId);
+                    tx = allTransactions.find(t =>
+                        t.property?.address === (lead.subjectProperty || lead.propertyAddress)
+                    ) || null;
+                }
+
                 if (tx) {
                     setTransactionId(tx.id);
                     const partiesData = await getTransactionParties(tx.id);
-                    setParties(partiesData.length > 0 ? partiesData : MOCK_PARTIES);
+                    setParties(partiesData);
                 } else {
-                    // Fallback to mock data if no transaction exists
+                    // Fallback to mock data if no transaction exists (Demo mode)
                     setTransactionId('mock_tx_id');
                     setParties(MOCK_PARTIES);
                 }
             } catch (error) {
                 console.error("Error fetching parties:", error);
-                setParties(MOCK_PARTIES); // Fallback on error
+                setParties([]); // Show empty if error on real tx
             } finally {
                 setLoading(false);
             }
         };
 
-        if (lead.clientId) {
+        if (lead.id) {
             fetchTransactionAndParties();
         } else {
-            // Demo mode if no clientId
+            // Demo mode if no id
             setParties(MOCK_PARTIES);
             setLoading(false);
             setTransactionId('mock_tx_id');
         }
-    }, [lead.clientId, realtorId]);
+    }, [lead.id, realtorId, lead.subjectProperty, lead.propertyAddress]); // Added layout dependencies
 
     const handleEdit = (party: TransactionParty) => {
         setEditingId(party.id);
@@ -270,6 +280,17 @@ const PartiesTab: React.FC<PartiesTabProps> = ({ lead, realtorId }) => {
                                 <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
                                     <button onClick={handleAdd} className="text-emerald-500 hover:text-emerald-600 font-bold text-xs uppercase">Add</button>
                                     <button onClick={() => setIsAdding(false)} className="text-slate-400 hover:text-slate-500 font-bold text-xs uppercase">Cancel</button>
+                                </td>
+                            </tr>
+                        )}
+                        {parties.length === 0 && !isAdding && (
+                            <tr>
+                                <td colSpan={8} className="px-6 py-20 text-center">
+                                    <div className="flex flex-col items-center gap-2">
+                                        <i className="fa-solid fa-users-slash text-2xl text-slate-200"></i>
+                                        <p className="text-sm font-bold text-slate-400">No transaction parties found</p>
+                                        <p className="text-[10px] text-slate-300 uppercase tracking-widest">Click "Add Party" or "Seed Data" to begin</p>
+                                    </div>
                                 </td>
                             </tr>
                         )}

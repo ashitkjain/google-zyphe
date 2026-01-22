@@ -29,6 +29,7 @@ import {
 } from "firebase/auth";
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult, InvestmentResearchResult, CommMessage, FunnelStage, LeadHealth, Lead, CRMTask, CommTemplate, PipelineNote, ReminderRule, CalendarEvent, ChecklistCategory } from "../types";
 import { getInitialCategories, calculateChecklistSchedule } from "./transactionService";
+import { generateMockTransaction, generateMockTransactionParties } from "./mockData";
 
 /**
  * FIRESTORE SECURITY RULES (REQUIRED):
@@ -725,43 +726,7 @@ export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMT
 
 export const seedPartiesForTransaction = async (transactionId: string) => {
   if (!db) return;
-  const MOCK_PARTIES_DATA = [
-    {
-      role: 'BUYER',
-      display_name: 'John Doe',
-      email: 'john@example.com',
-      phone: '555-0101',
-      address: '123 Buyer St, New York, NY',
-      signing_required: true,
-      signer_order: 1
-    },
-    {
-      role: 'SELLER',
-      display_name: 'Jane Smith',
-      email: 'jane@example.com',
-      phone: '555-0102',
-      address: '456 Seller Ave, Los Angeles, CA',
-      signing_required: true,
-      signer_order: 1
-    },
-    {
-      role: 'LENDER',
-      display_name: 'Bob Banker',
-      email: 'bob@bank.com',
-      phone: '555-0103',
-      address: '789 Finance Blvd, Chicago, IL',
-      signing_required: false
-    },
-    {
-      role: 'AGENT',
-      display_name: 'Alice Agent',
-      email: 'alice@agency.com',
-      phone: '555-0104',
-      address: 'Real Estate Office',
-      signing_required: true,
-      signer_order: 2
-    }
-  ];
+  const MOCK_PARTIES_DATA = generateMockTransactionParties(transactionId);
 
   try {
     for (const party of MOCK_PARTIES_DATA) {
@@ -1165,6 +1130,12 @@ export const createTransaction = async (transaction: Transaction, initialCategor
     }));
 
     await batch.commit();
+
+    // After commit, seed initial parties (asynchronously)
+    if (initialCategories) {
+      seedPartiesForTransaction(transactionId);
+    }
+
     return finalTransaction;
   } catch (error) {
     handleFirestoreError(error, "createTransaction");
@@ -1228,8 +1199,12 @@ import { TransactionParty } from "../types/transaction";
 export const getTransactionParties = async (transactionId: string) => {
   if (!db || !transactionId) return [];
   try {
-    logFirestoreQuery('getDocs', `transactions/${transactionId}/parties`, {});
-    const q = query(collection(db, "transactions", transactionId, "parties"), orderBy("created_at", "asc"));
+    logFirestoreQuery('getDocs', 'transaction_parties', { transaction_id: transactionId });
+    const q = query(
+      collection(db, "transaction_parties"),
+      where("transaction_id", "==", transactionId),
+      orderBy("created_at", "asc")
+    );
     const snap = await getDocs(q);
     return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TransactionParty));
   } catch (error) {
@@ -1241,8 +1216,8 @@ export const getTransactionParties = async (transactionId: string) => {
 export const addTransactionParty = async (transactionId: string, party: Partial<TransactionParty>) => {
   if (!db || !transactionId) return null;
   try {
-    logFirestoreQuery('addDoc', `transactions/${transactionId}/parties`, party);
-    const docRef = await addDoc(collection(db, "transactions", transactionId, "parties"), {
+    logFirestoreQuery('addDoc', 'transaction_parties', party);
+    const docRef = await addDoc(collection(db, "transaction_parties"), {
       ...sanitizeForFirestore(party),
       transaction_id: transactionId,
       created_at: serverTimestamp()
@@ -1257,8 +1232,8 @@ export const addTransactionParty = async (transactionId: string, party: Partial<
 export const updateTransactionParty = async (transactionId: string, partyId: string, updates: Partial<TransactionParty>) => {
   if (!db || !transactionId || !partyId) return false;
   try {
-    logFirestoreQuery('updateDoc', `transactions/${transactionId}/parties`, { partyId });
-    const docRef = doc(db, "transactions", transactionId, "parties", partyId);
+    logFirestoreQuery('updateDoc', 'transaction_parties', { partyId });
+    const docRef = doc(db, "transaction_parties", partyId);
     await updateDoc(docRef, sanitizeForFirestore(updates));
     return true;
   } catch (error) {
@@ -1270,8 +1245,8 @@ export const updateTransactionParty = async (transactionId: string, partyId: str
 export const deleteTransactionParty = async (transactionId: string, partyId: string) => {
   if (!db || !transactionId || !partyId) return false;
   try {
-    logFirestoreQuery('deleteDoc', `transactions/${transactionId}/parties`, { partyId });
-    const docRef = doc(db, "transactions", transactionId, "parties", partyId);
+    logFirestoreQuery('deleteDoc', 'transaction_parties', { partyId });
+    const docRef = doc(db, "transaction_parties", partyId);
     await deleteDoc(docRef);
     return true;
   } catch (error) {
