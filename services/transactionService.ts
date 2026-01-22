@@ -1,9 +1,7 @@
 import { ChecklistCategory } from '../types/transaction';
-import { CRMTask } from '../types/tasks';
-import { serverTimestamp } from 'firebase/firestore';
 
-// Initial categories for the checklist
-export const getInitialCategories = (): ChecklistCategory[] => [
+// Buyer Checklist (Original)
+const getBuyerCategories = (): ChecklistCategory[] => [
     {
         id: 'c1',
         name: '1. Contract & Initial Review',
@@ -36,7 +34,7 @@ export const getInitialCategories = (): ChecklistCategory[] => [
         tasks: [
             { id: 't3_1', name: 'Coordinate with lender to ensure loan approval and funds disbursement.', status: 'Pending', comments: '', durationDays: 25, dependsOn: ['t1_1'] },
             { id: 't3_2', name: 'Order appraisal.', status: 'Pending', comments: '', durationDays: 1, dependsOn: ['t3_1'] },
-            { id: 't3_3', name: 'Appraisal inspection is completed by appraiser.', status: 'Pending', comments: '', durationDays: 1, dependsOn: ['t3_3'] }, // Fix: was t3_3 (self-dep), should be t3_2 or t3_3
+            { id: 't3_3', name: 'Appraisal inspection is completed by appraiser.', status: 'Pending', comments: '', durationDays: 1, dependsOn: ['t3_2'] },
             { id: 't3_4', name: 'Review appraisal report and approvals.', status: 'Pending', comments: '', durationDays: 2, dependsOn: ['t3_3'] },
             { id: 't3_5', name: "Verify buyer's financial approval and lender docs.", status: 'Pending', comments: '', durationDays: 5, dependsOn: ['t3_4'] },
             { id: 't3_6', name: "Confirm buyer obtains homeowner's insurance.", status: 'Pending', comments: '', durationDays: 5, dependsOn: ['t3_5'] },
@@ -109,6 +107,69 @@ export const getInitialCategories = (): ChecklistCategory[] => [
         ]
     }
 ];
+
+// Seller Checklist (New)
+const getSellerCategories = (): ChecklistCategory[] => [
+    {
+        id: 'c1',
+        name: 'Phase 1: Opening',
+        icon: '🔑',
+        description: '0–48 Hours: Formalizing the agreement and initiating the legal clock.',
+        tasks: [
+            { id: 't1_1', name: 'Deliver Executed Contract', status: 'Pending', comments: '', durationDays: 1, dependsOn: [] },
+            { id: 't1_2', name: 'Open Escrow/Title', status: 'Pending', comments: '', durationDays: 1, dependsOn: ['t1_1'] },
+            { id: 't1_3', name: 'Verify EMD Deposit', status: 'Pending', comments: '', durationDays: 1, dependsOn: ['t1_1'] },
+            { id: 't1_4', name: 'Update MLS Status', status: 'Pending', comments: '', durationDays: 1, dependsOn: ['t1_1'] }
+        ]
+    },
+    {
+        id: 'c2',
+        name: 'Phase 2: Due Diligence',
+        icon: '🔍',
+        description: 'Days 3–14: Identifying property condition and supporting valuation.',
+        tasks: [
+            { id: 't2_1', name: 'Coordinate Inspections', status: 'Pending', comments: '', durationDays: 5, dependsOn: ['t1_2'] },
+            { id: 't2_2', name: 'Meet Appraiser', status: 'Pending', comments: '', durationDays: 1, dependsOn: ['t1_2'] },
+            { id: 't2_3', name: 'Negotiate Repairs', status: 'Pending', comments: '', durationDays: 3, dependsOn: ['t2_1'] }
+        ]
+    },
+    {
+        id: 'c3',
+        name: 'Phase 3: Contingencies',
+        icon: '🛡️',
+        description: 'Days 15–21: Closing out buyer exit ramps and securing financing.',
+        tasks: [
+            { id: 't3_1', name: 'Monitor Loan Commitment', status: 'Pending', comments: '', durationDays: 7, dependsOn: ['t1_1'] },
+            { id: 't3_2', name: 'Secure Contingency Removals', status: 'Pending', comments: '', durationDays: 1, dependsOn: ['t2_3', 't3_1'] },
+            { id: 't3_3', name: 'Verify Repair Completion', status: 'Pending', comments: '', durationDays: 5, dependsOn: ['t2_3'] }
+        ]
+    },
+    {
+        id: 'c4',
+        name: 'Phase 4: Closing Prep',
+        icon: '📝',
+        description: 'Days 22–30: Finalizing appointments and condition checks.',
+        tasks: [
+            { id: 't4_1', name: 'Schedule Closing', status: 'Pending', comments: '', durationDays: 1, dependsOn: ['t3_1'] },
+            { id: 't4_2', name: 'Conduct Final Walkthrough', status: 'Pending', comments: '', durationDays: 1, dependsOn: ['t3_2', 't3_3'] },
+            { id: 't4_3', name: 'Manage Utility Transfer', status: 'Pending', comments: '', durationDays: 2, dependsOn: ['t4_1'] }
+        ]
+    },
+    {
+        id: 'c5',
+        name: 'Phase 5: Possession',
+        icon: '🏠',
+        description: 'Closing Day: Transfer of ownership and documentation closure.',
+        tasks: [
+            { id: 't5_1', name: 'Key Exchange', status: 'Pending', comments: '', durationDays: 0, dependsOn: ['t4_2'] },
+            { id: 't5_2', name: 'Close Transaction File', status: 'Pending', comments: '', durationDays: 1, dependsOn: ['t5_1'] }
+        ]
+    }
+];
+
+export const getInitialCategories = (type: 'Buyer' | 'Seller' = 'Buyer'): ChecklistCategory[] => {
+    return type === 'Seller' ? getSellerCategories() : getBuyerCategories();
+};
 
 /**
  * Calculates start and due dates for a task based on its dependencies and duration.

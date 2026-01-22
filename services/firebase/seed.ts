@@ -108,7 +108,7 @@ export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMT
         // Seed Transactions
         for (const transaction of transactions) {
             transaction.isMock = true;
-            const initialCats = getInitialCategories();
+            const initialCats = getInitialCategories(transaction.type === 'SELL' ? 'Seller' : 'Buyer');
             // seedTasksForTransaction modifies batch
             const finalChecklist = seedTasksForTransaction(batch, transaction, initialCats);
 

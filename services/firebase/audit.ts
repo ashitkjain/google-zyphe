@@ -44,8 +44,16 @@ export const logAuditEvent = async (options: LogAuditOptions): Promise<string | 
             diff: options.diff
         };
 
-        const docRef = await addDoc(collection(db, "audit_events"), sanitizeForFirestore(event));
-        return docRef.id;
+        if ((options as any).batch) {
+            const batch = (options as any).batch;
+            const docRef = doc(collection(db, "audit_events"));
+            batch.set(docRef, sanitizeForFirestore(event));
+            return docRef.id;
+        } else {
+            const docRef = await addDoc(collection(db, "audit_events"), sanitizeForFirestore(event));
+            return docRef.id;
+        }
+
     } catch (error) {
         console.error("[AuditLog] Failed to log audit event:", error);
         return null;

@@ -159,7 +159,8 @@ export const createTransaction = async (transaction: Transaction, initialCategor
         }
 
         const finalTransaction = {
-            ...finalTransactionObj
+            ...finalTransactionObj,
+            checklist: finalChecklist
         };
 
         logFirestoreQuery('setDoc (batch)', 'transactions', { id: transactionId });
@@ -193,5 +194,41 @@ export const createTransaction = async (transaction: Transaction, initialCategor
     } catch (error) {
         handleFirestoreError(error, "createTransaction");
         return null;
+    }
+};
+
+export const deleteTransaction = async (transactionId: string) => {
+    if (!db) return false;
+    const batch = writeBatch(db);
+    try {
+        logFirestoreQuery('deleteTransaction', 'transactions', { transactionId });
+
+        // 1. Delete associated tasks
+        const tasksQuery = query(collection(db, "tasks"), where("transaction_id", "==", transactionId));
+        const tasksSnap = await getDocs(tasksQuery);
+        tasksSnap.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+
+        // 2. Delete the transaction document
+        const transactionRef = doc(db, "transactions", transactionId);
+        batch.delete(transactionRef);
+
+        // 4. Log Audit (in batch)
+        await logAuditEvent({
+            transaction_id: transactionId,
+            entity_id: transactionId,
+            entity_type: 'Transaction',
+            action: 'DELETE',
+            batch: batch // Pass batch reference
+        } as any);
+
+        // 3. Commit batch
+        await batch.commit();
+
+        return true;
+    } catch (error) {
+        handleFirestoreError(error, "deleteTransaction");
+        return false;
     }
 };

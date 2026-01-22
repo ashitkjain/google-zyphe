@@ -6,7 +6,9 @@ import {
     logFirestoreQuery,
     handleFirestoreError
 } from "./config";
-import { Lead, CRMTask, CommTemplate, PipelineNote, FunnelStage } from "../../types";
+import { createTransaction, getTransactionByClientId, deleteTransaction } from "./transactions";
+import { getInitialCategories } from "../transactionService";
+import { Lead, CRMTask, CommTemplate, PipelineNote, FunnelStage, Transaction } from "../../types";
 import { logAuditEvent } from "./audit";
 
 // ===== LEADS & FUNNEL =====
@@ -56,7 +58,7 @@ export const updateFunnelStage = async (id: string, stage: FunnelStage, reason?:
         stageHistory.push({
             fromStage: oldStage,
             toStage: stage,
-            enteredAt: serverTimestamp()
+            enteredAt: new Date()
         });
 
         logFirestoreQuery('setDoc', isLead ? 'leads' : 'users', { id });
@@ -78,6 +80,70 @@ export const updateFunnelStage = async (id: string, stage: FunnelStage, reason?:
             realtorId: auth?.currentUser?.uid || 'unknown'
         });
 
+        // --- AUTOMATION: Create Transaction on 'Contract' ---
+        if (stage === 'Contract') {
+            try {
+                const realtorId = (data.realtorId as string) || auth?.currentUser?.uid;
+                if (realtorId) {
+                    const existingTx = await getTransactionByClientId(id, realtorId);
+                    if (!existingTx) {
+                        const leadData = data as Lead;
+                        const txType = leadData.leadType === 'Seller' ? 'SELL' : 'BUY';
+
+                        const newTransaction: Transaction = {
+                            id: '', // Will be generated
+                            realtorId: realtorId,
+                            clientId: id,
+                            type: txType,
+                            status: 'ACTIVE',
+                            property: {
+                                address: leadData.leadInfo?.inquiryProperty?.address || leadData.listingStatus?.property?.address || 'TBD',
+                                price: leadData.activeOffer?.price || leadData.financialVitals?.budgetMax || 0
+                            },
+                            apn: '',
+                            state: 'CA', // Defaulting or should extract from address if possible
+                            purchase_price: leadData.activeOffer?.price,
+                            commission: '2.5%', // Default as requested
+                            close_of_escrow_date: leadData.criticalDates?.closingDate,
+                            important_dates: {
+                                acceptance_date: new Date(), // Assumption: entering Contract means accepted
+                                closing_date: leadData.criticalDates?.closingDate
+                            },
+                            checklist: [], // Will be seeded
+                            created_at: new Date(),
+                            updated_at: new Date()
+                        };
+
+                        const initialChecklist = getInitialCategories(txType === 'SELL' ? 'Seller' : 'Buyer');
+                        await createTransaction(newTransaction, initialChecklist);
+                        console.log("Auto-created transaction for client:", id);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to auto-create transaction:", err);
+                // Non-blocking error
+            }
+        }
+
+        // --- AUTOMATION: Delete Transaction if moving back from Closing/Contract ---
+        const closingStages: FunnelStage[] = ['Contract', 'Closed'];
+        const preClosingStages: FunnelStage[] = ['Leads', 'Nurture', 'Active Search', 'Offer'];
+
+        if (closingStages.includes(oldStage as FunnelStage) && preClosingStages.includes(stage)) {
+            try {
+                const realtorId = (data.realtorId as string) || auth?.currentUser?.uid;
+                if (realtorId) {
+                    const existingTx = await getTransactionByClientId(id, realtorId);
+                    if (existingTx) {
+                        await deleteTransaction(existingTx.id);
+                        console.log("Auto-deleted transaction for client rollback:", id);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to auto-delete transaction:", err);
+            }
+        }
+
         return true;
     } catch (error) {
         handleFirestoreError(error, "updateFunnelStage");
@@ -88,6 +154,11 @@ export const updateFunnelStage = async (id: string, stage: FunnelStage, reason?:
 export const updateLead = async (leadId: string, updates: Partial<Lead>, collectionName: string = 'leads') => {
     if (!db) return false;
     try {
+        // Intercept funnelStage changes to trigger lifecycle logic (history, automation)
+        if (updates.funnelStage) {
+            await updateFunnelStage(leadId, updates.funnelStage, undefined, collectionName === 'leads');
+        }
+
         const docRef = doc(db, collectionName, leadId);
         await setDoc(docRef, {
             ...updates,

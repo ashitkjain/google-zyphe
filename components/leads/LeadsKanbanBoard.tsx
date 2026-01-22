@@ -125,7 +125,10 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
 
     const handleConfirmMove = (status: string) => {
         if (pendingMove) {
-            onUpdateLead(pendingMove.lead.id, { status });
+            onUpdateLead(pendingMove.lead.id, {
+                status,
+                funnelStage: pendingMove.targetStage as any
+            });
             setPendingMove(null);
         }
     };
