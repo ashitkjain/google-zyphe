@@ -1,14 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { StatusOption, PropertyOption } from '../../types';
 import { DEFAULT_STATUSES } from '../../services/statusService';
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { collection, getDocs, writeBatch, doc, serverTimestamp, query, where } from 'firebase/firestore';
 import { db_instance } from '../../services/firebaseService';
 import { generateMockLead } from '../../services/mockData';
 import { LEAD_FIELD_CONFIG as DEFAULT_PROPERTIES, LEAD_STAGE_LIFECYCLE_CONFIG } from '../../types/lead';
 
-const TypedDroppable = Droppable as any;
-const TypedDraggable = Draggable as any;
+
 
 interface StatusSettingsProps {
     realtorId: string;
@@ -251,68 +249,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
         else setAllProperties(prev => prev.filter((_, i) => i !== index));
     };
 
-    const onDragEnd = async (result: DropResult) => {
-        if (!result.destination) return;
 
-        const type = activeTab === 'statuses' ? 'status' : 'property';
-        const sourceGroup = result.source.droppableId;
-        const destGroup = result.destination.droppableId;
-        const draggableId = result.draggableId;
-
-        // Status Logic
-        if (type === 'status') {
-            // Fallback to searching by index if ID construction is tricky or unstable
-        }
-
-        // Simplified Drag Logic that works for both (assuming list reconstruction)
-        // ... Implementing separate handlers for clarity ...
-        if (type === 'status') {
-            // Re-implementing logic from original file
-            // Need to find the item. The id helps.
-            const itemIndexStr = result.draggableId.split('::')[1];
-            const itemIndex = parseInt(itemIndexStr);
-            const draggedItem = allStatuses[itemIndex];
-            if (!draggedItem) return;
-
-            let newItems = [...allStatuses];
-            newItems.splice(itemIndex, 1); // remove from old position
-
-            if (destGroup !== sourceGroup) draggedItem.funnelStage = destGroup;
-
-            // Re-insert
-            // We need to find the correct insertion index within the global list based on the visual group order
-            const globalList: ManagedStatus[] = [];
-            FUNNEL_STAGES.forEach(stage => {
-                const itemsInStage = newItems.filter(s => (s.funnelStage || 'Nurture') === stage);
-                if (stage === destGroup) {
-                    itemsInStage.splice(result.destination!.index, 0, draggedItem);
-                }
-                globalList.push(...itemsInStage);
-            });
-            setAllStatuses(globalList.map((s, i) => ({ ...s, order: i })));
-
-        } else {
-            const itemIndexStr = result.draggableId.split('::')[1];
-            const itemIndex = parseInt(itemIndexStr);
-            const draggedItem = allProperties[itemIndex];
-            if (!draggedItem) return;
-
-            let newItems = [...allProperties];
-            newItems.splice(itemIndex, 1);
-
-            if (destGroup !== sourceGroup) draggedItem.category = destGroup;
-
-            const globalList: ManagedProperty[] = [];
-            PROPERTY_CATEGORIES.forEach(cat => {
-                const itemsInCat = newItems.filter(p => (p.category || 'General') === cat);
-                if (cat === destGroup) {
-                    itemsInCat.splice(result.destination!.index, 0, draggedItem);
-                }
-                globalList.push(...itemsInCat);
-            });
-            setAllProperties(globalList.map((p, i) => ({ ...p, order: i })));
-        }
-    };
 
     const handleSave = async () => {
         setIsSaving(true);

@@ -10,9 +10,7 @@ if (!rootElement) {
   try {
     const root = createRoot(rootElement);
     root.render(
-      <React.StrictMode>
-        <App />
-      </React.StrictMode>
+      <App />
     );
   } catch (err) {
     console.error("Render Error:", err);
