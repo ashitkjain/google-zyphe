@@ -29,7 +29,7 @@ import {
 } from "firebase/auth";
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, UserProfile, ImageQualityAnalysisResult, InvestmentResearchResult, CommMessage, FunnelStage, LeadHealth, Lead, CRMTask, CommTemplate, PipelineNote, ReminderRule, CalendarEvent, ChecklistCategory } from "../types";
 import { getInitialCategories, calculateChecklistSchedule } from "./transactionService";
-import { generateMockTransaction, generateMockTransactionParties } from "./mockData";
+import { generateMockTransaction, generateMockTransactionParties, generateMockTransactionDocuments } from "./mockData";
 
 /**
  * FIRESTORE SECURITY RULES (REQUIRED):
@@ -737,6 +737,19 @@ export const seedPartiesForTransaction = async (transactionId: string) => {
   }
 };
 
+export const seedDocumentsForTransaction = async (transactionId: string) => {
+  if (!db) return;
+  const MOCK_DOCUMENTS_DATA = generateMockTransactionDocuments(transactionId);
+
+  try {
+    for (const doc of MOCK_DOCUMENTS_DATA) {
+      await addTransactionDocument(transactionId, doc as any);
+    }
+  } catch (error) {
+    console.error("Error seeding documents:", error);
+  }
+};
+
 export const updateLead = async (leadId: string, updates: Partial<Lead>, collectionName: string = 'leads') => {
   if (!db) return false;
   try {
@@ -1134,6 +1147,7 @@ export const createTransaction = async (transaction: Transaction, initialCategor
     // After commit, seed initial parties (asynchronously)
     if (initialCategories) {
       seedPartiesForTransaction(transactionId);
+      seedDocumentsForTransaction(transactionId);
     }
 
     return finalTransaction;
@@ -1251,6 +1265,77 @@ export const deleteTransactionParty = async (transactionId: string, partyId: str
     return true;
   } catch (error) {
     handleFirestoreError(error, "deleteTransactionParty");
+    return false;
+  }
+};
+
+// ===== TRANSACTION DOCUMENTS =====
+
+export interface TransactionDocument {
+  id: string;
+  transaction_id: string;
+  name: string;
+  category: string;
+  status: 'Pending' | 'Completed' | 'Rejected';
+  comments?: string;
+  created_at?: any;
+}
+
+export const getTransactionDocuments = async (transactionId: string) => {
+  if (!db || !transactionId) return [];
+  try {
+    logFirestoreQuery('getDocs', 'transaction_documents', { transaction_id: transactionId });
+    const q = query(
+      collection(db, "transaction_documents"),
+      where("transaction_id", "==", transactionId),
+      orderBy("created_at", "asc")
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TransactionDocument));
+  } catch (error) {
+    handleFirestoreError(error, "getTransactionDocuments");
+    return [];
+  }
+};
+
+export const addTransactionDocument = async (transactionId: string, docData: Partial<TransactionDocument>) => {
+  if (!db || !transactionId) return null;
+  try {
+    logFirestoreQuery('addDoc', 'transaction_documents', docData);
+    const docRef = await addDoc(collection(db, "transaction_documents"), {
+      ...sanitizeForFirestore(docData),
+      transaction_id: transactionId,
+      created_at: serverTimestamp()
+    });
+    return { id: docRef.id, ...docData } as TransactionDocument;
+  } catch (error) {
+    handleFirestoreError(error, "addTransactionDocument");
+    return null;
+  }
+};
+
+export const updateTransactionDocument = async (transactionId: string, docId: string, updates: Partial<TransactionDocument>) => {
+  if (!db || !transactionId || !docId) return false;
+  try {
+    logFirestoreQuery('updateDoc', 'transaction_documents', { docId });
+    const docRef = doc(db, "transaction_documents", docId);
+    await updateDoc(docRef, sanitizeForFirestore(updates));
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "updateTransactionDocument");
+    return false;
+  }
+};
+
+export const deleteTransactionDocument = async (transactionId: string, docId: string) => {
+  if (!db || !transactionId || !docId) return false;
+  try {
+    logFirestoreQuery('deleteDoc', 'transaction_documents', { docId });
+    const docRef = doc(db, "transaction_documents", docId);
+    await deleteDoc(docRef);
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "deleteTransactionDocument");
     return false;
   }
 };

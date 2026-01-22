@@ -421,103 +421,83 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                                                     <span className="w-6"></span>
                                                 </div>
 
-                                                <TypedDroppable droppableId={stage} isDropDisabled={!!searchQuery}>
-                                                    {(provided: any) => (
-                                                        <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-1">
-                                                            {groupItems.map((status, index) => {
-                                                                const originalIndex = allStatuses.indexOf(status);
-                                                                return (
-                                                                    <TypedDraggable
-                                                                        key={`status-${originalIndex}`}
-                                                                        draggableId={`status::${originalIndex}`}
-                                                                        index={index}
-                                                                        isDragDisabled={!!searchQuery}
-                                                                    >
-                                                                        {(provided: any, snapshot: any) => (
-                                                                            <div
-                                                                                ref={provided.innerRef}
-                                                                                {...provided.draggableProps}
-                                                                                className={`relative flex items-center gap-3 px-3 py-2 rounded-md border border-transparent transition-all group/row ${snapshot.isDragging ? 'bg-slate-700 shadow-xl border-indigo-500/50 z-50' : 'bg-slate-700/50 hover:bg-slate-700 hover:border-slate-600'}`}
-                                                                            >
-                                                                                {/* Drag Handle */}
-                                                                                <div {...provided.dragHandleProps} className="text-slate-500 hover:text-indigo-400 cursor-grab active:cursor-grabbing">
-                                                                                    <i className="fa-solid fa-grip-lines text-xs"></i>
-                                                                                </div>
-
-                                                                                {/* Status Name */}
-                                                                                <div className="w-[30%]">
-                                                                                    <input
-                                                                                        type="text"
-                                                                                        value={status.label}
-                                                                                        onChange={(e) => handleUpdateItem(originalIndex, { label: e.target.value }, 'status')}
-                                                                                        className="w-full bg-transparent text-xs font-bold text-white placeholder:text-slate-500 border-none p-0 focus:ring-0"
-                                                                                        placeholder="Name"
-                                                                                    />
-                                                                                </div>
-
-                                                                                {/* Description */}
-                                                                                <div className="flex-1">
-                                                                                    <input
-                                                                                        type="text"
-                                                                                        value={status.description}
-                                                                                        onChange={(e) => handleUpdateItem(originalIndex, { description: e.target.value }, 'status')}
-                                                                                        className="w-full bg-transparent text-[11px] text-slate-300 placeholder:text-slate-600 border-none p-0 focus:ring-0"
-                                                                                        placeholder="Description..."
-                                                                                    />
-                                                                                </div>
-
-                                                                                {/* Persona Toggles */}
-                                                                                <div className="flex items-center gap-1 w-[100px] justify-center">
-                                                                                    <button
-                                                                                        onClick={() => {
-                                                                                            const newVis = status.visibility?.includes('Buyer') ? status.visibility.filter(v => v !== 'Buyer') : [...(status.visibility || []), 'Buyer'];
-                                                                                            handleUpdateItem(originalIndex, { visibility: newVis as any }, 'status');
-                                                                                        }}
-                                                                                        className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold transition-all border ${status.visibility?.includes('Buyer') ? 'bg-sky-500 border-sky-600 text-white' : 'bg-transparent border-slate-600 text-slate-500 hover:border-slate-400'}`}
-                                                                                        title="Buyer"
-                                                                                    >
-                                                                                        B
-                                                                                    </button>
-                                                                                    <button
-                                                                                        onClick={() => {
-                                                                                            const newVis = status.visibility?.includes('Seller') ? status.visibility.filter(v => v !== 'Seller') : [...(status.visibility || []), 'Seller'];
-                                                                                            handleUpdateItem(originalIndex, { visibility: newVis as any }, 'status');
-                                                                                        }}
-                                                                                        className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold transition-all border ${status.visibility?.includes('Seller') ? 'bg-emerald-500 border-emerald-600 text-white' : 'bg-transparent border-slate-600 text-slate-500 hover:border-slate-400'}`}
-                                                                                        title="Seller"
-                                                                                    >
-                                                                                        S
-                                                                                    </button>
-                                                                                </div>
-
-                                                                                {/* Delete */}
-                                                                                <div className="w-6 flex justify-end">
-                                                                                    {!status.isDefault && (
-                                                                                        <button
-                                                                                            onClick={() => handleRemoveItem(originalIndex, 'status')}
-                                                                                            className="text-slate-600 hover:text-rose-400 transition-colors"
-                                                                                        >
-                                                                                            <i className="fa-solid fa-trash-can text-[10px]"></i>
-                                                                                        </button>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-                                                                        )}
-                                                                    </TypedDraggable>
-                                                                );
-                                                            })}
-                                                            {provided.placeholder}
-
-                                                            {/* Add Button */}
-                                                            <button
-                                                                onClick={() => handleAddItem(stage, 'status')}
-                                                                className="w-full py-2 border border-dashed border-slate-600 rounded-md text-[10px] font-bold text-slate-500 hover:text-indigo-300 hover:border-indigo-400 hover:bg-slate-700/50 transition-all uppercase tracking-wider"
+                                                <div className="space-y-1">
+                                                    {groupItems.map((status, index) => {
+                                                        const originalIndex = allStatuses.indexOf(status);
+                                                        return (
+                                                            <div
+                                                                key={`status-${originalIndex}`}
+                                                                className={`relative flex items-center gap-3 px-3 py-2 rounded-md border border-transparent transition-all group/row bg-slate-700/50 hover:bg-slate-700 hover:border-slate-600`}
                                                             >
-                                                                + Add Status to {stage}
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </TypedDroppable>
+                                                                {/* Status Name */}
+                                                                <div className="w-[30%]">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={status.label}
+                                                                        onChange={(e) => handleUpdateItem(originalIndex, { label: e.target.value }, 'status')}
+                                                                        className="w-full bg-transparent text-xs font-bold text-white placeholder:text-slate-500 border-none p-0 focus:ring-0"
+                                                                        placeholder="Name"
+                                                                    />
+                                                                </div>
+
+                                                                {/* Description */}
+                                                                <div className="flex-1">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={status.description}
+                                                                        onChange={(e) => handleUpdateItem(originalIndex, { description: e.target.value }, 'status')}
+                                                                        className="w-full bg-transparent text-[11px] text-slate-300 placeholder:text-slate-600 border-none p-0 focus:ring-0"
+                                                                        placeholder="Description..."
+                                                                    />
+                                                                </div>
+
+                                                                {/* Persona Toggles */}
+                                                                <div className="flex items-center gap-1 w-[100px] justify-center">
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const newVis = status.visibility?.includes('Buyer') ? status.visibility.filter(v => v !== 'Buyer') : [...(status.visibility || []), 'Buyer'];
+                                                                            handleUpdateItem(originalIndex, { visibility: newVis as any }, 'status');
+                                                                        }}
+                                                                        className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold transition-all border ${status.visibility?.includes('Buyer') ? 'bg-sky-500 border-sky-600 text-white' : 'bg-transparent border-slate-600 text-slate-500 hover:border-slate-400'}`}
+                                                                        title="Buyer"
+                                                                    >
+                                                                        B
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const newVis = status.visibility?.includes('Seller') ? status.visibility.filter(v => v !== 'Seller') : [...(status.visibility || []), 'Seller'];
+                                                                            handleUpdateItem(originalIndex, { visibility: newVis as any }, 'status');
+                                                                        }}
+                                                                        className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold transition-all border ${status.visibility?.includes('Seller') ? 'bg-emerald-500 border-emerald-600 text-white' : 'bg-transparent border-slate-600 text-slate-500 hover:border-slate-400'}`}
+                                                                        title="Seller"
+                                                                    >
+                                                                        S
+                                                                    </button>
+                                                                </div>
+
+                                                                {/* Delete */}
+                                                                <div className="w-6 flex justify-end">
+                                                                    {!status.isDefault && (
+                                                                        <button
+                                                                            onClick={() => handleRemoveItem(originalIndex, 'status')}
+                                                                            className="text-slate-600 hover:text-rose-400 transition-colors"
+                                                                        >
+                                                                            <i className="fa-solid fa-trash-can text-[10px]"></i>
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+
+                                                    {/* Add Button */}
+                                                    <button
+                                                        onClick={() => handleAddItem(stage, 'status')}
+                                                        className="w-full py-2 border border-dashed border-slate-600 rounded-md text-[10px] font-bold text-slate-500 hover:text-indigo-300 hover:border-indigo-400 hover:bg-slate-700/50 transition-all uppercase tracking-wider"
+                                                    >
+                                                        + Add Status to {stage}
+                                                    </button>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -579,163 +559,147 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
                             </div>
 
                             <div className="border-t border-indigo-50/50">
-                                <TypedDroppable droppableId={group} isDropDisabled={!!searchQuery}>
-                                    {(provided: any) => (
-                                        <table className="w-full text-left" {...provided.droppableProps} ref={provided.innerRef}>
-                                            <thead className="bg-slate-50 border-b border-slate-100">
-                                                <tr>
-                                                    <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[240px]">Name</th>
-                                                    {type !== 'status' && <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[140px]">Field Type</th>}
-                                                    <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Description</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-50">
-                                                {groupItemsWithIndex.map(({ item, originalIndex }, index) => (
-                                                    <TypedDraggable
-                                                        key={`${type}-${originalIndex}`}
-                                                        draggableId={`${type}::${originalIndex}`}
-                                                        index={index}
-                                                        isDragDisabled={!!searchQuery}
-                                                    >
-                                                        {(provided: any, snapshot: any) => {
-                                                            const isObject = item.type === 'object' || item.type === 'list';
-                                                            const isFieldExpanded = expandedFields.has(item.id || `field-${index}`);
+                                <table className="w-full text-left">
+                                    <thead className="bg-slate-50 border-b border-slate-100">
+                                        <tr>
+                                            <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[240px]">Name</th>
+                                            {type !== 'status' && <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[140px]">Field Type</th>}
+                                            <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {groupItemsWithIndex.map(({ item, originalIndex }, index) => {
+                                            const isObject = item.type === 'object' || item.type === 'list';
+                                            const isFieldExpanded = expandedFields.has(item.id || `field-${index}`);
 
-                                                            return (
-                                                                <React.Fragment key={`${type}-${originalIndex}-fragment`}>
-                                                                    <tr ref={provided.innerRef} {...provided.draggableProps} className={`group hover:bg-slate-50/80 transition-colors ${snapshot.isDragging ? 'bg-white shadow-xl z-50 ring-2 ring-indigo-500/20 rounded-lg' : ''}`}>
+                                            return (
+                                                <React.Fragment key={`${type}-${originalIndex}-fragment`}>
+                                                    <tr className={`group hover:bg-slate-50/80 transition-colors`}>
+                                                        <td className="px-4 py-2 w-[240px] align-middle">
+                                                            <div className="flex items-center gap-2.5 group/field">
+                                                                {isObject && (
+                                                                    <button onClick={() => toggleField(item.id || `field-${index}`)} className="text-slate-400 hover:text-indigo-600 transition-colors">
+                                                                        <i className={`fa-solid fa-chevron-right text-[10px] transition-transform ${isFieldExpanded ? 'rotate-90' : ''}`}></i>
+                                                                    </button>
+                                                                )}
+                                                                <div className="flex-1 min-w-0 font-semibold text-slate-900 text-sm leading-snug px-0 py-0.5 font-sans">
+                                                                    {item.label}
+                                                                </div>
+                                                                {item.visibility && item.visibility.length === 1 && item.visibility.includes('Buyer') && (
+                                                                    <div className="w-5 h-5 rounded bg-sky-500 flex items-center justify-center text-[8px] font-black text-white shadow-sm" title="Buyer Only">B</div>
+                                                                )}
+                                                                {item.visibility && item.visibility.length === 1 && item.visibility.includes('Seller') && (
+                                                                    <div className="w-5 h-5 rounded bg-emerald-500 flex items-center justify-center text-[8px] font-black text-white shadow-sm" title="Seller Only">S</div>
+                                                                )}
+                                                            </div>
+                                                        </td>
 
-                                                                        <td className="px-4 py-2 w-[240px] align-middle">
-                                                                            <div className="flex items-center gap-2.5 group/field">
-                                                                                {isObject && (
-                                                                                    <button onClick={() => toggleField(item.id || `field-${index}`)} className="text-slate-400 hover:text-indigo-600 transition-colors">
-                                                                                        <i className={`fa-solid fa-chevron-right text-[10px] transition-transform ${isFieldExpanded ? 'rotate-90' : ''}`}></i>
-                                                                                    </button>
-                                                                                )}
-                                                                                <div className="flex-1 min-w-0 font-semibold text-slate-900 text-sm leading-snug px-0 py-0.5 font-sans">
-                                                                                    {item.label}
-                                                                                </div>
-                                                                                {item.visibility && item.visibility.length === 1 && item.visibility.includes('Buyer') && (
-                                                                                    <div className="w-5 h-5 rounded bg-sky-500 flex items-center justify-center text-[8px] font-black text-white shadow-sm" title="Buyer Only">B</div>
-                                                                                )}
-                                                                                {item.visibility && item.visibility.length === 1 && item.visibility.includes('Seller') && (
-                                                                                    <div className="w-5 h-5 rounded bg-emerald-500 flex items-center justify-center text-[8px] font-black text-white shadow-sm" title="Seller Only">S</div>
-                                                                                )}
-                                                                            </div>
-                                                                        </td>
+                                                        {type !== 'status' && (
+                                                            <td className="px-4 py-2 w-[140px] align-top">
+                                                                <div className="flex flex-col gap-1.5 pt-1">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${item.type === 'boolean' ? 'bg-amber-50 text-amber-700 border border-amber-100' : item.type === 'integer' ? 'bg-purple-50 text-purple-700 border border-purple-100' : item.type === 'enum' ? 'bg-blue-50 text-blue-700 border border-blue-100' : (item.type === 'object' || item.type === 'list') ? 'bg-teal-50 text-teal-700 border border-teal-100' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}>
+                                                                            {item.type || 'string'}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                        <td className="px-4 py-2 align-top">
+                                                            <div className="flex flex-col">
+                                                                <div className="w-full text-slate-600 text-sm leading-snug font-medium px-0 py-0.5 font-sans">
+                                                                    {item.description}
+                                                                </div>
+                                                                {item.type === 'enum' && (
+                                                                    <div className="flex flex-wrap gap-1 mt-2">
+                                                                        {item.options?.map((opt: string) => (
+                                                                            <span key={opt} className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-[9px] font-bold text-slate-500 shadow-sm">
+                                                                                {opt}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </td>
 
-                                                                        {type !== 'status' && (
-                                                                            <td className="px-4 py-2 w-[140px] align-top">
-                                                                                <div className="flex flex-col gap-1.5 pt-1">
-                                                                                    <div className="flex items-center gap-2">
-                                                                                        <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${item.type === 'boolean' ? 'bg-amber-50 text-amber-700 border border-amber-100' : item.type === 'integer' ? 'bg-purple-50 text-purple-700 border border-purple-100' : item.type === 'enum' ? 'bg-blue-50 text-blue-700 border border-blue-100' : (item.type === 'object' || item.type === 'list') ? 'bg-teal-50 text-teal-700 border border-teal-100' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}>
-                                                                                            {item.type || 'string'}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </div>
-                                                                            </td>
-                                                                        )}
-                                                                        <td className="px-4 py-2 align-top">
-                                                                            <div className="flex flex-col">
-                                                                                <div className="w-full text-slate-600 text-sm leading-snug font-medium px-0 py-0.5 font-sans">
-                                                                                    {item.description}
-                                                                                </div>
-                                                                                {item.type === 'enum' && (
-                                                                                    <div className="flex flex-wrap gap-1 mt-2">
-                                                                                        {item.options?.map((opt: string) => (
-                                                                                            <span key={opt} className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-[9px] font-bold text-slate-500 shadow-sm">
-                                                                                                {opt}
-                                                                                            </span>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        </td>
+                                                    </tr>
+                                                    {isObject && isFieldExpanded && (
+                                                        <tr className="bg-slate-50/50">
+                                                            <td colSpan={6} className="p-0 border-b border-slate-100">
+                                                                <div className="w-full relative">
+                                                                    {/* Indentation line on the left to visually group */}
+                                                                    <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-indigo-100"></div>
 
-                                                                    </tr>
-                                                                    {isObject && isFieldExpanded && (
-                                                                        <tr className="bg-slate-50/50">
-                                                                            <td colSpan={6} className="p-0 border-b border-slate-100">
-                                                                                <div className="w-full relative">
-                                                                                    {/* Indentation line on the left to visually group */}
-                                                                                    <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-indigo-100"></div>
+                                                                    <table className="w-full">
+                                                                        <tbody>
+                                                                            {item.fields && item.fields.length > 0 ? (
+                                                                                item.fields.map((field: any, idx: number) => {
+                                                                                    const isObj = typeof field === 'object';
+                                                                                    const name = isObj ? field.name : field;
+                                                                                    const label = isObj ? (field.label || field.name) : field;
+                                                                                    const type = isObj ? field.type : 'string';
+                                                                                    const desc = isObj ? field.description : '';
 
-                                                                                    <table className="w-full">
-                                                                                        <tbody>
-                                                                                            {item.fields && item.fields.length > 0 ? (
-                                                                                                item.fields.map((field: any, idx: number) => {
-                                                                                                    const isObj = typeof field === 'object';
-                                                                                                    const name = isObj ? field.name : field;
-                                                                                                    const label = isObj ? (field.label || field.name) : field;
-                                                                                                    const type = isObj ? field.type : 'string';
-                                                                                                    const desc = isObj ? field.description : '';
+                                                                                    return (
+                                                                                        <tr key={`${originalIndex}-sub-${idx}`} className="hover:bg-indigo-50/20 transition-colors">
+                                                                                            {/* 2. Indented Name */}
+                                                                                            <td className="w-[240px] px-4 py-2 align-top">
+                                                                                                <div className="flex items-center gap-2 pl-6">
+                                                                                                    <div className="w-4 h-4 border-l-2 border-b-2 border-indigo-200 rounded-bl-md -mt-3.5"></div>
+                                                                                                    <div className="flex flex-col">
+                                                                                                        <span className="text-xs font-bold text-slate-700">{label}</span>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </td>
 
-                                                                                                    return (
-                                                                                                        <tr key={`${originalIndex}-sub-${idx}`} className="hover:bg-indigo-50/20 transition-colors">
-                                                                                                            {/* 2. Indented Name */}
-                                                                                                            <td className="w-[240px] px-4 py-2 align-top">
-                                                                                                                <div className="flex items-center gap-2 pl-6">
-                                                                                                                    <div className="w-4 h-4 border-l-2 border-b-2 border-indigo-200 rounded-bl-md -mt-3.5"></div>
-                                                                                                                    <div className="flex flex-col">
-                                                                                                                        <span className="text-xs font-bold text-slate-700">{label}</span>
-                                                                                                                    </div>
-                                                                                                                </div>
-                                                                                                            </td>
+                                                                                            {/* 4. Type */}
+                                                                                            <td className="w-[140px] px-4 py-2 align-top">
+                                                                                                <div className="flex gap-2">
+                                                                                                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${type === 'date' || type === 'timestamp' ? 'bg-orange-50 text-orange-700 border-orange-100' : type === 'currency' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : type === 'enum' ? 'bg-blue-50 text-blue-700 border-blue-100' : type?.startsWith('list') ? 'bg-purple-50 text-purple-700 border-purple-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                                                                                                        {type}
+                                                                                                    </span>
+                                                                                                </div>
+                                                                                            </td>
 
-                                                                                                            {/* 4. Type */}
-                                                                                                            <td className="w-[140px] px-4 py-2 align-top">
-                                                                                                                <div className="flex gap-2">
-                                                                                                                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${type === 'date' || type === 'timestamp' ? 'bg-orange-50 text-orange-700 border-orange-100' : type === 'currency' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : type === 'enum' ? 'bg-blue-50 text-blue-700 border-blue-100' : type?.startsWith('list') ? 'bg-purple-50 text-purple-700 border-purple-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                                                                                                                        {type}
-                                                                                                                    </span>
-                                                                                                                </div>
-                                                                                                            </td>
+                                                                                            {/* 5. Description */}
+                                                                                            <td className="px-4 py-2 align-top">
+                                                                                                <p className="text-xs text-slate-500 font-medium leading-relaxed">{desc || 'No description provided.'}</p>
+                                                                                                {type === 'enum' && field.options && (
+                                                                                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                                                                                        {field.options.map((opt: string) => (
+                                                                                                            <span key={opt} className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-[9px] font-bold text-slate-500 shadow-sm">
+                                                                                                                {opt}
+                                                                                                            </span>
+                                                                                                        ))}
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </td>
 
-                                                                                                            {/* 5. Description */}
-                                                                                                            <td className="px-4 py-2 align-top">
-                                                                                                                <p className="text-xs text-slate-500 font-medium leading-relaxed">{desc || 'No description provided.'}</p>
-                                                                                                                {type === 'enum' && field.options && (
-                                                                                                                    <div className="flex flex-wrap gap-1 mt-1.5">
-                                                                                                                        {field.options.map((opt: string) => (
-                                                                                                                            <span key={opt} className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-[9px] font-bold text-slate-500 shadow-sm">
-                                                                                                                                {opt}
-                                                                                                                            </span>
-                                                                                                                        ))}
-                                                                                                                    </div>
-                                                                                                                )}
-                                                                                                            </td>
+                                                                                            {/* 6. Action Spacer */}
+                                                                                            <td className="w-1"></td>
+                                                                                        </tr>
+                                                                                    );
+                                                                                })
+                                                                            ) : (
+                                                                                <tr>
 
-                                                                                                            {/* 6. Action Spacer */}
-                                                                                                            {/* 6. Action Spacer */}
-                                                                                                            <td className="w-1"></td>
-                                                                                                        </tr>
-                                                                                                    );
-                                                                                                })
-                                                                                            ) : (
-                                                                                                <tr>
-
-                                                                                                    <td colSpan={4} className="px-10 py-3 text-xs text-slate-400 italic">
-                                                                                                        Complex defined structure (no breakdown available).
-                                                                                                    </td>
-                                                                                                    <td className="w-1"></td>
-                                                                                                </tr>
-                                                                                            )}
-                                                                                        </tbody>
-                                                                                    </table>
-                                                                                </div>
-                                                                            </td>
-                                                                        </tr>
-                                                                    )}
-                                                                </React.Fragment>
-                                                            );
-                                                        }}
-                                                    </TypedDraggable>
-                                                ))}
-                                                {provided.placeholder}
-                                            </tbody>
-                                        </table>
-                                    )}
-                                </TypedDroppable>
+                                                                                    <td colSpan={4} className="px-10 py-3 text-xs text-slate-400 italic">
+                                                                                        Complex defined structure (no breakdown available).
+                                                                                    </td>
+                                                                                    <td className="w-1"></td>
+                                                                                </tr>
+                                                                            )}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </React.Fragment>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
 
                             </div>
                         </div>
@@ -747,152 +711,150 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
 
     return (
         <div className="flex-1 overflow-y-auto bg-[#F8FAFC] p-2">
-            <DragDropContext onDragEnd={onDragEnd}>
-                <div className="w-full max-w-5xl mx-auto pb-24">
-                    {/* Header Controls */}
-                    <div className="flex items-center justify-between mb-2">
-                        <div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            {/* Tabs */}
-                            {/* Tabs Removed - only showing Leads Fields now */}
-                        </div>
+            <div className="w-full max-w-5xl mx-auto pb-24">
+                {/* Header Controls */}
+                <div className="flex items-center justify-between mb-2">
+                    <div>
                     </div>
-
-                    {/* Category Tabs */}
-                    <div className="flex p-1 bg-slate-100 rounded-xl mb-4 overflow-x-auto no-scrollbar border border-slate-200">
-                        {PROPERTY_CATEGORIES.map((cat) => (
-                            <button
-                                key={cat}
-                                onClick={() => setActiveCategory(cat)}
-                                className={`flex-1 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${activeCategory === cat
-                                    ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5'
-                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50'
-                                    }`}
-                            >
-                                {cat}
-                            </button>
-                        ))}
+                    <div className="flex items-center gap-3">
+                        {/* Tabs */}
+                        {/* Tabs Removed - only showing Leads Fields now */}
                     </div>
-
-                    {renderTable([activeCategory], 'property')}
-
-                    {/* Legend Section */}
-                    <div className="mt-12">
-                        {/* Elegant Persona Legend */}
-                        <div className="max-w-sm bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Persona Legend</h4>
-                            <div className="space-y-3">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-6 h-6 rounded-md bg-sky-500 flex items-center justify-center text-[10px] font-black text-white shadow-sm">B</div>
-                                    <span className="text-xs font-bold text-slate-600">Buyer Only</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="w-6 h-6 rounded-md bg-emerald-500 flex items-center justify-center text-[10px] font-black text-white shadow-sm">S</div>
-                                    <span className="text-xs font-bold text-slate-600">Seller Only</span>
-                                </div>
-                                <div className="pt-2 border-t border-slate-50 italic">
-                                    <span className="text-[10px] text-slate-400 font-medium">Fields without icons are visible to both personas.</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Developer Tools */}
-                    <div className="mt-12 pt-8 border-t border-slate-200">
-                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Developer Tools</h3>
-                        <div className="flex flex-col gap-4">
-                            {onResetData && (
-                                <div className="flex items-center gap-6">
-                                    <button
-                                        type="button"
-                                        onClick={(e) => { e.preventDefault(); onResetData(); }}
-                                        className="text-rose-500 hover:text-rose-700 text-xs font-bold flex items-center gap-2 transition-all hover:translate-x-1"
-                                    >
-                                        <i className="fa-solid fa-trash-can"></i>
-                                        Reset & Seed Mock Database
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={(e) => { e.preventDefault(); setShowResetDefaultsConfirm(true); }}
-                                        className="text-amber-500 hover:text-amber-700 text-xs font-bold flex items-center gap-2 transition-all hover:translate-x-1"
-                                    >
-                                        <i className="fa-solid fa-rotate-left"></i>
-                                        Restore Current Tab Defaults
-                                    </button>
-                                </div>
-                            )}
-
-                            {resetLogs.length > 0 && (
-                                <div className="mt-4 bg-slate-950 rounded-2xl border border-white/5 overflow-hidden shadow-2xl flex flex-col">
-                                    <div className="bg-slate-900 px-6 py-3 border-b border-white/5 flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse"></div>
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">System Protocol Output</span>
-                                        </div>
-                                        {isResetting && <i className="fa-solid fa-spinner fa-spin text-indigo-400 text-xs"></i>}
-                                    </div>
-                                    <div className="p-6 h-64 overflow-y-auto font-mono text-[10px] leading-relaxed flex flex-col gap-2 scrollbar-thin">
-                                        {resetLogs.map((log, i) => (
-                                            <div key={i} className="flex gap-4 group">
-                                                <span className="text-slate-700 flex-shrink-0">[{new Date().toLocaleTimeString([], { hour12: false })}]</span>
-                                                <span className={
-                                                    log.includes('[Error]') ? 'text-rose-400 font-bold' :
-                                                        log.includes('[Cleanup]') ? 'text-amber-400/80' :
-                                                            log.includes('[Seed]') ? 'text-emerald-400/80' :
-                                                                log.includes('[System]') ? 'text-indigo-400 font-bold' :
-                                                                    'text-slate-400'
-                                                }>
-                                                    {log}
-                                                </span>
-                                            </div>
-                                        ))}
-                                        {isResetting && (
-                                            <div className="text-white/20 italic animate-pulse">Executing Firestore batch queries...</div>
-                                        )}
-                                        <div id="logs-end"></div>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="text-[10px] text-slate-400 font-medium italic mt-2">
-                                Note: Resetting mock data will delete all existing leads and reload the default demonstration data.
-                            </div>
-                        </div>
-                    </div>
-                    {/* Reset Defaults Confirmation Modal */}
-                    {showResetDefaultsConfirm && (
-                        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-                            <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-300">
-                                <div className="p-10 text-center">
-                                    <div className="w-20 h-20 rounded-3xl bg-amber-50 flex items-center justify-center mb-8 mx-auto">
-                                        <i className="fa-solid fa-rotate-left text-3xl text-amber-500"></i>
-                                    </div>
-                                    <h3 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Restore Defaults</h3>
-                                    <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                                        This will restore all <span className="font-bold text-slate-700">{activeTab}</span> to their original system defaults. <span className="text-amber-600 font-bold">Your customizations will be lost.</span>
-                                    </p>
-                                </div>
-                                <div className="p-8 bg-slate-50 flex flex-col gap-3">
-                                    <button
-                                        onClick={handleResetDefaults}
-                                        className="w-full py-4 bg-amber-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-amber-600 shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all"
-                                    >
-                                        Restore Defaults
-                                    </button>
-                                    <button
-                                        onClick={() => setShowResetDefaultsConfirm(false)}
-                                        className="w-full py-4 bg-white text-slate-400 rounded-2xl text-xs font-black uppercase tracking-widest hover:text-slate-600 hover:bg-slate-100 transition-all"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
-            </DragDropContext>
+
+                {/* Category Tabs */}
+                <div className="flex p-1 bg-slate-100 rounded-xl mb-4 overflow-x-auto no-scrollbar border border-slate-200">
+                    {PROPERTY_CATEGORIES.map((cat) => (
+                        <button
+                            key={cat}
+                            onClick={() => setActiveCategory(cat)}
+                            className={`flex-1 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${activeCategory === cat
+                                ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5'
+                                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50'
+                                }`}
+                        >
+                            {cat}
+                        </button>
+                    ))}
+                </div>
+
+                {renderTable([activeCategory], 'property')}
+
+                {/* Legend Section */}
+                <div className="mt-12">
+                    {/* Elegant Persona Legend */}
+                    <div className="max-w-sm bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Persona Legend</h4>
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-md bg-sky-500 flex items-center justify-center text-[10px] font-black text-white shadow-sm">B</div>
+                                <span className="text-xs font-bold text-slate-600">Buyer Only</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-md bg-emerald-500 flex items-center justify-center text-[10px] font-black text-white shadow-sm">S</div>
+                                <span className="text-xs font-bold text-slate-600">Seller Only</span>
+                            </div>
+                            <div className="pt-2 border-t border-slate-50 italic">
+                                <span className="text-[10px] text-slate-400 font-medium">Fields without icons are visible to both personas.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Developer Tools */}
+                <div className="mt-12 pt-8 border-t border-slate-200">
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Developer Tools</h3>
+                    <div className="flex flex-col gap-4">
+                        {onResetData && (
+                            <div className="flex items-center gap-6">
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); onResetData(); }}
+                                    className="text-rose-500 hover:text-rose-700 text-xs font-bold flex items-center gap-2 transition-all hover:translate-x-1"
+                                >
+                                    <i className="fa-solid fa-trash-can"></i>
+                                    Reset & Seed Mock Database
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); setShowResetDefaultsConfirm(true); }}
+                                    className="text-amber-500 hover:text-amber-700 text-xs font-bold flex items-center gap-2 transition-all hover:translate-x-1"
+                                >
+                                    <i className="fa-solid fa-rotate-left"></i>
+                                    Restore Current Tab Defaults
+                                </button>
+                            </div>
+                        )}
+
+                        {resetLogs.length > 0 && (
+                            <div className="mt-4 bg-slate-950 rounded-2xl border border-white/5 overflow-hidden shadow-2xl flex flex-col">
+                                <div className="bg-slate-900 px-6 py-3 border-b border-white/5 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse"></div>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">System Protocol Output</span>
+                                    </div>
+                                    {isResetting && <i className="fa-solid fa-spinner fa-spin text-indigo-400 text-xs"></i>}
+                                </div>
+                                <div className="p-6 h-64 overflow-y-auto font-mono text-[10px] leading-relaxed flex flex-col gap-2 scrollbar-thin">
+                                    {resetLogs.map((log, i) => (
+                                        <div key={i} className="flex gap-4 group">
+                                            <span className="text-slate-700 flex-shrink-0">[{new Date().toLocaleTimeString([], { hour12: false })}]</span>
+                                            <span className={
+                                                log.includes('[Error]') ? 'text-rose-400 font-bold' :
+                                                    log.includes('[Cleanup]') ? 'text-amber-400/80' :
+                                                        log.includes('[Seed]') ? 'text-emerald-400/80' :
+                                                            log.includes('[System]') ? 'text-indigo-400 font-bold' :
+                                                                'text-slate-400'
+                                            }>
+                                                {log}
+                                            </span>
+                                        </div>
+                                    ))}
+                                    {isResetting && (
+                                        <div className="text-white/20 italic animate-pulse">Executing Firestore batch queries...</div>
+                                    )}
+                                    <div id="logs-end"></div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="text-[10px] text-slate-400 font-medium italic mt-2">
+                            Note: Resetting mock data will delete all existing leads and reload the default demonstration data.
+                        </div>
+                    </div>
+                </div>
+                {/* Reset Defaults Confirmation Modal */}
+                {showResetDefaultsConfirm && (
+                    <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                        <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-300">
+                            <div className="p-10 text-center">
+                                <div className="w-20 h-20 rounded-3xl bg-amber-50 flex items-center justify-center mb-8 mx-auto">
+                                    <i className="fa-solid fa-rotate-left text-3xl text-amber-500"></i>
+                                </div>
+                                <h3 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Restore Defaults</h3>
+                                <p className="text-slate-500 text-sm font-medium leading-relaxed">
+                                    This will restore all <span className="font-bold text-slate-700">{activeTab}</span> to their original system defaults. <span className="text-amber-600 font-bold">Your customizations will be lost.</span>
+                                </p>
+                            </div>
+                            <div className="p-8 bg-slate-50 flex flex-col gap-3">
+                                <button
+                                    onClick={handleResetDefaults}
+                                    className="w-full py-4 bg-amber-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-amber-600 shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all"
+                                >
+                                    Restore Defaults
+                                </button>
+                                <button
+                                    onClick={() => setShowResetDefaultsConfirm(false)}
+                                    className="w-full py-4 bg-white text-slate-400 rounded-2xl text-xs font-black uppercase tracking-widest hover:text-slate-600 hover:bg-slate-100 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

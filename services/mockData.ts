@@ -283,3 +283,44 @@ export const generateMockTransactionParties = (transactionId: string): Partial<T
         }
     ];
 };
+
+export const generateMockTransactionDocuments = (transactionId: string) => {
+    return [
+        {
+            name: 'Purchase Agreement (RPA)',
+            status: 'Completed',
+            comments: 'Signed by all parties',
+            category: 'Contract'
+        },
+        {
+            name: 'Agency Disclosure (AD)',
+            status: 'Completed',
+            comments: '',
+            category: 'Disclosure'
+        },
+        {
+            name: 'Transfer Disclosure Statement (TDS)',
+            status: 'Pending',
+            comments: 'Waiting on seller signature',
+            category: 'Disclosure'
+        },
+        {
+            name: 'Preliminary Title Report',
+            status: 'Completed',
+            comments: 'Clear title confirmed',
+            category: 'Title'
+        },
+        {
+            name: 'Home Inspection Report',
+            status: 'Completed',
+            comments: 'Received, no major issues',
+            category: 'Inspection'
+        },
+        {
+            name: 'HOA Documents',
+            status: 'Pending',
+            comments: 'Requested from management co.',
+            category: 'HOA'
+        }
+    ];
+};

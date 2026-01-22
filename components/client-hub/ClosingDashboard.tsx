@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Lead, Transaction } from '../../types';
 import TransactionTab from './TransactionTab';
 import PartiesTab from './PartiesTab';
+import DocumentsTab from './DocumentsTab';
 import TransactionWizard from './TransactionWizard';
 import { ChecklistCategory } from '../../types/transaction';
 import TransactionTimeline from './TransactionTimeline';
@@ -194,51 +195,7 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
 
 
                                 {activeSubTab !== 'CHECKLIST' && activeSubTab !== 'TRANSACTION' && activeSubTab !== 'PARTIES' && (
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-left">
-                                            <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
-                                                <tr>
-                                                    <th className="px-10 py-5 w-20">#</th>
-                                                    <th className="px-10 py-5">Documentation</th>
-                                                    <th className="px-10 py-5">Status</th>
-                                                    <th className="px-10 py-5 text-center">Docs</th>
-                                                    <th className="px-10 py-5">Comments</th>
-                                                    <th className="px-10 py-5 text-right">Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-50">
-                                                {getDefaultDocumentation().map((doc, idx) => (
-                                                    <tr key={doc.id} className="group hover:bg-slate-50/50 transition-all">
-                                                        <td className="px-10 py-6 text-sm font-black text-slate-300">{idx + 1}.</td>
-                                                        <td className="px-10 py-6 text-sm font-bold text-slate-800">{doc.name}</td>
-                                                        <td className="px-10 py-6">
-                                                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${getStatusBadgeColor(doc.status)}`}>
-                                                                {doc.status}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-10 py-6 text-center">
-                                                            <button className="text-slate-400 hover:text-indigo-600 transition-all p-2 rounded-xl hover:bg-indigo-50">
-                                                                <i className="fa-solid fa-paperclip text-lg"></i>
-                                                            </button>
-                                                        </td>
-                                                        <td className="px-10 py-6">
-                                                            <input
-                                                                type="text"
-                                                                placeholder="Add a comment..."
-                                                                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                                                            />
-                                                        </td>
-                                                        <td className="px-10 py-6 text-right">
-                                                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                                                                <button className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-600/20">Save</button>
-                                                                <button className="px-4 py-2 bg-white border border-slate-200 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50">Cancel</button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                    <DocumentsTab lead={activeLead} realtorId={realtorId} />
                                 )}
                             </div>
                         </div>
