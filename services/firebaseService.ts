@@ -16,4 +16,3 @@ export * from './firebase/documents';
 export * from './firebase/transactions';
 export * from './firebase/seed';
 
-// TransactionDocument is exported via ./firebase/documents

@@ -9,7 +9,7 @@ import {
 import { Document, DocumentVersion } from "../../types";
 import { generateMockTransactionDocuments } from "../mockData";
 
-export type TransactionDocument = Document;
+// Helper to get a secure download URL
 
 // Helper to get a secure download URL
 export const getDocumentDownloadUrl = async (storagePath: string): Promise<string | null> => {
@@ -76,7 +76,7 @@ export const getTransactionDocuments = async (transactionId: string) => {
         );
         const snap = await getDocs(q);
 
-        const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TransactionDocument));
+        const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Document));
         // Sort by created_at in memory
         return docs.sort((a, b) => {
             const getTime = (val: any) => {
@@ -101,7 +101,7 @@ export const getTransactionDocuments = async (transactionId: string) => {
     }
 };
 
-export const addTransactionDocument = async (transactionId: string, docData: Partial<TransactionDocument>) => {
+export const addTransactionDocument = async (transactionId: string, docData: Partial<Document>) => {
     if (!db || !transactionId) return null;
     try {
         logFirestoreQuery('addDoc', 'transaction_documents', docData);
@@ -136,14 +136,14 @@ export const addTransactionDocument = async (transactionId: string, docData: Par
             current_version_number: docData.storage_path ? 1 : 0,
             created_at: new Date(),
             updated_at: new Date()
-        } as TransactionDocument;
+        } as Document;
     } catch (error) {
         handleFirestoreError(error, "addTransactionDocument");
         return null;
     }
 };
 
-export const updateTransactionDocument = async (transactionId: string, docId: string, updates: Partial<TransactionDocument>) => {
+export const updateTransactionDocument = async (transactionId: string, docId: string, updates: Partial<Document>) => {
     if (!db || !transactionId || !docId) return false;
     try {
         logFirestoreQuery('updateDoc', 'transaction_documents', { docId });
@@ -167,7 +167,7 @@ export const addDocumentVersion = async (
     transactionId: string,
     documentId: string,
     file: File
-): Promise<TransactionDocument | null> => {
+): Promise<Document | null> => {
     if (!db || !transactionId || !documentId) return null;
 
     try {
@@ -181,7 +181,7 @@ export const addDocumentVersion = async (
 
         if (!docSnap.exists()) throw new Error("Parent document not found");
 
-        const currentDoc = docSnap.data() as TransactionDocument;
+        const currentDoc = docSnap.data() as Document;
         const nextVersion = (currentDoc.current_version_number || 0) + 1;
         const now = serverTimestamp();
 
@@ -201,7 +201,7 @@ export const addDocumentVersion = async (
         await addDoc(collection(db, "transaction_documents", documentId, "versions"), versionData);
 
         // 4. Update Parent Document with Latest File Info
-        const parentUpdates: Partial<TransactionDocument> = {
+        const parentUpdates: Partial<Document> = {
             storage_path: uploadResult.storage_path,
             file_name: uploadResult.file_name,
             file_type: uploadResult.file_type,
@@ -233,7 +233,7 @@ export const deleteTransactionDocument = async (transactionId: string, docId: st
         // 1. Fetch document to get storage path
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-            const docData = docSnap.data() as TransactionDocument;
+            const docData = docSnap.data() as Document;
             // 2. Delete from storage if path exists
             if (docData.storage_path) {
                 const storage = getStorage();

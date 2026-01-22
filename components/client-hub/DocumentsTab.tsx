@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Lead } from '../../types';
-import { getTransactionDocuments, addTransactionDocument, updateTransactionDocument, deleteTransactionDocument, getTransactionByClientId, seedDocumentsForTransaction, TransactionDocument, getTransactions, uploadTransactionDocumentFile, getDocumentDownloadUrl, addDocumentVersion } from '../../services/firebaseService';
+import { Lead, Document } from '../../types';
+import { getTransactionDocuments, addTransactionDocument, updateTransactionDocument, deleteTransactionDocument, getTransactionByClientId, seedDocumentsForTransaction, getTransactions, uploadTransactionDocumentFile, getDocumentDownloadUrl, addDocumentVersion } from '../../services/firebaseService';
 
 interface DocumentsTabProps {
     lead: Lead;
@@ -8,11 +8,11 @@ interface DocumentsTabProps {
 }
 
 const ActionsDropdown: React.FC<{
-    doc: TransactionDocument;
-    onEdit: (doc: TransactionDocument) => void;
+    doc: Document;
+    onEdit: (doc: Document) => void;
     onDelete: (id: string) => void;
-    onUploadVersion: (doc: TransactionDocument) => void;
-    onView: (doc: TransactionDocument) => void;
+    onUploadVersion: (doc: Document) => void;
+    onView: (doc: Document) => void;
 }> = ({ doc, onEdit, onDelete, onUploadVersion, onView }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -77,17 +77,17 @@ const ActionsDropdown: React.FC<{
 // Main Component
 const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
     // ... (Keep existing state)
-    const [documents, setDocuments] = useState<TransactionDocument[]>([]);
+    const [documents, setDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
     const [transactionId, setTransactionId] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [editForm, setEditForm] = useState<Partial<TransactionDocument>>({});
+    const [editForm, setEditForm] = useState<Partial<Document>>({});
     const [isAdding, setIsAdding] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploadTargetId, setUploadTargetId] = useState<string | null>(null); // Track which doc we are uploading to
 
     // ... (Keep existing useEffects and lifecycle)
-    const MOCK_DOCUMENTS: TransactionDocument[] = [
+    const MOCK_DOCUMENTS: Document[] = [
         { id: 'm1', transaction_id: 'mock', name: 'Mock Contract', category: 'Contract', status: 'Completed', comments: 'Signed', updated_at: new Date() }
     ];
 
@@ -142,7 +142,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
     };
 
 
-    const handleEdit = (doc: TransactionDocument) => {
+    const handleEdit = (doc: Document) => {
         setEditingId(doc.id);
         setEditForm(doc);
     };
@@ -152,7 +152,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
         try {
             await updateTransactionDocument(transactionId, id, editForm);
             // Optiimistic update (including timestamp)
-            setDocuments(documents.map(d => d.id === id ? { ...d, ...editForm, updated_at: new Date() } as TransactionDocument : d));
+            setDocuments(documents.map(d => d.id === id ? { ...d, ...editForm, updated_at: new Date() } as Document : d));
             setEditingId(null);
         } catch (error) {
             console.error("Error updating document:", error);
@@ -171,7 +171,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
 
     const handleAdd = async () => {
         if (!transactionId) return;
-        const newDoc: Partial<TransactionDocument> = {
+        const newDoc: Partial<Document> = {
             name: 'New Document',
             category: 'Other',
             status: 'Pending',
@@ -247,7 +247,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
         }
     };
 
-    const handleViewFile = async (doc: TransactionDocument) => {
+    const handleViewFile = async (doc: Document) => {
         if (!doc.storage_path) return;
         try {
             const url = await getDocumentDownloadUrl(doc.storage_path);
@@ -361,7 +361,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
                                         onChange={e => setEditForm({ ...editForm, status: e.target.value as any })}
                                     >
                                         <option value="Pending">Pending</option>
-                                        <option value="Completed">Completed</option>
+                                        <option value="Completed" disabled={!editForm.storage_path}>Completed {!editForm.storage_path ? '(Upload Required)' : ''}</option>
                                         <option value="Rejected">Rejected</option>
                                     </select>
                                 </td>
@@ -435,7 +435,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
                                                 onChange={e => setEditForm({ ...editForm, status: e.target.value as any })}
                                             >
                                                 <option value="Pending">Pending</option>
-                                                <option value="Completed">Completed</option>
+                                                <option value="Completed" disabled={!editForm.storage_path}>Completed {!editForm.storage_path ? '(Upload Required)' : ''}</option>
                                                 <option value="Rejected">Rejected</option>
                                             </select>
                                         </td>

@@ -288,13 +288,13 @@ export const generateMockTransactionDocuments = (transactionId: string) => {
     return [
         {
             name: 'Purchase Agreement (RPA)',
-            status: 'Completed',
-            comments: 'Signed by all parties',
+            status: 'Pending',
+            comments: 'Pending upload',
             category: 'Contract'
         },
         {
             name: 'Agency Disclosure (AD)',
-            status: 'Completed',
+            status: 'Pending',
             comments: '',
             category: 'Disclosure'
         },
@@ -306,14 +306,14 @@ export const generateMockTransactionDocuments = (transactionId: string) => {
         },
         {
             name: 'Preliminary Title Report',
-            status: 'Completed',
-            comments: 'Clear title confirmed',
+            status: 'Pending',
+            comments: 'Title search in progress',
             category: 'Title'
         },
         {
             name: 'Home Inspection Report',
-            status: 'Completed',
-            comments: 'Received, no major issues',
+            status: 'Pending',
+            comments: 'Inspection scheduled',
             category: 'Inspection'
         },
         {

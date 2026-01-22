@@ -10,8 +10,8 @@ import { Lead, CRMTask, CommTemplate, Transaction } from "../../types";
 import { getInitialCategories } from "../transactionService";
 import { generateMockTransactionParties, generateMockTransactionDocuments } from "../mockData";
 import { seedPartiesForTransaction } from "./parties";
-import { seedDocumentsForTransaction } from "./documents";
-import { seedTasksForTransaction, addTransactionDocument } from "./transactions"; // Note: seedTasksForTransaction is in transactions, but addTransactionDocument is in documents. Wait.
+import { seedDocumentsForTransaction, addTransactionDocument } from "./documents";
+import { seedTasksForTransaction } from "./transactions";
 // seedTasksForTransaction calls transactionService's calculateChecklist, and returns checklist. 
 // Ah, seedMockData *uses* these functions.
 
@@ -191,16 +191,41 @@ export const deleteAllMockData = async (realtorId: string, onLog?: (msg: string)
 
         const [snap1, snap2] = await Promise.all([getDocs(txQ1), getDocs(txQ2)]);
 
-        const processDocs = (snap: any) => {
-            snap.forEach((doc: any) => {
+        const processDocs = async (snap: any) => {
+            const docs = snap.docs;
+            // Delete the transactions themselves
+            docs.forEach((doc: any) => {
                 batch.delete(doc.ref);
                 log(`[Cleanup] Deleting transaction: ${doc.id}`);
                 count++;
             });
+
+            // Delete associated Documents and Parties
+            for (const doc of docs) {
+                const txId = doc.id;
+
+                // Delete Documents
+                const documentsQ = query(collection(db, "transaction_documents"), where("transaction_id", "==", txId));
+                const documentsSnap = await getDocs(documentsQ);
+                documentsSnap.forEach(d => {
+                    batch.delete(d.ref);
+                    log(`[Cleanup] Deleting tx document: ${d.id}`);
+                    count++;
+                });
+
+                // Delete Parties
+                const partiesQ = query(collection(db, "transaction_parties"), where("transaction_id", "==", txId));
+                const partiesSnap = await getDocs(partiesQ);
+                partiesSnap.forEach(d => {
+                    batch.delete(d.ref);
+                    log(`[Cleanup] Deleting tx party: ${d.id}`);
+                    count++;
+                });
+            }
         };
 
-        processDocs(snap1);
-        processDocs(snap2);
+        await processDocs(snap1);
+        await processDocs(snap2);
 
         if (count > 0) {
             log(`[Cleanup] Committing deletion of ${count} items...`);

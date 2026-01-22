@@ -14,13 +14,6 @@ interface ClosingDashboardProps {
     onNavigateToClient?: (clientId: string) => void;
 }
 
-interface DocItem {
-    id: string;
-    name: string;
-    status: 'Pending' | 'Completed' | 'Rejected';
-    comments: string;
-}
-
 const getStatusBadgeColor = (status: string) => {
     switch (status) {
         case 'Pending': return 'bg-rose-100 text-rose-600 border-rose-200';
@@ -29,19 +22,7 @@ const getStatusBadgeColor = (status: string) => {
     }
 };
 
-// Default documentation checklist for a transaction
-const getDefaultDocumentation = (): DocItem[] => [
-    { id: 'doc_1', name: 'Purchase Agreement (RPA)', status: 'Completed', comments: 'Signed by all parties' },
-    { id: 'doc_2', name: 'Agency Disclosure (AD)', status: 'Completed', comments: '' },
-    { id: 'doc_3', name: 'Transfer Disclosure Statement (TDS)', status: 'Pending', comments: 'Waiting on seller signature' },
-    { id: 'doc_4', name: 'Seller Property Questionnaire (SPQ)', status: 'Pending', comments: '' },
-    { id: 'doc_5', name: 'Preliminary Title Report', status: 'Completed', comments: 'Clear title confirmed' },
-    { id: 'doc_6', name: 'Home Inspection Report', status: 'Completed', comments: 'Received, no major issues' },
-    { id: 'doc_7', name: 'Natural Hazard Disclosure (NHD)', status: 'Pending', comments: '' },
-    { id: 'doc_8', name: 'Lead-Based Paint Disclosure', status: 'Pending', comments: '' },
-    { id: 'doc_9', name: 'HOA Documents', status: 'Pending', comments: 'Requested from management co.' },
-    { id: 'doc_10', name: 'Termite Inspection', status: 'Rejected', comments: 'Needs re-inspection for Section 1 items' },
-];
+// Initial categories for the checklist
 
 // Initial categories for the checklist
 
