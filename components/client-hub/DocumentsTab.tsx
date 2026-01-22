@@ -1,22 +1,94 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Lead } from '../../types';
-import { getTransactionDocuments, addTransactionDocument, updateTransactionDocument, deleteTransactionDocument, getTransactionByClientId, seedDocumentsForTransaction, TransactionDocument, getTransactions } from '../../services/firebaseService';
+import { getTransactionDocuments, addTransactionDocument, updateTransactionDocument, deleteTransactionDocument, getTransactionByClientId, seedDocumentsForTransaction, TransactionDocument, getTransactions, uploadTransactionDocumentFile, getDocumentDownloadUrl, addDocumentVersion } from '../../services/firebaseService';
 
 interface DocumentsTabProps {
     lead: Lead;
     realtorId: string;
 }
 
+const ActionsDropdown: React.FC<{
+    doc: TransactionDocument;
+    onEdit: (doc: TransactionDocument) => void;
+    onDelete: (id: string) => void;
+    onUploadVersion: (doc: TransactionDocument) => void;
+    onView: (doc: TransactionDocument) => void;
+}> = ({ doc, onEdit, onDelete, onUploadVersion, onView }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 flex items-center justify-center transition-colors"
+                title="Actions"
+            >
+                <i className="fa-solid fa-ellipsis-vertical"></i>
+            </button>
+
+            {isOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden ml-[-100px]">
+                    <div className="py-1">
+                        {doc.storage_path && (
+                            <button
+                                onClick={() => { onView(doc); setIsOpen(false); }}
+                                className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-2"
+                            >
+                                <i className="fa-solid fa-eye w-4"></i> Preview
+                            </button>
+                        )}
+                        <button
+                            onClick={() => { onUploadVersion(doc); setIsOpen(false); }}
+                            className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 flex items-center gap-2"
+                        >
+                            <i className="fa-solid fa-cloud-arrow-up w-4"></i> Upload Version
+                        </button>
+                        <div className="h-px bg-slate-100 my-1"></div>
+                        <button
+                            onClick={() => { onEdit(doc); setIsOpen(false); }}
+                            className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+                        >
+                            <i className="fa-solid fa-pen w-4"></i> Rename / Edit
+                        </button>
+                        <button
+                            onClick={() => { onDelete(doc.id); setIsOpen(false); }}
+                            className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-500 hover:bg-rose-50 flex items-center gap-2"
+                        >
+                            <i className="fa-solid fa-trash w-4"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// Main Component
 const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
+    // ... (Keep existing state)
     const [documents, setDocuments] = useState<TransactionDocument[]>([]);
     const [loading, setLoading] = useState(true);
     const [transactionId, setTransactionId] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<Partial<TransactionDocument>>({});
     const [isAdding, setIsAdding] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [uploadTargetId, setUploadTargetId] = useState<string | null>(null); // Track which doc we are uploading to
 
+    // ... (Keep existing useEffects and lifecycle)
     const MOCK_DOCUMENTS: TransactionDocument[] = [
-        { id: 'm1', transaction_id: 'mock', name: 'Mock Contract', category: 'Contract', status: 'Completed', comments: 'Signed' }
+        { id: 'm1', transaction_id: 'mock', name: 'Mock Contract', category: 'Contract', status: 'Completed', comments: 'Signed', updated_at: new Date() }
     ];
 
     useEffect(() => {
@@ -37,6 +109,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
                 if (tx) {
                     setTransactionId(tx.id);
                     const docsData = await getTransactionDocuments(tx.id);
+                    console.log("[DocumentsTab] Setting documents:", docsData);
                     setDocuments(docsData);
                 } else {
                     setTransactionId('mock_tx_id');
@@ -59,6 +132,16 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
         }
     }, [lead.id, realtorId, lead.subjectProperty, lead.propertyAddress]);
 
+
+    // Format Date Helper
+    const formatDate = (val: any) => {
+        if (!val) return '--';
+        if (val.toDate) return val.toDate().toLocaleDateString(); // Firestore Timestamp
+        if (val instanceof Date) return val.toLocaleDateString();
+        return new Date(val).toLocaleDateString();
+    };
+
+
     const handleEdit = (doc: TransactionDocument) => {
         setEditingId(doc.id);
         setEditForm(doc);
@@ -68,7 +151,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
         if (!transactionId) return;
         try {
             await updateTransactionDocument(transactionId, id, editForm);
-            setDocuments(documents.map(d => d.id === id ? { ...d, ...editForm } as TransactionDocument : d));
+            // Optiimistic update (including timestamp)
+            setDocuments(documents.map(d => d.id === id ? { ...d, ...editForm, updated_at: new Date() } as TransactionDocument : d));
             setEditingId(null);
         } catch (error) {
             console.error("Error updating document:", error);
@@ -115,6 +199,68 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
         setLoading(false);
     };
 
+    // Trigger file input for a specific doc (or new doc)
+    const triggerUpload = (docId: string | null = null) => {
+        setUploadTargetId(docId);
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (!transactionId || !event.target.files?.length) return;
+        if (transactionId === 'mock_tx_id') {
+            alert("Cannot upload files to mock transaction. Please create a real transaction first.");
+            return;
+        }
+
+        const file = event.target.files[0];
+        try {
+            if (uploadTargetId) {
+                // CASE A: Existing Document -> Create New Version
+                const updatedDoc = await addDocumentVersion(transactionId, uploadTargetId, file);
+                if (updatedDoc) {
+                    // Update local state with the FULL updated document (including version number)
+                    setDocuments(docs => docs.map(d => d.id === uploadTargetId ? updatedDoc : d));
+                } else {
+                    alert("Failed to add document version.");
+                }
+            } else {
+                // CASE B: New Document (in form) -> Upload and Prepare Form
+                const result = await uploadTransactionDocumentFile(transactionId, file);
+                if (result) {
+                    setEditForm(prev => ({
+                        ...prev,
+                        storage_path: result.storage_path,
+                        file_type: result.file_type,
+                        file_name: result.file_name,
+                        file_hash: result.file_hash,
+                        name: prev.name || file.name
+                    }));
+                }
+            }
+        } catch (error) {
+            console.error("Upload failed", error);
+            alert("File upload failed. Please try again.");
+        } finally {
+            // Reset
+            setUploadTargetId(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const handleViewFile = async (doc: TransactionDocument) => {
+        if (!doc.storage_path) return;
+        try {
+            const url = await getDocumentDownloadUrl(doc.storage_path);
+            if (url) {
+                window.open(url, '_blank');
+            } else {
+                alert("Could not retrieve secure link for this file.");
+            }
+        } catch (error) {
+            console.error("Error viewing file:", error);
+        }
+    };
+
     const getStatusBadgeColor = (status: string) => {
         switch (status) {
             case 'Pending': return 'bg-rose-100 text-rose-600 border-rose-200';
@@ -144,6 +290,13 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
 
     return (
         <div className="space-y-6">
+            <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                onChange={handleFileChange}
+            />
+
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                     {transactionId && transactionId !== 'mock_tx_id' && (
@@ -166,7 +319,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
                 </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto pb-40"> {/* pb-40 for dropdown space */}
                 <table className="w-full text-left">
                     <thead>
                         <tr className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
@@ -175,6 +328,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
                             <th className="px-6 py-4">Status</th>
                             <th className="px-6 py-4">Comments</th>
                             <th className="px-6 py-4 text-center">Attachment</th>
+                            <th className="px-6 py-4">Last Updated</th>
                             <th className="px-6 py-4 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -221,9 +375,21 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
                                     />
                                 </td>
                                 <td className="px-6 py-4 text-center">
-                                    <button className="text-slate-300 cursor-not-allowed">
-                                        <i className="fa-solid fa-paperclip"></i>
+                                    <button
+                                        onClick={() => triggerUpload(null)}
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${editForm.storage_path ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400 hover:text-indigo-600'}`}
+                                        title={editForm.file_name ? `Replace ${editForm.file_name}` : "Upload File"}
+                                    >
+                                        <i className={`fa-solid ${editForm.storage_path ? 'fa-check' : 'fa-paperclip'}`}></i>
                                     </button>
+                                    {editForm.file_name && (
+                                        <div className="text-[9px] text-slate-400 mt-1 max-w-[80px] truncate mx-auto">
+                                            {editForm.file_name}
+                                        </div>
+                                    )}
+                                </td>
+                                <td className="px-6 py-4 text-xs text-slate-400">
+                                    Now
                                 </td>
                                 <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
                                     <button onClick={handleAdd} className="text-emerald-500 hover:text-emerald-600 font-bold text-xs uppercase">Save</button>
@@ -233,7 +399,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
                         )}
                         {documents.length === 0 && !isAdding && (
                             <tr>
-                                <td colSpan={6} className="px-6 py-20 text-center">
+                                <td colSpan={7} className="px-6 py-20 text-center">
                                     <div className="flex flex-col items-center gap-2">
                                         <i className="fa-solid fa-folder-open text-2xl text-slate-200"></i>
                                         <p className="text-sm font-bold text-slate-400">No documents found</p>
@@ -282,7 +448,11 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
                                             />
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            <i className="fa-solid fa-paperclip text-slate-300"></i>
+                                            {/* In edit mode, we don't allow file replace via this icon to keep it simple, use actions instead or just re-upload in normal view */}
+                                            <i className="fa-solid fa-ban text-slate-200" title="File replacement available in main view"></i>
+                                        </td>
+                                        <td className="px-6 py-4 text-xs text-slate-400">
+                                            --
                                         </td>
                                         <td className="px-6 py-4 text-right flex items-center justify-end gap-2 text-sm">
                                             <button onClick={() => handleSave(doc.id)} className="text-indigo-600 hover:text-indigo-700 font-bold text-xs uppercase">Save</button>
@@ -304,17 +474,35 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ lead, realtorId }) => {
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-600 truncate max-w-[200px]">{doc.comments || '--'}</td>
                                         <td className="px-6 py-4 text-center">
-                                            <button className="text-slate-300 hover:text-indigo-600 transition-colors">
-                                                <i className="fa-solid fa-paperclip"></i>
-                                            </button>
+                                            {doc.storage_path ? (
+                                                <button
+                                                    onClick={() => handleViewFile(doc)}
+                                                    className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-100 transition-colors"
+                                                    title={`View ${doc.file_name || 'Attachment'}`}
+                                                >
+                                                    <i className="fa-regular fa-file-pdf"></i>
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => triggerUpload(doc.id)}
+                                                    className="w-8 h-8 rounded-full bg-slate-50 text-slate-300 border border-dashed border-slate-300 flex items-center justify-center hover:bg-indigo-50 hover:text-indigo-500 hover:border-indigo-300 transition-all"
+                                                    title="Upload Document"
+                                                >
+                                                    <i className="fa-solid fa-cloud-arrow-up text-xs"></i>
+                                                </button>
+                                            )}
                                         </td>
-                                        <td className="px-6 py-4 text-right flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => handleEdit(doc)} className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-100 transition-colors">
-                                                <i className="fa-solid fa-pen text-[10px]"></i>
-                                            </button>
-                                            <button onClick={() => handleDelete(doc.id)} className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors">
-                                                <i className="fa-solid fa-trash text-[10px]"></i>
-                                            </button>
+                                        <td className="px-6 py-4 text-xs text-slate-500 font-medium">
+                                            {formatDate(doc.updated_at || doc.created_at)}
+                                        </td>
+                                        <td className="px-6 py-4 text-right flex items-center justify-end">
+                                            <ActionsDropdown
+                                                doc={doc}
+                                                onEdit={handleEdit}
+                                                onDelete={handleDelete}
+                                                onUploadVersion={(d) => triggerUpload(d.id)}
+                                                onView={handleViewFile}
+                                            />
                                         </td>
                                     </>
                                 )}

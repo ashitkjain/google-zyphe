@@ -64,16 +64,28 @@ export type DocumentType = 'RPA' | 'TDS' | 'AVID' | 'SPQ' | 'ADDENDUM' | 'OTHER'
 export type DocumentCategory = 'CONTRACT' | 'DISCLOSURE' | 'INSPECTION' | 'ESCROW' | 'MARKETING' | 'OTHER';
 export type DocumentStatus = 'DRAFT' | 'SENT_FOR_SIGNATURE' | 'SIGNED' | 'VOIDED';
 
+
 export interface Document {
     id: string;
     transaction_id: string; // FK -> Transaction
-    doc_type: DocumentType | string;
-    title: string; // human name
-    category: DocumentCategory;
-    current_version_id: string; // FK -> DocumentVersion
-    status: DocumentStatus;
-    tags: string[];
-    created_by_user_id: string;
+    name: string; // Document Name
+    category: string; // DocumentCategory or string
+    status: DocumentStatus | 'Pending' | 'Completed' | 'Rejected';
+    comments?: string;
+
+    // File Metadata (Flattened for latest version access)
+    storage_path?: string;
+    file_name?: string;
+    file_type?: string;
+    file_hash?: string;
+    current_version_number?: number;
+
+    // Legacy / Detailed fields from original interface
+    doc_type?: DocumentType | string;
+    title?: string;
+    current_version_id?: string;
+    tags?: string[];
+    created_by_user_id?: string;
     created_at: Date | any;
     updated_at: Date | any;
 }
@@ -84,14 +96,23 @@ export interface DocumentVersion {
     id: string;
     document_id: string; // FK -> Document
     version_number: number;
-    storage_uri: string; // S3/GCS key
-    filename_original: string;
-    content_type: string; // application/pdf
-    size_bytes: number;
-    sha256?: string; // integrity check
-    created_by_user_id: string;
+    storage_path: string; // Was storage_uri
+    file_name: string; // Was filename_original
+    file_type: string; // Was content_type
+    file_hash?: string; // Was sha256
+    size: number; // Was size_bytes
+
     created_at: Date | any;
-    source: DocumentSource;
+    created_by?: string; // User ID/Email
+
+    // Legacy fields
+    storage_uri?: string;
+    filename_original?: string;
+    content_type?: string;
+    size_bytes?: number;
+    sha256?: string;
+    created_by_user_id?: string;
+    source?: DocumentSource;
     notes?: string;
 }
 
