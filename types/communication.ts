@@ -34,3 +34,18 @@ export interface CommTemplate {
     category: 'Follow-up' | 'Introduction' | 'Viewing' | 'Closing';
     isMock?: boolean;
 }
+
+export interface MessageEvent {
+    event_id: string;      // uuid
+    lead_id: string;
+    agent_id: string;
+    message_id: string;
+    channel: 'sms' | 'email';
+    event_type: 'sent' | 'delivered' | 'failed' | 'reply' | 'opt_out';
+    provider: 'twilio' | 'sendgrid' | 'other';
+    provider_id?: string;
+    timestamp: any;
+    isInbound: boolean;    // true if client -> agent
+    source: 'system' | 'human';
+    raw_payload?: Record<string, any>; // jsonb
+}
