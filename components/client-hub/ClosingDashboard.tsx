@@ -57,7 +57,7 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
 
     const [activeSubTab, setActiveSubTab] = useState('TRANSACTION');
 
-    const subTabs = ['TRANSACTION', 'PARTIES', 'DOCUMENTS', 'LOG', 'TASKS', 'PROPERTY'];
+    const subTabs = ['TRANSACTION', 'PARTIES', 'DOCUMENTS', 'LOG'];
 
 
 
@@ -137,7 +137,7 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                                     onClick={() => setActiveSubTab(tab)}
                                     className={`px-6 py-4 text-[11px] font-black uppercase tracking-[0.2em] transition-all relative ${activeSubTab === tab ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
                                 >
-                                    {tab}
+                                    {tab === 'LOG' ? 'Audit Trail' : tab}
                                     {activeSubTab === tab && (
                                         <div className="absolute bottom-0 left-6 right-6 h-1 bg-indigo-600 rounded-t-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>
                                     )}
@@ -156,7 +156,7 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                                             {activeSubTab === 'CHECKLIST' ? 'Transaction Checklist' :
                                                 activeSubTab === 'PARTIES' ? 'Transaction Parties' :
                                                     activeSubTab === 'TRANSACTION' ? 'Transaction Record' :
-                                                        activeSubTab === 'LOG' ? 'Audit Trail & Logs' :
+                                                        activeSubTab === 'LOG' ? 'Audit Trail' :
                                                             'Documentation'}
                                         </h2>
                                     </div>

@@ -152,7 +152,7 @@ const AuditTrailTab: React.FC<AuditTrailTabProps> = ({ lead, realtorId }) => {
                                                                 .map(([key, value]) => (
                                                                     <div key={key} className="flex gap-1 text-[9px] items-baseline">
                                                                         <span className="font-bold text-slate-400 uppercase text-[7px] tracking-tighter">{key}:</span>
-                                                                        <span className="text-slate-700 font-medium truncate italic max-w-[150px]">
+                                                                        <span className="text-slate-700 font-medium italic break-words">
                                                                             {typeof value === 'object' ? '...' : String(value)}
                                                                         </span>
                                                                     </div>

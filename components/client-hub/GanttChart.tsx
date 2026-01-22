@@ -237,7 +237,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate, onTaskSt
 
     // --- Rendering Config ---
     // --- Rendering Config ---
-    const rowHeight = 44; // Increased from 30 to fit wrapped text
+    const rowHeight = 60; // Increased to fit wrapped text
     const headerHeight = 60; // 2 rows of headers
     const taskBarHeight = 18; // DENSE
     const dayWidth = zoom === 'day' ? 46 : 20; // Increased to ensure content fills screen naturally
@@ -356,8 +356,8 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate, onTaskSt
                             {visibleItems.map((item, idx) => (
                                 <div
                                     key={item.id}
-                                    style={{ height: rowHeight }}
-                                    className={`flex items-center px-0 border-b border-slate-100 transition-colors 
+                                    style={{ minHeight: rowHeight }}
+                                    className={`flex items-center py-2 px-0 border-b border-slate-100 transition-colors 
                                         ${item.type === 'category' ? 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer' : 'hover:bg-slate-50 text-slate-700'}
                                     `}
                                     onClick={() => item.type === 'category' ? toggleExpand(item.id) : null}
@@ -366,7 +366,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate, onTaskSt
                                         {item.type === 'category' ? (
                                             <>
                                                 <i className={`fa-solid fa-chevron-right text-[10px] w-4 transition-transform duration-200 ${expandedIds.has(item.id) ? 'rotate-90' : ''}`}></i>
-                                                <span className="text-xs font-bold truncate tracking-tight flex-1">{item.name}</span>
+                                                <span className="text-xs font-bold tracking-tight flex-1 whitespace-normal break-words">{item.name}</span>
                                                 {/* Parent Task Dot Indicator */}
                                                 {(item as CategoryBar).hasComments && (
                                                     <div className="w-2 h-2 rounded-full bg-white ml-2 shadow-sm animate-pulse"></div>
@@ -423,7 +423,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate, onTaskSt
                                                     <i className="fa-solid fa-thumbs-up text-[10px]"></i>
                                                 </button>
 
-                                                <span className={`text-xs whitespace-normal leading-tight line-clamp-2 transition-colors duration-300 ${(item as ProcessedTask).status === 'Completed' ? 'text-slate-400' : ''}`}>
+                                                <span className={`text-xs whitespace-normal leading-tight transition-colors duration-300 ${(item as ProcessedTask).status === 'Completed' ? 'text-slate-400' : ''}`}>
                                                     {item.name}
                                                 </span>
                                             </>
