@@ -109,7 +109,7 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({ candidates, onS
                                     </td>
 
                                     <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-2">
+                                        <div className="grid grid-cols-3 gap-1.5 justify-items-end w-fit ml-auto">
                                             <button
                                                 onClick={() => onSelectCandidate(lead.id, 'email')}
                                                 className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors flex items-center justify-center"

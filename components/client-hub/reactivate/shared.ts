@@ -27,6 +27,82 @@ export const getTimeSince = (date: any) => {
     return months < 1 ? '< 1 month ago' : `${months} months ago`;
 };
 
+// Base data for SMS and WhatsApp since they share the same templates
+const SHORT_MESSAGE_TEMPLATES = [
+    {
+        key: 'quick_checkin',
+        title: 'Quick Check-in',
+        description: 'Casual message to gauge interest.',
+        generate: (name: string) => `Hi ${name}, it's [Agent Name]. Saw a property that reminded me of what we discussed a while back. Are you still keeping an eye on the market?`
+    },
+    {
+        key: 'rate_drop',
+        title: 'Rate Drop Alert',
+        description: 'Urgent update about interest rates.',
+        generate: (name: string) => `Hi ${name}! Rates just dipped to [Rate]%. Thought of you immediately. Let me know if you want to run the numbers again on that budget.`
+    },
+    {
+        key: 'thinking_of_you',
+        title: 'Thinking of You',
+        description: 'Casual check-in passing through the neighborhood.',
+        generate: (name: string) => `Hi ${name}, I was just driving past your neighborhood and thought of you! Hope you're loving the new place.`
+    },
+    {
+        key: 'journey_checkin',
+        title: 'Journey Check-in',
+        description: 'See where they are in their home search journey.',
+        generate: (name: string) => `Hi ${name}, just checking in! Where are you at in your home search journey? Anything I can answer for you today?`
+    },
+    {
+        key: 'seasonal_greeting',
+        title: 'Seasonal Greeting',
+        description: 'Photo of local foliage/season.',
+        generate: (name: string) => `[Send Photo of Foliage] Hi ${name}, the neighborhood looks beautiful this time of year! Hope you're enjoying the season.`
+    },
+    {
+        key: 'personal_connection',
+        title: 'Personal Connection',
+        description: 'Reference a detail about them.',
+        generate: (name: string) => `Hi ${name}, I just saw [Item/Article] and it reminded me of [Detail] we talked about! Hope you're doing well.`
+    },
+    {
+        key: 'event_invite',
+        title: 'Event Invite',
+        description: 'Invite to event via message.',
+        generate: (name: string) => `Hi ${name}, we're hosting a [Event] on [Date]. Would love to have you come by! Let me know if you can make it.`
+    },
+    {
+        key: 'home_anniversary',
+        title: 'Home Anniversary',
+        description: 'Photo from closing day.',
+        generate: (name: string) => `[Send Closing Photo] Hi ${name}, can't believe it's been [X] years! Happy home anniversary!`
+    },
+    {
+        key: 'vendor_rec',
+        title: 'Vendor Recommendation',
+        description: 'Suggest maintenance vendors.',
+        generate: (name: string) => `Hi ${name}, doing some spring cleaning? If you need a great window washer or housekeeper, I have a few trusted contacts I can share. Let me know!`
+    },
+    {
+        key: 'reconnection_request',
+        title: 'Reconnection Request',
+        description: 'Ask cold leads to reconnect.',
+        generate: (name: string) => `Hi ${name}, long time no talk! Any interest in grabbing a quick coffee to catch up on the market?`
+    },
+    {
+        key: 'market_shift',
+        title: 'Market Shift Update',
+        description: 'Update on home prices/trends.',
+        generate: (name: string) => `Hi ${name}, inventory just tightened up significantly in [Area]. This is pushing prices up. Might be relevant if you're still considering selling.`
+    },
+    {
+        key: 'open_house',
+        title: 'Open House Invite',
+        description: 'Invite to open house.',
+        generate: (name: string) => `Hi ${name}, I'm holding an open house at [Address] this Sunday. It's similar to what you were looking for. Swing by if you're around!`
+    }
+];
+
 export const STRATEGIES: Strategy[] = [
     {
         id: 'strategy_1',
@@ -100,7 +176,6 @@ export const STRATEGIES: Strategy[] = [
         generate: (name: string) => `Hi ${name},\n\nWe just helped a family in your neighborhood sell their home for [Price] in just [Days] days! The market is still moving for the right properties.\n\nI wanted to share this win because it reminds me of your goals. Here is what they had to say: "[Quote]"\n\nCurious what your home might be worth in today's market?`,
         type: 'email'
     },
-
     {
         id: 'strategy_10',
         title: 'Market Report Update',
@@ -109,22 +184,27 @@ export const STRATEGIES: Strategy[] = [
         generate: (name: string) => `Hi ${name},\n\nI've been tracking the local numbers, and I noticed an interesting trend this month that impacts homeowners in your area.\n\nI've summarized the key stats in the attached report. It's looking like an interesting time for [Buyers/Sellers].\n\nTake a look and let me know your thoughts!`,
         type: 'email'
     },
-    {
-        id: 'strategy_11',
-        title: 'Quick Text Check-in',
-        description: 'Casual text to gauge interest.',
+
+    // SMS Strategies
+    ...SHORT_MESSAGE_TEMPLATES.map(t => ({
+        id: `sms_${t.key}`,
+        title: t.title,
+        description: t.description,
         subject: '',
-        generate: (name: string) => `Hi ${name}, it's [Agent Name]. Saw a property that reminded me of what we discussed a while back. Are you still keeping an eye on the market?`,
-        type: 'sms'
-    },
-    {
-        id: 'strategy_12',
-        title: 'Rate Drop Alert (SMS)',
-        description: 'Urgent update about rates.',
+        generate: t.generate,
+        type: 'sms' as const
+    })),
+
+    // WhatsApp Strategies
+    ...SHORT_MESSAGE_TEMPLATES.map(t => ({
+        id: `wa_${t.key}`,
+        title: `${t.title} (WhatsApp)`,
+        description: t.description,
         subject: '',
-        generate: (name: string) => `Hi ${name}! Rates just dipped to [Rate]%. Thought of you immediately. Let me know if you want to run the numbers again on that budget.`,
-        type: 'sms'
-    },
+        generate: t.generate,
+        type: 'whatsapp' as const
+    })),
+
     // CALL SCRIPTS
     {
         id: 'call_1',
@@ -190,87 +270,7 @@ export const STRATEGIES: Strategy[] = [
         generate: (name: string) => `(Call Script)\n"Hi ${name}, we just sold a home around the corner from you for [Price], which was well over asking. It made me think of your property value. Do you have a minute to chat?"`,
         type: 'call'
     },
-    // MORE TEXT PROMPTS
-    {
-        id: 'text_1',
-        title: 'Thinking of You',
-        description: 'Casual check-in.',
-        subject: '',
-        generate: (name: string) => `Hi ${name}, I was just driving past your neighborhood and thought of you! Hope you're loving the new place.`,
-        type: 'sms'
-    },
-    {
-        id: 'text_2',
-        title: 'Journey Check-in',
-        description: 'See where they are in their journey.',
-        subject: '',
-        generate: (name: string) => `Hi ${name}, just checking in! Where are you at in your home search journey? Anything I can answer for you today?`,
-        type: 'sms'
-    },
-    {
-        id: 'text_3',
-        title: 'Seasonal Greeting',
-        description: 'Photo of local foliage/season.',
-        subject: '',
-        generate: (name: string) => `[Send Photo of Foliage] Hi ${name}, the neighborhood looks beautiful this time of year! Hope you're enjoying the season.`,
-        type: 'sms'
-    },
-    {
-        id: 'text_4',
-        title: 'Personal Connection',
-        description: 'Reference a detail about them.',
-        subject: '',
-        generate: (name: string) => `Hi ${name}, I just saw [Item/Article] and it reminded me of [Detail] we talked about! Hope you're doing well.`,
-        type: 'sms'
-    },
-    {
-        id: 'text_5',
-        title: 'Event Invite (Text)',
-        description: 'Invite to event via text.',
-        subject: '',
-        generate: (name: string) => `Hi ${name}, we're hosting a [Event] on [Date]. Would love to have you come by! Let me know if you can make it.`,
-        type: 'sms'
-    },
-    {
-        id: 'text_6',
-        title: 'Home Anniversary (Text)',
-        description: 'Photo from closing day.',
-        subject: '',
-        generate: (name: string) => `[Send Closing Photo] Hi ${name}, can't believe it's been [X] years! Happy home anniversary!`,
-        type: 'sms'
-    },
-    {
-        id: 'text_7',
-        title: 'Vendor Recommendation',
-        description: 'Suggest maintenance vendors.',
-        subject: '',
-        generate: (name: string) => `Hi ${name}, doing some spring cleaning? If you need a great window washer or housekeeper, I have a few trusted contacts I can share. Let me know!`,
-        type: 'sms'
-    },
-    {
-        id: 'text_8',
-        title: 'Reconnection Request',
-        description: 'Ask cold leads to reconnect.',
-        subject: '',
-        generate: (name: string) => `Hi ${name}, long time no talk! Any interest in grabbing a quick coffee to catch up on the market?`,
-        type: 'sms'
-    },
-    {
-        id: 'text_9',
-        title: 'Market Shift Update',
-        description: 'Update on home prices/trends.',
-        subject: '',
-        generate: (name: string) => `Hi ${name}, inventory just tightened up significantly in [Area]. This is pushing prices up. Might be relevant if you're still considering selling.`,
-        type: 'sms'
-    },
-    {
-        id: 'text_10',
-        title: 'Open House Invite',
-        description: 'Text invite to open house.',
-        subject: '',
-        generate: (name: string) => `Hi ${name}, I'm holding an open house at [Address] this Sunday. It's similar to what you were looking for. Swing by if you're around!`,
-        type: 'sms'
-    },
+
     // DIRECT MAIL PROMPTS
     {
         id: 'mail_1',
