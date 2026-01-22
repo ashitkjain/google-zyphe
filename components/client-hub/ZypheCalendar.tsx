@@ -234,10 +234,11 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, lead
                     {onSwitch && (
                         <button
                             onClick={onSwitch}
-                            className="w-12 h-12 flex items-center justify-center bg-white border border-slate-200 rounded-[20px] text-slate-400 hover:text-indigo-600 hover:shadow-lg transition-all"
+                            className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-[14px] text-slate-500 hover:text-indigo-600 hover:border-indigo-200 hover:shadow-lg transition-all group"
                             title="Switch Calendar System"
                         >
-                            <i className="fa-solid fa-right-from-bracket text-xs rotate-180"></i>
+                            <i className="fa-solid fa-arrows-rotate text-xs group-hover:rotate-180 transition-transform duration-500"></i>
+                            <span className="text-[10px] font-black uppercase tracking-widest">Sync External</span>
                         </button>
                     )}
                 </div>

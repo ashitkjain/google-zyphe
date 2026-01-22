@@ -34,7 +34,7 @@ const formatDate = (val: any) => {
 const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, leads = [], reminderRules = [], onTasksUpdated, onUpdateRule, onSaveRules }) => {
     const [activeTab, setActiveTab] = useState<'calendar' | 'tasks' | 'rules'>('calendar');
     const [isSaving, setIsSaving] = useState(false);
-    const [calendarPreference, setCalendarPreference] = useState<'none' | 'third-party' | 'zyphe'>('none');
+    const [calendarPreference, setCalendarPreference] = useState<'none' | 'third-party' | 'zyphe'>('zyphe');
 
     // Manage tasks locally for editing
     const [tasks, setTasks] = useState<CRMTask[]>(initialTasks);

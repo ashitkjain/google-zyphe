@@ -16,6 +16,7 @@ import { isTerminalStatus, getFunnelStageForStatus, getStatusOptions } from '../
 import WhiteboardTab from './client-hub/WhiteboardTab';
 import ClosingDashboard from './client-hub/ClosingDashboard';
 import BestPracticesTab from './client-hub/BestPracticesTab';
+import ReactivateTab from './client-hub/ReactivateTab';
 
 interface Props {
     realtorId: string;
@@ -28,7 +29,7 @@ const generateClientID = () => {
     return 'C-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 };
 
-type HubTab = 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'best_practices' | 'clients';
+type HubTab = 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack }) => {
     const [activeTab, setActiveTab] = useState<HubTab>('leads');
@@ -404,6 +405,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     const tabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'leads', label: 'Funnel', icon: 'fa-bullseye' },
         { id: 'closing', label: 'Closing', icon: 'fa-file-invoice-dollar' },
+        { id: 'reactivate', label: 'Reactivate', icon: 'fa-bolt' },
         { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
         { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
@@ -622,6 +624,13 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                                 setActiveTab('clients');
                             }
                         }}
+                    />
+                )}
+
+                {activeTab === 'reactivate' && (
+                    <ReactivateTab
+                        realtorId={realtorId}
+                        leads={leads}
                     />
                 )}
 
