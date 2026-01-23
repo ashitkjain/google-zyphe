@@ -234,5 +234,11 @@ export interface LLMCallEvent {
     raw_response: any;
     status: 'pending' | 'completed' | 'failed';
     error?: string;
+    usage_metadata?: any;
+    safety_ratings?: any;
+    finish_reason?: string;
+    citation_metadata?: any;
+    request_sent_at?: any;
+    response_received_at?: any;
     timestamp: any; // serverTimestamp or Date
 }

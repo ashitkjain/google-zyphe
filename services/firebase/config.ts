@@ -52,8 +52,14 @@ export const sanitizeForFirestore = (data: any): any => {
     if (data === undefined || data === null) return null;
     if (Array.isArray(data)) return data.map(sanitizeForFirestore);
     if (typeof data === 'object') {
-        // Prevent decomposition of Date objects and Firestore Timestamps
-        if (data instanceof Date || typeof data.toDate === 'function') return data;
+        // Prevent decomposition of Date objects, Firestore Timestamps, and FieldValues (serverTimestamp)
+        if (data instanceof Date ||
+            typeof data.toDate === 'function' ||
+            data?._methodName === 'serverTimestamp' ||
+            data?.constructor?.name === 'FieldValueImpl' ||
+            data?.constructor?.name === 'FieldValue') {
+            return data;
+        }
 
         return Object.fromEntries(
             Object.entries(data).map(([key, value]) => [key, sanitizeForFirestore(value)])

@@ -179,6 +179,11 @@ PLANNING RULES
 ────────────────────────────
 RAW DATA
 ────────────────────────────
+Analyze the property data provided below. 
+- Delimiter: Pipe character (|)
+- Text Formatting: Commas within cells are part of the data (e.g., in addresses or feature lists).
+- Pricing: Handle mixed formats (e.g., $1.2M and 1,200,000) as numerical values.
+
 <raw_data>
 ${rawData}
 </raw_data>

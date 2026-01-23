@@ -220,8 +220,7 @@ match /audit_events/{auditId} {
     }
 
     match /llm_call_events/{eventId} {
-      allow create: if request.auth != null;
-      allow read, update: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow read, write: if true;
     }
 
 

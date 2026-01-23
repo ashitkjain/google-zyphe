@@ -15,6 +15,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
     const [csvPreview, setCsvPreview] = useState<string[][]>([]);
     const [selectedDocName, setSelectedDocName] = useState<string | null>(null);
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+    const [validationError, setValidationError] = useState<string | null>(null);
     const [result, setResult] = useState<LeadReactivationResult | null>(null);
     const [recentDocuments, setRecentDocuments] = useState<LeadDocument[]>([]);
     const [selectedMarketName, setSelectedMarketName] = useState<string | null>(null);
@@ -43,10 +44,17 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
         setIsDragging(false);
     };
 
-    const parseCsvPreview = (text: string) => {
+    const validateAndProcessCSV = (text: string): string[][] | null => {
+        setValidationError(null);
         const rows: string[][] = [];
         const lines = text.split(/\r?\n/).filter(line => line.trim());
 
+        if (lines.length === 0) {
+            setValidationError("The file appears to be empty.");
+            return null;
+        }
+
+        // 1. Process rows and normalize content
         for (const line of lines) {
             const values: string[] = [];
             let value = '';
@@ -64,16 +72,59 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
                         inQuotes = !inQuotes;
                     }
                 } else if (char === ',' && !inQuotes) {
-                    values.push(value.trim());
+                    values.push(normalizeValue(value));
                     value = '';
                 } else {
                     value += char;
                 }
             }
-            values.push(value.trim());
+            values.push(normalizeValue(value));
             rows.push(values);
         }
-        setCsvPreview(rows);
+
+        if (rows.length === 0) return null;
+
+        // 2. Validate Headers
+        const headers = rows[0];
+        const EnglishHeaderRegex = /^[a-zA-Z0-9_\s]{2,50}$/;
+        for (const header of headers) {
+            if (!EnglishHeaderRegex.test(header) || header.toLowerCase() === 'null') {
+                setValidationError(`Invalid or non-descriptive header detected: "${header}". Headers should be descriptive English.`);
+                return null;
+            }
+        }
+
+        // 3. Scan for Sensitive Data (API keys, secrets)
+        const sensitivePatterns = [
+            /(password|passwd|secret|apikey|api_key|token)/i,
+            /AIza[0-9A-Za-z-_]{35}/, // Google API Key
+            /sk_(live|test)_[0-9a-zA-Z]{24}/, // Stripe
+            /[0-9a-f]{32}/i // Generic hex hash
+        ];
+
+        for (const row of rows) {
+            for (const cell of row) {
+                for (const pattern of sensitivePatterns) {
+                    if (pattern.test(cell)) {
+                        setValidationError("Security Alert: We detected potentially sensitive data (password, API key, or token) in your file. Please remove it before uploading.");
+                        return null;
+                    }
+                }
+            }
+        }
+
+        return rows;
+    };
+
+    const normalizeValue = (val: string): string => {
+        // Remove pipes and replace with hyphens
+        let processed = val.replace(/\|/g, '-');
+        // Trim leading/trailing whitespace
+        processed = processed.trim();
+        // Remove excessive newlines and escape characters within cells
+        processed = processed.replace(/[\r\n]+/g, ' ');
+        // Replace empty cells with NULL
+        return processed === '' ? 'NULL' : processed;
     };
 
     const handleDrop = async (e: React.DragEvent) => {
@@ -81,23 +132,64 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
         setIsDragging(false);
         const droppedFile = e.dataTransfer.files[0];
         if (droppedFile) {
-            setFile(droppedFile);
-            setSelectedDocName(droppedFile.name);
-            const text = await droppedFile.text();
-            setFileContent(text);
-            parseCsvPreview(text);
+            processFile(droppedFile);
         }
     };
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
         if (selectedFile) {
-            setFile(selectedFile);
-            setSelectedDocName(selectedFile.name);
-            const text = await selectedFile.text();
-            setFileContent(text);
-            parseCsvPreview(text);
+            processFile(selectedFile);
         }
+    };
+
+    const processFile = async (selectedFile: File) => {
+        setFile(selectedFile);
+        setValidationError(null);
+        setSelectedDocName(selectedFile.name);
+        try {
+            const text = await selectedFile.text();
+            const processedRows = validateAndProcessCSV(text);
+            if (processedRows) {
+                setCsvPreview(processedRows);
+                // Join with | as the new delimiter for the content sent to AI
+                const outputContent = processedRows.map(row => row.join('|')).join('\n');
+                setFileContent(outputContent);
+            } else {
+                setFile(null);
+                setFileContent(null);
+                setCsvPreview([]);
+            }
+        } catch (err) {
+            setValidationError("Failed to read file. Please ensure it is a valid UTF-8 encoded CSV.");
+        }
+    };
+
+    const parseForPreview = (text: string) => {
+        // Simple parser for previewing already processed or raw files
+        const lines = text.split(/\r?\n/).filter(line => line.trim());
+        const rows = lines.map(line => {
+            // Check if it's already pipe-separated (from our new logic)
+            if (line.includes('|')) {
+                return line.split('|');
+            }
+            // Otherwise try simple comma split (or use more complex logic if needed)
+            // For preview of archived docs, we'll just do a smart split
+            const values: string[] = [];
+            let value = '';
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') inQuotes = !inQuotes;
+                else if (char === ',' && !inQuotes) {
+                    values.push(value.trim());
+                    value = '';
+                } else value += char;
+            }
+            values.push(value.trim());
+            return values;
+        });
+        setCsvPreview(rows);
     };
 
     const handleUpload = async () => {
@@ -129,7 +221,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
             if (!content) throw new Error("Could not retrieve file content");
 
             setFileContent(content);
-            parseCsvPreview(content);
+            parseForPreview(content);
             setFile(null); // Mark as not a new local file
             setUploadStatus('idle');
         } catch (error) {
@@ -145,6 +237,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
         setSelectedDocName(null);
         setResult(null);
         setUploadStatus('idle');
+        setValidationError(null);
     };
 
     const currentMarketData = result?.market_context.find(m => m.market_name === selectedMarketName);
@@ -202,12 +295,12 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
                                     <h2 className="text-2xl font-black tracking-tight uppercase mb-1">Market Intelligence</h2>
                                     <p className="text-slate-400 text-sm font-medium">Regional context detected from lead data.</p>
                                 </div>
-                                <div className="flex gap-2 bg-slate-800/50 p-1.5 rounded-2xl border border-white/5">
+                                <div className="flex gap-2 bg-slate-800/50 p-1.5 rounded-2xl border border-white/5 overflow-x-auto custom-scrollbar no-scrollbar-buttons">
                                     {result.market_context.map((market) => (
                                         <button
                                             key={market.market_name}
                                             onClick={() => setSelectedMarketName(market.market_name)}
-                                            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${selectedMarketName === market.market_name
+                                            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${selectedMarketName === market.market_name
                                                 ? 'bg-indigo-600 text-white shadow-lg'
                                                 : 'text-slate-400 hover:text-white'
                                                 }`}
@@ -239,9 +332,11 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
                                     <div className="md:col-span-2 space-y-6">
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Negotiation Leverage (2026 Context)</label>
-                                            <p className="text-sm text-slate-200 font-medium leading-relaxed italic border-l-2 border-indigo-600 pl-4 py-1">
-                                                "{currentMarketData.buyer_leverage_notes}"
-                                            </p>
+                                            <div className="max-h-32 overflow-y-auto custom-scrollbar pr-2">
+                                                <p className="text-sm text-slate-200 font-medium leading-relaxed italic border-l-2 border-indigo-600 pl-4 py-1">
+                                                    "{currentMarketData.buyer_leverage_notes}"
+                                                </p>
+                                            </div>
                                         </div>
                                         <div className="flex items-center gap-4 pt-2">
                                             <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg border border-white/10">
@@ -343,8 +438,8 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
                                                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black z-10 shadow-lg shadow-indigo-200">
                                                         1
                                                     </div>
-                                                    <div className="flex-1 bg-slate-50 p-6 rounded-2xl border border-slate-100 relative group-hover:bg-white group-hover:border-indigo-100 transition-colors">
-                                                        <div className="flex justify-between items-center mb-3">
+                                                    <div className="flex-1 bg-slate-50 p-6 rounded-2xl border border-slate-100 relative group-hover:bg-white group-hover:border-indigo-100 transition-colors max-h-[300px] overflow-y-auto custom-scrollbar">
+                                                        <div className="flex justify-between items-center mb-3 sticky top-0 bg-inherit z-10">
                                                             <div className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Day {plan.first_touch.send_after_days}: Immediate Hook</div>
                                                             <div className="flex gap-2">
                                                                 <button className="text-slate-300 hover:text-indigo-600 transition-colors">
@@ -369,8 +464,8 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
                                                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 border-2 border-white flex items-center justify-center text-xs font-black z-10 shadow-sm">
                                                         {sIdx + 2}
                                                     </div>
-                                                    <div className="flex-1 bg-slate-50/50 p-6 rounded-2xl border border-slate-100 relative group-hover:bg-white group-hover:border-indigo-100/50 transition-colors">
-                                                        <div className="flex justify-between items-center mb-3">
+                                                    <div className="flex-1 bg-slate-50/50 p-6 rounded-2xl border border-slate-100 relative group-hover:bg-white group-hover:border-indigo-100/50 transition-colors max-h-[200px] overflow-y-auto custom-scrollbar">
+                                                        <div className="flex justify-between items-center mb-3 sticky top-0 bg-inherit z-10">
                                                             <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Day {step.day_offset}: Follow-up via {step.channel}</div>
                                                             <div className="flex gap-2">
                                                                 <button className="text-slate-300 hover:text-indigo-600 transition-colors">
@@ -423,7 +518,12 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
                             <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto transition-all group-hover:scale-110 group-hover:text-indigo-600 group-hover:bg-indigo-50">
                                 <i className="fa-solid fa-cloud-arrow-up text-2xl"></i>
                             </div>
-                            {file ? (
+                            {validationError ? (
+                                <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                                    <p className="text-sm font-bold text-rose-500 bg-rose-50 px-4 py-2 rounded-xl border border-rose-100 italic">{validationError}</p>
+                                    <p className="text-[10px] text-slate-400 font-medium">Please correct the file and try again</p>
+                                </div>
+                            ) : file ? (
                                 <div className="space-y-2 animate-in zoom-in-95 duration-300">
                                     <p className="text-lg font-black text-indigo-600">{file.name}</p>
                                     <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{(file.size / 1024).toFixed(1)} KB • CSV Ready</p>
@@ -485,9 +585,15 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
                     )}
 
                     {uploadStatus === 'uploading' && (
-                        <div className="w-full bg-indigo-50/50 border border-indigo-100 rounded-2xl p-6 flex items-center justify-center gap-4">
-                            <div className="w-6 h-6 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                            <span className="text-indigo-600 font-black uppercase tracking-widest text-xs">Gemini is segmenting markets...</span>
+                        <div className="w-full bg-indigo-50/50 border border-indigo-100 rounded-3xl p-8 flex flex-col items-center justify-center gap-4 animate-in fade-in zoom-in-95 duration-500">
+                            <div className="relative">
+                                <div className="w-12 h-12 border-4 border-indigo-100 rounded-full"></div>
+                                <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+                            </div>
+                            <div className="text-center space-y-1">
+                                <p className="text-indigo-600 font-black uppercase tracking-widest text-xs">Architecting Lead Reactivation Plan</p>
+                                <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest opacity-80 italic">Precision intelligence often takes 1-2 minutes to orchestrate...</p>
+                            </div>
                         </div>
                     )}
 

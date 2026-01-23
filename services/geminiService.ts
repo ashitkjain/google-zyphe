@@ -1,4 +1,4 @@
-
+import { serverTimestamp } from "firebase/firestore";
 import { GoogleGenAI } from "@google/genai";
 import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, InvestmentResearchResult, BiddingStrategyResult, LeadReactivationResult } from "../types";
 import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/propertyAnalysis";
@@ -122,6 +122,16 @@ function extractJson<T>(text: string | undefined): T {
   throw new AiResponseError("Could not parse AI response as JSON", text);
 }
 
+function extractMetadata(response: any) {
+  const candidate = response.candidates?.[0];
+  return {
+    usage_metadata: response.usageMetadata || null,
+    safety_ratings: candidate?.safetyRatings || null,
+    finish_reason: candidate?.finishReason || null,
+    citation_metadata: candidate?.citationMetadata || null,
+  };
+}
+
 async function urlToBase64(url: string): Promise<{ data: string, mimeType: string }> {
   try {
     // Attempt with explicit CORS mode to detect blocking
@@ -152,9 +162,19 @@ async function urlToBase64(url: string): Promise<{ data: string, mimeType: strin
 
 export const analyzeProperty = async (property: PropertyData, userId: string = "unknown"): Promise<AIAnalysisResult> => {
   const prompt = getPropertyAnalysisPrompt(property);
+  let logId: string | null = null;
   try {
+    logId = await logLLMCall({
+      user_id: userId,
+      prompt_filename: "propertyAnalysis.ts",
+      llm_name: GEMINI_MODEL,
+      raw_payload: prompt,
+      raw_response: null,
+      status: 'pending',
+      request_sent_at: serverTimestamp()
+    });
+
     const ai = getAi();
-    console.log(`[${new Date().toISOString()}] AI REQUEST: analyzeProperty`);
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
       contents: prompt,
@@ -163,20 +183,27 @@ export const analyzeProperty = async (property: PropertyData, userId: string = "
         responseSchema: propertyAnalysisSchema
       }
     });
-    const responseText = response.text;
-    console.log(`[${new Date().toISOString()}] AI RESPONSE RECEIVED: analyzeProperty`);
 
-    logLLMCall({
-      user_id: userId,
-      prompt_filename: "propertyAnalysis.ts",
-      llm_name: GEMINI_MODEL,
-      raw_payload: prompt,
-      raw_response: responseText,
-      status: 'completed'
-    }).catch(err => console.error("Failed to log AI call:", err));
+    const responseText = response.text;
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: responseText,
+        status: 'completed',
+        response_received_at: serverTimestamp(),
+        ...extractMetadata(response)
+      }).catch(err => console.error("Failed to update LLM log:", err));
+    }
 
     return extractJson<AIAnalysisResult>(responseText);
   } catch (error: any) {
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: error.message,
+        status: 'failed',
+        error: error.stack || error.message,
+        response_received_at: serverTimestamp()
+      }).catch(err => console.error("Failed to update LLM error log:", err));
+    }
     if (error instanceof AiResponseError) {
       error.prompt = prompt;
       throw error;
@@ -188,9 +215,24 @@ export const analyzeProperty = async (property: PropertyData, userId: string = "
 export const analyzeNeighborhood = async (mapImageUrl: string, property: PropertyData, userId: string = "unknown"): Promise<NeighborhoodAnalysis> => {
   const { data, mimeType } = await urlToBase64(mapImageUrl);
   const prompt = getNeighborhoodAnalysisPrompt(property);
+  let logId: string | null = null;
+  const sanitizedPrompt = {
+    text: prompt,
+    image: { mimeType, data: "<BASE64_IMAGE_DATA_OMITTED>" }
+  };
+
   try {
+    logId = await logLLMCall({
+      user_id: userId,
+      prompt_filename: "neighborhoodAnalysis.ts",
+      llm_name: GEMINI_MODEL,
+      raw_payload: sanitizedPrompt,
+      raw_response: null,
+      status: 'pending',
+      request_sent_at: serverTimestamp()
+    });
+
     const ai = getAi();
-    console.log(`[${new Date().toISOString()}] AI REQUEST: analyzeNeighborhood`);
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
       contents: {
@@ -204,24 +246,27 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
         responseSchema: neighborhoodAnalysisSchema
       }
     });
-    const responseText = response.text;
-    console.log(`[${new Date().toISOString()}] AI RESPONSE RECEIVED: analyzeNeighborhood`);
 
-    logLLMCall({
-      user_id: userId,
-      prompt_filename: "neighborhoodAnalysis.ts",
-      llm_name: GEMINI_MODEL,
-      raw_payload: prompt,
-      raw_response: responseText,
-      status: 'completed'
-    }).catch(err => console.error("Failed to log AI call:", err));
+    const responseText = response.text;
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: responseText,
+        status: 'completed',
+        response_received_at: serverTimestamp(),
+        ...extractMetadata(response)
+      }).catch(err => console.error("Failed to update LLM log:", err));
+    }
 
     return extractJson<NeighborhoodAnalysis>(responseText);
   } catch (error: any) {
-    const sanitizedPrompt = {
-      text: prompt,
-      image: { mimeType, data: "<BASE64_IMAGE_DATA_OMITTED>" }
-    };
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: error.message,
+        status: 'failed',
+        error: error.stack || error.message,
+        response_received_at: serverTimestamp()
+      }).catch(err => console.error("Failed to update LLM error log:", err));
+    }
     if (error instanceof AiResponseError) {
       error.prompt = sanitizedPrompt;
       throw error;
@@ -232,9 +277,19 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
 
 export const analyzeCommunityPulse = async (property: PropertyData, userId: string = "unknown"): Promise<CommunityPulseResult> => {
   const prompt = getCommunityPulsePrompt(property);
+  let logId: string | null = null;
   try {
+    logId = await logLLMCall({
+      user_id: userId,
+      prompt_filename: "communityPulse.ts",
+      llm_name: GEMINI_MODEL,
+      raw_payload: prompt,
+      raw_response: null,
+      status: 'pending',
+      request_sent_at: serverTimestamp()
+    });
+
     const ai = getAi();
-    console.log(`[${new Date().toISOString()}] AI REQUEST: analyzeCommunityPulse`);
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
       contents: prompt,
@@ -243,20 +298,27 @@ export const analyzeCommunityPulse = async (property: PropertyData, userId: stri
         temperature: 1.0
       }
     });
-    const responseText = response.text;
-    console.log(`[${new Date().toISOString()}] AI RESPONSE RECEIVED: analyzeCommunityPulse`);
 
-    logLLMCall({
-      user_id: userId,
-      prompt_filename: "communityPulse.ts",
-      llm_name: GEMINI_MODEL,
-      raw_payload: prompt,
-      raw_response: responseText,
-      status: 'completed'
-    }).catch(err => console.error("Failed to log AI call:", err));
+    const responseText = response.text;
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: responseText,
+        status: 'completed',
+        response_received_at: serverTimestamp(),
+        ...extractMetadata(response)
+      }).catch(err => console.error("Failed to update LLM log:", err));
+    }
 
     return extractJson<CommunityPulseResult>(responseText);
   } catch (error: any) {
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: error.message,
+        status: 'failed',
+        error: error.stack || error.message,
+        response_received_at: serverTimestamp()
+      }).catch(err => console.error("Failed to update LLM error log:", err));
+    }
     if (error instanceof AiResponseError) {
       error.prompt = prompt;
       throw error;
@@ -268,6 +330,7 @@ export const analyzeCommunityPulse = async (property: PropertyData, userId: stri
 export const analyzePropertyImages = async (imageUrls: string[], property: PropertyData, userId: string = "unknown"): Promise<CustomAIAnalysisResult> => {
   const selectedImages = imageUrls.slice(0, 15);
   const ai = getAi();
+  let logId: string | null = null;
 
   const imageResults = await Promise.allSettled(selectedImages.map(async (url) => {
     const { data, mimeType } = await urlToBase64(url);
@@ -279,16 +342,23 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
     .map(result => result.value);
 
   const successfulImages = imageParts.length > 0;
-  if (!successfulImages && selectedImages.length > 0) {
-    console.warn("All images failed to load (likely CORS restrictions). Falling back to text-only analysis.");
-  }
-
   const textInstruction = successfulImages
     ? getPropertyImagesPrompt(property)
     : `${getPropertyImagesPrompt(property)}\n\nNOTE: No photographs were provided for this property. Perform analysis based on detailed specifications.`;
 
+  const requestPayload = { text: textInstruction, image_count: imageParts.length };
+
   try {
-    console.log(`[${new Date().toISOString()}] AI REQUEST: analyzePropertyImages`);
+    logId = await logLLMCall({
+      user_id: userId,
+      prompt_filename: "propertyImages.ts",
+      llm_name: GEMINI_MODEL,
+      raw_payload: requestPayload,
+      raw_response: null,
+      status: 'pending',
+      request_sent_at: serverTimestamp()
+    });
+
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
       contents: { parts: [{ text: textInstruction }, ...imageParts] },
@@ -297,20 +367,28 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
         responseSchema: propertyImagesSchema
       }
     });
-    const responseText = response.text;
-    console.log(`[${new Date().toISOString()}] AI RESPONSE RECEIVED: analyzePropertyImages`);
 
-    logLLMCall({
-      user_id: userId,
-      prompt_filename: "propertyImages.ts",
-      llm_name: GEMINI_MODEL,
-      raw_payload: { text: textInstruction, image_count: imageParts.length },
-      raw_response: responseText,
-      status: 'completed'
-    }).catch(err => console.error("Failed to log AI call:", err));
+    const responseText = response.text;
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: responseText,
+        status: 'completed',
+        response_received_at: serverTimestamp(),
+        ...extractMetadata(response)
+      }).catch(err => console.error("Failed to update LLM log:", err));
+    }
 
     return extractJson<CustomAIAnalysisResult>(responseText);
   } catch (error: any) {
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: error.message,
+        status: 'failed',
+        error: error.stack || error.message,
+        response_received_at: serverTimestamp()
+      }).catch(err => console.error("Failed to update LLM error log:", err));
+    }
+
     const sanitizedPrompt = {
       text: textInstruction,
       images: `${imageParts.length} images (data omitted)`
@@ -325,9 +403,19 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
 
 export const analyzeComprehensive = async (property: PropertyData, visual: CustomAIAnalysisResult, userId: string = "unknown"): Promise<ComprehensiveAnalysisResult> => {
   const prompt = getComprehensiveAnalysisPrompt(property, visual);
+  let logId: string | null = null;
   try {
+    logId = await logLLMCall({
+      user_id: userId,
+      prompt_filename: "comprehensiveAnalysis.ts",
+      llm_name: GEMINI_MODEL,
+      raw_payload: prompt,
+      raw_response: null,
+      status: 'pending',
+      request_sent_at: serverTimestamp()
+    });
+
     const ai = getAi();
-    console.log(`[${new Date().toISOString()}] AI REQUEST: analyzeComprehensive`);
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
       contents: prompt,
@@ -337,19 +425,25 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
       }
     });
     const responseText = response.text;
-    console.log(`[${new Date().toISOString()}] AI RESPONSE RECEIVED: analyzeComprehensive`);
-
-    logLLMCall({
-      user_id: userId,
-      prompt_filename: "comprehensiveAnalysis.ts",
-      llm_name: GEMINI_MODEL,
-      raw_payload: prompt,
-      raw_response: responseText,
-      status: 'completed'
-    }).catch(err => console.error("Failed to log AI call:", err));
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: responseText,
+        status: 'completed',
+        response_received_at: serverTimestamp(),
+        ...extractMetadata(response)
+      }).catch(err => console.error("Failed to update LLM log:", err));
+    }
 
     return extractJson<ComprehensiveAnalysisResult>(responseText);
   } catch (error: any) {
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: error.message,
+        status: 'failed',
+        error: error.stack || error.message,
+        response_received_at: serverTimestamp()
+      }).catch(err => console.error("Failed to update LLM error log:", err));
+    }
     if (error instanceof AiResponseError) {
       error.prompt = prompt;
       throw error;
@@ -361,6 +455,7 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
 export const analyzeImageQuality = async (imageUrls: string[], userId: string = "unknown"): Promise<ImageQualityAnalysisResult> => {
   const ai = getAi();
   const selectedImages = imageUrls.slice(0, 15);
+  let logId: string | null = null;
 
   const imageResults = await Promise.allSettled(selectedImages.map(async (url) => {
     const { data, mimeType } = await urlToBase64(url);
@@ -376,9 +471,19 @@ export const analyzeImageQuality = async (imageUrls: string[], userId: string = 
   }
 
   const prompt = getImageQualityAnalysisPrompt();
+  const requestPayload = { text: prompt, image_count: imageParts.length };
 
   try {
-    console.log(`[${new Date().toISOString()}] AI REQUEST: analyzeImageQuality`);
+    logId = await logLLMCall({
+      user_id: userId,
+      prompt_filename: "imageQualityAnalysis.ts",
+      llm_name: GEMINI_MODEL,
+      raw_payload: requestPayload,
+      raw_response: null,
+      status: 'pending',
+      request_sent_at: serverTimestamp()
+    });
+
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
       contents: {
@@ -392,20 +497,28 @@ export const analyzeImageQuality = async (imageUrls: string[], userId: string = 
         responseSchema: imageQualityAnalysisSchema
       }
     });
-    const responseText = response.text;
-    console.log(`[${new Date().toISOString()}] AI RESPONSE RECEIVED: analyzeImageQuality`);
 
-    logLLMCall({
-      user_id: userId,
-      prompt_filename: "imageQualityAnalysis.ts",
-      llm_name: GEMINI_MODEL,
-      raw_payload: { text: prompt, image_count: imageParts.length },
-      raw_response: responseText,
-      status: 'completed'
-    }).catch(err => console.error("Failed to log AI call:", err));
+    const responseText = response.text;
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: responseText,
+        status: 'completed',
+        response_received_at: serverTimestamp(),
+        ...extractMetadata(response)
+      }).catch(err => console.error("Failed to update LLM log:", err));
+    }
 
     return extractJson<ImageQualityAnalysisResult>(responseText);
   } catch (error: any) {
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: error.message,
+        status: 'failed',
+        error: error.stack || error.message,
+        response_received_at: serverTimestamp()
+      }).catch(err => console.error("Failed to update LLM error log:", err));
+    }
+
     const sanitizedPrompt = {
       text: prompt,
       images: `${imageParts.length} images (data omitted)`
@@ -420,9 +533,19 @@ export const analyzeImageQuality = async (imageUrls: string[], userId: string = 
 
 export const analyzeInvestmentResearch = async (property: PropertyData, userId: string = "unknown"): Promise<InvestmentResearchResult> => {
   const prompt = getInvestmentResearchPrompt(property);
+  let logId: string | null = null;
   try {
+    logId = await logLLMCall({
+      user_id: userId,
+      prompt_filename: "investmentResearch.ts",
+      llm_name: GEMINI_MODEL,
+      raw_payload: prompt,
+      raw_response: null,
+      status: 'pending',
+      request_sent_at: serverTimestamp()
+    });
+
     const ai = getAi();
-    console.log(`[${new Date().toISOString()}] AI REQUEST: analyzeInvestmentResearch`);
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
       contents: prompt,
@@ -431,20 +554,27 @@ export const analyzeInvestmentResearch = async (property: PropertyData, userId: 
         temperature: 1.0
       }
     });
-    const responseText = response.text;
-    console.log(`[${new Date().toISOString()}] AI RESPONSE RECEIVED: analyzeInvestmentResearch`);
 
-    logLLMCall({
-      user_id: userId,
-      prompt_filename: "investmentResearch.ts",
-      llm_name: GEMINI_MODEL,
-      raw_payload: prompt,
-      raw_response: responseText,
-      status: 'completed'
-    }).catch(err => console.error("Failed to log AI call:", err));
+    const responseText = response.text;
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: responseText,
+        status: 'completed',
+        response_received_at: serverTimestamp(),
+        ...extractMetadata(response)
+      }).catch(err => console.error("Failed to update LLM log:", err));
+    }
 
     return extractJson<InvestmentResearchResult>(responseText);
   } catch (error: any) {
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: error.message,
+        status: 'failed',
+        error: error.stack || error.message,
+        response_received_at: serverTimestamp()
+      }).catch(err => console.error("Failed to update LLM error log:", err));
+    }
     if (error instanceof AiResponseError) {
       error.prompt = prompt;
       throw error;
@@ -455,9 +585,19 @@ export const analyzeInvestmentResearch = async (property: PropertyData, userId: 
 
 export const analyzeBiddingStrategy = async (property: PropertyData, userId: string = "unknown"): Promise<BiddingStrategyResult> => {
   const prompt = biddingStrategyPrompt(property);
+  let logId: string | null = null;
   try {
+    logId = await logLLMCall({
+      user_id: userId,
+      prompt_filename: "biddingStrategy.ts",
+      llm_name: BIDDING_MODEL,
+      raw_payload: prompt,
+      raw_response: null,
+      status: 'pending',
+      request_sent_at: serverTimestamp()
+    });
+
     const ai = getAi();
-    console.log(`[${new Date().toISOString()}] AI REQUEST: analyzeBiddingStrategy`);
     const response = await ai.models.generateContent({
       model: BIDDING_MODEL,
       contents: prompt,
@@ -466,20 +606,27 @@ export const analyzeBiddingStrategy = async (property: PropertyData, userId: str
         temperature: 1.0
       }
     });
-    const responseText = response.text;
-    console.log(`[${new Date().toISOString()}] AI RESPONSE RECEIVED: analyzeBiddingStrategy`);
 
-    logLLMCall({
-      user_id: userId,
-      prompt_filename: "biddingStrategy.ts",
-      llm_name: BIDDING_MODEL,
-      raw_payload: prompt,
-      raw_response: responseText,
-      status: 'completed'
-    }).catch(err => console.error("Failed to log AI call:", err));
+    const responseText = response.text;
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: responseText,
+        status: 'completed',
+        response_received_at: serverTimestamp(),
+        ...extractMetadata(response)
+      }).catch(err => console.error("Failed to update LLM log:", err));
+    }
 
     return extractJson<BiddingStrategyResult>(responseText);
   } catch (error: any) {
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: error.message,
+        status: 'failed',
+        error: error.stack || error.message,
+        response_received_at: serverTimestamp()
+      }).catch(err => console.error("Failed to update LLM error log:", err));
+    }
     if (error instanceof AiResponseError) {
       error.prompt = prompt;
       throw error;
@@ -500,7 +647,8 @@ export const analyzeLeadDatabase = async (rawData: string, userId: string = "unk
       llm_name: GEMINI_MODEL,
       raw_payload: prompt,
       raw_response: null,
-      status: 'pending'
+      status: 'pending',
+      request_sent_at: serverTimestamp()
     });
 
     const ai = getAi();
@@ -517,13 +665,15 @@ export const analyzeLeadDatabase = async (rawData: string, userId: string = "unk
     });
 
     const responseText = response.text;
-    console.log(`[${new Date().toISOString()}] AI RESPONSE RECEIVED: analyzeLeadDatabase`);
+    console.log(`[${new Date().toISOString()}] AI RESPONSE RECEIVED: analyzeLeadDatabase. LogId present: ${!!logId}`);
 
     // 3. Update the log with the response
     if (logId) {
       updateLLMCall(logId, {
         raw_response: responseText,
-        status: 'completed'
+        status: 'completed',
+        response_received_at: serverTimestamp(),
+        ...extractMetadata(response)
       }).catch(err => console.error("Failed to update AI log:", err));
     }
 
@@ -536,7 +686,8 @@ export const analyzeLeadDatabase = async (rawData: string, userId: string = "unk
       updateLLMCall(logId, {
         raw_response: error.message,
         status: 'failed',
-        error: error.stack || error.message
+        error: error.stack || error.message,
+        response_received_at: serverTimestamp()
       }).catch(err => console.error("Failed to update AI error log:", err));
     }
 
