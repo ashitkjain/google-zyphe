@@ -5,6 +5,7 @@ import OutreachModule from './reactivate/OutreachModule';
 import TriggersModule from './reactivate/TriggersModule';
 import TrailModule from './reactivate/TrailModule';
 import AnalyticsModule from './reactivate/AnalyticsModule';
+import AutomatedModule from './reactivate/AutomatedModule';
 
 interface ReactivateTabProps {
     realtorId: string;
@@ -13,7 +14,7 @@ interface ReactivateTabProps {
 }
 
 const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdateLead }) => {
-    const [selectedModule, setSelectedModule] = useState<'INTELLIGENCE' | 'TRAIL' | 'ANALYTICS' | 'TRIGGERS'>('INTELLIGENCE');
+    const [selectedModule, setSelectedModule] = useState<'AUTOMATED' | 'ASSISTED' | 'TRAIL' | 'ANALYTICS' | 'TRIGGERS'>('AUTOMATED');
     const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
     const [selectedChannel, setSelectedChannel] = useState<'email' | 'call' | 'sms' | 'whatsapp' | 'mail' | undefined>('email');
 
@@ -23,7 +24,7 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
     const handleSelectCandidate = (leadId: string, channel?: 'email' | 'call' | 'sms' | 'whatsapp' | 'mail') => {
         setSelectedCandidateId(leadId);
         if (channel) setSelectedChannel(channel);
-        setSelectedModule('INTELLIGENCE'); // Ensure we are in Intelligence view to see the generator
+        setSelectedModule('ASSISTED'); // Ensure we are in Assisted view to see the generator
     };
 
     return (
@@ -32,11 +33,18 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
                 {/* Sub Tab Navigation */}
                 <div className="flex items-center gap-8 border-b border-slate-200">
                     <button
-                        onClick={() => setSelectedModule('INTELLIGENCE')}
-                        className={`pb-5 text-sm font-black uppercase tracking-widest transition-all relative ${selectedModule === 'INTELLIGENCE' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                        onClick={() => setSelectedModule('AUTOMATED')}
+                        className={`pb-5 text-sm font-black uppercase tracking-widest transition-all relative ${selectedModule === 'AUTOMATED' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
                     >
-                        Intelligence
-                        {selectedModule === 'INTELLIGENCE' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>}
+                        Automated
+                        {selectedModule === 'AUTOMATED' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>}
+                    </button>
+                    <button
+                        onClick={() => setSelectedModule('ASSISTED')}
+                        className={`pb-5 text-sm font-black uppercase tracking-widest transition-all relative ${selectedModule === 'ASSISTED' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        Assisted
+                        {selectedModule === 'ASSISTED' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>}
                     </button>
                     <button
                         onClick={() => setSelectedModule('TRAIL')}
@@ -62,7 +70,11 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
                 </div>
 
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                    {selectedModule === 'INTELLIGENCE' && (
+                    {selectedModule === 'AUTOMATED' && (
+                        <AutomatedModule realtorId={realtorId} />
+                    )}
+
+                    {selectedModule === 'ASSISTED' && (
                         <IntelligenceModule
                             realtorId={realtorId}
                             leads={leads}

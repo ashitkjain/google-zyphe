@@ -181,3 +181,19 @@ export interface ComprehensiveAnalysisResult {
     };
     risks_considerations: string;
 }
+
+export interface LeadReactivationResult {
+    market_baseline: {
+        rate_environment: string;
+        inventory_outlook: string;
+    };
+    segments: Array<{
+        segment_name: string;
+        reasons_for_stale: string;
+        optimal_hook: string;
+        cadence: {
+            day_1_sms: string;
+            day_4_email: string;
+        };
+    }>;
+}

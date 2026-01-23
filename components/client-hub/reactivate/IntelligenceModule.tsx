@@ -35,7 +35,7 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({
                 selectedCandidateId={selectedCandidateId}
                 initialChannel={initialChannel}
                 onClearSelection={onClearSelection}
-                onGoToIntelligence={onClearSelection}
+                onGoToAssisted={onClearSelection}
                 onUpdateLead={onUpdateLead}
             />
         );
@@ -148,7 +148,7 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({
                             <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
                                 <i className="fa-solid fa-brain text-lg"></i>
                             </div>
-                            <h2 className="text-3xl font-black tracking-tight">Intelligence Engine</h2>
+                            <h2 className="text-3xl font-black tracking-tight">Assisted Engine</h2>
                         </div>
                         <p className="text-slate-400 font-medium leading-relaxed">
                             Our protocol analyzes behavioral patterns to wake up idle segments of your database with surgical precision.

@@ -9,7 +9,7 @@ interface OutreachModuleProps {
     selectedCandidateId: string | null;
     initialChannel?: 'email' | 'call' | 'sms' | 'whatsapp' | 'mail';
     onClearSelection: () => void;
-    onGoToIntelligence: () => void;
+    onGoToAssisted: () => void;
     onUpdateLead?: (leadId: string, updates: Partial<Lead>) => void;
 }
 
@@ -222,7 +222,7 @@ const OutreachGenerator: React.FC<{ lead: Lead; onBack: () => void; realtorId: s
     );
 };
 
-const OutreachModule: React.FC<OutreachModuleProps> = ({ realtorId, leads, selectedCandidateId, initialChannel, onClearSelection, onGoToIntelligence, onUpdateLead }) => {
+const OutreachModule: React.FC<OutreachModuleProps> = ({ realtorId, leads, selectedCandidateId, initialChannel, onClearSelection, onGoToAssisted, onUpdateLead }) => {
     const selectedLead = leads.find(l => l.id === selectedCandidateId);
 
     return (
@@ -242,9 +242,9 @@ const OutreachModule: React.FC<OutreachModuleProps> = ({ realtorId, leads, selec
                         <i className="fa-solid fa-wand-magic-sparkles text-3xl"></i>
                     </div>
                     <h3 className="text-xl font-black text-slate-900 mb-2">Select a Candidate</h3>
-                    <p className="text-slate-500 max-w-sm mx-auto mb-8">Go to Intelligence tab and select a lead to generate a personalized revival sequence.</p>
-                    <button className="bg-slate-900 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-slate-800 transition-all text-xs font-black uppercase tracking-widest" onClick={onGoToIntelligence}>
-                        Go to Intelligence
+                    <p className="text-slate-500 max-w-sm mx-auto mb-8">Go to Assisted tab and select a lead to generate a personalized revival sequence.</p>
+                    <button className="bg-slate-900 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-slate-800 transition-all text-xs font-black uppercase tracking-widest" onClick={onGoToAssisted}>
+                        Go to Assisted
                     </button>
                 </div>
             )}

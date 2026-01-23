@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, InvestmentResearchResult, BiddingStrategyResult } from "../types";
+import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, InvestmentResearchResult, BiddingStrategyResult, LeadReactivationResult } from "../types";
 import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/propertyAnalysis";
 import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/neighborhoodAnalysis";
 import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/communityPulse";
@@ -9,6 +9,7 @@ import { getComprehensiveAnalysisPrompt } from "../prompts/comprehensiveAnalysis
 import { getImageQualityAnalysisPrompt, imageQualityAnalysisSchema } from "../prompts/imageQualityAnalysis";
 import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompts/investmentResearch";
 import { biddingStrategyPrompt } from "../prompts/biddingStrategy";
+import { getLeadReactivationPrompt, leadReactivationSchema } from "../prompts/leadReactivation";
 import { APP_CONFIG } from "../config";
 
 // Use config for model selection
@@ -406,3 +407,27 @@ export const analyzeBiddingStrategy = async (property: PropertyData): Promise<Bi
     throw new AiResponseError(error.message, "Raw API Error", prompt);
   }
 };
+
+export const analyzeLeadDatabase = async (rawData: string): Promise<LeadReactivationResult> => {
+  const prompt = getLeadReactivationPrompt(rawData);
+  try {
+    const ai = getAi();
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: leadReactivationSchema
+      }
+    });
+
+    return extractJson<LeadReactivationResult>(response.text);
+  } catch (error: any) {
+    if (error instanceof AiResponseError) {
+      error.prompt = prompt;
+      throw error;
+    }
+    throw new AiResponseError(error.message, "Raw API Error", prompt);
+  }
+};
+
