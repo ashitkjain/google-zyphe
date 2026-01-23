@@ -183,17 +183,56 @@ export interface ComprehensiveAnalysisResult {
 }
 
 export interface LeadReactivationResult {
-    market_baseline: {
-        rate_environment: string;
-        inventory_outlook: string;
+    summary: {
+        total_leads: number;
+        markets_detected: number;
+        high_priority: number;
+        recommended_daily_volume: number;
+        primary_strategy: string;
     };
-    segments: Array<{
-        segment_name: string;
-        reasons_for_stale: string;
-        optimal_hook: string;
-        cadence: {
-            day_1_sms: string;
-            day_4_email: string;
+    global_settings: {
+        default_channel: string;
+        send_window: string;
+        timezone: string;
+        opt_out_text: string;
+    };
+    market_context: Array<{
+        market_name: string;
+        rates_trend: 'rising' | 'flat' | 'declining' | string;
+        inventory_trend: 'rising' | 'flat' | 'declining' | string;
+        avg_days_on_market: 'short' | 'normal' | 'long' | string;
+        buyer_leverage_notes: string;
+        confidence: 'high' | 'medium' | 'low' | string;
+    }>;
+    lead_plans: Array<{
+        lead_id: string;
+        market: string;
+        priority_score: number;
+        staleness_reason: 'rates' | 'inventory' | 'timing' | 'life_event' | 'unknown' | string;
+        recommended_channel: 'sms' | 'email' | string;
+        tone: 'low_pressure' | 'friendly' | 'professional' | string;
+        first_touch: {
+            send_after_days: number;
+            message: string;
+        };
+        sequence: {
+            enabled: boolean;
+            steps: Array<{
+                day_offset: number;
+                channel: 'sms' | 'email' | string;
+                message: string;
+            }>;
         };
     }>;
+}
+export interface LLMCallEvent {
+    id?: string;
+    user_id: string;
+    prompt_filename: string;
+    llm_name: string;
+    raw_payload: any;
+    raw_response: any;
+    status: 'pending' | 'completed' | 'failed';
+    error?: string;
+    timestamp: any; // serverTimestamp or Date
 }
