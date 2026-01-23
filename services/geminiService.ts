@@ -635,7 +635,7 @@ export const analyzeBiddingStrategy = async (property: PropertyData, userId: str
   }
 };
 
-export const analyzeLeadDatabase = async (rawData: string, userId: string = "unknown"): Promise<LeadReactivationResult> => {
+export const analyzeLeadDatabase = async (rawData: string, userId: string = "unknown"): Promise<{ result: LeadReactivationResult; llmCallId?: string }> => {
   const prompt = getLeadReactivationPrompt(rawData);
   let logId: string | null = null;
 
@@ -677,7 +677,10 @@ export const analyzeLeadDatabase = async (rawData: string, userId: string = "unk
       }).catch(err => console.error("Failed to update AI log:", err));
     }
 
-    return extractJson<LeadReactivationResult>(responseText);
+    return {
+      result: extractJson<LeadReactivationResult>(responseText),
+      llmCallId: logId || undefined
+    };
   } catch (error: any) {
     console.error(`[${new Date().toISOString()}] AI ERROR: analyzeLeadDatabase`, error);
 

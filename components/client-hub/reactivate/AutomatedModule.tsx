@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { analyzeLeadDatabase } from '../../../services/geminiService';
 import { uploadLeadCSV, getLeadDocuments, getLeadDocumentContent } from '../../../services/firebase/leads_documents';
+import { saveReactivationAnalysis, getExistingReactivationAnalysis } from '../../../services/firebase/reactivation';
 import { LeadReactivationResult, LeadDocument } from '../../../types';
 import { getTimeSince } from './shared';
 
@@ -14,6 +15,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
     const [fileContent, setFileContent] = useState<string | null>(null);
     const [csvPreview, setCsvPreview] = useState<string[][]>([]);
     const [selectedDocName, setSelectedDocName] = useState<string | null>(null);
+    const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
     const [validationError, setValidationError] = useState<string | null>(null);
     const [result, setResult] = useState<LeadReactivationResult | null>(null);
@@ -155,6 +157,17 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
                 // Join with | as the new delimiter for the content sent to AI
                 const outputContent = processedRows.map(row => row.join('|')).join('\n');
                 setFileContent(outputContent);
+
+                // Upload immediately to get a doc ID
+                setUploadStatus('uploading');
+                const uploadedDoc = await uploadLeadCSV(realtorId, selectedFile);
+                if (uploadedDoc) {
+                    setSelectedDocId(uploadedDoc.id);
+                    setRecentDocuments(prev => [uploadedDoc, ...prev]);
+                    setUploadStatus('idle');
+                } else {
+                    setUploadStatus('error');
+                }
             } else {
                 setFile(null);
                 setFileContent(null);
@@ -193,18 +206,31 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
     };
 
     const handleUpload = async () => {
-        if (!fileContent) return;
+        if (!fileContent || !selectedDocId) return;
         setUploadStatus('uploading');
 
         try {
-            // 1. Upload to Cloud if it's a new file
-            if (file) {
-                await uploadLeadCSV(realtorId, file);
+            // 1. Check if analysis already exists
+            const existing = await getExistingReactivationAnalysis(selectedDocId, realtorId);
+            if (existing) {
+                setResult(existing);
+                setUploadStatus('success');
+                return;
             }
 
             // 2. Proceed with AI analysis
-            const response = await analyzeLeadDatabase(fileContent, realtorId);
-            setResult(response);
+            const { result: analysis, llmCallId } = await analyzeLeadDatabase(fileContent, realtorId);
+
+            // 3. Store result in databases
+            await saveReactivationAnalysis(
+                realtorId,
+                realtorId, // Using realtorId as clientId if not separate
+                selectedDocId,
+                llmCallId || "gen_ui_" + Date.now(),
+                analysis
+            );
+
+            setResult(analysis);
             setUploadStatus('success');
         } catch (error) {
             console.error('Failed to process database:', error);
@@ -215,6 +241,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
     const handleSelectPreviousDoc = async (doc: LeadDocument) => {
         setUploadStatus('uploading');
         setSelectedDocName(doc.name);
+        setSelectedDocId(doc.id);
 
         try {
             const content = await getLeadDocumentContent(doc.storage_path);
@@ -235,6 +262,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
         setFileContent(null);
         setCsvPreview([]);
         setSelectedDocName(null);
+        setSelectedDocId(null);
         setResult(null);
         setUploadStatus('idle');
         setValidationError(null);

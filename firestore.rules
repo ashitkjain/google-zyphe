@@ -223,6 +223,24 @@ match /audit_events/{auditId} {
       allow read, write: if true;
     }
 
+    match /reactivation_analysis_summary/{summaryId} {
+      allow read, write: if request.auth != null && 
+                           ( (resource == null && request.resource.data.userId == request.auth.uid) || 
+                             (resource != null && resource.data.userId == request.auth.uid) );
+    }
+
+    match /market_context/{contextId} {
+      allow read, write: if request.auth != null && 
+                           ( (resource == null && request.resource.data.userId == request.auth.uid) || 
+                             (resource != null && resource.data.userId == request.auth.uid) );
+    }
+
+    match /lead_plans/{planId} {
+      allow read, write: if request.auth != null && 
+                           ( (resource == null && request.resource.data.userId == request.auth.uid) || 
+                             (resource != null && resource.data.userId == request.auth.uid) );
+    }
+
 
   }
 }

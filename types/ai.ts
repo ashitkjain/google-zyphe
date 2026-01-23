@@ -242,3 +242,62 @@ export interface LLMCallEvent {
     response_received_at?: any;
     timestamp: any; // serverTimestamp or Date
 }
+
+export interface ReactivationAnalysisSummary {
+    id: string;
+    summary: {
+        total_leads: number;
+        markets_detected: number;
+        high_priority: number;
+        recommended_daily_volume: number;
+        primary_strategy: string;
+    };
+    global_settings: {
+        default_channel: string;
+        send_window: string;
+        timezone: string;
+        opt_out_text: string;
+    };
+    created_date: any; // serverTimestamp
+    leads_documents: string; // reference to leads_documents
+    llm_call_events: string; // reference to llm_call_events row
+    userId: string;
+    clientId: string;
+}
+
+export interface MarketContextRecord {
+    id?: string;
+    reactivation_analysis_summary_id: string;
+    userId: string;
+    market_name: string;
+    rates_trend: 'rising' | 'flat' | 'declining' | string;
+    inventory_trend: 'rising' | 'flat' | 'declining' | string;
+    avg_days_on_market: 'short' | 'normal' | 'long' | string;
+    buyer_leverage_notes: string;
+    confidence: 'high' | 'medium' | 'low' | string;
+    created_at: any; // serverTimestamp
+}
+
+export interface LeadPlanRecord {
+    id?: string;
+    reactivation_analysis_summary_id: string;
+    userId: string;
+    lead_id: string;
+    market: string;
+    priority_score: number;
+    staleness_reason: 'rates' | 'inventory' | 'timing' | 'life_event' | 'unknown' | string;
+    recommended_channel: 'sms' | 'email' | string;
+    tone: 'low_pressure' | 'friendly' | 'professional' | string;
+    first_touch: {
+        send_after_days: number;
+        message: string;
+    };
+    sequence: {
+        enabled: boolean;
+        steps: Array<{
+            day_offset: number;
+            channel: 'sms' | 'email' | string;
+            message: string;
+        }>;
+    };
+}
