@@ -6,6 +6,7 @@ import TriggersModule from './reactivate/TriggersModule';
 import TrailModule from './reactivate/TrailModule';
 import AnalyticsModule from './reactivate/AnalyticsModule';
 import AutomatedModule from './reactivate/AutomatedModule';
+import DashboardModule from './reactivate/DashboardModule';
 
 interface ReactivateTabProps {
     realtorId: string;
@@ -14,7 +15,7 @@ interface ReactivateTabProps {
 }
 
 const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdateLead }) => {
-    const [selectedModule, setSelectedModule] = useState<'AUTOMATED' | 'ASSISTED' | 'TRAIL' | 'ANALYTICS' | 'TRIGGERS'>('AUTOMATED');
+    const [selectedModule, setSelectedModule] = useState<'DASHBOARD' | 'AUTOMATED' | 'ASSISTED' | 'TRAIL' | 'ANALYTICS' | 'TRIGGERS'>('DASHBOARD');
     const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
     const [selectedChannel, setSelectedChannel] = useState<'email' | 'call' | 'sms' | 'whatsapp' | 'mail' | undefined>('email');
 
@@ -33,11 +34,18 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
                 {/* Sub Tab Navigation */}
                 <div className="flex items-center gap-8 border-b border-slate-200">
                     <button
+                        onClick={() => setSelectedModule('DASHBOARD')}
+                        className={`pb-5 text-sm font-black uppercase tracking-widest transition-all relative ${selectedModule === 'DASHBOARD' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        Dashboard
+                        {selectedModule === 'DASHBOARD' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>}
+                    </button>
+                    <button
                         onClick={() => setSelectedModule('AUTOMATED')}
                         className={`pb-5 text-sm font-black uppercase tracking-widest transition-all relative ${selectedModule === 'AUTOMATED' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
                     >
                         Automated
-                        {selectedModule === 'AUTOMATED' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>}
+                        {selectedModule === 'AUTOMATED' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8_rgba(79,70,229,0.3)]"></div>}
                     </button>
                     <button
                         onClick={() => setSelectedModule('ASSISTED')}
@@ -70,6 +78,10 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
                 </div>
 
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    {selectedModule === 'DASHBOARD' && (
+                        <DashboardModule realtorId={realtorId} />
+                    )}
+
                     {selectedModule === 'AUTOMATED' && (
                         <AutomatedModule realtorId={realtorId} />
                     )}

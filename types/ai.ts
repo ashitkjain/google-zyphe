@@ -206,6 +206,7 @@ export interface LeadReactivationResult {
     }>;
     lead_plans: Array<{
         lead_id: string;
+        lead_name: string;
         market: string;
         priority_score: number;
         staleness_reason: 'rates' | 'inventory' | 'timing' | 'life_event' | 'unknown' | string;
@@ -283,6 +284,7 @@ export interface LeadPlanRecord {
     reactivation_analysis_summary_id: string;
     userId: string;
     lead_id: string;
+    lead_name: string;
     market: string;
     priority_score: number;
     staleness_reason: 'rates' | 'inventory' | 'timing' | 'life_event' | 'unknown' | string;

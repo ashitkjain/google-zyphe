@@ -55,7 +55,15 @@ export const saveReactivationAnalysis = async (
         // 3. Create Lead Plan Records
         const leadPlanPromises = analysisResult.lead_plans.map(plan => {
             const planData: LeadPlanRecord = {
-                ...plan,
+                lead_id: plan.lead_id,
+                lead_name: plan.lead_name,
+                market: plan.market,
+                priority_score: plan.priority_score,
+                staleness_reason: plan.staleness_reason,
+                recommended_channel: plan.recommended_channel,
+                tone: plan.tone,
+                first_touch: plan.first_touch,
+                sequence: plan.sequence,
                 reactivation_analysis_summary_id: summaryId,
                 userId: userId
             };
@@ -120,6 +128,7 @@ export const getExistingReactivationAnalysis = async (leadsDocumentId: string, u
             const data = doc.data() as LeadPlanRecord;
             return {
                 lead_id: data.lead_id,
+                lead_name: data.lead_name || 'Unknown Lead',
                 market: data.market,
                 priority_score: data.priority_score,
                 staleness_reason: data.staleness_reason,
@@ -140,5 +149,49 @@ export const getExistingReactivationAnalysis = async (leadsDocumentId: string, u
     } catch (error) {
         console.error('Error fetching existing reactivation analysis:', error);
         return null;
+    }
+};
+export const getUserReactivationSummaries = async (userId: string): Promise<ReactivationAnalysisSummary[]> => {
+    try {
+        const q = query(
+            collection(db, 'reactivation_analysis_summary'),
+            where('userId', '==', userId)
+            // Removed orderBy to avoid index requirement during initial setup
+        );
+        const snap = await getDocs(q);
+        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReactivationAnalysisSummary));
+    } catch (error) {
+        console.error('Error fetching user reactivation summaries:', error);
+        return [];
+    }
+};
+
+export const getAllUserLeadPlans = async (userId: string): Promise<LeadPlanRecord[]> => {
+    try {
+        const q = query(
+            collection(db, 'lead_plans'),
+            where('userId', '==', userId)
+            // Removed orderBy to avoid index requirement
+        );
+        const snap = await getDocs(q);
+        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeadPlanRecord));
+    } catch (error) {
+        console.error('Error fetching all user lead plans:', error);
+        return [];
+    }
+};
+
+export const getAllUserMarketContexts = async (userId: string): Promise<MarketContextRecord[]> => {
+    try {
+        const q = query(
+            collection(db, 'market_context'),
+            where('userId', '==', userId)
+            // Removed orderBy
+        );
+        const snap = await getDocs(q);
+        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as MarketContextRecord));
+    } catch (error) {
+        console.error('Error fetching all user market contexts:', error);
+        return [];
     }
 };

@@ -43,6 +43,7 @@ export const leadReactivationSchema = {
                 type: "object",
                 properties: {
                     lead_id: { type: "string" },
+                    lead_name: { type: "string" },
                     market: { type: "string" },
                     priority_score: { type: "number" },
                     staleness_reason: { type: "string", enum: ["rates", "inventory", "timing", "life_event", "unknown"] },
@@ -76,7 +77,7 @@ export const leadReactivationSchema = {
                         required: ["enabled", "steps"]
                     }
                 },
-                required: ["lead_id", "market", "priority_score", "staleness_reason", "recommended_channel", "tone", "first_touch", "sequence"]
+                required: ["lead_id", "lead_name", "market", "priority_score", "staleness_reason", "recommended_channel", "tone", "first_touch", "sequence"]
             }
         }
     },
