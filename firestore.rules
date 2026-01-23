@@ -215,6 +215,10 @@ match /audit_events/{auditId} {
       allow update, delete: if false;
     }
 
+    match /leads_documents/{documentId} {
+      allow read, write: if request.auth != null;
+    }
+
 
   }
 }

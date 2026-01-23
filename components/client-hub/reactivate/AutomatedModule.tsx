@@ -1,6 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { analyzeLeadDatabase } from '../../../services/geminiService';
-import { LeadReactivationResult } from '../../../types';
+import { uploadLeadCSV, getLeadDocuments } from '../../../services/firebase/leads_documents';
+import { LeadReactivationResult, LeadDocument } from '../../../types';
+import { getTimeSince } from './shared';
 
 interface AutomatedModuleProps {
     realtorId: string;
@@ -11,7 +13,16 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
     const [file, setFile] = useState<File | null>(null);
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
     const [result, setResult] = useState<LeadReactivationResult | null>(null);
+    const [recentDocuments, setRecentDocuments] = useState<LeadDocument[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const loadDocs = async () => {
+            const docs = await getLeadDocuments(realtorId);
+            setRecentDocuments(docs);
+        };
+        loadDocs();
+    }, [realtorId]);
 
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
@@ -43,12 +54,16 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
         setUploadStatus('uploading');
 
         try {
+            // 1. Upload to Cloud first
+            await uploadLeadCSV(realtorId, file);
+
+            // 2. Then proceed with AI analysis
             const text = await file.text();
             const response = await analyzeLeadDatabase(text);
             setResult(response);
             setUploadStatus('success');
         } catch (error) {
-            console.error('Failed to analyze database:', error);
+            console.error('Failed to process database:', error);
             setUploadStatus('error');
         }
     };
@@ -296,6 +311,34 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
                     </div>
                 </div>
             </div>
+
+            {/* Recent Uploads Section */}
+            {recentDocuments.length > 0 && uploadStatus === 'idle' && !result && (
+                <div className="mt-12 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                    <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Database History</h3>
+                        <div className="h-px flex-1 bg-slate-200 mx-6"></div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {recentDocuments.slice(0, 3).map((doc) => (
+                            <div key={doc.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                        <i className="fa-solid fa-file-csv"></i>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-slate-900 truncate max-w-[120px]">{doc.name}</p>
+                                        <p className="text-[10px] text-slate-400">{getTimeSince(doc.created_at)}</p>
+                                    </div>
+                                </div>
+                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                                    {(doc.size / 1024).toFixed(0)} KB
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -8,11 +8,13 @@ service firebase.storage {
     }
 
     // Transactions Documents
-    // Path: transactions/{transactionId}/documents/{fileName}
     match /transactions/{transactionId}/documents/{fileName} {
-      // Only authenticated users can read/write
-      // TODO: Refine this to restrict to the specific realtor/owner of the transaction
       allow read, write: if isAuthenticated();
+    }
+
+    // Lead Reactivation Uploads
+    match /realtors/{realtorId}/leads_uploads/{fileName} {
+      allow read, write: if isAuthenticated() && (request.auth.uid == realtorId || request.auth.uid == 'admin');
     }
 
     // Default deny

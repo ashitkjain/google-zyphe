@@ -1,4 +1,13 @@
 import { FunnelStage, LeadHealth, LeadStatus, LeadType } from './enums';
+import { FileMetadata } from './transaction';
+
+export interface LeadDocument extends FileMetadata {
+    id: string;
+    realtorId: string;
+    name: string;
+    size: number;
+    created_at: any;
+}
 
 // Sub-types for Complex Objects
 export interface Property {
