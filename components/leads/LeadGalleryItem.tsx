@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lead, PipelineNote, LEAD_FIELD_CONFIG, LEAD_STAGE_LIFECYCLE_CONFIG, RealtorComment } from '../../types';
+import { Lead, LEAD_FIELD_CONFIG, LEAD_STAGE_LIFECYCLE_CONFIG, LeadNote } from '../../types';
 import { Droppable } from '@hello-pangea/dnd';
 import { getStatusOptions } from '../../services/statusService';
 
@@ -12,7 +12,6 @@ interface LeadGalleryItemProps {
 
     selectedIds: Set<string>;
     handleSelectOne: (id: string) => void;
-    notes: PipelineNote[];
     editNoteId: string | null;
     setEditNoteId: (id: string | null) => void;
     editContent: string;
@@ -53,13 +52,19 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
 
     const handleSaveRealtorComment = () => {
         if (!commentDraft.note.trim()) return;
-        onUpdateLead(lead.id, {
-            realtorComments: {
-                note: commentDraft.note,
-                color: commentDraft.color as any,
-                date: new Date()
-            }
-        });
+        const newNote = {
+            id: 'note-' + Date.now(),
+            content: commentDraft.note,
+            color: commentDraft.color as any,
+            timestamp: new Date(),
+            isPinned: true, // This will make it show on the card
+            type: 'general' as const
+        };
+        const updatedNotes = [newNote, ...(lead.leadNotes || [])].map(n => ({
+            ...n,
+            isPinned: n.id === newNote.id // Only one pinned note at a time
+        }));
+        onUpdateLead(lead.id, { leadNotes: updatedNotes });
         setIsAddingComment(false);
         setCommentDraft({ note: '', color: 'yellow' });
     };
@@ -631,27 +636,27 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                             );
                         })()}
 
-                        {/* Realtor Comments Display */}
-                        {getVisibleColumns().has('realtorComments') && lead.realtorComments && lead.realtorComments.note && (
+                        {/* Realtor Comments Display (Unified) */}
+                        {getVisibleColumns().has('realtorComments') && (lead.leadNotes || []).find(n => n.isPinned) && (
                             <div className="mt-3">
                                 {(() => {
-                                    const comment = lead.realtorComments;
+                                    const comment = (lead.leadNotes || []).find(n => n.isPinned)!;
                                     const colors: any = {
                                         yellow: 'bg-yellow-50 text-yellow-900 border-yellow-200',
                                         blue: 'bg-blue-50 text-blue-900 border-blue-200',
                                         green: 'bg-emerald-50 text-emerald-900 border-emerald-200',
                                         red: 'bg-rose-50 text-rose-900 border-rose-200'
                                     };
-                                    const styleClass = colors[comment.color] || colors.yellow;
+                                    const styleClass = colors[comment.color || 'yellow'] || colors.yellow;
 
                                     return (
                                         <div className={`p-3 rounded-xl border ${styleClass} relative group/note`}>
                                             <div className="flex items-center justify-between mb-1">
                                                 <span className="text-[9px] font-black uppercase tracking-widest opacity-60">Realtor Note</span>
-                                                <span className="text-[9px] font-black opacity-40">{comment.date?.toDate ? comment.date.toDate().toLocaleDateString() : (comment.date ? new Date(comment.date).toLocaleDateString() : '')}</span>
+                                                <span className="text-[9px] font-black opacity-40">{comment.timestamp?.toDate ? comment.timestamp.toDate().toLocaleDateString() : (comment.timestamp ? new Date(comment.timestamp).toLocaleDateString() : '')}</span>
                                             </div>
                                             <div className="text-[11px] font-medium leading-relaxed italic">
-                                                "{comment.note}"
+                                                "{comment.content}"
                                             </div>
                                         </div>
                                     );
@@ -710,12 +715,12 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                             </div>
                         )}
 
-                        {(getVisibleColumns().has('notes') || (pendingNote && pendingNote.leadId === lead.id) || (lead.notesLog && lead.notesLog.length > 0)) && (
+                        {(getVisibleColumns().has('notes') || (pendingNote && pendingNote.leadId === lead.id) || (lead.leadNotes && lead.leadNotes.length > 0)) && (
                             <div
                                 className="flex flex-wrap gap-3 mt-4 relative min-h-[40px] flex-1 rounded-xl transition-colors"
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                {(lead.notesLog || []).filter(n => !n.isDone).map((note, i) => (
+                                {(lead.leadNotes || []).filter(n => !n.isDone && (n.type === 'gallery' || n.type === 'sticky' || (n.x !== undefined))).map((note, i) => (
                                     <div
                                         key={note.id}
                                         onClick={() => { if (!editNoteId) { setEditNoteId(note.id); setEditContent(note.content); } }}

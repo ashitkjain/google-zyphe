@@ -68,8 +68,8 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
     };
 
     // Sticky Notes Logic
-    const [stuckNotes, setStuckNotes] = useState<Record<string, any[]>>({});
-    const [realtorNotes, setRealtorNotes] = useState<Record<string, any[]>>({});
+    // Unified Lead Notes Logic
+    const [leadNotes, setLeadNotes] = useState<Record<string, LeadNote[]>>({});
     const [draggingNote, setDraggingNote] = useState<{ x: number, y: number } | null>(null);
     const [movingNoteIndex, setMovingNoteIndex] = useState<number | null>(null);
     const snapshotRef = useRef<HTMLDivElement>(null);
@@ -81,8 +81,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
     // Sync with selected client when it changes
     useEffect(() => {
         if (selectedClient) {
-            setStuckNotes(prev => ({ ...prev, [selectedClient.id]: (selectedClient as any).stickyNotes || [] }));
-            setRealtorNotes(prev => ({ ...prev, [selectedClient.id]: (selectedClient as any).realtorNotes || [] }));
+            setLeadNotes(prev => ({ ...prev, [selectedClient.id]: (selectedClient as any).leadNotes || [] }));
 
             const fetchClientData = async () => {
                 setLoadingEvents(true);
@@ -98,24 +97,31 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
         }
     }, [selectedClient?.id, realtorId]);
 
-    const persistChanges = async (cliendId: string, updates: { stickyNotes?: any[], realtorNotes?: any[] }) => {
-        const client = allClients.find(c => c.id === cliendId);
+    const persistChanges = async (clientId: string, updates: Partial<Lead>) => {
+        const client = allClients.find(c => c.id === clientId);
         if (!client) return;
 
         const collectionName = client.isUser ? 'users' : (client as any).collectionName || 'leads';
-        await onUpdateClient(cliendId, updates, collectionName);
+        await onUpdateClient(clientId, updates, collectionName);
     };
 
     const addRealtorNote = async (clientId: string, text: string) => {
         if (!text.trim()) return;
-        const history = realtorNotes[clientId] || [];
-        if (history[0]?.text === text) {
-            await persistChanges(clientId, { stickyNotes: stuckNotes[clientId] });
-            return;
-        }
-        const updatedHistory = [{ date: new Date(), text, color: 'yellow' }, ...history];
-        setRealtorNotes(prev => ({ ...prev, [clientId]: updatedHistory }));
-        await persistChanges(clientId, { realtorNotes: updatedHistory, stickyNotes: stuckNotes[clientId] });
+        const currentNotes = leadNotes[clientId] || [];
+
+        // Prevent duplicate consecutive notes
+        if (currentNotes[0]?.content === text && currentNotes[0]?.type === 'general') return;
+
+        const newNote: LeadNote = {
+            id: 'note-' + Date.now(),
+            content: text,
+            timestamp: new Date(),
+            color: 'yellow',
+            type: 'general'
+        };
+        const updatedNotes = [newNote, ...currentNotes];
+        setLeadNotes(prev => ({ ...prev, [clientId]: updatedNotes }));
+        await persistChanges(clientId, { leadNotes: updatedNotes });
     };
 
     // --- CALENDAR EVENT CREATION LOGIC ---
@@ -187,12 +193,18 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
 
     const closeStuckNote = async (index: number) => {
         if (!selectedId) return;
-        const updatedNotes = (stuckNotes[selectedId] || []).filter((_, i) => i !== index);
-        setStuckNotes(prev => ({
+        const currentNotes = leadNotes[selectedId] || [];
+        const stickies = currentNotes.filter(n => n.x !== undefined);
+        const nonStickies = currentNotes.filter(n => n.x === undefined);
+
+        const updatedStickies = stickies.filter((_, i) => i !== index);
+        const allUpdated = [...updatedStickies, ...nonStickies];
+
+        setLeadNotes(prev => ({
             ...prev,
-            [selectedId]: updatedNotes
+            [selectedId]: allUpdated
         }));
-        await persistChanges(selectedId, { stickyNotes: updatedNotes });
+        await persistChanges(selectedId, { leadNotes: allUpdated });
     };
 
     useEffect(() => {
@@ -205,12 +217,15 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                 const x = ((e.clientX - rect.left - 64) / rect.width) * 100;
                 const y = ((e.clientY - rect.top - 64) / rect.height) * 100;
 
-                setStuckNotes(prev => {
-                    const notes = [...(prev[selectedId] || [])];
-                    if (notes[movingNoteIndex]) {
-                        notes[movingNoteIndex] = { ...notes[movingNoteIndex], x, y };
+                setLeadNotes(prev => {
+                    const allNotes = [...(prev[selectedId] || [])];
+                    const stickies = allNotes.filter(n => n.x !== undefined);
+                    const nonStickies = allNotes.filter(n => n.x === undefined);
+
+                    if (stickies[movingNoteIndex]) {
+                        stickies[movingNoteIndex] = { ...stickies[movingNoteIndex], x, y };
                     }
-                    return { ...prev, [selectedId]: notes };
+                    return { ...prev, [selectedId]: [...stickies, ...nonStickies] };
                 });
             }
         };
@@ -232,17 +247,25 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                     const y = (y_px / rect.height) * 100;
                     const rotation = Math.floor(Math.random() * 15) - 7.5;
 
-                    const newNotes = [...(stuckNotes[selectedId] || []), { x, y, rotation, content: '', createdAt: new Date() }];
-                    setStuckNotes(prev => ({
+                    const currentNotes = leadNotes[selectedId] || [];
+                    const newSticky: LeadNote = {
+                        id: 'sticky-' + Date.now(),
+                        x, y, rotation,
+                        content: '',
+                        timestamp: new Date(),
+                        type: 'sticky'
+                    };
+                    const updatedNotes = [...currentNotes, newSticky];
+                    setLeadNotes(prev => ({
                         ...prev,
-                        [selectedId]: newNotes
+                        [selectedId]: updatedNotes
                     }));
-                    persistChanges(selectedId, { stickyNotes: newNotes });
+                    persistChanges(selectedId, { leadNotes: updatedNotes });
                 }
                 setDraggingNote(null);
             }
             if (movingNoteIndex !== null && selectedId) {
-                persistChanges(selectedId, { stickyNotes: stuckNotes[selectedId] });
+                persistChanges(selectedId, { leadNotes: leadNotes[selectedId] });
             }
             setMovingNoteIndex(null);
         };
@@ -555,10 +578,10 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                 ref={snapshotRef}
                                 className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 relative min-h-[300px]"
                             >
-                                {/* Stuck Notes */}
-                                {stuckNotes[selectedId || '']?.map((note, idx) => (
+                                {/* Stuck Notes (Unified) */}
+                                {(leadNotes[selectedId || ''] || []).filter(n => n.x !== undefined).map((note, idx) => (
                                     <div
-                                        key={idx}
+                                        key={note.id || idx}
                                         onMouseDown={(e) => handleMouseDownOnNote(e, idx)}
                                         className={`absolute w-32 h-32 bg-yellow-200 border border-yellow-300 shadow-xl rounded-sm flex flex-col p-2 z-10 group/note transition-all ${movingNoteIndex === idx ? 'cursor-grabbing shadow-2xl scale-105 z-20' : 'cursor-grab'} ${!note.content ? 'animate-in zoom-in-50 duration-200' : ''} hover:border-yellow-400`}
                                         style={{
@@ -583,9 +606,14 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                                 placeholder="Click here to add comment..."
                                                 value={note.content}
                                                 onChange={(e) => {
-                                                    const newNotes = [...stuckNotes[selectedId || '']];
-                                                    newNotes[idx].content = e.target.value;
-                                                    setStuckNotes(prev => ({ ...prev, [selectedId || '']: newNotes }));
+                                                    const allNotes = [...(leadNotes[selectedId || ''] || [])];
+                                                    const stickies = allNotes.filter(n => n.x !== undefined);
+                                                    const nonStickies = allNotes.filter(n => n.x === undefined);
+
+                                                    if (stickies[idx]) {
+                                                        stickies[idx].content = e.target.value;
+                                                        setLeadNotes(prev => ({ ...prev, [selectedId || '']: [...stickies, ...nonStickies] }));
+                                                    }
                                                 }}
                                                 onBlur={() => addRealtorNote(selectedId || '', note.content)}
                                             />
@@ -600,7 +628,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                                 <i className="fa-solid fa-i-cursor text-[6px]"></i> Editable
                                             </div>
                                             <div className="text-[6px] font-black text-black uppercase tracking-widest uppercase">
-                                                {note.createdAt ? formatDate(note.createdAt) : formatDate(new Date())}
+                                                {note.timestamp ? formatDate(note.timestamp) : formatDate(new Date())}
                                             </div>
                                         </div>
                                     </div>

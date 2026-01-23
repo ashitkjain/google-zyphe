@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { getLeads, getTasks, getTemplates, getPipelineNotes, seedMockData, saveUserProfile, getUserProfile, updateLead, addPipelineNote, updatePipelineNote, deletePipelineNote, getReminderRules, updateReminderRule, deleteAllMockData, getRealtorClients } from '../services/firebaseService';
+import { getLeads, getTasks, getTemplates, seedMockData, saveUserProfile, getUserProfile, updateLead, getReminderRules, updateReminderRule, deleteAllMockData, getRealtorClients } from '../services/firebaseService';
 import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates, getInitialMockTransactions } from '../services/mockDataService';
 import { getDefaultReminderRules } from '../services/reminderRulesService';
-import { UserProfile, Lead, CRMTask, CommTemplate, FunnelStage, PipelineNote, ReminderRule } from '../types';
+import { UserProfile, Lead, CRMTask, CommTemplate, FunnelStage, ReminderRule, LeadNote } from '../types';
 import { DropResult } from '@hello-pangea/dnd';
 import Logo from './Logo';
 import LeadsList from './LeadsList';
@@ -49,8 +49,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     const [loadingData, setLoadingData] = useState(true);
 
 
-    // Pipeline Notes State
-    const [pipelineNotes, setPipelineNotes] = useState<PipelineNote[]>([]);
     const [pendingNote, setPendingNote] = useState<{ leadId: string, color: string } | null>(null);
 
     const [resetLogs, setResetLogs] = useState<string[]>([]);
@@ -66,7 +64,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             let _leads = await getLeads(realtorId, ['leads']);
             let _tasks = await getTasks(realtorId);
             let _templates = await getTemplates(realtorId);
-            let _notes = await getPipelineNotes(realtorId);
 
             // 2. Load reminder rules from APP (not database)
             const appRules = getDefaultReminderRules().map(rule => ({
@@ -131,7 +128,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
             setLeads(finalLeads);
             setTasks(_tasks);
             setTemplates(_templates);
-            setPipelineNotes(_notes);
             setLoadingData(false);
 
 
@@ -289,97 +285,59 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     const handleAddNote = async (leadId: string, content: string, color: string) => {
         if (!content.trim()) return;
 
-        const newNoteObj: Partial<PipelineNote> = {
-            leadId: leadId,
-            realtorId,
+        const lead = leads.find(l => l.id === leadId);
+        if (!lead) return;
+
+        const newNote: LeadNote = {
+            id: 'note-' + Date.now(),
             content: content,
+            timestamp: new Date(),
             color: color,
-            timestamp: new Date()
+            type: 'general'
         };
 
-        const noteId = await addPipelineNote(newNoteObj);
-        if (noteId) {
-            const finalNote = { ...newNoteObj, id: noteId } as PipelineNote;
-            setPipelineNotes(prev => [...prev, finalNote]);
+        const updatedLeadNotes = [newNote, ...(lead.leadNotes || [])];
+        const updatedNotesLog = [newNote, ...(lead.notesLog || [])];
 
-            // Sync with Lead's notesLog
-            const lead = leads.find(l => l.id === leadId);
-            if (lead) {
-                const updatedNotesLog = [...(lead.notesLog || []), {
-                    id: noteId,
-                    content: content,
-                    timestamp: new Date(),
-                    author: realtorName,
-                    color: color
-                }];
-                handleUpdateLead(lead.id, { notesLog: updatedNotesLog, notes: content });
-            }
-        }
-        return noteId;
+        await handleUpdateLead(lead.id, {
+            leadNotes: updatedLeadNotes,
+            notesLog: updatedNotesLog,
+            notes: content
+        });
+
+        return newNote.id;
     };
 
-    const handleSavePipelineNote = async (content: string) => {
+    const handleSaveLeadNote = async (content: string) => {
         if (!pendingNote || !content.trim()) return;
         await handleAddNote(pendingNote.leadId, content, pendingNote.color);
         setPendingNote(null);
     };
 
-    const handleUpdatePipelineNote = async (noteId: string, updates: Partial<PipelineNote>) => {
-        // Optimistic update
-        setPipelineNotes(prev => prev.map(n => n.id === noteId ? { ...n, ...updates } : n));
+    const handleUpdateLeadNote = async (noteId: string, updates: Partial<LeadNote>) => {
+        const lead = leads.find(l => (l.leadNotes || []).some(n => n.id === noteId) || (l.notesLog || []).some(n => n.id === noteId));
+        if (!lead) return;
 
-        // Sync with Lead's notesLog
-        let leadId: string | undefined;
-        const note = pipelineNotes.find(n => n.id === noteId);
-        if (note) {
-            leadId = note.leadId;
-        } else {
-            // Fallback: search leads' notesLog
-            const foundLead = leads.find(l => (l.notesLog || []).some(n => n.id === noteId));
-            if (foundLead) leadId = foundLead.id;
-        }
+        const updatedLeadNotes = (lead.leadNotes || []).map(n => n.id === noteId ? { ...n, ...updates } : n);
+        const updatedNotesLog = (lead.notesLog || []).map(n => n.id === noteId ? { ...n, ...updates } : n);
 
-        if (leadId) {
-            const lead = leads.find(l => l.id === leadId);
-            if (lead && lead.notesLog) {
-                const updatedNotesLog = lead.notesLog.map(n => n.id === noteId ? { ...n, ...updates } : n);
-                handleUpdateLead(lead.id, { notesLog: updatedNotesLog });
-            }
-        }
-
-        const success = await updatePipelineNote(noteId, updates);
-        if (!success) {
-            alert("Failed to update note.");
-        }
+        await handleUpdateLead(lead.id, {
+            leadNotes: updatedLeadNotes,
+            notesLog: updatedNotesLog
+        });
     };
 
-    const handleDeletePipelineNote = async (noteId: string) => {
-        // Optimistic update for global state
-        setPipelineNotes(prev => prev.filter(n => n.id !== noteId));
+    const handleDeleteLeadNote = async (noteId: string) => {
+        const lead = leads.find(l => (l.leadNotes || []).some(n => n.id === noteId) || (l.notesLog || []).some(n => n.id === noteId));
+        if (!lead) return;
 
-        // Sync with Lead's notesLog
-        let leadId: string | undefined;
-        const note = pipelineNotes.find(n => n.id === noteId);
-        if (note) {
-            leadId = note.leadId;
-        } else {
-            // Fallback: search leads' notesLog
-            const foundLead = leads.find(l => (l.notesLog || []).some(n => n.id === noteId));
-            if (foundLead) leadId = foundLead.id;
-        }
+        const updatedLeadNotes = (lead.leadNotes || []).filter(n => n.id !== noteId);
+        const updatedNotesLog = (lead.notesLog || []).filter(n => n.id !== noteId);
 
-        if (leadId) {
-            const lead = leads.find(l => l.id === leadId);
-            if (lead && lead.notesLog) {
-                const updatedNotesLog = lead.notesLog.filter(n => n.id !== noteId);
-                handleUpdateLead(lead.id, { notesLog: updatedNotesLog });
-            }
-        }
-
-        const success = await deletePipelineNote(noteId);
-        if (!success) {
-            alert("Failed to delete note.");
-        }
+        await handleUpdateLead(lead.id, {
+            leadNotes: updatedLeadNotes,
+            notesLog: updatedNotesLog
+        });
     };
 
     const handleCreateLead = (initialUpdates?: Partial<Lead>) => {
@@ -557,12 +515,11 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                         leads={leads}
                         onUpdateLead={(id, updates) => handleUpdateLead(id, updates)}
                         onCreateLead={handleCreateLead}
-                        notes={pipelineNotes}
                         pendingNote={pendingNote}
                         setPendingNote={setPendingNote}
-                        handleSaveNote={handleSavePipelineNote}
-                        handleUpdateNote={handleUpdatePipelineNote}
-                        handleDeleteNote={handleDeletePipelineNote}
+                        handleSaveNote={handleSaveLeadNote}
+                        handleUpdateNote={handleUpdateLeadNote}
+                        handleDeleteNote={handleDeleteLeadNote}
                         handleDragEnd={handleDragEnd}
                         realtorSettings={realtorProfile?.settings}
                         onUpdateAvatar={async (leadId, file) => {

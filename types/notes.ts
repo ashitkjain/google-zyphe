@@ -3,9 +3,15 @@ export interface LeadNote {
     content: string;
     timestamp: any;
     author?: string;
-    color?: string;
+    color?: 'yellow' | 'blue' | 'red' | 'green' | string;
     isDone?: boolean;
     isUrgent?: boolean;
+    isPinned?: boolean;
+    // Spatial positioning (for Sticky Notes)
+    x?: number;
+    y?: number;
+    rotation?: number;
+    type?: 'sticky' | 'general' | 'call' | 'inquiry';
 }
 
 export interface ActivityEvent {
@@ -24,16 +30,6 @@ export interface CallNote {
     outcome?: 'Connected' | 'Voicemail' | 'No Answer' | 'Busy' | 'Text' | 'Email' | 'Other';
 }
 
-export interface PipelineNote {
-    id: string;
-    leadId: string;
-    realtorId: string;
-    content: string;
-    color: string;
-    timestamp: any;
-    isDone?: boolean;
-    isUrgent?: boolean;
-}
 
 export interface ActivityNote {
     id: string;

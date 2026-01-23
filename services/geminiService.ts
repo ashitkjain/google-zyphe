@@ -10,6 +10,7 @@ import { getImageQualityAnalysisPrompt, imageQualityAnalysisSchema } from "../pr
 import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompts/investmentResearch";
 import { biddingStrategyPrompt } from "../prompts/biddingStrategy";
 import { getLeadReactivationPrompt, leadReactivationSchema } from "../prompts/leadReactivation";
+import { getLeadTransformationPrompt } from "../prompts/leadTransformation";
 import { APP_CONFIG } from "../config";
 import { logLLMCall, updateLLMCall } from "./firebase/llm_logs";
 
@@ -685,6 +686,67 @@ export const analyzeLeadDatabase = async (rawData: string, userId: string = "unk
     console.error(`[${new Date().toISOString()}] AI ERROR: analyzeLeadDatabase`, error);
 
     // 4. Update the log with the error
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: error.message,
+        status: 'failed',
+        error: error.stack || error.message,
+        response_received_at: serverTimestamp()
+      }).catch(err => console.error("Failed to update AI error log:", err));
+    }
+
+    if (error instanceof AiResponseError) {
+      error.prompt = prompt;
+      throw error;
+    }
+    throw new AiResponseError(error.message, "Raw API Error", prompt);
+  }
+};
+
+export const transformLeadCsv = async (csvData: string, userId: string = "unknown"): Promise<string> => {
+  const prompt = getLeadTransformationPrompt(csvData);
+  let logId: string | null = null;
+
+  try {
+    logId = await logLLMCall({
+      user_id: userId,
+      prompt_filename: "leadTransformation.ts",
+      llm_name: GEMINI_MODEL,
+      raw_payload: prompt,
+      raw_response: null,
+      status: 'pending',
+      request_sent_at: serverTimestamp()
+    });
+
+    const ai = getAi();
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+      config: {
+        temperature: 0.1, // Low temperature for consistent CSV formatting
+      }
+    });
+
+    const responseText = response.text;
+
+    // Clean up the response to extract just the CSV block
+    let csvContent = responseText;
+    const csvMatch = responseText.match(/```(?:csv)?\n([\s\S]*?)\n```/) || responseText.match(/```([\s\S]*?)```/);
+    if (csvMatch) {
+      csvContent = csvMatch[1].trim();
+    }
+
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: responseText,
+        status: 'completed',
+        response_received_at: serverTimestamp(),
+        ...extractMetadata(response)
+      }).catch(err => console.error("Failed to update AI log:", err));
+    }
+
+    return csvContent;
+  } catch (error: any) {
     if (logId) {
       updateLLMCall(logId, {
         raw_response: error.message,

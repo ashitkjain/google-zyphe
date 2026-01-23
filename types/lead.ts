@@ -1,5 +1,6 @@
 import { FunnelStage, LeadHealth, LeadStatus, LeadType } from './enums';
 import { FileMetadata } from './transaction';
+import { LeadNote } from './notes';
 
 export interface LeadDocument extends FileMetadata {
     id: string;
@@ -605,9 +606,7 @@ export interface RealtorNoteHistoryEntry {
 }
 
 export interface Lead {
-    stickyNotes?: StickyNote[];
-    realtorNotes?: RealtorNoteHistoryEntry[];
-    realtorComments?: RealtorComment;
+    leadNotes?: LeadNote[];
     id: string;
 
     // --- Phase 1 ---
@@ -665,7 +664,7 @@ export interface Lead {
     createdDate?: any; // New top-level field
     legalName?: string; // New top-level field
     notes?: string;
-    notesLog?: any[];
+    notesLog?: LeadNote[];
     isAlsoSelling?: boolean;
     isAlsoBuying?: boolean;
     preQualified?: boolean;

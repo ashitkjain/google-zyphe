@@ -14,7 +14,6 @@ const LeadsList: React.FC<InternalProps> = ({
     onUpdateLead,
     onCreateLead,
     onActivateLead,
-    notes,
     pendingNote,
     setPendingNote,
     handleSaveNote,
@@ -154,7 +153,6 @@ const LeadsList: React.FC<InternalProps> = ({
                     onUpdateLead={onUpdateLead}
                     selectedIds={selectedIds}
                     onSelectOne={handleSelectOne}
-                    notes={notes}
                     pendingNote={pendingNote}
                     setPendingNote={setPendingNote}
                     handleSaveNote={handleSaveNote}
@@ -199,7 +197,6 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 index={index}
                                                 selectedIds={selectedIds}
                                                 handleSelectOne={handleSelectOne}
-                                                notes={notes}
                                                 editNoteId={null}
                                                 setEditNoteId={() => { }}
                                                 editContent=""
@@ -263,7 +260,6 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 index={index}
                                                 selectedIds={selectedIds}
                                                 handleSelectOne={handleSelectOne}
-                                                notes={notes}
                                                 editNoteId={null}
                                                 setEditNoteId={() => { }}
                                                 editContent=""

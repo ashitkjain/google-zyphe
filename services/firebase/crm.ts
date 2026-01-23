@@ -8,7 +8,7 @@ import {
 } from "./config";
 import { createTransaction, getTransactionByClientId, deleteTransaction } from "./transactions";
 import { getInitialCategories } from "../transactionService";
-import { Lead, CRMTask, CommTemplate, PipelineNote, FunnelStage, Transaction } from "../../types";
+import { Lead, CRMTask, CommTemplate, FunnelStage, Transaction } from "../../types";
 import { logAuditEvent } from "./audit";
 
 // ===== LEADS & FUNNEL =====
@@ -320,56 +320,6 @@ export const getTemplates = async (realtorId: string) => {
     }
 };
 
-// ===== PIPELINE NOTES =====
-
-export const addPipelineNote = async (note: Partial<PipelineNote>) => {
-    if (!db) return null;
-    try {
-        logFirestoreQuery('addDoc', 'notes', note);
-        const docRef = await addDoc(collection(db, "notes"), sanitizeForFirestore(note));
-        return docRef.id;
-    } catch (error) {
-        handleFirestoreError(error, "addPipelineNote");
-        return null;
-    }
-};
-
-export const getPipelineNotes = async (realtorId: string) => {
-    if (!db) return [];
-    try {
-        const q = query(collection(db, "notes"), where("realtorId", "==", realtorId));
-        logFirestoreQuery('getDocs', 'notes', { realtorId });
-        const snap = await getDocs(q);
-        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PipelineNote));
-    } catch (error) {
-        handleFirestoreError(error, "getPipelineNotes");
-        return [];
-    }
-};
-
-export const updatePipelineNote = async (noteId: string, updates: Partial<PipelineNote>) => {
-    if (!db) return false;
-    try {
-        const noteRef = doc(db, "notes", noteId);
-        await updateDoc(noteRef, sanitizeForFirestore(updates));
-        return true;
-    } catch (error) {
-        handleFirestoreError(error, "updatePipelineNote");
-        return false;
-    }
-};
-
-export const deletePipelineNote = async (noteId: string) => {
-    if (!db) return false;
-    try {
-        const noteRef = doc(db, "notes", noteId);
-        await deleteDoc(noteRef);
-        return true;
-    } catch (error) {
-        handleFirestoreError(error, "deletePipelineNote");
-        return false;
-    }
-};
 
 // ===== WHITEBOARD =====
 

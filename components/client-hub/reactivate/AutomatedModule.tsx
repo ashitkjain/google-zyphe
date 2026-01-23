@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { analyzeLeadDatabase } from '../../../services/geminiService';
+import { analyzeLeadDatabase, transformLeadCsv } from '../../../services/geminiService';
 import { uploadLeadCSV, getLeadDocuments, getLeadDocumentContent } from '../../../services/firebase/leads_documents';
 import { saveReactivationAnalysis, getExistingReactivationAnalysis } from '../../../services/firebase/reactivation';
 import { LeadReactivationResult, LeadDocument } from '../../../types';
@@ -22,6 +22,8 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
     const [result, setResult] = useState<LeadReactivationResult | null>(null);
     const [recentDocuments, setRecentDocuments] = useState<LeadDocument[]>([]);
     const [selectedMarketName, setSelectedMarketName] = useState<string | null>(null);
+    const [transformedCsv, setTransformedCsv] = useState<string | null>(null);
+    const [isTransforming, setIsTransforming] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -239,6 +241,35 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
         }
     };
 
+    const handleTransform = async () => {
+        if (!fileContent) return;
+        setIsTransforming(true);
+        setValidationError(null);
+
+        try {
+            const transformed = await transformLeadCsv(fileContent, realtorId);
+            setTransformedCsv(transformed);
+        } catch (error: any) {
+            console.error('Failed to transform CSV:', error);
+            setValidationError("Failed to transform CSV. " + (error.message || ""));
+        } finally {
+            setIsTransforming(false);
+        }
+    };
+
+    const downloadTransformedCsv = () => {
+        if (!transformedCsv) return;
+        const blob = new Blob([transformedCsv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `transformed_${selectedDocName || 'leads'}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    };
+
     const handleSelectPreviousDoc = async (doc: LeadDocument) => {
         setUploadStatus('uploading');
         setSelectedDocName(doc.name);
@@ -357,22 +388,60 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
                             </div>
 
                             <div className="flex flex-col gap-4">
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleUpload();
-                                    }}
-                                    className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 px-8 rounded-2xl shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
-                                >
-                                    <i className="fa-solid fa-brain"></i>
-                                    {file ? 'Execute Intelligent Planning' : 'Regenerate Strategy'}
-                                </button>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleUpload();
+                                        }}
+                                        className="bg-slate-900 hover:bg-black text-white font-black py-5 px-8 rounded-2xl shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                                    >
+                                        <i className="fa-solid fa-brain"></i>
+                                        {file ? 'Execute Planning' : 'Regenerate'}
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleTransform();
+                                        }}
+                                        disabled={isTransforming}
+                                        className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 font-black py-5 px-8 rounded-2xl shadow-sm transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50"
+                                    >
+                                        <i className="fa-solid fa-wand-magic-sparkles"></i>
+                                        {isTransforming ? 'Transforming...' : 'Schema Map'}
+                                    </button>
+                                </div>
                                 <button
                                     onClick={reset}
                                     className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 transition-colors"
                                 >
                                     Cancel & Select Different File
                                 </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {transformedCsv && (
+                        <div className="mt-10 p-8 bg-emerald-50 border border-emerald-100 rounded-[2rem] space-y-6 animate-in zoom-in-95 duration-500">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center">
+                                        <i className="fa-solid fa-check"></i>
+                                    </div>
+                                    <p className="text-sm font-black text-emerald-900 uppercase tracking-tight">Transformation Complete</p>
+                                </div>
+                                <button
+                                    onClick={downloadTransformedCsv}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest px-6 py-3 rounded-xl transition-all shadow-lg shadow-emerald-600/20 active:scale-95 flex items-center gap-2"
+                                >
+                                    <i className="fa-solid fa-download"></i>
+                                    Download CSV
+                                </button>
+                            </div>
+                            <div className="bg-white rounded-2xl border border-emerald-100 overflow-hidden">
+                                <pre className="p-6 text-[10px] font-mono text-slate-600 overflow-x-auto text-left max-h-[200px] custom-scrollbar">
+                                    {transformedCsv}
+                                </pre>
                             </div>
                         </div>
                     )}
