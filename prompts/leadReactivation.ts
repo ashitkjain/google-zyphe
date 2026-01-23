@@ -47,7 +47,7 @@ export const leadReactivationSchema = {
                     market: { type: "string" },
                     priority_score: { type: "number" },
                     staleness_reason: { type: "string", enum: ["rates", "inventory", "timing", "life_event", "unknown"] },
-                    recommended_channel: { type: "string", enum: ["sms", "email"] },
+                    recommended_channel: { type: "string", enum: ["sms", "email", "call", "direct_mail"] },
                     tone: { type: "string", enum: ["low_pressure", "friendly", "professional"] },
                     first_touch: {
                         type: "object",
@@ -67,7 +67,7 @@ export const leadReactivationSchema = {
                                     type: "object",
                                     properties: {
                                         day_offset: { type: "number" },
-                                        channel: { type: "string", enum: ["sms", "email"] },
+                                        channel: { type: "string", enum: ["sms", "email", "call", "direct_mail"] },
                                         message: { type: "string" }
                                     },
                                     required: ["day_offset", "channel", "message"]

@@ -210,7 +210,7 @@ export interface LeadReactivationResult {
         market: string;
         priority_score: number;
         staleness_reason: 'rates' | 'inventory' | 'timing' | 'life_event' | 'unknown' | string;
-        recommended_channel: 'sms' | 'email' | string;
+        recommended_channel: 'sms' | 'email' | 'call' | 'direct_mail' | string;
         tone: 'low_pressure' | 'friendly' | 'professional' | string;
         first_touch: {
             send_after_days: number;
@@ -220,7 +220,7 @@ export interface LeadReactivationResult {
             enabled: boolean;
             steps: Array<{
                 day_offset: number;
-                channel: 'sms' | 'email' | string;
+                channel: 'sms' | 'email' | 'call' | 'direct_mail' | string;
                 message: string;
             }>;
         };
@@ -288,7 +288,7 @@ export interface LeadPlanRecord {
     market: string;
     priority_score: number;
     staleness_reason: 'rates' | 'inventory' | 'timing' | 'life_event' | 'unknown' | string;
-    recommended_channel: 'sms' | 'email' | string;
+    recommended_channel: 'sms' | 'email' | 'call' | 'direct_mail' | string;
     tone: 'low_pressure' | 'friendly' | 'professional' | string;
     first_touch: {
         send_after_days: number;
@@ -298,7 +298,7 @@ export interface LeadPlanRecord {
         enabled: boolean;
         steps: Array<{
             day_offset: number;
-            channel: 'sms' | 'email' | string;
+            channel: 'sms' | 'email' | 'call' | 'direct_mail' | string;
             message: string;
         }>;
     };

@@ -17,8 +17,11 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
     const [selectedMarketName, setSelectedMarketName] = useState<string | null>(null);
     const [editingKey, setEditingKey] = useState<string | null>(null);
     const [editingValue, setEditingValue] = useState<string>('');
+    const [editingChannel, setEditingChannel] = useState<string>('');
     const [localPlans, setLocalPlans] = useState(result.lead_plans);
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+    const CHANNELS = ['sms', 'email', 'call', 'direct_mail'];
 
     useEffect(() => {
         setLocalPlans(result.lead_plans);
@@ -40,10 +43,11 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
         }
     };
 
-    const startEditing = (planIdx: number, stepIdx: number | 'first', currentMessage: string) => {
+    const startEditing = (planIdx: number, stepIdx: number | 'first', currentMessage: string, currentChannel: string) => {
         const key = stepIdx === 'first' ? `${planIdx}-first` : `${planIdx}-${stepIdx}`;
         setEditingKey(key);
         setEditingValue(currentMessage);
+        setEditingChannel(currentChannel);
     };
 
     const handleSave = (planIdx: number, stepIdx: number | 'first') => {
@@ -51,11 +55,12 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
         if (stepIdx === 'first') {
             updated[planIdx] = {
                 ...updated[planIdx],
+                recommended_channel: editingChannel as any,
                 first_touch: { ...updated[planIdx].first_touch, message: editingValue }
             };
         } else if (typeof stepIdx === 'number') {
             const steps = [...updated[planIdx].sequence.steps];
-            steps[stepIdx] = { ...steps[stepIdx], message: editingValue };
+            steps[stepIdx] = { ...steps[stepIdx], message: editingValue, channel: editingChannel as any };
             updated[planIdx] = {
                 ...updated[planIdx],
                 sequence: { ...updated[planIdx].sequence, steps }
@@ -68,6 +73,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
     const handleCancel = () => {
         setEditingKey(null);
         setEditingValue('');
+        setEditingChannel('');
     };
 
     const currentMarketData = result.market_context.find(m => m.market_name === selectedMarketName);
@@ -109,9 +115,12 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                         </div>
 
                                         <div className="flex flex-wrap gap-2">
-                                            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${plan.recommended_channel === 'sms' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'
+                                            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${plan.recommended_channel === 'sms' ? 'bg-emerald-50 text-emerald-600' :
+                                                    plan.recommended_channel === 'email' ? 'bg-blue-50 text-blue-600' :
+                                                        plan.recommended_channel === 'call' ? 'bg-orange-50 text-orange-600' :
+                                                            'bg-purple-50 text-purple-600'
                                                 }`}>
-                                                {plan.recommended_channel}
+                                                {plan.recommended_channel.replace('_', ' ')}
                                             </div>
                                             <div className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-wider">
                                                 {plan.tone.replace('_', ' ')}
@@ -162,7 +171,20 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                 </div>
                                                 <div className="flex-1 bg-slate-50 p-6 rounded-2xl border border-slate-100 relative group-hover:bg-white group-hover:border-indigo-100 transition-colors max-h-[400px] overflow-y-auto custom-scrollbar">
                                                     <div className="flex justify-between items-center mb-3 sticky top-0 bg-inherit z-10">
-                                                        <div className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Day {plan.first_touch.send_after_days}: Immediate Hook</div>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Day {plan.first_touch.send_after_days}: Immediate Hook</div>
+                                                            {editingKey === `${idx}-first` && (
+                                                                <select
+                                                                    value={editingChannel}
+                                                                    onChange={(e) => setEditingChannel(e.target.value)}
+                                                                    className="text-[10px] font-black uppercase tracking-wider bg-white border border-slate-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                                                >
+                                                                    {CHANNELS.map(c => (
+                                                                        <option key={c} value={c}>{c.replace('_', ' ')}</option>
+                                                                    ))}
+                                                                </select>
+                                                            )}
+                                                        </div>
                                                         <div className="flex gap-3">
                                                             {!editingKey && (
                                                                 <button
@@ -192,7 +214,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                 </div>
                                                             ) : (
                                                                 <button
-                                                                    onClick={() => startEditing(idx, 'first', plan.first_touch.message)}
+                                                                    onClick={() => startEditing(idx, 'first', plan.first_touch.message, plan.recommended_channel)}
                                                                     className="text-slate-300 hover:text-indigo-600 transition-colors"
                                                                     title="Edit message"
                                                                 >
@@ -226,7 +248,20 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                 </div>
                                                 <div className="flex-1 bg-slate-50/50 p-6 rounded-2xl border border-slate-100 relative group-hover:bg-white group-hover:border-indigo-100/50 transition-colors max-h-[300px] overflow-y-auto custom-scrollbar">
                                                     <div className="flex justify-between items-center mb-3 sticky top-0 bg-inherit z-10">
-                                                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Day {step.day_offset}: Follow-up via {step.channel}</div>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Day {step.day_offset}: Follow-up via {step.channel}</div>
+                                                            {editingKey === `${idx}-${sIdx}` && (
+                                                                <select
+                                                                    value={editingChannel}
+                                                                    onChange={(e) => setEditingChannel(e.target.value)}
+                                                                    className="text-[10px] font-black uppercase tracking-wider bg-white border border-slate-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                                                >
+                                                                    {CHANNELS.map(c => (
+                                                                        <option key={c} value={c}>{c.replace('_', ' ')}</option>
+                                                                    ))}
+                                                                </select>
+                                                            )}
+                                                        </div>
                                                         <div className="flex gap-3">
                                                             {!editingKey && (
                                                                 <button
@@ -256,7 +291,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                 </div>
                                                             ) : (
                                                                 <button
-                                                                    onClick={() => startEditing(idx, sIdx, step.message)}
+                                                                    onClick={() => startEditing(idx, sIdx, step.message, step.channel)}
                                                                     className="text-slate-300 hover:text-indigo-600 transition-colors"
                                                                     title="Edit message"
                                                                 >
