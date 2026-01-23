@@ -10,89 +10,93 @@ interface ReactivateTabProps {
 }
 
 const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads }) => {
-    const [selectedModule, setSelectedModule] = useState<'INTELLIGENCE' | 'OUTREACH' | 'TRIGGERS'>('INTELLIGENCE');
+    const [selectedModule, setSelectedModule] = useState<'INTELLIGENCE' | 'TRAIL' | 'ANALYTICS' | 'TRIGGERS'>('INTELLIGENCE');
     const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
     const [selectedChannel, setSelectedChannel] = useState<'email' | 'call' | 'sms' | 'whatsapp' | 'mail' | undefined>('email');
 
     // Filter for candidates: Archived status or Stale health
     const candidates = leads.filter(l => l.status === 'Archived' || l.health === 'Stale');
 
-    // Switch to Outreach tab automatically when a candidate is selected
-    useEffect(() => {
-        if (selectedCandidateId) {
-            setSelectedModule('OUTREACH');
-        }
-    }, [selectedCandidateId]);
-
     const handleSelectCandidate = (leadId: string, channel?: 'email' | 'call' | 'sms' | 'whatsapp' | 'mail') => {
         setSelectedCandidateId(leadId);
         if (channel) setSelectedChannel(channel);
-        // Effect will switch tab
+        setSelectedModule('INTELLIGENCE'); // Ensure we are in Intelligence view to see the generator
     };
 
     return (
-        <div className="flex bg-slate-50 h-full">
-            {/* Sidebar Navigation */}
-            <div className="w-64 bg-white border-r border-slate-200 p-6 flex flex-col gap-2">
-                <div className="mb-8">
-                    <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center mb-4 text-indigo-600">
-                        <i className="fa-solid fa-bolt text-2xl"></i>
-                    </div>
-                    <h2 className="text-xl font-black text-slate-900 tracking-tight">Reactivate</h2>
-                    <p className="text-xs font-medium text-slate-400 mt-1">Autopilot for Stale Leads</p>
-                </div>
-
-                <nav className="space-y-1">
-
+        <div className="flex-1 h-full overflow-y-auto bg-slate-50 p-12 animate-in fade-in slide-in-from-bottom-4 duration-700 scroll-smooth">
+            <div className="max-w-7xl mx-auto space-y-10">
+                {/* Sub Tab Navigation */}
+                <div className="flex items-center gap-8 border-b border-slate-200">
                     <button
                         onClick={() => setSelectedModule('INTELLIGENCE')}
-                        className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all ${['INTELLIGENCE', 'OUTREACH'].includes(selectedModule) ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-medium'}`}
+                        className={`pb-5 text-sm font-black uppercase tracking-widest transition-all relative ${selectedModule === 'INTELLIGENCE' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
                     >
-                        <i className="fa-solid fa-wand-magic-sparkles w-5 text-center"></i>
-                        <span className="text-xs uppercase tracking-widest">AI Outreach</span>
+                        Intelligence
+                        {selectedModule === 'INTELLIGENCE' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>}
+                    </button>
+                    <button
+                        onClick={() => setSelectedModule('TRAIL')}
+                        className={`pb-5 text-sm font-black uppercase tracking-widest transition-all relative ${selectedModule === 'TRAIL' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        Message Trail
+                        {selectedModule === 'TRAIL' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>}
+                    </button>
+                    <button
+                        onClick={() => setSelectedModule('ANALYTICS')}
+                        className={`pb-5 text-sm font-black uppercase tracking-widest transition-all relative ${selectedModule === 'ANALYTICS' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        Analytics
+                        {selectedModule === 'ANALYTICS' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>}
                     </button>
                     <button
                         onClick={() => setSelectedModule('TRIGGERS')}
-                        className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all ${selectedModule === 'TRIGGERS' ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-medium'}`}
+                        className={`pb-5 text-sm font-black uppercase tracking-widest transition-all relative ${selectedModule === 'TRIGGERS' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
                     >
-                        <i className="fa-solid fa-stopwatch w-5 text-center"></i>
-                        <span className="text-xs uppercase tracking-widest">Triggers</span>
+                        Triggers
+                        {selectedModule === 'TRIGGERS' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>}
                     </button>
-                </nav>
-
-                <div className="mt-auto bg-slate-900 rounded-2xl p-4 text-white">
-                    <div className="flex items-center gap-2 mb-2 text-emerald-400">
-                        <i className="fa-solid fa-arrow-trend-up text-xs"></i>
-                        <span className="text-[10px] font-black uppercase tracking-widest">Performance</span>
-                    </div>
-                    <div className="text-2xl font-black tracking-tight">{Math.floor(candidates.length * 0.15)}</div>
-                    <div className="text-[10px] text-slate-400 font-medium">Leads revived this month</div>
                 </div>
-            </div>
 
-            {/* Main Content Area */}
-            <div className="flex-1 overflow-y-auto p-10">
-                {selectedModule === 'INTELLIGENCE' && (
-                    <IntelligenceModule
-                        candidates={candidates}
-                        onSelectCandidate={handleSelectCandidate}
-                    />
-                )}
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    {selectedModule === 'INTELLIGENCE' && (
+                        <IntelligenceModule
+                            realtorId={realtorId}
+                            leads={leads}
+                            candidates={candidates}
+                            selectedCandidateId={selectedCandidateId}
+                            initialChannel={selectedChannel}
+                            onSelectCandidate={handleSelectCandidate}
+                            onClearSelection={() => setSelectedCandidateId(null)}
+                        />
+                    )}
 
-                {selectedModule === 'OUTREACH' && (
-                    <OutreachModule
-                        realtorId={realtorId}
-                        leads={leads}
-                        selectedCandidateId={selectedCandidateId}
-                        initialChannel={selectedChannel}
-                        onClearSelection={() => setSelectedCandidateId(null)}
-                        onGoToIntelligence={() => setSelectedModule('INTELLIGENCE')}
-                    />
-                )}
+                    {selectedModule === 'TRAIL' && (
+                        <div className="bg-white rounded-[2.5rem] border border-slate-200 p-16 shadow-xl shadow-indigo-500/5 text-center">
+                            <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-8 text-blue-500">
+                                <i className="fa-solid fa-clock-rotate-left text-4xl"></i>
+                            </div>
+                            <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">Message Trail</h3>
+                            <p className="text-slate-500 max-w-md mx-auto font-medium text-lg leading-relaxed">Historical log of all automated and manual outreach attempts will appear here.</p>
+                        </div>
+                    )}
 
-                {selectedModule === 'TRIGGERS' && (
-                    <TriggersModule />
-                )}
+                    {selectedModule === 'ANALYTICS' && (
+                        <div className="bg-white rounded-[2.5rem] border border-slate-200 p-16 shadow-xl shadow-indigo-500/5 text-center">
+                            <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-8 text-emerald-500">
+                                <i className="fa-solid fa-chart-line text-4xl"></i>
+                            </div>
+                            <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">Analytics Dashboard</h3>
+                            <p className="text-slate-500 max-w-md mx-auto font-medium text-lg leading-relaxed">Track conversion rates and response performance for your reactivation campaigns.</p>
+                        </div>
+                    )}
+
+                    {selectedModule === 'TRIGGERS' && (
+                        <div className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-xl shadow-indigo-500/5">
+                            <TriggersModule />
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

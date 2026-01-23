@@ -165,12 +165,7 @@ const OutreachModule: React.FC<OutreachModuleProps> = ({ realtorId, leads, selec
     const selectedLead = leads.find(l => l.id === selectedCandidateId);
 
     return (
-        <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div className="mb-8">
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">AI Outreach Generator</h1>
-                <p className="text-slate-500">Generate context-aware, non-spammy messages to revive conversations.</p>
-            </div>
-
+        <>
             {selectedCandidateId && selectedLead ? (
                 <OutreachGenerator
                     key={`${selectedCandidateId}-${initialChannel}`} // Force remount on change
@@ -191,7 +186,7 @@ const OutreachModule: React.FC<OutreachModuleProps> = ({ realtorId, leads, selec
                     </button>
                 </div>
             )}
-        </div>
+        </>
     );
 };
 

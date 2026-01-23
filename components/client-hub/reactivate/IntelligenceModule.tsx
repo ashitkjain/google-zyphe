@@ -1,13 +1,42 @@
 import React from 'react';
 import { Lead } from '../../../types';
 import { getTimeSince } from './shared';
+import OutreachModule from './OutreachModule';
 
 interface IntelligenceModuleProps {
+    realtorId: string;
+    leads: Lead[];
     candidates: Lead[];
     onSelectCandidate: (leadId: string, channel?: 'email' | 'call' | 'sms' | 'whatsapp' | 'mail') => void;
+    selectedCandidateId: string | null;
+    initialChannel?: 'email' | 'call' | 'sms' | 'whatsapp' | 'mail';
+    onClearSelection: () => void;
 }
 
-const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({ candidates, onSelectCandidate }) => {
+const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({
+    realtorId,
+    leads,
+    candidates,
+    onSelectCandidate,
+    selectedCandidateId,
+    initialChannel,
+    onClearSelection
+}) => {
+
+    const selectedLead = leads.find(l => l.id === selectedCandidateId);
+
+    if (selectedCandidateId && selectedLead) {
+        return (
+            <OutreachModule
+                realtorId={realtorId}
+                leads={leads}
+                selectedCandidateId={selectedCandidateId}
+                initialChannel={initialChannel}
+                onClearSelection={onClearSelection}
+                onGoToIntelligence={onClearSelection}
+            />
+        );
+    }
 
     // Categorize for stats
     const coldLeadsCount = candidates.length;
@@ -16,12 +45,8 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({ candidates, onS
     const missingContextCount = candidates.filter(l => !l.phone && !l.email).length;
 
     return (
-        <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div className="flex items-center justify-between mb-8">
-                <div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Lead Intelligence Layer</h1>
-                    <p className="text-slate-500">AI analysis of your stale and cold leads to predict revival probability.</p>
-                </div>
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className="flex items-center justify-end mb-8">
                 <button className="bg-indigo-600 text-white px-6 py-3 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all text-xs font-black uppercase tracking-widest">
                     <i className="fa-solid fa-arrows-rotate mr-2"></i>
                     Refresh Analysis
@@ -153,7 +178,7 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({ candidates, onS
                     </tbody>
                 </table>
             </div>
-        </div>
+        </div >
     );
 };
 
