@@ -276,6 +276,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
                 result={result}
                 onReset={reset}
                 title={selectedDocName || 'Lead Analysis'}
+                agentId={realtorId}
             />
         );
     }

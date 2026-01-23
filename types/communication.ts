@@ -46,6 +46,6 @@ export interface MessageEvent {
     provider_id?: string;
     timestamp: any;
     isInbound: boolean;    // true if client -> agent
-    source: 'system' | 'human';
+    source: 'system' | 'human' | 'automated';
     raw_payload?: Record<string, any>; // jsonb
 }

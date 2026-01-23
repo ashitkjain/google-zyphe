@@ -121,6 +121,7 @@ const DashboardModule: React.FC<DashboardModuleProps> = ({ realtorId }) => {
             result={aggregatedData}
             showReset={false}
             title="Portfolio Reactivation Dashboard"
+            agentId={realtorId}
         />
     );
 };

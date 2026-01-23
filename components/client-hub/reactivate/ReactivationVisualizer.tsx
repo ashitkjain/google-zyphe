@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { LeadReactivationResult } from '../../../types/ai';
+import { logMessageEvent } from '../../../services/firebase/communications';
+import { serverTimestamp } from 'firebase/firestore';
 
 interface ReactivationVisualizerProps {
     result: LeadReactivationResult;
     onReset?: () => void;
     showReset?: boolean;
     title?: string;
+    agentId: string;
 }
 
 const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
     result,
     onReset,
     showReset = true,
-    title
+    title,
+    agentId
 }) => {
     const [selectedMarketName, setSelectedMarketName] = useState<string | null>(null);
     const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -20,6 +24,8 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
     const [editingChannel, setEditingChannel] = useState<string>('');
     const [localPlans, setLocalPlans] = useState(result.lead_plans);
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
+    const [sendingKeys, setSendingKeys] = useState<Set<string>>(new Set());
+    const [sentKeys, setSentKeys] = useState<Set<string>>(new Set());
 
     const CHANNELS = ['sms', 'email', 'call', 'direct_mail'];
 
@@ -76,7 +82,54 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
         setEditingChannel('');
     };
 
-    const currentMarketData = result.market_context.find(m => m.market_name === selectedMarketName);
+    const handleSend = async (planIdx: number, stepIdx: number | 'first', message: string, channel: string, leadId: string) => {
+        const key = stepIdx === 'first' ? `${planIdx}-first` : `${planIdx}-${stepIdx}`;
+
+        setSendingKeys(prev => new Set(prev).add(key));
+
+        try {
+            const event_id = crypto.randomUUID();
+            const message_id = crypto.randomUUID();
+
+            const event: any = {
+                event_id,
+                lead_id: leadId,
+                agent_id: agentId,
+                message_id,
+                channel: channel === 'direct_mail' ? 'mail' : channel as any,
+                event_type: 'sent',
+                provider: 'other',
+                timestamp: serverTimestamp(),
+                isInbound: false,
+                source: 'automated',
+                raw_payload: { message: message }
+            };
+
+            const response = await logMessageEvent(event);
+
+            if (response.success) {
+                setSentKeys(prev => new Set(prev).add(key));
+                setTimeout(() => {
+                    setSentKeys(prev => {
+                        const next = new Set(prev);
+                        next.delete(key);
+                        return next;
+                    });
+                }, 3000);
+            } else {
+                alert(`Failed to log message: ${response.error}`);
+            }
+        } catch (err) {
+            console.error('Error in handleSend:', err);
+            alert('Failed to send message event.');
+        } finally {
+            setSendingKeys(prev => {
+                const next = new Set(prev);
+                next.delete(key);
+                return next;
+            });
+        }
+    };
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -116,9 +169,9 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
 
                                         <div className="flex flex-wrap gap-2">
                                             <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${plan.recommended_channel === 'sms' ? 'bg-emerald-50 text-emerald-600' :
-                                                    plan.recommended_channel === 'email' ? 'bg-blue-50 text-blue-600' :
-                                                        plan.recommended_channel === 'call' ? 'bg-orange-50 text-orange-600' :
-                                                            'bg-purple-50 text-purple-600'
+                                                plan.recommended_channel === 'email' ? 'bg-blue-50 text-blue-600' :
+                                                    plan.recommended_channel === 'call' ? 'bg-orange-50 text-orange-600' :
+                                                        'bg-purple-50 text-purple-600'
                                                 }`}>
                                                 {plan.recommended_channel.replace('_', ' ')}
                                             </div>
@@ -187,13 +240,27 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                         </div>
                                                         <div className="flex gap-3">
                                                             {!editingKey && (
-                                                                <button
-                                                                    onClick={() => handleCopy(plan.first_touch.message, `copy-${idx}-first`)}
-                                                                    className={`transition-all duration-300 ${copiedKey === `copy-${idx}-first` ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
-                                                                    title="Copy to clipboard"
-                                                                >
-                                                                    <i className={`fa-solid ${copiedKey === `copy-${idx}-first` ? 'fa-check' : 'fa-copy'} text-xs`}></i>
-                                                                </button>
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => handleSend(idx, 'first', plan.first_touch.message, plan.recommended_channel, plan.lead_id)}
+                                                                        className={`transition-all duration-300 ${sentKeys.has(`${idx}-first`) ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
+                                                                        title="Send now"
+                                                                        disabled={sendingKeys.has(`${idx}-first`)}
+                                                                    >
+                                                                        {sendingKeys.has(`${idx}-first`) ? (
+                                                                            <i className="fa-solid fa-spinner fa-spin text-xs"></i>
+                                                                        ) : (
+                                                                            <i className={`fa-solid ${sentKeys.has(`${idx}-first`) ? 'fa-square-check' : 'fa-paper-plane'} text-xs`}></i>
+                                                                        )}
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleCopy(plan.first_touch.message, `copy-${idx}-first`)}
+                                                                        className={`transition-all duration-300 ${copiedKey === `copy-${idx}-first` ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
+                                                                        title="Copy to clipboard"
+                                                                    >
+                                                                        <i className={`fa-solid ${copiedKey === `copy-${idx}-first` ? 'fa-check' : 'fa-copy'} text-xs`}></i>
+                                                                    </button>
+                                                                </>
                                                             )}
                                                             {editingKey === `${idx}-first` ? (
                                                                 <div className="flex gap-3">
@@ -264,13 +331,27 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                         </div>
                                                         <div className="flex gap-3">
                                                             {!editingKey && (
-                                                                <button
-                                                                    onClick={() => handleCopy(step.message, `copy-${idx}-${sIdx}`)}
-                                                                    className={`transition-all duration-300 ${copiedKey === `copy-${idx}-${sIdx}` ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
-                                                                    title="Copy to clipboard"
-                                                                >
-                                                                    <i className={`fa-solid ${copiedKey === `copy-${idx}-${sIdx}` ? 'fa-check' : 'fa-copy'} text-xs`}></i>
-                                                                </button>
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => handleSend(idx, sIdx, step.message, step.channel, plan.lead_id)}
+                                                                        className={`transition-all duration-300 ${sentKeys.has(`${idx}-${sIdx}`) ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
+                                                                        title="Send now"
+                                                                        disabled={sendingKeys.has(`${idx}-${sIdx}`)}
+                                                                    >
+                                                                        {sendingKeys.has(`${idx}-${sIdx}`) ? (
+                                                                            <i className="fa-solid fa-spinner fa-spin text-xs"></i>
+                                                                        ) : (
+                                                                            <i className={`fa-solid ${sentKeys.has(`${idx}-${sIdx}`) ? 'fa-square-check' : 'fa-paper-plane'} text-xs`}></i>
+                                                                        )}
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleCopy(step.message, `copy-${idx}-${sIdx}`)}
+                                                                        className={`transition-all duration-300 ${copiedKey === `copy-${idx}-${sIdx}` ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
+                                                                        title="Copy to clipboard"
+                                                                    >
+                                                                        <i className={`fa-solid ${copiedKey === `copy-${idx}-${sIdx}` ? 'fa-check' : 'fa-copy'} text-xs`}></i>
+                                                                    </button>
+                                                                </>
                                                             )}
                                                             {editingKey === `${idx}-${sIdx}` ? (
                                                                 <div className="flex gap-3">
