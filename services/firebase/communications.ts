@@ -1,4 +1,4 @@
-import { collection, addDoc, setDoc, doc } from "firebase/firestore";
+import { collection, addDoc, setDoc, doc, query, getDocs, orderBy, where, limit } from "firebase/firestore";
 import {
     db,
     logFirestoreQuery
@@ -51,5 +51,72 @@ export const logMessageEvent = async (event: MessageEvent) => {
     } catch (error) {
         console.error("Error logging message event:", error);
         return { success: false, error: (error as Error).message };
+    }
+};
+
+/**
+ * Saves a reactivation message record to the 'reactivation_messages' collection.
+ */
+export const saveReactivationMessage = async (data: {
+    message_id: string;
+    lead_id: string;
+    realtorId: string;
+    channel: string;
+    content: string;
+    sent_at: any;
+    reply_received: boolean;
+    sentiment: string;
+}) => {
+    if (!db) return { success: false, error: "Database not initialized" };
+
+    try {
+        const collectionName = "reactivation_messages";
+        const msgRef = doc(db, collectionName, data.message_id);
+        logFirestoreQuery('setDoc', collectionName, { id: data.message_id, lead_id: data.lead_id, realtorId: data.realtorId });
+        await setDoc(msgRef, data);
+        return { success: true };
+    } catch (error) {
+        console.error("Error saving reactivation message:", error);
+        return { success: false, error: (error as Error).message };
+    }
+};
+
+/**
+ * Retrieves reactivation messages for a realtor or specific lead.
+ */
+export const getReactivationMessages = async (realtorId: string, leadId?: string, limitCount: number = 50) => {
+    if (!db) return [];
+
+    try {
+        const collectionName = "reactivation_messages";
+        const colRef = collection(db, collectionName);
+
+        let q;
+        if (leadId) {
+            q = query(
+                colRef,
+                where("realtorId", "==", realtorId),
+                where("lead_id", "==", leadId),
+                orderBy("sent_at", "desc"),
+                limit(limitCount)
+            );
+        } else {
+            q = query(
+                colRef,
+                where("realtorId", "==", realtorId),
+                orderBy("sent_at", "desc"),
+                limit(limitCount)
+            );
+        }
+
+        logFirestoreQuery('getDocs', collectionName, { realtorId, leadId, limit: limitCount });
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+    } catch (error) {
+        console.error("Error fetching reactivation messages:", error);
+        return [];
     }
 };

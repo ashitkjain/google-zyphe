@@ -185,18 +185,33 @@ service cloud.firestore {
                            isTransactionOwner(get(/databases/$(database)/documents/signature_envelopes/$(resource.data.signature_envelope_id || request.resource.data.signature_envelope_id)).data.transaction_id);
     }
 
-    match /audit_events/{auditId} {
-      // Allow read access only if the user is authenticated,
-      // the 'transaction_id' field exists and is a string,
-      // AND the user is the owner of that transaction.
-      allow read: if request.auth != null &&
-                    resource.data.transaction_id is string &&
-                    isTransactionOwner(resource.data.transaction_id);
+    match /message_events/{eventId} {
+      allow read, write: if request.auth != null && 
+                           ( (resource == null && request.resource.data.agent_id == request.auth.uid) || 
+                             (resource != null && resource.data.agent_id == request.auth.uid) );
+    }
 
-      // Relaxed write rule to allow generic authenticated writes (logs)
-      // This prevents 'isTransactionOwner' lookups from failing during batch deletes.
-      allow create: if request.auth != null;
+    match /reactivation_messages/{messageId} {
+      allow read, write: if request.auth != null && 
+                           ( (resource == null && request.resource.data.realtorId == request.auth.uid) || 
+                             (resource != null && resource.data.realtorId == request.auth.uid) );
+    }
 
+match /audit_events/{auditId} {
+  // Allow read access only if the user is authenticated,
+  // the 'transaction_id' field exists and is a string,
+  // AND the user is the owner of that transaction.
+  allow read: if request.auth != null &&
+                resource.data.transaction_id is string &&
+                isTransactionOwner(resource.data.transaction_id);
+
+  // Allow write access (create/update) only if the user is authenticated,
+  // the 'transaction_id' field exists and is a string in the proposed document,
+  // AND the user is the owner of that transaction.
+  allow write: if request.auth != null &&
+                 request.resource.data.transaction_id is string &&
+                 isTransactionOwner(request.resource.data.transaction_id);
+                 
       allow update, delete: if false;
     }
 

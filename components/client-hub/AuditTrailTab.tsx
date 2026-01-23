@@ -195,8 +195,8 @@ const AuditTrailTab: React.FC<AuditTrailTabProps> = ({ lead, realtorId }) => {
             <div className="overflow-x-auto bg-white rounded-2xl border border-slate-100 shadow-sm">
                 <table className="w-full text-left border-collapse table-fixed">
                     <thead>
-                        <tr className="bg-slate-50/50 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
-                            <th className={`${getHeaderClass('timestamp')} w-32`} onClick={() => handleSort('timestamp')}>
+                        <tr className="bg-slate-50/50 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
+                            <th className={`${getHeaderClass('timestamp')} w-40`} onClick={() => handleSort('timestamp')}>
                                 <div className="flex items-center gap-1">
                                     Timestamp
                                     {sortConfig.key === 'timestamp' && (
@@ -204,7 +204,7 @@ const AuditTrailTab: React.FC<AuditTrailTabProps> = ({ lead, realtorId }) => {
                                     )}
                                 </div>
                             </th>
-                            <th className={`${getHeaderClass('actor_name')} w-32`} onClick={() => handleSort('actor_name')}>
+                            <th className={`${getHeaderClass('actor_name')} w-40`} onClick={() => handleSort('actor_name')}>
                                 <div className="flex items-center gap-1">
                                     Actor
                                     {sortConfig.key === 'actor_name' && (
@@ -212,7 +212,7 @@ const AuditTrailTab: React.FC<AuditTrailTabProps> = ({ lead, realtorId }) => {
                                     )}
                                 </div>
                             </th>
-                            <th className={`${getHeaderClass('action')} w-24`} onClick={() => handleSort('action')}>
+                            <th className={`${getHeaderClass('action')} w-32`} onClick={() => handleSort('action')}>
                                 <div className="flex items-center gap-1">
                                     Action
                                     {sortConfig.key === 'action' && (
@@ -220,7 +220,7 @@ const AuditTrailTab: React.FC<AuditTrailTabProps> = ({ lead, realtorId }) => {
                                     )}
                                 </div>
                             </th>
-                            <th className={`${getHeaderClass('entity_type')} w-28`} onClick={() => handleSort('entity_type')}>
+                            <th className={`${getHeaderClass('entity_type')} w-36`} onClick={() => handleSort('entity_type')}>
                                 <div className="flex items-center gap-1">
                                     Entity
                                     {sortConfig.key === 'entity_type' && (
@@ -238,7 +238,7 @@ const AuditTrailTab: React.FC<AuditTrailTabProps> = ({ lead, realtorId }) => {
                                     placeholder="Filter..."
                                     value={filters.timestamp}
                                     onChange={(e) => handleFilterChange('timestamp', e.target.value)}
-                                    className="w-full px-2 py-1 text-[9px] border border-slate-200 rounded focus:outline-none focus:border-indigo-500"
+                                    className="w-full px-2 py-1 text-[11px] border border-slate-200 rounded focus:outline-none focus:border-indigo-500"
                                 />
                             </th>
                             <th className="px-2 py-1">
@@ -247,14 +247,14 @@ const AuditTrailTab: React.FC<AuditTrailTabProps> = ({ lead, realtorId }) => {
                                     placeholder="Filter..."
                                     value={filters.actor}
                                     onChange={(e) => handleFilterChange('actor', e.target.value)}
-                                    className="w-full px-2 py-1 text-[9px] border border-slate-200 rounded focus:outline-none focus:border-indigo-500"
+                                    className="w-full px-2 py-1 text-[11px] border border-slate-200 rounded focus:outline-none focus:border-indigo-500"
                                 />
                             </th>
                             <th className="px-2 py-1">
                                 <select
                                     value={filters.action}
                                     onChange={(e) => handleFilterChange('action', e.target.value)}
-                                    className="w-full px-1 py-1 text-[9px] border border-slate-200 rounded focus:outline-none focus:border-indigo-500"
+                                    className="w-full px-1 py-1 text-[11px] border border-slate-200 rounded focus:outline-none focus:border-indigo-500"
                                 >
                                     <option value="ALL">All</option>
                                     <option value="CREATE">Create</option>
@@ -268,7 +268,7 @@ const AuditTrailTab: React.FC<AuditTrailTabProps> = ({ lead, realtorId }) => {
                                     placeholder="Filter..."
                                     value={filters.entity}
                                     onChange={(e) => handleFilterChange('entity', e.target.value)}
-                                    className="w-full px-2 py-1 text-[9px] border border-slate-200 rounded focus:outline-none focus:border-indigo-500"
+                                    className="w-full px-2 py-1 text-[11px] border border-slate-200 rounded focus:outline-none focus:border-indigo-500"
                                 />
                             </th>
                             <th className="px-2 py-1">
@@ -277,7 +277,7 @@ const AuditTrailTab: React.FC<AuditTrailTabProps> = ({ lead, realtorId }) => {
                                     placeholder="Search details..."
                                     value={filters.details}
                                     onChange={(e) => handleFilterChange('details', e.target.value)}
-                                    className="w-full px-2 py-1 text-[9px] border border-slate-200 rounded focus:outline-none focus:border-indigo-500"
+                                    className="w-full px-2 py-1 text-[11px] border border-slate-200 rounded focus:outline-none focus:border-indigo-500"
                                 />
                             </th>
                         </tr>
@@ -292,45 +292,45 @@ const AuditTrailTab: React.FC<AuditTrailTabProps> = ({ lead, realtorId }) => {
                         ) : (
                             paginatedEvents.map((event) => (
                                 <tr key={event.id} className="group hover:bg-slate-50/30 transition-colors">
-                                    <td className="px-4 py-2 text-[10px] font-bold text-slate-500 whitespace-nowrap">
+                                    <td className="px-4 py-3 text-[12px] font-bold text-slate-500 whitespace-nowrap">
                                         {formatTimestamp(event.occurred_at)}
                                     </td>
-                                    <td className="px-4 py-2">
-                                        <div className="flex items-center gap-1.5 truncate">
-                                            <div className={`w-5 h-5 min-w-[20px] rounded flex items-center justify-center text-[9px] font-black ${event.actor_type === 'SYSTEM' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-600'}`}>
+                                    <td className="px-4 py-3">
+                                        <div className="flex items-center gap-2 truncate">
+                                            <div className={`w-6 h-6 min-w-[24px] rounded flex items-center justify-center text-[10px] font-black ${event.actor_type === 'SYSTEM' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-600'}`}>
                                                 {event.actor_type === 'SYSTEM' ? 'S' : 'U'}
                                             </div>
-                                            <span className="text-[10px] font-bold text-slate-700 truncate">
+                                            <span className="text-[12px] font-bold text-slate-700 truncate">
                                                 {event.actor_name || 'Unknown'}
                                             </span>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-2">
-                                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-black border uppercase tracking-wider ${getActionBadgeColor(event.action)}`}>
+                                    <td className="px-4 py-3">
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black border uppercase tracking-wider ${getActionBadgeColor(event.action)}`}>
                                             {event.action}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-2">
+                                    <td className="px-4 py-3">
                                         <div className="flex flex-col truncate">
-                                            <span className="text-[10px] font-black text-slate-800 tracking-tight">{event.entity_type}</span>
-                                            <span className="text-[8px] text-slate-400 font-medium font-mono">ID: {event.entity_id?.substring(0, 6)}</span>
+                                            <span className="text-[12px] font-black text-slate-800 tracking-tight">{event.entity_type}</span>
+                                            <span className="text-[10px] text-slate-400 font-medium font-mono">ID: {event.entity_id?.substring(0, 6)}</span>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-2">
-                                        <div className="text-[10px] text-slate-600 leading-tight">
+                                    <td className="px-4 py-3">
+                                        <div className="text-[12px] text-slate-600 leading-tight">
                                             {event.diff?.summary || (
                                                 <div className="flex flex-col gap-1.5">
-                                                    {event.action === 'CREATE' && <span className="text-emerald-500 font-bold italic text-[9px]">Initial creation</span>}
-                                                    {event.action === 'DELETE' && <span className="text-rose-500 font-bold italic text-[9px]">Removal</span>}
+                                                    {event.action === 'CREATE' && <span className="text-emerald-500 font-bold italic text-[11px]">Initial creation</span>}
+                                                    {event.action === 'DELETE' && <span className="text-rose-500 font-bold italic text-[11px]">Removal</span>}
 
                                                     {/* Display After Values */}
                                                     {event.diff?.after && (
-                                                        <div className="p-1 bg-slate-50/50 rounded border border-slate-100 flex flex-wrap gap-x-3 gap-y-0.5">
+                                                        <div className="p-1.5 bg-slate-50/50 rounded border border-slate-100 flex flex-wrap gap-x-4 gap-y-1">
                                                             {Object.entries(event.diff.after)
                                                                 .filter(([k]) => !['updatedAt', 'updated_at', 'id', 'transaction_id', 'created_at', 'createdAt', 'isMock'].includes(k))
                                                                 .map(([key, value]) => (
-                                                                    <div key={key} className="flex gap-1 text-[9px] items-baseline">
-                                                                        <span className="font-bold text-slate-400 uppercase text-[7px] tracking-tighter">{key}:</span>
+                                                                    <div key={key} className="flex gap-1 text-[11px] items-baseline">
+                                                                        <span className="font-bold text-slate-400 uppercase text-[9px] tracking-tighter">{key}:</span>
                                                                         <span className="text-slate-700 font-medium italic break-words">
                                                                             {typeof value === 'object' ? '...' : String(value)}
                                                                         </span>

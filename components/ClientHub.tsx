@@ -631,6 +631,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     <ReactivateTab
                         realtorId={realtorId}
                         leads={leads}
+                        onUpdateLead={handleUpdateLead}
                     />
                 )}
 

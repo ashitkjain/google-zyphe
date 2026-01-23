@@ -40,7 +40,7 @@ export interface MessageEvent {
     lead_id: string;
     agent_id: string;
     message_id: string;
-    channel: 'sms' | 'email';
+    channel: 'sms' | 'email' | 'call' | 'mail' | 'whatsapp';
     event_type: 'sent' | 'delivered' | 'failed' | 'reply' | 'opt_out';
     provider: 'twilio' | 'sendgrid' | 'other';
     provider_id?: string;

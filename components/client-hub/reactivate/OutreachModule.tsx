@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lead } from '../../../types';
-import { logMessageEvent } from '../../../services/firebase/communications';
+import { logMessageEvent, saveReactivationMessage } from '../../../services/firebase/communications';
 import { Strategy, getTimeSince, STRATEGIES } from './shared';
 
 interface OutreachModuleProps {
@@ -10,9 +10,10 @@ interface OutreachModuleProps {
     initialChannel?: 'email' | 'call' | 'sms' | 'whatsapp' | 'mail';
     onClearSelection: () => void;
     onGoToIntelligence: () => void;
+    onUpdateLead?: (leadId: string, updates: Partial<Lead>) => void;
 }
 
-const OutreachGenerator: React.FC<{ lead: Lead; onBack: () => void; realtorId: string; initialChannel?: string }> = ({ lead, onBack, realtorId, initialChannel = 'email' }) => {
+const OutreachGenerator: React.FC<{ lead: Lead; onBack: () => void; realtorId: string; initialChannel?: string; onUpdateLead?: (leadId: string, updates: Partial<Lead>) => void }> = ({ lead, onBack, realtorId, initialChannel = 'email', onUpdateLead }) => {
     // Filter strategies based on channel
     const availableStrategies = STRATEGIES.filter(s => s.type === initialChannel);
 
@@ -47,16 +48,53 @@ const OutreachGenerator: React.FC<{ lead: Lead; onBack: () => void; realtorId: s
                 lead_id: lead.id,
                 agent_id: realtorId,
                 message_id: messageId,
-                channel: activeStrategy.type as any, // Cast for new types
+                channel: activeStrategy.type as any,
                 event_type: 'sent',
-                provider: 'other', // Mock provider
+                provider: 'other',
                 timestamp: new Date(),
                 isInbound: false,
-                source: 'human'
+                source: 'human',
+                raw_payload: {
+                    content: generatedContent,
+                    strategy_title: activeStrategy.title,
+                    subject: activeStrategy.subject,
+                    reactivation: true
+                }
             });
 
+            // 2. Save to dedicated reactivation_messages table
+            await saveReactivationMessage({
+                message_id: messageId,
+                lead_id: lead.id,
+                realtorId: realtorId,
+                channel: activeStrategy.type,
+                content: generatedContent,
+                sent_at: new Date(),
+                reply_received: false,
+                sentiment: 'neutral_positive'
+            });
+
+            // Also update lead's health and record the activity in their notes log
+            if (onUpdateLead) {
+                const now = new Date();
+                const newNote = {
+                    id: crypto.randomUUID(),
+                    content: `Sent reactivation ${activeStrategy.type}: "${activeStrategy.title}"`,
+                    timestamp: now,
+                    author: 'AI Agent',
+                    color: 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                };
+
+                onUpdateLead(lead.id, {
+                    health: 'Active',
+                    lastActiveAt: now,
+                    notesLog: [...(lead.notesLog || []), newNote]
+                });
+            }
+
             const actionVerb = activeStrategy.type === 'call' ? 'Logged call' : 'Sent message';
-            alert(`${actionVerb} for ${lead.firstName}!`);
+            // Auto redirect back to list
+            onBack();
         } catch (error) {
             console.error('Error sending message:', error);
             alert('Failed to log action. Please try again.');
@@ -86,17 +124,40 @@ const OutreachGenerator: React.FC<{ lead: Lead; onBack: () => void; realtorId: s
     };
 
     return (
-        <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm">
-            <div className="flex items-center gap-6 mb-8 pb-8 border-b border-slate-100">
-                <div className="w-16 h-16 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center text-slate-500 font-bold text-xl">
-                    {lead.avatarUrl ? <img src={lead.avatarUrl} alt="" className="w-full h-full object-cover" /> : <span>{lead.firstName?.charAt(0)}</span>}
-                </div>
-                <div>
-                    <div className="flex items-center gap-3">
-                        <h2 className="text-xl font-black text-slate-900">{lead.firstName} {lead.lastName}</h2>
-                        <button onClick={onBack} className="text-slate-400 hover:text-indigo-600 text-xs font-bold underline">Change</button>
+        <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm relative overflow-hidden">
+            {/* Header / Back Action */}
+            <div className="flex items-center justify-between mb-8 pb-8 border-b border-slate-100">
+                <div className="flex items-center gap-6">
+                    <button
+                        onClick={onBack}
+                        className="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white hover:shadow-md transition-all group"
+                        title="Back to candidates"
+                    >
+                        <i className="fa-solid fa-arrow-left text-sm group-hover:-translate-x-0.5 transition-transform"></i>
+                    </button>
+                    <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center text-slate-500 font-bold text-lg shadow-inner">
+                            {lead.avatarUrl ? <img src={lead.avatarUrl} alt="" className="w-full h-full object-cover" /> : <span>{lead.firstName?.charAt(0)}</span>}
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-black text-slate-900 leading-tight">{lead.firstName} {lead.lastName}</h2>
+                            <p className="text-xs text-slate-500 font-medium">Archived • Last Active: {getTimeSince(lead.lastActiveAt || lead.receivedAt)}</p>
+                        </div>
                     </div>
-                    <p className="text-sm text-slate-500 font-medium">Archived • Last Active: {getTimeSince(lead.lastActiveAt || lead.receivedAt)}</p>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-sm">
+                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
+                        <span className="text-[10px] font-black uppercase tracking-widest">Generating {initialChannel} Sequence</span>
+                    </div>
+                    <button
+                        onClick={onBack}
+                        className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-rose-500 transition-colors"
+                        title="Close"
+                    >
+                        <i className="fa-solid fa-xmark text-xl"></i>
+                    </button>
                 </div>
             </div>
 
@@ -161,7 +222,7 @@ const OutreachGenerator: React.FC<{ lead: Lead; onBack: () => void; realtorId: s
     );
 };
 
-const OutreachModule: React.FC<OutreachModuleProps> = ({ realtorId, leads, selectedCandidateId, initialChannel, onClearSelection, onGoToIntelligence }) => {
+const OutreachModule: React.FC<OutreachModuleProps> = ({ realtorId, leads, selectedCandidateId, initialChannel, onClearSelection, onGoToIntelligence, onUpdateLead }) => {
     const selectedLead = leads.find(l => l.id === selectedCandidateId);
 
     return (
@@ -173,6 +234,7 @@ const OutreachModule: React.FC<OutreachModuleProps> = ({ realtorId, leads, selec
                     onBack={onClearSelection}
                     realtorId={realtorId}
                     initialChannel={initialChannel}
+                    onUpdateLead={onUpdateLead}
                 />
             ) : (
                 <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm text-center py-20">

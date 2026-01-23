@@ -3,13 +3,16 @@ import { Lead } from '../../types';
 import IntelligenceModule from './reactivate/IntelligenceModule';
 import OutreachModule from './reactivate/OutreachModule';
 import TriggersModule from './reactivate/TriggersModule';
+import TrailModule from './reactivate/TrailModule';
+import AnalyticsModule from './reactivate/AnalyticsModule';
 
 interface ReactivateTabProps {
     realtorId: string;
     leads: Lead[];
+    onUpdateLead?: (leadId: string, updates: Partial<Lead>) => void;
 }
 
-const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads }) => {
+const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdateLead }) => {
     const [selectedModule, setSelectedModule] = useState<'INTELLIGENCE' | 'TRAIL' | 'ANALYTICS' | 'TRIGGERS'>('INTELLIGENCE');
     const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
     const [selectedChannel, setSelectedChannel] = useState<'email' | 'call' | 'sms' | 'whatsapp' | 'mail' | undefined>('email');
@@ -24,8 +27,8 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads }) => {
     };
 
     return (
-        <div className="flex-1 h-full overflow-y-auto bg-slate-50 p-12 animate-in fade-in slide-in-from-bottom-4 duration-700 scroll-smooth">
-            <div className="max-w-7xl mx-auto space-y-10">
+        <div className="flex-1 h-full overflow-y-auto bg-slate-50 px-12 pt-4 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-700 scroll-smooth">
+            <div className="max-w-7xl mx-auto space-y-4">
                 {/* Sub Tab Navigation */}
                 <div className="flex items-center gap-8 border-b border-slate-200">
                     <button
@@ -68,27 +71,16 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads }) => {
                             initialChannel={selectedChannel}
                             onSelectCandidate={handleSelectCandidate}
                             onClearSelection={() => setSelectedCandidateId(null)}
+                            onUpdateLead={onUpdateLead}
                         />
                     )}
 
                     {selectedModule === 'TRAIL' && (
-                        <div className="bg-white rounded-[2.5rem] border border-slate-200 p-16 shadow-xl shadow-indigo-500/5 text-center">
-                            <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-8 text-blue-500">
-                                <i className="fa-solid fa-clock-rotate-left text-4xl"></i>
-                            </div>
-                            <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">Message Trail</h3>
-                            <p className="text-slate-500 max-w-md mx-auto font-medium text-lg leading-relaxed">Historical log of all automated and manual outreach attempts will appear here.</p>
-                        </div>
+                        <TrailModule realtorId={realtorId} leads={leads} />
                     )}
 
                     {selectedModule === 'ANALYTICS' && (
-                        <div className="bg-white rounded-[2.5rem] border border-slate-200 p-16 shadow-xl shadow-indigo-500/5 text-center">
-                            <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-8 text-emerald-500">
-                                <i className="fa-solid fa-chart-line text-4xl"></i>
-                            </div>
-                            <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">Analytics Dashboard</h3>
-                            <p className="text-slate-500 max-w-md mx-auto font-medium text-lg leading-relaxed">Track conversion rates and response performance for your reactivation campaigns.</p>
-                        </div>
+                        <AnalyticsModule realtorId={realtorId} leads={leads} />
                     )}
 
                     {selectedModule === 'TRIGGERS' && (

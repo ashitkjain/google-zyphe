@@ -11,6 +11,7 @@ interface IntelligenceModuleProps {
     selectedCandidateId: string | null;
     initialChannel?: 'email' | 'call' | 'sms' | 'whatsapp' | 'mail';
     onClearSelection: () => void;
+    onUpdateLead?: (leadId: string, updates: Partial<Lead>) => void;
 }
 
 const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({
@@ -20,7 +21,8 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({
     onSelectCandidate,
     selectedCandidateId,
     initialChannel,
-    onClearSelection
+    onClearSelection,
+    onUpdateLead
 }) => {
 
     const selectedLead = leads.find(l => l.id === selectedCandidateId);
@@ -34,6 +36,7 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({
                 initialChannel={initialChannel}
                 onClearSelection={onClearSelection}
                 onGoToIntelligence={onClearSelection}
+                onUpdateLead={onUpdateLead}
             />
         );
     }
@@ -46,50 +49,8 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div className="flex items-center justify-end mb-8">
-                <button className="bg-indigo-600 text-white px-6 py-3 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all text-xs font-black uppercase tracking-widest">
-                    <i className="fa-solid fa-arrows-rotate mr-2"></i>
-                    Refresh Analysis
-                </button>
-            </div>
-
-            {/* Stale Lead Stats */}
-            <div className="grid grid-cols-3 gap-6 mb-10">
-                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                    <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Cold Leads Identified</div>
-                    <div className="text-4xl font-black text-slate-900">{coldLeadsCount}</div>
-                    <div className="mt-2 text-xs font-medium text-rose-500 flex items-center gap-1">
-                        <i className="fa-solid fa-triangle-exclamation"></i>
-                        <span>Needs Attention</span>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                    <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">High Intent Signals</div>
-                    <div className="text-4xl font-black text-slate-900">{highIntentCount}</div>
-                    <div className="mt-2 text-xs font-medium text-emerald-500 flex items-center gap-1">
-                        <i className="fa-solid fa-money-bill-trend-up"></i>
-                        <span>Worth $2.4M Volume</span>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                    <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Missing Context</div>
-                    <div className="text-4xl font-black text-slate-900">{missingContextCount}</div>
-                    <div className="mt-2 text-xs font-medium text-amber-500 flex items-center gap-1">
-                        <i className="fa-solid fa-database"></i>
-                        <span>Enrichment Needed</span>
-                    </div>
-                </div>
-            </div>
-
             {/* Candidate List */}
-            <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                    <h3 className="font-black text-lg text-slate-900">Revival Candidates</h3>
-                    <div className="flex gap-2">
-                        <button className="px-4 py-2 rounded-lg bg-slate-50 text-slate-600 text-xs font-bold hover:bg-slate-100">Filter</button>
-                        <button className="px-4 py-2 rounded-lg bg-slate-50 text-slate-600 text-xs font-bold hover:bg-slate-100">Sort</button>
-                    </div>
-                </div>
+            <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden mb-12">
                 <table className="w-full text-left text-sm text-slate-600">
                     <thead className="bg-slate-50 text-xs uppercase text-slate-400 font-black">
                         <tr>
@@ -177,6 +138,45 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({
                         })}
                     </tbody>
                 </table>
+            </div>
+
+            {/* Reactivation Protocol Header (Moved to bottom) */}
+            <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white relative overflow-hidden shadow-2xl border border-white/5">
+                <div className="relative z-10 flex flex-col lg:flex-row justify-between gap-12">
+                    <div className="max-w-md">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                                <i className="fa-solid fa-brain text-lg"></i>
+                            </div>
+                            <h2 className="text-3xl font-black tracking-tight">Intelligence Engine</h2>
+                        </div>
+                        <p className="text-slate-400 font-medium leading-relaxed">
+                            Our protocol analyzes behavioral patterns to wake up idle segments of your database with surgical precision.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:flex-1">
+                        {[
+                            { icon: 'fa-user-check', text: 'Understand who the lead is' },
+                            { icon: 'fa-snowflake', text: 'Understand why they went cold' },
+                            { icon: 'fa-wand-magic-sparkles', text: 'Generate context-aware outreach' },
+                            { icon: 'fa-clock', text: 'Pick the right channel + timing' },
+                            { icon: 'fa-chart-line', text: 'Learn from responses' }
+                        ].map((item, i) => (
+                            <div key={i} className="flex items-center gap-4 group">
+                                <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                                    <i className={`fa-solid ${item.icon} text-sm`}></i>
+                                </div>
+                                <span className="text-[11px] font-black uppercase tracking-widest text-slate-300 leading-snug max-w-[140px]">
+                                    {item.text}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                {/* Decorative Elements */}
+                <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-600/10 rounded-full blur-[120px] -mr-48 -mt-48"></div>
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-600/5 rounded-full blur-[100px] -ml-32 -mb-32"></div>
             </div>
         </div >
     );
