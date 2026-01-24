@@ -27,7 +27,7 @@ const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCr
                             className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'Buyer2' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                         >
                             <i className="fa-solid fa-user-tag"></i>
-                            Buyer2
+                            Seller
                         </button>
                     </div>
 

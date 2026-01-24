@@ -45,6 +45,7 @@ import Logo from './components/Logo';
 import AuthModal from './components/AuthModal';
 import AddClientModal from './components/AddClientModal';
 import ClientHub from './components/ClientHub';
+import Footer from './components/Footer';
 
 type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard';
 
@@ -860,6 +861,7 @@ const App: React.FC = () => {
         )}
       </main>
       {propertyData && <ChatInterface property={propertyData} visual={customAnalysis} comprehensive={comprehensiveAnalysis} />}
+      <Footer />
     </div >
   );
 };

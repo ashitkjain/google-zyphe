@@ -17,6 +17,7 @@ import WhiteboardTab from './client-hub/WhiteboardTab';
 import ClosingDashboard from './client-hub/ClosingDashboard';
 import BestPracticesTab from './client-hub/BestPracticesTab';
 import ReactivateTab from './client-hub/ReactivateTab';
+import Footer from './Footer';
 
 interface Props {
     realtorId: string;
@@ -497,218 +498,220 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                 </div>
             </header>
 
-            <div className="flex-1 flex overflow-hidden">
-                {activeTab === 'clients' && (
-                    <ClientDetailsView
-                        realtorId={realtorId}
-                        clients={clients}
-                        leads={leads}
-                        loading={loadingClients}
-                        onUpdateClient={handleUpdateLead}
-                        initialSelectedId={explicitlySelectedClientId}
-                    />
-                )}
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="flex flex-col">
+                    <div className="flex flex-col">
+                        {activeTab === 'clients' && (
+                            <ClientDetailsView
+                                realtorId={realtorId}
+                                clients={clients}
+                                leads={leads}
+                                loading={loadingClients}
+                                onUpdateClient={handleUpdateLead}
+                                initialSelectedId={explicitlySelectedClientId}
+                            />
+                        )}
 
-                {activeTab === 'leads' && (
-                    <LeadsList
-                        realtorId={realtorId}
-                        leads={leads}
-                        onUpdateLead={(id, updates) => handleUpdateLead(id, updates)}
-                        onCreateLead={handleCreateLead}
-                        pendingNote={pendingNote}
-                        setPendingNote={setPendingNote}
-                        handleSaveNote={handleSaveLeadNote}
-                        handleUpdateNote={handleUpdateLeadNote}
-                        handleDeleteNote={handleDeleteLeadNote}
-                        handleDragEnd={handleDragEnd}
-                        realtorSettings={realtorProfile?.settings}
-                        onUpdateAvatar={async (leadId, file) => {
-                            // Mock upload simulation as requested
-                            console.log('Simulating upload for file:', file.name);
-                            // Generate a new random avatar URL to simulate the "downloaded" photo
-                            const randomId = Math.floor(Math.random() * 1000);
-                            const newAvatarUrl = `https://i.pravatar.cc/150?img=${randomId}&u=${Date.now()}`; // Add timestamp to force refresh if same ID
+                        {activeTab === 'leads' && (
+                            <LeadsList
+                                realtorId={realtorId}
+                                leads={leads}
+                                onUpdateLead={(id, updates) => handleUpdateLead(id, updates)}
+                                onCreateLead={handleCreateLead}
+                                pendingNote={pendingNote}
+                                setPendingNote={setPendingNote}
+                                handleSaveNote={handleSaveLeadNote}
+                                handleUpdateNote={handleUpdateLeadNote}
+                                handleDeleteNote={handleDeleteLeadNote}
+                                handleDragEnd={handleDragEnd}
+                                realtorSettings={realtorProfile?.settings}
+                                onUpdateAvatar={async (leadId, file) => {
+                                    // Mock upload simulation as requested
+                                    console.log('Simulating upload for file:', file.name);
+                                    // Generate a new random avatar URL to simulate the "downloaded" photo
+                                    const randomId = Math.floor(Math.random() * 1000);
+                                    const newAvatarUrl = `https://i.pravatar.cc/150?img=${randomId}&u=${Date.now()}`; // Add timestamp to force refresh if same ID
 
-                            // Update the lead
-                            const lead = leads.find(l => l.id === leadId);
-                            if (lead) {
-                                await handleUpdateLead(leadId, { avatarUrl: newAvatarUrl });
-                            }
-                        }}
-                        onUpdateSettings={async (settings) => {
-                            const success = await saveUserProfile(realtorId, {
-                                settings: {
-                                    ...realtorProfile?.settings,
-                                    ...settings
-                                }
-                            });
-                            if (success) {
-                                setRealtorProfile(prev => prev ? {
-                                    ...prev,
-                                    settings: {
-                                        ...prev.settings,
-                                        ...settings
+                                    // Update the lead
+                                    const lead = leads.find(l => l.id === leadId);
+                                    if (lead) {
+                                        await handleUpdateLead(leadId, { avatarUrl: newAvatarUrl });
                                     }
-                                } : null);
-                            }
-                        }}
-                        onTabChange={(tab: any) => {
-                            if (tab === 'settings:properties') {
-                                setSettingsSubTab('properties');
-                                setActiveTab('settings');
-                            } else if (tab !== 'Buyer' && tab !== 'Buyer2' && tab !== 'Seller') {
-                                setActiveTab(tab);
-                            }
-                        }}
-                    />
-                )}
-
-
-                {activeTab === 'closing' && (
-                    <ClosingDashboard
-                        leads={leads}
-                        onUpdateLead={handleUpdateLead}
-                        realtorId={realtorId}
-                        onNavigateToClient={(clientId) => {
-                            // Find the client to ensure we have valid ID
-                            const client = clients.find(c => c.uid === clientId) || leads.find(l => l.id === clientId);
-                            if (client) {
-                                // Add a slightly delayed state update to ensure the tab switch happens cleanly
-                                // We use a specific state in ClientDetailsView to handle selection, but here we can just rely on props if we pass selectedId
-                                // However, ClientDetailsView uses internal state for selection. 
-                                // We'll pass a prop "initialSelectedId" which we are already doing via a new state variable we need to add.
-                                setExplicitlySelectedClientId(clientId);
-                                setActiveTab('clients');
-                            }
-                        }}
-                    />
-                )}
-
-                {activeTab === 'reactivate' && (
-                    <ReactivateTab
-                        realtorId={realtorId}
-                        leads={leads}
-                        onUpdateLead={handleUpdateLead}
-                    />
-                )}
-
-                {activeTab === 'tasks' && (
-                    <TaskBoard
-                        realtorId={realtorId}
-                        tasks={tasks}
-                        leads={leads}
-                        reminderRules={reminderRules}
-                        onTasksUpdated={handleRefreshTasks}
-                        onUpdateRule={(ruleId, updates) => {
-                            // Local-only update to allow "Discard" to work
-                            setReminderRules(prev => prev.map(r => r.id === ruleId ? { ...r, ...updates } : r));
-                        }}
-                        onSaveRules={async () => {
-                            console.log(`[ClientHub] Starting to save ${reminderRules.length} rules to database...`);
-
-                            let successCount = 0;
-                            let errorCount = 0;
-                            const errors: string[] = [];
-
-                            for (const rule of reminderRules) {
-                                try {
-                                    const result = await updateReminderRule(rule.id, rule);
-                                    if (result) {
-                                        successCount++;
-                                    } else {
-                                        errorCount++;
-                                        errors.push(`Rule ${rule.id}: Update returned false`);
+                                }}
+                                onUpdateSettings={async (settings) => {
+                                    const success = await saveUserProfile(realtorId, {
+                                        settings: {
+                                            ...realtorProfile?.settings,
+                                            ...settings
+                                        }
+                                    });
+                                    if (success) {
+                                        setRealtorProfile(prev => prev ? {
+                                            ...prev,
+                                            settings: {
+                                                ...prev.settings,
+                                                ...settings
+                                            }
+                                        } : null);
                                     }
-                                } catch (error: any) {
-                                    errorCount++;
-                                    const errorMsg = error?.message || String(error);
-                                    errors.push(`Rule ${rule.id}: ${errorMsg}`);
-                                    console.error(`[ClientHub] Failed to save rule ${rule.id}:`, error);
-                                }
-                            }
-
-                            if (errorCount > 0) {
-                                console.error(`[ClientHub] Save completed with errors: ${successCount} succeeded, ${errorCount} failed`);
-                                console.error('[ClientHub] Error details:', errors);
-
-                                // Check if it's a permission error
-                                const hasPermissionError = errors.some(e => e.includes('Permission') || e.includes('permission'));
-                                if (hasPermissionError) {
-                                    alert(`❌ Save Failed: Firestore Permission Denied\n\n${errorCount} rules could not be saved.\n\nYou need to update Firebase security rules:\n1. Go to Firebase Console\n2. Firestore Database → Rules\n3. Add rules for "reminderRules" collection\n4. See firestore.rules file for details`);
-                                } else {
-                                    alert(`❌ Save Failed\n\n${errorCount} rules had errors.\nCheck console for details.`);
-                                }
-
-                                throw new Error(`Failed to save ${errorCount} rules`);
-                            }
-
-                            console.log(`[ClientHub] ✅ Successfully saved all ${successCount} rules!`);
-                        }}
-                    />
-                )}
-
-                {activeTab === 'settings' && (
-                    <StatusSettings
-                        realtorId={realtorId}
-                        onUpdateStatuses={handleUpdateStatuses}
-                        onUpdateProperties={handleUpdateProperties}
-                        initialStatuses={realtorProfile?.settings?.leadStatuses}
-                        initialProperties={realtorProfile?.settings?.leadProperties}
-                        onResetData={() => setShowResetConfirm(true)}
-                        resetLogs={resetLogs}
-                        isResetting={isResetting}
-                        defaultTab={settingsSubTab}
-                    />
-                )}
-
-                {activeTab === 'whiteboard' && (
-                    <WhiteboardTab userId={realtorId} />
-                )}
-
-                {activeTab === 'best_practices' && (
-                    <BestPracticesTab />
-                )}
-
-            </div>
+                                }}
+                                onTabChange={(tab: any) => {
+                                    if (tab === 'settings:properties') {
+                                        setSettingsSubTab('properties');
+                                        setActiveTab('settings');
+                                    } else if (tab !== 'Buyer' && tab !== 'Buyer2' && tab !== 'Seller') {
+                                        setActiveTab(tab);
+                                    }
+                                }}
+                            />
+                        )}
 
 
+                        {activeTab === 'closing' && (
+                            <ClosingDashboard
+                                leads={leads}
+                                onUpdateLead={handleUpdateLead}
+                                realtorId={realtorId}
+                                onNavigateToClient={(clientId) => {
+                                    // Find the client to ensure we have valid ID
+                                    const client = clients.find(c => c.uid === clientId) || leads.find(l => l.id === clientId);
+                                    if (client) {
+                                        // Add a slightly delayed state update to ensure the tab switch happens cleanly
+                                        // We use a specific state in ClientDetailsView to handle selection, but here we can just rely on props if we pass selectedId
+                                        // However, ClientDetailsView uses internal state for selection. 
+                                        // We'll pass a prop "initialSelectedId" which we are already doing via a new state variable we need to add.
+                                        setExplicitlySelectedClientId(clientId);
+                                        setActiveTab('clients');
+                                    }
+                                }}
+                            />
+                        )}
 
+                        {activeTab === 'reactivate' && (
+                            <ReactivateTab
+                                realtorId={realtorId}
+                                leads={leads}
+                                onUpdateLead={handleUpdateLead}
+                            />
+                        )}
 
+                        {activeTab === 'tasks' && (
+                            <TaskBoard
+                                realtorId={realtorId}
+                                tasks={tasks}
+                                leads={leads}
+                                reminderRules={reminderRules}
+                                onTasksUpdated={handleRefreshTasks}
+                                onUpdateRule={(ruleId, updates) => {
+                                    // Local-only update to allow "Discard" to work
+                                    setReminderRules(prev => prev.map(r => r.id === ruleId ? { ...r, ...updates } : r));
+                                }}
+                                onSaveRules={async () => {
+                                    console.log(`[ClientHub] Starting to save ${reminderRules.length} rules to database...`);
 
+                                    let successCount = 0;
+                                    let errorCount = 0;
+                                    const errors: string[] = [];
 
-            {/* Reset Confirmation Modal */}
-            {showResetConfirm && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-300">
-                        <div className="p-10 text-center">
-                            <div className="w-20 h-20 rounded-3xl bg-rose-50 flex items-center justify-center mb-8 mx-auto">
-                                <i className="fa-solid fa-triangle-exclamation text-3xl text-rose-500"></i>
-                            </div>
-                            <h3 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Factory Reset</h3>
-                            <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                                This will delete all mock leads, tasks, and transactions and regenerate the default demo data. <span className="text-rose-600 font-bold">This cannot be undone.</span>
-                            </p>
-                        </div>
-                        <div className="p-8 bg-slate-50 flex flex-col gap-3">
-                            <button
-                                onClick={handleResetMockData}
-                                className="w-full py-4 bg-rose-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-rose-700 shadow-lg shadow-rose-600/20 active:scale-[0.98] transition-all"
-                            >
-                                Confirm Reset
-                            </button>
-                            <button
-                                onClick={() => setShowResetConfirm(false)}
-                                className="w-full py-4 bg-white text-slate-400 rounded-2xl text-xs font-black uppercase tracking-widest hover:text-slate-600 hover:bg-slate-100 transition-all"
-                            >
-                                Cancel
-                            </button>
-                        </div>
+                                    for (const rule of reminderRules) {
+                                        try {
+                                            const result = await updateReminderRule(rule.id, rule);
+                                            if (result) {
+                                                successCount++;
+                                            } else {
+                                                errorCount++;
+                                                errors.push(`Rule ${rule.id}: Update returned false`);
+                                            }
+                                        } catch (error: any) {
+                                            errorCount++;
+                                            const errorMsg = error?.message || String(error);
+                                            errors.push(`Rule ${rule.id}: ${errorMsg}`);
+                                            console.error(`[ClientHub] Failed to save rule ${rule.id}:`, error);
+                                        }
+                                    }
+
+                                    if (errorCount > 0) {
+                                        console.error(`[ClientHub] Save completed with errors: ${successCount} succeeded, ${errorCount} failed`);
+                                        console.error('[ClientHub] Error details:', errors);
+
+                                        // Check if it's a permission error
+                                        const hasPermissionError = errors.some(e => e.includes('Permission') || e.includes('permission'));
+                                        if (hasPermissionError) {
+                                            alert(`❌ Save Failed: Firestore Permission Denied\n\n${errorCount} rules could not be saved.\n\nYou need to update Firebase security rules:\n1. Go to Firebase Console\n2. Firestore Database → Rules\n3. Add rules for "reminderRules" collection\n4. See firestore.rules file for details`);
+                                        } else {
+                                            alert(`❌ Save Failed\n\n${errorCount} rules had errors.\nCheck console for details.`);
+                                        }
+
+                                        throw new Error(`Failed to save ${errorCount} rules`);
+                                    }
+
+                                    console.log(`[ClientHub] ✅ Successfully saved all ${successCount} rules!`);
+                                }}
+                            />
+                        )}
+
+                        {activeTab === 'settings' && (
+                            <StatusSettings
+                                realtorId={realtorId}
+                                onUpdateStatuses={handleUpdateStatuses}
+                                onUpdateProperties={handleUpdateProperties}
+                                initialStatuses={realtorProfile?.settings?.leadStatuses}
+                                initialProperties={realtorProfile?.settings?.leadProperties}
+                                onResetData={() => setShowResetConfirm(true)}
+                                resetLogs={resetLogs}
+                                isResetting={isResetting}
+                                defaultTab={settingsSubTab}
+                            />
+                        )}
+
+                        {activeTab === 'whiteboard' && (
+                            <WhiteboardTab userId={realtorId} />
+                        )}
+
+                        {activeTab === 'best_practices' && (
+                            <BestPracticesTab />
+                        )}
+
                     </div>
-                </div>
-            )}
 
-            <style dangerouslySetInnerHTML={{
-                __html: `
+
+
+
+
+
+                    {/* Reset Confirmation Modal */}
+                    {showResetConfirm && (
+                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                            <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-300">
+                                <div className="p-10 text-center">
+                                    <div className="w-20 h-20 rounded-3xl bg-rose-50 flex items-center justify-center mb-8 mx-auto">
+                                        <i className="fa-solid fa-triangle-exclamation text-3xl text-rose-500"></i>
+                                    </div>
+                                    <h3 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Factory Reset</h3>
+                                    <p className="text-slate-500 text-sm font-medium leading-relaxed">
+                                        This will delete all mock leads, tasks, and transactions and regenerate the default demo data. <span className="text-rose-600 font-bold">This cannot be undone.</span>
+                                    </p>
+                                </div>
+                                <div className="p-8 bg-slate-50 flex flex-col gap-3">
+                                    <button
+                                        onClick={handleResetMockData}
+                                        className="w-full py-4 bg-rose-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-rose-700 shadow-lg shadow-rose-600/20 active:scale-[0.98] transition-all"
+                                    >
+                                        Confirm Reset
+                                    </button>
+                                    <button
+                                        onClick={() => setShowResetConfirm(false)}
+                                        className="w-full py-4 bg-white text-slate-400 rounded-2xl text-xs font-black uppercase tracking-widest hover:text-slate-600 hover:bg-slate-100 transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <style dangerouslySetInnerHTML={{
+                        __html: `
                 @keyframes bounce-slow {
                   0%, 100% { transform: translateY(-5%); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); }
                   50% { transform: translateY(0); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
@@ -742,13 +745,16 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                   background: #475569;
                 }
 
-                /* Firefox */
                 * {
                   scrollbar-width: thin;
                   scrollbar-color: #94a3b8 #f8fafc;
                 }
-              `}} />
-        </div >
+              `
+                    }} />
+                    <Footer />
+                </div>
+            </div>
+        </div>
     );
 };
 

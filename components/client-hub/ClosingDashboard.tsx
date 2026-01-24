@@ -64,7 +64,7 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
     // Empty state when no clients in closing
     if (closingLeads.length === 0) {
         return (
-            <div className="flex-1 overflow-y-auto bg-slate-50 p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-slate-50 p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center">
                     <div className="w-32 h-32 rounded-full bg-slate-100 flex items-center justify-center mb-8 border border-slate-200">
                         <i className="fa-solid fa-file-invoice-dollar text-5xl text-slate-300"></i>
@@ -83,7 +83,7 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
     }
 
     return (
-        <div className="flex-1 overflow-y-auto bg-slate-50 p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="bg-slate-50 p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Client Tabs */}
             <div className="max-w-7xl mx-auto space-y-6">
                 <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">

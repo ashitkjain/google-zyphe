@@ -292,10 +292,10 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
     }
 
     return (
-        <div className="flex-1 flex overflow-hidden bg-slate-50">
+        <div className="flex-1 flex bg-slate-50">
             {/* Left Column: Client List */}
             {!hideClientList && (
-                <div className="w-80 border-r border-slate-200 bg-white flex flex-col overflow-hidden">
+                <div className="w-80 border-r border-slate-200 bg-white flex flex-col">
                     <div className="p-6 border-b border-slate-100 bg-slate-50/50">
                         <div className="flex items-center justify-between mb-4">
                             <div>
@@ -319,7 +319,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                             </button>
                         </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto">
+                    <div>
                         {filteredClients.map((client) => (
                             <button
                                 key={client.id}
@@ -347,7 +347,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
             )}
 
             {/* Right Column: Details */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col">
                 {selectedClient ? (
                     <>
                         {/* Header */}
@@ -469,7 +469,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                         </div>
 
                         {/* Content */}
-                        <div className="flex-1 overflow-y-auto p-4 bg-slate-50/50 space-y-4">
+                        <div className="flex-1 p-4 bg-slate-50/50 space-y-4">
                             {/* Funnel Stage Timeline */}
                             <div className="bg-white rounded-2xl py-3 px-6 border border-slate-100 shadow-sm relative overflow-hidden group">
                                 {/* Decorative Gradient Background */}

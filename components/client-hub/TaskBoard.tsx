@@ -143,7 +143,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
     };
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-[#F8FAFC] overflow-hidden">
+        <div className="flex-1 bg-[#F8FAFC]">
             {/* Header with Tabs */}
             <div className="bg-white border-b border-slate-200/60 shadow-sm relative z-20">
                 <div className="p-10 pb-0 flex items-center justify-between">
@@ -181,7 +181,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 overflow-y-auto">
+            <div>
                 {/* Calendar View */}
                 {activeTab === 'calendar' && (
                     <div className="flex-1 h-full">

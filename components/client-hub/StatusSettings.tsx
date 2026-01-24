@@ -647,7 +647,7 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({
     };
 
     return (
-        <div className="flex-1 overflow-y-auto bg-[#F8FAFC] p-2">
+        <div className="bg-[#F8FAFC] p-2">
             <div className="w-full max-w-5xl mx-auto pb-24">
                 {/* Header Controls */}
                 <div className="flex items-center justify-between mb-2">
