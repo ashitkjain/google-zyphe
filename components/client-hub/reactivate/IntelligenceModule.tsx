@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Lead } from '../../../types';
 import { getTimeSince } from './shared';
 import OutreachModule from './OutreachModule';
+import BulkCampaignBuilder from './components/BulkCampaignBuilder';
 
 interface IntelligenceModuleProps {
     realtorId: string;
@@ -24,6 +25,37 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({
     onClearSelection,
     onUpdateLead
 }) => {
+    // Bulk Selection State
+    const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
+    const [showBulkBuilder, setShowBulkBuilder] = useState(false);
+
+    const toggleLeadSelection = (leadId: string) => {
+        setSelectedLeads(prev => {
+            const next = new Set(prev);
+            if (next.has(leadId)) {
+                next.delete(leadId);
+            } else {
+                next.add(leadId);
+            }
+            return next;
+        });
+    };
+
+    const toggleAll = () => {
+        if (selectedLeads.size === candidates.length) {
+            setSelectedLeads(new Set());
+        } else {
+            setSelectedLeads(new Set(candidates.map(l => l.id)));
+        }
+    };
+
+    const handleBulkLaunch = (payload: any) => {
+        console.log("Launching Bulk Campaign:", payload, "For leads:", Array.from(selectedLeads));
+        // In real app: Call API here
+        setShowBulkBuilder(false);
+        setSelectedLeads(new Set());
+        alert(`Campaign "${payload.title}" launched for ${selectedLeads.size} leads!`);
+    };
 
     const selectedLead = leads.find(l => l.id === selectedCandidateId);
 
@@ -56,17 +88,38 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({
         );
     }
 
-    // Mock logic for "High Intent" - e.g. leads with high price points or recent activity despite being archived
-    const highIntentCount = candidates.filter(l => (l.financialVitals?.budgetMax || 0) > 800000).length;
-    const missingContextCount = candidates.filter(l => !l.phone && !l.email).length;
-
     return (
-        <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 relative min-h-[600px]">
             {/* Candidate List */}
             <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden mb-12">
+                <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-b border-slate-100">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Stale Leads Candidates</h3>
+                    <div className="flex items-center gap-3">
+                        <span className="text-xs font-bold text-slate-400">
+                            {selectedLeads.size} selected
+                        </span>
+                        {selectedLeads.size > 0 && (
+                            <button
+                                onClick={() => setShowBulkBuilder(true)}
+                                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-lg shadow-indigo-500/20 animate-in fade-in zoom-in-95 duration-200"
+                            >
+                                <i className="fa-solid fa-bolt mr-2"></i> Reactivate Selected
+                            </button>
+                        )}
+                    </div>
+                </div>
+
                 <table className="w-full text-left text-sm text-slate-600">
                     <thead className="bg-slate-50 text-xs uppercase text-slate-400 font-black">
                         <tr>
+                            <th className="px-6 py-4 w-12">
+                                <input
+                                    type="checkbox"
+                                    checked={candidates.length > 0 && selectedLeads.size === candidates.length}
+                                    onChange={toggleAll}
+                                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                            </th>
                             <th className="px-6 py-4 tracking-widest">Lead</th>
                             <th className="px-6 py-4 tracking-widest">Staleness Reason</th>
                             <th className="px-6 py-4 tracking-widest">Revival Prob.</th>
@@ -79,9 +132,22 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({
                             const reasons = ['Rate Shock', 'Inventory Low', 'Ghosted', 'Just Browsing', 'Timing Off'];
                             const reason = reasons[Math.abs(lead.id.charCodeAt(0) % reasons.length)];
                             const prob = 40 + (Math.abs(lead.id.charCodeAt(lead.id.length - 1)) % 55);
+                            const isSelected = selectedLeads.has(lead.id);
 
                             return (
-                                <tr key={lead.id} className="hover:bg-slate-50 transition-colors">
+                                <tr
+                                    key={lead.id}
+                                    className={`transition-colors cursor-pointer ${isSelected ? 'bg-indigo-50/30' : 'hover:bg-slate-50'}`}
+                                    onClick={() => toggleLeadSelection(lead.id)}
+                                >
+                                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                        <input
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={() => toggleLeadSelection(lead.id)}
+                                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                    </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-4">
                                             <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center font-bold text-slate-500">
@@ -107,7 +173,7 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({
                                         </div>
                                     </td>
 
-                                    <td className="px-6 py-4 text-right">
+                                    <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                                         <div className="grid grid-cols-3 gap-1.5 justify-items-end w-fit ml-auto">
                                             <button
                                                 onClick={() => onSelectCandidate(lead.id, 'email')}
@@ -154,7 +220,7 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({
             </div>
 
             {/* Reactivation Protocol Header (Moved to bottom) */}
-            <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white relative overflow-hidden shadow-2xl border border-white/5">
+            <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white relative overflow-hidden shadow-2xl border border-white/5 mx-auto max-w-5xl">
                 <div className="relative z-10 flex flex-col lg:flex-row justify-between gap-12">
                     <div className="max-w-md">
                         <div className="flex items-center gap-3 mb-4">
@@ -191,6 +257,15 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({
                 <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-600/10 rounded-full blur-[120px] -mr-48 -mt-48"></div>
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-600/5 rounded-full blur-[100px] -ml-32 -mb-32"></div>
             </div>
+
+            {/* Bulk Campaign Modal */}
+            {showBulkBuilder && (
+                <BulkCampaignBuilder
+                    leads={candidates.filter(l => selectedLeads.has(l.id))}
+                    onClose={() => setShowBulkBuilder(false)}
+                    onLaunch={handleBulkLaunch}
+                />
+            )}
         </div >
     );
 };

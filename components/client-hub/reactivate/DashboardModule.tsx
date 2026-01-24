@@ -6,6 +6,10 @@ import {
 } from '../../../services/firebase/reactivation';
 import { LeadReactivationResult, LeadPlanRecord, ReactivationAnalysisSummary } from '../../../types/ai';
 import ReactivationVisualizer from './ReactivationVisualizer';
+import ActionCenterWidget from './components/ActionCenterWidget';
+import SentimentAnalyzer from './components/SentimentAnalyzer';
+import BusinessImpactWidget from './components/BusinessImpactWidget';
+import CreativeStudioWidget from './components/CreativeStudioWidget';
 
 interface DashboardModuleProps {
     realtorId: string;
@@ -138,12 +142,22 @@ const DashboardModule: React.FC<DashboardModuleProps> = ({ realtorId }) => {
     }
 
     return (
-        <ReactivationVisualizer
-            result={aggregatedData}
-            showReset={false}
-            title="Portfolio Reactivation Dashboard"
-            agentId={realtorId}
-        />
+        <div className="space-y-8">
+            <BusinessImpactWidget />
+
+            <ActionCenterWidget onOpenLead={(id) => console.log('Open lead', id)} />
+
+            <CreativeStudioWidget />
+
+            <SentimentAnalyzer />
+
+            <ReactivationVisualizer
+                result={aggregatedData}
+                showReset={false}
+                title="Portfolio Reactivation Dashboard"
+                agentId={realtorId}
+            />
+        </div>
     );
 };
 

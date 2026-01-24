@@ -240,7 +240,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate, onTaskSt
     const rowHeight = 60; // Increased to fit wrapped text
     const headerHeight = 60; // 2 rows of headers
     const taskBarHeight = 18; // DENSE
-    const dayWidth = zoom === 'day' ? 46 : 20; // Increased to ensure content fills screen naturally
+    const dayWidth = zoom === 'day' ? 46 : 40; // Increased to ensure content fills screen naturally in week view
 
     const getDateLabel = (dayIndex: number) => {
         const d = new Date(chartStartDate);
@@ -260,7 +260,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate, onTaskSt
 
     // Start from the beginning of the project (Day 0) to ensure Weeks 1, 2, 3 are visible
     const viewStartDay = 0;
-    const viewEndDay = maxEnd + endBuffer + 7; // Add a week of padding at the end
+    const viewEndDay = Math.max(maxEnd + endBuffer + 7, 90); // Ensure at least 90 days (approx 3 months) to fill screen
 
     // Width is strictly content-based
     const totalWidth = (viewEndDay - viewStartDay) * dayWidth;
