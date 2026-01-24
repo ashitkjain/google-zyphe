@@ -10,6 +10,11 @@ interface LeadsKanbanBoardProps {
     realtorSettings: any;
     leadType: 'Buyer' | 'Seller';
     realtorId: string;
+    boardSettings: {
+        search: string;
+        sort: 'newest' | 'oldest' | 'name' | 'temp',
+        tempFilter: string[]
+    };
 }
 
 const KANBAN_COLUMNS = [
@@ -25,7 +30,8 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
     onUpdateLead,
     realtorSettings,
     leadType,
-    realtorId
+    realtorId,
+    boardSettings
 }) => {
     const [pendingMove, setPendingMove] = useState<{ lead: Lead, targetStage: string, options: any[] } | null>(null);
     const [selectedLeadForOverlay, setSelectedLeadForOverlay] = useState<Lead | null>(null);
@@ -56,27 +62,49 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
         };
 
         leads.forEach(lead => {
+            // Global Search
+            if (boardSettings.search) {
+                const s = boardSettings.search.toLowerCase();
+                const matchesSearch = (lead.fullName || '').toLowerCase().includes(s) ||
+                    (lead.email || lead.primaryContact?.email || '').toLowerCase().includes(s) ||
+                    (lead.propertyAddress || '').toLowerCase().includes(s);
+                if (!matchesSearch) return;
+            }
+
+            // Global Temp Filter
+            if (boardSettings.tempFilter.length > 0) {
+                if (!boardSettings.tempFilter.includes(lead.engagementScore || 'Cold')) return;
+            }
+
             const colId = getColumnIdForLead(lead);
             if (colId && cols[colId]) {
                 cols[colId].push(lead);
             }
         });
 
-        // Sort by createdDate desc (using leadInfo.createdDate or falling back to a safe default)
+        // Global Sort
         Object.keys(cols).forEach(key => {
             cols[key].sort((a, b) => {
+                if (boardSettings.sort === 'name') {
+                    return (a.fullName || '').localeCompare(b.fullName || '');
+                }
+                if (boardSettings.sort === 'temp') {
+                    const order = { 'Hot': 0, 'Warm': 1, 'Cold': 2, 'Stale': 3 };
+                    return (order[a.engagementScore || 'Cold'] || 99) - (order[b.engagementScore || 'Cold'] || 99);
+                }
+
                 const getDate = (lead: Lead) => {
                     const dateVal = lead.receivedAt;
                     return dateVal?.toDate ? dateVal.toDate() : new Date(dateVal || 0);
                 };
                 const da = getDate(a);
                 const db = getDate(b);
-                return db.getTime() - da.getTime();
+                return boardSettings.sort === 'oldest' ? da.getTime() - db.getTime() : db.getTime() - da.getTime();
             });
         });
 
         return cols;
-    }, [leads, leadType, realtorSettings]);
+    }, [leads, leadType, realtorSettings, boardSettings]);
 
     const handleDragEnd = (result: DropResult) => {
         const { destination, source, draggableId } = result;
@@ -134,65 +162,65 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
     };
 
     return (
-        <div className="h-full overflow-x-auto overflow-y-hidden bg-slate-50 p-4">
-            <DragDropContext onDragEnd={handleDragEnd}>
-                <div className="flex gap-4 h-full min-w-max">
-                    {KANBAN_COLUMNS.map(column => (
-                        <div key={column.id} className="w-80 flex flex-col h-full rounded-2xl bg-slate-100/50 border border-slate-200">
-                            {/* Column Header */}
-                            <div className={`p-4 border-b border-white bg-white/50 rounded-t-2xl backdrop-blur-sm sticky top-0 z-10 flex items-center justify-between
-                                ${column.id === 'leads' ? 'border-t-4 border-t-indigo-400' : ''}
-                                ${column.id === 'nurture' ? 'border-t-4 border-t-amber-400' : ''}
-                                ${column.id === 'active-search' ? 'border-t-4 border-t-sky-400' : ''}
-                                ${column.id === 'offer' ? 'border-t-4 border-t-purple-400' : ''}
-                                ${column.id === 'closing' ? 'border-t-4 border-t-emerald-400' : ''}
-                            `}>
-                                <div className="flex items-center gap-2">
-                                    <h3 className="font-bold text-slate-700">{column.label}</h3>
-                                    <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full text-xs font-bold">
-                                        {columns[column.id].length}
-                                    </span>
-                                </div>
-                                <div className="flex gap-1">
-                                    <button className="text-slate-400 hover:text-slate-600 p-1">
+        <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
+            <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
+                <DragDropContext onDragEnd={handleDragEnd}>
+                    <div className="flex gap-6 h-full min-w-max">
+                        {KANBAN_COLUMNS.map(column => (
+                            <div key={column.id} className="w-80 flex flex-col h-full rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+                                {/* Column Header */}
+                                <div className={`p-4 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10
+                                    ${column.id === 'leads' ? 'border-t-4 border-t-indigo-400' : ''}
+                                    ${column.id === 'nurture' ? 'border-t-4 border-t-amber-400' : ''}
+                                    ${column.id === 'active-search' ? 'border-t-4 border-t-sky-400' : ''}
+                                    ${column.id === 'offer' ? 'border-t-4 border-t-purple-400' : ''}
+                                    ${column.id === 'closing' ? 'border-t-4 border-t-emerald-400' : ''}
+                                `}>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider">{column.label}</h3>
+                                        <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full text-[10px] font-black">
+                                            {columns[column.id].length}
+                                        </span>
+                                    </div>
+                                    <button className="text-slate-300 hover:text-slate-500 transition-colors">
                                         <i className="fa-solid fa-ellipsis"></i>
                                     </button>
                                 </div>
-                            </div>
 
-                            {/* Droppable Area */}
-                            <Droppable droppableId={column.id}>
-                                {(provided, snapshot) => (
-                                    <div
-                                        ref={provided.innerRef}
-                                        {...provided.droppableProps}
-                                        className={`flex-1 overflow-y-auto p-3 space-y-3 transition-colors ${snapshot.isDraggingOver ? 'bg-indigo-50/30' : ''}`}
-                                    >
-                                        {columns[column.id].map((lead, index) => {
-                                            const DraggableAny = Draggable as any;
-                                            return (
-                                                <DraggableAny key={lead.id} draggableId={lead.id} index={index}>
-                                                    {(provided: any, snapshot: any) => (
-                                                        <KanbanCard
-                                                            lead={lead}
-                                                            provided={provided}
-                                                            snapshot={snapshot}
-                                                            realtorSettings={realtorSettings}
-                                                            onUpdateLead={onUpdateLead}
-                                                            onClick={() => setSelectedLeadForOverlay(lead)}
-                                                        />
-                                                    )}
-                                                </DraggableAny>
-                                            );
-                                        })}
-                                        {provided.placeholder}
-                                    </div>
-                                )}
-                            </Droppable>
-                        </div>
-                    ))}
-                </div>
-            </DragDropContext>
+                                {/* Droppable Area */}
+                                <Droppable droppableId={column.id}>
+                                    {(provided, snapshot) => (
+                                        <div
+                                            ref={provided.innerRef}
+                                            {...provided.droppableProps}
+                                            className={`flex-1 overflow-y-auto p-4 space-y-4 transition-colors ${snapshot.isDraggingOver ? 'bg-slate-50' : ''}`}
+                                        >
+                                            {columns[column.id].map((lead, index) => {
+                                                const DraggableAny = Draggable as any;
+                                                return (
+                                                    <DraggableAny key={lead.id} draggableId={lead.id} index={index}>
+                                                        {(provided: any, snapshot: any) => (
+                                                            <KanbanCard
+                                                                lead={lead}
+                                                                provided={provided}
+                                                                snapshot={snapshot}
+                                                                realtorSettings={realtorSettings}
+                                                                onUpdateLead={onUpdateLead}
+                                                                onClick={() => setSelectedLeadForOverlay(lead)}
+                                                            />
+                                                        )}
+                                                    </DraggableAny>
+                                                );
+                                            })}
+                                            {provided.placeholder}
+                                        </div>
+                                    )}
+                                </Droppable>
+                            </div>
+                        ))}
+                    </div>
+                </DragDropContext>
+            </div>
 
             {/* Status Selection Modal */}
             {pendingMove && (
@@ -357,8 +385,16 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
                 </div>
 
                 <div className="min-w-0 flex-1">
-                    <div className="font-bold text-slate-800 text-sm truncate leading-tight mb-2">
-                        {lead.fullName || (lead.firstName || lead.lastName ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim() : 'Unknown Client')}
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="font-bold text-slate-800 text-sm truncate leading-tight">
+                            {lead.fullName || (lead.firstName || lead.lastName ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim() : 'Unknown Client')}
+                        </div>
+                        <div
+                            onClick={(e) => { e.stopPropagation(); onClick(); }}
+                            className="text-[8px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1 bg-slate-50/50 px-2 py-0.5 rounded-md hover:bg-indigo-50 border border-transparent hover:border-indigo-100 cursor-pointer whitespace-nowrap"
+                        >
+                            DETAILS
+                        </div>
                     </div>
                     <div className="flex flex-col gap-1">
                         {email && (
@@ -456,12 +492,6 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
                     </div>
                 </div>
 
-                {/* View Details Action */}
-                <div className="pt-2 flex items-center justify-center">
-                    <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-indigo-600 transition-colors flex items-center gap-1.5 bg-slate-50/50 px-3 py-1 rounded-full group-hover:bg-indigo-50 group-hover:shadow-sm border border-transparent group-hover:border-indigo-100 cursor-pointer">
-                        <i className="fa-solid fa-expand"></i> More Details
-                    </div>
-                </div>
             </div>
         </div>
     );

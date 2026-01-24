@@ -32,6 +32,11 @@ const LeadsList: React.FC<InternalProps> = ({
     const [buyer2FunnelCategory, setBuyer2FunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
     const [sellerFunnelCategory, setSellerFunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
     const [currentDisplayMode, setCurrentDisplayMode] = useState<DisplayMode>('kanban');
+    const [boardSettings, setBoardSettings] = useState({
+        search: '',
+        sort: 'newest' as 'newest' | 'oldest' | 'name' | 'temp',
+        tempFilter: [] as string[]
+    });
 
     // Filter leads by type
     const buyerLeads = useMemo(() => leads.filter(l => l.leadType === 'Buyer'), [leads]);
@@ -143,6 +148,8 @@ const LeadsList: React.FC<InternalProps> = ({
                 onCreateLead={onCreateLead}
                 displayMode={currentDisplayMode}
                 setDisplayMode={setCurrentDisplayMode}
+                boardSettings={boardSettings}
+                setBoardSettings={setBoardSettings}
             />
 
             {/* Kanban View */}
@@ -161,6 +168,7 @@ const LeadsList: React.FC<InternalProps> = ({
                     onUpdateAvatar={onUpdateAvatar}
                     realtorSettings={realtorSettings}
                     realtorId={realtorId}
+                    boardSettings={boardSettings}
                 />
             ) : (
                 <DragDropContext onDragEnd={handleDragEnd}>

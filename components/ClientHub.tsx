@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getLeads, getTasks, getTemplates, seedMockData, saveUserProfile, getUserProfile, updateLead, getReminderRules, updateReminderRule, deleteAllMockData, getRealtorClients } from '../services/firebaseService';
 import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates, getInitialMockTransactions } from '../services/mockDataService';
 import { getDefaultReminderRules } from '../services/reminderRulesService';
@@ -36,6 +36,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     const [activeTab, setActiveTab] = useState<HubTab>('leads');
     const [realtorProfile, setRealtorProfile] = useState<UserProfile | null>(null);
     const [settingsSubTab, setSettingsSubTab] = useState<'statuses' | 'properties'>('statuses');
+    const [isToolsOpen, setIsToolsOpen] = useState(false);
+    const toolsRef = useRef<HTMLDivElement>(null);
 
     const [clients, setClients] = useState<UserProfile[]>([]);
     const [loadingClients, setLoadingClients] = useState(true);
@@ -232,6 +234,16 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         return success;
     };
 
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (toolsRef.current && !toolsRef.current.contains(event.target as Node)) {
+                setIsToolsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     const handleDragEnd = async (result: DropResult) => {
         const { destination, source, draggableId } = result;
 
@@ -361,11 +373,14 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         console.log("Skipping modal open for new lead");
     };
 
-    const tabs: { id: HubTab; label: string; icon: string }[] = [
+    const mainTabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'leads', label: 'Funnel', icon: 'fa-bullseye' },
         { id: 'closing', label: 'Closing', icon: 'fa-file-invoice-dollar' },
         { id: 'reactivate', label: 'Reactivate', icon: 'fa-bolt' },
         { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
+    ];
+
+    const toolTabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
         { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
         { id: 'settings', label: 'Data Fields', icon: 'fa-sliders' },
@@ -459,7 +474,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                     </div>
 
                     <nav className="flex items-center h-[72px]">
-                        {tabs.map((tab) => (
+                        {mainTabs.map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
@@ -473,6 +488,39 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                                 )}
                             </button>
                         ))}
+
+                        {/* Realtor Tools Dropdown */}
+                        <div className="relative h-full" ref={toolsRef}>
+                            <button
+                                onClick={() => setIsToolsOpen(!isToolsOpen)}
+                                className={`relative h-full flex items-center gap-3 px-6 text-[11px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${toolTabs.some(t => t.id === activeTab) ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                            >
+                                <i className={`fa-solid fa-toolbox transition-transform group-hover:scale-110 ${toolTabs.some(t => t.id === activeTab) ? 'text-indigo-500' : 'text-slate-500'}`}></i>
+                                Realtor Tools
+                                <i className={`fa-solid fa-chevron-down text-[8px] transition-transform duration-300 ${isToolsOpen ? 'rotate-180' : ''}`}></i>
+                                {toolTabs.some(t => t.id === activeTab) && (
+                                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500 animate-in slide-in-from-bottom border-t border-indigo-400/50"></div>
+                                )}
+                            </button>
+
+                            {isToolsOpen && (
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl py-3 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                                    {toolTabs.map((tab) => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => {
+                                                setActiveTab(tab.id);
+                                                setIsToolsOpen(false);
+                                            }}
+                                            className={`w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-500'}`}
+                                        >
+                                            <i className={`fa-solid ${tab.icon} w-4 text-center ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-400'}`}></i>
+                                            {tab.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </nav>
                 </div>
 
