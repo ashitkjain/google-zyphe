@@ -2,7 +2,6 @@
 export * from './shared';
 export * from './enums';
 export * from './notes';
-export * from './kyc';
 export * from './property';
 export * from './ai';
 export * from './communication';

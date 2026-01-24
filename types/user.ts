@@ -1,6 +1,5 @@
 import { FunnelStage, LeadHealth } from './enums';
 import { StatusOption, PropertyOption } from './shared';
-import { KYCData } from './kyc';
 
 export interface UserProfile {
     uid: string;
@@ -20,7 +19,6 @@ export interface UserProfile {
     maxPrice?: number;
     isMock?: boolean;
     createdAt?: any;
-    kyc?: KYCData;
     settings?: {
         leadStatuses?: StatusOption[];
         leadProperties?: PropertyOption[];

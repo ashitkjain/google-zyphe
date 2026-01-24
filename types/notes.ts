@@ -14,13 +14,6 @@ export interface LeadNote {
     type?: 'sticky' | 'general' | 'call' | 'inquiry';
 }
 
-export interface ActivityEvent {
-    id: string;
-    address: string; // Or "Phone Call", "Office Meeting"
-    timestamp: any;
-    viewCount?: number;
-    type: 'Property View' | 'Meeting' | 'Call' | 'Other';
-}
 
 export interface CallNote {
     callNumber: number; // Which call this note is for (1st, 2nd, 3rd, etc.)
@@ -31,11 +24,3 @@ export interface CallNote {
 }
 
 
-export interface ActivityNote {
-    id: string;
-    clientId: string;
-    authorId: string;
-    content: string;
-    timestamp: any;
-    type: 'Note' | 'Email' | 'Call' | 'SMS' | 'System';
-}
