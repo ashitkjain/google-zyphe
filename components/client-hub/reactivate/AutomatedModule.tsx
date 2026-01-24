@@ -438,6 +438,32 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                                 onChange={(e) => setSearchTerm(e.target.value)}
                                             />
                                         </div>
+                                        <div className="ml-auto flex items-center gap-4">
+                                            {selectedLeadIds.length > 0 && (
+                                                <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-300">
+                                                    <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full uppercase tracking-tighter shadow-sm border border-indigo-100">
+                                                        {selectedLeadIds.length} Selected
+                                                    </span>
+                                                    <div className="h-4 w-px bg-slate-100 mx-1"></div>
+                                                    <button
+                                                        onClick={() => setSelectedLeadIds(archivedLeads.map(l => l.id))}
+                                                        className="text-[9px] font-black text-slate-500 hover:text-indigo-600 uppercase tracking-widest transition-colors px-2"
+                                                    >
+                                                        Select All
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setSelectedLeadIds([])}
+                                                        className="text-[9px] font-black text-rose-400 hover:text-rose-600 uppercase tracking-widest transition-colors px-2"
+                                                    >
+                                                        Clear
+                                                    </button>
+                                                </div>
+                                            )}
+                                            <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 border border-slate-100 rounded-lg">
+                                                <i className="fa-solid fa-circle-info text-[10px] text-slate-300"></i>
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Double-click row to view details</p>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Table Headers - Interactive Sorting */}
@@ -452,9 +478,10 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                                         setSelectedLeadIds(archivedLeads.map(l => l.id));
                                                     }
                                                 }}
-                                                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${selectedLeadIds.length === archivedLeads.length ? 'bg-indigo-600 border-indigo-600' : 'border-slate-200'}`}
+                                                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${selectedLeadIds.length > 0 ? 'bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-500/20' : 'border-slate-200 hover:border-indigo-400'}`}
                                             >
-                                                {selectedLeadIds.length === archivedLeads.length && <i className="fa-solid fa-check text-[10px] text-white"></i>}
+                                                {selectedLeadIds.length === archivedLeads.length && archivedLeads.length > 0 && <i className="fa-solid fa-check text-[10px] text-white"></i>}
+                                                {selectedLeadIds.length > 0 && selectedLeadIds.length < archivedLeads.length && <i className="fa-solid fa-minus text-[10px] text-white"></i>}
                                             </button>
                                         </div>
 
@@ -479,7 +506,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
 
                                         <button
                                             onClick={() => handleSort('lastSeen')}
-                                            className="w-[12%] flex items-center justify-end pr-4 group/head transition-colors hover:text-slate-900"
+                                            className="w-[12%] flex items-center justify-start pl-4 group/head transition-colors hover:text-slate-900"
                                         >
                                             Last Seen
                                             <i className={`fa-solid fa-chevron-${sortConfig.key === 'lastSeen' && sortConfig.direction === 'asc' ? 'up' : 'down'} ml-1.5 text-[8px] transition-all ${sortConfig.key === 'lastSeen' ? 'text-indigo-500 opacity-100' : 'text-slate-200 opacity-0 group-hover/head:opacity-100'}`}></i>
@@ -493,8 +520,8 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                                 return (
                                                     <div
                                                         key={lead.id}
-                                                        onClick={() => setSelectedLeadForDetails(lead)}
-                                                        className={`flex items-center px-8 py-2.5 hover:bg-indigo-50/30 transition-all cursor-pointer group border-b border-slate-50/50 relative overflow-hidden`}
+                                                        onDoubleClick={() => setSelectedLeadForDetails(lead)}
+                                                        className={`flex items-center px-8 py-2.5 hover:bg-indigo-50/30 transition-all cursor-default group border-b border-slate-50/50 relative overflow-hidden`}
                                                     >
                                                         {/* SELECTION COLUMN */}
                                                         <div className="w-[3%] flex items-center relative z-10" onClick={(e) => e.stopPropagation()}>
@@ -575,15 +602,21 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                                             </p>
                                                         </div>
 
-                                                        {/* LAST SEEN COLUMN */}
-                                                        <div className="w-[12%] flex items-center justify-end pr-4 relative">
-                                                            <p className="text-[12px] font-bold text-slate-400 group-hover:opacity-0 transition-opacity whitespace-nowrap">
+                                                        {/* LAST SEEN & ACTION COLUMN */}
+                                                        <div className="w-[12%] flex items-center justify-between pl-4 pr-3 shrink-0">
+                                                            <p className="text-[12px] font-bold text-slate-400 whitespace-nowrap">
                                                                 {lead.lastActivity ? getTimeSince(lead.lastActivity) : (lead.receivedAt ? getTimeSince(lead.receivedAt) : 'Long ago')}
                                                             </p>
-                                                            <div className="absolute right-4 opacity-0 group-hover:opacity-100 transition-all flex items-center gap-2 text-[10px] font-black text-indigo-500 uppercase tracking-widest translate-x-4 group-hover:translate-x-0">
-                                                                Open
-                                                                <i className="fa-solid fa-arrow-right-long text-xs"></i>
-                                                            </div>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedLeadForDetails(lead);
+                                                                }}
+                                                                title="View Details"
+                                                                className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-100 hover:scale-110 transition-all shadow-sm active:scale-95"
+                                                            >
+                                                                <i className="fa-solid fa-circle-info text-sm"></i>
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 );
@@ -746,99 +779,103 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
             </div>
 
             {/* Recent Uploads Section */}
-            {recentDocuments.length > 0 && uploadStatus === 'idle' && !result && (
-                <div className="mt-16 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-                    <div className="flex items-center justify-between mb-8">
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Previously Uploaded Leads</h3>
-                        <div className="h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent mx-8"></div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {recentDocuments.slice(0, 3).map((doc) => (
-                            <div key={doc.id} onClick={() => handleSelectPreviousDoc(doc)} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all cursor-pointer active:scale-95 flex items-center justify-between group">
-                                <div className="flex items-center gap-5">
-                                    <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 shadow-sm"><i className="fa-solid fa-file-csv text-lg"></i></div>
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-black text-slate-900 truncate pr-4">{doc.name}</p>
-                                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">{getTimeSince(doc.created_at)}</p>
+            {
+                recentDocuments.length > 0 && uploadStatus === 'idle' && !result && (
+                    <div className="mt-16 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Previously Uploaded Leads</h3>
+                            <div className="h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent mx-8"></div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {recentDocuments.slice(0, 3).map((doc) => (
+                                <div key={doc.id} onClick={() => handleSelectPreviousDoc(doc)} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all cursor-pointer active:scale-95 flex items-center justify-between group">
+                                    <div className="flex items-center gap-5">
+                                        <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 shadow-sm"><i className="fa-solid fa-file-csv text-lg"></i></div>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-black text-slate-900 truncate pr-4">{doc.name}</p>
+                                            <p className="text-[10px] text-slate-400 font-medium mt-0.5">{getTimeSince(doc.created_at)}</p>
+                                        </div>
                                     </div>
+                                    <div className="text-[10px] font-black text-slate-300 uppercase tracking-tighter shrink-0">{(doc.size / 1024).toFixed(0)} KB</div>
                                 </div>
-                                <div className="text-[10px] font-black text-slate-300 uppercase tracking-tighter shrink-0">{(doc.size / 1024).toFixed(0)} KB</div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Editable Profile Drawer */}
-            {selectedLeadForDetails && (
-                <div className="fixed inset-0 z-[100] flex justify-end">
-                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setSelectedLeadForDetails(null)} />
-                    <div className="relative w-full max-w-[500px] bg-white h-full shadow-2xl animate-in slide-in-from-right duration-500 flex flex-col">
-                        <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                            <div className="flex items-center gap-4">
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-black border shadow-sm ${selectedLeadForDetails.leadType === 'Seller' ? 'bg-amber-100 text-amber-600 border-amber-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>{selectedLeadForDetails.leadType === 'Seller' ? 'S' : 'B'}</div>
-                                <div>
-                                    <input type="text" defaultValue={selectedLeadForDetails.fullName} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, fullName: e.target.value } : null)} className="text-xl font-black text-slate-900 uppercase tracking-tight bg-transparent border-none outline-none focus:ring-0 w-full hover:bg-slate-100/50 px-2 rounded-lg transition-colors" />
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 px-2">Client Profile • Persistence Active</p>
+            {
+                selectedLeadForDetails && (
+                    <div className="fixed inset-0 z-[100] flex justify-end">
+                        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setSelectedLeadForDetails(null)} />
+                        <div className="relative w-full max-w-[500px] bg-white h-full shadow-2xl animate-in slide-in-from-right duration-500 flex flex-col">
+                            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-black border shadow-sm ${selectedLeadForDetails.leadType === 'Seller' ? 'bg-amber-100 text-amber-600 border-amber-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>{selectedLeadForDetails.leadType === 'Seller' ? 'S' : 'B'}</div>
+                                    <div>
+                                        <input type="text" defaultValue={selectedLeadForDetails.fullName} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, fullName: e.target.value } : null)} className="text-xl font-black text-slate-900 uppercase tracking-tight bg-transparent border-none outline-none focus:ring-0 w-full hover:bg-slate-100/50 px-2 rounded-lg transition-colors" />
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 px-2">Client Profile • Persistence Active</p>
+                                    </div>
                                 </div>
+                                <button onClick={() => setSelectedLeadForDetails(null)} className="w-10 h-10 rounded-xl hover:bg-slate-200 flex items-center justify-center text-slate-400 transition-colors"><i className="fa-solid fa-xmark text-lg"></i></button>
                             </div>
-                            <button onClick={() => setSelectedLeadForDetails(null)} className="w-10 h-10 rounded-xl hover:bg-slate-200 flex items-center justify-center text-slate-400 transition-colors"><i className="fa-solid fa-xmark text-lg"></i></button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-10">
-                            <section className="space-y-4">
-                                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-address-book text-indigo-400"></i> Primary Contact</h3>
-                                <div className="grid grid-cols-1 gap-4">
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Email Address</label>
-                                        <div className="group flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl focus-within:bg-white focus-within:border-indigo-200 transition-all">
-                                            <i className="fa-solid fa-envelope text-slate-300"></i>
-                                            <input type="email" defaultValue={selectedLeadForDetails.primaryContact?.email || selectedLeadForDetails.email} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, email: e.target.value, primaryContact: { ...prev.primaryContact!, email: e.target.value } } : null)} className="bg-transparent border-none outline-none text-sm font-bold text-slate-600 w-full" />
+                            <div className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-10">
+                                <section className="space-y-4">
+                                    <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-address-book text-indigo-400"></i> Primary Contact</h3>
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Email Address</label>
+                                            <div className="group flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl focus-within:bg-white focus-within:border-indigo-200 transition-all">
+                                                <i className="fa-solid fa-envelope text-slate-300"></i>
+                                                <input type="email" defaultValue={selectedLeadForDetails.primaryContact?.email || selectedLeadForDetails.email} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, email: e.target.value, primaryContact: { ...prev.primaryContact!, email: e.target.value } } : null)} className="bg-transparent border-none outline-none text-sm font-bold text-slate-600 w-full" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Phone Number</label>
+                                            <div className="group flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl focus-within:bg-white focus-within:border-indigo-200 transition-all">
+                                                <i className="fa-solid fa-phone text-slate-300"></i>
+                                                <input type="tel" defaultValue={selectedLeadForDetails.primaryContact?.phone || selectedLeadForDetails.phone} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, phone: e.target.value, primaryContact: { ...prev.primaryContact!, phone: e.target.value } } : null)} className="bg-transparent border-none outline-none text-sm font-bold text-slate-600 w-full" />
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Phone Number</label>
-                                        <div className="group flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl focus-within:bg-white focus-within:border-indigo-200 transition-all">
-                                            <i className="fa-solid fa-phone text-slate-300"></i>
-                                            <input type="tel" defaultValue={selectedLeadForDetails.primaryContact?.phone || selectedLeadForDetails.phone} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, phone: e.target.value, primaryContact: { ...prev.primaryContact!, phone: e.target.value } } : null)} className="bg-transparent border-none outline-none text-sm font-bold text-slate-600 w-full" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </section>
-                            <section className="space-y-4">
-                                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-compass text-indigo-400"></i> Market Intelligence</h3>
-                                <div className="bg-indigo-50/30 rounded-[2.5rem] p-8 border border-indigo-100/50 space-y-8">
-                                    <div className="space-y-2">
-                                        <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Target Market / Locations</label>
-                                        <input type="text" defaultValue={selectedLeadForDetails.searchCriteria?.locations} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, searchCriteria: { ...prev.searchCriteria!, locations: e.target.value } } : null)} className="bg-white border border-indigo-100/50 outline-none text-sm font-black text-slate-800 w-full p-4 rounded-xl shadow-sm focus:border-indigo-300 transition-all" />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-6">
+                                </section>
+                                <section className="space-y-4">
+                                    <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-compass text-indigo-400"></i> Market Intelligence</h3>
+                                    <div className="bg-indigo-50/30 rounded-[2.5rem] p-8 border border-indigo-100/50 space-y-8">
                                         <div className="space-y-2">
-                                            <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Budget Capacity</label>
-                                            <input type="number" defaultValue={selectedLeadForDetails.financialVitals?.budgetMax} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, financialVitals: { ...prev.financialVitals!, budgetMax: parseInt(e.target.value) } } : null)} className="bg-white border border-indigo-100/50 outline-none text-sm font-black text-slate-800 w-full p-4 rounded-xl shadow-sm focus:border-indigo-300 transition-all" />
+                                            <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Target Market / Locations</label>
+                                            <input type="text" defaultValue={selectedLeadForDetails.searchCriteria?.locations} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, searchCriteria: { ...prev.searchCriteria!, locations: e.target.value } } : null)} className="bg-white border border-indigo-100/50 outline-none text-sm font-black text-slate-800 w-full p-4 rounded-xl shadow-sm focus:border-indigo-300 transition-all" />
                                         </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Lead Category</label>
-                                            <select value={selectedLeadForDetails.leadType} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, leadType: e.target.value as 'Buyer' | 'Seller' } : null)} className="bg-white border border-indigo-100/50 outline-none text-sm font-black text-slate-800 w-full p-4 rounded-xl shadow-sm appearance-none cursor-pointer">
-                                                <option value="Buyer">Buyer</option>
-                                                <option value="Seller">Seller</option>
-                                            </select>
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="space-y-2">
+                                                <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Budget Capacity</label>
+                                                <input type="number" defaultValue={selectedLeadForDetails.financialVitals?.budgetMax} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, financialVitals: { ...prev.financialVitals!, budgetMax: parseInt(e.target.value) } } : null)} className="bg-white border border-indigo-100/50 outline-none text-sm font-black text-slate-800 w-full p-4 rounded-xl shadow-sm focus:border-indigo-300 transition-all" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Lead Category</label>
+                                                <select value={selectedLeadForDetails.leadType} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, leadType: e.target.value as 'Buyer' | 'Seller' } : null)} className="bg-white border border-indigo-100/50 outline-none text-sm font-black text-slate-800 w-full p-4 rounded-xl shadow-sm appearance-none cursor-pointer">
+                                                    <option value="Buyer">Buyer</option>
+                                                    <option value="Seller">Seller</option>
+                                                </select>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </section>
-                            <section className="pb-8 space-y-4">
-                                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-note-sticky text-indigo-400"></i> Internal Record</h3>
-                                <textarea rows={4} defaultValue={selectedLeadForDetails.leadInfo?.customerMessage || selectedLeadForDetails.notes} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, notes: e.target.value, leadInfo: { ...prev.leadInfo!, customerMessage: e.target.value } } : null)} className="w-full bg-slate-50 border border-slate-100 rounded-[2rem] p-6 text-sm font-medium text-slate-600 outline-none focus:bg-white transition-all resize-none" placeholder="Record intelligence..." />
-                            </section>
-                        </div>
-                        <div className="p-8 border-t border-slate-100 bg-white grid grid-cols-2 gap-4">
-                            <button onClick={() => { setLocalLeads(prev => prev.map(l => l.id === selectedLeadForDetails.id ? selectedLeadForDetails : l)); setSelectedLeadForDetails(null); }} className="bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-200"><i className="fa-solid fa-floppy-disk"></i> Save Profile</button>
-                            <button onClick={() => { toggleLeadSelection(selectedLeadForDetails.id); setSelectedLeadForDetails(null); }} className="bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl flex items-center justify-center gap-3 active:scale-[0.98] uppercase tracking-widest text-[10px]"><i className="fa-solid fa-plus"></i> Add to Reactivate</button>
+                                </section>
+                                <section className="pb-8 space-y-4">
+                                    <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-note-sticky text-indigo-400"></i> Internal Record</h3>
+                                    <textarea rows={4} defaultValue={selectedLeadForDetails.leadInfo?.customerMessage || selectedLeadForDetails.notes} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, notes: e.target.value, leadInfo: { ...prev.leadInfo!, customerMessage: e.target.value } } : null)} className="w-full bg-slate-50 border border-slate-100 rounded-[2rem] p-6 text-sm font-medium text-slate-600 outline-none focus:bg-white transition-all resize-none" placeholder="Record intelligence..." />
+                                </section>
+                            </div>
+                            <div className="p-8 border-t border-slate-100 bg-white grid grid-cols-2 gap-4">
+                                <button onClick={() => { setLocalLeads(prev => prev.map(l => l.id === selectedLeadForDetails.id ? selectedLeadForDetails : l)); setSelectedLeadForDetails(null); }} className="bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-200"><i className="fa-solid fa-floppy-disk"></i> Save Profile</button>
+                                <button onClick={() => { toggleLeadSelection(selectedLeadForDetails.id); setSelectedLeadForDetails(null); }} className="bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl flex items-center justify-center gap-3 active:scale-[0.98] uppercase tracking-widest text-[10px]"><i className="fa-solid fa-plus"></i> Add to Reactivate</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 
