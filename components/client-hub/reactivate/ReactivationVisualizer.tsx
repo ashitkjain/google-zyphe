@@ -9,6 +9,7 @@ interface ReactivationVisualizerProps {
     showReset?: boolean;
     title?: string;
     agentId: string;
+    onOpenLeadDetails?: (leadId: string) => void;
 }
 
 const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
@@ -16,7 +17,8 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
     onReset,
     showReset = true,
     title,
-    agentId
+    agentId,
+    onOpenLeadDetails
 }) => {
     const [selectedMarketName, setSelectedMarketName] = useState<string | null>(null);
     const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -164,7 +166,19 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                 </div>
                                                 <span className="text-xs font-black uppercase tracking-widest text-slate-400">{plan.market}</span>
                                             </div>
-                                            <h4 className="text-lg font-black text-slate-900 truncate">{plan.lead_name}</h4>
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="text-lg font-black text-slate-900 truncate">{plan.lead_name}</h4>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onOpenLeadDetails?.(plan.lead_id);
+                                                    }}
+                                                    className="w-6 h-6 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm active:scale-90"
+                                                    title="View Full Lead Profile"
+                                                >
+                                                    <i className="fa-solid fa-circle-info text-[11px] font-black"></i>
+                                                </button>
+                                            </div>
                                         </div>
 
                                         <div className="flex flex-wrap gap-2">

@@ -369,28 +369,44 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
         if (selectedLeadIds.length === 0) return;
 
         setUploadStatus('uploading');
-        const selectedLeads = archivedLeads.filter(l => selectedLeadIds.includes(l.id));
+        try {
+            const selectedLeads = archivedLeads.filter(l => selectedLeadIds.includes(l.id));
 
-        const headers = ['lead_id', 'name', 'phone', 'email', 'market', 'budget', 'lead_source', 'last_activity', 'notes'];
-        const rows = selectedLeads.map(l => [
-            l.id,
-            l.fullName,
-            l.primaryContact?.phone || 'NULL',
-            l.primaryContact?.email || 'NULL',
-            l.searchCriteria?.locations || 'NULL',
-            l.financialVitals?.budgetMax?.toString() || 'NULL',
-            l.source || 'NULL',
-            l.lastActivity ? new Date(l.lastActivity).toLocaleDateString() : 'NULL',
-            (l.leadInfo?.customerMessage || '').replace(/\n/g, ' ') || 'NULL'
-        ]);
+            const headers = ['lead_id', 'name', 'phone', 'email', 'market', 'budget', 'lead_source', 'last_activity', 'notes'];
+            const rows = selectedLeads.map(l => [
+                l.id,
+                l.fullName,
+                l.primaryContact?.phone || 'NULL',
+                l.primaryContact?.email || 'NULL',
+                l.searchCriteria?.locations || 'NULL',
+                l.financialVitals?.budgetMax?.toString() || 'NULL',
+                l.source || 'NULL',
+                l.lastActivity ? new Date(l.lastActivity).toLocaleDateString() : 'NULL',
+                (l.leadInfo?.customerMessage || '').replace(/\n/g, ' ') || 'NULL'
+            ]);
 
-        const content = [headers.join('|'), ...rows.map(r => r.join('|'))].join('\n');
-        setFileContent(content);
-        setSelectedDocName(`${selectedLeadIds.length} Selected Leads`);
-        setSelectedDocId('database_selection_' + Date.now());
+            const content = [headers.join('|'), ...rows.map(r => r.join('|'))].join('\n');
+            const docId = 'database_selection_' + Date.now();
 
-        parseForPreview(content);
-        setUploadStatus('idle');
+            setSelectedDocName(`${selectedLeadIds.length} Selected Leads`);
+            setSelectedDocId(docId);
+
+            const { result: analysis, llmCallId } = await analyzeLeadDatabase(content, realtorId);
+
+            await saveReactivationAnalysis(
+                realtorId,
+                realtorId,
+                docId,
+                llmCallId || "gen_ui_" + Date.now(),
+                analysis
+            );
+
+            setResult(analysis);
+            setUploadStatus('success');
+        } catch (error) {
+            console.error('Failed to process database selection:', error);
+            setUploadStatus('error');
+        }
     };
 
     const reset = () => {
@@ -405,378 +421,380 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
         setSelectedLeadIds([]);
     };
 
-    if (result) {
-        return (
-            <ReactivationVisualizer
-                result={result}
-                onReset={reset}
-                title={selectedDocName || 'Lead Analysis'}
-                agentId={realtorId}
-            />
-        );
-    }
-
     return (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div className={`bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-xl shadow-indigo-500/5 ${!fileContent ? 'p-0' : 'p-12'}`}>
-                <div className="w-full text-center space-y-0">
+            {result ? (
+                <ReactivationVisualizer
+                    result={result}
+                    onReset={reset}
+                    title={selectedDocName || 'Lead Analysis'}
+                    agentId={realtorId}
+                    onOpenLeadDetails={(leadId) => {
+                        const lead = leads.find(l => l.id === leadId) || localLeads.find(l => l.id === leadId);
+                        if (lead) setSelectedLeadForDetails(lead);
+                    }}
+                />
+            ) : (
+                <div className={`bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-xl shadow-indigo-500/5 ${!fileContent ? 'p-0' : 'p-12'}`}>
+                    <div className="w-full text-center space-y-0">
 
-                    {/* Lead Database Selection Section (Default Landing) */}
-                    {!fileContent && !uploadStatus.includes('uploading') && (
-                        <div className="animate-in fade-in slide-in-from-top-4 duration-700">
-                            <div className="animate-in fade-in zoom-in-95 duration-500 text-left">
-                                <div className="bg-white overflow-hidden">
-                                    {/* Dashboard Header with Search Only */}
-                                    <div className="px-8 py-5 border-b border-slate-50 flex items-center bg-white">
-                                        <div className="flex items-center gap-3 px-4 py-2 bg-slate-50/80 rounded-2xl border border-slate-100 min-w-[300px] focus-within:bg-white focus-within:border-indigo-200 transition-all">
-                                            <i className="fa-solid fa-magnifying-glass text-slate-300"></i>
-                                            <input
-                                                type="text"
-                                                placeholder="Search across all fields..."
-                                                className="bg-transparent border-none outline-none w-full text-slate-700 placeholder:text-slate-400 font-bold text-xs"
-                                                value={searchTerm}
-                                                onChange={(e) => setSearchTerm(e.target.value)}
-                                            />
+                        {/* Lead Database Selection Section (Default Landing) */}
+                        {!fileContent && !uploadStatus.includes('uploading') && (
+                            <div className="animate-in fade-in slide-in-from-top-4 duration-700">
+                                <div className="animate-in fade-in zoom-in-95 duration-500 text-left">
+                                    <div className="bg-white overflow-hidden">
+                                        {/* Dashboard Header with Search Only */}
+                                        <div className="px-8 py-5 border-b border-slate-50 flex items-center bg-white">
+                                            <div className="flex items-center gap-3 px-4 py-2 bg-slate-50/80 rounded-2xl border border-slate-100 min-w-[300px] focus-within:bg-white focus-within:border-indigo-200 transition-all">
+                                                <i className="fa-solid fa-magnifying-glass text-slate-300"></i>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search across all fields..."
+                                                    className="bg-transparent border-none outline-none w-full text-slate-700 placeholder:text-slate-400 font-bold text-xs"
+                                                    value={searchTerm}
+                                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="ml-auto flex items-center gap-4">
+                                                {selectedLeadIds.length > 0 && (
+                                                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-300">
+                                                        <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full uppercase tracking-tighter shadow-sm border border-indigo-100">
+                                                            {selectedLeadIds.length} Selected
+                                                        </span>
+                                                        <div className="h-4 w-px bg-slate-100 mx-1"></div>
+                                                        <button
+                                                            onClick={() => setSelectedLeadIds(archivedLeads.map(l => l.id))}
+                                                            className="text-[9px] font-black text-slate-500 hover:text-indigo-600 uppercase tracking-widest transition-colors px-2"
+                                                        >
+                                                            Select All
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setSelectedLeadIds([])}
+                                                            className="text-[9px] font-black text-rose-400 hover:text-rose-600 uppercase tracking-widest transition-colors px-2"
+                                                        >
+                                                            Clear
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 border border-slate-100 rounded-lg">
+                                                    <i className="fa-solid fa-circle-info text-[10px] text-slate-300"></i>
+                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Double-click row to view details</p>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="ml-auto flex items-center gap-4">
-                                            {selectedLeadIds.length > 0 && (
-                                                <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-300">
-                                                    <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full uppercase tracking-tighter shadow-sm border border-indigo-100">
-                                                        {selectedLeadIds.length} Selected
-                                                    </span>
-                                                    <div className="h-4 w-px bg-slate-100 mx-1"></div>
+
+                                        {/* Table Headers - Interactive Sorting */}
+                                        <div className="bg-white border-b border-slate-100 px-8 py-3 flex items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <div className="w-[3%] flex items-center justify-center">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (selectedLeadIds.length === archivedLeads.length) {
+                                                            setSelectedLeadIds([]);
+                                                        } else {
+                                                            setSelectedLeadIds(archivedLeads.map(l => l.id));
+                                                        }
+                                                    }}
+                                                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${selectedLeadIds.length > 0 ? 'bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-500/20' : 'border-slate-200 hover:border-indigo-400'}`}
+                                                >
+                                                    {selectedLeadIds.length === archivedLeads.length && archivedLeads.length > 0 && <i className="fa-solid fa-check text-[10px] text-white"></i>}
+                                                    {selectedLeadIds.length > 0 && selectedLeadIds.length < archivedLeads.length && <i className="fa-solid fa-minus text-[10px] text-white"></i>}
+                                                </button>
+                                            </div>
+
+                                            {[
+                                                { id: 'type', label: 'Type', width: '4%', align: 'center' },
+                                                { id: 'name', label: 'Lead Name', width: '18%', align: 'left', padding: 'px-4' },
+                                                { id: 'market', label: 'Target Market', width: '15%', align: 'left', padding: 'px-4' },
+                                                { id: 'source', label: 'Source', width: '7%', align: 'left', padding: 'px-2' },
+                                                { id: 'status', label: 'Status', width: '5%', align: 'center' }
+                                            ].map(col => (
+                                                <button
+                                                    key={col.id}
+                                                    onClick={() => handleSort(col.id)}
+                                                    className={`w-[${col.width}] flex items-center ${col.align === 'center' ? 'justify-center' : 'justify-start'} ${col.padding || ''} group/head transition-colors hover:text-slate-900`}
+                                                >
+                                                    {col.label}
+                                                    <i className={`fa-solid fa-chevron-${sortConfig.key === col.id && sortConfig.direction === 'asc' ? 'up' : 'down'} ml-1.5 text-[8px] transition-all ${sortConfig.key === col.id ? 'text-indigo-500 opacity-100' : 'text-slate-200 opacity-0 group-hover/head:opacity-100'}`}></i>
+                                                </button>
+                                            ))}
+
+                                            <div className="w-[36%] font-black text-indigo-400 uppercase bg-indigo-50/30 px-3 py-1 rounded-md border border-indigo-100/50">Staff Note</div>
+
+                                            <button
+                                                onClick={() => handleSort('lastSeen')}
+                                                className="w-[12%] flex items-center justify-start pl-4 group/head transition-colors hover:text-slate-900"
+                                            >
+                                                Last Seen
+                                                <i className={`fa-solid fa-chevron-${sortConfig.key === 'lastSeen' && sortConfig.direction === 'asc' ? 'up' : 'down'} ml-1.5 text-[8px] transition-all ${sortConfig.key === 'lastSeen' ? 'text-indigo-500 opacity-100' : 'text-slate-200 opacity-0 group-hover/head:opacity-100'}`}></i>
+                                            </button>
+                                        </div>
+
+                                        <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
+                                            <div className="divide-y divide-slate-50 bg-white">
+                                                {paginatedLeads.map(lead => {
+                                                    const isSelected = selectedLeadIds.includes(lead.id);
+                                                    return (
+                                                        <div
+                                                            key={lead.id}
+                                                            onDoubleClick={() => setSelectedLeadForDetails(lead)}
+                                                            className={`flex items-center px-8 py-2.5 hover:bg-indigo-50/30 transition-all cursor-default group border-b border-slate-50/50 relative overflow-hidden`}
+                                                        >
+                                                            {/* SELECTION COLUMN */}
+                                                            <div className="w-[3%] flex items-center relative z-10" onClick={(e) => e.stopPropagation()}>
+                                                                <div
+                                                                    onClick={() => toggleLeadSelection(lead.id)}
+                                                                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 cursor-pointer ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-200 hover:border-indigo-400'}`}
+                                                                >
+                                                                    {isSelected && <i className="fa-solid fa-check text-[10px] text-white"></i>}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* ROLE COLUMN */}
+                                                            <div className="w-[4%] flex justify-center">
+                                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border shadow-sm ${lead.leadType === 'Seller' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                                                                    {lead.leadType === 'Seller' ? 'S' : 'B'}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* NAME COLUMN */}
+                                                            <div className="w-[18%] flex flex-col justify-center px-4">
+                                                                <p className="text-[12px] font-black text-slate-800 truncate tracking-tight group-hover:text-indigo-600 transition-colors uppercase leading-tight">
+                                                                    {lead.fullName}
+                                                                </p>
+                                                            </div>
+
+                                                            {/* TARGET MARKET COLUMN */}
+                                                            <div className="w-[15%] flex items-center px-4">
+                                                                <p className="text-[12px] font-bold text-slate-500 truncate">{lead.searchCriteria?.locations || ''}</p>
+                                                            </div>
+
+                                                            {/* COMPANY/SOURCE COLUMN */}
+                                                            <div className="w-[7%] flex items-center px-2">
+                                                                <p className="text-[12px] font-bold text-slate-400 truncate">{lead.source || 'Direct Entry'}</p>
+                                                            </div>
+
+                                                            {/* STATUS COLUMN */}
+                                                            <div className="w-[5%] flex justify-center relative">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setStatusMenuOpen(statusMenuOpen === lead.id ? null : lead.id);
+                                                                    }}
+                                                                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-sm border ${lead.engagementScore === 'Hot' ? 'bg-rose-50 text-rose-500 border-rose-100' : lead.engagementScore === 'Cold' ? 'bg-sky-50 text-sky-500 border-sky-100' : lead.health === 'Stale' ? 'bg-slate-50 text-slate-400 border-slate-200' : 'bg-indigo-50 text-indigo-500 border-indigo-100'}`}
+                                                                >
+                                                                    {lead.engagementScore === 'Hot' && <i className="fa-solid fa-fire text-xs text-rose-500"></i>}
+                                                                    {lead.engagementScore === 'Cold' && <i className="fa-solid fa-snowflake text-xs text-sky-400"></i>}
+                                                                    {lead.health === 'Stale' && lead.engagementScore !== 'Hot' && lead.engagementScore !== 'Cold' && <i className="fa-solid fa-clock-rotate-left text-xs text-slate-400"></i>}
+                                                                    {!['Hot', 'Cold', 'Stale'].includes(lead.engagementScore || lead.health || '') && <i className="fa-solid fa-circle-dot text-[8px] text-indigo-300"></i>}
+                                                                </button>
+
+                                                                {statusMenuOpen === lead.id && (
+                                                                    <div className="absolute top-full mt-2 z-50 bg-white rounded-xl shadow-2xl border border-slate-100 p-2 min-w-[120px] animate-in fade-in zoom-in-95 duration-200">
+                                                                        {[
+                                                                            { id: 'Hot', icon: 'fa-fire', label: 'Hot', color: 'text-rose-500', bg: 'hover:bg-rose-50' },
+                                                                            { id: 'Cold', icon: 'fa-snowflake', label: 'Cold', color: 'text-sky-500', bg: 'hover:bg-sky-50' },
+                                                                            { id: 'Stale', icon: 'fa-clock-rotate-left', label: 'Stale', color: 'text-slate-400', bg: 'hover:bg-slate-50' }
+                                                                        ].map(opt => (
+                                                                            <button
+                                                                                key={opt.id}
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    updateLeadStatus(lead.id, opt.id);
+                                                                                }}
+                                                                                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[11px] font-black uppercase tracking-tight transition-colors ${opt.bg} ${opt.color}`}
+                                                                            >
+                                                                                <i className={`fa-solid ${opt.icon} w-4`}></i>
+                                                                                {opt.label}
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {/* STAFF NOTE COLUMN */}
+                                                            <div className="w-[36%] flex items-center px-4 py-1">
+                                                                <p className="text-[11px] font-medium text-slate-400 italic pr-6 border-l border-slate-50 pl-4 leading-relaxed line-clamp-2 hover:line-clamp-none transition-all">
+                                                                    {lead.leadInfo?.customerMessage || lead.notes || 'No active notes'}
+                                                                </p>
+                                                            </div>
+
+                                                            {/* LAST SEEN & ACTION COLUMN */}
+                                                            <div className="w-[12%] flex items-center justify-between pl-4 pr-3 shrink-0">
+                                                                <p className="text-[12px] font-bold text-slate-400 whitespace-nowrap">
+                                                                    {lead.lastActivity ? getTimeSince(lead.lastActivity) : (lead.receivedAt ? getTimeSince(lead.receivedAt) : 'Long ago')}
+                                                                </p>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setSelectedLeadForDetails(lead);
+                                                                    }}
+                                                                    title="View Details"
+                                                                    className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-100 hover:scale-110 transition-all shadow-sm active:scale-95"
+                                                                >
+                                                                    <i className="fa-solid fa-circle-info text-sm"></i>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                        {totalPages > 1 && (
+                                            <div className="p-6 border-t border-slate-100 bg-white flex items-center justify-between">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    Page {currentPage} of {totalPages}
+                                                </p>
+                                                <div className="flex items-center gap-2">
                                                     <button
-                                                        onClick={() => setSelectedLeadIds(archivedLeads.map(l => l.id))}
-                                                        className="text-[9px] font-black text-slate-500 hover:text-indigo-600 uppercase tracking-widest transition-colors px-2"
+                                                        onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.max(1, prev - 1)); }}
+                                                        disabled={currentPage === 1}
+                                                        className="w-10 h-10 rounded-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
                                                     >
-                                                        Select All
+                                                        <i className="fa-solid fa-chevron-left text-xs"></i>
                                                     </button>
                                                     <button
-                                                        onClick={() => setSelectedLeadIds([])}
-                                                        className="text-[9px] font-black text-rose-400 hover:text-rose-600 uppercase tracking-widest transition-colors px-2"
+                                                        onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.min(totalPages, prev + 1)); }}
+                                                        disabled={currentPage === totalPages}
+                                                        className="w-10 h-10 rounded-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
                                                     >
-                                                        Clear
+                                                        <i className="fa-solid fa-chevron-right text-xs"></i>
                                                     </button>
                                                 </div>
-                                            )}
-                                            <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 border border-slate-100 rounded-lg">
-                                                <i className="fa-solid fa-circle-info text-[10px] text-slate-300"></i>
-                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Double-click row to view details</p>
                                             </div>
-                                        </div>
+                                        )}
                                     </div>
-
-                                    {/* Table Headers - Interactive Sorting */}
-                                    <div className="bg-white border-b border-slate-100 px-8 py-3 flex items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                        <div className="w-[3%] flex items-center justify-center">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (selectedLeadIds.length === archivedLeads.length) {
-                                                        setSelectedLeadIds([]);
-                                                    } else {
-                                                        setSelectedLeadIds(archivedLeads.map(l => l.id));
-                                                    }
-                                                }}
-                                                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${selectedLeadIds.length > 0 ? 'bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-500/20' : 'border-slate-200 hover:border-indigo-400'}`}
-                                            >
-                                                {selectedLeadIds.length === archivedLeads.length && archivedLeads.length > 0 && <i className="fa-solid fa-check text-[10px] text-white"></i>}
-                                                {selectedLeadIds.length > 0 && selectedLeadIds.length < archivedLeads.length && <i className="fa-solid fa-minus text-[10px] text-white"></i>}
-                                            </button>
-                                        </div>
-
-                                        {[
-                                            { id: 'type', label: 'Type', width: '4%', align: 'center' },
-                                            { id: 'name', label: 'Lead Name', width: '18%', align: 'left', padding: 'px-4' },
-                                            { id: 'market', label: 'Target Market', width: '15%', align: 'left', padding: 'px-4' },
-                                            { id: 'source', label: 'Source', width: '7%', align: 'left', padding: 'px-2' },
-                                            { id: 'status', label: 'Status', width: '5%', align: 'center' }
-                                        ].map(col => (
-                                            <button
-                                                key={col.id}
-                                                onClick={() => handleSort(col.id)}
-                                                className={`w-[${col.width}] flex items-center ${col.align === 'center' ? 'justify-center' : 'justify-start'} ${col.padding || ''} group/head transition-colors hover:text-slate-900`}
-                                            >
-                                                {col.label}
-                                                <i className={`fa-solid fa-chevron-${sortConfig.key === col.id && sortConfig.direction === 'asc' ? 'up' : 'down'} ml-1.5 text-[8px] transition-all ${sortConfig.key === col.id ? 'text-indigo-500 opacity-100' : 'text-slate-200 opacity-0 group-hover/head:opacity-100'}`}></i>
-                                            </button>
-                                        ))}
-
-                                        <div className="w-[36%] font-black text-indigo-400 uppercase bg-indigo-50/30 px-3 py-1 rounded-md border border-indigo-100/50">Staff Note</div>
-
+                                    <div className="flex justify-center p-8">
                                         <button
-                                            onClick={() => handleSort('lastSeen')}
-                                            className="w-[12%] flex items-center justify-start pl-4 group/head transition-colors hover:text-slate-900"
+                                            onClick={handleAnalyzeSelectedLeads}
+                                            disabled={selectedLeadIds.length === 0}
+                                            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black py-6 px-10 rounded-[2rem] shadow-2xl shadow-indigo-500/20 transition-all flex items-center justify-center gap-4 active:scale-[0.98] text-sm uppercase tracking-widest"
                                         >
-                                            Last Seen
-                                            <i className={`fa-solid fa-chevron-${sortConfig.key === 'lastSeen' && sortConfig.direction === 'asc' ? 'up' : 'down'} ml-1.5 text-[8px] transition-all ${sortConfig.key === 'lastSeen' ? 'text-indigo-500 opacity-100' : 'text-slate-200 opacity-0 group-hover/head:opacity-100'}`}></i>
+                                            <i className="fa-solid fa-wand-sparkles text-lg"></i>
+                                            Generate High-Intent Analysis for {selectedLeadIds.length} Selected Leads
                                         </button>
                                     </div>
+                                </div>
 
-                                    <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
-                                        <div className="divide-y divide-slate-50 bg-white">
-                                            {paginatedLeads.map(lead => {
-                                                const isSelected = selectedLeadIds.includes(lead.id);
-                                                return (
-                                                    <div
-                                                        key={lead.id}
-                                                        onDoubleClick={() => setSelectedLeadForDetails(lead)}
-                                                        className={`flex items-center px-8 py-2.5 hover:bg-indigo-50/30 transition-all cursor-default group border-b border-slate-50/50 relative overflow-hidden`}
-                                                    >
-                                                        {/* SELECTION COLUMN */}
-                                                        <div className="w-[3%] flex items-center relative z-10" onClick={(e) => e.stopPropagation()}>
-                                                            <div
-                                                                onClick={() => toggleLeadSelection(lead.id)}
-                                                                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 cursor-pointer ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-200 hover:border-indigo-400'}`}
-                                                            >
-                                                                {isSelected && <i className="fa-solid fa-check text-[10px] text-white"></i>}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* ROLE COLUMN */}
-                                                        <div className="w-[4%] flex justify-center">
-                                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border shadow-sm ${lead.leadType === 'Seller' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
-                                                                {lead.leadType === 'Seller' ? 'S' : 'B'}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* NAME COLUMN */}
-                                                        <div className="w-[18%] flex flex-col justify-center px-4">
-                                                            <p className="text-[12px] font-black text-slate-800 truncate tracking-tight group-hover:text-indigo-600 transition-colors uppercase leading-tight">
-                                                                {lead.fullName}
-                                                            </p>
-                                                        </div>
-
-                                                        {/* TARGET MARKET COLUMN */}
-                                                        <div className="w-[15%] flex items-center px-4">
-                                                            <p className="text-[12px] font-bold text-slate-500 truncate">{lead.searchCriteria?.locations || ''}</p>
-                                                        </div>
-
-                                                        {/* COMPANY/SOURCE COLUMN */}
-                                                        <div className="w-[7%] flex items-center px-2">
-                                                            <p className="text-[12px] font-bold text-slate-400 truncate">{lead.source || 'Direct Entry'}</p>
-                                                        </div>
-
-                                                        {/* STATUS COLUMN */}
-                                                        <div className="w-[5%] flex justify-center relative">
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setStatusMenuOpen(statusMenuOpen === lead.id ? null : lead.id);
-                                                                }}
-                                                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-sm border ${lead.engagementScore === 'Hot' ? 'bg-rose-50 text-rose-500 border-rose-100' : lead.engagementScore === 'Cold' ? 'bg-sky-50 text-sky-500 border-sky-100' : lead.health === 'Stale' ? 'bg-slate-50 text-slate-400 border-slate-200' : 'bg-indigo-50 text-indigo-500 border-indigo-100'}`}
-                                                            >
-                                                                {lead.engagementScore === 'Hot' && <i className="fa-solid fa-fire text-xs text-rose-500"></i>}
-                                                                {lead.engagementScore === 'Cold' && <i className="fa-solid fa-snowflake text-xs text-sky-400"></i>}
-                                                                {lead.health === 'Stale' && lead.engagementScore !== 'Hot' && lead.engagementScore !== 'Cold' && <i className="fa-solid fa-clock-rotate-left text-xs text-slate-400"></i>}
-                                                                {!['Hot', 'Cold', 'Stale'].includes(lead.engagementScore || lead.health || '') && <i className="fa-solid fa-circle-dot text-[8px] text-indigo-300"></i>}
-                                                            </button>
-
-                                                            {statusMenuOpen === lead.id && (
-                                                                <div className="absolute top-full mt-2 z-50 bg-white rounded-xl shadow-2xl border border-slate-100 p-2 min-w-[120px] animate-in fade-in zoom-in-95 duration-200">
-                                                                    {[
-                                                                        { id: 'Hot', icon: 'fa-fire', label: 'Hot', color: 'text-rose-500', bg: 'hover:bg-rose-50' },
-                                                                        { id: 'Cold', icon: 'fa-snowflake', label: 'Cold', color: 'text-sky-500', bg: 'hover:bg-sky-50' },
-                                                                        { id: 'Stale', icon: 'fa-clock-rotate-left', label: 'Stale', color: 'text-slate-400', bg: 'hover:bg-slate-50' }
-                                                                    ].map(opt => (
-                                                                        <button
-                                                                            key={opt.id}
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                updateLeadStatus(lead.id, opt.id);
-                                                                            }}
-                                                                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[11px] font-black uppercase tracking-tight transition-colors ${opt.bg} ${opt.color}`}
-                                                                        >
-                                                                            <i className={`fa-solid ${opt.icon} w-4`}></i>
-                                                                            {opt.label}
-                                                                        </button>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </div>
-
-                                                        {/* STAFF NOTE COLUMN */}
-                                                        <div className="w-[36%] flex items-center px-4 py-1">
-                                                            <p className="text-[11px] font-medium text-slate-400 italic pr-6 border-l border-slate-50 pl-4 leading-relaxed line-clamp-2 hover:line-clamp-none transition-all">
-                                                                {lead.leadInfo?.customerMessage || lead.notes || 'No active notes'}
-                                                            </p>
-                                                        </div>
-
-                                                        {/* LAST SEEN & ACTION COLUMN */}
-                                                        <div className="w-[12%] flex items-center justify-between pl-4 pr-3 shrink-0">
-                                                            <p className="text-[12px] font-bold text-slate-400 whitespace-nowrap">
-                                                                {lead.lastActivity ? getTimeSince(lead.lastActivity) : (lead.receivedAt ? getTimeSince(lead.receivedAt) : 'Long ago')}
-                                                            </p>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setSelectedLeadForDetails(lead);
-                                                                }}
-                                                                title="View Details"
-                                                                className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-100 hover:scale-110 transition-all shadow-sm active:scale-95"
-                                                            >
-                                                                <i className="fa-solid fa-circle-info text-sm"></i>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                <div className="relative pt-4 pb-0 mt-4 mb-4 mx-12">
+                                    <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                                        <div className="w-full border-t border-slate-100"></div>
                                     </div>
-                                    {totalPages > 1 && (
-                                        <div className="p-6 border-t border-slate-100 bg-white flex items-center justify-between">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                                Page {currentPage} of {totalPages}
-                                            </p>
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.max(1, prev - 1)); }}
-                                                    disabled={currentPage === 1}
-                                                    className="w-10 h-10 rounded-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-                                                >
-                                                    <i className="fa-solid fa-chevron-left text-xs"></i>
-                                                </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.min(totalPages, prev + 1)); }}
-                                                    disabled={currentPage === totalPages}
-                                                    className="w-10 h-10 rounded-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-                                                >
-                                                    <i className="fa-solid fa-chevron-right text-xs"></i>
-                                                </button>
+                                    <div className="relative flex justify-center text-[10px] font-black uppercase tracking-widest">
+                                        <span className="bg-white px-8 text-slate-300">OR UPLOAD EXTERNAL CSV</span>
+                                    </div>
+                                </div>
+
+                                <div
+                                    onDragOver={handleDragOver}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={handleDrop}
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className={`relative border-2 border-dashed rounded-[2.5rem] p-16 transition-all cursor-pointer group mx-12 mb-12 ${isDragging ? 'border-indigo-500 bg-indigo-50/50 scale-[1.02]' : 'border-slate-200 hover:border-indigo-400 hover:bg-slate-50'}`}
+                                >
+                                    <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".csv" />
+                                    <div className="space-y-6">
+                                        <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto transition-all group-hover:scale-110 group-hover:text-indigo-600 group-hover:bg-indigo-50 shadow-inner">
+                                            <i className="fa-solid fa-cloud-arrow-up text-2xl"></i>
+                                        </div>
+                                        {validationError ? (
+                                            <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                                                <p className="text-sm font-bold text-rose-500 bg-rose-50 px-4 py-2 rounded-xl border border-rose-100 italic">{validationError}</p>
                                             </div>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex justify-center p-8">
-                                    <button
-                                        onClick={handleAnalyzeSelectedLeads}
-                                        disabled={selectedLeadIds.length === 0}
-                                        className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black py-6 px-10 rounded-[2rem] shadow-2xl shadow-indigo-500/20 transition-all flex items-center justify-center gap-4 active:scale-[0.98] text-sm uppercase tracking-widest"
-                                    >
-                                        <i className="fa-solid fa-wand-sparkles text-lg"></i>
-                                        Generate High-Intent Analysis for {selectedLeadIds.length} Selected Leads
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="relative pt-4 pb-0 mt-4 mb-4 mx-12">
-                                <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                                    <div className="w-full border-t border-slate-100"></div>
-                                </div>
-                                <div className="relative flex justify-center text-[10px] font-black uppercase tracking-widest">
-                                    <span className="bg-white px-8 text-slate-300">OR UPLOAD EXTERNAL CSV</span>
-                                </div>
-                            </div>
-
-                            <div
-                                onDragOver={handleDragOver}
-                                onDragLeave={handleDragLeave}
-                                onDrop={handleDrop}
-                                onClick={() => fileInputRef.current?.click()}
-                                className={`relative border-2 border-dashed rounded-[2.5rem] p-16 transition-all cursor-pointer group mx-12 mb-12 ${isDragging ? 'border-indigo-500 bg-indigo-50/50 scale-[1.02]' : 'border-slate-200 hover:border-indigo-400 hover:bg-slate-50'}`}
-                            >
-                                <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".csv" />
-                                <div className="space-y-6">
-                                    <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto transition-all group-hover:scale-110 group-hover:text-indigo-600 group-hover:bg-indigo-50 shadow-inner">
-                                        <i className="fa-solid fa-cloud-arrow-up text-2xl"></i>
+                                        ) : file ? (
+                                            <div className="space-y-2 animate-in zoom-in-95 duration-300">
+                                                <p className="text-lg font-black text-indigo-600">{file.name}</p>
+                                                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{(file.size / 1024).toFixed(1)} KB • CSV Ready</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                <p className="text-sm font-black text-slate-700 uppercase tracking-tight">Manual File Drop</p>
+                                                <p className="text-xs text-slate-400 font-medium">Click to browse or drag & drop external CSV</p>
+                                            </div>
+                                        )}
                                     </div>
-                                    {validationError ? (
-                                        <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
-                                            <p className="text-sm font-bold text-rose-500 bg-rose-50 px-4 py-2 rounded-xl border border-rose-100 italic">{validationError}</p>
-                                        </div>
-                                    ) : file ? (
-                                        <div className="space-y-2 animate-in zoom-in-95 duration-300">
-                                            <p className="text-lg font-black text-indigo-600">{file.name}</p>
-                                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{(file.size / 1024).toFixed(1)} KB • CSV Ready</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-2">
-                                            <p className="text-sm font-black text-slate-700 uppercase tracking-tight">Manual File Drop</p>
-                                            <p className="text-xs text-slate-400 font-medium">Click to browse or drag & drop external CSV</p>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {/* Preview Section */}
-                    {fileContent && uploadStatus === 'idle' && (
-                        <div className="space-y-10 animate-in fade-in zoom-in-95 duration-500 p-12">
-                            <div className="bg-slate-50/50 rounded-3xl border border-slate-200 overflow-hidden">
-                                <div className="max-h-[400px] overflow-y-auto overflow-x-auto custom-scrollbar">
-                                    <table className="w-full text-left border-collapse">
-                                        <thead className="sticky top-0 z-20">
-                                            <tr className="bg-slate-50 shadow-sm">
-                                                {csvPreview[0]?.map((header, i) => (
-                                                    <th key={i} className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 whitespace-nowrap bg-slate-50">{header}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {csvPreview.slice(1).map((row, rIdx) => (
-                                                <tr key={rIdx} className="hover:bg-white transition-colors group">
-                                                    {row.map((cell, cIdx) => (
-                                                        <td key={cIdx} className="px-6 py-4 text-xs font-medium text-slate-600 border-b border-slate-50 whitespace-nowrap">{cell}</td>
+                        {/* Preview Section */}
+                        {fileContent && uploadStatus === 'idle' && (
+                            <div className="space-y-10 animate-in fade-in zoom-in-95 duration-500 p-12">
+                                <div className="bg-slate-50/50 rounded-3xl border border-slate-200 overflow-hidden">
+                                    <div className="max-h-[400px] overflow-y-auto overflow-x-auto custom-scrollbar">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead className="sticky top-0 z-20">
+                                                <tr className="bg-slate-50 shadow-sm">
+                                                    {csvPreview[0]?.map((header, i) => (
+                                                        <th key={i} className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 whitespace-nowrap bg-slate-50">{header}</th>
                                                     ))}
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody>
+                                                {csvPreview.slice(1).map((row, rIdx) => (
+                                                    <tr key={rIdx} className="hover:bg-white transition-colors group">
+                                                        {row.map((cell, cIdx) => (
+                                                            <td key={cIdx} className="px-6 py-4 text-xs font-medium text-slate-600 border-b border-slate-50 whitespace-nowrap">{cell}</td>
+                                                        ))}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <button onClick={handleUpload} className="bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl flex items-center justify-center gap-3">
+                                            <i className="fa-solid fa-brain"></i> Execute Planning
+                                        </button>
+                                        <button onClick={handleTransform} disabled={isTransforming} className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 font-black py-5 rounded-2xl flex items-center justify-center gap-3">
+                                            <i className="fa-solid fa-wand-magic-sparkles"></i> {isTransforming ? 'Transforming...' : 'Schema Map'}
+                                        </button>
+                                    </div>
+                                    <button onClick={reset} className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 transition-colors">Cancel</button>
                                 </div>
                             </div>
-                            <div className="flex flex-col gap-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <button onClick={handleUpload} className="bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl flex items-center justify-center gap-3">
-                                        <i className="fa-solid fa-brain"></i> Execute Planning
-                                    </button>
-                                    <button onClick={handleTransform} disabled={isTransforming} className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 font-black py-5 rounded-2xl flex items-center justify-center gap-3">
-                                        <i className="fa-solid fa-wand-magic-sparkles"></i> {isTransforming ? 'Transforming...' : 'Schema Map'}
-                                    </button>
+                        )}
+
+                        {/* Transformed CSV Success */}
+                        {transformedCsv && (
+                            <div className="mt-10 p-8 bg-emerald-50 border border-emerald-100 rounded-[2rem] space-y-6 mx-12 mb-12 animate-in zoom-in-95 duration-500">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center"><i className="fa-solid fa-check"></i></div>
+                                        <p className="text-sm font-black text-emerald-900 uppercase tracking-tight">Transformation Complete</p>
+                                    </div>
+                                    <button onClick={downloadTransformedCsv} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest px-6 py-3 rounded-xl transition-all"><i className="fa-solid fa-download"></i> Download CSV</button>
                                 </div>
-                                <button onClick={reset} className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 transition-colors">Cancel</button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Transformed CSV Success */}
-                    {transformedCsv && (
-                        <div className="mt-10 p-8 bg-emerald-50 border border-emerald-100 rounded-[2rem] space-y-6 mx-12 mb-12 animate-in zoom-in-95 duration-500">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center"><i className="fa-solid fa-check"></i></div>
-                                    <p className="text-sm font-black text-emerald-900 uppercase tracking-tight">Transformation Complete</p>
+                                <div className="bg-white rounded-2xl border border-emerald-100 overflow-hidden">
+                                    <pre className="p-6 text-[10px] font-mono text-slate-600 overflow-x-auto text-left max-h-[200px]">{transformedCsv}</pre>
                                 </div>
-                                <button onClick={downloadTransformedCsv} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest px-6 py-3 rounded-xl transition-all"><i className="fa-solid fa-download"></i> Download CSV</button>
                             </div>
-                            <div className="bg-white rounded-2xl border border-emerald-100 overflow-hidden">
-                                <pre className="p-6 text-[10px] font-mono text-slate-600 overflow-x-auto text-left max-h-[200px]">{transformedCsv}</pre>
-                            </div>
-                        </div>
-                    )}
+                        )}
 
-                    {/* Loader */}
-                    {uploadStatus === 'uploading' && (
-                        <div className="w-full bg-indigo-50/50 border border-indigo-100 rounded-3xl p-16 flex flex-col items-center justify-center gap-4">
-                            <div className="relative">
-                                <div className="w-12 h-12 border-4 border-indigo-100 rounded-full"></div>
-                                <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+                        {/* Loader */}
+                        {uploadStatus === 'uploading' && (
+                            <div className="w-full bg-indigo-50/50 border border-indigo-100 rounded-3xl p-16 flex flex-col items-center justify-center gap-4">
+                                <div className="relative">
+                                    <div className="w-12 h-12 border-4 border-indigo-100 rounded-full"></div>
+                                    <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+                                </div>
+                                <p className="text-indigo-600 font-black uppercase tracking-widest text-xs">Architecting Lead Reactivation Plan</p>
                             </div>
-                            <p className="text-indigo-600 font-black uppercase tracking-widest text-xs">Architecting Lead Reactivation Plan</p>
-                        </div>
-                    )}
+                        )}
 
-                    {/* Features Footer */}
-                    <div className="grid grid-cols-3 gap-8 pt-10 border-t border-slate-100 mt-12 px-12 pb-12">
-                        {[{ icon: 'fa-earth-americas', label: 'Multi-Market' }, { icon: 'fa-shield-check', label: 'Compliance' }, { icon: 'fa-chart-network', label: 'Event Tracks' }].map((item, i) => (
-                            <div key={i} className="text-center space-y-3">
-                                <i className={`fa-solid ${item.icon} text-lg text-slate-400`}></i>
-                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{item.label}</p>
-                            </div>
-                        ))}
+                        {/* Features Footer */}
+                        <div className="grid grid-cols-3 gap-8 pt-10 border-t border-slate-100 mt-12 px-12 pb-12">
+                            {[{ icon: 'fa-earth-americas', label: 'Multi-Market' }, { icon: 'fa-shield-check', label: 'Compliance' }, { icon: 'fa-chart-network', label: 'Event Tracks' }].map((item, i) => (
+                                <div key={i} className="text-center space-y-3">
+                                    <i className={`fa-solid ${item.icon} text-lg text-slate-400`}></i>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{item.label}</p>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* Recent Uploads Section */}
             {
