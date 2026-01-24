@@ -29,6 +29,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
     const [sendingKeys, setSendingKeys] = useState<Set<string>>(new Set());
     const [sentKeys, setSentKeys] = useState<Set<string>>(new Set());
     const [searchQuery, setSearchQuery] = useState('');
+    const [activeCityTab, setActiveCityTab] = useState('All');
 
     const CHANNELS = ['sms', 'email', 'call', 'direct_mail'];
 
@@ -134,11 +135,26 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
         }
     };
 
-    const filteredPlans = localPlans.filter(plan =>
-        plan.lead_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        plan.market?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        plan.staleness_reason?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const getCityFromMarket = (market: string) => {
+        if (!market) return 'Unknown';
+        return market.split(' - ')[0].trim();
+    };
+
+    const filteredPlans = localPlans.filter(plan => {
+        const matchesSearch = plan.lead_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            plan.market?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            plan.staleness_reason?.toLowerCase().includes(searchQuery.toLowerCase());
+
+        const planCity = getCityFromMarket(plan.market);
+        const matchesCity = activeCityTab === 'All' || planCity === activeCityTab;
+
+        return matchesSearch && matchesCity;
+    });
+
+    const allCities = Array.from(new Set(localPlans.map(p => getCityFromMarket(p.market)))).sort();
+    const visibleCities = allCities.slice(0, 4);
+    const hiddenCities = allCities.slice(4);
+    const isHiddenCitySelected = hiddenCities.includes(activeCityTab);
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -171,275 +187,335 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                     </div>
                 </div>
 
-                <div className="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">
-                    <span>Showing {filteredPlans.length} of {localPlans.length} Reactivation Paths</span>
-                </div>
+                {/* City Tabs */}
+                <div className="flex flex-col gap-6">
+                    <div className="flex items-center gap-2 p-1.5 bg-slate-100/50 rounded-2xl w-fit">
+                        {/* All Tab */}
+                        <button
+                            onClick={() => setActiveCityTab('All')}
+                            className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeCityTab === 'All' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            All
+                            <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[8px] ${activeCityTab === 'All' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-200 text-slate-500'}`}>
+                                {localPlans.length}
+                            </span>
+                        </button>
 
-                <div className="grid grid-cols-1 gap-6">
-                    {filteredPlans.map((plan, idx) => {
-                        // Find the original index in localPlans for editing/sending
-                        const originalIdx = localPlans.indexOf(plan);
-                        return (
-                            <div key={originalIdx} className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-500 group border-l-4" style={{ borderLeftColor: plan.priority_score > 0.8 ? '#4f46e5' : plan.priority_score > 0.5 ? '#3b82f6' : '#94a3b8' }}>
-                                <div className="p-8">
-                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                                        {/* Lead Info */}
-                                        <div className="lg:col-span-3 space-y-4">
-                                            <div>
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <div className="w-8 h-8 rounded-lg bg-slate-50 text-slate-400 flex items-center justify-center font-bold text-xs">
-                                                        #{idx + 1}
+                        {/* Visible Cities */}
+                        {visibleCities.map(c => (
+                            <button
+                                key={c}
+                                onClick={() => setActiveCityTab(c)}
+                                className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeCityTab === c ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                {c}
+                                <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[8px] ${activeCityTab === c ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-200 text-slate-500'}`}>
+                                    {localPlans.filter(p => getCityFromMarket(p.market) === c).length}
+                                </span>
+                            </button>
+                        ))}
+
+                        {/* Others Dropdown */}
+                        {hiddenCities.length > 0 && (
+                            <div className="relative group/others flex items-center">
+                                <div className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all ${isHiddenCitySelected ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-200/50 text-slate-500 hover:bg-slate-200'} cursor-pointer relative`}>
+                                    <select
+                                        value={isHiddenCitySelected ? activeCityTab : ''}
+                                        onChange={(e) => {
+                                            if (e.target.value) setActiveCityTab(e.target.value);
+                                        }}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                    >
+                                        <option value="" disabled>Select City...</option>
+                                        {hiddenCities.map(c => (
+                                            <option key={c} value={c} className="text-slate-700 font-bold uppercase">{c} ({localPlans.filter(p => getCityFromMarket(p.market) === c).length})</option>
+                                        ))}
+                                    </select>
+
+                                    <span className="text-[10px] font-black uppercase tracking-widest pointer-events-none">
+                                        {isHiddenCitySelected ? activeCityTab : 'More Cities'}
+                                    </span>
+
+                                    <span className={`px-1.5 py-0.5 rounded-md text-[8px] pointer-events-none ${isHiddenCitySelected ? 'bg-white/20 text-white' : 'bg-slate-300 text-slate-600'}`}>
+                                        {hiddenCities.reduce((acc, c) => acc + localPlans.filter(p => getCityFromMarket(p.market) === c).length, 0)}
+                                    </span>
+
+                                    <i className={`fa-solid fa-caret-down text-[10px] ml-1 pointer-events-none transition-transform group-hover/others:rotate-180 ${isHiddenCitySelected ? 'text-white' : 'text-slate-400'}`}></i>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">
+                        <span>Showing {filteredPlans.length} Reactivation Paths for {activeCityTab}</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-6">
+                        {filteredPlans.map((plan, idx) => {
+                            // Find the original index in localPlans for editing/sending
+                            const originalIdx = localPlans.indexOf(plan);
+                            return (
+                                <div key={originalIdx} className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-500 group border-l-4" style={{ borderLeftColor: plan.priority_score > 0.8 ? '#4f46e5' : plan.priority_score > 0.5 ? '#3b82f6' : '#94a3b8' }}>
+                                    <div className="p-8">
+                                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                                            {/* Lead Info */}
+                                            <div className="lg:col-span-3 space-y-4">
+                                                <div>
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <div className="w-8 h-8 rounded-lg bg-slate-50 text-slate-400 flex items-center justify-center font-bold text-xs">
+                                                            #{idx + 1}
+                                                        </div>
+                                                        <span className="text-xs font-black uppercase tracking-widest text-slate-400">{plan.market}</span>
                                                     </div>
-                                                    <span className="text-xs font-black uppercase tracking-widest text-slate-400">{plan.market}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <h4 className="text-lg font-black text-slate-900 truncate">{plan.lead_name}</h4>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onOpenLeadDetails?.(plan.lead_id);
+                                                            }}
+                                                            className="w-6 h-6 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm active:scale-90"
+                                                            title="View Full Lead Profile"
+                                                        >
+                                                            <i className="fa-solid fa-circle-info text-[11px] font-black"></i>
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    <h4 className="text-lg font-black text-slate-900 truncate">{plan.lead_name}</h4>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onOpenLeadDetails?.(plan.lead_id);
-                                                        }}
-                                                        className="w-6 h-6 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm active:scale-90"
-                                                        title="View Full Lead Profile"
-                                                    >
-                                                        <i className="fa-solid fa-circle-info text-[11px] font-black"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
 
-                                            <div className="flex flex-wrap gap-2">
-                                                <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${plan.recommended_channel === 'sms' ? 'bg-emerald-50 text-emerald-600' :
-                                                    plan.recommended_channel === 'email' ? 'bg-blue-50 text-blue-600' :
-                                                        plan.recommended_channel === 'call' ? 'bg-orange-50 text-orange-600' :
-                                                            'bg-purple-50 text-purple-600'
-                                                    }`}>
-                                                    {plan.recommended_channel.replace('_', ' ')}
+                                                <div className="flex flex-wrap gap-2">
+                                                    <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${plan.recommended_channel === 'sms' ? 'bg-emerald-50 text-emerald-600' :
+                                                        plan.recommended_channel === 'email' ? 'bg-blue-50 text-blue-600' :
+                                                            plan.recommended_channel === 'call' ? 'bg-orange-50 text-orange-600' :
+                                                                'bg-purple-50 text-purple-600'
+                                                        }`}>
+                                                        {plan.recommended_channel.replace('_', ' ')}
+                                                    </div>
+                                                    <div className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-wider">
+                                                        {plan.tone.replace('_', ' ')}
+                                                    </div>
+                                                    <div className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-wider">
+                                                        {(plan.priority_score * 100).toFixed(0)}% Priority
+                                                    </div>
                                                 </div>
-                                                <div className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-wider">
-                                                    {plan.tone.replace('_', ' ')}
-                                                </div>
-                                                <div className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-wider">
-                                                    {(plan.priority_score * 100).toFixed(0)}% Priority
-                                                </div>
-                                            </div>
 
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Drift Cause</label>
-                                                <div className="text-sm font-bold text-slate-600 capitalize">{plan.staleness_reason}</div>
-                                            </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Drift Cause</label>
+                                                    <div className="text-sm font-bold text-slate-600 capitalize">{plan.staleness_reason}</div>
+                                                </div>
 
-                                            {/* Market Insight for this Lead */}
-                                            {result.market_context.find(m => m.market_name === plan.market) && (
-                                                <div className="pt-4 mt-4 border-t border-slate-50 space-y-3">
-                                                    <div className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Market Intelligence</div>
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50">
-                                                            <div className="text-[8px] font-black uppercase text-slate-400 mb-0.5">Rates</div>
-                                                            <div className="text-[10px] font-bold text-slate-700 capitalize">
-                                                                {result.market_context.find(m => m.market_name === plan.market)?.rates_trend}
+                                                {/* Market Insight for this Lead */}
+                                                {result.market_context.find(m => m.market_name === plan.market) && (
+                                                    <div className="pt-4 mt-4 border-t border-slate-50 space-y-3">
+                                                        <div className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Market Intelligence</div>
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50">
+                                                                <div className="text-[8px] font-black uppercase text-slate-400 mb-0.5">Rates</div>
+                                                                <div className="text-[10px] font-bold text-slate-700 capitalize">
+                                                                    {result.market_context.find(m => m.market_name === plan.market)?.rates_trend}
+                                                                </div>
+                                                            </div>
+                                                            <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50">
+                                                                <div className="text-[8px] font-black uppercase text-slate-400 mb-0.5">Supply</div>
+                                                                <div className="text-[10px] font-bold text-slate-700 capitalize">
+                                                                    {result.market_context.find(m => m.market_name === plan.market)?.inventory_trend}
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                        <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50">
-                                                            <div className="text-[8px] font-black uppercase text-slate-400 mb-0.5">Supply</div>
-                                                            <div className="text-[10px] font-bold text-slate-700 capitalize">
-                                                                {result.market_context.find(m => m.market_name === plan.market)?.inventory_trend}
-                                                            </div>
+                                                        <div className="text-[10px] text-slate-500 font-medium leading-tight line-clamp-2 italic">
+                                                            "{result.market_context.find(m => m.market_name === plan.market)?.buyer_leverage_notes}"
                                                         </div>
                                                     </div>
-                                                    <div className="text-[10px] text-slate-500 font-medium leading-tight line-clamp-2 italic">
-                                                        "{result.market_context.find(m => m.market_name === plan.market)?.buyer_leverage_notes}"
+                                                )}
+                                            </div>
+
+                                            {/* Outreach Timeline */}
+                                            <div className="lg:col-span-9 space-y-6">
+                                                {/* First Touch */}
+                                                <div className="relative">
+                                                    <div className="absolute left-4 top-8 bottom-0 w-0.5 border-l-2 border-dashed border-slate-100"></div>
+                                                    <div className="flex gap-6">
+                                                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black z-10 shadow-lg shadow-indigo-200">
+                                                            1
+                                                        </div>
+                                                        <div className="flex-1 bg-slate-50 p-6 rounded-2xl border border-slate-100 relative group-hover:bg-white group-hover:border-indigo-100 transition-colors max-h-[400px] overflow-y-auto custom-scrollbar">
+                                                            <div className="flex justify-between items-center mb-3 sticky top-0 bg-inherit z-10">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Day {plan.first_touch.send_after_days}: Immediate Hook</div>
+                                                                    {editingKey === `${originalIdx}-first` && (
+                                                                        <select
+                                                                            value={editingChannel}
+                                                                            onChange={(e) => setEditingChannel(e.target.value)}
+                                                                            className="text-[10px] font-black uppercase tracking-wider bg-white border border-slate-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                                                        >
+                                                                            {CHANNELS.map(c => (
+                                                                                <option key={c} value={c}>{c.replace('_', ' ')}</option>
+                                                                            ))}
+                                                                        </select>
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex gap-3">
+                                                                    {!editingKey && (
+                                                                        <>
+                                                                            <button
+                                                                                onClick={() => handleSend(originalIdx, 'first', plan.first_touch.message, plan.recommended_channel, plan.lead_id)}
+                                                                                className={`transition-all duration-300 ${sentKeys.has(`${originalIdx}-first`) ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
+                                                                                title="Send now"
+                                                                                disabled={sendingKeys.has(`${originalIdx}-first`)}
+                                                                            >
+                                                                                {sendingKeys.has(`${originalIdx}-first`) ? (
+                                                                                    <i className="fa-solid fa-spinner fa-spin text-xs"></i>
+                                                                                ) : (
+                                                                                    <i className={`fa-solid ${sentKeys.has(`${originalIdx}-first`) ? 'fa-square-check' : 'fa-paper-plane'} text-xs`}></i>
+                                                                                )}
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => handleCopy(plan.first_touch.message, `copy-${originalIdx}-first`)}
+                                                                                className={`transition-all duration-300 ${copiedKey === `copy-${originalIdx}-first` ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
+                                                                                title="Copy to clipboard"
+                                                                            >
+                                                                                <i className={`fa-solid ${copiedKey === `copy-${originalIdx}-first` ? 'fa-check' : 'fa-copy'} text-xs`}></i>
+                                                                            </button>
+                                                                        </>
+                                                                    )}
+                                                                    {editingKey === `${originalIdx}-first` ? (
+                                                                        <div className="flex gap-3">
+                                                                            <button
+                                                                                onClick={handleCancel}
+                                                                                className="text-slate-300 hover:text-rose-500 transition-colors"
+                                                                                title="Cancel editing"
+                                                                            >
+                                                                                <i className="fa-solid fa-xmark text-xs"></i>
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => handleSave(originalIdx, 'first')}
+                                                                                className="text-emerald-500 hover:text-emerald-600 transition-colors"
+                                                                                title="Save changes"
+                                                                            >
+                                                                                <i className="fa-solid fa-floppy-disk text-xs"></i>
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <button
+                                                                            onClick={() => startEditing(originalIdx, 'first', plan.first_touch.message, plan.recommended_channel)}
+                                                                            className="text-slate-300 hover:text-indigo-600 transition-colors"
+                                                                            title="Edit message"
+                                                                        >
+                                                                            <i className="fa-solid fa-pen text-xs"></i>
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            {editingKey === `${originalIdx}-first` ? (
+                                                                <textarea
+                                                                    value={editingValue}
+                                                                    onChange={(e) => setEditingValue(e.target.value)}
+                                                                    className="w-full bg-white border border-indigo-100 rounded-xl p-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 min-h-[100px] resize-none"
+                                                                    autoFocus
+                                                                />
+                                                            ) : (
+                                                                <p className="text-sm text-slate-700 font-medium leading-relaxed">"{plan.first_touch.message}"</p>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            )}
-                                        </div>
 
-                                        {/* Outreach Timeline */}
-                                        <div className="lg:col-span-9 space-y-6">
-                                            {/* First Touch */}
-                                            <div className="relative">
-                                                <div className="absolute left-4 top-8 bottom-0 w-0.5 border-l-2 border-dashed border-slate-100"></div>
-                                                <div className="flex gap-6">
-                                                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black z-10 shadow-lg shadow-indigo-200">
-                                                        1
-                                                    </div>
-                                                    <div className="flex-1 bg-slate-50 p-6 rounded-2xl border border-slate-100 relative group-hover:bg-white group-hover:border-indigo-100 transition-colors max-h-[400px] overflow-y-auto custom-scrollbar">
-                                                        <div className="flex justify-between items-center mb-3 sticky top-0 bg-inherit z-10">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Day {plan.first_touch.send_after_days}: Immediate Hook</div>
-                                                                {editingKey === `${idx}-first` && (
-                                                                    <select
-                                                                        value={editingChannel}
-                                                                        onChange={(e) => setEditingChannel(e.target.value)}
-                                                                        className="text-[10px] font-black uppercase tracking-wider bg-white border border-slate-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                                                    >
-                                                                        {CHANNELS.map(c => (
-                                                                            <option key={c} value={c}>{c.replace('_', ' ')}</option>
-                                                                        ))}
-                                                                    </select>
-                                                                )}
-                                                            </div>
-                                                            <div className="flex gap-3">
-                                                                {!editingKey && (
-                                                                    <>
-                                                                        <button
-                                                                            onClick={() => handleSend(originalIdx, 'first', plan.first_touch.message, plan.recommended_channel, plan.lead_id)}
-                                                                            className={`transition-all duration-300 ${sentKeys.has(`${originalIdx}-first`) ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
-                                                                            title="Send now"
-                                                                            disabled={sendingKeys.has(`${originalIdx}-first`)}
-                                                                        >
-                                                                            {sendingKeys.has(`${originalIdx}-first`) ? (
-                                                                                <i className="fa-solid fa-spinner fa-spin text-xs"></i>
-                                                                            ) : (
-                                                                                <i className={`fa-solid ${sentKeys.has(`${originalIdx}-first`) ? 'fa-square-check' : 'fa-paper-plane'} text-xs`}></i>
-                                                                            )}
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => handleCopy(plan.first_touch.message, `copy-${originalIdx}-first`)}
-                                                                            className={`transition-all duration-300 ${copiedKey === `copy-${originalIdx}-first` ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
-                                                                            title="Copy to clipboard"
-                                                                        >
-                                                                            <i className={`fa-solid ${copiedKey === `copy-${originalIdx}-first` ? 'fa-check' : 'fa-copy'} text-xs`}></i>
-                                                                        </button>
-                                                                    </>
-                                                                )}
-                                                                {editingKey === `${originalIdx}-first` ? (
-                                                                    <div className="flex gap-3">
-                                                                        <button
-                                                                            onClick={handleCancel}
-                                                                            className="text-slate-300 hover:text-rose-500 transition-colors"
-                                                                            title="Cancel editing"
-                                                                        >
-                                                                            <i className="fa-solid fa-xmark text-xs"></i>
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => handleSave(originalIdx, 'first')}
-                                                                            className="text-emerald-500 hover:text-emerald-600 transition-colors"
-                                                                            title="Save changes"
-                                                                        >
-                                                                            <i className="fa-solid fa-floppy-disk text-xs"></i>
-                                                                        </button>
-                                                                    </div>
-                                                                ) : (
-                                                                    <button
-                                                                        onClick={() => startEditing(originalIdx, 'first', plan.first_touch.message, plan.recommended_channel)}
-                                                                        className="text-slate-300 hover:text-indigo-600 transition-colors"
-                                                                        title="Edit message"
-                                                                    >
-                                                                        <i className="fa-solid fa-pen text-xs"></i>
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                        {editingKey === `${originalIdx}-first` ? (
-                                                            <textarea
-                                                                value={editingValue}
-                                                                onChange={(e) => setEditingValue(e.target.value)}
-                                                                className="w-full bg-white border border-indigo-100 rounded-xl p-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 min-h-[100px] resize-none"
-                                                                autoFocus
-                                                            />
-                                                        ) : (
-                                                            <p className="text-sm text-slate-700 font-medium leading-relaxed">"{plan.first_touch.message}"</p>
+                                                {/* Sequence Steps */}
+                                                {plan.sequence.enabled && plan.sequence.steps.map((step, sIdx) => (
+                                                    <div key={sIdx} className="flex gap-6 relative">
+                                                        {sIdx < plan.sequence.steps.length - 1 && (
+                                                            <div className="absolute left-4 top-8 bottom-0 w-0.5 border-l-2 border-dashed border-slate-100"></div>
                                                         )}
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Sequence Steps */}
-                                            {plan.sequence.enabled && plan.sequence.steps.map((step, sIdx) => (
-                                                <div key={sIdx} className="flex gap-6 relative">
-                                                    {sIdx < plan.sequence.steps.length - 1 && (
-                                                        <div className="absolute left-4 top-8 bottom-0 w-0.5 border-l-2 border-dashed border-slate-100"></div>
-                                                    )}
-                                                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 border-2 border-white flex items-center justify-center text-xs font-black z-10 shadow-sm">
-                                                        {sIdx + 2}
-                                                    </div>
-                                                    <div className="flex-1 bg-slate-50/50 p-6 rounded-2xl border border-slate-100 relative group-hover:bg-white group-hover:border-indigo-100/50 transition-colors max-h-[300px] overflow-y-auto custom-scrollbar">
-                                                        <div className="flex justify-between items-center mb-3 sticky top-0 bg-inherit z-10">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Day {step.day_offset}: Follow-up via {step.channel}</div>
-                                                                {editingKey === `${originalIdx}-${sIdx}` && (
-                                                                    <select
-                                                                        value={editingChannel}
-                                                                        onChange={(e) => setEditingChannel(e.target.value)}
-                                                                        className="text-[10px] font-black uppercase tracking-wider bg-white border border-slate-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                                                    >
-                                                                        {CHANNELS.map(c => (
-                                                                            <option key={c} value={c}>{c.replace('_', ' ')}</option>
-                                                                        ))}
-                                                                    </select>
-                                                                )}
-                                                            </div>
-                                                            <div className="flex gap-3">
-                                                                {!editingKey && (
-                                                                    <>
-                                                                        <button
-                                                                            onClick={() => handleSend(originalIdx, sIdx, step.message, step.channel, plan.lead_id)}
-                                                                            className={`transition-all duration-300 ${sentKeys.has(`${originalIdx}-${sIdx}`) ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
-                                                                            title="Send now"
-                                                                            disabled={sendingKeys.has(`${originalIdx}-${sIdx}`)}
-                                                                        >
-                                                                            {sendingKeys.has(`${originalIdx}-${sIdx}`) ? (
-                                                                                <i className="fa-solid fa-spinner fa-spin text-xs"></i>
-                                                                            ) : (
-                                                                                <i className={`fa-solid ${sentKeys.has(`${originalIdx}-${sIdx}`) ? 'fa-square-check' : 'fa-paper-plane'} text-xs`}></i>
-                                                                            )}
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => handleCopy(step.message, `copy-${originalIdx}-${sIdx}`)}
-                                                                            className={`transition-all duration-300 ${copiedKey === `copy-${originalIdx}-${sIdx}` ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
-                                                                            title="Copy to clipboard"
-                                                                        >
-                                                                            <i className={`fa-solid ${copiedKey === `copy-${originalIdx}-${sIdx}` ? 'fa-check' : 'fa-copy'} text-xs`}></i>
-                                                                        </button>
-                                                                    </>
-                                                                )}
-                                                                {editingKey === `${originalIdx}-${sIdx}` ? (
-                                                                    <div className="flex gap-3">
-                                                                        <button
-                                                                            onClick={handleCancel}
-                                                                            className="text-slate-300 hover:text-rose-500 transition-colors"
-                                                                            title="Cancel editing"
-                                                                        >
-                                                                            <i className="fa-solid fa-xmark text-xs"></i>
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => handleSave(originalIdx, sIdx)}
-                                                                            className="text-emerald-500 hover:text-emerald-600 transition-colors"
-                                                                            title="Save changes"
-                                                                        >
-                                                                            <i className="fa-solid fa-floppy-disk text-xs"></i>
-                                                                        </button>
-                                                                    </div>
-                                                                ) : (
-                                                                    <button
-                                                                        onClick={() => startEditing(originalIdx, sIdx, step.message, step.channel)}
-                                                                        className="text-slate-300 hover:text-indigo-600 transition-colors"
-                                                                        title="Edit message"
-                                                                    >
-                                                                        <i className="fa-solid fa-pen text-xs"></i>
-                                                                    </button>
-                                                                )}
-                                                            </div>
+                                                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 border-2 border-white flex items-center justify-center text-xs font-black z-10 shadow-sm">
+                                                            {sIdx + 2}
                                                         </div>
-                                                        {editingKey === `${originalIdx}-${sIdx}` ? (
-                                                            <textarea
-                                                                value={editingValue}
-                                                                onChange={(e) => setEditingValue(e.target.value)}
-                                                                className="w-full bg-white border border-indigo-100 rounded-xl p-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 min-h-[100px] resize-none"
-                                                                autoFocus
-                                                            />
-                                                        ) : (
-                                                            <p className="text-sm text-slate-600 font-medium leading-relaxed italic">"{step.message}"</p>
-                                                        )}
+                                                        <div className="flex-1 bg-slate-50/50 p-6 rounded-2xl border border-slate-100 relative group-hover:bg-white group-hover:border-indigo-100/50 transition-colors max-h-[300px] overflow-y-auto custom-scrollbar">
+                                                            <div className="flex justify-between items-center mb-3 sticky top-0 bg-inherit z-10">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Day {step.day_offset}: Follow-up via {step.channel}</div>
+                                                                    {editingKey === `${originalIdx}-${sIdx}` && (
+                                                                        <select
+                                                                            value={editingChannel}
+                                                                            onChange={(e) => setEditingChannel(e.target.value)}
+                                                                            className="text-[10px] font-black uppercase tracking-wider bg-white border border-slate-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                                                        >
+                                                                            {CHANNELS.map(c => (
+                                                                                <option key={c} value={c}>{c.replace('_', ' ')}</option>
+                                                                            ))}
+                                                                        </select>
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex gap-3">
+                                                                    {!editingKey && (
+                                                                        <>
+                                                                            <button
+                                                                                onClick={() => handleSend(originalIdx, sIdx, step.message, step.channel, plan.lead_id)}
+                                                                                className={`transition-all duration-300 ${sentKeys.has(`${originalIdx}-${sIdx}`) ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
+                                                                                title="Send now"
+                                                                                disabled={sendingKeys.has(`${originalIdx}-${sIdx}`)}
+                                                                            >
+                                                                                {sendingKeys.has(`${originalIdx}-${sIdx}`) ? (
+                                                                                    <i className="fa-solid fa-spinner fa-spin text-xs"></i>
+                                                                                ) : (
+                                                                                    <i className={`fa-solid ${sentKeys.has(`${originalIdx}-${sIdx}`) ? 'fa-square-check' : 'fa-paper-plane'} text-xs`}></i>
+                                                                                )}
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => handleCopy(step.message, `copy-${originalIdx}-${sIdx}`)}
+                                                                                className={`transition-all duration-300 ${copiedKey === `copy-${originalIdx}-${sIdx}` ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
+                                                                                title="Copy to clipboard"
+                                                                            >
+                                                                                <i className={`fa-solid ${copiedKey === `copy-${originalIdx}-${sIdx}` ? 'fa-check' : 'fa-copy'} text-xs`}></i>
+                                                                            </button>
+                                                                        </>
+                                                                    )}
+                                                                    {editingKey === `${originalIdx}-${sIdx}` ? (
+                                                                        <div className="flex gap-3">
+                                                                            <button
+                                                                                onClick={handleCancel}
+                                                                                className="text-slate-300 hover:text-rose-500 transition-colors"
+                                                                                title="Cancel editing"
+                                                                            >
+                                                                                <i className="fa-solid fa-xmark text-xs"></i>
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => handleSave(originalIdx, sIdx)}
+                                                                                className="text-emerald-500 hover:text-emerald-600 transition-colors"
+                                                                                title="Save changes"
+                                                                            >
+                                                                                <i className="fa-solid fa-floppy-disk text-xs"></i>
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <button
+                                                                            onClick={() => startEditing(originalIdx, sIdx, step.message, step.channel)}
+                                                                            className="text-slate-300 hover:text-indigo-600 transition-colors"
+                                                                            title="Edit message"
+                                                                        >
+                                                                            <i className="fa-solid fa-pen text-xs"></i>
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            {editingKey === `${originalIdx}-${sIdx}` ? (
+                                                                <textarea
+                                                                    value={editingValue}
+                                                                    onChange={(e) => setEditingValue(e.target.value)}
+                                                                    className="w-full bg-white border border-indigo-100 rounded-xl p-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 min-h-[100px] resize-none"
+                                                                    autoFocus
+                                                                />
+                                                            ) : (
+                                                                <p className="text-sm text-slate-600 font-medium leading-relaxed italic">"{step.message}"</p>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
         </div>
