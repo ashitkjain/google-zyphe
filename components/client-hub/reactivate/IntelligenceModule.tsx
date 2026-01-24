@@ -43,8 +43,21 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({
 
     // Categorize for stats
     const coldLeadsCount = candidates.length;
+
+    if (coldLeadsCount === 0) {
+        return (
+            <div className="text-center py-20 bg-white rounded-[2.5rem] border border-slate-200 shadow-sm animate-in fade-in zoom-in-95 duration-500">
+                <div className="w-20 h-20 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <i className="fa-solid fa-wind text-3xl"></i>
+                </div>
+                <h3 className="text-xl font-black text-slate-900 mb-2">Your Pipeline is Running Hot</h3>
+                <p className="text-slate-400 max-w-sm mx-auto">We couldn't find any cold or stale leads requiring manual outreach. Check back later once your database cools down!</p>
+            </div>
+        );
+    }
+
     // Mock logic for "High Intent" - e.g. leads with high price points or recent activity despite being archived
-    const highIntentCount = candidates.filter(l => (l.budgetMax || 0) > 800000).length;
+    const highIntentCount = candidates.filter(l => (l.financialVitals?.budgetMax || 0) > 800000).length;
     const missingContextCount = candidates.filter(l => !l.phone && !l.email).length;
 
     return (

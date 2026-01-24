@@ -104,14 +104,35 @@ const DashboardModule: React.FC<DashboardModuleProps> = ({ realtorId }) => {
         );
     }
 
-    if (!aggregatedData) {
+    if (!aggregatedData || aggregatedData.lead_plans.length === 0) {
         return (
-            <div className="text-center py-20 bg-white rounded-[2.5rem] border border-slate-200 shadow-xl shadow-indigo-500/5">
-                <div className="w-20 h-20 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <i className="fa-solid fa-folder-open text-3xl"></i>
+            <div className="text-center py-32 bg-white rounded-[3rem] border border-slate-100 shadow-2xl shadow-indigo-500/10 relative overflow-hidden group animate-in fade-in zoom-in-95 duration-700">
+                {/* Decorative Background Elements */}
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-indigo-500/20 to-transparent"></div>
+                <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-50/50 rounded-full blur-3xl group-hover:bg-indigo-100/50 transition-colors duration-1000"></div>
+
+                <div className="relative space-y-10 max-w-xl mx-auto px-8">
+                    <div className="relative mx-auto w-24 h-24">
+                        <div className="absolute inset-0 bg-indigo-50 rounded-3xl rotate-6 group-hover:rotate-12 transition-transform duration-500"></div>
+                        <div className="absolute inset-0 bg-white border border-indigo-100 rounded-3xl flex items-center justify-center shadow-sm group-hover:-translate-y-2 transition-transform duration-500">
+                            <i className="fa-solid fa-bolt-lightning text-3xl text-indigo-500"></i>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <h3 className="text-2xl font-black text-slate-900 tracking-tight">No Leads Being Reactivated</h3>
+                        <p className="text-slate-500 text-base leading-relaxed">
+                            Your reactivation intelligence pipeline is currently empty. Our AI is ready to analyze your stale leads and architect high-conversion comeback strategies.
+                        </p>
+                    </div>
+
+                    <div className="inline-flex flex-col items-center gap-4">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600/50">Next Logical Step</p>
+                        <div className="px-8 py-4 bg-slate-50 rounded-2xl border border-slate-200 text-slate-400 group-hover:border-indigo-200 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-all duration-500">
+                            <span className="text-xs font-black uppercase tracking-widest whitespace-nowrap">Upload Cold Leads in the "Automated" Tab</span>
+                        </div>
+                    </div>
                 </div>
-                <h3 className="text-xl font-black text-slate-900 mb-2">No Active Plans</h3>
-                <p className="text-slate-400 max-w-sm mx-auto">Upload your CSV in the <b>Automated</b> tab to generate interactive reactivation plans.</p>
             </div>
         );
     }
