@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UserProfile, Lead, CRMTask, CalendarEvent } from '../../types';
+import { UserProfile, Lead, CRMTask, CalendarEvent, LeadNote } from '../../types';
 import { getClientTasks, getClientCalendarEvents, saveCalendarEvent } from '../../services/firebaseService';
 import ClientSelector from './ClientSelector';
 
@@ -20,6 +20,22 @@ interface ClientDetailsViewProps {
 }
 
 const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, clients, leads, onUpdateClient, loading, initialSelectedId, hideClientList }) => {
+    const getName = (c: any) => c.isUser ? c.displayName : `${c.firstName} ${c.lastName}`;
+    const getEmail = (c: any) => c.email;
+    const getPhone = (c: any) => c.isUser ? c.phoneNumber : c.phone;
+
+    const getStageStatus = (c: any) => {
+        const stage = c.funnelStage || 'Leads';
+        switch (stage) {
+            case 'Leads': return c.leadStatus;
+            case 'Nurture': return c.nurtureStatus;
+            case 'Active Search': return c.activeSearchStatus;
+            case 'Offer': return c.offerStatus;
+            case 'Closing': return c.closingStatus;
+            default: return c.status;
+        }
+    };
+
     // Combine both into a unified list
     const allClients = [
         ...clients.map(c => ({ ...c, isUser: true, id: c.uid })),
@@ -36,6 +52,9 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
     });
 
     const [activeListTab, setActiveListTab] = useState<'Buyers' | 'Sellers'>('Buyers');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [stageFilter, setStageFilter] = useState<string>('All Stages');
+    const [sortOrder, setSortOrder] = useState<'newest' | 'name'>('newest');
     const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId || (allClients.length > 0 ? allClients[0].id : null));
 
     useEffect(() => {
@@ -44,28 +63,32 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
         }
     }, [initialSelectedId]);
 
-    const filteredClients = allClients.filter(c => {
-        const type = (c as any).leadType || 'Buyer';
-        return type === (activeListTab === 'Buyers' ? 'Buyer' : 'Seller');
-    });
+    const filteredClients = allClients
+        .filter(c => {
+            const type = (c as any).leadType || 'Buyer';
+            const matchesTab = type === (activeListTab === 'Buyers' ? 'Buyer' : 'Seller');
+
+            const name = getName(c).toLowerCase();
+            const email = (getEmail(c) || '').toLowerCase();
+            const matchesSearch = name.includes(searchTerm.toLowerCase()) || email.includes(searchTerm.toLowerCase());
+
+            const stage = (c as any).funnelStage || 'Leads';
+            const matchesStage = stageFilter === 'All Stages' || stage === stageFilter;
+
+            return matchesTab && matchesSearch && matchesStage;
+        })
+        .sort((a, b) => {
+            if (sortOrder === 'name') {
+                return getName(a).localeCompare(getName(b));
+            }
+            // Default to newest (allClients is already sorted by date, but we re-apply just in case)
+            const dateA = a.isUser ? (a.createdAt || 0) : (a.receivedAt || 0);
+            const dateB = b.isUser ? (b.createdAt || 0) : (b.receivedAt || 0);
+            return new Date(dateB).getTime() - new Date(dateA).getTime();
+        });
 
     const selectedClient = allClients.find(c => c.id === selectedId) || filteredClients[0] || allClients[0];
 
-    const getName = (c: any) => c.isUser ? c.displayName : `${c.firstName} ${c.lastName}`;
-    const getEmail = (c: any) => c.email;
-    const getPhone = (c: any) => c.isUser ? c.phoneNumber : c.phone;
-
-    const getStageStatus = (c: any) => {
-        const stage = c.funnelStage || 'Leads';
-        switch (stage) {
-            case 'Leads': return c.leadStatus;
-            case 'Nurture': return c.nurtureStatus;
-            case 'Active Search': return c.activeSearchStatus;
-            case 'Offer': return c.offerStatus;
-            case 'Closing': return c.closingStatus;
-            default: return c.status;
-        }
-    };
 
     // Sticky Notes Logic
     // Unified Lead Notes Logic
@@ -301,6 +324,49 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                             <div>
                                 <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{filteredClients.length} {activeListTab}</p>
                             </div>
+                            <div className="flex gap-2">
+                                <select
+                                    className="text-[9px] font-bold uppercase bg-transparent border-none text-slate-400 focus:ring-0 cursor-pointer hover:text-indigo-600 transition-colors"
+                                    value={sortOrder}
+                                    onChange={(e) => setSortOrder(e.target.value as 'newest' | 'name')}
+                                >
+                                    <option value="newest">Newest</option>
+                                    <option value="name">Name</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Search Bar */}
+                        <div className="relative mb-4">
+                            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-[10px]"></i>
+                            <input
+                                type="text"
+                                placeholder="Search clients..."
+                                className="w-full bg-slate-100 border-none rounded-xl py-2 pl-9 pr-4 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:ring-1 focus:ring-indigo-500 transition-all"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                            {searchTerm && (
+                                <button
+                                    onClick={() => setSearchTerm('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors"
+                                >
+                                    <i className="fa-solid fa-circle-xmark text-[10px]"></i>
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Stage Filter */}
+                        <div className="flex gap-1 overflow-x-auto pb-2 mb-2 no-scrollbar">
+                            {['All Stages', 'Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed'].map((stage) => (
+                                <button
+                                    key={stage}
+                                    onClick={() => setStageFilter(stage)}
+                                    className={`px-3 py-1 text-[8px] font-black uppercase tracking-widest rounded-full border whitespace-nowrap transition-all ${stageFilter === stage ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
+                                >
+                                    {stage}
+                                </button>
+                            ))}
                         </div>
 
                         {/* Tab Switcher */}
@@ -458,9 +524,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                     >
                                         <i className="fa-solid fa-list-check text-amber-500"></i> Task
                                     </button>
-                                    <button className="px-4 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95">
-                                        Message
-                                    </button>
+
                                     <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-50 transition-all active:scale-95">
                                         Edit
                                     </button>
