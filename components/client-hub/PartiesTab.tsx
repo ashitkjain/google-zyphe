@@ -176,17 +176,6 @@ const PartiesTab: React.FC<PartiesTabProps> = ({ lead, realtorId }) => {
         <div className="space-y-6">
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                    {/* Only show seed button if we have a real transaction but no/few parties (or just useful for demo) */}
-                    {transactionId && transactionId !== 'mock_tx_id' && (
-                        <button
-                            onClick={handleSeedData}
-                            className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200"
-                            title="Upload mock data to firebase"
-                        >
-                            <i className="fa-solid fa-cloud-upload"></i>
-                            Seed Data
-                        </button>
-                    )}
                     <button
                         onClick={() => { setIsAdding(true); setEditForm({ role: 'OTHER', signing_required: false }); }}
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100"
@@ -206,7 +195,6 @@ const PartiesTab: React.FC<PartiesTabProps> = ({ lead, realtorId }) => {
                             <th className="px-6 py-4">Email</th>
                             <th className="px-6 py-4">Phone</th>
                             <th className="px-6 py-4">Address</th>
-                            <th className="px-6 py-4 text-center">Order</th>
                             <th className="px-6 py-4 text-center">Signer?</th>
                             <th className="px-6 py-4 text-right">Actions</th>
                         </tr>
@@ -262,15 +250,6 @@ const PartiesTab: React.FC<PartiesTabProps> = ({ lead, realtorId }) => {
                                 </td>
                                 <td className="px-6 py-4 text-center">
                                     <input
-                                        type="number"
-                                        placeholder="#"
-                                        className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                                        value={editForm.signer_order || ''}
-                                        onChange={e => setEditForm({ ...editForm, signer_order: parseInt(e.target.value) || undefined })}
-                                    />
-                                </td>
-                                <td className="px-6 py-4 text-center">
-                                    <input
                                         type="checkbox"
                                         className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                                         checked={editForm.signing_required || false}
@@ -285,11 +264,11 @@ const PartiesTab: React.FC<PartiesTabProps> = ({ lead, realtorId }) => {
                         )}
                         {parties.length === 0 && !isAdding && (
                             <tr>
-                                <td colSpan={8} className="px-6 py-20 text-center">
+                                <td colSpan={7} className="px-6 py-20 text-center">
                                     <div className="flex flex-col items-center gap-2">
                                         <i className="fa-solid fa-users-slash text-2xl text-slate-200"></i>
                                         <p className="text-sm font-bold text-slate-400">No transaction parties found</p>
-                                        <p className="text-[10px] text-slate-300 uppercase tracking-widest">Click "Add Party" or "Seed Data" to begin</p>
+                                        <p className="text-[10px] text-slate-300 uppercase tracking-widest">Click "Add Party" to begin</p>
                                     </div>
                                 </td>
                             </tr>
@@ -341,14 +320,6 @@ const PartiesTab: React.FC<PartiesTabProps> = ({ lead, realtorId }) => {
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <input
-                                                type="number"
-                                                className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                                                value={editForm.signer_order || ''}
-                                                onChange={e => setEditForm({ ...editForm, signer_order: parseInt(e.target.value) || undefined })}
-                                            />
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <input
                                                 type="checkbox"
                                                 className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                                                 checked={editForm.signing_required || false}
@@ -371,7 +342,6 @@ const PartiesTab: React.FC<PartiesTabProps> = ({ lead, realtorId }) => {
                                         <td className="px-6 py-4 text-sm text-slate-600">{party.email}</td>
                                         <td className="px-6 py-4 text-sm text-slate-600">{party.phone || '--'}</td>
                                         <td className="px-6 py-4 text-sm text-slate-600 max-w-[150px] truncate" title={party.address}>{party.address || '--'}</td>
-                                        <td className="px-6 py-4 text-center text-sm font-bold text-slate-400">{party.signer_order || '--'}</td>
                                         <td className="px-6 py-4 text-center">
                                             {party.signing_required ?
                                                 <i className="fa-solid fa-check-circle text-emerald-500"></i> :

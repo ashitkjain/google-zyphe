@@ -85,13 +85,13 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
     return (
         <div className="bg-slate-50 p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Client Tabs */}
-            <div className="max-w-7xl mx-auto space-y-6">
-                <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+            <div className="max-w-7xl mx-auto space-y-4">
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
                     {closingLeads.map(lead => (
                         <div
                             key={lead.id}
                             onClick={() => setActiveLeadId(lead.id)}
-                            className={`flex items-center gap-3 px-5 py-3 rounded-2xl border-2 transition-all flex-shrink-0 group cursor-pointer ${activeLeadId === lead.id
+                            className={`flex items-center gap-2.5 px-4 py-1.5 rounded-2xl border-2 transition-all flex-shrink-0 group cursor-pointer ${activeLeadId === lead.id
                                 ? 'bg-white border-indigo-500 shadow-lg shadow-indigo-500/10'
                                 : 'bg-white/50 border-slate-200 hover:border-slate-300 hover:bg-white'
                                 }`}
@@ -111,7 +111,7 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                                         e.stopPropagation();
                                         onNavigateToClient?.(lead.id);
                                     }}
-                                    className={`font-bold text-sm tracking-tight text-left hover:text-indigo-600 hover:underline transition-colors ${activeLeadId === lead.id ? 'text-slate-900' : 'text-slate-600'}`}
+                                    className={`font-bold text-sm tracking-tight text-left hover:text-indigo-600 hover:underline transition-colors leading-tight ${activeLeadId === lead.id ? 'text-slate-900' : 'text-slate-600'}`}
                                     title="View Client Details"
                                 >
                                     {lead.firstName} {lead.lastName} <i className="fa-solid fa-arrow-up-right-from-square text-[10px] ml-1 opacity-50"></i>
@@ -130,7 +130,7 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
                 {activeLead && (
                     <>
                         {/* Sub Navigation */}
-                        <div className="flex border-b border-slate-200 overflow-x-auto no-scrollbar mb-8">
+                        <div className="flex border-b border-slate-200 overflow-x-auto no-scrollbar mb-6">
                             {subTabs.map(tab => (
                                 <button
                                     key={tab}
