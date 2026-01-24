@@ -2,12 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { analyzeLeadDatabase, transformLeadCsv } from '../../../services/geminiService';
 import { uploadLeadCSV, getLeadDocuments, getLeadDocumentContent } from '../../../services/firebase/leads_documents';
 import { saveReactivationAnalysis, getExistingReactivationAnalysis } from '../../../services/firebase/reactivation';
-import { LeadReactivationResult, LeadDocument } from '../../../types';
+import { LeadReactivationResult, LeadDocument, Lead } from '../../../types';
 import { getTimeSince } from './shared';
 import ReactivationVisualizer from './ReactivationVisualizer';
 
 interface AutomatedModuleProps {
     realtorId: string;
+    leads?: Lead[];
 }
 
 const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = [] }) => {
@@ -24,11 +25,75 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
     const [selectedMarketName, setSelectedMarketName] = useState<string | null>(null);
     const [transformedCsv, setTransformedCsv] = useState<string | null>(null);
     const [isTransforming, setIsTransforming] = useState(false);
+    const [localLeads, setLocalLeads] = useState<Lead[]>(leads);
     const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
-    const [showLeadSelection, setShowLeadSelection] = useState(false);
+    const [statusMenuOpen, setStatusMenuOpen] = useState<string | null>(null);
+    const [selectedLeadForDetails, setSelectedLeadForDetails] = useState<Lead | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'lastSeen', direction: 'desc' });
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const archivedLeads = leads.filter(l => l.status === 'Archived' || l.health === 'Stale');
+    useEffect(() => {
+        setLocalLeads(leads);
+    }, [leads]);
+
+    const archivedLeads = (localLeads || [])
+        .filter(l => l.status === 'Archived' || l.health === 'Stale' || l.engagementScore === 'Hot' || l.engagementScore === 'Cold')
+        .filter(l =>
+            l.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            l.primaryContact?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            l.searchCriteria?.locations?.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        .sort((a, b) => {
+            let valA: any, valB: any;
+
+            switch (sortConfig.key) {
+                case 'name':
+                    valA = a.fullName?.toLowerCase() || '';
+                    valB = b.fullName?.toLowerCase() || '';
+                    break;
+                case 'type':
+                    valA = a.leadType || '';
+                    valB = b.leadType || '';
+                    break;
+                case 'market':
+                    valA = a.searchCriteria?.locations?.toLowerCase() || '';
+                    valB = b.searchCriteria?.locations?.toLowerCase() || '';
+                    break;
+                case 'source':
+                    valA = a.source?.toLowerCase() || '';
+                    valB = b.source?.toLowerCase() || '';
+                    break;
+                case 'status':
+                    valA = a.engagementScore || a.health || '';
+                    valB = b.engagementScore || b.health || '';
+                    break;
+                case 'lastSeen':
+                default:
+                    const getT = (l: any) => {
+                        const d = l.lastActivity || l.receivedAt || l.lastUpdated || 0;
+                        return new Date(d?.seconds ? d.seconds * 1000 : d).getTime();
+                    };
+                    valA = getT(a);
+                    valB = getT(b);
+            }
+
+            if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+    const pageSize = 25;
+    const totalPages = Math.ceil(archivedLeads.length / pageSize);
+    const paginatedLeads = archivedLeads.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+    const handleSort = (key: string) => {
+        setSortConfig(current => ({
+            key,
+            direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc'
+        }));
+    };
 
     useEffect(() => {
         const loadDocs = async () => {
@@ -63,7 +128,6 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
             return null;
         }
 
-        // 1. Process rows and normalize content
         for (const line of lines) {
             const values: string[] = [];
             let value = '';
@@ -93,7 +157,6 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
 
         if (rows.length === 0) return null;
 
-        // 2. Validate Headers
         const headers = rows[0];
         const EnglishHeaderRegex = /^[a-zA-Z0-9_\s]{2,50}$/;
         for (const header of headers) {
@@ -103,12 +166,11 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
             }
         }
 
-        // 3. Scan for Sensitive Data (API keys, secrets)
         const sensitivePatterns = [
             /(password|passwd|secret|apikey|api_key|token)/i,
-            /AIza[0-9A-Za-z-_]{35}/, // Google API Key
-            /sk_(live|test)_[0-9a-zA-Z]{24}/, // Stripe
-            /[0-9a-f]{32}/i // Generic hex hash
+            /AIza[0-9A-Za-z-_]{35}/,
+            /sk_(live|test)_[0-9a-zA-Z]{24}/,
+            /[0-9a-f]{32}/i
         ];
 
         for (const row of rows) {
@@ -126,13 +188,9 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
     };
 
     const normalizeValue = (val: string): string => {
-        // Remove pipes and replace with hyphens
         let processed = val.replace(/\|/g, '-');
-        // Trim leading/trailing whitespace
         processed = processed.trim();
-        // Remove excessive newlines and escape characters within cells
         processed = processed.replace(/[\r\n]+/g, ' ');
-        // Replace empty cells with NULL
         return processed === '' ? 'NULL' : processed;
     };
 
@@ -161,11 +219,9 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
             const processedRows = validateAndProcessCSV(text);
             if (processedRows) {
                 setCsvPreview(processedRows);
-                // Join with | as the new delimiter for the content sent to AI
                 const outputContent = processedRows.map(row => row.join('|')).join('\n');
                 setFileContent(outputContent);
 
-                // Upload immediately to get a doc ID
                 setUploadStatus('uploading');
                 const uploadedDoc = await uploadLeadCSV(realtorId, selectedFile);
                 if (uploadedDoc) {
@@ -186,15 +242,11 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
     };
 
     const parseForPreview = (text: string) => {
-        // Simple parser for previewing already processed or raw files
         const lines = text.split(/\r?\n/).filter(line => line.trim());
         const rows = lines.map(line => {
-            // Check if it's already pipe-separated (from our new logic)
             if (line.includes('|')) {
                 return line.split('|');
             }
-            // Otherwise try simple comma split (or use more complex logic if needed)
-            // For preview of archived docs, we'll just do a smart split
             const values: string[] = [];
             let value = '';
             let inQuotes = false;
@@ -217,7 +269,6 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
         setUploadStatus('uploading');
 
         try {
-            // 1. Check if analysis already exists
             const existing = await getExistingReactivationAnalysis(selectedDocId, realtorId);
             if (existing) {
                 setResult(existing);
@@ -225,13 +276,11 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                 return;
             }
 
-            // 2. Proceed with AI analysis
             const { result: analysis, llmCallId } = await analyzeLeadDatabase(fileContent, realtorId);
 
-            // 3. Store result in databases
             await saveReactivationAnalysis(
                 realtorId,
-                realtorId, // Using realtorId as clientId if not separate
+                realtorId,
                 selectedDocId,
                 llmCallId || "gen_ui_" + Date.now(),
                 analysis
@@ -285,7 +334,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
 
             setFileContent(content);
             parseForPreview(content);
-            setFile(null); // Mark as not a new local file
+            setFile(null);
             setUploadStatus('idle');
         } catch (error) {
             console.error('Failed to process archived database:', error);
@@ -300,6 +349,21 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                 : [...prev, leadId]
         );
     };
+
+    const updateLeadStatus = (leadId: string, newStatus: string) => {
+        setLocalLeads(prev => prev.map(l => {
+            if (l.id === leadId) {
+                return {
+                    ...l,
+                    engagementScore: newStatus === 'Hot' ? 'Hot' : (newStatus === 'Cold' ? 'Cold' : 'None'),
+                    health: newStatus === 'Stale' ? 'Stale' : 'Healthy'
+                };
+            }
+            return l;
+        }));
+        setStatusMenuOpen(null);
+    };
+
 
     const handleAnalyzeSelectedLeads = async () => {
         if (selectedLeadIds.length === 0) return;
@@ -327,7 +391,6 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
 
         parseForPreview(content);
         setUploadStatus('idle');
-        setShowLeadSelection(false);
     };
 
     const reset = () => {
@@ -342,7 +405,6 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
         setSelectedLeadIds([]);
     };
 
-
     if (result) {
         return (
             <ReactivationVisualizer
@@ -356,156 +418,258 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-xl shadow-indigo-500/5 p-12">
-                <div className="max-w-2xl mx-auto text-center space-y-8">
+            <div className={`bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-xl shadow-indigo-500/5 ${!fileContent ? 'p-0' : 'p-12'}`}>
+                <div className="w-full text-center space-y-0">
 
-                    <div
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                        onClick={() => fileInputRef.current?.click()}
-                        className={`
-                            relative border-2 border-dashed rounded-[2.5rem] p-16 transition-all cursor-pointer
-                            ${isDragging
-                                ? 'border-indigo-500 bg-indigo-50/50 scale-[1.02]'
-                                : 'border-slate-200 hover:border-indigo-400 hover:bg-slate-50'
-                            }
-                        `}
-                    >
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileSelect}
-                            className="hidden"
-                            accept=".csv"
-                        />
-
-                        <div className="space-y-6">
-                            <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto transition-all group-hover:scale-110 group-hover:text-indigo-600 group-hover:bg-indigo-50">
-                                <i className="fa-solid fa-cloud-arrow-up text-2xl"></i>
-                            </div>
-                            {validationError ? (
-                                <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
-                                    <p className="text-sm font-bold text-rose-500 bg-rose-50 px-4 py-2 rounded-xl border border-rose-100 italic">{validationError}</p>
-                                    <p className="text-[10px] text-slate-400 font-medium">Please correct the file and try again</p>
-                                </div>
-                            ) : file ? (
-                                <div className="space-y-2 animate-in zoom-in-95 duration-300">
-                                    <p className="text-lg font-black text-indigo-600">{file.name}</p>
-                                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{(file.size / 1024).toFixed(1)} KB • CSV Ready</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-2">
-                                    <p className="text-sm font-black text-slate-700 uppercase tracking-tight">Upload Old Leads</p>
-                                    <p className="text-xs text-slate-400 font-medium">Click to browse or drag & drop CSV</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
+                    {/* Lead Database Selection Section (Default Landing) */}
                     {!fileContent && !uploadStatus.includes('uploading') && (
-                        <div className="relative">
-                            <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                                <div className="w-full border-t border-slate-100"></div>
-                            </div>
-                            <div className="relative flex justify-center text-xs font-black uppercase tracking-widest">
-                                <span className="bg-white px-6 text-slate-300">OR</span>
-                            </div>
-                        </div>
-                    )}
+                        <div className="animate-in fade-in slide-in-from-top-4 duration-700">
+                            <div className="animate-in fade-in zoom-in-95 duration-500 text-left">
+                                <div className="bg-white overflow-hidden">
+                                    {/* Dashboard Header with Search Only */}
+                                    <div className="px-8 py-5 border-b border-slate-50 flex items-center bg-white">
+                                        <div className="flex items-center gap-3 px-4 py-2 bg-slate-50/80 rounded-2xl border border-slate-100 min-w-[300px] focus-within:bg-white focus-within:border-indigo-200 transition-all">
+                                            <i className="fa-solid fa-magnifying-glass text-slate-300"></i>
+                                            <input
+                                                type="text"
+                                                placeholder="Search across all fields..."
+                                                className="bg-transparent border-none outline-none w-full text-slate-700 placeholder:text-slate-400 font-bold text-xs"
+                                                value={searchTerm}
+                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
 
-                    {!fileContent && !showLeadSelection && (
-                        <button
-                            onClick={() => setShowLeadSelection(true)}
-                            className="w-full bg-white hover:bg-slate-50 border-2 border-slate-100 hover:border-indigo-100 px-8 py-6 rounded-[2.5rem] transition-all flex items-center justify-between group"
-                        >
-                            <div className="flex items-center gap-6">
-                                <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                    <i className="fa-solid fa-database text-lg"></i>
-                                </div>
-                                <div className="text-left">
-                                    <p className="text-sm font-black text-slate-900 uppercase tracking-tight">Select from Database</p>
-                                    <p className="text-[11px] text-slate-400 font-medium">{archivedLeads.length} archived/stale leads available</p>
-                                </div>
-                            </div>
-                            <div className="w-10 h-10 rounded-full border border-slate-100 flex items-center justify-center text-slate-300 group-hover:text-indigo-600 group-hover:border-indigo-200 transition-all">
-                                <i className="fa-solid fa-chevron-right"></i>
-                            </div>
-                        </button>
-                    )}
+                                    {/* Table Headers - Interactive Sorting */}
+                                    <div className="bg-white border-b border-slate-100 px-8 py-3 flex items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                        <div className="w-[3%] flex items-center justify-center">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (selectedLeadIds.length === archivedLeads.length) {
+                                                        setSelectedLeadIds([]);
+                                                    } else {
+                                                        setSelectedLeadIds(archivedLeads.map(l => l.id));
+                                                    }
+                                                }}
+                                                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${selectedLeadIds.length === archivedLeads.length ? 'bg-indigo-600 border-indigo-600' : 'border-slate-200'}`}
+                                            >
+                                                {selectedLeadIds.length === archivedLeads.length && <i className="fa-solid fa-check text-[10px] text-white"></i>}
+                                            </button>
+                                        </div>
 
-                    {!fileContent && showLeadSelection && (
-                        <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
-                            <div className="bg-slate-50/50 rounded-[2.5rem] border border-slate-200 overflow-hidden">
-                                <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-white">
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Archived Leads ({selectedLeadIds.length} Selected)</h4>
+                                        {[
+                                            { id: 'type', label: 'Type', width: '4%', align: 'center' },
+                                            { id: 'name', label: 'Lead Name', width: '18%', align: 'left', padding: 'px-4' },
+                                            { id: 'market', label: 'Target Market', width: '15%', align: 'left', padding: 'px-4' },
+                                            { id: 'source', label: 'Source', width: '7%', align: 'left', padding: 'px-2' },
+                                            { id: 'status', label: 'Status', width: '5%', align: 'center' }
+                                        ].map(col => (
+                                            <button
+                                                key={col.id}
+                                                onClick={() => handleSort(col.id)}
+                                                className={`w-[${col.width}] flex items-center ${col.align === 'center' ? 'justify-center' : 'justify-start'} ${col.padding || ''} group/head transition-colors hover:text-slate-900`}
+                                            >
+                                                {col.label}
+                                                <i className={`fa-solid fa-chevron-${sortConfig.key === col.id && sortConfig.direction === 'asc' ? 'up' : 'down'} ml-1.5 text-[8px] transition-all ${sortConfig.key === col.id ? 'text-indigo-500 opacity-100' : 'text-slate-200 opacity-0 group-hover/head:opacity-100'}`}></i>
+                                            </button>
+                                        ))}
+
+                                        <div className="w-[36%] font-black text-indigo-400 uppercase bg-indigo-50/30 px-3 py-1 rounded-md border border-indigo-100/50">Staff Note</div>
+
+                                        <button
+                                            onClick={() => handleSort('lastSeen')}
+                                            className="w-[12%] flex items-center justify-end pr-4 group/head transition-colors hover:text-slate-900"
+                                        >
+                                            Last Seen
+                                            <i className={`fa-solid fa-chevron-${sortConfig.key === 'lastSeen' && sortConfig.direction === 'asc' ? 'up' : 'down'} ml-1.5 text-[8px] transition-all ${sortConfig.key === 'lastSeen' ? 'text-indigo-500 opacity-100' : 'text-slate-200 opacity-0 group-hover/head:opacity-100'}`}></i>
+                                        </button>
+                                    </div>
+
+                                    <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
+                                        <div className="divide-y divide-slate-50 bg-white">
+                                            {paginatedLeads.map(lead => {
+                                                const isSelected = selectedLeadIds.includes(lead.id);
+                                                return (
+                                                    <div
+                                                        key={lead.id}
+                                                        onClick={() => setSelectedLeadForDetails(lead)}
+                                                        className={`flex items-center px-8 py-2.5 hover:bg-indigo-50/30 transition-all cursor-pointer group border-b border-slate-50/50 relative overflow-hidden`}
+                                                    >
+                                                        {/* SELECTION COLUMN */}
+                                                        <div className="w-[3%] flex items-center relative z-10" onClick={(e) => e.stopPropagation()}>
+                                                            <div
+                                                                onClick={() => toggleLeadSelection(lead.id)}
+                                                                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 cursor-pointer ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-200 hover:border-indigo-400'}`}
+                                                            >
+                                                                {isSelected && <i className="fa-solid fa-check text-[10px] text-white"></i>}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* ROLE COLUMN */}
+                                                        <div className="w-[4%] flex justify-center">
+                                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border shadow-sm ${lead.leadType === 'Seller' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                                                                {lead.leadType === 'Seller' ? 'S' : 'B'}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* NAME COLUMN */}
+                                                        <div className="w-[18%] flex flex-col justify-center px-4">
+                                                            <p className="text-[12px] font-black text-slate-800 truncate tracking-tight group-hover:text-indigo-600 transition-colors uppercase leading-tight">
+                                                                {lead.fullName}
+                                                            </p>
+                                                        </div>
+
+                                                        {/* TARGET MARKET COLUMN */}
+                                                        <div className="w-[15%] flex items-center px-4">
+                                                            <p className="text-[12px] font-bold text-slate-500 truncate">{lead.searchCriteria?.locations || ''}</p>
+                                                        </div>
+
+                                                        {/* COMPANY/SOURCE COLUMN */}
+                                                        <div className="w-[7%] flex items-center px-2">
+                                                            <p className="text-[12px] font-bold text-slate-400 truncate">{lead.source || 'Direct Entry'}</p>
+                                                        </div>
+
+                                                        {/* STATUS COLUMN */}
+                                                        <div className="w-[5%] flex justify-center relative">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setStatusMenuOpen(statusMenuOpen === lead.id ? null : lead.id);
+                                                                }}
+                                                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-sm border ${lead.engagementScore === 'Hot' ? 'bg-rose-50 text-rose-500 border-rose-100' : lead.engagementScore === 'Cold' ? 'bg-sky-50 text-sky-500 border-sky-100' : lead.health === 'Stale' ? 'bg-slate-50 text-slate-400 border-slate-200' : 'bg-indigo-50 text-indigo-500 border-indigo-100'}`}
+                                                            >
+                                                                {lead.engagementScore === 'Hot' && <i className="fa-solid fa-fire text-xs text-rose-500"></i>}
+                                                                {lead.engagementScore === 'Cold' && <i className="fa-solid fa-snowflake text-xs text-sky-400"></i>}
+                                                                {lead.health === 'Stale' && lead.engagementScore !== 'Hot' && lead.engagementScore !== 'Cold' && <i className="fa-solid fa-clock-rotate-left text-xs text-slate-400"></i>}
+                                                                {!['Hot', 'Cold', 'Stale'].includes(lead.engagementScore || lead.health || '') && <i className="fa-solid fa-circle-dot text-[8px] text-indigo-300"></i>}
+                                                            </button>
+
+                                                            {statusMenuOpen === lead.id && (
+                                                                <div className="absolute top-full mt-2 z-50 bg-white rounded-xl shadow-2xl border border-slate-100 p-2 min-w-[120px] animate-in fade-in zoom-in-95 duration-200">
+                                                                    {[
+                                                                        { id: 'Hot', icon: 'fa-fire', label: 'Hot', color: 'text-rose-500', bg: 'hover:bg-rose-50' },
+                                                                        { id: 'Cold', icon: 'fa-snowflake', label: 'Cold', color: 'text-sky-500', bg: 'hover:bg-sky-50' },
+                                                                        { id: 'Stale', icon: 'fa-clock-rotate-left', label: 'Stale', color: 'text-slate-400', bg: 'hover:bg-slate-50' }
+                                                                    ].map(opt => (
+                                                                        <button
+                                                                            key={opt.id}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                updateLeadStatus(lead.id, opt.id);
+                                                                            }}
+                                                                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[11px] font-black uppercase tracking-tight transition-colors ${opt.bg} ${opt.color}`}
+                                                                        >
+                                                                            <i className={`fa-solid ${opt.icon} w-4`}></i>
+                                                                            {opt.label}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* STAFF NOTE COLUMN */}
+                                                        <div className="w-[36%] flex items-center px-4 py-1">
+                                                            <p className="text-[11px] font-medium text-slate-400 italic pr-6 border-l border-slate-50 pl-4 leading-relaxed line-clamp-2 hover:line-clamp-none transition-all">
+                                                                {lead.leadInfo?.customerMessage || lead.notes || 'No active notes'}
+                                                            </p>
+                                                        </div>
+
+                                                        {/* LAST SEEN COLUMN */}
+                                                        <div className="w-[12%] flex items-center justify-end pr-4 relative">
+                                                            <p className="text-[12px] font-bold text-slate-400 group-hover:opacity-0 transition-opacity whitespace-nowrap">
+                                                                {lead.lastActivity ? getTimeSince(lead.lastActivity) : (lead.receivedAt ? getTimeSince(lead.receivedAt) : 'Long ago')}
+                                                            </p>
+                                                            <div className="absolute right-4 opacity-0 group-hover:opacity-100 transition-all flex items-center gap-2 text-[10px] font-black text-indigo-500 uppercase tracking-widest translate-x-4 group-hover:translate-x-0">
+                                                                Open
+                                                                <i className="fa-solid fa-arrow-right-long text-xs"></i>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    {totalPages > 1 && (
+                                        <div className="p-6 border-t border-slate-100 bg-white flex items-center justify-between">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                Page {currentPage} of {totalPages}
+                                            </p>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.max(1, prev - 1)); }}
+                                                    disabled={currentPage === 1}
+                                                    className="w-10 h-10 rounded-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                                                >
+                                                    <i className="fa-solid fa-chevron-left text-xs"></i>
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.min(totalPages, prev + 1)); }}
+                                                    disabled={currentPage === totalPages}
+                                                    className="w-10 h-10 rounded-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                                                >
+                                                    <i className="fa-solid fa-chevron-right text-xs"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex justify-center p-8">
                                     <button
-                                        onClick={() => setShowLeadSelection(false)}
-                                        className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 transition-colors"
+                                        onClick={handleAnalyzeSelectedLeads}
+                                        disabled={selectedLeadIds.length === 0}
+                                        className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black py-6 px-10 rounded-[2rem] shadow-2xl shadow-indigo-500/20 transition-all flex items-center justify-center gap-4 active:scale-[0.98] text-sm uppercase tracking-widest"
                                     >
-                                        Back
+                                        <i className="fa-solid fa-wand-sparkles text-lg"></i>
+                                        Generate High-Intent Analysis for {selectedLeadIds.length} Selected Leads
                                     </button>
                                 </div>
-                                <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
-                                    <div className="divide-y divide-slate-100">
-                                        {archivedLeads.map(lead => (
-                                            <div
-                                                key={lead.id}
-                                                onClick={() => toggleLeadSelection(lead.id)}
-                                                className="p-5 flex items-center justify-between hover:bg-white transition-colors cursor-pointer group border-b border-slate-50 last:border-none"
-                                            >
-                                                <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${selectedLeadIds.includes(lead.id) ? 'bg-indigo-600 border-indigo-600' : 'border-slate-200 group-hover:border-indigo-300'}`}>
-                                                        {selectedLeadIds.includes(lead.id) && <i className="fa-solid fa-check text-[10px] text-white"></i>}
-                                                    </div>
-                                                    <div className="text-left min-w-0 flex-1">
-                                                        <div className="flex items-center gap-2 mb-0.5">
-                                                            <p className="text-xs font-black text-slate-900 truncate">{lead.fullName}</p>
-                                                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md ${lead.leadType === 'Seller' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                                                                {lead.leadType}
-                                                            </span>
-                                                        </div>
-                                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter opacity-70 truncate">
-                                                            {lead.source || 'Direct'} • {lead.searchCriteria?.locations || 'No Market'}
-                                                        </p>
-                                                    </div>
-                                                </div>
+                            </div>
 
-                                                <div className="flex items-center gap-8 shrink-0 ml-4">
-                                                    <div className="text-right hidden sm:block">
-                                                        <p className="text-[10px] font-black text-slate-900">
-                                                            {lead.financialVitals?.budgetMax ? `$${(lead.financialVitals.budgetMax / 1000).toFixed(0)}k` : 'N/A'}
-                                                        </p>
-                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Budget</p>
-                                                    </div>
-                                                    <div className="text-right w-24">
-                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                                                            {lead.lastActivity ? getTimeSince(lead.lastActivity) : (lead.receivedAt ? getTimeSince(lead.receivedAt) : 'No Activity')}
-                                                        </p>
-                                                        <p className="text-[9px] font-bold text-slate-300 uppercase tracking-tighter">Last Seen</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                            <div className="relative pt-4 pb-0 mt-4 mb-4 mx-12">
+                                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                                    <div className="w-full border-t border-slate-100"></div>
+                                </div>
+                                <div className="relative flex justify-center text-[10px] font-black uppercase tracking-widest">
+                                    <span className="bg-white px-8 text-slate-300">OR UPLOAD EXTERNAL CSV</span>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <button
-                                    onClick={handleAnalyzeSelectedLeads}
-                                    disabled={selectedLeadIds.length === 0}
-                                    className="col-span-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black py-5 px-8 rounded-2xl shadow-xl shadow-indigo-200 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
-                                >
-                                    <i className="fa-solid fa-wand-sparkles"></i>
-                                    Prepare Analysis for {selectedLeadIds.length} Leads
-                                </button>
+
+                            <div
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                                onClick={() => fileInputRef.current?.click()}
+                                className={`relative border-2 border-dashed rounded-[2.5rem] p-16 transition-all cursor-pointer group mx-12 mb-12 ${isDragging ? 'border-indigo-500 bg-indigo-50/50 scale-[1.02]' : 'border-slate-200 hover:border-indigo-400 hover:bg-slate-50'}`}
+                            >
+                                <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".csv" />
+                                <div className="space-y-6">
+                                    <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto transition-all group-hover:scale-110 group-hover:text-indigo-600 group-hover:bg-indigo-50 shadow-inner">
+                                        <i className="fa-solid fa-cloud-arrow-up text-2xl"></i>
+                                    </div>
+                                    {validationError ? (
+                                        <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                                            <p className="text-sm font-bold text-rose-500 bg-rose-50 px-4 py-2 rounded-xl border border-rose-100 italic">{validationError}</p>
+                                        </div>
+                                    ) : file ? (
+                                        <div className="space-y-2 animate-in zoom-in-95 duration-300">
+                                            <p className="text-lg font-black text-indigo-600">{file.name}</p>
+                                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{(file.size / 1024).toFixed(1)} KB • CSV Ready</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            <p className="text-sm font-black text-slate-700 uppercase tracking-tight">Manual File Drop</p>
+                                            <p className="text-xs text-slate-400 font-medium">Click to browse or drag & drop external CSV</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
 
+                    {/* Preview Section */}
                     {fileContent && uploadStatus === 'idle' && (
-                        <div className="space-y-10 animate-in fade-in zoom-in-95 duration-500">
-                            {/* CSV Preview Window */}
+                        <div className="space-y-10 animate-in fade-in zoom-in-95 duration-500 p-12">
                             <div className="bg-slate-50/50 rounded-3xl border border-slate-200 overflow-hidden">
                                 <div className="max-h-[400px] overflow-y-auto overflow-x-auto custom-scrollbar">
                                     <table className="w-full text-left border-collapse">
@@ -520,7 +684,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                             {csvPreview.slice(1).map((row, rIdx) => (
                                                 <tr key={rIdx} className="hover:bg-white transition-colors group">
                                                     {row.map((cell, cIdx) => (
-                                                        <td key={cIdx} className="px-6 py-4 text-xs font-medium text-slate-600 border-b border-slate-50 group-last:border-none whitespace-nowrap">{cell}</td>
+                                                        <td key={cIdx} className="px-6 py-4 text-xs font-medium text-slate-600 border-b border-slate-50 whitespace-nowrap">{cell}</td>
                                                     ))}
                                                 </tr>
                                             ))}
@@ -528,96 +692,52 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                     </table>
                                 </div>
                             </div>
-
                             <div className="flex flex-col gap-4">
                                 <div className="grid grid-cols-2 gap-4">
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleUpload();
-                                        }}
-                                        className="bg-slate-900 hover:bg-black text-white font-black py-5 px-8 rounded-2xl shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
-                                    >
-                                        <i className="fa-solid fa-brain"></i>
-                                        {file ? 'Execute Planning' : 'Regenerate'}
+                                    <button onClick={handleUpload} className="bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl flex items-center justify-center gap-3">
+                                        <i className="fa-solid fa-brain"></i> Execute Planning
                                     </button>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleTransform();
-                                        }}
-                                        disabled={isTransforming}
-                                        className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 font-black py-5 px-8 rounded-2xl shadow-sm transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50"
-                                    >
-                                        <i className="fa-solid fa-wand-magic-sparkles"></i>
-                                        {isTransforming ? 'Transforming...' : 'Schema Map'}
+                                    <button onClick={handleTransform} disabled={isTransforming} className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 font-black py-5 rounded-2xl flex items-center justify-center gap-3">
+                                        <i className="fa-solid fa-wand-magic-sparkles"></i> {isTransforming ? 'Transforming...' : 'Schema Map'}
                                     </button>
                                 </div>
-                                <button
-                                    onClick={reset}
-                                    className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 transition-colors"
-                                >
-                                    Cancel & Select Different File
-                                </button>
+                                <button onClick={reset} className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 transition-colors">Cancel</button>
                             </div>
                         </div>
                     )}
 
+                    {/* Transformed CSV Success */}
                     {transformedCsv && (
-                        <div className="mt-10 p-8 bg-emerald-50 border border-emerald-100 rounded-[2rem] space-y-6 animate-in zoom-in-95 duration-500">
+                        <div className="mt-10 p-8 bg-emerald-50 border border-emerald-100 rounded-[2rem] space-y-6 mx-12 mb-12 animate-in zoom-in-95 duration-500">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center">
-                                        <i className="fa-solid fa-check"></i>
-                                    </div>
+                                    <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center"><i className="fa-solid fa-check"></i></div>
                                     <p className="text-sm font-black text-emerald-900 uppercase tracking-tight">Transformation Complete</p>
                                 </div>
-                                <button
-                                    onClick={downloadTransformedCsv}
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest px-6 py-3 rounded-xl transition-all shadow-lg shadow-emerald-600/20 active:scale-95 flex items-center gap-2"
-                                >
-                                    <i className="fa-solid fa-download"></i>
-                                    Download CSV
-                                </button>
+                                <button onClick={downloadTransformedCsv} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest px-6 py-3 rounded-xl transition-all"><i className="fa-solid fa-download"></i> Download CSV</button>
                             </div>
                             <div className="bg-white rounded-2xl border border-emerald-100 overflow-hidden">
-                                <pre className="p-6 text-[10px] font-mono text-slate-600 overflow-x-auto text-left max-h-[200px] custom-scrollbar">
-                                    {transformedCsv}
-                                </pre>
+                                <pre className="p-6 text-[10px] font-mono text-slate-600 overflow-x-auto text-left max-h-[200px]">{transformedCsv}</pre>
                             </div>
                         </div>
                     )}
 
+                    {/* Loader */}
                     {uploadStatus === 'uploading' && (
-                        <div className="w-full bg-indigo-50/50 border border-indigo-100 rounded-3xl p-8 flex flex-col items-center justify-center gap-4 animate-in fade-in zoom-in-95 duration-500">
+                        <div className="w-full bg-indigo-50/50 border border-indigo-100 rounded-3xl p-16 flex flex-col items-center justify-center gap-4">
                             <div className="relative">
                                 <div className="w-12 h-12 border-4 border-indigo-100 rounded-full"></div>
                                 <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
                             </div>
-                            <div className="text-center space-y-1">
-                                <p className="text-indigo-600 font-black uppercase tracking-widest text-xs">Architecting Lead Reactivation Plan</p>
-                                <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest opacity-80 italic">Precision intelligence often takes 1-2 minutes to orchestrate...</p>
-                            </div>
+                            <p className="text-indigo-600 font-black uppercase tracking-widest text-xs">Architecting Lead Reactivation Plan</p>
                         </div>
                     )}
 
-                    {uploadStatus === 'error' && (
-                        <div className="w-full bg-rose-50 text-rose-600 rounded-2xl p-6 flex items-center justify-center gap-4 border border-rose-100 animate-in shake duration-500">
-                            <i className="fa-solid fa-circle-exclamation text-lg"></i>
-                            <span className="font-black uppercase tracking-widest text-xs">Encryption or validation error. Try again.</span>
-                        </div>
-                    )}
-
-                    <div className="grid grid-cols-3 gap-8 pt-10 border-t border-slate-100 mt-12">
-                        {[
-                            { icon: 'fa-earth-americas', label: 'Multi-Market' },
-                            { icon: 'fa-shield-check', label: 'Compliance' },
-                            { icon: 'fa-chart-network', label: 'Event Tracks' }
-                        ].map((item, i) => (
+                    {/* Features Footer */}
+                    <div className="grid grid-cols-3 gap-8 pt-10 border-t border-slate-100 mt-12 px-12 pb-12">
+                        {[{ icon: 'fa-earth-americas', label: 'Multi-Market' }, { icon: 'fa-shield-check', label: 'Compliance' }, { icon: 'fa-chart-network', label: 'Event Tracks' }].map((item, i) => (
                             <div key={i} className="text-center space-y-3">
-                                <div className="text-slate-400 hover:text-indigo-600 transition-colors">
-                                    <i className={`fa-solid ${item.icon} text-lg`}></i>
-                                </div>
+                                <i className={`fa-solid ${item.icon} text-lg text-slate-400`}></i>
                                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{item.label}</p>
                             </div>
                         ))}
@@ -634,25 +754,87 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {recentDocuments.slice(0, 3).map((doc) => (
-                            <div
-                                key={doc.id}
-                                onClick={() => handleSelectPreviousDoc(doc)}
-                                className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-indigo-500/5 transition-all flex items-center justify-between group cursor-pointer active:scale-95"
-                            >
+                            <div key={doc.id} onClick={() => handleSelectPreviousDoc(doc)} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all cursor-pointer active:scale-95 flex items-center justify-between group">
                                 <div className="flex items-center gap-5">
-                                    <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors shadow-sm">
-                                        <i className="fa-solid fa-file-csv text-lg"></i>
-                                    </div>
+                                    <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 shadow-sm"><i className="fa-solid fa-file-csv text-lg"></i></div>
                                     <div className="min-w-0">
                                         <p className="text-sm font-black text-slate-900 truncate pr-4">{doc.name}</p>
                                         <p className="text-[10px] text-slate-400 font-medium mt-0.5">{getTimeSince(doc.created_at)}</p>
                                     </div>
                                 </div>
-                                <div className="text-[10px] font-black text-slate-300 uppercase tracking-tighter shrink-0">
-                                    {(doc.size / 1024).toFixed(0)} KB
-                                </div>
+                                <div className="text-[10px] font-black text-slate-300 uppercase tracking-tighter shrink-0">{(doc.size / 1024).toFixed(0)} KB</div>
                             </div>
                         ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Editable Profile Drawer */}
+            {selectedLeadForDetails && (
+                <div className="fixed inset-0 z-[100] flex justify-end">
+                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setSelectedLeadForDetails(null)} />
+                    <div className="relative w-full max-w-[500px] bg-white h-full shadow-2xl animate-in slide-in-from-right duration-500 flex flex-col">
+                        <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                            <div className="flex items-center gap-4">
+                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-black border shadow-sm ${selectedLeadForDetails.leadType === 'Seller' ? 'bg-amber-100 text-amber-600 border-amber-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>{selectedLeadForDetails.leadType === 'Seller' ? 'S' : 'B'}</div>
+                                <div>
+                                    <input type="text" defaultValue={selectedLeadForDetails.fullName} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, fullName: e.target.value } : null)} className="text-xl font-black text-slate-900 uppercase tracking-tight bg-transparent border-none outline-none focus:ring-0 w-full hover:bg-slate-100/50 px-2 rounded-lg transition-colors" />
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 px-2">Client Profile • Persistence Active</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setSelectedLeadForDetails(null)} className="w-10 h-10 rounded-xl hover:bg-slate-200 flex items-center justify-center text-slate-400 transition-colors"><i className="fa-solid fa-xmark text-lg"></i></button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-10">
+                            <section className="space-y-4">
+                                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-address-book text-indigo-400"></i> Primary Contact</h3>
+                                <div className="grid grid-cols-1 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Email Address</label>
+                                        <div className="group flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl focus-within:bg-white focus-within:border-indigo-200 transition-all">
+                                            <i className="fa-solid fa-envelope text-slate-300"></i>
+                                            <input type="email" defaultValue={selectedLeadForDetails.primaryContact?.email || selectedLeadForDetails.email} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, email: e.target.value, primaryContact: { ...prev.primaryContact!, email: e.target.value } } : null)} className="bg-transparent border-none outline-none text-sm font-bold text-slate-600 w-full" />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Phone Number</label>
+                                        <div className="group flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl focus-within:bg-white focus-within:border-indigo-200 transition-all">
+                                            <i className="fa-solid fa-phone text-slate-300"></i>
+                                            <input type="tel" defaultValue={selectedLeadForDetails.primaryContact?.phone || selectedLeadForDetails.phone} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, phone: e.target.value, primaryContact: { ...prev.primaryContact!, phone: e.target.value } } : null)} className="bg-transparent border-none outline-none text-sm font-bold text-slate-600 w-full" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                            <section className="space-y-4">
+                                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-compass text-indigo-400"></i> Market Intelligence</h3>
+                                <div className="bg-indigo-50/30 rounded-[2.5rem] p-8 border border-indigo-100/50 space-y-8">
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Target Market / Locations</label>
+                                        <input type="text" defaultValue={selectedLeadForDetails.searchCriteria?.locations} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, searchCriteria: { ...prev.searchCriteria!, locations: e.target.value } } : null)} className="bg-white border border-indigo-100/50 outline-none text-sm font-black text-slate-800 w-full p-4 rounded-xl shadow-sm focus:border-indigo-300 transition-all" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Budget Capacity</label>
+                                            <input type="number" defaultValue={selectedLeadForDetails.financialVitals?.budgetMax} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, financialVitals: { ...prev.financialVitals!, budgetMax: parseInt(e.target.value) } } : null)} className="bg-white border border-indigo-100/50 outline-none text-sm font-black text-slate-800 w-full p-4 rounded-xl shadow-sm focus:border-indigo-300 transition-all" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Lead Category</label>
+                                            <select value={selectedLeadForDetails.leadType} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, leadType: e.target.value as 'Buyer' | 'Seller' } : null)} className="bg-white border border-indigo-100/50 outline-none text-sm font-black text-slate-800 w-full p-4 rounded-xl shadow-sm appearance-none cursor-pointer">
+                                                <option value="Buyer">Buyer</option>
+                                                <option value="Seller">Seller</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                            <section className="pb-8 space-y-4">
+                                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-note-sticky text-indigo-400"></i> Internal Record</h3>
+                                <textarea rows={4} defaultValue={selectedLeadForDetails.leadInfo?.customerMessage || selectedLeadForDetails.notes} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, notes: e.target.value, leadInfo: { ...prev.leadInfo!, customerMessage: e.target.value } } : null)} className="w-full bg-slate-50 border border-slate-100 rounded-[2rem] p-6 text-sm font-medium text-slate-600 outline-none focus:bg-white transition-all resize-none" placeholder="Record intelligence..." />
+                            </section>
+                        </div>
+                        <div className="p-8 border-t border-slate-100 bg-white grid grid-cols-2 gap-4">
+                            <button onClick={() => { setLocalLeads(prev => prev.map(l => l.id === selectedLeadForDetails.id ? selectedLeadForDetails : l)); setSelectedLeadForDetails(null); }} className="bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-200"><i className="fa-solid fa-floppy-disk"></i> Save Profile</button>
+                            <button onClick={() => { toggleLeadSelection(selectedLeadForDetails.id); setSelectedLeadForDetails(null); }} className="bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl flex items-center justify-center gap-3 active:scale-[0.98] uppercase tracking-widest text-[10px]"><i className="fa-solid fa-plus"></i> Add to Reactivate</button>
+                        </div>
                     </div>
                 </div>
             )}
