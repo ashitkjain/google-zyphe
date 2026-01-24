@@ -10,7 +10,7 @@ interface AutomatedModuleProps {
     realtorId: string;
 }
 
-const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
+const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = [] }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [file, setFile] = useState<File | null>(null);
     const [fileContent, setFileContent] = useState<string | null>(null);
@@ -24,7 +24,11 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
     const [selectedMarketName, setSelectedMarketName] = useState<string | null>(null);
     const [transformedCsv, setTransformedCsv] = useState<string | null>(null);
     const [isTransforming, setIsTransforming] = useState(false);
+    const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+    const [showLeadSelection, setShowLeadSelection] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const archivedLeads = leads.filter(l => l.status === 'Archived' || l.health === 'Stale');
 
     useEffect(() => {
         const loadDocs = async () => {
@@ -289,6 +293,43 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
         }
     };
 
+    const toggleLeadSelection = (leadId: string) => {
+        setSelectedLeadIds(prev =>
+            prev.includes(leadId)
+                ? prev.filter(id => id !== leadId)
+                : [...prev, leadId]
+        );
+    };
+
+    const handleAnalyzeSelectedLeads = async () => {
+        if (selectedLeadIds.length === 0) return;
+
+        setUploadStatus('uploading');
+        const selectedLeads = archivedLeads.filter(l => selectedLeadIds.includes(l.id));
+
+        const headers = ['lead_id', 'name', 'phone', 'email', 'market', 'budget', 'lead_source', 'last_activity', 'notes'];
+        const rows = selectedLeads.map(l => [
+            l.id,
+            l.fullName,
+            l.primaryContact?.phone || 'NULL',
+            l.primaryContact?.email || 'NULL',
+            l.searchCriteria?.locations || 'NULL',
+            l.financialVitals?.budgetMax?.toString() || 'NULL',
+            l.source || 'NULL',
+            l.lastActivity ? new Date(l.lastActivity).toLocaleDateString() : 'NULL',
+            (l.leadInfo?.customerMessage || '').replace(/\n/g, ' ') || 'NULL'
+        ]);
+
+        const content = [headers.join('|'), ...rows.map(r => r.join('|'))].join('\n');
+        setFileContent(content);
+        setSelectedDocName(`${selectedLeadIds.length} Selected Leads`);
+        setSelectedDocId('database_selection_' + Date.now());
+
+        parseForPreview(content);
+        setUploadStatus('idle');
+        setShowLeadSelection(false);
+    };
+
     const reset = () => {
         setFile(null);
         setFileContent(null);
@@ -298,6 +339,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
         setResult(null);
         setUploadStatus('idle');
         setValidationError(null);
+        setSelectedLeadIds([]);
     };
 
 
@@ -355,11 +397,111 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId }) => {
                             ) : (
                                 <div className="space-y-2">
                                     <p className="text-sm font-black text-slate-700 uppercase tracking-tight">Upload Old Leads</p>
-                                    <p className="text-xs text-slate-400 font-medium">Supports multiple markets per file</p>
+                                    <p className="text-xs text-slate-400 font-medium">Click to browse or drag & drop CSV</p>
                                 </div>
                             )}
                         </div>
                     </div>
+
+                    {!fileContent && !uploadStatus.includes('uploading') && (
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                                <div className="w-full border-t border-slate-100"></div>
+                            </div>
+                            <div className="relative flex justify-center text-xs font-black uppercase tracking-widest">
+                                <span className="bg-white px-6 text-slate-300">OR</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {!fileContent && !showLeadSelection && (
+                        <button
+                            onClick={() => setShowLeadSelection(true)}
+                            className="w-full bg-white hover:bg-slate-50 border-2 border-slate-100 hover:border-indigo-100 px-8 py-6 rounded-[2.5rem] transition-all flex items-center justify-between group"
+                        >
+                            <div className="flex items-center gap-6">
+                                <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                    <i className="fa-solid fa-database text-lg"></i>
+                                </div>
+                                <div className="text-left">
+                                    <p className="text-sm font-black text-slate-900 uppercase tracking-tight">Select from Database</p>
+                                    <p className="text-[11px] text-slate-400 font-medium">{archivedLeads.length} archived/stale leads available</p>
+                                </div>
+                            </div>
+                            <div className="w-10 h-10 rounded-full border border-slate-100 flex items-center justify-center text-slate-300 group-hover:text-indigo-600 group-hover:border-indigo-200 transition-all">
+                                <i className="fa-solid fa-chevron-right"></i>
+                            </div>
+                        </button>
+                    )}
+
+                    {!fileContent && showLeadSelection && (
+                        <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+                            <div className="bg-slate-50/50 rounded-[2.5rem] border border-slate-200 overflow-hidden">
+                                <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-white">
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Archived Leads ({selectedLeadIds.length} Selected)</h4>
+                                    <button
+                                        onClick={() => setShowLeadSelection(false)}
+                                        className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 transition-colors"
+                                    >
+                                        Back
+                                    </button>
+                                </div>
+                                <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
+                                    <div className="divide-y divide-slate-100">
+                                        {archivedLeads.map(lead => (
+                                            <div
+                                                key={lead.id}
+                                                onClick={() => toggleLeadSelection(lead.id)}
+                                                className="p-5 flex items-center justify-between hover:bg-white transition-colors cursor-pointer group border-b border-slate-50 last:border-none"
+                                            >
+                                                <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${selectedLeadIds.includes(lead.id) ? 'bg-indigo-600 border-indigo-600' : 'border-slate-200 group-hover:border-indigo-300'}`}>
+                                                        {selectedLeadIds.includes(lead.id) && <i className="fa-solid fa-check text-[10px] text-white"></i>}
+                                                    </div>
+                                                    <div className="text-left min-w-0 flex-1">
+                                                        <div className="flex items-center gap-2 mb-0.5">
+                                                            <p className="text-xs font-black text-slate-900 truncate">{lead.fullName}</p>
+                                                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md ${lead.leadType === 'Seller' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                                                {lead.leadType}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter opacity-70 truncate">
+                                                            {lead.source || 'Direct'} • {lead.searchCriteria?.locations || 'No Market'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-8 shrink-0 ml-4">
+                                                    <div className="text-right hidden sm:block">
+                                                        <p className="text-[10px] font-black text-slate-900">
+                                                            {lead.financialVitals?.budgetMax ? `$${(lead.financialVitals.budgetMax / 1000).toFixed(0)}k` : 'N/A'}
+                                                        </p>
+                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Budget</p>
+                                                    </div>
+                                                    <div className="text-right w-24">
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                                                            {lead.lastActivity ? getTimeSince(lead.lastActivity) : (lead.receivedAt ? getTimeSince(lead.receivedAt) : 'No Activity')}
+                                                        </p>
+                                                        <p className="text-[9px] font-bold text-slate-300 uppercase tracking-tighter">Last Seen</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <button
+                                    onClick={handleAnalyzeSelectedLeads}
+                                    disabled={selectedLeadIds.length === 0}
+                                    className="col-span-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black py-5 px-8 rounded-2xl shadow-xl shadow-indigo-200 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                                >
+                                    <i className="fa-solid fa-wand-sparkles"></i>
+                                    Prepare Analysis for {selectedLeadIds.length} Leads
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {fileContent && uploadStatus === 'idle' && (
                         <div className="space-y-10 animate-in fade-in zoom-in-95 duration-500">
