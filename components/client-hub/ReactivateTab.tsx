@@ -9,6 +9,7 @@ import AutomatedModule from './reactivate/AutomatedModule';
 import DashboardModule from './reactivate/DashboardModule';
 
 import SnapshotReport from './reactivate/components/SnapshotReport';
+import ClientDetailsView from './ClientDetailsView';
 
 interface ReactivateTabProps {
     realtorId: string;
@@ -20,6 +21,7 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
     const [selectedModule, setSelectedModule] = useState<'DASHBOARD' | 'AUTOMATED' | 'ASSISTED' | 'TRAIL' | 'ANALYTICS' | 'TRIGGERS' | 'REPORT'>('DASHBOARD');
     const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
     const [selectedChannel, setSelectedChannel] = useState<'email' | 'call' | 'sms' | 'whatsapp' | 'mail' | undefined>('email');
+    const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
     // Filter for candidates: Archived status or Stale health
     const candidates = leads.filter(l => l.status === 'Archived' || l.health === 'Stale');
@@ -88,7 +90,10 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
 
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                     {selectedModule === 'DASHBOARD' && (
-                        <DashboardModule realtorId={realtorId} />
+                        <DashboardModule
+                            realtorId={realtorId}
+                            onOpenLeadDetails={(leadId) => setSelectedClientId(leadId)}
+                        />
                     )}
 
                     {selectedModule === 'AUTOMATED' && (
@@ -126,6 +131,24 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
                         <SnapshotReport realtorId={realtorId} leads={leads} />
                     )}
                 </div>
+
+                {/* Client Details Modal */}
+                {selectedClientId && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center">
+                        <div
+                            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+                            onClick={() => setSelectedClientId(null)}
+                        />
+                        <div className="relative w-full max-w-6xl h-[90vh] bg-white rounded-3xl shadow-2xl overflow-hidden">
+                            <ClientDetailsView
+                                clients={leads}
+                                selectedClientId={selectedClientId}
+                                onClose={() => setSelectedClientId(null)}
+                                onUpdateLead={onUpdateLead}
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

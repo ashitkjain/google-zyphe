@@ -11,9 +11,10 @@ import SentimentAnalyzer from './components/SentimentAnalyzer';
 
 interface DashboardModuleProps {
     realtorId: string;
+    onOpenLeadDetails?: (leadId: string) => void;
 }
 
-const DashboardModule: React.FC<DashboardModuleProps> = ({ realtorId }) => {
+const DashboardModule: React.FC<DashboardModuleProps> = ({ realtorId, onOpenLeadDetails }) => {
     const [loading, setLoading] = useState(true);
     const [aggregatedData, setAggregatedData] = useState<LeadReactivationResult | null>(null);
 
@@ -150,6 +151,9 @@ const DashboardModule: React.FC<DashboardModuleProps> = ({ realtorId }) => {
                 showReset={false}
                 title="Portfolio Reactivation Dashboard"
                 agentId={realtorId}
+                onOpenLeadDetails={(leadId) => {
+                    onOpenLeadDetails?.(leadId);
+                }}
             />
         </div>
     );
