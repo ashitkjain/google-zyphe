@@ -11,6 +11,7 @@ interface ReactivationVisualizerProps {
     title?: string;
     agentId: string;
     onOpenLeadDetails?: (leadId: string) => void;
+    highlightedLeadId?: string | null;
 }
 
 const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
@@ -19,7 +20,8 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
     showReset = true,
     title,
     agentId,
-    onOpenLeadDetails
+    onOpenLeadDetails,
+    highlightedLeadId
 }) => {
     const [selectedMarketName, setSelectedMarketName] = useState<string | null>(null);
     const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -39,6 +41,26 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
     useEffect(() => {
         setLocalPlans(result.lead_plans);
     }, [result.lead_plans]);
+
+    useEffect(() => {
+        if (highlightedLeadId) {
+            // Ensure the lead is visible by showing all cities and clearing search
+            setActiveCityTab('All');
+            setSearchQuery('');
+
+            // Give a tiny delay for React to ensure the element exists after state changes
+            setTimeout(() => {
+                const element = document.getElementById(`plan-card-${highlightedLeadId}`);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    element.classList.add('ring-4', 'ring-indigo-500', 'ring-opacity-50', 'bg-indigo-50/10');
+                    setTimeout(() => {
+                        element.classList.remove('ring-4', 'ring-indigo-500', 'ring-opacity-50', 'bg-indigo-50/10');
+                    }, 3000);
+                }
+            }, 150);
+        }
+    }, [highlightedLeadId]);
 
     useEffect(() => {
         if (result && result.market_context.length > 0 && !selectedMarketName) {
@@ -305,7 +327,12 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                             // Find the original index in localPlans for editing/sending
                             const originalIdx = localPlans.indexOf(plan);
                             return (
-                                <div key={originalIdx} className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-500 group border-l-4" style={{ borderLeftColor: plan.priority_score > 0.8 ? '#4f46e5' : plan.priority_score > 0.5 ? '#3b82f6' : '#94a3b8' }}>
+                                <div
+                                    key={originalIdx}
+                                    id={`plan-card-${plan.lead_id}`}
+                                    className={`bg-white rounded-[2rem] border border-slate-200 overflow-hidden hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-700 group border-l-4 ${highlightedLeadId === plan.lead_id ? 'ring-4 ring-indigo-500 ring-opacity-50' : ''}`}
+                                    style={{ borderLeftColor: plan.priority_score > 0.8 ? '#4f46e5' : plan.priority_score > 0.5 ? '#3b82f6' : '#94a3b8' }}
+                                >
                                     <div className="p-8">
                                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                                             {/* Lead Info */}

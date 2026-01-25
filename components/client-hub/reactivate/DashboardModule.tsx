@@ -17,6 +17,7 @@ interface DashboardModuleProps {
 const DashboardModule: React.FC<DashboardModuleProps> = ({ realtorId, onOpenLeadDetails }) => {
     const [loading, setLoading] = useState(true);
     const [aggregatedData, setAggregatedData] = useState<LeadReactivationResult | null>(null);
+    const [highlightedLeadId, setHighlightedLeadId] = useState<string | null>(null);
 
     useEffect(() => {
         const loadData = async () => {
@@ -144,7 +145,10 @@ const DashboardModule: React.FC<DashboardModuleProps> = ({ realtorId, onOpenLead
         <div className="space-y-8">
             <ActionCenterWidget
                 realtorId={realtorId}
-                onOpenLead={(id) => onOpenLeadDetails?.(id)}
+                onOpenLead={(id) => {
+                    setHighlightedLeadId(null); // Clear first to trigger effect if same ID
+                    setTimeout(() => setHighlightedLeadId(id), 10);
+                }}
             />
 
             <ReactivationVisualizer
@@ -152,6 +156,7 @@ const DashboardModule: React.FC<DashboardModuleProps> = ({ realtorId, onOpenLead
                 showReset={false}
                 title="Portfolio Reactivation Dashboard"
                 agentId={realtorId}
+                highlightedLeadId={highlightedLeadId}
                 onOpenLeadDetails={(leadId) => {
                     onOpenLeadDetails?.(leadId);
                 }}
