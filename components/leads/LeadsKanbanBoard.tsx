@@ -345,16 +345,7 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
         >
             {/* Top Right Temperature Badge */}
             <div className="absolute top-3 right-3 filter drop-shadow-sm flex items-center justify-center group/temp">
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        const scores = ['Cold', 'Warm', 'Hot', 'Stale'];
-                        const currentIndex = scores.indexOf(lead.engagementScore || 'Cold');
-                        const nextScore = scores[(currentIndex + 1) % scores.length];
-                        onUpdateLead(lead.id, { engagementScore: nextScore as any });
-                    }}
-                    className={`relative transition-all duration-300 ease-out flex items-center justify-center cursor-pointer hover:scale-110 active:scale-95 ${lead.engagementScore === 'Hot' ? 'w-10 h-10 -mt-2 -mr-2 drop-shadow-[0_4px_4px_rgba(255,100,0,0.3)] z-50 animate-flame' : 'w-6 h-6'}`}
-                >
+                <div className={`relative transition-all duration-300 ease-out flex items-center justify-center ${lead.engagementScore === 'Hot' ? 'w-10 h-10 -mt-2 -mr-2 drop-shadow-[0_4px_4px_rgba(255,100,0,0.3)] z-50 animate-flame' : 'w-6 h-6'}`}>
                     {(!lead.engagementScore || lead.engagementScore === 'Cold') && <i className="fa-solid fa-snowflake text-sky-300 text-lg filter drop-shadow-sm"></i>}
                     {lead.engagementScore === 'Warm' && <i className="fa-solid fa-mug-hot text-amber-500 text-lg filter drop-shadow-sm"></i>}
                     {lead.engagementScore === 'Stale' && <img src="/assets/stale-icon.png" alt="Stale" className="w-5 h-5 object-contain opacity-60 grayscale filter drop-shadow-sm" />}
@@ -368,9 +359,9 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
                             <div className="absolute inset-x-0 bottom-0 top-1/2 bg-orange-500/20 blur-lg rounded-full -z-10 animate-pulse"></div>
                         </>
                     )}
-                </button>
+                </div>
                 <div className="absolute bottom-full right-0 mb-2 hidden group-hover/temp:block bg-slate-800 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-[100] shadow-xl animate-in fade-in zoom-in-95 duration-200">
-                    Lead Temperature: {lead.engagementScore || 'Cold'} (Click to cycle)
+                    Lead Temperature: {lead.engagementScore || 'Cold'}
                     <div className="absolute top-full right-2 -mt-1 border-4 border-transparent border-t-slate-800"></div>
                 </div>
             </div>
