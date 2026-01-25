@@ -344,7 +344,7 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
             style={provided.draggableProps.style}
         >
             {/* Top Right Temperature Badge */}
-            <div className="absolute top-3 right-3 filter drop-shadow-sm flex items-center justify-center">
+            <div className="absolute top-3 right-3 filter drop-shadow-sm flex items-center justify-center group/temp">
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
@@ -354,7 +354,6 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
                         onUpdateLead(lead.id, { engagementScore: nextScore as any });
                     }}
                     className={`relative transition-all duration-300 ease-out flex items-center justify-center cursor-pointer hover:scale-110 active:scale-95 ${lead.engagementScore === 'Hot' ? 'w-10 h-10 -mt-2 -mr-2 drop-shadow-[0_4px_4px_rgba(255,100,0,0.3)] z-50 animate-flame' : 'w-6 h-6'}`}
-                    title={`Current Temperature: ${lead.engagementScore || 'Cold'}. Click to cycle.`}
                 >
                     {(!lead.engagementScore || lead.engagementScore === 'Cold') && <i className="fa-solid fa-snowflake text-sky-300 text-lg filter drop-shadow-sm"></i>}
                     {lead.engagementScore === 'Warm' && <i className="fa-solid fa-mug-hot text-amber-500 text-lg filter drop-shadow-sm"></i>}
@@ -370,6 +369,10 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
                         </>
                     )}
                 </button>
+                <div className="absolute bottom-full right-0 mb-2 hidden group-hover/temp:block bg-slate-800 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-[100] shadow-xl animate-in fade-in zoom-in-95 duration-200">
+                    Lead Temperature: {lead.engagementScore || 'Cold'} (Click to cycle)
+                    <div className="absolute top-full right-2 -mt-1 border-4 border-transparent border-t-slate-800"></div>
+                </div>
             </div>
 
             {/* Header: Photo + Info (Name, Email, Phone) */}
@@ -485,10 +488,14 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
                         })()}
                     </div>
 
-                    <div className="flex items-center gap-1" title={displayStatusLabel}>
+                    <div className="relative group/tooltip flex items-center gap-1">
                         <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">
                             {displayStatusValue}
                         </span>
+                        <div className="absolute bottom-full right-0 mb-2 hidden group-hover/tooltip:block bg-slate-800 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-[100] shadow-xl animate-in fade-in zoom-in-95 duration-200">
+                            Current Status: {displayStatusValue}
+                            <div className="absolute top-full right-4 -mt-1 border-4 border-transparent border-t-slate-800"></div>
+                        </div>
                     </div>
                 </div>
 
