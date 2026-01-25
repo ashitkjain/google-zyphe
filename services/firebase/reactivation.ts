@@ -217,3 +217,29 @@ export const updateLeadPlanStatus = async (
         return false;
     }
 };
+
+export const updateLeadPlanStep = async (
+    planId: string,
+    stepIdx: number | 'first',
+    updates: { sent_at?: any; reply_received?: boolean }
+) => {
+    try {
+        const planRef = doc(db, 'lead_plans', planId);
+        const planSnap = await getDocs(query(collection(db, 'lead_plans'), where('__name__', '==', planId)));
+        if (planSnap.empty) return false;
+
+        const data = planSnap.docs[0].data() as LeadPlanRecord;
+
+        if (stepIdx === 'first') {
+            data.first_touch = { ...data.first_touch, ...updates };
+        } else if (typeof stepIdx === 'number' && data.sequence.steps[stepIdx]) {
+            data.sequence.steps[stepIdx] = { ...data.sequence.steps[stepIdx], ...updates };
+        }
+
+        await setDoc(planRef, data, { merge: true });
+        return true;
+    } catch (error) {
+        console.error('Error updating lead plan step:', error);
+        return false;
+    }
+};

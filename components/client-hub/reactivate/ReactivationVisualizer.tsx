@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LeadReactivationResult } from '../../../types/ai';
 import { ReactivationMessage } from '../../../types';
 import { logMessageEvent, saveReactivationMessage, createThreadId, getReactivationMessages } from '../../../services/firebase/communications';
-import { updateLeadPlanStatus } from '../../../services/firebase/reactivation';
+import { updateLeadPlanStatus, updateLeadPlanStep } from '../../../services/firebase/reactivation';
 import { serverTimestamp } from 'firebase/firestore';
 
 interface ReactivationVisualizerProps {
@@ -134,6 +134,69 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
         }
     };
 
+    const handleMockReply = async (planIdx: number, stepIdx: number | 'first', leadId: string) => {
+        const currentPlan = localPlans[planIdx] as any;
+        if (!currentPlan?.id) return;
+
+        try {
+            // Update DB
+            await updateLeadPlanStatus(currentPlan.id, 'responded');
+            await updateLeadPlanStep(currentPlan.id, stepIdx, { reply_received: true });
+
+            // Log mock inbound message
+            const message_id = crypto.randomUUID();
+            let thread_id = threadIds[leadId];
+            if (!thread_id) {
+                thread_id = createThreadId(leadId, agentId);
+                setThreadIds(prev => ({ ...prev, [leadId]: thread_id }));
+            }
+
+            await saveReactivationMessage({
+                message_id,
+                lead_id: leadId,
+                lead_name: currentPlan.lead_name,
+                realtorId: agentId,
+                channel: 'sms', // Defaulting to SMS for mock reply
+                content: "This sounds interesting! Tell me more.",
+                sent_at: serverTimestamp(),
+                reply_received: false,
+                sentiment: 'positive',
+                isInbound: true,
+                thread_id,
+                requires_action: true
+            });
+
+            // Update local state
+            const updated = [...localPlans];
+            const now = new Date();
+
+            if (stepIdx === 'first') {
+                updated[planIdx] = {
+                    ...updated[planIdx],
+                    reactivation_status: 'responded',
+                    statusUpdatedOn: now,
+                    first_touch: { ...updated[planIdx].first_touch, reply_received: true }
+                } as any;
+            } else {
+                const steps = [...updated[planIdx].sequence.steps];
+                const numericStepIdx = typeof stepIdx === 'number' ? stepIdx : parseInt(stepIdx);
+                if (!isNaN(numericStepIdx)) {
+                    steps[numericStepIdx] = { ...steps[numericStepIdx], reply_received: true };
+                    updated[planIdx] = {
+                        ...updated[planIdx],
+                        reactivation_status: 'responded',
+                        statusUpdatedOn: now,
+                        sequence: { ...updated[planIdx].sequence, steps }
+                    } as any;
+                }
+            }
+            setLocalPlans(updated);
+
+        } catch (err) {
+            console.error('Error in handleMockReply:', err);
+        }
+    };
+
     const handleSend = async (planIdx: number, stepIdx: number | 'first', message: string, channel: string, leadId: string) => {
         const key = stepIdx === 'first' ? `${planIdx}-first` : `${planIdx}-${stepIdx}`;
 
@@ -195,14 +258,36 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                         : currentPlan.reactivation_status;
 
                     await updateLeadPlanStatus(currentPlan.id, newStatus);
+                    await updateLeadPlanStep(currentPlan.id, stepIdx, {
+                        sent_at: serverTimestamp(),
+                        reply_received: false
+                    });
 
                     // Update local state to reflect new status and update time
                     const updated = [...localPlans];
-                    updated[planIdx] = {
-                        ...updated[planIdx],
-                        reactivation_status: newStatus,
-                        statusUpdatedOn: new Date() // Local approximation for UI
-                    } as any;
+                    const now = new Date();
+                    const stepUpdates = { sent_at: now, reply_received: false };
+
+                    if (stepIdx === 'first') {
+                        updated[planIdx] = {
+                            ...updated[planIdx],
+                            reactivation_status: newStatus,
+                            statusUpdatedOn: now,
+                            first_touch: { ...updated[planIdx].first_touch, ...stepUpdates }
+                        } as any;
+                    } else {
+                        const steps = [...updated[planIdx].sequence.steps];
+                        const numericStepIdx = typeof stepIdx === 'number' ? stepIdx : parseInt(stepIdx);
+                        if (!isNaN(numericStepIdx)) {
+                            steps[numericStepIdx] = { ...steps[numericStepIdx], ...stepUpdates };
+                            updated[planIdx] = {
+                                ...updated[planIdx],
+                                reactivation_status: newStatus,
+                                statusUpdatedOn: now,
+                                sequence: { ...updated[planIdx].sequence, steps }
+                            } as any;
+                        }
+                    }
                     setLocalPlans(updated);
                 }
 
@@ -564,6 +649,34 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                             ) : (
                                                                 <p className="text-sm text-slate-700 font-medium leading-relaxed">"{plan.first_touch?.message || ''}"</p>
                                                             )}
+
+                                                            {(plan.first_touch?.sent_at || permanentlySentKeys.has(`${originalIdx}-first`)) && (
+                                                                <div className="mt-3 pt-3 border-t border-slate-100/50 flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <i className="fa-solid fa-clock text-[10px] text-slate-300"></i>
+                                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                                            Sent {plan.first_touch?.sent_at ? (plan.first_touch.sent_at.toDate ? plan.first_touch.sent_at.toDate().toLocaleDateString() : new Date(plan.first_touch.sent_at).toLocaleDateString()) : 'Today'}
+                                                                        </span>
+                                                                    </div>
+                                                                    {plan.first_touch?.reply_received ? (
+                                                                        <div className="flex items-center gap-2 text-emerald-500">
+                                                                            <i className="fa-solid fa-reply text-[10px]"></i>
+                                                                            <span className="text-[10px] font-black uppercase tracking-widest">Reply Received</span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex items-center gap-2 text-slate-300">
+                                                                            <i className="fa-solid fa-hourglass-start text-[10px]"></i>
+                                                                            <span className="text-[10px] font-black uppercase tracking-widest">Waiting for reply</span>
+                                                                            <button
+                                                                                onClick={() => handleMockReply(originalIdx, 'first', plan.lead_id)}
+                                                                                className="ml-2 px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-md text-[8px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all border border-indigo-100"
+                                                                            >
+                                                                                Simulate Reply
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -658,6 +771,34 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                             ) : (
                                                                 <p className="text-sm text-slate-600 font-medium leading-relaxed italic">"{step.message}"</p>
                                                             )}
+
+                                                            {step.sent_at && (
+                                                                <div className="mt-3 pt-3 border-t border-slate-100/50 flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <i className="fa-solid fa-clock text-[10px] text-slate-300"></i>
+                                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                                            Sent {step.sent_at.toDate ? step.sent_at.toDate().toLocaleDateString() : new Date(step.sent_at).toLocaleDateString()}
+                                                                        </span>
+                                                                    </div>
+                                                                    {step.reply_received ? (
+                                                                        <div className="flex items-center gap-2 text-emerald-500">
+                                                                            <i className="fa-solid fa-reply text-[10px]"></i>
+                                                                            <span className="text-[10px] font-black uppercase tracking-widest">Reply Received</span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex items-center gap-2 text-slate-300">
+                                                                            <i className="fa-solid fa-hourglass-start text-[10px]"></i>
+                                                                            <span className="text-[10px] font-black uppercase tracking-widest">Waiting for reply</span>
+                                                                            <button
+                                                                                onClick={() => handleMockReply(originalIdx, sIdx, plan.lead_id)}
+                                                                                className="ml-2 px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-md text-[8px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all border border-indigo-100"
+                                                                            >
+                                                                                Simulate Reply
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 ))}
@@ -673,7 +814,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
 
             {/* Conversation History Modal */}
             {viewingHistoryLeadId && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+                <div className="fixed inset-0 z-[210] flex items-center justify-center p-4 animate-in fade-in duration-300">
                     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setViewingHistoryLeadId(null)}></div>
                     <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden relative animate-in zoom-in-95 duration-300 border border-slate-100">
                         {/* Header */}
@@ -716,8 +857,8 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                         <div key={i} className={`flex ${msg.isInbound ? 'justify-start' : 'justify-end'}`}>
                                             <div className={`max-w-[80%] space-y-2`}>
                                                 <div className={`p-4 rounded-2xl text-sm font-medium shadow-sm border ${msg.isInbound
-                                                        ? 'bg-white text-slate-700 border-slate-100 rounded-tl-none'
-                                                        : 'bg-indigo-600 text-white border-indigo-500 rounded-tr-none'
+                                                    ? 'bg-white text-slate-700 border-slate-100 rounded-tl-none'
+                                                    : 'bg-indigo-600 text-white border-indigo-500 rounded-tr-none'
                                                     }`}>
                                                     {msg.content}
                                                 </div>

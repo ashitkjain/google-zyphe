@@ -57,7 +57,7 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
                     return {
                         id: msg.id,
                         type: 'reply' as const,
-                        leadName: msg.lead_name || 'Unknown Lead',
+                        leadName: msg.lead_name || plan?.lead_name || 'Unknown Lead',
                         leadId: msg.lead_id,
                         planId: plan?.id,
                         content: msg.content,

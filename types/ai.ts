@@ -215,6 +215,8 @@ export interface LeadReactivationResult {
         first_touch: {
             send_after_days: number;
             message: string;
+            sent_at?: any;
+            reply_received?: boolean;
         };
         sequence: {
             enabled: boolean;
@@ -222,6 +224,8 @@ export interface LeadReactivationResult {
                 day_offset: number;
                 channel: 'sms' | 'email' | 'call' | 'direct_mail' | string;
                 message: string;
+                sent_at?: any;
+                reply_received?: boolean;
             }>;
         };
     }>;
@@ -293,6 +297,8 @@ export interface LeadPlanRecord {
     first_touch: {
         send_after_days: number;
         message: string;
+        sent_at?: any;
+        reply_received?: boolean;
     };
     sequence: {
         enabled: boolean;
@@ -300,6 +306,8 @@ export interface LeadPlanRecord {
             day_offset: number;
             channel: 'sms' | 'email' | 'call' | 'direct_mail' | string;
             message: string;
+            sent_at?: any;
+            reply_received?: boolean;
         }>;
     };
     reactivation_status?: 'suggested' | 'pursuing' | 'responded' | 'archived' | 'not_pursuing';

@@ -53,6 +53,7 @@ export interface MessageEvent {
 export interface ReactivationMessage {
     message_id: string;
     lead_id: string;
+    lead_name?: string;
     realtorId: string;
     channel: string;
     content: string;
