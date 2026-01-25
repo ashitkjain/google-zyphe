@@ -144,7 +144,7 @@ const DashboardModule: React.FC<DashboardModuleProps> = ({ realtorId, onOpenLead
         <div className="space-y-8">
             <ActionCenterWidget
                 realtorId={realtorId}
-                onOpenLead={(id) => console.log('Open lead', id)}
+                onOpenLead={(id) => onOpenLeadDetails?.(id)}
             />
 
             <ReactivationVisualizer

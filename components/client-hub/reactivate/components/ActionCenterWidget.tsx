@@ -109,7 +109,7 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
                                         leadName: plan.lead_name,
                                         leadId: plan.lead_id,
                                         planId: plan.id,
-                                        content: `Recommended Day ${step.day_offset} Follow-up: "${step.message.substring(0, 50)}..."`,
+                                        content: `Recommended Day ${step.day_offset} Follow-up: "${step.message}"`,
                                         timestamp: dueDate,
                                         priority: (now.getTime() - dueDate.getTime()) > (1000 * 60 * 60 * 24) ? 'high' : 'medium'
                                     });
@@ -250,6 +250,19 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
 
                                     {openMenuId === item.id && (
                                         <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-2xl border border-slate-100 py-2 z-[100] animate-in fade-in zoom-in-95 duration-200">
+                                            {item.type === 'reply' && (
+                                                <button
+                                                    onClick={() => {
+                                                        onOpenLead(item.leadId);
+                                                        setOpenMenuId(null);
+                                                    }}
+                                                    className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors"
+                                                >
+                                                    <i className="fa-solid fa-reply text-indigo-500 w-4"></i>
+                                                    Reply Now
+                                                </button>
+                                            )}
+
                                             <button
                                                 onClick={() => {
                                                     onOpenLead(item.leadId);
@@ -257,8 +270,8 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
                                                 }}
                                                 className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors"
                                             >
-                                                <i className={`fa-solid ${item.type === 'reply' ? 'fa-reply' : 'fa-paper-plane'} text-indigo-500 w-4`}></i>
-                                                {item.type === 'reply' ? 'Reply Now' : 'Send Follow-up'}
+                                                <i className="fa-solid fa-paper-plane text-indigo-500 w-4"></i>
+                                                Send Follow-up
                                             </button>
 
                                             <button
