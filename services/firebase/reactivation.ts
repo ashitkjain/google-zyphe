@@ -137,7 +137,8 @@ export const getExistingReactivationAnalysis = async (leadsDocumentId: string, u
                 tone: data.tone,
                 first_touch: data.first_touch,
                 sequence: data.sequence,
-                reactivation_status: data.reactivation_status || 'suggested'
+                reactivation_status: data.reactivation_status || 'suggested',
+                statusUpdatedOn: data.statusUpdatedOn
             };
         });
 
@@ -173,10 +174,12 @@ export const getAllUserLeadPlans = async (userId: string): Promise<LeadPlanRecor
         const q = query(
             collection(db, 'lead_plans'),
             where('userId', '==', userId)
-            // Removed orderBy to avoid index requirement
         );
         const snap = await getDocs(q);
-        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeadPlanRecord));
+        return snap.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as LeadPlanRecord));
     } catch (error) {
         console.error('Error fetching all user lead plans:', error);
         return [];
@@ -204,7 +207,10 @@ export const updateLeadPlanStatus = async (
 ) => {
     try {
         const planRef = doc(db, 'lead_plans', planId);
-        await setDoc(planRef, { reactivation_status: status }, { merge: true });
+        await setDoc(planRef, {
+            reactivation_status: status,
+            statusUpdatedOn: serverTimestamp()
+        }, { merge: true });
         return true;
     } catch (error) {
         console.error('Error updating lead plan status:', error);

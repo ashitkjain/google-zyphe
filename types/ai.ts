@@ -303,4 +303,5 @@ export interface LeadPlanRecord {
         }>;
     };
     reactivation_status?: 'suggested' | 'pursuing' | 'responded' | 'archived' | 'not_pursuing';
+    statusUpdatedOn?: any;
 }

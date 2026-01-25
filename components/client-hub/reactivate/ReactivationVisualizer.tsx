@@ -142,13 +142,22 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                 // Add to permanently sent keys
                 setPermanentlySentKeys(prev => new Set(prev).add(key));
 
-                // Update plan status to 'pursuing' if this is the first touch
+                // Update plan status and timestamp
                 const currentPlan = localPlans[planIdx] as any;
-                if (stepIdx === 'first' && currentPlan?.id) {
-                    await updateLeadPlanStatus(currentPlan.id, 'pursuing');
-                    // Update local state to reflect new status
+                if (currentPlan?.id) {
+                    const newStatus = (!currentPlan.reactivation_status || currentPlan.reactivation_status === 'suggested')
+                        ? 'pursuing'
+                        : currentPlan.reactivation_status;
+
+                    await updateLeadPlanStatus(currentPlan.id, newStatus);
+
+                    // Update local state to reflect new status and update time
                     const updated = [...localPlans];
-                    updated[planIdx] = { ...updated[planIdx], reactivation_status: 'pursuing' } as any;
+                    updated[planIdx] = {
+                        ...updated[planIdx],
+                        reactivation_status: newStatus,
+                        statusUpdatedOn: new Date() // Local approximation for UI
+                    } as any;
                     setLocalPlans(updated);
                 }
 
@@ -314,9 +323,9 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                         <div className="flex items-center gap-1.5 ml-auto">
                                                             {/* Status Badge */}
                                                             <div className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${(plan as any).reactivation_status === 'pursuing' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                                                                    (plan as any).reactivation_status === 'responded' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                                                        (plan as any).reactivation_status === 'not_pursuing' || (plan as any).reactivation_status === 'archived' ? 'bg-slate-50 text-slate-500 border-slate-200 opacity-60' :
-                                                                            'bg-amber-50 text-amber-700 border-amber-200'
+                                                                (plan as any).reactivation_status === 'responded' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                                    (plan as any).reactivation_status === 'not_pursuing' || (plan as any).reactivation_status === 'archived' ? 'bg-slate-50 text-slate-500 border-slate-200 opacity-60' :
+                                                                        'bg-amber-50 text-amber-700 border-amber-200'
                                                                 }`}>
                                                                 {(plan as any).reactivation_status || 'Suggested'}
                                                             </div>
@@ -342,7 +351,11 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                             if (planId) {
                                                                                 await updateLeadPlanStatus(planId, 'not_pursuing');
                                                                                 const updated = [...localPlans];
-                                                                                updated[originalIdx] = { ...updated[originalIdx], reactivation_status: 'not_pursuing' } as any;
+                                                                                updated[originalIdx] = {
+                                                                                    ...updated[originalIdx],
+                                                                                    reactivation_status: 'not_pursuing',
+                                                                                    statusUpdatedOn: new Date()
+                                                                                } as any;
                                                                                 setLocalPlans(updated);
                                                                             }
                                                                         }
