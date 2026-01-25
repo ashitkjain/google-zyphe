@@ -163,11 +163,11 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
 
     return (
         <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
-            <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
+            <div className="flex-1 overflow-x-auto overflow-y-hidden p-6 custom-scrollbar">
                 <DragDropContext onDragEnd={handleDragEnd}>
                     <div className="flex gap-6 h-full min-w-max">
                         {KANBAN_COLUMNS.map(column => (
-                            <div key={column.id} className="w-80 flex flex-col h-full rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+                            <div key={column.id} className="min-w-[320px] w-80 flex flex-col h-full min-h-[600px] rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden flex-shrink-0">
                                 {/* Column Header */}
                                 <div className={`p-4 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10
                                     ${column.id === 'leads' ? 'border-t-4 border-t-indigo-400' : ''}

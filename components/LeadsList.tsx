@@ -137,7 +137,7 @@ const LeadsList: React.FC<InternalProps> = ({
     };
 
     return (
-        <div className="flex flex-col w-full bg-white text-sm font-sans min-w-0">
+        <div className="flex flex-col w-full bg-white text-sm font-sans min-w-0 h-full">
             {/* Header */}
             <LeadsHeader
                 activeTab={activeTab}
@@ -173,7 +173,7 @@ const LeadsList: React.FC<InternalProps> = ({
             ) : (
                 <DragDropContext onDragEnd={handleDragEnd}>
                     {/* Content Area */}
-                    <div className="flex-1 bg-white mb-0 space-y-4 py-4">
+                    <div className="flex-1 bg-white mb-0 space-y-4 py-4 overflow-y-auto custom-scrollbar h-full">
                         {/* Buyer Section */}
                         {activeTab === 'Buyer' && (
                             <section className="px-4 animate-in fade-in slide-in-from-left-4 duration-300">

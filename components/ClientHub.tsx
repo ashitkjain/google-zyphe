@@ -548,9 +548,9 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                 </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <div className="flex flex-col">
-                    <div className="flex flex-col">
+            <div className="flex-1 overflow-hidden">
+                <div className="flex flex-col h-full">
+                    <div className="flex flex-col h-full">
                         {activeTab === 'clients' && (
                             <ClientDetailsView
                                 realtorId={realtorId}
