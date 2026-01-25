@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { getReactivationMessages } from '../../../services/firebase/communications';
+import { getAllUserLeadPlans } from '../../../services/firebase/reactivation';
 import { Lead } from '../../../types';
+import { LeadPlanRecord } from '../../../types/ai';
 import ActivityFeed from './components/ActivityFeed';
 
 interface TrailModuleProps {
@@ -10,20 +12,25 @@ interface TrailModuleProps {
 
 const TrailModule: React.FC<TrailModuleProps> = ({ realtorId, leads }) => {
     const [messages, setMessages] = useState<any[]>([]);
+    const [plans, setPlans] = useState<LeadPlanRecord[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchMessages = async () => {
+        const fetchData = async () => {
             try {
-                const msgs = await getReactivationMessages(realtorId);
+                const [msgs, p] = await Promise.all([
+                    getReactivationMessages(realtorId),
+                    getAllUserLeadPlans(realtorId)
+                ]);
                 setMessages(msgs);
+                setPlans(p);
             } catch (err) {
-                console.error("Failed to fetch messages", err);
+                console.error("Failed to fetch trail data", err);
             } finally {
                 setLoading(false);
             }
         };
-        fetchMessages();
+        fetchData();
     }, [realtorId]);
 
     if (loading) {
@@ -52,7 +59,7 @@ const TrailModule: React.FC<TrailModuleProps> = ({ realtorId, leads }) => {
                 <i className="fa-solid fa-list-ul text-indigo-500"></i>
                 Reactivation Activity Feed
             </h3>
-            <ActivityFeed messages={messages} leads={leads} />
+            <ActivityFeed messages={messages} leads={leads} plans={plans} />
         </div>
     );
 };

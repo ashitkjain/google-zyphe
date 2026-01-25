@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { getActionRequiredMessages, completeMessageAction } from '../../../../services/firebase/communications';
+import {
+    getActionRequiredMessages,
+    completeMessageAction,
+    getReactivationMessages
+} from '../../../../services/firebase/communications';
+import { getAllUserLeadPlans } from '../../../../services/firebase/reactivation';
 import { serverTimestamp } from 'firebase/firestore';
 
 export interface ActionItem {
@@ -27,11 +32,18 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
             setLoading(true);
             try {
                 console.log('🔍 Fetching action items for realtorId:', realtorId);
-                const messages = await getActionRequiredMessages(realtorId);
-                console.log('📨 Raw messages from database:', messages);
 
-                // Transform database messages to ActionItem format
-                const items: ActionItem[] = messages.map((msg: any) => ({
+                // 1. Fetch Inbound replies
+                const inboundMessages = await getActionRequiredMessages(realtorId);
+
+                // 2. Fetch Lead Plans and all sent messages to detect follow-ups
+                const [plans, allMessages] = await Promise.all([
+                    getAllUserLeadPlans(realtorId),
+                    getReactivationMessages(realtorId, undefined, 500) // Get more for history
+                ]);
+
+                // 3. Transform database messages to ActionItem format
+                const replyItems: ActionItem[] = inboundMessages.map((msg: any) => ({
                     id: msg.id,
                     type: 'reply' as const,
                     leadName: msg.lead_name || 'Unknown Lead',
@@ -42,8 +54,56 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
                     sentiment: msg.sentiment || 'neutral'
                 }));
 
-                console.log('✅ Transformed action items:', items);
-                setActionItems(items);
+                // 4. Detect Overdue Follow-ups
+                const followUpItems: ActionItem[] = [];
+                const now = new Date();
+
+                plans.forEach(plan => {
+                    const leadMsgs = allMessages.filter((m: any) => m.lead_id === plan.lead_id);
+                    const outboundMsgs = leadMsgs.filter((m: any) => !m.isInbound);
+
+                    // Smallest 'sent_at' is usually Day 1
+                    const day1Msg = outboundMsgs.reduce((oldest: any, curr: any) => {
+                        const timeCurr = curr.sent_at?.toDate ? curr.sent_at.toDate().getTime() : new Date(curr.sent_at).getTime();
+                        const timeOldest = oldest ? (oldest.sent_at?.toDate ? oldest.sent_at.toDate().getTime() : new Date(oldest.sent_at).getTime()) : Infinity;
+                        return timeCurr < timeOldest ? curr : oldest;
+                    }, null);
+
+                    if (!day1Msg) {
+                        // Day 1 not sent. Is it due? (Optional logic, usually manual first)
+                        // For now, let's only do subsequent follow-ups to avoid noise
+                    } else {
+                        const day1SentDate = day1Msg.sent_at?.toDate ? day1Msg.sent_at.toDate() : new Date(day1Msg.sent_at);
+
+                        plan.sequence.steps.forEach((step, idx) => {
+                            const dueDate = new Date(day1SentDate);
+                            dueDate.setDate(dueDate.getDate() + step.day_offset);
+
+                            if (now > dueDate) {
+                                // Due. Has it been sent?
+                                // We check if there's an outbound message roughly at day_offset
+                                // A simpler check: how many outbound messages do we have?
+                                // If we have 1 (Day 1) and this is the first step (idx 0), then it's due.
+                                if (outboundMsgs.length <= idx + 1) {
+                                    followUpItems.push({
+                                        id: `followup-${plan.lead_id}-${step.day_offset}`,
+                                        type: 'task' as const,
+                                        leadName: plan.lead_name,
+                                        leadId: plan.lead_id,
+                                        content: `Recommended Day ${step.day_offset} Follow-up: "${step.message.substring(0, 50)}..."`,
+                                        timestamp: dueDate,
+                                        priority: (now.getTime() - dueDate.getTime()) > (1000 * 60 * 60 * 24) ? 'high' : 'medium'
+                                    });
+                                }
+                            }
+                        });
+                    }
+                });
+
+                // Combine and sort by timestamp
+                const combined = [...replyItems, ...followUpItems].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+                setActionItems(combined);
             } catch (error) {
                 console.error('❌ Failed to fetch action items:', error);
             } finally {
@@ -117,23 +177,35 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-0.5">
                                         <span className="font-black text-slate-700 text-sm">{item.leadName}</span>
-                                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${item.sentiment === 'positive' ? 'bg-emerald-100 text-emerald-700' :
-                                            item.sentiment === 'question' ? 'bg-amber-100 text-amber-700' :
-                                                'bg-slate-100 text-slate-600'
-                                            }`}>
-                                            {item.sentiment}
-                                        </span>
+                                        {item.type === 'reply' ? (
+                                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${item.sentiment === 'positive' ? 'bg-emerald-100 text-emerald-700' :
+                                                item.sentiment === 'question' ? 'bg-amber-100 text-amber-700' :
+                                                    'bg-slate-100 text-slate-600'
+                                                }`}>
+                                                {item.sentiment}
+                                            </span>
+                                        ) : (
+                                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700">
+                                                Follow-up Due
+                                            </span>
+                                        )}
                                         <span className="text-[10px] font-bold text-slate-400">
-                                            {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {item.timestamp.toLocaleDateString([], { month: 'short', day: 'numeric' })} • {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                     </div>
 
-                                    <p className="text-sm font-medium text-slate-600 italic leading-relaxed">"{item.content}"</p>
+                                    <p className="text-sm font-medium text-slate-600 italic leading-relaxed">
+                                        {item.type === 'reply' ? `"${item.content}"` : item.content}
+                                    </p>
                                 </div>
 
                                 <div className="flex items-center gap-2 flex-shrink-0">
-                                    <button className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-md shadow-indigo-500/20 transition-all">
-                                        <i className="fa-solid fa-reply mr-1.5"></i> Reply Now
+                                    <button
+                                        onClick={() => onOpenLead(item.leadId)}
+                                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-md shadow-indigo-500/20 transition-all"
+                                    >
+                                        <i className={`fa-solid ${item.type === 'reply' ? 'fa-reply' : 'fa-paper-plane'} mr-1.5`}></i>
+                                        {item.type === 'reply' ? 'Reply Now' : 'Send Follow-up'}
                                     </button>
                                     <button
                                         onClick={(e) => handleDismiss(item.id, e)}
