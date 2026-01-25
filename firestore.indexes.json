@@ -55,6 +55,28 @@
                     "order": "DESCENDING"
                 }
             ]
+        },
+        {
+            "collectionGroup": "reactivation_messages",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "realtorId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "isInbound",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "requires_action",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "sent_at",
+                    "order": "DESCENDING"
+                }
+            ]
         }
     ],
     "fieldOverrides": []
