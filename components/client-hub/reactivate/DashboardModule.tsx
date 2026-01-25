@@ -9,7 +9,6 @@ import ReactivationVisualizer from './ReactivationVisualizer';
 import ActionCenterWidget from './components/ActionCenterWidget';
 import SentimentAnalyzer from './components/SentimentAnalyzer';
 import BusinessImpactWidget from './components/BusinessImpactWidget';
-import CreativeStudioWidget from './components/CreativeStudioWidget';
 
 interface DashboardModuleProps {
     realtorId: string;
@@ -146,8 +145,6 @@ const DashboardModule: React.FC<DashboardModuleProps> = ({ realtorId }) => {
             <BusinessImpactWidget />
 
             <ActionCenterWidget onOpenLead={(id) => console.log('Open lead', id)} />
-
-            <CreativeStudioWidget />
 
             <SentimentAnalyzer />
 

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { UserProfile, Lead, CRMTask, CalendarEvent, LeadNote } from '../../types';
 import { getClientTasks, getClientCalendarEvents, saveCalendarEvent } from '../../services/firebaseService';
 import ClientSelector from './ClientSelector';
+import ClientEditModal from './ClientEditModal';
 
 const formatDate = (date: any) => {
     if (!date) return '---';
@@ -56,6 +57,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
     const [stageFilter, setStageFilter] = useState<string>('All Stages');
     const [sortOrder, setSortOrder] = useState<'newest' | 'name'>('newest');
     const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId || (allClients.length > 0 ? allClients[0].id : null));
+    const [showEditModal, setShowEditModal] = useState(false);
 
     useEffect(() => {
         if (initialSelectedId) {
@@ -327,6 +329,16 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                             <div className="flex gap-2">
                                 <select
                                     className="text-[9px] font-bold uppercase bg-transparent border-none text-slate-400 focus:ring-0 cursor-pointer hover:text-indigo-600 transition-colors"
+                                    value={stageFilter}
+                                    onChange={(e) => setStageFilter(e.target.value)}
+                                >
+                                    {['All Stages', 'Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed'].map((stage) => (
+                                        <option key={stage} value={stage}>{stage}</option>
+                                    ))}
+                                </select>
+                                <span className="text-slate-300">|</span>
+                                <select
+                                    className="text-[9px] font-bold uppercase bg-transparent border-none text-slate-400 focus:ring-0 cursor-pointer hover:text-indigo-600 transition-colors"
                                     value={sortOrder}
                                     onChange={(e) => setSortOrder(e.target.value as 'newest' | 'name')}
                                 >
@@ -354,19 +366,6 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                     <i className="fa-solid fa-circle-xmark text-[10px]"></i>
                                 </button>
                             )}
-                        </div>
-
-                        {/* Stage Filter */}
-                        <div className="flex gap-1 overflow-x-auto pb-2 mb-2 no-scrollbar">
-                            {['All Stages', 'Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed'].map((stage) => (
-                                <button
-                                    key={stage}
-                                    onClick={() => setStageFilter(stage)}
-                                    className={`px-3 py-1 text-[8px] font-black uppercase tracking-widest rounded-full border whitespace-nowrap transition-all ${stageFilter === stage ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
-                                >
-                                    {stage}
-                                </button>
-                            ))}
                         </div>
 
                         {/* Tab Switcher */}
@@ -525,7 +524,10 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                         <i className="fa-solid fa-list-check text-amber-500"></i> Task
                                     </button>
 
-                                    <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-50 transition-all active:scale-95">
+                                    <button
+                                        onClick={() => setShowEditModal(true)}
+                                        className="px-4 py-2 bg-white border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-50 transition-all active:scale-95"
+                                    >
                                         Edit
                                     </button>
                                 </div>
@@ -1328,6 +1330,18 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Client Edit Modal */}
+            {selectedClient && (
+                <ClientEditModal
+                    client={selectedClient}
+                    isOpen={showEditModal}
+                    onClose={() => setShowEditModal(false)}
+                    onSave={async (updates) => {
+                        await persistChanges(selectedClient.id, updates);
+                    }}
+                />
             )}
         </div>
     );

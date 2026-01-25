@@ -17,6 +17,7 @@ import WhiteboardTab from './client-hub/WhiteboardTab';
 import ClosingDashboard from './client-hub/ClosingDashboard';
 import BestPracticesTab from './client-hub/BestPracticesTab';
 import ReactivateTab from './client-hub/ReactivateTab';
+import CreativeStudioWidget from './client-hub/reactivate/components/CreativeStudioWidget';
 import Footer from './Footer';
 
 interface Props {
@@ -30,7 +31,7 @@ const generateClientID = () => {
     return 'C-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 };
 
-type HubTab = 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients';
+type HubTab = 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack }) => {
     const [activeTab, setActiveTab] = useState<HubTab>('leads');
@@ -383,6 +384,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     const toolTabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
         { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
+        { id: 'creative_studio', label: 'Creative Studio', icon: 'fa-paintbrush' },
         { id: 'settings', label: 'Data Fields', icon: 'fa-sliders' },
         { id: 'best_practices', label: 'Best Practices', icon: 'fa-book-open' },
     ];
@@ -463,7 +465,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     return (
         <div className="fixed inset-0 z-[100] bg-[#F8FAFC] flex flex-col animate-in fade-in duration-500 font-sans selection:bg-indigo-100 selection:text-indigo-900">
             {/* Top Header / Tab Bar */}
-            <header className="bg-slate-900 px-8 py-0 flex items-center justify-between border-b border-white/5 shadow-2xl relative z-50">
+            <header className="bg-slate-900 px-8 py-0 flex items-center justify-between border-b border-white/5 shadow-2xl relative z-[110]">
                 <div className="flex items-center gap-12">
                     <div className="flex items-center gap-6 py-4">
                         <Logo size={90} onClick={onBack} className="cursor-pointer transition-transform hover:scale-105" />
@@ -714,6 +716,12 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
 
                         {activeTab === 'whiteboard' && (
                             <WhiteboardTab userId={realtorId} />
+                        )}
+
+                        {activeTab === 'creative_studio' && (
+                            <div className="max-w-5xl mx-auto py-8">
+                                <CreativeStudioWidget />
+                            </div>
                         )}
 
                         {activeTab === 'best_practices' && (
