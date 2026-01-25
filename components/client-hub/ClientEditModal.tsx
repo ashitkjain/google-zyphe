@@ -72,12 +72,17 @@ const ClientEditModal: React.FC<ClientEditModalProps> = ({ client, isOpen, onClo
                 isAllCash: client.financialVitals?.isAllCash || false,
 
                 // Transaction
+                zpid: client.zpid || '',
                 inquiryAddress: client.leadInfo?.inquiryProperty?.address || client.subjectProperty || '',
                 offerPrice: client.activeOffer?.price || '',
                 inspectionEnd: safeDateToInput(client.criticalDates?.inspectionEnd),
                 appraisalDate: safeDateToInput(client.criticalDates?.appraisalDate),
                 closingDate: safeDateToInput(client.criticalDates?.closingDate),
-                closingHealth: client.closingHealth || 'On Track'
+                closingHealth: client.closingHealth || 'On Track',
+                lenderPOC: client.transactionTeam?.lenderPOC || '',
+                escrowOfficer: client.transactionTeam?.escrowOfficer || '',
+                coopAgent: client.transactionTeam?.coopAgent || '',
+                staleWarningDate: safeDateToInput(client.staleWarningDate)
             });
         }
     }, [client, isOpen]);
@@ -154,6 +159,13 @@ const ClientEditModal: React.FC<ClientEditModalProps> = ({ client, isOpen, onClo
                     inspectionEnd: formData.inspectionEnd ? new Date(formData.inspectionEnd) : null,
                     appraisalDate: formData.appraisalDate ? new Date(formData.appraisalDate) : null,
                     closingDate: formData.closingDate ? new Date(formData.closingDate) : null
+                },
+
+                transactionTeam: {
+                    ...(client.transactionTeam || {}),
+                    lenderPOC: formData.lenderPOC,
+                    escrowOfficer: formData.escrowOfficer,
+                    coopAgent: formData.coopAgent
                 }
             };
 
@@ -162,6 +174,8 @@ const ClientEditModal: React.FC<ClientEditModalProps> = ({ client, isOpen, onClo
             if (formData.listingAddress) updates.propertyAddress = formData.listingAddress;
             if (formData.leaseEndDate) updates.leaseEndDate = new Date(formData.leaseEndDate);
             if (formData.clientPhotoUrl) updates.clientPhotoUrl = formData.clientPhotoUrl;
+            if (formData.zpid) updates.zpid = formData.zpid;
+            if (formData.staleWarningDate) updates.staleWarningDate = new Date(formData.staleWarningDate);
 
             // Handle Active Offer Updates (Simple)
             if (formData.offerPrice) {
@@ -292,6 +306,8 @@ const ClientEditModal: React.FC<ClientEditModalProps> = ({ client, isOpen, onClo
                                 <div className="col-span-2">
                                     {renderInput('Customer Message', 'customerMessage', 'textarea')}
                                 </div>
+                                {renderInput('Follow-up Deadline', 'staleWarningDate', 'date')}
+                                {renderInput('Zillow Property ID', 'zpid')}
                             </>
                         )}
 
@@ -343,6 +359,9 @@ const ClientEditModal: React.FC<ClientEditModalProps> = ({ client, isOpen, onClo
                                 {renderInput('Appraisal Deadline', 'appraisalDate', 'date')}
                                 {renderInput('Closing Date', 'closingDate', 'date')}
                                 {renderInput('Closing Health', 'closingHealth', 'select', '', ['On Track', 'Delayed', 'At Risk', 'Rescinded'])}
+                                {renderInput('Lender POC', 'lenderPOC')}
+                                {renderInput('Escrow Officer', 'escrowOfficer')}
+                                {renderInput('Cooperating Agent', 'coopAgent')}
                             </>
                         )}
                     </div>

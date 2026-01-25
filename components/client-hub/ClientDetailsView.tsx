@@ -545,7 +545,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                         </div>
 
                         {/* Content */}
-                        <div className="flex-1 p-4 bg-slate-50/50 space-y-4 overflow-y-auto custom-scrollbar">
+                        <div className="flex-1 p-4 bg-slate-50/50 space-y-4 overflow-y-auto overflow-x-auto custom-scrollbar">
                             {/* Funnel Stage Timeline */}
                             <div className="bg-white rounded-2xl py-3 px-6 border border-slate-100 shadow-sm relative overflow-hidden group">
                                 {/* Decorative Gradient Background */}
@@ -801,6 +801,10 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                                             <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Past Offers</div>
                                                             <div className="text-xs font-medium text-slate-800">{(selectedClient as any).historicalOffers?.length || 0} Rejected</div>
                                                         </div>
+                                                        <div className="space-y-0.5">
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Deal Breakers</div>
+                                                            <div className="text-xs font-medium text-rose-600 truncate">{(selectedClient as any).searchCriteria?.dealBreakers || '---'}</div>
+                                                        </div>
                                                     </>
                                                 ) : (
                                                     <>
@@ -826,6 +830,64 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                         </div>
                                     </>
                                 )}
+                                {/* Closing/Contract Snapshot (Only for Contract/Closing Stages) */}
+                                {['Contract', 'Closing', 'Closed'].includes((selectedClient as any).funnelStage) && (
+                                    <>
+                                        <div className="flex items-center gap-2 mb-2 mt-4">
+                                            <div className="w-6 h-6 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
+                                                <i className="fa-solid fa-handshake text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-black text-slate-900">Closing Snapshot</h3>
+                                                <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest leading-none">Critical Dates & Partners</p>
+                                            </div>
+                                            {(selectedClient as any).closingHealth && (
+                                                <div className={`ml-auto px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border ${(selectedClient as any).closingHealth === 'On Track' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                                    (selectedClient as any).closingHealth === 'Delayed' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                                                        'bg-rose-50 text-rose-600 border-rose-100'
+                                                    }`}>
+                                                    {(selectedClient as any).closingHealth}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-4 relative">
+                                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-y-3 gap-x-4">
+                                                <div className="space-y-0.5">
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Inspection End</div>
+                                                    <div className="text-xs font-medium text-slate-800">
+                                                        {(selectedClient as any).criticalDates?.inspectionEnd ? formatDate((selectedClient as any).criticalDates.inspectionEnd) : '---'}
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-0.5">
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Appraisal Date</div>
+                                                    <div className="text-xs font-medium text-slate-800">
+                                                        {(selectedClient as any).criticalDates?.appraisalDate ? formatDate((selectedClient as any).criticalDates.appraisalDate) : '---'}
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-0.5">
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Closing Date</div>
+                                                    <div className="text-xs font-medium text-indigo-600 font-bold">
+                                                        {(selectedClient as any).criticalDates?.closingDate ? formatDate((selectedClient as any).criticalDates.closingDate) : '---'}
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-0.5">
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Lender POC</div>
+                                                    <div className="text-xs font-medium text-slate-800 truncate">
+                                                        {(selectedClient as any).transactionTeam?.lenderPOC || '---'}
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-0.5">
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Escrow Officer</div>
+                                                    <div className="text-xs font-medium text-slate-800 truncate">
+                                                        {(selectedClient as any).transactionTeam?.escrowOfficer || '---'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
                                 <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-50">
                                     <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
                                         <i className="fa-solid fa-bolt text-xs"></i>
@@ -875,6 +937,9 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                                 </div>
                                                 {(selectedClient as any).financialVitals?.preApprovalStatus && (
                                                     <div className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase rounded">Pre-Approved</div>
+                                                )}
+                                                {(selectedClient as any).financialVitals?.isAllCash && (
+                                                    <div className="px-1.5 py-0.5 bg-amber-50 text-amber-600 text-[8px] font-black uppercase rounded">All Cash</div>
                                                 )}
                                             </div>
                                         </div>
@@ -955,30 +1020,82 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
-                                                {[
-                                                    { date: new Date(), channel: 'SMS', summary: 'Sent follow-up regarding property tour.', status: 'Sent' },
-                                                    { date: new Date(Date.now() - 86400000), channel: 'Email', summary: 'Sent mortgage pre-approval checklist.', status: 'Delivered' },
-                                                ].map((msg, i) => (
-                                                    <tr key={i} className="hover:bg-slate-50/40 transition-colors">
-                                                        <td className="px-3 py-2 text-[10px] font-medium text-slate-500 font-mono italic">{formatDate(msg.date)}</td>
-                                                        <td className="px-3 py-2">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <i className={`fa-solid ${msg.channel === 'SMS' ? 'fa-message-sms text-indigo-500' : 'fa-envelope text-emerald-500'} text-[9px]`}></i>
-                                                                <span className="text-[10px] font-medium text-slate-900 uppercase tracking-tighter">{msg.channel}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-3 py-2 text-[10px] font-medium text-slate-600 truncate max-w-xs">{msg.summary}</td>
-                                                        <td className="px-3 py-2 text-right">
-                                                            <span className="px-1.5 py-0.5 bg-slate-100/80 text-slate-600 text-[7px] font-black uppercase rounded-md shadow-sm">
-                                                                {msg.status}
-                                                            </span>
+                                                {((selectedClient as any).nurtureLog || []).length > 0 ? (
+                                                    (selectedClient as any).nurtureLog.map((msg: any, i: number) => (
+                                                        <tr key={i} className="hover:bg-slate-50/40 transition-colors">
+                                                            <td className="px-3 py-2 text-[10px] font-medium text-slate-500 font-mono italic">{formatDate(msg.CallDate)}</td>
+                                                            <td className="px-3 py-2">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <i className={`fa-solid ${msg.CommChannel === 'Phone' ? 'fa-phone text-indigo-500' : msg.CommChannel === 'Text' ? 'fa-message-sms text-sky-500' : 'fa-envelope text-emerald-500'} text-[9px]`}></i>
+                                                                    <span className="text-[10px] font-medium text-slate-900 uppercase tracking-tighter">{msg.CommChannel}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-3 py-2 text-[10px] font-medium text-slate-600 truncate max-w-xs">{msg.Note}</td>
+                                                            <td className="px-3 py-2 text-right">
+                                                                <span className="px-1.5 py-0.5 bg-slate-100/80 text-slate-600 text-[7px] font-black uppercase rounded-md shadow-sm">
+                                                                    Logged
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                ) : (
+                                                    <tr>
+                                                        <td colSpan={4} className="px-3 py-4 text-center text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                                            No communication logged yet
                                                         </td>
                                                     </tr>
-                                                ))}
+                                                )}
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
+
+                                {/* Tour Feedback & Historical Offers */}
+                                {(((selectedClient as any).tourFeedback || []).length > 0 || ((selectedClient as any).historicalOffers || []).length > 0) && (
+                                    <div className="mt-6 pt-4 border-t border-slate-200">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="w-6 h-6 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500 shadow-inner border border-orange-100">
+                                                <i className="fa-solid fa-house-circle-check text-[10px]"></i>
+                                            </div>
+                                            <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-wider">Activities & Feedback</h4>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            {/* Tour Feedback */}
+                                            {((selectedClient as any).tourFeedback || []).map((tour: any, i: number) => (
+                                                <div key={i} className="flex gap-3 p-3 bg-slate-50/50 rounded-xl border border-slate-100">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <span className="text-[10px] font-black text-slate-900 truncate">{tour.property?.address}</span>
+                                                            <div className="flex gap-0.5">
+                                                                {[...Array(5)].map((_, star) => (
+                                                                    <i key={star} className={`fa-solid fa-star text-[8px] ${star < tour.rating ? 'text-amber-400' : 'text-slate-200'}`}></i>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-[10px] text-slate-600 leading-tight italic">"{tour.feedback}"</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {/* Historical Offers */}
+                                            {((selectedClient as any).historicalOffers || []).map((off: any, i: number) => (
+                                                <div key={i} className="flex gap-3 p-3 bg-rose-50/30 rounded-xl border border-rose-100/50">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <span className="text-[10px] font-black text-rose-900 truncate">{off.propertyAddress}</span>
+                                                            <span className="text-[9px] font-bold text-rose-500">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(off.offerPrice)}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="px-1.5 py-0.5 bg-rose-100/50 text-rose-600 text-[7px] font-black uppercase rounded">Rejected: {off.rejectionReason}</span>
+                                                            <p className="text-[9px] text-slate-500 font-medium truncate ml-2">Notes: {off.agentNotes}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                             </div>
 
@@ -1099,6 +1216,16 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                     <div className="space-y-0.5">
                                         <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Created Date</div>
                                         <div className="text-xs font-bold text-slate-800">{formatDate((selectedClient as any).receivedAt || (selectedClient as any).createdAt)}</div>
+                                    </div>
+
+                                    <div className="space-y-0.5">
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Legal Name</div>
+                                        <div className="text-xs font-bold text-slate-800">{(selectedClient as any).legalName || '---'}</div>
+                                    </div>
+
+                                    <div className="space-y-0.5">
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Zillow Property ID</div>
+                                        <div className="text-xs font-bold text-slate-800">{(selectedClient as any).zpid || '---'}</div>
                                     </div>
 
                                     <div className="space-y-0.5">
