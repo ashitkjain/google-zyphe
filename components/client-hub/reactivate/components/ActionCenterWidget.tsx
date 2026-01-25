@@ -189,7 +189,10 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
         <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-xl shadow-indigo-500/5 mb-8 animate-in slide-in-from-top-4 duration-700">
             <div className="bg-gradient-to-r from-rose-50 to-white px-8 py-4 border-b border-rose-100 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/30 animate-pulse">
+                    <div
+                        className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/30 animate-pulse"
+                        title="Action Required: New Replies or Overdue Tasks"
+                    >
                         <i className="fa-solid fa-bell text-sm"></i>
                     </div>
                     <div>
@@ -207,8 +210,10 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
                         className="p-6 hover:bg-slate-50 transition-colors cursor-pointer group flex items-start gap-4"
                     >
                         {/* Status Indicator */}
-                        <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${item.priority === 'high' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]' : 'bg-amber-500'
-                            }`}></div>
+                        <div
+                            className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${item.priority === 'high' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]' : 'bg-amber-500'}`}
+                            title={`Priority: ${item.priority.toUpperCase()}`}
+                        ></div>
 
                         <div className="flex-1 min-w-0">
                             <div className="flex justify-between items-start gap-4">
@@ -244,6 +249,7 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
                                             setOpenMenuId(openMenuId === item.id ? null : item.id);
                                         }}
                                         className="w-8 h-8 rounded-full hover:bg-slate-200 flex items-center justify-center text-slate-400 transition-colors"
+                                        title="Show available actions"
                                     >
                                         <i className="fa-solid fa-ellipsis-vertical"></i>
                                     </button>

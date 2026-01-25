@@ -542,13 +542,13 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                     <div className="pt-4 mt-4 border-t border-slate-50 space-y-3">
                                                         <div className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Market Intelligence</div>
                                                         <div className="grid grid-cols-2 gap-2">
-                                                            <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50">
+                                                            <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50" title="Local Interest Rate Trends">
                                                                 <div className="text-[8px] font-black uppercase text-slate-400 mb-0.5">Rates</div>
                                                                 <div className="text-[10px] font-bold text-slate-700 capitalize">
                                                                     {result.market_context.find(m => m.market_name === plan.market)?.rates_trend}
                                                                 </div>
                                                             </div>
-                                                            <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50">
+                                                            <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50" title="Local Housing Inventory Trends">
                                                                 <div className="text-[8px] font-black uppercase text-slate-400 mb-0.5">Supply</div>
                                                                 <div className="text-[10px] font-bold text-slate-700 capitalize">
                                                                     {result.market_context.find(m => m.market_name === plan.market)?.inventory_trend}
@@ -568,7 +568,10 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                 <div className="relative">
                                                     <div className="absolute left-4 top-8 bottom-0 w-0.5 border-l-2 border-dashed border-slate-100"></div>
                                                     <div className="flex gap-6">
-                                                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black z-10 shadow-lg shadow-indigo-200">
+                                                        <div
+                                                            className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black z-10 shadow-lg shadow-indigo-200"
+                                                            title="Step 1: Initial Outreach"
+                                                        >
                                                             1
                                                         </div>
                                                         <div className="flex-1 bg-slate-50 p-6 rounded-2xl border border-slate-100 relative group-hover:bg-white group-hover:border-indigo-100 transition-colors max-h-[400px] overflow-y-auto custom-scrollbar">
@@ -592,14 +595,16 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                         <>
                                                                             <button
                                                                                 onClick={() => handleSend(originalIdx, 'first', plan.first_touch?.message || '', plan.recommended_channel, plan.lead_id)}
-                                                                                className={`transition-all duration-300 ${sentKeys.has(`${originalIdx}-first`) ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
-                                                                                title="Send now"
-                                                                                disabled={sendingKeys.has(`${originalIdx}-first`)}
+                                                                                className={`transition-all duration-300 ${(plan.first_touch?.sent_at || permanentlySentKeys.has(`${originalIdx}-first`)) ? 'text-emerald-500 cursor-not-allowed' :
+                                                                                    'text-slate-300 hover:text-indigo-600'
+                                                                                    }`}
+                                                                                title={(plan.first_touch?.sent_at || permanentlySentKeys.has(`${originalIdx}-first`)) ? 'Message already sent' : 'Send now'}
+                                                                                disabled={sendingKeys.has(`${originalIdx}-first`) || !!plan.first_touch?.sent_at || permanentlySentKeys.has(`${originalIdx}-first`)}
                                                                             >
                                                                                 {sendingKeys.has(`${originalIdx}-first`) ? (
                                                                                     <i className="fa-solid fa-spinner fa-spin text-xs"></i>
                                                                                 ) : (
-                                                                                    <i className={`fa-solid ${sentKeys.has(`${originalIdx}-first`) ? 'fa-square-check' : 'fa-paper-plane'} text-xs`}></i>
+                                                                                    <i className={`fa-solid ${(plan.first_touch?.sent_at || permanentlySentKeys.has(`${originalIdx}-first`) || sentKeys.has(`${originalIdx}-first`)) ? 'fa-square-check' : 'fa-paper-plane'} text-xs`}></i>
                                                                                 )}
                                                                             </button>
                                                                             <button
@@ -670,6 +675,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                             <button
                                                                                 onClick={() => handleMockReply(originalIdx, 'first', plan.lead_id)}
                                                                                 className="ml-2 px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-md text-[8px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all border border-indigo-100"
+                                                                                title="Simulate a reply from this lead (Testing Only)"
                                                                             >
                                                                                 Simulate Reply
                                                                             </button>
@@ -687,7 +693,10 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                         {sIdx < plan.sequence.steps.length - 1 && (
                                                             <div className="absolute left-4 top-8 bottom-0 w-0.5 border-l-2 border-dashed border-slate-100"></div>
                                                         )}
-                                                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 border-2 border-white flex items-center justify-center text-xs font-black z-10 shadow-sm">
+                                                        <div
+                                                            className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 border-2 border-white flex items-center justify-center text-xs font-black z-10 shadow-sm"
+                                                            title={`Step ${sIdx + 2}: Follow-up Outreach`}
+                                                        >
                                                             {sIdx + 2}
                                                         </div>
                                                         <div className="flex-1 bg-slate-50/50 p-6 rounded-2xl border border-slate-100 relative group-hover:bg-white group-hover:border-indigo-100/50 transition-colors max-h-[300px] overflow-y-auto custom-scrollbar">
@@ -711,17 +720,26 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                         <>
                                                                             <button
                                                                                 onClick={() => handleSend(originalIdx, sIdx, step.message, step.channel, plan.lead_id)}
-                                                                                className={`transition-all duration-300 ${!permanentlySentKeys.has(`${originalIdx}-first`) ? 'text-slate-200 cursor-not-allowed' :
-                                                                                    sentKeys.has(`${originalIdx}-${sIdx}`) ? 'text-emerald-500' :
+                                                                                className={`transition-all duration-300 ${(step.sent_at || permanentlySentKeys.has(`${originalIdx}-${sIdx}`)) ? 'text-emerald-500 cursor-not-allowed' :
+                                                                                    !(sIdx === 0 ? (plan.first_touch?.sent_at || permanentlySentKeys.has(`${originalIdx}-first`)) : (plan.sequence.steps[sIdx - 1]?.sent_at || permanentlySentKeys.has(`${originalIdx}-${sIdx - 1}`))) ? 'text-slate-200 cursor-not-allowed' :
                                                                                         'text-slate-300 hover:text-indigo-600'
                                                                                     }`}
-                                                                                title={!permanentlySentKeys.has(`${originalIdx}-first`) ? 'Send Day 1 message first' : 'Send now'}
-                                                                                disabled={sendingKeys.has(`${originalIdx}-${sIdx}`) || !permanentlySentKeys.has(`${originalIdx}-first`)}
+                                                                                title={
+                                                                                    (step.sent_at || permanentlySentKeys.has(`${originalIdx}-${sIdx}`)) ? 'Message already sent' :
+                                                                                        !(sIdx === 0 ? (plan.first_touch?.sent_at || permanentlySentKeys.has(`${originalIdx}-first`)) : (plan.sequence.steps[sIdx - 1]?.sent_at || permanentlySentKeys.has(`${originalIdx}-${sIdx - 1}`))) ? 'Send previous message first' :
+                                                                                            'Send now'
+                                                                                }
+                                                                                disabled={
+                                                                                    sendingKeys.has(`${originalIdx}-${sIdx}`) ||
+                                                                                    !!step.sent_at ||
+                                                                                    permanentlySentKeys.has(`${originalIdx}-${sIdx}`) ||
+                                                                                    !(sIdx === 0 ? (plan.first_touch?.sent_at || permanentlySentKeys.has(`${originalIdx}-first`)) : (plan.sequence.steps[sIdx - 1]?.sent_at || permanentlySentKeys.has(`${originalIdx}-${sIdx - 1}`)))
+                                                                                }
                                                                             >
                                                                                 {sendingKeys.has(`${originalIdx}-${sIdx}`) ? (
                                                                                     <i className="fa-solid fa-spinner fa-spin text-xs"></i>
                                                                                 ) : (
-                                                                                    <i className={`fa-solid ${sentKeys.has(`${originalIdx}-${sIdx}`) ? 'fa-square-check' : 'fa-paper-plane'} text-xs`}></i>
+                                                                                    <i className={`fa-solid ${(step.sent_at || permanentlySentKeys.has(`${originalIdx}-${sIdx}`) || sentKeys.has(`${originalIdx}-${sIdx}`)) ? 'fa-square-check' : 'fa-paper-plane'} text-xs`}></i>
                                                                                 )}
                                                                             </button>
                                                                             <button
@@ -792,6 +810,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                             <button
                                                                                 onClick={() => handleMockReply(originalIdx, sIdx, plan.lead_id)}
                                                                                 className="ml-2 px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-md text-[8px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all border border-indigo-100"
+                                                                                title="Simulate a reply from this lead (Testing Only)"
                                                                             >
                                                                                 Simulate Reply
                                                                             </button>
@@ -833,6 +852,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                             <button
                                 onClick={() => setViewingHistoryLeadId(null)}
                                 className="w-10 h-10 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-colors"
+                                title="Close Message Trail History"
                             >
                                 <i className="fa-solid fa-xmark text-xl"></i>
                             </button>
@@ -866,9 +886,15 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                     <span>{date.toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
                                                     <span className="opacity-30">•</span>
                                                     <span>{date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                    {!msg.isInbound && (
-                                                        <i className={`fa-solid fa-paper-plane text-[8px] ml-1 ${msg.channel === 'sms' ? 'text-emerald-500' : 'text-blue-500'}`}></i>
-                                                    )}
+                                                    <span className="opacity-30">•</span>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <i className={`fa-solid ${msg.channel === 'sms' ? 'fa-message text-emerald-500' :
+                                                            msg.channel === 'email' ? 'fa-envelope text-blue-500' :
+                                                                msg.channel === 'call' ? 'fa-phone text-orange-500' :
+                                                                    'fa-paper-plane text-slate-400'
+                                                            } text-[8px]`}></i>
+                                                        <span>Via {msg.channel === 'mail' ? 'Direct Mail' : msg.channel?.toUpperCase() || 'N/A'}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
