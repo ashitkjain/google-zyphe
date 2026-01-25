@@ -317,7 +317,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
     }
 
     return (
-        <div className="flex-1 flex bg-slate-50">
+        <div className="flex-1 flex bg-slate-50 h-full overflow-hidden">
             {/* Left Column: Client List */}
             {!hideClientList && (
                 <div className="w-80 border-r border-slate-200 bg-white flex flex-col">
@@ -384,7 +384,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                             </button>
                         </div>
                     </div>
-                    <div>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar">
                         {filteredClients.map((client) => (
                             <button
                                 key={client.id}
@@ -535,7 +535,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                         </div>
 
                         {/* Content */}
-                        <div className="flex-1 p-4 bg-slate-50/50 space-y-4">
+                        <div className="flex-1 p-4 bg-slate-50/50 space-y-4 overflow-y-auto custom-scrollbar">
                             {/* Funnel Stage Timeline */}
                             <div className="bg-white rounded-2xl py-3 px-6 border border-slate-100 shadow-sm relative overflow-hidden group">
                                 {/* Decorative Gradient Background */}
