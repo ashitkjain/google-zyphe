@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LeadReactivationResult } from '../../../types/ai';
-import { logMessageEvent, saveReactivationMessage } from '../../../services/firebase/communications';
+import { logMessageEvent, saveReactivationMessage, createThreadId } from '../../../services/firebase/communications';
 import { serverTimestamp } from 'firebase/firestore';
 
 interface ReactivationVisualizerProps {
@@ -29,6 +29,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
     const [sendingKeys, setSendingKeys] = useState<Set<string>>(new Set());
     const [sentKeys, setSentKeys] = useState<Set<string>>(new Set());
     const [permanentlySentKeys, setPermanentlySentKeys] = useState<Set<string>>(new Set());
+    const [threadIds, setThreadIds] = useState<Record<string, string>>({});
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCityTab, setActiveCityTab] = useState('All');
 
@@ -113,6 +114,13 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
             const response = await logMessageEvent(event);
 
             if (response.success) {
+                // Get or create thread ID for this lead
+                let thread_id = threadIds[leadId];
+                if (!thread_id) {
+                    thread_id = createThreadId(leadId, agentId);
+                    setThreadIds(prev => ({ ...prev, [leadId]: thread_id }));
+                }
+
                 // Also save to reactivation_messages collection for Message Trail
                 await saveReactivationMessage({
                     message_id,
@@ -122,7 +130,12 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                     content: message,
                     sent_at: serverTimestamp(),
                     reply_received: false,
-                    sentiment: 'neutral'
+                    sentiment: 'neutral',
+                    // Conversation threading fields
+                    isInbound: false,  // Agent sending to lead
+                    thread_id,
+                    parent_message_id: undefined,  // First message in sequence
+                    requires_action: false  // Outbound messages don't require action
                 });
 
                 // Add to permanently sent keys
@@ -467,8 +480,8 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                             <button
                                                                                 onClick={() => handleSend(originalIdx, sIdx, step.message, step.channel, plan.lead_id)}
                                                                                 className={`transition-all duration-300 ${!permanentlySentKeys.has(`${originalIdx}-first`) ? 'text-slate-200 cursor-not-allowed' :
-                                                                                        sentKeys.has(`${originalIdx}-${sIdx}`) ? 'text-emerald-500' :
-                                                                                            'text-slate-300 hover:text-indigo-600'
+                                                                                    sentKeys.has(`${originalIdx}-${sIdx}`) ? 'text-emerald-500' :
+                                                                                        'text-slate-300 hover:text-indigo-600'
                                                                                     }`}
                                                                                 title={!permanentlySentKeys.has(`${originalIdx}-first`) ? 'Send Day 1 message first' : 'Send now'}
                                                                                 disabled={sendingKeys.has(`${originalIdx}-${sIdx}`) || !permanentlySentKeys.has(`${originalIdx}-first`)}

@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { getActionRequiredMessages, completeMessageAction } from '../../../../services/firebase/communications';
+import { serverTimestamp } from 'firebase/firestore';
 
 export interface ActionItem {
     id: string;
@@ -13,37 +15,72 @@ export interface ActionItem {
 
 interface ActionCenterWidgetProps {
     onOpenLead: (leadId: string) => void;
+    realtorId: string;
 }
 
-const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead }) => {
-    // Mock Data for "Live" simulation
-    const [actionItems, setActionItems] = useState<ActionItem[]>([
-        {
-            id: '1',
-            type: 'reply',
-            leadName: 'Sarah Miller',
-            leadId: 'L-102',
-            content: "Thanks for checking in! We are actually looking to restart our search next month.",
-            timestamp: new Date(Date.now() - 1000 * 60 * 15), // 15 mins ago
-            priority: 'high',
-            sentiment: 'positive'
-        },
-        {
-            id: '2',
-            type: 'reply',
-            leadName: 'Mike Johnson',
-            leadId: 'L-105',
-            content: "What are the current rates for a 30-year fixed?",
-            timestamp: new Date(Date.now() - 1000 * 60 * 120), // 2 hours ago
-            priority: 'medium',
-            sentiment: 'question'
-        }
-    ]);
+const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, realtorId }) => {
+    const [actionItems, setActionItems] = useState<ActionItem[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const handleDismiss = (id: string, e: React.MouseEvent) => {
+    useEffect(() => {
+        const fetchActionItems = async () => {
+            setLoading(true);
+            try {
+                const messages = await getActionRequiredMessages(realtorId);
+
+                // Transform database messages to ActionItem format
+                const items: ActionItem[] = messages.map((msg: any) => ({
+                    id: msg.id,
+                    type: 'reply' as const,
+                    leadName: msg.lead_name || 'Unknown Lead',
+                    leadId: msg.lead_id,
+                    content: msg.content,
+                    timestamp: msg.sent_at?.toDate ? msg.sent_at.toDate() : new Date(msg.sent_at),
+                    priority: determinePriority(msg.sent_at),
+                    sentiment: msg.sentiment || 'neutral'
+                }));
+
+                setActionItems(items);
+            } catch (error) {
+                console.error('Failed to fetch action items:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (realtorId) {
+            fetchActionItems();
+        }
+    }, [realtorId]);
+
+    const determinePriority = (sentAt: any): 'high' | 'medium' | 'low' => {
+        const timestamp = sentAt?.toDate ? sentAt.toDate() : new Date(sentAt);
+        const hoursSince = (Date.now() - timestamp.getTime()) / (1000 * 60 * 60);
+
+        if (hoursSince < 2) return 'high';
+        if (hoursSince < 24) return 'medium';
+        return 'low';
+    };
+
+    const handleDismiss = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
+
+        // Mark action as completed in database
+        await completeMessageAction(id, serverTimestamp());
+
+        // Remove from local state
         setActionItems(prev => prev.filter(item => item.id !== id));
     };
+
+    if (loading) {
+        return (
+            <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-xl shadow-indigo-500/5 mb-8">
+                <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                </div>
+            </div>
+        );
+    }
 
     if (actionItems.length === 0) return null;
 

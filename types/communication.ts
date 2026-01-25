@@ -49,3 +49,21 @@ export interface MessageEvent {
     source: 'system' | 'human' | 'automated';
     raw_payload?: Record<string, any>; // jsonb
 }
+
+export interface ReactivationMessage {
+    message_id: string;
+    lead_id: string;
+    realtorId: string;
+    channel: string;
+    content: string;
+    sent_at: any;
+    reply_received: boolean;
+    sentiment: string;
+
+    // Conversation threading fields
+    isInbound: boolean;           // true = from lead, false/null = from agent
+    thread_id?: string;           // Groups messages in a conversation
+    parent_message_id?: string;   // References the message being replied to
+    requires_action: boolean;     // true if agent needs to respond
+    action_completed_at?: any;    // When agent responded
+}

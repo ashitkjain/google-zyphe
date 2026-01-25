@@ -1,9 +1,9 @@
-import { collection, addDoc, setDoc, doc, query, getDocs, orderBy, where, limit } from "firebase/firestore";
+import { collection, addDoc, setDoc, doc, query, getDocs, orderBy, where, limit, updateDoc } from "firebase/firestore";
 import {
     db,
     logFirestoreQuery
 } from "./config";
-import { MessageEvent } from "../../types";
+import { MessageEvent, ReactivationMessage } from "../../types";
 
 export const sendInviteEmail = async (email: string, subject: string, html: string) => {
     if (!db) return { success: false, error: "Database not initialized" };
@@ -57,15 +57,10 @@ export const logMessageEvent = async (event: MessageEvent) => {
 /**
  * Saves a reactivation message record to the 'reactivation_messages' collection.
  */
-export const saveReactivationMessage = async (data: {
+export const saveReactivationMessage = async (data: Partial<ReactivationMessage> & {
     message_id: string;
     lead_id: string;
     realtorId: string;
-    channel: string;
-    content: string;
-    sent_at: any;
-    reply_received: boolean;
-    sentiment: string;
 }) => {
     if (!db) return { success: false, error: "Database not initialized" };
 
@@ -119,4 +114,65 @@ export const getReactivationMessages = async (realtorId: string, leadId?: string
         console.error("Error fetching reactivation messages:", error);
         return [];
     }
+};
+
+/**
+ * Gets inbound messages that require action from the agent.
+ */
+export const getActionRequiredMessages = async (realtorId: string, limitCount: number = 20) => {
+    if (!db) return [];
+
+    try {
+        const collectionName = "reactivation_messages";
+        const colRef = collection(db, collectionName);
+
+        const q = query(
+            colRef,
+            where("realtorId", "==", realtorId),
+            where("isInbound", "==", true),
+            where("requires_action", "==", true),
+            orderBy("sent_at", "desc"),
+            limit(limitCount)
+        );
+
+        logFirestoreQuery('getDocs', collectionName, { realtorId, isInbound: true, requires_action: true, limit: limitCount });
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+    } catch (error) {
+        console.error("Error fetching action required messages:", error);
+        return [];
+    }
+};
+
+/**
+ * Marks an action as completed when the agent responds.
+ */
+export const completeMessageAction = async (messageId: string, completedAt: any) => {
+    if (!db) return { success: false, error: "Database not initialized" };
+
+    try {
+        const collectionName = "reactivation_messages";
+        const msgRef = doc(db, collectionName, messageId);
+
+        logFirestoreQuery('updateDoc', collectionName, { id: messageId });
+        await updateDoc(msgRef, {
+            requires_action: false,
+            action_completed_at: completedAt
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error("Error completing message action:", error);
+        return { success: false, error: (error as Error).message };
+    }
+};
+
+/**
+ * Creates a thread ID for a new conversation.
+ */
+export const createThreadId = (leadId: string, realtorId: string): string => {
+    return `thread-${leadId}-${realtorId}-${Date.now()}`;
 };
