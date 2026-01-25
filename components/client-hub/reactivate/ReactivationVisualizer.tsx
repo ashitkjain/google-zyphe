@@ -28,6 +28,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
     const [sendingKeys, setSendingKeys] = useState<Set<string>>(new Set());
     const [sentKeys, setSentKeys] = useState<Set<string>>(new Set());
+    const [permanentlySentKeys, setPermanentlySentKeys] = useState<Set<string>>(new Set());
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCityTab, setActiveCityTab] = useState('All');
 
@@ -124,6 +125,10 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                     sentiment: 'neutral'
                 });
 
+                // Add to permanently sent keys
+                setPermanentlySentKeys(prev => new Set(prev).add(key));
+
+                // Show temporary success indicator
                 setSentKeys(prev => new Set(prev).add(key));
                 setTimeout(() => {
                     setSentKeys(prev => {
@@ -461,9 +466,12 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                         <>
                                                                             <button
                                                                                 onClick={() => handleSend(originalIdx, sIdx, step.message, step.channel, plan.lead_id)}
-                                                                                className={`transition-all duration-300 ${sentKeys.has(`${originalIdx}-${sIdx}`) ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
-                                                                                title="Send now"
-                                                                                disabled={sendingKeys.has(`${originalIdx}-${sIdx}`)}
+                                                                                className={`transition-all duration-300 ${!permanentlySentKeys.has(`${originalIdx}-first`) ? 'text-slate-200 cursor-not-allowed' :
+                                                                                        sentKeys.has(`${originalIdx}-${sIdx}`) ? 'text-emerald-500' :
+                                                                                            'text-slate-300 hover:text-indigo-600'
+                                                                                    }`}
+                                                                                title={!permanentlySentKeys.has(`${originalIdx}-first`) ? 'Send Day 1 message first' : 'Send now'}
+                                                                                disabled={sendingKeys.has(`${originalIdx}-${sIdx}`) || !permanentlySentKeys.has(`${originalIdx}-first`)}
                                                                             >
                                                                                 {sendingKeys.has(`${originalIdx}-${sIdx}`) ? (
                                                                                     <i className="fa-solid fa-spinner fa-spin text-xs"></i>
