@@ -4,7 +4,7 @@ import {
     completeMessageAction,
     getReactivationMessages
 } from '../../../../services/firebase/communications';
-import { getAllUserLeadPlans } from '../../../../services/firebase/reactivation';
+import { getAllUserLeadPlans, updateLeadPlanStatus } from '../../../../services/firebase/reactivation';
 import { serverTimestamp } from 'firebase/firestore';
 
 export interface ActionItem {
@@ -12,6 +12,7 @@ export interface ActionItem {
     type: 'reply' | 'task' | 'error';
     leadName: string;
     leadId: string;
+    planId?: string;
     content: string;
     timestamp: Date;
     priority: 'high' | 'medium' | 'low';
@@ -26,6 +27,14 @@ interface ActionCenterWidgetProps {
 const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, realtorId }) => {
     const [actionItems, setActionItems] = useState<ActionItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClick = () => setOpenMenuId(null);
+        window.addEventListener('click', handleClick);
+        return () => window.removeEventListener('click', handleClick);
+    }, []);
 
     useEffect(() => {
         const fetchActionItems = async () => {
@@ -43,16 +52,20 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
                 ]);
 
                 // 3. Transform database messages to ActionItem format
-                const replyItems: ActionItem[] = inboundMessages.map((msg: any) => ({
-                    id: msg.id,
-                    type: 'reply' as const,
-                    leadName: msg.lead_name || 'Unknown Lead',
-                    leadId: msg.lead_id,
-                    content: msg.content,
-                    timestamp: msg.sent_at?.toDate ? msg.sent_at.toDate() : new Date(msg.sent_at),
-                    priority: determinePriority(msg.sent_at),
-                    sentiment: msg.sentiment || 'neutral'
-                }));
+                const replyItems: ActionItem[] = inboundMessages.map((msg: any) => {
+                    const plan = plans.find(p => p.lead_id === msg.lead_id);
+                    return {
+                        id: msg.id,
+                        type: 'reply' as const,
+                        leadName: msg.lead_name || 'Unknown Lead',
+                        leadId: msg.lead_id,
+                        planId: plan?.id,
+                        content: msg.content,
+                        timestamp: msg.sent_at?.toDate ? msg.sent_at.toDate() : new Date(msg.sent_at),
+                        priority: determinePriority(msg.sent_at),
+                        sentiment: msg.sentiment || 'neutral'
+                    };
+                });
 
                 // 4. Detect Overdue Follow-ups
                 const followUpItems: ActionItem[] = [];
@@ -95,6 +108,7 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
                                         type: 'task' as const,
                                         leadName: plan.lead_name,
                                         leadId: plan.lead_id,
+                                        planId: plan.id,
                                         content: `Recommended Day ${step.day_offset} Follow-up: "${step.message.substring(0, 50)}..."`,
                                         timestamp: dueDate,
                                         priority: (now.getTime() - dueDate.getTime()) > (1000 * 60 * 60 * 24) ? 'high' : 'medium'
@@ -133,11 +147,30 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
     const handleDismiss = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
 
-        // Mark action as completed in database
-        await completeMessageAction(id, serverTimestamp());
+        // If it's a message reply, mark it as completed
+        if (!id.startsWith('followup-')) {
+            await completeMessageAction(id, serverTimestamp());
+        }
 
         // Remove from local state
         setActionItems(prev => prev.filter(item => item.id !== id));
+        setOpenMenuId(null);
+    };
+
+    const handleArchive = async (item: ActionItem, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!item.planId) {
+            alert("No plan ID found for this lead.");
+            return;
+        }
+
+        if (confirm(`Are you sure you want to archive the reactivation plan for ${item.leadName}? This will stop all future follow-up reminders.`)) {
+            await updateLeadPlanStatus(item.planId, 'archived');
+
+            // Remove all items for this lead from the widget
+            setActionItems(prev => prev.filter(i => i.leadId !== item.leadId));
+            setOpenMenuId(null);
+        }
     };
 
     if (loading) {
@@ -204,20 +237,49 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
                                     </p>
                                 </div>
 
-                                <div className="flex items-center gap-2 flex-shrink-0">
+                                <div className="relative flex-shrink-0">
                                     <button
-                                        onClick={() => onOpenLead(item.leadId)}
-                                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-md shadow-indigo-500/20 transition-all"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setOpenMenuId(openMenuId === item.id ? null : item.id);
+                                        }}
+                                        className="w-8 h-8 rounded-full hover:bg-slate-200 flex items-center justify-center text-slate-400 transition-colors"
                                     >
-                                        <i className={`fa-solid ${item.type === 'reply' ? 'fa-reply' : 'fa-paper-plane'} mr-1.5`}></i>
-                                        {item.type === 'reply' ? 'Reply Now' : 'Send Follow-up'}
+                                        <i className="fa-solid fa-ellipsis-vertical"></i>
                                     </button>
-                                    <button
-                                        onClick={(e) => handleDismiss(item.id, e)}
-                                        className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
-                                    >
-                                        Dismiss
-                                    </button>
+
+                                    {openMenuId === item.id && (
+                                        <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-2xl border border-slate-100 py-2 z-[100] animate-in fade-in zoom-in-95 duration-200">
+                                            <button
+                                                onClick={() => {
+                                                    onOpenLead(item.leadId);
+                                                    setOpenMenuId(null);
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors"
+                                            >
+                                                <i className={`fa-solid ${item.type === 'reply' ? 'fa-reply' : 'fa-paper-plane'} text-indigo-500 w-4`}></i>
+                                                {item.type === 'reply' ? 'Reply Now' : 'Send Follow-up'}
+                                            </button>
+
+                                            <button
+                                                onClick={(e) => handleDismiss(item.id, e)}
+                                                className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors"
+                                            >
+                                                <i className="fa-solid fa-check text-emerald-500 w-4"></i>
+                                                Dismiss
+                                            </button>
+
+                                            <div className="my-1 border-t border-slate-50"></div>
+
+                                            <button
+                                                onClick={(e) => handleArchive(item, e)}
+                                                className="w-full text-left px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-3 transition-colors"
+                                            >
+                                                <i className="fa-solid fa-box-archive w-4"></i>
+                                                Archive Plan
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
