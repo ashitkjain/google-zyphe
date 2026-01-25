@@ -73,33 +73,35 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead }) =
                             }`}></div>
 
                         <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-start mb-1">
-                                <div className="flex items-center gap-2">
-                                    <span className="font-black text-slate-700 text-sm">{item.leadName}</span>
-                                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${item.sentiment === 'positive' ? 'bg-emerald-100 text-emerald-700' :
+                            <div className="flex justify-between items-start gap-4">
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                        <span className="font-black text-slate-700 text-sm">{item.leadName}</span>
+                                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${item.sentiment === 'positive' ? 'bg-emerald-100 text-emerald-700' :
                                             item.sentiment === 'question' ? 'bg-amber-100 text-amber-700' :
                                                 'bg-slate-100 text-slate-600'
-                                        }`}>
-                                        {item.sentiment}
-                                    </span>
+                                            }`}>
+                                            {item.sentiment}
+                                        </span>
+                                        <span className="text-[10px] font-bold text-slate-400">
+                                            {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+
+                                    <p className="text-sm font-medium text-slate-600 italic leading-relaxed">"{item.content}"</p>
                                 </div>
-                                <span className="text-[10px] font-bold text-slate-400">
-                                    {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                            </div>
 
-                            <p className="text-sm font-medium text-slate-600 italic leading-relaxed">"{item.content}"</p>
-
-                            <div className="mt-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                <button className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-md shadow-indigo-500/20 transition-all">
-                                    <i className="fa-solid fa-reply mr-1.5"></i> Reply Now
-                                </button>
-                                <button
-                                    onClick={(e) => handleDismiss(item.id, e)}
-                                    className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
-                                >
-                                    Dismiss
-                                </button>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    <button className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-md shadow-indigo-500/20 transition-all">
+                                        <i className="fa-solid fa-reply mr-1.5"></i> Reply Now
+                                    </button>
+                                    <button
+                                        onClick={(e) => handleDismiss(item.id, e)}
+                                        className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
+                                    >
+                                        Dismiss
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
