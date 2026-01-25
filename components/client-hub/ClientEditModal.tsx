@@ -15,6 +15,17 @@ const ClientEditModal: React.FC<ClientEditModalProps> = ({ client, isOpen, onClo
     const [formData, setFormData] = useState<any>({});
     const [saving, setSaving] = useState(false);
 
+    const safeDateToInput = (date: any): string => {
+        if (!date) return '';
+        try {
+            const d = date.toDate ? date.toDate() : new Date(date);
+            if (isNaN(d.getTime())) return '';
+            return d.toISOString().split('T')[0];
+        } catch (e) {
+            return '';
+        }
+    };
+
     useEffect(() => {
         if (client) {
             setFormData({
@@ -46,7 +57,7 @@ const ClientEditModal: React.FC<ClientEditModalProps> = ({ client, isOpen, onClo
                 mustHaves: client.searchCriteria?.mustHaves || '',
                 locations: client.searchCriteria?.locations || '',
                 dealBreakers: client.searchCriteria?.dealBreakers || '',
-                leaseEndDate: client.leaseEndDate ? new Date(client.leaseEndDate).toISOString().split('T')[0] : '', // Format date for input
+                leaseEndDate: safeDateToInput(client.leaseEndDate),
 
                 // Property (Seller)
                 sellWhen: client.sellWhen || '',
@@ -63,9 +74,9 @@ const ClientEditModal: React.FC<ClientEditModalProps> = ({ client, isOpen, onClo
                 // Transaction
                 inquiryAddress: client.leadInfo?.inquiryProperty?.address || client.subjectProperty || '',
                 offerPrice: client.activeOffer?.price || '',
-                inspectionEnd: client.criticalDates?.inspectionEnd ? new Date(client.criticalDates.inspectionEnd).toISOString().split('T')[0] : '',
-                appraisalDate: client.criticalDates?.appraisalDate ? new Date(client.criticalDates.appraisalDate).toISOString().split('T')[0] : '',
-                closingDate: client.criticalDates?.closingDate ? new Date(client.criticalDates.closingDate).toISOString().split('T')[0] : '',
+                inspectionEnd: safeDateToInput(client.criticalDates?.inspectionEnd),
+                appraisalDate: safeDateToInput(client.criticalDates?.appraisalDate),
+                closingDate: safeDateToInput(client.criticalDates?.closingDate),
                 closingHealth: client.closingHealth || 'On Track'
             });
         }

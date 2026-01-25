@@ -75,18 +75,17 @@ const LeadsViewControls: React.FC<LeadsViewControlsProps> = ({
                     </div>
 
                     {/* Filter Button */}
-                    <div className="flex items-center gap-1 text-slate-400">
-                        <div className="text-[10px] text-slate-400 font-medium italic pr-2">
-                            * Columns should be selected in Data Fields
+                    {displayMode !== 'gallery' && (
+                        <div className="flex items-center gap-1 text-slate-400">
+                            <button
+                                className={`w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors ${showFilters ? 'bg-slate-100 text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                onClick={() => setShowFilters(!showFilters)}
+                                title="Filter Funnel"
+                            >
+                                <i className="fa-solid fa-filter text-lg"></i>
+                            </button>
                         </div>
-                        <button
-                            className={`w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors ${showFilters ? 'bg-slate-100 text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-                            onClick={() => setShowFilters(!showFilters)}
-                            title="Filter Funnel"
-                        >
-                            <i className="fa-solid fa-filter text-lg"></i>
-                        </button>
-                    </div>
+                    )}
                 </div>
             </div>
 
