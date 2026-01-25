@@ -379,13 +379,12 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                         className="bg-white border border-indigo-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full font-medium"
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={(e) => saveEditing(e as any, field)}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') saveEditing(e as any, field);
                             if (e.key === 'Escape') cancelEditing(e as any);
                         }}
                     />
-                    <button onClick={(e) => saveEditing(e, field)} className="text-emerald-500 hover:text-emerald-700 bg-emerald-50 p-0.5 rounded flex-shrink-0 text-[10px]"><i className="fa-solid fa-check"></i></button>
-                    <button onClick={cancelEditing} className="text-red-400 hover:text-red-600 bg-red-50 p-0.5 rounded flex-shrink-0 text-[10px]"><i className="fa-solid fa-xmark"></i></button>
                 </div>
             );
         }

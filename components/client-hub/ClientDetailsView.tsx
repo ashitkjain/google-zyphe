@@ -510,7 +510,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
 
 
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 mr-12">
                                     <button
                                         onClick={handleCreateEventClick}
                                         className="px-3 py-2 bg-white border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-2"

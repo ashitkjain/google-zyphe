@@ -6,10 +6,6 @@ interface LeadsViewControlsProps {
     activeTab: 'Buyer' | 'Seller';
     activeFunnelCategory: FunnelStage | 'Closed & Archived';
     onFunnelCategoryChange: (cat: FunnelStage | 'Closed & Archived') => void;
-    viewMode: 'past6Months' | 'older';
-    onViewModeChange: (mode: 'past6Months' | 'older') => void;
-    timeStats: { past6Months: number; older: number };
-    dateRangeLabels: { past6Months: string; older: string };
     selectedCount: number;
     onArchive: () => void;
     showFilters: boolean;
@@ -23,10 +19,6 @@ const LeadsViewControls: React.FC<LeadsViewControlsProps> = ({
     activeTab,
     activeFunnelCategory,
     onFunnelCategoryChange,
-    viewMode,
-    onViewModeChange,
-    timeStats,
-    dateRangeLabels,
     selectedCount,
     onArchive,
     showFilters,
@@ -88,34 +80,6 @@ const LeadsViewControls: React.FC<LeadsViewControlsProps> = ({
                     )}
                 </div>
             </div>
-
-            {/* Actions Bar - Date Filters */}
-            {(activeFunnelCategory === 'Leads') && (
-                <div className="flex items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-300">
-                    <div className="flex items-center gap-4">
-                        {/* Date Filters */}
-                        <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 shadow-sm relative overflow-hidden">
-                            {[
-                                { id: 'past6Months', label: 'Past 6 Months', subtitle: dateRangeLabels.past6Months, count: timeStats.past6Months },
-                                { id: 'older', label: 'Older', subtitle: dateRangeLabels.older, count: timeStats.older }
-                            ].map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => onViewModeChange(tab.id as any)}
-                                    className={`px-4 py-1.5 rounded-xl transition-all duration-300 relative z-10 flex flex-col items-center min-w-[100px] ${viewMode === tab.id ? (activeTab === 'Buyer' ? 'text-indigo-600' : 'text-emerald-600') + ' bg-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    <div className="text-[10px] font-semibold uppercase tracking-widest leading-tight">
-                                        {tab.label} {tab.count > 0 && `(${tab.count})`}
-                                    </div>
-                                    <div className="text-[7px] font-bold opacity-60 uppercase tracking-tighter mt-0.5 whitespace-nowrap">
-                                        {tab.subtitle}
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

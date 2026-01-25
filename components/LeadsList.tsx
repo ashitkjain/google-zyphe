@@ -181,10 +181,6 @@ const LeadsList: React.FC<InternalProps> = ({
                                     activeTab="Buyer"
                                     activeFunnelCategory={buyerFunnelCategory}
                                     onFunnelCategoryChange={setBuyerFunnelCategory}
-                                    viewMode="list"
-                                    onViewModeChange={() => { }}
-                                    timeStats={timeStats.Buyer}
-                                    dateRangeLabels={dateRanges.labels}
                                     selectedCount={selectedIds.size}
                                     onArchive={handleBulkArchive}
                                     showFilters={false}
@@ -244,10 +240,6 @@ const LeadsList: React.FC<InternalProps> = ({
                                     activeTab="Seller"
                                     activeFunnelCategory={buyer2FunnelCategory}
                                     onFunnelCategoryChange={setBuyer2FunnelCategory}
-                                    viewMode="list"
-                                    onViewModeChange={() => { }}
-                                    timeStats={timeStats.Buyer2}
-                                    dateRangeLabels={dateRanges.labels}
                                     selectedCount={selectedIds.size}
                                     onArchive={handleBulkArchive}
                                     showFilters={false}
