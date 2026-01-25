@@ -7,7 +7,6 @@ import {
 import { LeadReactivationResult, LeadPlanRecord, ReactivationAnalysisSummary } from '../../../types/ai';
 import ReactivationVisualizer from './ReactivationVisualizer';
 import ActionCenterWidget from './components/ActionCenterWidget';
-import SentimentAnalyzer from './components/SentimentAnalyzer';
 
 interface DashboardModuleProps {
     realtorId: string;
@@ -143,8 +142,6 @@ const DashboardModule: React.FC<DashboardModuleProps> = ({ realtorId, onOpenLead
     return (
         <div className="space-y-8">
             <ActionCenterWidget onOpenLead={(id) => console.log('Open lead', id)} />
-
-            <SentimentAnalyzer />
 
             <ReactivationVisualizer
                 result={aggregatedData}

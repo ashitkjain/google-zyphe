@@ -1,5 +1,6 @@
 import React from 'react';
 import { Lead } from '../../../types';
+import SentimentAnalyzer from './components/SentimentAnalyzer';
 
 interface AnalyticsModuleProps {
     realtorId: string;
@@ -136,6 +137,9 @@ const AnalyticsModule: React.FC<AnalyticsModuleProps> = ({ realtorId, leads }) =
                     <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl -ml-24 -mb-24"></div>
                 </div>
             </div>
+
+            {/* AI Intent Lab */}
+            <SentimentAnalyzer />
         </div>
     );
 };
