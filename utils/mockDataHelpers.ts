@@ -11,14 +11,21 @@ export const createMockReactivationData = async (realtorId: string) => {
 
     try {
         // 1. Delete existing mock lead plans and messages
-        const collectionsToClean = ['lead_plans', 'reactivation_messages'];
+        const collectionsToClean = [
+            { name: 'lead_plans', idField: 'userId' },
+            { name: 'reactivation_messages', idField: 'realtorId' }
+        ];
 
-        for (const colName of collectionsToClean) {
-            const q = query(collection(db, colName), where('isMock', '==', true), where('userId', '==', realtorId));
+        for (const col of collectionsToClean) {
+            const q = query(
+                collection(db, col.name),
+                where(col.idField, '==', realtorId)
+            );
             const snap = await getDocs(q);
-            const deletePromises = snap.docs.map(d => deleteDoc(d.ref));
+            const mockDocs = snap.docs.filter(d => d.data().isMock === true);
+            const deletePromises = mockDocs.map(d => deleteDoc(d.ref));
             await Promise.all(deletePromises);
-            console.log(`🗑️ Deleted ${snap.docs.length} mock records from ${colName}`);
+            console.log(`🗑️ Deleted ${mockDocs.length} mock records from ${col.name}`);
         }
 
         const now = new Date();
@@ -73,6 +80,13 @@ export const createMockReactivationData = async (realtorId: string) => {
                 isMock: true,
                 reactivation_status: 'suggested',
                 statusUpdatedOn: now,
+                recommended_channel: 'sms',
+                tone: 'friendly',
+                staleness_reason: 'inventory',
+                first_touch: {
+                    send_after_days: 1,
+                    message: "Hi Sam, inventory is finally picking up in Tacoma. Want to see current listings?"
+                },
                 sequence: { enabled: true, steps: [] }
             },
             {
@@ -86,6 +100,13 @@ export const createMockReactivationData = async (realtorId: string) => {
                 isMock: true,
                 reactivation_status: 'not_pursuing',
                 statusUpdatedOn: now,
+                recommended_channel: 'email',
+                tone: 'low_pressure',
+                staleness_reason: 'timing',
+                first_touch: {
+                    send_after_days: 1,
+                    message: "Hi Ian, just checking if the timing is better now."
+                },
                 sequence: {
                     enabled: true,
                     steps: [{ day_offset: 1, channel: 'sms', message: 'You will never see this.' }]

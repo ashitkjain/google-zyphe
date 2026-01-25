@@ -376,10 +376,10 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                             plan.recommended_channel === 'call' ? 'bg-orange-50 text-orange-600' :
                                                                 'bg-purple-50 text-purple-600'
                                                         }`}>
-                                                        {plan.recommended_channel.replace('_', ' ')}
+                                                        {plan.recommended_channel?.replace('_', ' ') || 'N/A'}
                                                     </div>
                                                     <div className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-wider">
-                                                        {plan.tone.replace('_', ' ')}
+                                                        {plan.tone?.replace('_', ' ') || 'N/A'}
                                                     </div>
                                                     <div className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-wider">
                                                         {(plan.priority_score * 100).toFixed(0)}% Priority
@@ -428,7 +428,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                         <div className="flex-1 bg-slate-50 p-6 rounded-2xl border border-slate-100 relative group-hover:bg-white group-hover:border-indigo-100 transition-colors max-h-[400px] overflow-y-auto custom-scrollbar">
                                                             <div className="flex justify-between items-center mb-3 sticky top-0 bg-inherit z-10">
                                                                 <div className="flex items-center gap-3">
-                                                                    <div className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Day {plan.first_touch.send_after_days}: Immediate Hook</div>
+                                                                    <div className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Day {plan.first_touch?.send_after_days || 1}: Immediate Hook</div>
                                                                     {editingKey === `${originalIdx}-first` && (
                                                                         <select
                                                                             value={editingChannel}
@@ -436,7 +436,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                             className="text-[10px] font-black uppercase tracking-wider bg-white border border-slate-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                                                         >
                                                                             {CHANNELS.map(c => (
-                                                                                <option key={c} value={c}>{c.replace('_', ' ')}</option>
+                                                                                <option key={c} value={c}>{c?.replace('_', ' ') || 'N/A'}</option>
                                                                             ))}
                                                                         </select>
                                                                     )}
@@ -445,7 +445,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                     {!editingKey && (
                                                                         <>
                                                                             <button
-                                                                                onClick={() => handleSend(originalIdx, 'first', plan.first_touch.message, plan.recommended_channel, plan.lead_id)}
+                                                                                onClick={() => handleSend(originalIdx, 'first', plan.first_touch?.message || '', plan.recommended_channel, plan.lead_id)}
                                                                                 className={`transition-all duration-300 ${sentKeys.has(`${originalIdx}-first`) ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
                                                                                 title="Send now"
                                                                                 disabled={sendingKeys.has(`${originalIdx}-first`)}
@@ -457,7 +457,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                                 )}
                                                                             </button>
                                                                             <button
-                                                                                onClick={() => handleCopy(plan.first_touch.message, `copy-${originalIdx}-first`)}
+                                                                                onClick={() => handleCopy(plan.first_touch?.message || '', `copy-${originalIdx}-first`)}
                                                                                 className={`transition-all duration-300 ${copiedKey === `copy-${originalIdx}-first` ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-600'}`}
                                                                                 title="Copy to clipboard"
                                                                             >
@@ -484,7 +484,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                         </div>
                                                                     ) : (
                                                                         <button
-                                                                            onClick={() => startEditing(originalIdx, 'first', plan.first_touch.message, plan.recommended_channel)}
+                                                                            onClick={() => startEditing(originalIdx, 'first', plan.first_touch?.message || '', plan.recommended_channel)}
                                                                             className="text-slate-300 hover:text-indigo-600 transition-colors"
                                                                             title="Edit message"
                                                                         >
@@ -501,7 +501,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                     autoFocus
                                                                 />
                                                             ) : (
-                                                                <p className="text-sm text-slate-700 font-medium leading-relaxed">"{plan.first_touch.message}"</p>
+                                                                <p className="text-sm text-slate-700 font-medium leading-relaxed">"{plan.first_touch?.message || ''}"</p>
                                                             )}
                                                         </div>
                                                     </div>
@@ -519,7 +519,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                         <div className="flex-1 bg-slate-50/50 p-6 rounded-2xl border border-slate-100 relative group-hover:bg-white group-hover:border-indigo-100/50 transition-colors max-h-[300px] overflow-y-auto custom-scrollbar">
                                                             <div className="flex justify-between items-center mb-3 sticky top-0 bg-inherit z-10">
                                                                 <div className="flex items-center gap-3">
-                                                                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Day {step.day_offset}: Follow-up via {step.channel}</div>
+                                                                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Day {step.day_offset}: Follow-up via {step.channel || 'N/A'}</div>
                                                                     {editingKey === `${originalIdx}-${sIdx}` && (
                                                                         <select
                                                                             value={editingChannel}
@@ -527,7 +527,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                             className="text-[10px] font-black uppercase tracking-wider bg-white border border-slate-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                                                         >
                                                                             {CHANNELS.map(c => (
-                                                                                <option key={c} value={c}>{c.replace('_', ' ')}</option>
+                                                                                <option key={c} value={c}>{c?.replace('_', ' ') || 'N/A'}</option>
                                                                             ))}
                                                                         </select>
                                                                     )}
