@@ -26,7 +26,9 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
         const fetchActionItems = async () => {
             setLoading(true);
             try {
+                console.log('🔍 Fetching action items for realtorId:', realtorId);
                 const messages = await getActionRequiredMessages(realtorId);
+                console.log('📨 Raw messages from database:', messages);
 
                 // Transform database messages to ActionItem format
                 const items: ActionItem[] = messages.map((msg: any) => ({
@@ -40,9 +42,10 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
                     sentiment: msg.sentiment || 'neutral'
                 }));
 
+                console.log('✅ Transformed action items:', items);
                 setActionItems(items);
             } catch (error) {
-                console.error('Failed to fetch action items:', error);
+                console.error('❌ Failed to fetch action items:', error);
             } finally {
                 setLoading(false);
             }

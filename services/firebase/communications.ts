@@ -120,11 +120,21 @@ export const getReactivationMessages = async (realtorId: string, leadId?: string
  * Gets inbound messages that require action from the agent.
  */
 export const getActionRequiredMessages = async (realtorId: string, limitCount: number = 20) => {
-    if (!db) return [];
+    if (!db) {
+        console.warn('⚠️ Database not initialized');
+        return [];
+    }
 
     try {
         const collectionName = "reactivation_messages";
         const colRef = collection(db, collectionName);
+
+        console.log('🔍 Building query with filters:', {
+            realtorId,
+            isInbound: true,
+            requires_action: true,
+            limit: limitCount
+        });
 
         const q = query(
             colRef,
@@ -136,13 +146,23 @@ export const getActionRequiredMessages = async (realtorId: string, limitCount: n
         );
 
         logFirestoreQuery('getDocs', collectionName, { realtorId, isInbound: true, requires_action: true, limit: limitCount });
+
+        console.log('📡 Executing Firestore query...');
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({
+
+        console.log(`📊 Query returned ${snapshot.docs.length} documents`);
+
+        const results = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
+
+        console.log('📦 Mapped results:', results);
+
+        return results;
     } catch (error) {
-        console.error("Error fetching action required messages:", error);
+        console.error("❌ Error fetching action required messages:", error);
+        console.error("Error details:", error);
         return [];
     }
 };
