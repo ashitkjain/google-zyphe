@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LeadReactivationResult } from '../../../types/ai';
 import { logMessageEvent, saveReactivationMessage, createThreadId } from '../../../services/firebase/communications';
+import { updateLeadPlanStatus } from '../../../services/firebase/reactivation';
 import { serverTimestamp } from 'firebase/firestore';
 
 interface ReactivationVisualizerProps {
@@ -140,6 +141,16 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
 
                 // Add to permanently sent keys
                 setPermanentlySentKeys(prev => new Set(prev).add(key));
+
+                // Update plan status to 'pursuing' if this is the first touch
+                const currentPlan = localPlans[planIdx] as any;
+                if (stepIdx === 'first' && currentPlan?.id) {
+                    await updateLeadPlanStatus(currentPlan.id, 'pursuing');
+                    // Update local state to reflect new status
+                    const updated = [...localPlans];
+                    updated[planIdx] = { ...updated[planIdx], reactivation_status: 'pursuing' } as any;
+                    setLocalPlans(updated);
+                }
 
                 // Show temporary success indicator
                 setSentKeys(prev => new Set(prev).add(key));
@@ -297,18 +308,52 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                         </div>
                                                         <span className="text-xs font-black uppercase tracking-widest text-slate-400">{plan.market}</span>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-2 flex-wrap">
                                                         <h4 className="text-lg font-black text-slate-900 truncate">{plan.lead_name}</h4>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                onOpenLeadDetails?.(plan.lead_id);
-                                                            }}
-                                                            className="w-6 h-6 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm active:scale-90"
-                                                            title="View Full Lead Profile"
-                                                        >
-                                                            <i className="fa-solid fa-circle-info text-[11px] font-black"></i>
-                                                        </button>
+
+                                                        <div className="flex items-center gap-1.5 ml-auto">
+                                                            {/* Status Badge */}
+                                                            <div className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${(plan as any).reactivation_status === 'pursuing' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                                                    (plan as any).reactivation_status === 'responded' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                                        (plan as any).reactivation_status === 'not_pursuing' || (plan as any).reactivation_status === 'archived' ? 'bg-slate-50 text-slate-500 border-slate-200 opacity-60' :
+                                                                            'bg-amber-50 text-amber-700 border-amber-200'
+                                                                }`}>
+                                                                {(plan as any).reactivation_status || 'Suggested'}
+                                                            </div>
+
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onOpenLeadDetails?.(plan.lead_id);
+                                                                }}
+                                                                className="w-6 h-6 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm active:scale-90"
+                                                                title="View Full Lead Profile"
+                                                            >
+                                                                <i className="fa-solid fa-circle-info text-[11px] font-black"></i>
+                                                            </button>
+
+                                                            {/* Ignore/Not Pursuing Action */}
+                                                            {(!plan.reactivation_status || plan.reactivation_status === 'suggested') && (
+                                                                <button
+                                                                    onClick={async (e) => {
+                                                                        e.stopPropagation();
+                                                                        if (confirm(`Are you sure you want to ignore ${plan.lead_name}?`)) {
+                                                                            const planId = (plan as any).id;
+                                                                            if (planId) {
+                                                                                await updateLeadPlanStatus(planId, 'not_pursuing');
+                                                                                const updated = [...localPlans];
+                                                                                updated[originalIdx] = { ...updated[originalIdx], reactivation_status: 'not_pursuing' } as any;
+                                                                                setLocalPlans(updated);
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                    className="w-6 h-6 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 transition-all shadow-sm active:scale-90"
+                                                                    title="Mark as Not Pursuing"
+                                                                >
+                                                                    <i className="fa-solid fa-ban text-[10px]"></i>
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
 

@@ -127,6 +127,7 @@ export const getExistingReactivationAnalysis = async (leadsDocumentId: string, u
         const lead_plans = plansSnap.docs.map(doc => {
             const data = doc.data() as LeadPlanRecord;
             return {
+                id: doc.id,
                 lead_id: data.lead_id,
                 lead_name: data.lead_name || 'Unknown Lead',
                 market: data.market,
@@ -135,7 +136,8 @@ export const getExistingReactivationAnalysis = async (leadsDocumentId: string, u
                 recommended_channel: data.recommended_channel,
                 tone: data.tone,
                 first_touch: data.first_touch,
-                sequence: data.sequence
+                sequence: data.sequence,
+                reactivation_status: data.reactivation_status || 'suggested'
             };
         });
 
@@ -193,5 +195,19 @@ export const getAllUserMarketContexts = async (userId: string): Promise<MarketCo
     } catch (error) {
         console.error('Error fetching all user market contexts:', error);
         return [];
+    }
+};
+
+export const updateLeadPlanStatus = async (
+    planId: string,
+    status: 'suggested' | 'pursuing' | 'responded' | 'archived' | 'not_pursuing'
+) => {
+    try {
+        const planRef = doc(db, 'lead_plans', planId);
+        await setDoc(planRef, { reactivation_status: status }, { merge: true });
+        return true;
+    } catch (error) {
+        console.error('Error updating lead plan status:', error);
+        return false;
     }
 };

@@ -59,6 +59,11 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
                 const now = new Date();
 
                 plans.forEach(plan => {
+                    // Only detect follow-ups for leads actively being pursued
+                    if (plan.reactivation_status !== 'pursuing' && plan.reactivation_status !== undefined) {
+                        return;
+                    }
+
                     const leadMsgs = allMessages.filter((m: any) => m.lead_id === plan.lead_id);
                     const outboundMsgs = leadMsgs.filter((m: any) => !m.isInbound);
 
