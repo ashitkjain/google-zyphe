@@ -141,11 +141,24 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
                         />
                         <div className="relative w-full max-w-6xl h-[90vh] bg-white rounded-3xl shadow-2xl overflow-hidden">
                             <ClientDetailsView
-                                clients={leads}
-                                selectedClientId={selectedClientId}
-                                onClose={() => setSelectedClientId(null)}
-                                onUpdateLead={onUpdateLead}
+                                realtorId={realtorId}
+                                clients={[]}
+                                leads={leads}
+                                onUpdateClient={async (id: string, updates: any, collectionName: string) => {
+                                    if (onUpdateLead) {
+                                        onUpdateLead(id, updates);
+                                    }
+                                    return true;
+                                }}
+                                initialSelectedId={selectedClientId}
+                                hideClientList={true}
                             />
+                            <button
+                                onClick={() => setSelectedClientId(null)}
+                                className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors shadow-lg z-10"
+                            >
+                                <i className="fa-solid fa-xmark"></i>
+                            </button>
                         </div>
                     </div>
                 )}
