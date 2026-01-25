@@ -146,8 +146,14 @@ const DashboardModule: React.FC<DashboardModuleProps> = ({ realtorId, onOpenLead
             <ActionCenterWidget
                 realtorId={realtorId}
                 onOpenLead={(id) => {
-                    setHighlightedLeadId(null); // Clear first to trigger effect if same ID
-                    setTimeout(() => setHighlightedLeadId(id), 10);
+                    const hasPlan = aggregatedData?.lead_plans.some(p => p.lead_id === id);
+                    if (hasPlan) {
+                        setHighlightedLeadId(null); // Clear first to trigger effect if same ID
+                        setTimeout(() => setHighlightedLeadId(id), 10);
+                    } else {
+                        // Fallback: Open standard lead profile if no reactivation plan exists yet
+                        onOpenLeadDetails?.(id);
+                    }
                 }}
             />
 

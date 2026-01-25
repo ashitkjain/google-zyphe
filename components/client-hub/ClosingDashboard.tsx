@@ -83,7 +83,7 @@ const ClosingDashboard: React.FC<ClosingDashboardProps> = ({ leads, onUpdateLead
     }
 
     return (
-        <div className="bg-slate-50 p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="h-full overflow-y-auto bg-slate-50 p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Client Tabs */}
             <div className="max-w-7xl mx-auto space-y-4">
                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LeadReactivationResult } from '../../../types/ai';
-import { logMessageEvent, saveReactivationMessage, createThreadId } from '../../../services/firebase/communications';
+import { ReactivationMessage } from '../../../types';
+import { logMessageEvent, saveReactivationMessage, createThreadId, getReactivationMessages } from '../../../services/firebase/communications';
 import { updateLeadPlanStatus } from '../../../services/firebase/reactivation';
 import { serverTimestamp } from 'firebase/firestore';
 
@@ -35,6 +36,9 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
     const [threadIds, setThreadIds] = useState<Record<string, string>>({});
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCityTab, setActiveCityTab] = useState('All');
+    const [viewingHistoryLeadId, setViewingHistoryLeadId] = useState<string | null>(null);
+    const [historyMessages, setHistoryMessages] = useState<ReactivationMessage[]>([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
 
     const CHANNELS = ['sms', 'email', 'call', 'direct_mail'];
 
@@ -109,6 +113,25 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
         setEditingKey(null);
         setEditingValue('');
         setEditingChannel('');
+    };
+
+    const handleViewHistory = async (leadId: string) => {
+        setViewingHistoryLeadId(leadId);
+        setHistoryLoading(true);
+        try {
+            const msgs = await getReactivationMessages(agentId, leadId);
+            // Sort by sent_at ascending for the chat view
+            const sorted = [...msgs].sort((a, b) => {
+                const timeA = a.sent_at?.toDate ? a.sent_at.toDate().getTime() : new Date(a.sent_at).getTime();
+                const timeB = b.sent_at?.toDate ? b.sent_at.toDate().getTime() : new Date(b.sent_at).getTime();
+                return timeA - timeB;
+            });
+            setHistoryMessages(sorted as any);
+        } catch (error) {
+            console.error('Error fetching history:', error);
+        } finally {
+            setHistoryLoading(false);
+        }
     };
 
     const handleSend = async (planIdx: number, stepIdx: number | 'first', message: string, channel: string, leadId: string) => {
@@ -366,6 +389,17 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                 title="View Full Lead Profile"
                                                             >
                                                                 <i className="fa-solid fa-circle-info text-[11px] font-black"></i>
+                                                            </button>
+
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleViewHistory(plan.lead_id);
+                                                                }}
+                                                                className="w-6 h-6 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all shadow-sm active:scale-90"
+                                                                title="View Message Trail"
+                                                            >
+                                                                <i className="fa-solid fa-comments text-[10px] font-black"></i>
                                                             </button>
 
                                                             {/* Ignore/Not Pursuing Action */}
@@ -636,6 +670,84 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                     </div>
                 </div>
             </div>
+
+            {/* Conversation History Modal */}
+            {viewingHistoryLeadId && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setViewingHistoryLeadId(null)}></div>
+                    <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden relative animate-in zoom-in-95 duration-300 border border-slate-100">
+                        {/* Header */}
+                        <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                                    <i className="fa-solid fa-comments text-xl"></i>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-slate-800">Message Trail</h3>
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none mt-1">
+                                        {localPlans.find(p => p.lead_id === viewingHistoryLeadId)?.lead_name}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setViewingHistoryLeadId(null)}
+                                className="w-10 h-10 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-colors"
+                            >
+                                <i className="fa-solid fa-xmark text-xl"></i>
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-8 h-[500px] overflow-y-auto bg-slate-50/30 space-y-6 custom-scrollbar">
+                            {historyLoading ? (
+                                <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-4">
+                                    <div className="w-8 h-8 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Retrieving history...</span>
+                                </div>
+                            ) : historyMessages.length === 0 ? (
+                                <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-4">
+                                    <i className="fa-solid fa-comment-slash text-4xl opacity-20"></i>
+                                    <p className="text-[10px] font-black uppercase tracking-widest">No previous messages found</p>
+                                </div>
+                            ) : (
+                                historyMessages.map((msg, i) => {
+                                    const date = msg.sent_at?.toDate ? msg.sent_at.toDate() : new Date(msg.sent_at);
+                                    return (
+                                        <div key={i} className={`flex ${msg.isInbound ? 'justify-start' : 'justify-end'}`}>
+                                            <div className={`max-w-[80%] space-y-2`}>
+                                                <div className={`p-4 rounded-2xl text-sm font-medium shadow-sm border ${msg.isInbound
+                                                        ? 'bg-white text-slate-700 border-slate-100 rounded-tl-none'
+                                                        : 'bg-indigo-600 text-white border-indigo-500 rounded-tr-none'
+                                                    }`}>
+                                                    {msg.content}
+                                                </div>
+                                                <div className={`text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 flex items-center gap-2 ${msg.isInbound ? 'justify-start' : 'justify-end'}`}>
+                                                    <span>{date.toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                                                    <span className="opacity-30">•</span>
+                                                    <span>{date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                    {!msg.isInbound && (
+                                                        <i className={`fa-solid fa-paper-plane text-[8px] ml-1 ${msg.channel === 'sms' ? 'text-emerald-500' : 'text-blue-500'}`}></i>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-8 py-5 border-t border-slate-50 bg-white flex justify-end">
+                            <button
+                                onClick={() => setViewingHistoryLeadId(null)}
+                                className="px-8 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10"
+                            >
+                                Close Trail
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
