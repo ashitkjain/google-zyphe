@@ -433,8 +433,18 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                     <div className="space-y-0">
                                         <div className="flex items-center gap-3">
                                             <h1 className="text-2xl font-black text-slate-900 tracking-tight">{getName(selectedClient)}</h1>
-                                            <div className="flex items-center gap-2">
 
+                                            {/* Stage and Status Badges */}
+                                            <div className="flex items-center gap-2">
+                                                <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200">
+                                                    {(selectedClient as any).funnelStage || 'Leads'}
+                                                </span>
+                                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 font-mono italic">
+                                                    {(selectedClient as any).status || getStageStatus(selectedClient) || 'New'}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
                                                 <div className="flex items-center">
                                                     {selectedClient.engagementScore === 'Hot' && (
                                                         <div className="w-8 h-8 relative animate-flame">
@@ -450,24 +460,24 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                                     {selectedClient.engagementScore === 'Cold' && <i className="fa-solid fa-snowflake text-sky-400 text-xl filter drop-shadow-sm"></i>}
                                                     {selectedClient.engagementScore === 'Stale' && <img src="/assets/stale-icon.png" alt="Stale" className="w-6 h-6 object-contain opacity-60 grayscale filter drop-shadow-sm" />}
                                                 </div>
-                                            </div>
 
-                                            {/* Post-it Stack */}
-                                            <div className="relative ml-4 flex flex-col items-center">
-                                                <div
-                                                    onMouseDown={handleMouseDownOnStack}
-                                                    className="group cursor-grab active:cursor-grabbing relative w-10 h-10 select-none mb-0.5"
-                                                >
-                                                    {/* Stack Visual */}
-                                                    <div className="absolute inset-0 bg-yellow-100 border border-yellow-200 shadow-sm rotate-6 rounded-md translate-x-1 translate-y-1"></div>
-                                                    <div className="absolute inset-0 bg-yellow-50 border border-yellow-200 shadow-sm -rotate-3 rounded-md"></div>
-                                                    <div className="absolute inset-0 bg-yellow-200 border border-yellow-300 shadow-md group-hover:scale-110 group-hover:-rotate-6 transition-all rounded-md flex items-center justify-center">
-                                                        <i className="fa-solid fa-plus text-yellow-600 text-sm"></i>
+                                                {/* Post-it Stack */}
+                                                <div className="relative ml-4 flex flex-col items-center">
+                                                    <div
+                                                        onMouseDown={handleMouseDownOnStack}
+                                                        className="group cursor-grab active:cursor-grabbing relative w-10 h-10 select-none mb-0.5"
+                                                    >
+                                                        {/* Stack Visual */}
+                                                        <div className="absolute inset-0 bg-yellow-100 border border-yellow-200 shadow-sm rotate-6 rounded-md translate-x-1 translate-y-1"></div>
+                                                        <div className="absolute inset-0 bg-yellow-50 border border-yellow-200 shadow-sm -rotate-3 rounded-md"></div>
+                                                        <div className="absolute inset-0 bg-yellow-200 border border-yellow-300 shadow-md group-hover:scale-110 group-hover:-rotate-6 transition-all rounded-md flex items-center justify-center">
+                                                            <i className="fa-solid fa-plus text-yellow-600 text-sm"></i>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <div className="flex items-center gap-1">
-                                                    <div className="text-[8px] text-slate-400 font-bold text-center leading-tight">
-                                                        Drag for note
+                                                    <div className="flex items-center gap-1">
+                                                        <div className="text-[8px] text-slate-400 font-bold text-center leading-tight">
+                                                            Drag for note
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1177,173 +1187,179 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
             </div>
 
             {/* Global Dragging Note Portal */}
-            {draggingNote && (
-                <div
-                    className="fixed w-12 h-12 bg-yellow-200 border border-yellow-300 shadow-2xl rounded-sm pointer-events-none z-[9999]"
-                    style={{
-                        left: draggingNote.x,
-                        top: draggingNote.y,
-                        transform: 'translate(-50%, -50%) rotate(-5deg)'
-                    }}
-                >
-                    <div className="w-full border-t border-yellow-400 opacity-20 h-0.5 mt-2"></div>
-                </div>
-            )}
+            {
+                draggingNote && (
+                    <div
+                        className="fixed w-12 h-12 bg-yellow-200 border border-yellow-300 shadow-2xl rounded-sm pointer-events-none z-[9999]"
+                        style={{
+                            left: draggingNote.x,
+                            top: draggingNote.y,
+                            transform: 'translate(-50%, -50%) rotate(-5deg)'
+                        }}
+                    >
+                        <div className="w-full border-t border-yellow-400 opacity-20 h-0.5 mt-2"></div>
+                    </div>
+                )
+            }
 
             {/* CREATE EVENT MODAL */}
-            {draftEvent && (
-                <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white w-full max-w-xl rounded-[40px] shadow-2xl overflow-hidden border border-white animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
-                        <div className={`h-3 ${draftEvent.type === 'open-house' ? 'bg-emerald-500' : draftEvent.type === 'task' ? 'bg-amber-500' : 'bg-indigo-500'}`} />
+            {
+                draftEvent && (
+                    <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+                        <div className="bg-white w-full max-w-xl rounded-[40px] shadow-2xl overflow-hidden border border-white animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
+                            <div className={`h-3 ${draftEvent.type === 'open-house' ? 'bg-emerald-500' : draftEvent.type === 'task' ? 'bg-amber-500' : 'bg-indigo-500'}`} />
 
-                        <div className="p-10">
-                            <div className="flex justify-between items-start mb-8 gap-4">
-                                <div className="flex-1 min-w-0">
-                                    <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 block mb-2">
-                                        New Event
-                                    </span>
-                                    <textarea
-                                        rows={1}
-                                        className="text-xl font-bold text-slate-900 border-b border-slate-100 focus:border-indigo-600 outline-none w-full pb-1 bg-transparent resize-none overflow-hidden"
-                                        defaultValue={draftEvent.title}
-                                        onChange={(e) => {
-                                            setDraftEvent({ ...draftEvent, title: e.target.value });
-                                            e.target.style.height = 'auto';
-                                            e.target.style.height = e.target.scrollHeight + 'px';
-                                        }}
-                                        autoFocus
-                                    />
-                                </div>
-                                <button
-                                    onClick={() => setDraftEvent(null)}
-                                    className="w-10 h-10 flex items-center justify-center rounded-2xl bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors"
-                                >
-                                    <i className="fa-solid fa-xmark"></i>
-                                </button>
-                            </div>
-
-                            <div className="space-y-6">
-                                {/* Date */}
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
-                                        <i className="fa-solid fa-calendar-day"></i>
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Date</p>
-                                        <input
-                                            type="date"
-                                            className="bg-slate-50 border-none rounded-lg px-3 py-1 text-slate-900 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none w-full"
-                                            value={formatDateToInput(draftEvent.start)}
+                            <div className="p-10">
+                                <div className="flex justify-between items-start mb-8 gap-4">
+                                    <div className="flex-1 min-w-0">
+                                        <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 block mb-2">
+                                            New Event
+                                        </span>
+                                        <textarea
+                                            rows={1}
+                                            className="text-xl font-bold text-slate-900 border-b border-slate-100 focus:border-indigo-600 outline-none w-full pb-1 bg-transparent resize-none overflow-hidden"
+                                            defaultValue={draftEvent.title}
                                             onChange={(e) => {
-                                                const [y, m, d] = e.target.value.split('-').map(Number);
-                                                const newStart = new Date(draftEvent.start);
-                                                newStart.setFullYear(y, m - 1, d);
-                                                const newEnd = new Date(draftEvent.end);
-                                                newEnd.setFullYear(y, m - 1, d);
-                                                setDraftEvent({ ...draftEvent, start: newStart, end: newEnd });
+                                                setDraftEvent({ ...draftEvent, title: e.target.value });
+                                                e.target.style.height = 'auto';
+                                                e.target.style.height = e.target.scrollHeight + 'px';
                                             }}
+                                            autoFocus
                                         />
                                     </div>
+                                    <button
+                                        onClick={() => setDraftEvent(null)}
+                                        className="w-10 h-10 flex items-center justify-center rounded-2xl bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors"
+                                    >
+                                        <i className="fa-solid fa-xmark"></i>
+                                    </button>
                                 </div>
 
-                                {/* Time */}
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
-                                        <i className="fa-solid fa-clock-rotate-left"></i>
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Time Range</p>
-                                        <div className="flex items-center gap-2">
+                                <div className="space-y-6">
+                                    {/* Date */}
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
+                                            <i className="fa-solid fa-calendar-day"></i>
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Date</p>
                                             <input
-                                                type="time"
-                                                className="bg-slate-50 border-none rounded-lg px-3 py-1 text-slate-900 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none"
-                                                value={formatTimeToInput(draftEvent.start)}
+                                                type="date"
+                                                className="bg-slate-50 border-none rounded-lg px-3 py-1 text-slate-900 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none w-full"
+                                                value={formatDateToInput(draftEvent.start)}
                                                 onChange={(e) => {
-                                                    const [h, m] = e.target.value.split(':').map(Number);
+                                                    const [y, m, d] = e.target.value.split('-').map(Number);
                                                     const newStart = new Date(draftEvent.start);
-                                                    newStart.setHours(h, m);
-                                                    const duration = draftEvent.end.getTime() - draftEvent.start.getTime();
-                                                    setDraftEvent({ ...draftEvent, start: newStart, end: new Date(newStart.getTime() + duration) });
+                                                    newStart.setFullYear(y, m - 1, d);
+                                                    const newEnd = new Date(draftEvent.end);
+                                                    newEnd.setFullYear(y, m - 1, d);
+                                                    setDraftEvent({ ...draftEvent, start: newStart, end: newEnd });
                                                 }}
                                             />
-                                            <span className="text-slate-400 font-semibold">to</span>
-                                            <input
-                                                type="time"
-                                                className="bg-slate-50 border-none rounded-lg px-3 py-1 text-slate-900 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none"
-                                                value={formatTimeToInput(draftEvent.end)}
-                                                onChange={(e) => {
-                                                    const [h, m] = e.target.value.split(':').map(Number);
-                                                    const newEnd = new Date(draftEvent.end);
-                                                    newEnd.setHours(h, m);
-                                                    setDraftEvent({ ...draftEvent, end: newEnd });
-                                                }}
+                                        </div>
+                                    </div>
+
+                                    {/* Time */}
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
+                                            <i className="fa-solid fa-clock-rotate-left"></i>
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Time Range</p>
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="time"
+                                                    className="bg-slate-50 border-none rounded-lg px-3 py-1 text-slate-900 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    value={formatTimeToInput(draftEvent.start)}
+                                                    onChange={(e) => {
+                                                        const [h, m] = e.target.value.split(':').map(Number);
+                                                        const newStart = new Date(draftEvent.start);
+                                                        newStart.setHours(h, m);
+                                                        const duration = draftEvent.end.getTime() - draftEvent.start.getTime();
+                                                        setDraftEvent({ ...draftEvent, start: newStart, end: new Date(newStart.getTime() + duration) });
+                                                    }}
+                                                />
+                                                <span className="text-slate-400 font-semibold">to</span>
+                                                <input
+                                                    type="time"
+                                                    className="bg-slate-50 border-none rounded-lg px-3 py-1 text-slate-900 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    value={formatTimeToInput(draftEvent.end)}
+                                                    onChange={(e) => {
+                                                        const [h, m] = e.target.value.split(':').map(Number);
+                                                        const newEnd = new Date(draftEvent.end);
+                                                        newEnd.setHours(h, m);
+                                                        setDraftEvent({ ...draftEvent, end: newEnd });
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Client */}
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
+                                            <i className="fa-solid fa-user-tie"></i>
+                                        </div>
+                                        <div className="flex-1 relative">
+                                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Client</p>
+                                            <ClientSelector
+                                                leads={allClients.map(c => ({ ...c, id: c.id, fullName: getName(c) } as unknown as Lead))}
+                                                selectedClientId={draftEvent.clientId}
+                                                onSelect={(id, name) => setDraftEvent({ ...draftEvent, clientId: id, client: name })}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Description */}
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 mt-1">
+                                            <i className="fa-solid fa-align-left"></i>
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Description</p>
+                                            <textarea
+                                                className="w-full text-slate-600 font-medium border border-slate-100 rounded-2xl p-4 focus:border-indigo-600 outline-none min-h-[100px]"
+                                                defaultValue={draftEvent.description}
+                                                onChange={(e) => setDraftEvent({ ...draftEvent, description: e.target.value })}
                                             />
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Client */}
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
-                                        <i className="fa-solid fa-user-tie"></i>
-                                    </div>
-                                    <div className="flex-1 relative">
-                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Client</p>
-                                        <ClientSelector
-                                            leads={allClients.map(c => ({ ...c, id: c.id, fullName: getName(c) } as unknown as Lead))}
-                                            selectedClientId={draftEvent.clientId}
-                                            onSelect={(id, name) => setDraftEvent({ ...draftEvent, clientId: id, client: name })}
-                                        />
-                                    </div>
+                                <div className="mt-12 flex gap-4">
+                                    <button
+                                        onClick={handleSaveNewEvent}
+                                        className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl font-bold uppercase tracking-wider text-[11px] shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
+                                    >
+                                        Create Event
+                                    </button>
+                                    <button
+                                        onClick={() => setDraftEvent(null)}
+                                        className="px-6 py-2.5 bg-slate-50 text-slate-400 rounded-xl font-bold uppercase tracking-wider text-[11px] hover:text-slate-600 transition-all"
+                                    >
+                                        Cancel
+                                    </button>
                                 </div>
-
-                                {/* Description */}
-                                <div className="flex items-start gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 mt-1">
-                                        <i className="fa-solid fa-align-left"></i>
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">Description</p>
-                                        <textarea
-                                            className="w-full text-slate-600 font-medium border border-slate-100 rounded-2xl p-4 focus:border-indigo-600 outline-none min-h-[100px]"
-                                            defaultValue={draftEvent.description}
-                                            onChange={(e) => setDraftEvent({ ...draftEvent, description: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="mt-12 flex gap-4">
-                                <button
-                                    onClick={handleSaveNewEvent}
-                                    className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl font-bold uppercase tracking-wider text-[11px] shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
-                                >
-                                    Create Event
-                                </button>
-                                <button
-                                    onClick={() => setDraftEvent(null)}
-                                    className="px-6 py-2.5 bg-slate-50 text-slate-400 rounded-xl font-bold uppercase tracking-wider text-[11px] hover:text-slate-600 transition-all"
-                                >
-                                    Cancel
-                                </button>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Client Edit Modal */}
-            {selectedClient && (
-                <ClientEditModal
-                    client={selectedClient}
-                    isOpen={showEditModal}
-                    onClose={() => setShowEditModal(false)}
-                    onSave={async (updates) => {
-                        await persistChanges(selectedClient.id, updates);
-                    }}
-                />
-            )}
-        </div>
+            {
+                selectedClient && (
+                    <ClientEditModal
+                        client={selectedClient}
+                        isOpen={showEditModal}
+                        onClose={() => setShowEditModal(false)}
+                        onSave={async (updates) => {
+                            await persistChanges(selectedClient.id, updates);
+                        }}
+                    />
+                )
+            }
+        </div >
     );
 };
 
