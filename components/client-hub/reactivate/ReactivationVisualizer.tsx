@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LeadReactivationResult } from '../../../types/ai';
-import { logMessageEvent } from '../../../services/firebase/communications';
+import { logMessageEvent, saveReactivationMessage } from '../../../services/firebase/communications';
 import { serverTimestamp } from 'firebase/firestore';
 
 interface ReactivationVisualizerProps {
@@ -112,6 +112,18 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
             const response = await logMessageEvent(event);
 
             if (response.success) {
+                // Also save to reactivation_messages collection for Message Trail
+                await saveReactivationMessage({
+                    message_id,
+                    lead_id: leadId,
+                    realtorId: agentId,
+                    channel: channel === 'direct_mail' ? 'mail' : channel,
+                    content: message,
+                    sent_at: serverTimestamp(),
+                    reply_received: false,
+                    sentiment: 'neutral'
+                });
+
                 setSentKeys(prev => new Set(prev).add(key));
                 setTimeout(() => {
                     setSentKeys(prev => {
