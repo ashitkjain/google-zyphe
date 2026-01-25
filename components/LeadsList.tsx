@@ -222,6 +222,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 visibleColumns={new Set()}
                                                 onUpdateLead={onUpdateLead}
                                                 realtorSettings={realtorSettings}
+                                                onArchive={() => onUpdateLead(lead.id, { funnelStage: 'Archived' })}
+                                                onActivate={onActivateLead}
                                             />
                                         ))}
                                     </div>
@@ -281,6 +283,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 visibleColumns={new Set()}
                                                 onUpdateLead={onUpdateLead}
                                                 realtorSettings={realtorSettings}
+                                                onArchive={() => onUpdateLead(lead.id, { funnelStage: 'Archived' })}
+                                                onActivate={onActivateLead}
                                             />
                                         ))}
                                     </div>

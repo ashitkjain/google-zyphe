@@ -55,16 +55,18 @@ const LeadsViewControls: React.FC<LeadsViewControlsProps> = ({
                     )}
 
                     {/* Archive Button */}
-                    <div className="flex items-center gap-3">
-                        <button
-                            className={`px-4 py-1.5 rounded-xl flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${selectedCount > 0 ? 'bg-red-50 text-red-600 hover:bg-red-100 shadow-sm border border-red-100' : 'bg-slate-50 text-slate-400 cursor-not-allowed border border-slate-100'}`}
-                            onClick={onArchive}
-                            disabled={selectedCount === 0}
-                        >
-                            <i className="fa-solid fa-box-archive"></i>
-                            Archive {selectedCount > 0 && `(${selectedCount})`}
-                        </button>
-                    </div>
+                    {displayMode !== 'gallery' && (
+                        <div className="flex items-center gap-3">
+                            <button
+                                className={`px-4 py-1.5 rounded-xl flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${selectedCount > 0 ? 'bg-red-50 text-red-600 hover:bg-red-100 shadow-sm border border-red-100' : 'bg-slate-50 text-slate-400 cursor-not-allowed border border-slate-100'}`}
+                                onClick={onArchive}
+                                disabled={selectedCount === 0}
+                            >
+                                <i className="fa-solid fa-box-archive"></i>
+                                Archive {selectedCount > 0 && `(${selectedCount})`}
+                            </button>
+                        </div>
+                    )}
 
                     {/* Filter Button */}
                     {displayMode !== 'gallery' && (

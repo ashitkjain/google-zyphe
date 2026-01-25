@@ -440,7 +440,10 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                         borderLeftColor: lead.leadType === 'Seller' ? '#10b981' : '#6366f1',
                         backgroundColor: rednessAlpha > 0 && rednessAlpha < 1 ? `rgba(255, 0, 0, ${rednessAlpha * 0.1})` : undefined
                     }}
-                    onClick={(e) => { handleSelectOne(lead.id); }}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onActivate(lead.id);
+                    }}
 
                 >
                     {/* Selection Badge */}
@@ -487,15 +490,6 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                 >
                                     <i className="fa-solid fa-note-sticky text-[10px]"></i>
                                 </button>
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onArchive(lead.id); }}
-                                        className="w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 flex items-center justify-center transition-all shadow-sm"
-                                        title="Archive"
-                                    >
-                                        <i className="fa-solid fa-box-archive text-[10px]"></i>
-                                    </button>
-                                </div>
                             </div>
                         </div>
 
