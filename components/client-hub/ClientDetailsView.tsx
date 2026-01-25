@@ -431,11 +431,11 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                         )}
                                     </div>
                                     <div className="space-y-0">
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-6">
                                             <h1 className="text-2xl font-black text-slate-900 tracking-tight">{getName(selectedClient)}</h1>
 
                                             {/* Stage and Status Badges */}
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-3">
                                                 <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200">
                                                     {(selectedClient as any).funnelStage || 'Leads'}
                                                 </span>
@@ -444,7 +444,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                                 </span>
                                             </div>
 
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-6">
                                                 <div className="flex items-center">
                                                     {selectedClient.engagementScore === 'Hot' && (
                                                         <div className="w-8 h-8 relative animate-flame">
@@ -462,7 +462,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                                 </div>
 
                                                 {/* Post-it Stack */}
-                                                <div className="relative ml-4 flex flex-col items-center">
+                                                <div className="relative flex flex-col items-center">
                                                     <div
                                                         onMouseDown={handleMouseDownOnStack}
                                                         className="group cursor-grab active:cursor-grabbing relative w-10 h-10 select-none mb-0.5"
