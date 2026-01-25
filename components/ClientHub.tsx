@@ -613,6 +613,11 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                                         setActiveTab(tab);
                                     }
                                 }}
+                                onActivateLead={(leadOrId: any) => {
+                                    const id = typeof leadOrId === 'string' ? leadOrId : leadOrId.id;
+                                    setExplicitlySelectedClientId(id);
+                                    setActiveTab('clients');
+                                }}
                             />
                         )}
 
