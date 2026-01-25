@@ -1,99 +1,163 @@
-/**
- * Helper function to create mock inbound messages for testing
- * Can be called from browser console or imported in a component
- */
-
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, query, where, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '../services/firebase/config';
 
-export const createMockInboundMessages = async (realtorId: string) => {
+export const createMockReactivationData = async (realtorId: string) => {
     if (!db) {
         console.error('Database not initialized');
-        return;
+        return { success: false, error: 'DB not initialized' };
     }
 
-    const mockMessages = [
-        {
-            message_id: `mock-inbound-${Date.now()}-001`,
-            lead_id: 'lead-sarah-miller-123',
-            lead_name: 'Sarah Miller',
-            realtorId,
-            channel: 'sms',
-            content: "Thanks for checking in! We are actually looking to restart our search next month. Can we schedule a call?",
-            reply_received: false,
-            sentiment: 'positive',
-            isInbound: true,
-            thread_id: `thread-sarah-${realtorId}`,
-            parent_message_id: 'msg-day1-sarah',
-            requires_action: true,
-        },
-        {
-            message_id: `mock-inbound-${Date.now()}-002`,
-            lead_id: 'lead-mike-johnson-456',
-            lead_name: 'Mike Johnson',
-            realtorId,
-            channel: 'email',
-            content: "What are the current rates for a 30-year fixed? Also, do you have any listings in the downtown area?",
-            reply_received: false,
-            sentiment: 'question',
-            isInbound: true,
-            thread_id: `thread-mike-${realtorId}`,
-            parent_message_id: 'msg-day1-mike',
-            requires_action: true,
-        },
-        {
-            message_id: `mock-inbound-${Date.now()}-003`,
-            lead_id: 'lead-jennifer-davis-789',
-            lead_name: 'Jennifer Davis',
-            realtorId,
-            channel: 'sms',
-            content: "Hi! Yes, I'm still interested. My budget has increased to $850k. Do you have anything available?",
-            reply_received: false,
-            sentiment: 'positive',
-            isInbound: true,
-            thread_id: `thread-jennifer-${realtorId}`,
-            parent_message_id: 'msg-day1-jennifer',
-            requires_action: true,
-        },
-        {
-            message_id: `mock-inbound-${Date.now()}-004`,
-            lead_id: 'lead-robert-chen-321',
-            lead_name: 'Robert Chen',
-            realtorId,
-            channel: 'email',
-            content: "Not interested at this time. Please remove me from your list.",
-            reply_received: false,
-            sentiment: 'negative',
-            isInbound: true,
-            thread_id: `thread-robert-${realtorId}`,
-            parent_message_id: 'msg-day1-robert',
-            requires_action: true,
-        }
-    ];
-
-    console.log('🌱 Creating mock inbound messages...');
+    console.log('🧹 Cleaning up old mock data...');
 
     try {
-        for (const message of mockMessages) {
-            const docRef = doc(db, 'reactivation_messages', message.message_id);
-            await setDoc(docRef, {
-                ...message,
-                sent_at: serverTimestamp()
-            });
-            console.log(`✅ Created message from ${message.lead_name}`);
+        // 1. Delete existing mock lead plans and messages
+        const collectionsToClean = ['lead_plans', 'reactivation_messages'];
+
+        for (const colName of collectionsToClean) {
+            const q = query(collection(db, colName), where('isMock', '==', true), where('userId', '==', realtorId));
+            const snap = await getDocs(q);
+            const deletePromises = snap.docs.map(d => deleteDoc(d.ref));
+            await Promise.all(deletePromises);
+            console.log(`🗑️ Deleted ${snap.docs.length} mock records from ${colName}`);
         }
 
-        console.log('✨ Successfully created all mock messages!');
-        console.log('🔄 Refresh the page to see them in Action Required widget');
+        const now = new Date();
+        const sixDaysAgo = new Date(now.getTime() - 1000 * 60 * 60 * 24 * 6);
+        const twoDaysAgo = new Date(now.getTime() - 1000 * 60 * 60 * 24 * 2);
+        const oneHourAgo = new Date(now.getTime() - 1000 * 60 * 60 * 1);
 
-        return { success: true, count: mockMessages.length };
+        // 2. Mock Lead Plans
+        const mockPlans = [
+            {
+                id: 'mock-plan-pursuing-overdue',
+                lead_id: 'lead-overdue-1',
+                lead_name: 'Overdue Oliver',
+                market: 'Seattle, WA',
+                priority_score: 0.95,
+                userId: realtorId,
+                reactivation_analysis_summary_id: 'mock-summary',
+                isMock: true,
+                reactivation_status: 'pursuing',
+                statusUpdatedOn: sixDaysAgo,
+                sequence: {
+                    enabled: true,
+                    steps: [
+                        { day_offset: 5, channel: 'sms', message: 'Hey Oliver, just seeing if you had a chance to check those inventory updates?' }
+                    ]
+                }
+            },
+            {
+                id: 'mock-plan-responded',
+                lead_id: 'lead-responded-2',
+                lead_name: 'Replied Rita',
+                market: 'Bellevue, WA',
+                priority_score: 0.88,
+                userId: realtorId,
+                reactivation_analysis_summary_id: 'mock-summary',
+                isMock: true,
+                reactivation_status: 'pursuing',
+                statusUpdatedOn: twoDaysAgo,
+                sequence: {
+                    enabled: true,
+                    steps: [{ day_offset: 7, channel: 'email', message: 'Checking in...' }]
+                }
+            },
+            {
+                id: 'mock-plan-suggested',
+                lead_id: 'lead-suggested-3',
+                lead_name: 'Suggested Sam',
+                market: 'Tacoma, WA',
+                priority_score: 0.65,
+                userId: realtorId,
+                reactivation_analysis_summary_id: 'mock-summary',
+                isMock: true,
+                reactivation_status: 'suggested',
+                statusUpdatedOn: now,
+                sequence: { enabled: true, steps: [] }
+            },
+            {
+                id: 'mock-plan-ignored',
+                lead_id: 'lead-ignored-4',
+                lead_name: 'Ignored Ian',
+                market: 'Renton, WA',
+                priority_score: 0.45,
+                userId: realtorId,
+                reactivation_analysis_summary_id: 'mock-summary',
+                isMock: true,
+                reactivation_status: 'not_pursuing',
+                statusUpdatedOn: now,
+                sequence: {
+                    enabled: true,
+                    steps: [{ day_offset: 1, channel: 'sms', message: 'You will never see this.' }]
+                }
+            }
+        ];
+
+        // 3. Mock Messages
+        const mockMessages = [
+            // Lead 1: Day 1 sent 6 days ago (overdue for day 5)
+            {
+                message_id: 'msg-overdue-day1',
+                lead_id: 'lead-overdue-1',
+                lead_name: 'Overdue Oliver',
+                realtorId,
+                userId: realtorId,
+                content: 'Hi Oliver, I noticed some new homes in Seattle...',
+                sent_at: Timestamp.fromDate(sixDaysAgo),
+                isInbound: false,
+                isMock: true,
+                thread_id: 'thread-overdue',
+                requires_action: false
+            },
+            // Lead 2: Day 1 sent 2 days ago, Lead replied 1 hour ago
+            {
+                message_id: 'msg-responded-day1',
+                lead_id: 'lead-responded-2',
+                lead_name: 'Replied Rita',
+                realtorId,
+                userId: realtorId,
+                content: 'Hi Rita, checking in on Bellevue market.',
+                sent_at: Timestamp.fromDate(twoDaysAgo),
+                isInbound: false,
+                isMock: true,
+                thread_id: 'thread-responded',
+                requires_action: false
+            },
+            {
+                message_id: 'msg-responded-reply',
+                lead_id: 'lead-responded-2',
+                lead_name: 'Replied Rita',
+                realtorId,
+                userId: realtorId,
+                content: 'Yes, I am still looking! Can you send me listings?',
+                sent_at: Timestamp.fromDate(oneHourAgo),
+                isInbound: true,
+                isMock: true,
+                thread_id: 'thread-responded',
+                requires_action: true,
+                sentiment: 'positive'
+            }
+        ];
+
+        console.log('🌱 Creating new mock data...');
+
+        for (const plan of mockPlans) {
+            await setDoc(doc(db, 'lead_plans', plan.id), plan);
+        }
+        for (const msg of mockMessages) {
+            await setDoc(doc(db, 'reactivation_messages', msg.message_id), msg);
+        }
+
+        console.log('✨ Successfully created mock test suite!');
+        return { success: true };
+
     } catch (error) {
-        console.error('❌ Error creating mock messages:', error);
+        console.error('❌ Error creating mock data:', error);
         return { success: false, error };
     }
 };
 
-// Export for use in browser console
+// Export for browser console
 if (typeof window !== 'undefined') {
-    (window as any).createMockInboundMessages = createMockInboundMessages;
+    (window as any).createMockReactivationData = createMockReactivationData;
 }

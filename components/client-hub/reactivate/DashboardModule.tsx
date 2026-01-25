@@ -7,7 +7,7 @@ import {
 import { LeadReactivationResult, LeadPlanRecord, ReactivationAnalysisSummary } from '../../../types/ai';
 import ReactivationVisualizer from './ReactivationVisualizer';
 import ActionCenterWidget from './components/ActionCenterWidget';
-import { createMockInboundMessages } from '../../../utils/mockDataHelpers';
+import { createMockReactivationData } from '../../../utils/mockDataHelpers';
 
 interface DashboardModuleProps {
     realtorId: string;
@@ -162,19 +162,19 @@ const DashboardModule: React.FC<DashboardModuleProps> = ({ realtorId, onOpenLead
                 <div className="fixed bottom-4 right-4 z-50">
                     <button
                         onClick={async () => {
-                            const result = await createMockInboundMessages(realtorId);
+                            const result = await createMockReactivationData(realtorId);
                             if (result.success) {
-                                alert(`✅ Created ${result.count} mock messages! Refresh to see them.`);
+                                alert(`✅ Created comprehensive mock test suite! Refreshing...`);
                                 window.location.reload();
                             } else {
-                                alert('❌ Failed to create mock messages. Check console.');
+                                alert('❌ Failed to create mock data. Check console.');
                             }
                         }}
                         className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider shadow-lg flex items-center gap-2 transition-all"
-                        title="Create mock inbound messages for testing"
+                        title="Create mock reactivation test suite"
                     >
                         <i className="fa-solid fa-flask"></i>
-                        Create Mock Replies
+                        Generate Test Suite
                     </button>
                 </div>
             )}
