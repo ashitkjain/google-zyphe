@@ -16,85 +16,77 @@ interface ReportRow {
     campaign: string;
 }
 
+type TimeRange = 'ALL' | 'TODAY' | 'WEEK' | 'MONTH';
+
 const SnapshotReport: React.FC<SnapshotReportProps> = ({ realtorId, leads }) => {
-    const [reportData, setReportData] = useState<ReportRow[]>([]);
+    const [allMessages, setAllMessages] = useState<any[]>([]);
+    const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
     const [loading, setLoading] = useState(true);
 
     const stats = useMemo(() => {
-        if (reportData.length === 0) return null;
-        const total = reportData.length;
-        const replied = reportData.filter(r => r.status === 'Replied').length;
-        const replyRate = (replied / total) * 100;
-        const markets = new Set(reportData.map(r => r.campaign)).size;
+        const now = new Date();
+        const startOfToday = new Date(now.setHours(0, 0, 0, 0));
+        const startOfWeek = new Date(new Date().setDate(new Date().getDate() - 7));
+        const startOfMonth = new Date(new Date().setMonth(new Date().getMonth() - 1));
 
-        // Group by market
-        const marketStats = reportData.reduce((acc, curr) => {
-            acc[curr.campaign] = (acc[curr.campaign] || 0) + 1;
-            return acc;
-        }, {} as Record<string, number>);
+        const filteredMessages = allMessages.filter(msg => {
+            let msgDate;
+            if (msg.sent_at?.toDate) {
+                msgDate = msg.sent_at.toDate();
+            } else if (msg.sent_at?.seconds) {
+                msgDate = new Date(msg.sent_at.seconds * 1000);
+            } else {
+                msgDate = new Date(msg.sent_at);
+            }
 
-        const topMarket = Object.entries(marketStats).sort((a: [string, number], b: [string, number]) => b[1] - a[1])[0];
+            if (isNaN(msgDate.getTime())) return false;
+
+            if (timeRange === 'TODAY') return msgDate >= startOfToday;
+            if (timeRange === 'WEEK') return msgDate >= startOfWeek;
+            if (timeRange === 'MONTH') return msgDate >= startOfMonth;
+            return true;
+        });
+
+        // Group messages by lead to calculate lead-level stats within the time range
+        const leadMap = new Map<string, { hasOutreach: boolean, hasReply: boolean, campaign: string }>();
+
+        filteredMessages.forEach(msg => {
+            const lead = leads.find(l => l.id === msg.lead_id);
+            if (!lead) return;
+
+            const current = leadMap.get(msg.lead_id) || {
+                hasOutreach: false,
+                hasReply: false,
+                campaign: lead.searchCriteria?.locations || 'Unknown'
+            };
+
+            if (!msg.isInbound && !msg.reply_received) current.hasOutreach = true;
+            if (msg.isInbound || msg.reply_received) current.hasReply = true;
+
+            leadMap.set(msg.lead_id, current);
+        });
+
+        const conversations = Array.from(leadMap.values()).filter(v => v.hasOutreach).length;
+        const reactivated = Array.from(leadMap.values()).filter(v => v.hasReply).length;
+        const replyRate = conversations > 0 ? (reactivated / conversations) * 100 : 0;
+        const markets = new Set(Array.from(leadMap.values()).map(v => v.campaign)).size;
 
         return {
-            total,
-            replied,
+            totalLeads: leads.length,
+            conversations,
+            reactivated,
             replyRate: replyRate.toFixed(1),
             markets,
-            topMarket: topMarket ? topMarket[0] : 'None'
+            totalMessages: filteredMessages.length
         };
-    }, [reportData]);
+    }, [allMessages, timeRange, leads]);
 
     useEffect(() => {
-        const generateReport = async () => {
+        const fetchData = async () => {
             try {
-                const messages = await getReactivationMessages(realtorId);
-                const leadMap = new Map<string, any>();
-
-                messages.forEach(msg => {
-                    const current = leadMap.get(msg.lead_id);
-                    const msgDate = msg.sent_at?.toDate
-                        ? msg.sent_at.toDate()
-                        : (msg.sent_at?.seconds ? new Date(msg.sent_at.seconds * 1000) : new Date(msg.sent_at));
-
-                    const hasReplied = msg.isInbound || msg.reply_received || (current?.hasReplied || false);
-
-                    if (!current || msgDate > current.date) {
-                        leadMap.set(msg.lead_id, {
-                            msg,
-                            date: msgDate,
-                            hasReplied
-                        });
-                    } else if (hasReplied) {
-                        // If this message shows a reply but isn't the latest, still update the hasReplied flag
-                        leadMap.set(msg.lead_id, {
-                            ...current,
-                            hasReplied: true
-                        });
-                    }
-                });
-
-                const rows: ReportRow[] = [];
-                leadMap.forEach((data, leadId) => {
-                    const lead = leads.find(l => l.id === leadId);
-                    if (!lead) return;
-
-                    const { msg, date, hasReplied } = data;
-                    let nextStep = 'Wait for reply';
-                    if (hasReplied) nextStep = 'Manual Follow-up Required';
-                    else if (date < new Date(Date.now() - 86400000 * 3)) nextStep = 'Send 2nd Follow-up';
-
-                    rows.push({
-                        leadName: `${lead.firstName} ${lead.lastName}`,
-                        lastOutreach: date,
-                        channel: msg.channel,
-                        status: hasReplied ? 'Replied' : 'Reached',
-                        nextStep: nextStep,
-                        campaign: lead.searchCriteria?.locations || 'Unknown Market'
-                    });
-                });
-
-                rows.sort((a, b) => (b.lastOutreach?.getTime() || 0) - (a.lastOutreach?.getTime() || 0));
-                setReportData(rows);
+                // Fetch up to 1000 messages for the report
+                const messages = await getReactivationMessages(realtorId, undefined, 1000);
+                setAllMessages(messages);
             } catch (err) {
                 console.error("Error generating report", err);
             } finally {
@@ -102,33 +94,8 @@ const SnapshotReport: React.FC<SnapshotReportProps> = ({ realtorId, leads }) => 
             }
         };
 
-        generateReport();
-    }, [realtorId, leads]);
-
-    const downloadCSV = () => {
-        const headers = ["Lead Name", "Last Outreach", "Channel", "Status", "Next Step", "Market"];
-        const csvContent = [
-            headers.join(","),
-            ...reportData.map(row => [
-                `"${row.leadName}"`,
-                row.lastOutreach?.toLocaleDateString() || "",
-                row.channel,
-                row.status,
-                `"${row.nextStep}"`,
-                `"${row.campaign}"`
-            ].join(","))
-        ].join("\n");
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", `reactivation_report_${new Date().toISOString().split('T')[0]}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
+        fetchData();
+    }, [realtorId]);
 
     if (loading) return (
         <div className="flex flex-col items-center justify-center p-20 bg-white rounded-[2.5rem] border border-slate-200 shadow-xl shadow-indigo-500/5">
@@ -137,41 +104,71 @@ const SnapshotReport: React.FC<SnapshotReportProps> = ({ realtorId, leads }) => 
         </div>
     );
 
-    if (reportData.length === 0) return (
-        <div className="text-center py-20 bg-white rounded-[2.5rem] border border-slate-200">
-            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-300">
-                <i className="fa-solid fa-chart-line text-3xl"></i>
-            </div>
-            <h3 className="text-xl font-black text-slate-900 mb-2">No Report Data Yet</h3>
-            <p className="text-slate-400 max-w-xs mx-auto text-sm leading-relaxed">Start contacting your old leads to see reactivation performance here.</p>
-        </div>
-    );
-
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
+            {/* Header with Time Slicer */}
+            <div className="flex items-center justify-between bg-white p-2 rounded-[2rem] border border-slate-100 shadow-sm">
+                <div className="flex items-center gap-1">
+                    {(['ALL', 'TODAY', 'WEEK', 'MONTH'] as TimeRange[]).map((range) => (
+                        <button
+                            key={range}
+                            onClick={() => setTimeRange(range)}
+                            className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${timeRange === range
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                                : 'text-slate-400 hover:bg-slate-50'
+                                }`}
+                        >
+                            {range === 'ALL' ? 'All Time' : range === 'WEEK' ? 'Last 7 Days' : range === 'MONTH' ? 'Last 30 Days' : range}
+                        </button>
+                    ))}
+                </div>
+                <div className="px-6">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <i className="fa-solid fa-clock-rotate-left"></i>
+                        Showing data for {timeRange === 'ALL' ? 'Entire Period' : timeRange.toLowerCase()}
+                    </p>
+                </div>
+            </div>
+
             {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
                 {[
-                    { label: "Total Contacted", value: stats?.total, icon: "fa-paper-plane", color: "text-blue-600", bg: "bg-blue-50" },
-                    { label: "Total Replies", value: stats?.replied, icon: "fa-reply", color: "text-emerald-600", bg: "bg-emerald-50" },
+                    { label: "Total Leads", value: stats?.totalLeads, icon: "fa-users", color: "text-slate-600", bg: "bg-slate-50" },
+                    { label: "Conversations", value: stats?.conversations, icon: "fa-comments", color: "text-blue-600", bg: "bg-blue-50" },
+                    { label: "Reactivated", value: stats?.reactivated, icon: "fa-bolt", color: "text-emerald-600", bg: "bg-emerald-50" },
                     { label: "Reply Rate", value: `${stats?.replyRate}%`, icon: "fa-percent", color: "text-indigo-600", bg: "bg-indigo-50" },
-                    { label: "Markets Active", value: stats?.markets, icon: "fa-map-location-dot", color: "text-amber-600", bg: "bg-amber-50" }
+                    { label: "Total Msgs", value: stats?.totalMessages, icon: "fa-paper-plane", color: "text-purple-600", bg: "bg-purple-50" },
+                    { label: "Markets", value: stats?.markets, icon: "fa-map-location-dot", color: "text-amber-600", bg: "bg-amber-50" }
                 ].map((stat, i) => (
-                    <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center text-lg`}>
+                    <div key={i} className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex flex-col gap-3">
+                            <div className={`w-10 h-10 ${stat.bg} ${stat.color} rounded-xl flex items-center justify-center text-base`}>
                                 <i className={`fa-solid ${stat.icon}`}></i>
                             </div>
                             <div>
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-0.5">{stat.label}</p>
-                                <p className="text-2xl font-black text-slate-900 tracking-tight">{stat.value}</p>
+                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-0.5">{stat.label}</p>
+                                <p className="text-xl font-black text-slate-900 tracking-tight">{stat.value}</p>
                             </div>
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* Only stats grid remains for simplicity */}
+            {/* Quick Summary Text */}
+            <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-8 rounded-[2.5rem] text-white shadow-xl shadow-indigo-500/20">
+                <div className="flex items-center justify-between">
+                    <div className="space-y-2">
+                        <h3 className="text-2xl font-black tracking-tight">Intelligence Oversight</h3>
+                        <p className="text-indigo-100 font-medium max-w-xl">
+                            You have reactivated <span className="text-white font-black underline decoration-2 underline-offset-4">{stats?.reactivated} leads</span> from your total pool of {stats?.totalLeads}.
+                            That's a <span className="text-white font-black">{stats?.replyRate}% success rate</span> across {stats?.markets} active markets.
+                        </p>
+                    </div>
+                    <div className="hidden md:block opacity-20">
+                        <i className="fa-solid fa-chart-pie text-8xl"></i>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };
