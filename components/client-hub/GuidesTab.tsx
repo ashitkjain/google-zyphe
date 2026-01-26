@@ -784,7 +784,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                 className="group bg-white rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all text-left flex flex-col h-full overflow-hidden"
                             >
                                 {/* Hero Image */}
-                                <div className="relative h-40 w-full overflow-hidden bg-gradient-to-br from-indigo-50 to-blue-50">
+                                <div className="relative h-60 w-full overflow-hidden bg-gradient-to-br from-indigo-50 to-blue-50">
                                     <img
                                         src={`/guide-images/${activeCategory.topicSlug}/${item.slug}-thumb.png`}
                                         alt={item.title}
@@ -801,17 +801,10 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                 </div>
 
                                 {/* Content */}
-                                <div className="flex-1 p-6 flex flex-col">
-                                    <h3 className="text-sm font-black text-slate-800 leading-snug mb-3 group-hover:text-indigo-600 transition-colors flex-1">
+                                <div className="flex-1 p-6 flex flex-col justify-end">
+                                    <h3 className="text-base font-black text-slate-800 leading-snug group-hover:text-indigo-600 transition-colors">
                                         {item.title}
                                     </h3>
-
-                                    <div className="flex items-center justify-between pt-4 mt-4 border-t border-slate-50 opacity-0 group-hover:opacity-100 transition-all">
-                                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.15em]">
-                                            Read Guide
-                                        </span>
-                                        <i className="fa-solid fa-arrow-right text-[10px] text-indigo-500 translate-x-1"></i>
-                                    </div>
                                 </div>
                             </button>
                         ))}
