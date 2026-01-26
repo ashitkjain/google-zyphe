@@ -697,7 +697,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                             <div className="sticky top-8 space-y-8">
                                                 {/* ✅ Ad Unit #2 — Sticky Sidebar (Desktop Only) */}
                                                 <div className="flex justify-center">
-                                                    <GoogleAd slotId="2222222222" style={{ width: '300px', height: '600px' }} label="Ad Unit #2 - Sticky Sidebar" />
+                                                    <GoogleAd slotId="2222222222" style={{ width: '300px', height: '250px' }} label="Ad Unit #2 - Sticky Sidebar" />
                                                 </div>
                                             </div>
                                         </div>
