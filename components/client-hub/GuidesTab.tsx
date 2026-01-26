@@ -240,7 +240,7 @@ const GuidesTab: React.FC = () => {
                 </div>
 
                 {/* Article Body */}
-                <div className="flex-1 overflow-y-auto bg-white">
+                <div className="flex-1 min-h-0 overflow-y-auto bg-white">
                     <div className="max-w-4xl mx-auto px-10 py-20 pb-32">
                         {error && (
                             <div className="bg-rose-50 border border-rose-100 text-rose-700 p-6 rounded-3xl mb-10 font-bold flex items-center gap-4">
