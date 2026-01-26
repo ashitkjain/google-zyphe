@@ -98,7 +98,7 @@ const App: React.FC = () => {
         return;
       }
 
-      // If unauthenticated, redirect to /realtor/guides unless visiting a disclaimer
+      // If unauthenticated, allow /guides and root to stay without redirecting
       if (!currentUser) {
         if (path === '/legal-disclaimer') {
           setViewMode('legal-disclaimer');
@@ -113,10 +113,8 @@ const App: React.FC = () => {
           return;
         }
 
-        // Catch-all: redirect home/other to /realtor/guides for guests
-        if (path !== '/realtor/guides') {
-          window.history.replaceState({ mode: 'guides' }, '', '/realtor/guides');
-          setViewMode('guides');
+        if (path === '/guides' || path === '/') {
+          setViewMode(path === '/guides' ? 'guides' : 'main');
           return;
         }
       }
@@ -157,14 +155,13 @@ const App: React.FC = () => {
     let path = '/';
 
     if (customPath) {
-      // Ensure custom paths are relative to /realtor if user is a realtor
-      path = customPath.startsWith('/realtor') ? customPath : `/realtor${customPath.startsWith('/') ? '' : '/'}${customPath}`;
+      path = customPath;
     } else if (newMode === 'guides') {
-      path = '/realtor/guides';
+      path = '/guides';
     } else if (newMode === 'legal-disclaimer') {
       path = '/legal-disclaimer';
     } else if (newMode === 'main') {
-      path = '/realtor';
+      path = currentUser?.role === 'realtor' ? '/realtor' : '/';
     } else {
       path = `/realtor/${newMode}`;
     }
@@ -804,7 +801,7 @@ const App: React.FC = () => {
       <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} inviteData={inviteData} />
 
       {/* Top Bar (Visible if not in guides mode OR if user is signed in) */}
-      {(viewMode !== 'guides' || currentUser) && (
+      {((viewMode !== 'guides' && window.location.pathname !== '/') || currentUser) && (
         <div className="py-4 px-4 bg-slate-900 text-white border-b border-white/5 relative z-[60]">
           <div className="max-w-7xl mx-auto flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em]">
             <div className="flex items-center gap-3">
@@ -848,7 +845,7 @@ const App: React.FC = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between gap-4">
               <Logo size={80} className="scale-75 md:scale-90 origin-left" onClick={() => transitionToView('main')} />
-              {!currentUser && (
+              {!currentUser && window.location.pathname !== '/' && (
                 <button onClick={() => setAuthModalOpen(true)} className="flex items-center gap-2 bg-white border border-slate-200 px-6 py-3 rounded-2xl text-xs font-black uppercase text-slate-700 hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap">
                   <i className="fa-solid fa-user-circle text-lg text-indigo-600"></i>
                   <span>Sign In</span>
@@ -864,7 +861,7 @@ const App: React.FC = () => {
 
         {viewMode === 'guides' || !currentUser ? (
           <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500">
-            {!currentUser && (
+            {!currentUser && window.location.pathname !== '/' && (
               <div className="absolute top-6 right-10 z-[100]">
                 <button
                   onClick={() => setAuthModalOpen(true)}

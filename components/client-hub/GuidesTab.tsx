@@ -178,7 +178,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
         setError(null);
 
         // Update URL
-        const newPath = `/realtor/${category.topicSlug}/${guide.slug}`;
+        const newPath = `/${category.topicSlug}/${guide.slug}`;
         if (onNavigate) {
             onNavigate('guides', newPath);
         } else if (window.location.pathname !== newPath) {
@@ -271,7 +271,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
         setSelectedGuide(null);
         const category = GUIDE_DATA.find(c => c.id === catId);
         if (category) {
-            const newPath = `/realtor/${category.topicSlug}`;
+            const newPath = `/${category.topicSlug}`;
             if (onNavigate) {
                 onNavigate('guides', newPath);
             } else if (window.location.pathname !== newPath) {
@@ -283,7 +283,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
     const handleGoBack = () => {
         setSelectedGuide(null);
         const category = GUIDE_DATA.find(c => c.id === activeCategoryId);
-        const newPath = category ? `/realtor/${category.topicSlug}` : '/realtor/guides';
+        const newPath = category ? `/${category.topicSlug}` : '/guides';
 
         if (onNavigate) {
             onNavigate('guides', newPath);
