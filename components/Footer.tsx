@@ -27,9 +27,12 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                             >
                                 Legal Disclaimer
                             </button>
-                            <a href="#" className="text-[7px] font-black uppercase tracking-widest text-slate-300 hover:text-indigo-600 transition-colors">Privacy</a>
-                            <a href="#" className="text-[7px] font-black uppercase tracking-widest text-slate-300 hover:text-indigo-600 transition-colors">Terms</a>
-                            <a href="#" className="text-[7px] font-black uppercase tracking-widest text-slate-300 hover:text-indigo-600 transition-colors">Support</a>
+                            <button
+                                onClick={() => onNavigate ? onNavigate('terms') : window.location.href = '/terms'}
+                                className="text-[7px] font-black uppercase tracking-widest text-slate-300 hover:text-indigo-600 transition-colors"
+                            >
+                                Terms
+                            </button>
                         </div>
                     </div>
                 </div>
