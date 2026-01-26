@@ -11,6 +11,7 @@ import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompt
 import { biddingStrategyPrompt } from "../prompts/biddingStrategy";
 import { getLeadReactivationPrompt, leadReactivationSchema } from "../prompts/leadReactivation";
 import { getLeadTransformationPrompt } from "../prompts/leadTransformation";
+import { getGuideGenerationPrompt } from "../prompts/guideGeneration";
 import { APP_CONFIG } from "../config";
 import { logLLMCall, updateLLMCall } from "./firebase/llm_logs";
 
@@ -746,6 +747,61 @@ export const transformLeadCsv = async (csvData: string, userId: string = "unknow
     }
 
     return csvContent;
+  } catch (error: any) {
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: error.message,
+        status: 'failed',
+        error: error.stack || error.message,
+        response_received_at: serverTimestamp()
+      }).catch(err => console.error("Failed to update AI error log:", err));
+    }
+
+    if (error instanceof AiResponseError) {
+      error.prompt = prompt;
+      throw error;
+    }
+    throw new AiResponseError(error.message, "Raw API Error", prompt);
+  }
+};
+
+export const generateGuide = async (category: string, title: string, userId: string = "unknown"): Promise<string> => {
+  const prompt = getGuideGenerationPrompt(category, title);
+  let logId: string | null = null;
+
+  try {
+    logId = await logLLMCall({
+      user_id: userId,
+      prompt_filename: "guideGeneration.ts",
+      llm_name: GEMINI_MODEL,
+      raw_payload: prompt,
+      raw_response: null,
+      status: 'pending',
+      request_sent_at: serverTimestamp()
+    });
+
+    const ai = getAi();
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+      config: {
+        tools: [groundingTool],
+        temperature: 0.7,
+      }
+    });
+
+    const responseText = response.text;
+
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: responseText,
+        status: 'completed',
+        response_received_at: serverTimestamp(),
+        ...extractMetadata(response)
+      }).catch(err => console.error("Failed to update AI log:", err));
+    }
+
+    return responseText;
   } catch (error: any) {
     if (logId) {
       updateLLMCall(logId, {

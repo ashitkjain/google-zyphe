@@ -27,6 +27,7 @@ interface Props {
     onSignOut: () => void;
     onBack: () => void;
     exploreContent?: React.ReactNode;
+    initialTab?: HubTab;
 }
 
 const generateClientID = () => {
@@ -35,9 +36,15 @@ const generateClientID = () => {
 
 type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio' | 'guides';
 
-const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent }) => {
+const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab }) => {
     // Default to 'explore' if content is provided, otherwise 'leads'
-    const [activeTab, setActiveTab] = useState<HubTab>(exploreContent ? 'explore' : 'leads');
+    const [activeTab, setActiveTab] = useState<HubTab>(initialTab || (exploreContent ? 'explore' : 'leads'));
+
+    useEffect(() => {
+        if (initialTab) {
+            setActiveTab(initialTab);
+        }
+    }, [initialTab]);
     const [realtorProfile, setRealtorProfile] = useState<UserProfile | null>(null);
     const [settingsSubTab, setSettingsSubTab] = useState<'statuses' | 'properties'>('statuses');
     const [isToolsOpen, setIsToolsOpen] = useState(false);

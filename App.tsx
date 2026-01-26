@@ -86,9 +86,16 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleUrlChange = () => {
       const path = window.location.pathname;
+
+      // If unauthenticated and trying to access main search (/), redirect to guides
+      if (!currentUser && path !== '/guides') {
+        transitionToView('guides');
+        return;
+      }
+
       if (path === '/guides') {
         setViewMode('guides');
-      } else if (viewMode === 'guides') {
+      } else {
         setViewMode('main');
       }
     };
@@ -98,10 +105,16 @@ const App: React.FC = () => {
 
     window.addEventListener('popstate', handleUrlChange);
     return () => window.removeEventListener('popstate', handleUrlChange);
-  }, []);
+  }, [currentUser]); // Re-run when auth status changes
 
   // Wrapper for setViewMode to handle URL updates
   const transitionToView = (newMode: ViewMode) => {
+    // Prevent unauthenticated users from leaving guides
+    if (!currentUser && newMode !== 'guides') {
+      setAuthModalOpen(true);
+      return;
+    }
+
     setViewMode(newMode);
     const path = newMode === 'guides' ? '/guides' : '/';
     if (window.location.pathname !== path) {
@@ -655,7 +668,7 @@ const App: React.FC = () => {
       propertyData={propertyData}
       loading={loading}
       loadingSublabel={loadingSublabel}
-      viewMode={viewMode === 'dashboard' ? 'main' : viewMode} // Fallback just in case
+      viewMode={(viewMode === 'dashboard' || viewMode === 'guides') ? 'main' : viewMode} // Fallback just in case
       setViewMode={transitionToView as any}
       imagesLoading={imagesLoading}
       isFavorited={isFavorited}
@@ -702,6 +715,7 @@ const App: React.FC = () => {
           onSignOut={handleSignOut}
           onBack={() => transitionToView('main')} // This might be redundant now
           exploreContent={exploreTab}
+          initialTab={viewMode as any}
         />
 
         {/* Chat Interface needs to be rendered at top level if it's fixed? 
@@ -728,12 +742,12 @@ const App: React.FC = () => {
 
   // STANDARD LAYOUT (Non-Realtor / Guest)
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className={`${viewMode === 'guides' ? 'h-screen' : 'min-h-screen'} bg-slate-50 flex flex-col`}>
       {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
       <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} inviteData={inviteData} />
 
-      {/* Top Bar (Simplified for Guests) */}
-      {viewMode !== 'guides' && (
+      {/* Top Bar (Visible if not in guides mode OR if user is signed in) */}
+      {(viewMode !== 'guides' || currentUser) && (
         <div className="py-4 px-4 bg-slate-900 text-white border-b border-white/5 relative z-[60]">
           <div className="max-w-7xl mx-auto flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em]">
             <div className="flex items-center gap-3">
@@ -751,11 +765,11 @@ const App: React.FC = () => {
 
             <div className="flex items-center gap-6">
               <button
-                onClick={() => transitionToView('guides')}
+                onClick={() => transitionToView(viewMode === 'guides' ? 'main' : 'guides')}
                 className="text-white/60 hover:text-white transition-colors flex items-center gap-2"
               >
-                <i className="fa-solid fa-book-open text-[10px]"></i>
-                CLIENT GUIDES
+                <i className={`fa-solid ${viewMode === 'guides' ? 'fa-house' : 'fa-book-open'} text-[10px]`}></i>
+                {viewMode === 'guides' ? 'BACK TO EXPLORE' : 'CLIENT GUIDES'}
               </button>
               <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
               {currentUser ? (
@@ -788,11 +802,22 @@ const App: React.FC = () => {
         </header>
       )}
 
-      <main className={`flex-1 w-full ${viewMode === 'guides' ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10'}`}>
+      <main className={`flex-1 w-full overflow-hidden ${viewMode === 'guides' ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 overflow-y-auto'}`}>
         {error && <div className="bg-rose-50 border border-rose-100 text-rose-700 p-4 rounded-2xl mb-8">{error}</div>}
 
-        {viewMode === 'guides' ? (
-          <div className="bg-white shadow-2xl overflow-hidden h-screen animate-in fade-in duration-500">
+        {viewMode === 'guides' || !currentUser ? (
+          <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500">
+            {!currentUser && (
+              <div className="absolute top-6 right-10 z-[100]">
+                <button
+                  onClick={() => setAuthModalOpen(true)}
+                  className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl text-xs font-black uppercase hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200"
+                >
+                  <i className="fa-solid fa-lock text-sm"></i>
+                  Sign In for Full Access
+                </button>
+              </div>
+            )}
             <GuidesTab />
           </div>
         ) : exploreTab}

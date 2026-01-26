@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { getGuideBySlug } from '../../services/firebaseService';
+import { getGuideBySlug, saveGuideContent } from '../../services/firebaseService';
+import { generateGuide } from '../../services/geminiService';
 
 interface GuideItem {
     id: string;
@@ -161,21 +162,47 @@ const GuidesTab: React.FC = () => {
     const [selectedGuide, setSelectedGuide] = useState<GuideItem | null>(null);
     const [guideContent, setGuideContent] = useState<string | null>(null);
     const [loadingContent, setLoadingContent] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const activeCategory = GUIDE_DATA.find(c => c.id === activeCategoryId) || GUIDE_DATA[0];
 
     const handleViewGuide = async (guide: GuideItem) => {
         setSelectedGuide(guide);
         setLoadingContent(true);
-        // Try to fetch from Firebase
-        const data = await getGuideBySlug(activeCategory.topicSlug, guide.slug);
-        if (data) {
-            setGuideContent(data.content);
-        } else {
+        setError(null);
+
+        try {
+            // 1. Try to fetch from Firebase
+            const cachedData = await getGuideBySlug(activeCategory.topicSlug, guide.slug);
+            if (cachedData) {
+                setGuideContent(cachedData.content);
+                setLoadingContent(false);
+                return;
+            }
+
+            // 2. If not found, generate with Gemini
+            console.log(`[Guides] Generating new guide for: ${guide.title}`);
+            const generatedContent = await generateGuide(activeCategory.title, guide.title);
+            setGuideContent(generatedContent);
+
+            // 3. Save to Firebase for future use
+            await saveGuideContent({
+                id: `${activeCategory.topicSlug}_${guide.slug}`,
+                topicSlug: activeCategory.topicSlug,
+                slug: guide.slug,
+                title: guide.title,
+                content: generatedContent,
+                lastUpdated: new Date()
+            });
+
+        } catch (err: any) {
+            console.error('Error in guide retrieval/generation:', err);
+            setError("Failed to load guide. Please try again.");
             // Fallback for demo
-            setGuideContent(`# ${guide.title}\n\nThis guide for "${guide.title}" is currently being prioritized and generated with high-yield SEO intelligence. Check back shortly for the full professional brief.\n\n### Key Areas Covered:\n- Statutory Timelines in California\n- Homeowner Responsibilities\n- Financial Impact Assessment\n- Recommended ADR Pathways`);
+            setGuideContent(`# ${guide.title}\n\nUnable to retrieve official brief. Our intelligence engine encountered a temporary sync error. Please check back in a few moments.\n\n### Error Detail:\n- Connection Timeout or Gemini API Rate Limit`);
+        } finally {
+            setLoadingContent(false);
         }
-        setLoadingContent(false);
     };
 
     const filteredItems = activeCategory.items.filter(item =>
@@ -215,6 +242,12 @@ const GuidesTab: React.FC = () => {
                 {/* Article Body */}
                 <div className="flex-1 overflow-y-auto bg-white">
                     <div className="max-w-4xl mx-auto px-10 py-20 pb-32">
+                        {error && (
+                            <div className="bg-rose-50 border border-rose-100 text-rose-700 p-6 rounded-3xl mb-10 font-bold flex items-center gap-4">
+                                <i className="fa-solid fa-circle-exclamation text-xl"></i>
+                                {error}
+                            </div>
+                        )}
                         {loadingContent ? (
                             <div className="py-32 flex flex-col items-center justify-center space-y-6">
                                 <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
@@ -335,16 +368,13 @@ const GuidesTab: React.FC = () => {
             <div className="flex-1 overflow-hidden flex flex-col transition-all">
                 {/* Header */}
                 <div className="bg-white border-b border-slate-200 px-10 py-8">
-                    <div className="mb-8">
+                    <div className="mb-4">
                         <div>
                             <div className="flex items-center gap-3 mb-2">
                                 <h1 className="text-3xl font-black text-slate-900 tracking-tight">
                                     {activeCategory.title}
                                 </h1>
                             </div>
-                            <p className="text-slate-500 font-medium max-w-2xl">
-                                Detailed professional guides for {activeCategory.title.toLowerCase()}. Provide these to your clients to establish expert authority.
-                            </p>
                         </div>
                     </div>
 
