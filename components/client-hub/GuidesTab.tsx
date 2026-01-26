@@ -409,23 +409,30 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                         </section>
 
                                         <section>
-                                            <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
+                                            <h2 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
                                                 <div className="w-2.5 h-8 bg-indigo-500 rounded-full"></div>
                                                 {guideContent.timelines.title}
                                             </h2>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="relative pl-8 border-l-2 border-slate-100 space-y-8 ml-4">
                                                 {guideContent.timelines.events.map((item, i) => {
                                                     const timeframe = typeof item === 'string' ? "Timeline" : item.timeframe;
                                                     const event = typeof item === 'string' ? item.split(':')[0] || "Stage" : item.event;
                                                     const impact = typeof item === 'string' ? item.split(':').slice(1).join(':').trim() : item.impact;
                                                     return (
-                                                        <div key={i} className="bg-slate-50 border border-slate-100 p-6 rounded-3xl flex flex-col gap-3">
-                                                            <div className="bg-slate-900 text-white px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest w-fit">
-                                                                {timeframe}
-                                                            </div>
-                                                            <div>
-                                                                <div className="font-black text-lg text-slate-900 mb-1">{event}</div>
-                                                                {impact && <div className="text-slate-600 font-medium text-sm leading-relaxed">{impact}</div>}
+                                                        <div key={i} className="relative group">
+                                                            {/* Timeline Dot */}
+                                                            <div className="absolute -left-[41px] top-1.5 w-4 h-4 rounded-full border-4 border-white bg-slate-200 group-hover:bg-indigo-600 group-hover:scale-125 transition-all shadow-sm z-10"></div>
+
+                                                            <div className="flex flex-col md:flex-row md:items-start gap-2 md:gap-8">
+                                                                <div className="min-w-[140px] pt-1">
+                                                                    <div className="bg-slate-900 text-white px-3 py-1 rounded-lg font-black text-[9px] uppercase tracking-widest w-fit shadow-lg shadow-slate-200">
+                                                                        {timeframe}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex-1 bg-white border border-slate-100 p-5 rounded-3xl shadow-sm group-hover:shadow-md group-hover:border-indigo-100 transition-all">
+                                                                    <div className="font-black text-base text-slate-900 mb-1.5">{event}</div>
+                                                                    {impact && <div className="text-slate-500 font-medium text-[13px] leading-relaxed italic border-l-2 border-slate-200 pl-4 py-1">{impact}</div>}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     );
