@@ -785,8 +785,16 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                             >
                                 <div className="flex-1">
                                     <div className="flex items-center justify-between mb-4">
-                                        <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">
-                                            <i className="fa-solid fa-file-lines text-sm"></i>
+                                        <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gradient-to-br from-indigo-50 to-blue-50 group-hover:scale-105 transition-all shadow-sm">
+                                            <img
+                                                src={`/guide-images/${activeCategory.topicSlug}/${item.slug}-thumb.png`}
+                                                alt={item.title}
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => {
+                                                    e.currentTarget.style.display = 'none';
+                                                    e.currentTarget.parentElement!.innerHTML = '<i class="fa-solid fa-file-lines text-indigo-600 text-xl"></i>';
+                                                }}
+                                            />
                                         </div>
                                         <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
                                             #{idx + 1}
