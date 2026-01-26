@@ -6,8 +6,9 @@ const Footer: React.FC = () => {
         <footer className="bg-white border-t border-slate-200 py-1.5">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-4">
                         <Logo size={50} className="opacity-30 grayscale hover:grayscale-0 transition-all" />
+                        <span className="text-[7px] font-black uppercase tracking-widest text-slate-400">© 2026 Zyphe Guides. Informational content only. No legal or financial advice.</span>
                     </div>
 
                     <div className="flex items-center gap-6">
