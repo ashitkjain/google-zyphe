@@ -199,7 +199,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
 
             const [generatedContent, heroImage] = await Promise.all([
                 generateGuide(category.title, guide.title),
-                generateGuideImage(category.title, guide.title).catch(err => {
+                generateGuideImage(category.title, guide.title, category.topicSlug, guide.slug).catch(err => {
                     console.warn('Hero image generation failed, continuing without image:', err);
                     return null;
                 })

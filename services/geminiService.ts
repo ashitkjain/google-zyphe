@@ -821,7 +821,7 @@ export const generateGuide = async (category: string, title: string, userId: str
   }
 };
 
-export const generateGuideImage = async (category: string, title: string, userId: string = "unknown"): Promise<string | null> => {
+export const generateGuideImage = async (category: string, title: string, topicSlug: string, guideSlug: string, userId: string = "unknown"): Promise<string | null> => {
   const prompt = getGuideImagePrompt(category, title);
   let logId: string | null = null;
 
@@ -855,18 +855,23 @@ export const generateGuideImage = async (category: string, title: string, userId
     }
 
     // Convert to base64 data URL
-    const imageData = `data:image/png;base64,${imageResult.image.bytesBase64Encoded}`;
+    const base64Data = `data:image/png;base64,${imageResult.image.bytesBase64Encoded}`;
+
+    // Upload to Firebase Storage and get public URL
+    const { uploadImageToStorage, getGuideImagePath } = require('./firebase/storage');
+    const storagePath = getGuideImagePath(topicSlug, guideSlug);
+    const publicUrl = await uploadImageToStorage(base64Data, storagePath);
 
     if (logId) {
       updateLLMCall(logId, {
-        raw_response: "Image generated successfully",
+        raw_response: `Image uploaded to Storage: ${storagePath}`,
         status: 'completed',
         response_received_at: serverTimestamp(),
         ...extractMetadata(response)
       }).catch(err => console.error("Failed to update AI log:", err));
     }
 
-    return imageData;
+    return publicUrl;
   } catch (error: any) {
     console.error("Image generation error:", error);
 
