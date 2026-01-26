@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Lead } from '../../../types';
 import { getTimeSince } from './shared';
 import OutreachModule from './OutreachModule';
-import OutreachModule from './OutreachModule';
 import BulkCampaignBuilder from './components/BulkCampaignBuilder';
 import LeadListTable from './components/LeadListTable';
 
