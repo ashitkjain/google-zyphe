@@ -768,13 +768,6 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                     onClick={() => handleViewGuide(item)}
                                     className="group flex gap-6 text-left hover:bg-slate-50/50 p-4 -m-4 rounded-3xl transition-all duration-300"
                                 >
-                                    {/* Number/Section Tag */}
-                                    <div className="flex-shrink-0">
-                                        <div className="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
-                                            Guide {idx + 1}
-                                        </div>
-                                    </div>
-
                                     {/* Content Snapshot */}
                                     <div className="flex-1 min-w-0">
                                         <h3 className="text-base font-black text-slate-900 mb-2 leading-snug group-hover:text-indigo-600 transition-colors duration-300 truncate">
@@ -790,7 +783,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 
