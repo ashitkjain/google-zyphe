@@ -408,35 +408,100 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                             </div>
                                         </section>
 
-                                        <section>
-                                            <h2 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
+                                        <section className="overflow-hidden">
+                                            <h2 className="text-2xl font-black text-slate-800 mb-12 flex items-center gap-3">
                                                 <div className="w-2.5 h-8 bg-indigo-500 rounded-full"></div>
                                                 {guideContent.timelines.title}
                                             </h2>
-                                            <div className="relative pl-8 border-l-2 border-slate-100 space-y-8 ml-4">
-                                                {guideContent.timelines.events.map((item, i) => {
-                                                    const timeframe = typeof item === 'string' ? "Timeline" : item.timeframe;
-                                                    const event = typeof item === 'string' ? item.split(':')[0] || "Stage" : item.event;
-                                                    const impact = typeof item === 'string' ? item.split(':').slice(1).join(':').trim() : item.impact;
-                                                    return (
-                                                        <div key={i} className="relative group">
-                                                            {/* Timeline Dot */}
-                                                            <div className="absolute -left-[41px] top-1.5 w-4 h-4 rounded-full border-4 border-white bg-slate-200 group-hover:bg-indigo-600 group-hover:scale-125 transition-all shadow-sm z-10"></div>
 
-                                                            <div className="flex flex-col md:flex-row md:items-start gap-2 md:gap-8">
-                                                                <div className="min-w-[140px] pt-1">
-                                                                    <div className="bg-slate-900 text-white px-3 py-1 rounded-lg font-black text-[9px] uppercase tracking-widest w-fit shadow-lg shadow-slate-200">
-                                                                        {timeframe}
+                                            <div className="relative">
+                                                {/* Desktop Serpentine Timeline */}
+                                                <div className="hidden lg:block relative">
+                                                    <div className="flex flex-wrap items-start justify-center gap-y-12 text-slate-800">
+                                                        {guideContent.timelines.events.map((item, i) => {
+                                                            const timeframe = typeof item === 'string' ? "Timeline" : item.timeframe;
+                                                            const event = typeof item === 'string' ? item.split(':')[0] || "Stage" : item.event;
+                                                            const impact = typeof item === 'string' ? item.split(':').slice(1).join(':').trim() : item.impact;
+
+                                                            const colors = [
+                                                                'from-amber-400 to-orange-500',
+                                                                'from-orange-500 to-rose-500',
+                                                                'from-rose-500 to-indigo-600',
+                                                                'from-indigo-600 to-blue-500',
+                                                                'from-blue-500 to-emerald-500',
+                                                                'from-emerald-500 to-amber-400'
+                                                            ];
+                                                            const colorClass = colors[i % colors.length];
+                                                            const isEvenRow = Math.floor(i / 4) % 2 === 1;
+                                                            const rowPosition = i % 4;
+
+                                                            // Determine if we need a connector to the next item
+                                                            const hasNext = i < guideContent.timelines.events.length - 1;
+                                                            const isEndPerRow = (i + 1) % 4 === 0 || i === guideContent.timelines.events.length - 1;
+
+                                                            return (
+                                                                <div
+                                                                    key={i}
+                                                                    className={`w-1/4 relative px-6 flex flex-col items-center group transition-all duration-500`}
+                                                                    style={{ direction: isEvenRow ? 'rtl' : 'ltr' }}
+                                                                >
+                                                                    {/* Connecting Line (Horizontal) */}
+                                                                    {hasNext && !isEndPerRow && (
+                                                                        <div className={`absolute top-10 left-[70%] w-full h-[6px] bg-gradient-to-r ${colorClass} opacity-20 group-hover:opacity-40 transition-opacity z-0`}></div>
+                                                                    )}
+
+                                                                    {/* Wrapping Curve (Mock) - This would ideally be an SVG for perfect serpentine flow */}
+                                                                    {isEndPerRow && hasNext && (
+                                                                        <div className={`absolute top-10 ${isEvenRow ? '-left-1/2' : '-right-1/2'} w-full h-12 border-t-[6px] ${isEvenRow ? 'border-l-[6px] rounded-tl-[100px]' : 'border-r-[6px] rounded-tr-[100px]'} border-indigo-100 opacity-30 z-0`}></div>
+                                                                    )}
+
+                                                                    <div className="relative z-10 flex flex-col items-center text-center w-full">
+                                                                        {/* The Node */}
+                                                                        <div className={`w-20 h-20 rounded-full border-[6px] border-indigo-50 bg-white flex items-center justify-center mb-6 shadow-xl group-hover:scale-110 group-hover:border-indigo-100 transition-all duration-500`}>
+                                                                            <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${colorClass} text-white flex items-center justify-center font-black text-xl shadow-lg`}>
+                                                                                {i + 1}
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className="bg-indigo-50 text-indigo-900 border border-indigo-100 px-3 py-1 rounded-full font-black text-[9px] uppercase tracking-2 mt-[-10px] mb-4 shadow-sm group-hover:bg-indigo-100 transition-colors">
+                                                                            {timeframe}
+                                                                        </div>
+
+                                                                        <div className="w-full">
+                                                                            <h3 className="font-black text-slate-900 text-sm mb-2 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{event}</h3>
+                                                                            <p className="text-slate-500 text-[10px] font-normal leading-relaxed line-clamp-4 group-hover:text-slate-700 transition-colors px-4">
+                                                                                {impact}
+                                                                            </p>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
-                                                                <div className="flex-1 bg-white border border-slate-100 p-5 rounded-3xl shadow-sm group-hover:shadow-md group-hover:border-indigo-100 transition-all">
-                                                                    <div className="font-black text-base text-slate-900 mb-1.5">{event}</div>
-                                                                    {impact && <div className="text-slate-500 font-medium text-[13px] leading-relaxed italic border-l-2 border-slate-200 pl-4 py-1">{impact}</div>}
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
+                                                {/* Mobile/Vertical View (Kept for better UX on small screens) */}
+                                                <div className="lg:hidden relative pl-8 border-l-[6px] border-indigo-50 space-y-12 ml-4">
+                                                    {guideContent.timelines.events.map((item, i) => {
+                                                        const timeframe = typeof item === 'string' ? "Timeline" : item.timeframe;
+                                                        const event = typeof item === 'string' ? item.split(':')[0] || "Stage" : item.event;
+                                                        const impact = typeof item === 'string' ? item.split(':').slice(1).join(':').trim() : item.impact;
+                                                        return (
+                                                            <div key={i} className="relative group">
+                                                                <div className="absolute -left-[45px] top-0 w-8 h-8 rounded-full border-4 border-white bg-indigo-600 text-white flex items-center justify-center font-black text-[10px] shadow-lg group-hover:scale-125 transition-all z-10">
+                                                                    {i + 1}
+                                                                </div>
+                                                                <div className="bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm group-hover:shadow-xl group-hover:border-indigo-100 transition-all">
+                                                                    <div className="bg-indigo-50 text-indigo-900 border border-indigo-100 px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest w-fit mb-4">
+                                                                        {timeframe}
+                                                                    </div>
+                                                                    <div className="font-black text-lg text-slate-900 mb-2 leading-tight uppercase tracking-tight">{event}</div>
+                                                                    {impact && <div className="text-slate-500 font-normal text-[11px] leading-relaxed italic border-l-2 border-slate-200 pl-4 py-1">{impact}</div>}
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    );
-                                                })}
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
                                         </section>
 
@@ -451,8 +516,8 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                                     const roleDesc = typeof item === 'string' ? "" : item.description;
                                                     return (
                                                         <div key={i} className="bg-indigo-50/30 border border-indigo-100/50 p-5 rounded-3xl">
-                                                            <div className="font-black text-slate-900 text-sm mb-1">{roleName}</div>
-                                                            {roleDesc && <div className="text-slate-500 text-[11px] font-bold leading-relaxed">{roleDesc}</div>}
+                                                            <div className="font-bold text-slate-900 text-xs mb-1">{roleName}</div>
+                                                            {roleDesc && <div className="text-slate-500 text-[10px] font-normal leading-relaxed">{roleDesc}</div>}
                                                         </div>
                                                     );
                                                 })}
@@ -475,8 +540,8 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                                                 {stepNum}
                                                             </div>
                                                             <div>
-                                                                <h3 className="text-lg font-black text-slate-800 mb-1.5 leading-tight">{title}</h3>
-                                                                {action && <p className="text-slate-600 text-sm font-medium leading-relaxed">{action}</p>}
+                                                                <h3 className="text-sm font-bold text-slate-800 mb-1 leading-tight">{title}</h3>
+                                                                {action && <p className="text-slate-500 text-xs font-normal leading-relaxed">{action}</p>}
                                                             </div>
                                                         </div>
                                                     );
@@ -510,7 +575,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                                             <div className="text-amber-900 font-black text-[10px] uppercase tracking-widest mb-1">Misunderstanding</div>
                                                             <p className="text-amber-700 text-[11px] font-bold italic mb-2">"{item.misunderstanding}"</p>
                                                             <div className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-1">Reality</div>
-                                                            <p className="text-slate-600 text-xs font-bold leading-relaxed">{item.reality}</p>
+                                                            <p className="text-slate-600 text-xs font-normal leading-relaxed">{item.reality}</p>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -522,17 +587,17 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                                 <div className="w-2.5 h-8 bg-indigo-500 rounded-full"></div>
                                                 Professional Assessment
                                             </h2>
-                                            <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white overflow-hidden relative group">
-                                                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-indigo-500/20 transition-all duration-700"></div>
+                                            <div className="bg-indigo-50 border border-indigo-100 rounded-[2.5rem] p-8 text-indigo-900 overflow-hidden relative group">
+                                                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-indigo-600/10 transition-all duration-700"></div>
                                                 <h3 className="text-xl font-black mb-4 relative z-10">{guideContent.expertPerspective.title}</h3>
-                                                <p className="text-slate-300 text-base font-medium leading-relaxed mb-8 relative z-10 max-w-2xl">
+                                                <p className="text-slate-600 text-base font-medium leading-relaxed mb-8 relative z-10 max-w-2xl">
                                                     {guideContent.expertPerspective.assessment}
                                                 </p>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
                                                     {guideContent.expertPerspective.riskMitigation.map((risk, i) => (
-                                                        <div key={i} className="flex items-start gap-3 bg-white/5 border border-white/10 p-4 rounded-xl">
-                                                            <i className="fa-solid fa-shield-halved text-indigo-400 text-sm mt-1"></i>
-                                                            <span className="font-bold text-slate-200 text-sm leading-snug">{risk}</span>
+                                                        <div key={i} className="flex items-start gap-3 bg-white/60 border border-white p-4 rounded-xl">
+                                                            <i className="fa-solid fa-shield-halved text-indigo-600 text-sm mt-1"></i>
+                                                            <span className="font-bold text-slate-800 text-sm leading-snug">{risk}</span>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -555,7 +620,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                                                 {question}
                                                             </h4>
                                                             {answer && (
-                                                                <p className="text-slate-600 text-sm font-medium leading-relaxed pl-9">
+                                                                <p className="text-slate-600 text-sm font-normal leading-relaxed pl-9">
                                                                     {answer}
                                                                 </p>
                                                             )}
@@ -573,7 +638,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                                         <div className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-[10px]">
                                                             {i + 1}
                                                         </div>
-                                                        <p className="text-slate-700 font-bold leading-snug text-sm">{point}</p>
+                                                        <p className="text-slate-700 font-semibold leading-snug text-sm">{point}</p>
                                                     </div>
                                                 ))}
                                             </div>
