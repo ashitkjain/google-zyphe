@@ -1,7 +1,11 @@
 import React from 'react';
 import Logo from './Logo';
 
-const Footer: React.FC = () => {
+interface FooterProps {
+    onNavigate?: (view: any) => void;
+}
+
+const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
     return (
         <footer className="bg-white border-t border-slate-200 py-1.5">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -17,6 +21,12 @@ const Footer: React.FC = () => {
                             <span className="text-[7px] font-black uppercase tracking-tighter text-slate-400">Systems Operational</span>
                         </div>
                         <div className="hidden sm:flex items-center gap-4">
+                            <button
+                                onClick={() => onNavigate ? onNavigate('legal-disclaimer') : window.location.href = '/legal-disclaimer'}
+                                className="text-[7px] font-black uppercase tracking-widest text-slate-300 hover:text-indigo-600 transition-colors"
+                            >
+                                Legal Disclaimer
+                            </button>
                             <a href="#" className="text-[7px] font-black uppercase tracking-widest text-slate-300 hover:text-indigo-600 transition-colors">Privacy</a>
                             <a href="#" className="text-[7px] font-black uppercase tracking-widest text-slate-300 hover:text-indigo-600 transition-colors">Terms</a>
                             <a href="#" className="text-[7px] font-black uppercase tracking-widest text-slate-300 hover:text-indigo-600 transition-colors">Support</a>

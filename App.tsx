@@ -48,8 +48,9 @@ import ClientHub from './components/ClientHub';
 import Footer from './components/Footer';
 import ExploreTab from './components/ExploreTab';
 import GuidesTab from './components/client-hub/GuidesTab';
+import LegalDisclaimer from './components/LegalDisclaimer';
 
-type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides';
+type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -86,14 +87,32 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleUrlChange = () => {
       const path = window.location.pathname;
+      const parts = path.split('/').filter(Boolean);
 
-      // If unauthenticated and trying to access main search (/), redirect to guides
-      if (!currentUser && path !== '/guides') {
-        transitionToView('guides');
-        return;
+      // If unauthenticated, redirect to guides unless visiting a guide or disclaimer
+      if (!currentUser) {
+        if (path === '/legal-disclaimer') {
+          setViewMode('legal-disclaimer');
+          return;
+        }
+        // If it's a guide-like path or /guides
+        if (path === '/guides' || parts.length === 2 || (parts.length === 1 && ['hoa', 'insurance', 'escrow', 'property-taxes', 'repairs-liability'].includes(parts[0]))) {
+          setViewMode('guides');
+          return;
+        }
+        // Otherwise redirect home to /guides
+        if (path !== '/guides') {
+          window.history.replaceState({ mode: 'guides' }, '', '/guides');
+          setViewMode('guides');
+          return;
+        }
       }
 
       if (path === '/guides') {
+        setViewMode('guides');
+      } else if (path === '/legal-disclaimer') {
+        setViewMode('legal-disclaimer');
+      } else if (parts.length === 2 || (parts.length === 1 && ['hoa', 'insurance', 'escrow', 'property-taxes', 'repairs-liability'].includes(parts[0]))) {
         setViewMode('guides');
       } else {
         setViewMode('main');
@@ -108,15 +127,23 @@ const App: React.FC = () => {
   }, [currentUser]); // Re-run when auth status changes
 
   // Wrapper for setViewMode to handle URL updates
-  const transitionToView = (newMode: ViewMode) => {
-    // Prevent unauthenticated users from leaving guides
-    if (!currentUser && newMode !== 'guides') {
+  const transitionToView = (newMode: ViewMode, customPath?: string) => {
+    // Prevent unauthenticated users from leaving educational areas
+    if (!currentUser && newMode !== 'guides' && newMode !== 'legal-disclaimer') {
       setAuthModalOpen(true);
       return;
     }
 
     setViewMode(newMode);
-    const path = newMode === 'guides' ? '/guides' : '/';
+    let path = '/';
+    if (customPath) {
+      path = customPath;
+    } else if (newMode === 'guides') {
+      path = '/guides';
+    } else if (newMode === 'legal-disclaimer') {
+      path = '/legal-disclaimer';
+    }
+
     if (window.location.pathname !== path) {
       window.history.pushState({ mode: newMode }, '', path);
     }
@@ -694,6 +721,10 @@ const App: React.FC = () => {
 
   /* ------------------- Render Logic ------------------- */
 
+  if (viewMode === 'legal-disclaimer') {
+    return <LegalDisclaimer />;
+  }
+
   // REALTOR LAYOUT: Merged ClientHub + Homepage
   if (currentUser?.role === 'realtor') {
     return (
@@ -716,6 +747,7 @@ const App: React.FC = () => {
           onBack={() => transitionToView('main')} // This might be redundant now
           exploreContent={exploreTab}
           initialTab={viewMode as any}
+          onNavigate={transitionToView}
         />
 
         {/* Chat Interface needs to be rendered at top level if it's fixed? 
@@ -818,14 +850,14 @@ const App: React.FC = () => {
                 </button>
               </div>
             )}
-            <GuidesTab />
+            <GuidesTab onNavigate={transitionToView} />
           </div>
         ) : exploreTab}
 
 
       </main>
 
-      <Footer />
+      <Footer onNavigate={transitionToView} />
     </div>
   );
 };

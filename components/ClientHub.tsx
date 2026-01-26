@@ -28,6 +28,7 @@ interface Props {
     onBack: () => void;
     exploreContent?: React.ReactNode;
     initialTab?: HubTab;
+    onNavigate?: (view: any, path: string) => void;
 }
 
 const generateClientID = () => {
@@ -36,7 +37,7 @@ const generateClientID = () => {
 
 type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio' | 'guides';
 
-const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab }) => {
+const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab, onNavigate }) => {
     // Default to 'explore' if content is provided, otherwise 'leads'
     const [activeTab, setActiveTab] = useState<HubTab>(initialTab || (exploreContent ? 'explore' : 'leads'));
 
@@ -753,7 +754,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         )}
 
                         {activeTab === 'guides' && (
-                            <GuidesTab />
+                            <GuidesTab onNavigate={onNavigate} />
                         )}
 
                     </div>
