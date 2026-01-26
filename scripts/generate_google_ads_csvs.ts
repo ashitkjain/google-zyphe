@@ -74,7 +74,7 @@ function generateAdGroupsCSV() {
         const campaignName = `${cat.title} – Informational`;
         cat.items.forEach(item => {
             const adGroupName = item.title.replace(/"/g, '""'); // Escape quotes
-            rows.push(`"${campaignName}","${adGroupName}",1.50,"Standard","Enabled"`);
+            rows.push(`"${campaignName}","${adGroupName}",0.38,"Standard","Enabled"`);
         });
     });
 
