@@ -412,8 +412,8 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                                     const relevance = typeof item === 'string' ? item : item.relevance;
                                                     return (
                                                         <div key={i} className="bg-indigo-50/50 border border-indigo-100 p-6 rounded-3xl">
-                                                            <div className="text-indigo-600 font-black uppercase tracking-widest text-[9px] mb-1.5">{code}</div>
-                                                            <div className="text-slate-800 font-bold text-base leading-snug">{relevance}</div>
+                                                            <div className="text-indigo-600 font-black uppercase tracking-widest text-[11px] mb-3">{code}</div>
+                                                            <div className="text-slate-800 font-normal text-[13px] leading-relaxed">{relevance}</div>
                                                         </div>
                                                     );
                                                 })}
