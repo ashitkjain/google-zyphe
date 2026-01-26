@@ -749,16 +749,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                         </div>
                     </div>
 
-                    <div className="relative max-w-md">
-                        <input
-                            type="text"
-                            placeholder="Search guides in this category..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-12 pr-4 py-3.5 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none shadow-inner focus:shadow-xl transition-all text-sm font-medium"
-                        />
-                        <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                    </div>
+
                 </div>
 
                 {/* Grid */}
