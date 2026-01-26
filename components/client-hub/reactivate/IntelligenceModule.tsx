@@ -109,114 +109,141 @@ const IntelligenceModule: React.FC<IntelligenceModuleProps> = ({
                     </div>
                 </div>
 
-                <table className="w-full text-left text-sm text-slate-600">
-                    <thead className="bg-slate-50 text-xs uppercase text-slate-400 font-black">
-                        <tr>
-                            <th className="px-6 py-4 w-12">
-                                <input
-                                    type="checkbox"
-                                    checked={candidates.length > 0 && selectedLeads.size === candidates.length}
-                                    onChange={toggleAll}
-                                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                />
-                            </th>
-                            <th className="px-6 py-4 tracking-widest">Lead</th>
-                            <th className="px-6 py-4 tracking-widest">Staleness Reason</th>
-                            <th className="px-6 py-4 tracking-widest">Revival Prob.</th>
-                            <th className="px-6 py-4 tracking-widest text-right">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {candidates.map((lead) => {
-                            // Mock AI analysis logic
-                            const reasons = ['Rate Shock', 'Inventory Low', 'Ghosted', 'Just Browsing', 'Timing Off'];
-                            const reason = reasons[Math.abs(lead.id.charCodeAt(0) % reasons.length)];
-                            const prob = 40 + (Math.abs(lead.id.charCodeAt(lead.id.length - 1)) % 55);
-                            const isSelected = selectedLeads.has(lead.id);
+                <div className="flex flex-col">
+                    {/* Headers */}
+                    <div className="flex items-center px-8 py-3 border-b border-slate-100 bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        <div className="w-[3%] flex items-center">
+                            <input
+                                type="checkbox"
+                                checked={candidates.length > 0 && selectedLeads.size === candidates.length}
+                                onChange={toggleAll}
+                                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                            />
+                        </div>
+                        <div className="w-[4%] text-center">Type</div>
+                        <div className="w-[18%] px-4">Lead Name</div>
+                        <div className="w-[12%] px-4">Target Market</div>
+                        <div className="w-[7%] px-2">Source</div>
+                        <div className="w-[5%] text-center">Status</div>
+                        <div className="w-[25%] px-4">Staff Note</div>
+                        <div className="w-[26%] text-right pr-4">Action</div>
+                    </div>
 
+                    {/* Rows */}
+                    <div className="divide-y divide-slate-50">
+                        {candidates.map((lead) => {
+                            const isSelected = selectedLeads.has(lead.id);
                             return (
-                                <tr
+                                <div
                                     key={lead.id}
-                                    className={`transition-colors cursor-pointer ${isSelected ? 'bg-indigo-50/30' : 'hover:bg-slate-50'}`}
+                                    className={`flex items-center px-8 py-4 transition-colors cursor-pointer group ${isSelected ? 'bg-indigo-50/30' : 'hover:bg-slate-50'}`}
                                     onClick={() => toggleLeadSelection(lead.id)}
                                 >
-                                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                    {/* Checkbox */}
+                                    <div className="w-[3%] flex items-center" onClick={(e) => e.stopPropagation()}>
                                         <input
                                             type="checkbox"
                                             checked={isSelected}
                                             onChange={() => toggleLeadSelection(lead.id)}
-                                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                                         />
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center font-bold text-slate-500">
-                                                {lead.avatarUrl ? <img src={lead.avatarUrl} alt="" className="w-full h-full object-cover" /> : <span>{lead.firstName?.charAt(0)}</span>}
-                                            </div>
-                                            <div>
-                                                <div className="font-bold text-slate-900">{lead.firstName} {lead.lastName}</div>
-                                                <div className="text-xs text-slate-400">Last active: {getTimeSince(lead.lastActiveAt || lead.receivedAt)}</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
-                                            {reason}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-1.5 w-16 bg-slate-100 rounded-full overflow-hidden">
-                                                <div className={`h-full rounded-full ${prob > 70 ? 'bg-emerald-500' : prob > 40 ? 'bg-amber-500' : 'bg-rose-500'}`} style={{ width: `${prob}%` }}></div>
-                                            </div>
-                                            <span className="font-bold text-xs">{prob}%</span>
-                                        </div>
-                                    </td>
+                                    </div>
 
-                                    <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                                        <div className="grid grid-cols-3 gap-1.5 justify-items-end w-fit ml-auto">
+                                    {/* Type */}
+                                    <div className="w-[4%] flex justify-center">
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border shadow-sm ${lead.leadType === 'Seller' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                                            {lead.leadType === 'Seller' ? 'S' : 'B'}
+                                        </div>
+                                    </div>
+
+                                    {/* Name */}
+                                    <div className="w-[18%] flex items-center px-4 gap-2">
+                                        <div className="flex flex-col overflow-hidden">
+                                            <p className="text-[12px] font-black text-slate-800 truncate tracking-tight group-hover:text-indigo-600 transition-colors uppercase leading-tight">
+                                                {lead.fullName || `${lead.firstName} ${lead.lastName}`}
+                                            </p>
+                                        </div>
+                                        <div className="group/info relative cursor-help" onClick={(e) => e.stopPropagation()}>
+                                            <i className="fa-solid fa-circle-info text-slate-300 hover:text-indigo-400 transition-colors text-sm"></i>
+                                        </div>
+                                    </div>
+
+                                    {/* Target Market */}
+                                    <div className="w-[12%] flex items-center px-4">
+                                        <p className="text-[11px] font-bold text-slate-500 truncate">
+                                            {lead.searchCriteria?.locations || 'Unknown Market'}
+                                        </p>
+                                    </div>
+
+                                    {/* Source */}
+                                    <div className="w-[7%] flex items-center px-2">
+                                        <p className="text-[11px] font-bold text-slate-400 truncate">
+                                            {lead.source || 'Direct Entry'}
+                                        </p>
+                                    </div>
+
+                                    {/* Status */}
+                                    <div className="w-[5%] flex justify-center relative">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-sm border ${lead.engagementScore === 'Hot' ? 'bg-rose-50 text-rose-500 border-rose-100' : lead.engagementScore === 'Cold' ? 'bg-sky-50 text-sky-500 border-sky-100' : lead.health === 'Stale' ? 'bg-slate-50 text-slate-400 border-slate-200' : 'bg-indigo-50 text-indigo-500 border-indigo-100'}`}>
+                                            {lead.engagementScore === 'Hot' && <i className="fa-solid fa-fire text-xs text-rose-500"></i>}
+                                            {lead.engagementScore === 'Cold' && <i className="fa-solid fa-snowflake text-xs text-sky-400"></i>}
+                                            {lead.health === 'Stale' && lead.engagementScore !== 'Hot' && lead.engagementScore !== 'Cold' && <i className="fa-solid fa-clock-rotate-left text-xs text-slate-400"></i>}
+                                            {!['Hot', 'Cold', 'Stale'].includes(lead.engagementScore || lead.health || '') && <i className="fa-solid fa-circle-dot text-[8px] text-indigo-300"></i>}
+                                        </div>
+                                    </div>
+
+                                    {/* Staff Note */}
+                                    <div className="w-[25%] flex items-center px-4 py-1">
+                                        <p className="text-[11px] font-medium text-slate-400 italic pr-6 border-l border-slate-50 pl-4 leading-relaxed line-clamp-2 hover:line-clamp-none transition-all">
+                                            {lead.leadInfo?.customerMessage || lead.notes || 'No active notes'}
+                                        </p>
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="w-[26%] flex items-center justify-end pr-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                        <div className="grid grid-cols-5 gap-1.5 w-fit ml-auto">
                                             <button
                                                 onClick={() => onSelectCandidate(lead.id, 'email')}
-                                                className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors flex items-center justify-center"
+                                                className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors flex items-center justify-center border border-slate-100"
                                                 title="Email"
                                             >
                                                 <i className="fa-solid fa-envelope text-xs"></i>
                                             </button>
                                             <button
                                                 onClick={() => onSelectCandidate(lead.id, 'call')}
-                                                className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition-colors flex items-center justify-center"
+                                                className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition-colors flex items-center justify-center border border-slate-100"
                                                 title="Call"
                                             >
                                                 <i className="fa-solid fa-phone text-xs"></i>
                                             </button>
                                             <button
                                                 onClick={() => onSelectCandidate(lead.id, 'sms')}
-                                                className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center justify-center"
+                                                className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center justify-center border border-slate-100"
                                                 title="SMS"
                                             >
                                                 <i className="fa-solid fa-comment text-xs"></i>
                                             </button>
                                             <button
                                                 onClick={() => onSelectCandidate(lead.id, 'whatsapp')}
-                                                className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors flex items-center justify-center"
+                                                className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors flex items-center justify-center border border-slate-100"
                                                 title="WhatsApp"
                                             >
                                                 <i className="fa-brands fa-whatsapp text-xs"></i>
                                             </button>
                                             <button
                                                 onClick={() => onSelectCandidate(lead.id, 'mail')}
-                                                className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-purple-50 hover:text-purple-600 transition-colors flex items-center justify-center"
+                                                className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-purple-50 hover:text-purple-600 transition-colors flex items-center justify-center border border-slate-100"
                                                 title="Direct Mail"
                                             >
                                                 <i className="fa-solid fa-paper-plane text-xs"></i>
                                             </button>
                                         </div>
-                                    </td>
-                                </tr>
+                                    </div>
+                                </div>
                             );
                         })}
-                    </tbody>
-                </table>
+                    </div>
+                </div>
             </div>
 
             {/* Reactivation Protocol Header (Moved to bottom) */}

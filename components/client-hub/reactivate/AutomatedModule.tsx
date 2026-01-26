@@ -43,6 +43,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
     const [statusMenuOpen, setStatusMenuOpen] = useState<string | null>(null);
     const [selectedLeadForDetails, setSelectedLeadForDetails] = useState<Lead | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [activeCityTab, setActiveCityTab] = useState('All');
     const [currentPage, setCurrentPage] = useState(1);
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'lastSeen', direction: 'desc' });
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -51,13 +52,26 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
         setLocalLeads(leads);
     }, [leads]);
 
-    const archivedLeads = (localLeads || [])
-        .filter(l => l.status === 'Archived' || l.health === 'Stale' || l.engagementScore === 'Hot' || l.engagementScore === 'Cold')
-        .filter(l =>
-            l.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            l.primaryContact?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            l.searchCriteria?.locations?.toLowerCase().includes(searchTerm.toLowerCase())
-        )
+    const eligibleLeads = (localLeads || []).filter(l => l.status === 'Archived' || l.health === 'Stale' || l.engagementScore === 'Hot' || l.engagementScore === 'Cold');
+
+    const getCity = (l: Lead) => {
+        const loc = l.searchCriteria?.locations;
+        return loc ? loc.split(',')[0].trim() : 'Unknown';
+    };
+    const allCities = Array.from(new Set(eligibleLeads.map(l => getCity(l)))).filter(Boolean).sort();
+    const visibleCities = allCities.slice(0, 4);
+    const hiddenCities = allCities.slice(4);
+
+    const archivedLeads = eligibleLeads
+        .filter(l => {
+            const matchesSearch = !searchTerm || (
+                l.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                l.primaryContact?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                l.searchCriteria?.locations?.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            const matchesCity = activeCityTab === 'All' || getCity(l) === activeCityTab;
+            return matchesSearch && matchesCity;
+        })
         .sort((a, b) => {
             let valA: any, valB: any;
 
@@ -510,7 +524,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                     onClick={() => setActiveSubTab('GENERATE')}
                     className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${activeSubTab === 'GENERATE' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
                 >
-                    Manual Analyze
+                    AI Analysis
                     {activeSubTab === 'GENERATE' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full"></div>}
                 </button>
                 <button
@@ -545,18 +559,71 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                         <div className="animate-in fade-in zoom-in-95 duration-500 text-left">
                                             <div className="bg-white overflow-hidden">
                                                 {/* Dashboard Header with Search Only */}
-                                                <div className="px-8 py-5 border-b border-slate-50 flex items-center bg-white">
-                                                    <div className="flex items-center gap-3 px-4 py-2 bg-slate-50/80 rounded-2xl border border-slate-100 min-w-[300px] focus-within:bg-white focus-within:border-indigo-200 transition-all">
-                                                        <i className="fa-solid fa-magnifying-glass text-slate-300"></i>
-                                                        <input
-                                                            type="text"
-                                                            placeholder="Search across all fields..."
-                                                            className="bg-transparent border-none outline-none w-full text-slate-700 placeholder:text-slate-400 font-bold text-xs"
-                                                            value={searchTerm}
-                                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                                        />
+                                                {/* City Tabs & Search Combined Header */}
+                                                <div className="px-8 py-5 border-b border-slate-50 flex items-center justify-between bg-white gap-4">
+                                                    <div className="flex items-center gap-6 flex-1 overflow-x-auto no-scrollbar">
+                                                        {/* City Tabs */}
+                                                        <div className="flex items-center gap-2 p-1.5 bg-slate-100/50 rounded-2xl w-fit shrink-0">
+                                                            <button
+                                                                onClick={() => setActiveCityTab('All')}
+                                                                className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeCityTab === 'All' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                                            >
+                                                                All
+                                                                <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[8px] ${activeCityTab === 'All' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-200 text-slate-500'}`}>
+                                                                    {eligibleLeads.length}
+                                                                </span>
+                                                            </button>
+                                                            {visibleCities.map(c => (
+                                                                <button
+                                                                    key={c}
+                                                                    onClick={() => setActiveCityTab(c)}
+                                                                    className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeCityTab === c ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                                                >
+                                                                    {c}
+                                                                    <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[8px] ${activeCityTab === c ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-200 text-slate-500'}`}>
+                                                                        {eligibleLeads.filter(l => getCity(l) === c).length}
+                                                                    </span>
+                                                                </button>
+                                                            ))}
+                                                            {hiddenCities.length > 0 && (
+                                                                <div className="relative group/others flex items-center">
+                                                                    <button
+                                                                        className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${hiddenCities.includes(activeCityTab) ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                                                    >
+                                                                        More <i className="fa-solid fa-chevron-down text-[8px]"></i>
+                                                                    </button>
+                                                                    <div className="absolute top-full right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 min-w-[150px] z-50 opacity-0 invisible group-hover/others:opacity-100 group-hover/others:visible transition-all transform origin-top-right">
+                                                                        {hiddenCities.map(c => (
+                                                                            <button
+                                                                                key={c}
+                                                                                onClick={() => setActiveCityTab(c)}
+                                                                                className={`w-full text-left px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-between ${activeCityTab === c ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}
+                                                                            >
+                                                                                {c}
+                                                                                <span className={`px-1.5 py-0.5 rounded-md text-[8px] ${activeCityTab === c ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
+                                                                                    {eligibleLeads.filter(l => getCity(l) === c).length}
+                                                                                </span>
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Search Input */}
+                                                        <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50/80 rounded-2xl border border-slate-100 w-[280px] focus-within:bg-white focus-within:border-indigo-200 transition-all shrink-0">
+                                                            <i className="fa-solid fa-magnifying-glass text-slate-300"></i>
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Search across all fields..."
+                                                                className="bg-transparent border-none outline-none w-full text-slate-700 placeholder:text-slate-400 font-bold text-xs"
+                                                                value={searchTerm}
+                                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                                            />
+                                                        </div>
                                                     </div>
-                                                    <div className="ml-auto flex items-center gap-4">
+
+                                                    <div className="ml-auto flex items-center gap-4 shrink-0">
                                                         {selectedLeadIds.length > 0 && (
                                                             <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-300">
                                                                 <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full uppercase tracking-tighter shadow-sm border border-indigo-100">
@@ -577,10 +644,6 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                                                 </button>
                                                             </div>
                                                         )}
-                                                        <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 border border-slate-100 rounded-lg">
-                                                            <i className="fa-solid fa-circle-info text-[10px] text-slate-300"></i>
-                                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Double-click row to view details</p>
-                                                        </div>
                                                     </div>
                                                 </div>
 
@@ -659,10 +722,17 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                                                     </div>
 
                                                                     {/* NAME COLUMN */}
-                                                                    <div className="w-[18%] flex flex-col justify-center px-4">
+                                                                    <div className="w-[18%] flex items-center px-4 gap-2">
                                                                         <p className="text-[12px] font-black text-slate-800 truncate tracking-tight group-hover:text-indigo-600 transition-colors uppercase leading-tight">
                                                                             {lead.fullName}
                                                                         </p>
+                                                                        <div className="group/info relative cursor-help">
+                                                                            <i className="fa-solid fa-circle-info text-slate-300 hover:text-indigo-400 transition-colors text-sm"></i>
+                                                                            <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-slate-800 text-white text-[9px] font-bold px-2 py-1 rounded-md opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all whitespace-nowrap z-50 pointer-events-none shadow-xl">
+                                                                                Double-click for details
+                                                                                <div className="absolute left-0 top-1/2 -translate-y-1/2 -ml-1 border-4 border-transparent border-r-slate-800"></div>
+                                                                            </div>
+                                                                        </div>
                                                                     </div>
 
                                                                     {/* TARGET MARKET COLUMN */}
@@ -721,20 +791,10 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                                                     </div>
 
                                                                     {/* LAST SEEN & ACTION COLUMN */}
-                                                                    <div className="w-[12%] flex items-center justify-between pl-4 pr-3 shrink-0">
+                                                                    <div className="w-[12%] flex items-center justify-end pl-4 pr-8 shrink-0">
                                                                         <p className="text-[12px] font-bold text-slate-400 whitespace-nowrap">
                                                                             {lead.lastActivity ? getTimeSince(lead.lastActivity) : (lead.receivedAt ? getTimeSince(lead.receivedAt) : 'Long ago')}
                                                                         </p>
-                                                                        <button
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                setSelectedLeadForDetails(lead);
-                                                                            }}
-                                                                            title="View Details"
-                                                                            className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-100 hover:scale-110 transition-all shadow-sm active:scale-95"
-                                                                        >
-                                                                            <i className="fa-solid fa-circle-info text-sm"></i>
-                                                                        </button>
                                                                     </div>
                                                                 </div>
                                                             );
@@ -809,7 +869,6 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                                     </div>
                                                 ) : (
                                                     <div className="space-y-2">
-                                                        <p className="text-sm font-black text-slate-700 uppercase tracking-tight">Manual File Drop</p>
                                                         <p className="text-xs text-slate-400 font-medium">Click to browse or drag & drop external CSV</p>
                                                     </div>
                                                 )}
@@ -986,7 +1045,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                 </div>
                                 <h3 className="text-xl font-black text-slate-900 tracking-tight">No Active Plans Found</h3>
                                 <p className="text-slate-500 text-sm leading-relaxed">
-                                    You haven't generated any reactivation plans yet. Head over to the "Manual Analyze" tab to get started with your lead database.
+                                    You haven't generated any reactivation plans yet. Head over to the "AI Analysis" tab to get started with your lead database.
                                 </p>
                             </div>
                         </div>
