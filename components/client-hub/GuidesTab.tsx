@@ -320,12 +320,16 @@ const GuidesTab: React.FC = () => {
                                                 {guideContent.legalFramework.context}
                                             </p>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                {guideContent.legalFramework.statutes.map((statute, i) => (
-                                                    <div key={i} className="bg-indigo-50/50 border border-indigo-100 p-6 rounded-3xl">
-                                                        <div className="text-indigo-600 font-black uppercase tracking-widest text-[9px] mb-1.5">{statute.code}</div>
-                                                        <div className="text-slate-800 font-bold text-base leading-snug">{statute.relevance}</div>
-                                                    </div>
-                                                ))}
+                                                {guideContent.legalFramework.statutes.map((item, i) => {
+                                                    const code = typeof item === 'string' ? "Reference" : item.code;
+                                                    const relevance = typeof item === 'string' ? item : item.relevance;
+                                                    return (
+                                                        <div key={i} className="bg-indigo-50/50 border border-indigo-100 p-6 rounded-3xl">
+                                                            <div className="text-indigo-600 font-black uppercase tracking-widest text-[9px] mb-1.5">{code}</div>
+                                                            <div className="text-slate-800 font-bold text-base leading-snug">{relevance}</div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </section>
 
@@ -335,17 +339,22 @@ const GuidesTab: React.FC = () => {
                                                 {guideContent.timelines.title}
                                             </h2>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                {guideContent.timelines.events.map((event, i) => (
-                                                    <div key={i} className="bg-slate-50 border border-slate-100 p-6 rounded-3xl flex flex-col gap-3">
-                                                        <div className="bg-slate-900 text-white px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest w-fit">
-                                                            {event.timeframe}
+                                                {guideContent.timelines.events.map((item, i) => {
+                                                    const timeframe = typeof item === 'string' ? "Timeline" : item.timeframe;
+                                                    const event = typeof item === 'string' ? item.split(':')[0] || "Stage" : item.event;
+                                                    const impact = typeof item === 'string' ? item.split(':').slice(1).join(':').trim() : item.impact;
+                                                    return (
+                                                        <div key={i} className="bg-slate-50 border border-slate-100 p-6 rounded-3xl flex flex-col gap-3">
+                                                            <div className="bg-slate-900 text-white px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest w-fit">
+                                                                {timeframe}
+                                                            </div>
+                                                            <div>
+                                                                <div className="font-black text-lg text-slate-900 mb-1">{event}</div>
+                                                                {impact && <div className="text-slate-600 font-medium text-sm leading-relaxed">{impact}</div>}
+                                                            </div>
                                                         </div>
-                                                        <div>
-                                                            <div className="font-black text-lg text-slate-900 mb-1">{event.event}</div>
-                                                            <div className="text-slate-600 font-medium text-sm leading-relaxed">{event.impact}</div>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         </section>
 
@@ -374,17 +383,22 @@ const GuidesTab: React.FC = () => {
                                                 Resolution Pathway
                                             </h2>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-                                                {guideContent.resolutionPathway.map((step, i) => (
-                                                    <div key={i} className="flex gap-4">
-                                                        <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-lg shadow-md">
-                                                            {step.step}
+                                                {guideContent.resolutionPathway.map((item, i) => {
+                                                    const stepNum = typeof item === 'string' ? (i + 1) : item.step;
+                                                    const title = typeof item === 'string' ? item.split(':')[0] || item : item.title;
+                                                    const action = typeof item === 'string' ? item.split(':').slice(1).join(':').trim() : item.action;
+                                                    return (
+                                                        <div key={i} className="flex gap-4">
+                                                            <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-lg shadow-md">
+                                                                {stepNum}
+                                                            </div>
+                                                            <div>
+                                                                <h3 className="text-lg font-black text-slate-800 mb-1.5 leading-tight">{title}</h3>
+                                                                {action && <p className="text-slate-600 text-sm font-medium leading-relaxed">{action}</p>}
+                                                            </div>
                                                         </div>
-                                                        <div>
-                                                            <h3 className="text-lg font-black text-slate-800 mb-1.5 leading-tight">{step.title}</h3>
-                                                            <p className="text-slate-600 text-sm font-medium leading-relaxed">{step.action}</p>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         </section>
 
@@ -449,17 +463,23 @@ const GuidesTab: React.FC = () => {
                                                 Frequently Asked Questions
                                             </h2>
                                             <div className="space-y-4">
-                                                {guideContent.faqs.map((faq, i) => (
-                                                    <div key={i} className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm hover:shadow-md transition-shadow">
-                                                        <h4 className="font-black text-slate-900 mb-2 flex items-center gap-3">
-                                                            <span className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-[10px]">Q</span>
-                                                            {faq.question}
-                                                        </h4>
-                                                        <p className="text-slate-600 text-sm font-medium leading-relaxed pl-9">
-                                                            {faq.answer}
-                                                        </p>
-                                                    </div>
-                                                ))}
+                                                {guideContent.faqs.map((item, i) => {
+                                                    const question = typeof item === 'string' ? item : item.question;
+                                                    const answer = typeof item === 'string' ? "" : item.answer;
+                                                    return (
+                                                        <div key={i} className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm hover:shadow-md transition-shadow">
+                                                            <h4 className="font-black text-slate-900 mb-2 flex items-center gap-3">
+                                                                <span className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-[10px]">Q</span>
+                                                                {question}
+                                                            </h4>
+                                                            {answer && (
+                                                                <p className="text-slate-600 text-sm font-medium leading-relaxed pl-9">
+                                                                    {answer}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </section>
 
@@ -477,42 +497,12 @@ const GuidesTab: React.FC = () => {
                                             </div>
                                         </section>
 
-                                        <section className="bg-indigo-600 rounded-[2.5rem] p-10 text-white shadow-xl shadow-indigo-100 flex flex-col md:flex-row gap-8 items-center">
-                                            <div className="w-20 h-20 rounded-3xl bg-white/10 backdrop-blur-xl flex items-center justify-center flex-shrink-0">
-                                                <i className="fa-solid fa-lightbulb text-3xl text-indigo-200"></i>
-                                            </div>
-                                            <div>
-                                                <h3 className="text-xl font-black mb-3">{guideContent.summary.title}</h3>
-                                                <p className="text-indigo-100 text-base font-semibold leading-relaxed">
-                                                    {guideContent.summary.content}
-                                                </p>
-                                            </div>
-                                        </section>
+
                                     </div>
                                 )}
 
-                                {/* Professional Footer */}
+
                                 <div className="mt-20 pt-12 border-t border-slate-100">
-                                    <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white flex flex-col md:flex-row items-center justify-between gap-10 shadow-2xl relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-                                        <div className="relative z-10 text-center md:text-left flex-1">
-                                            <h4 className="text-xl font-black tracking-tight mb-2">Knowledge Verification</h4>
-                                            <p className="text-slate-400 font-medium text-base leading-relaxed">This professional brief has been cross-referenced with the California Civil Code and industry practices for accuracy.</p>
-                                        </div>
-                                        <div className="relative z-10 flex items-center gap-5 bg-white/5 backdrop-blur-xl px-8 py-6 rounded-[2rem] border border-white/10 shadow-inner">
-                                            <div className="flex -space-x-4">
-                                                {[1, 2, 3].map(i => (
-                                                    <div key={i} className="w-12 h-12 rounded-full bg-indigo-600 border-4 border-slate-900 flex items-center justify-center shadow-lg">
-                                                        <i className="fa-solid fa-shield-check text-xs text-indigo-300"></i>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <div className="text-left">
-                                                <div className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-0.5">Status</div>
-                                                <div className="text-base font-black tracking-tight">Verified Article</div>
-                                            </div>
-                                        </div>
-                                    </div>
 
                                     <button
                                         onClick={() => {

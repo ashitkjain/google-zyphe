@@ -9,7 +9,7 @@ import PropertyMaps from './PropertyMaps';
 import Logo from './Logo';
 import CustomAIAnalysis from './CustomAIAnalysis';
 import ComprehensiveAnalysis from './ComprehensiveAnalysis';
-import SystemLogs from './SystemLogs';
+
 import ChatInterface from './ChatInterface';
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogEntry } from '../types';
 

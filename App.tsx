@@ -38,7 +38,7 @@ import PropertyMaps from './components/PropertyMaps';
 import ClimateRiskSection from './components/ClimateRiskSection';
 import MobilityScores from './components/MobilityScores';
 import SchoolScores from './components/SchoolScores';
-import SystemLogs from './components/SystemLogs';
+
 import PreloadManager from './components/PreloadManager';
 import ChatInterface from './components/ChatInterface';
 import Logo from './components/Logo';
@@ -822,9 +822,7 @@ const App: React.FC = () => {
           </div>
         ) : exploreTab}
 
-        {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
-          <SystemLogs logs={logs} />
-        )}
+
       </main>
 
       <Footer />

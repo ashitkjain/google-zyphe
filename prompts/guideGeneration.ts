@@ -46,10 +46,7 @@ export interface GuideResult {
       answer: string;
    }>;
    keyTakeaways: string[];
-   summary: {
-      title: string;
-      content: string;
-   };
+
 }
 
 export const guideGenerationSchema = {
@@ -190,14 +187,7 @@ export const guideGenerationSchema = {
          type: "array",
          items: { type: "string" }
       },
-      summary: {
-         type: "object",
-         properties: {
-            title: { type: "string" },
-            content: { type: "string" }
-         },
-         required: ["title", "content"]
-      }
+
    },
    required: [
       "title",
@@ -212,8 +202,7 @@ export const guideGenerationSchema = {
       "commonMisunderstandings",
       "expertPerspective",
       "faqs",
-      "keyTakeaways",
-      "summary"
+      "keyTakeaways"
    ]
 };
 
@@ -271,7 +260,8 @@ FIELD-SPECIFIC INSTRUCTIONS (KEEP JSON SHAPE UNCHANGED):
 5) legalFramework (object)
 - title: neutral (e.g., "Legal and Regulatory Context")
 - context: high-level overview only; explain how frameworks generally work.
-- statutes: include 2–6 items. Each "code" should be a high-level reference label, not legal advice.
+- statutes: include 2–6 items. Each item MUST be an object with MUST have keys: "code" (string) and "relevance" (string).
+- Each "code" should be a high-level reference label, not legal advice.
   Examples of acceptable "code" values:
   - "Davis–Stirling Common Interest Development Act (overview)"
   - "California Civil Code (selected sections; varies by topic)"
@@ -281,8 +271,8 @@ FIELD-SPECIFIC INSTRUCTIONS (KEEP JSON SHAPE UNCHANGED):
 - Do NOT cite precise subsections, do NOT quote statutes, and do NOT state legal conclusions.
 
 6) timelines (object)
-- title: "Typical Timeline (Illustrative; Varies)"
-- events: 4–10 items.
+- title: "Typical Timeline"
+- events: 4–10 items. Each item MUST be an object with MUST have keys: "event" (string), "timeframe" (string), and "impact" (string).
 - timeframe: Use range and stages (e.g., "early stage", "later stage", "often within days to weeks", "commonly 30–90 days"). Avoid exact deadlines or mandates.
 - impact: describe potential implications neutrally (no fear-mongering). State that timelines vary.
 
@@ -293,6 +283,7 @@ FIELD-SPECIFIC INSTRUCTIONS (KEEP JSON SHAPE UNCHANGED):
   - "description" (string): a brief, neutral description of their role or how they are affected.
 
 8) resolutionPathway (array)
+- Each item MUST be an object with MUST have keys: "step" (number), "title" (string), and "action" (string).
 - This MUST be framed as "common options or steps people consider" rather than directives.
 - action strings must be non-prescriptive and informational:
   Use patterns like:
@@ -317,15 +308,14 @@ FIELD-SPECIFIC INSTRUCTIONS (KEEP JSON SHAPE UNCHANGED):
 - No individualized recommendations.
 
 12) faqs (array)
+- Each item MUST be an object with MUST have keys: "question" (string) and "answer" (string).
 - 5–7 questions and informational answers. No action guidance. Use jurisdiction-neutral wording.
 
 13) keyTakeaways (array)
 - 5–9 items.
 - Plain, general, non-advisory statements.
 
-14) summary (object)
-- title: "Summary"
-- content: Restate educational purpose and end with a neutral closing paragraph. Emphasize variability and general nature of information.
+
 
 CONTENT CONTEXT:
 Category: ${category}
