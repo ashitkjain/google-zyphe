@@ -366,54 +366,54 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                     </div>
                                 ) : guideContent && (
                                     <div className="space-y-16">
-                                        {/* Hero Image */}
-                                        {guideContent.heroImage && (
-                                            <div className="relative -mx-10 -mt-12 mb-8">
-                                                <img
-                                                    src={guideContent.heroImage}
-                                                    alt={guideContent.title}
-                                                    className="w-full h-auto rounded-3xl shadow-2xl"
-                                                />
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent rounded-3xl"></div>
+                                        <section className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                                            <div>
+                                                <h1 className="text-2xl font-black text-slate-900 mb-6 border-l-4 border-indigo-600 pl-6 leading-tight tracking-tight">
+                                                    {guideContent.title}
+                                                </h1>
+                                                <p className="text-slate-600 leading-relaxed text-base font-semibold">
+                                                    {guideContent.introduction}
+                                                </p>
                                             </div>
-                                        )}
-
-                                        <section>
-                                            <h1 className="text-4xl font-black text-slate-900 mb-8 border-b-[6px] border-indigo-600 pb-6 leading-tight tracking-tight">
-                                                {guideContent.title}
-                                            </h1>
-                                            <p className="text-slate-600 leading-relaxed text-xl font-semibold">
-                                                {guideContent.introduction}
-                                            </p>
+                                            {guideContent.heroImage && (
+                                                <div className="relative group overflow-hidden rounded-[2rem] shadow-2xl">
+                                                    <img
+                                                        src={guideContent.heroImage}
+                                                        alt={guideContent.title}
+                                                        className="w-full aspect-[16/10] object-cover group-hover:scale-105 transition-transform duration-700"
+                                                    />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                                                </div>
+                                            )}
                                         </section>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                            <section className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
-                                                <h2 className="text-xl font-black text-slate-800 mb-4 flex items-center gap-3">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <section className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100/50">
+                                                <h2 className="text-lg font-black text-slate-800 mb-3 flex items-center gap-3">
                                                     <i className="fa-solid fa-circle-info text-indigo-500 text-sm"></i>
                                                     {guideContent.whatThisMeans.title}
                                                 </h2>
-                                                <p className="text-slate-600 text-base leading-relaxed font-medium">
+                                                <p className="text-slate-600 text-sm leading-relaxed font-medium">
                                                     {guideContent.whatThisMeans.content}
                                                 </p>
                                             </section>
-                                            <section className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
-                                                <h2 className="text-xl font-black text-slate-800 mb-4 flex items-center gap-3">
+                                            <section className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100/50">
+                                                <h2 className="text-lg font-black text-slate-800 mb-3 flex items-center gap-3">
                                                     <i className="fa-solid fa-circle-question text-indigo-500 text-sm"></i>
                                                     {guideContent.whyThisHappens.title}
                                                 </h2>
-                                                <p className="text-slate-600 text-base leading-relaxed font-medium">
+                                                <p className="text-slate-600 text-sm leading-relaxed font-medium">
                                                     {guideContent.whyThisHappens.content}
                                                 </p>
                                             </section>
                                         </div>
 
                                         <section>
-                                            <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
-                                                <div className="w-2.5 h-8 bg-indigo-500 rounded-full"></div>
+                                            <h2 className="text-xl font-black text-slate-800 mb-4 flex items-center gap-3">
+                                                <div className="w-2 h-6 bg-indigo-500 rounded-full"></div>
                                                 {guideContent.legalFramework.title}
                                             </h2>
-                                            <p className="text-slate-600 leading-relaxed text-lg mb-6 max-w-3xl font-medium">
+                                            <p className="text-slate-600 leading-relaxed text-sm mb-6 max-w-3xl font-medium">
                                                 {guideContent.legalFramework.context}
                                             </p>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -431,8 +431,8 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                         </section>
 
                                         <section className="overflow-hidden">
-                                            <h2 className="text-2xl font-black text-slate-800 mb-12 flex items-center gap-3">
-                                                <div className="w-2.5 h-8 bg-indigo-500 rounded-full"></div>
+                                            <h2 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3">
+                                                <div className="w-2 h-6 bg-indigo-500 rounded-full"></div>
                                                 {guideContent.timelines.title}
                                             </h2>
 
@@ -755,7 +755,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                     <div className="mb-4">
                         <div>
                             <div className="flex items-center gap-3 mb-2">
-                                <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                                <h1 className="text-xl font-black text-slate-900 tracking-tight">
                                     {activeCategory.title}
                                 </h1>
                             </div>
@@ -802,7 +802,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
 
                                 {/* Content */}
                                 <div className="flex-1 p-6 flex flex-col justify-end">
-                                    <h3 className="text-base font-black text-slate-800 leading-snug group-hover:text-indigo-600 transition-colors">
+                                    <h3 className="text-sm font-black text-slate-800 leading-snug group-hover:text-indigo-600 transition-colors">
                                         {item.title}
                                     </h3>
                                 </div>
