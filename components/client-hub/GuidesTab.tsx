@@ -367,25 +367,13 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                     </div>
                                 ) : guideContent && (
                                     <div className="space-y-16">
-                                        <section className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                                            <div>
-                                                <h1 className="text-2xl font-black text-slate-900 mb-6 border-l-4 border-indigo-600 pl-6 leading-tight tracking-tight">
-                                                    {guideContent.title}
-                                                </h1>
-                                                <p className="text-slate-600 leading-relaxed text-base font-semibold">
-                                                    {guideContent.introduction}
-                                                </p>
-                                            </div>
-                                            {guideContent.heroImage && (
-                                                <div className="relative group overflow-hidden rounded-[2rem] shadow-2xl">
-                                                    <img
-                                                        src={guideContent.heroImage}
-                                                        alt={guideContent.title}
-                                                        className="w-full aspect-[16/10] object-cover group-hover:scale-105 transition-transform duration-700"
-                                                    />
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-                                                </div>
-                                            )}
+                                        <section className="max-w-3xl">
+                                            <h1 className="text-2xl font-black text-slate-900 mb-6 border-l-4 border-indigo-600 pl-6 leading-tight tracking-tight">
+                                                {guideContent.title}
+                                            </h1>
+                                            <p className="text-slate-600 leading-relaxed text-base font-semibold">
+                                                {guideContent.introduction}
+                                            </p>
                                         </section>
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -784,18 +772,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                 onClick={() => handleViewGuide(item)}
                                 className="group bg-white rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all text-left flex flex-col h-full overflow-hidden"
                             >
-                                {/* Hero Image */}
-                                <div className="relative h-60 w-full overflow-hidden bg-gradient-to-br from-indigo-50 to-blue-50">
-                                    <img
-                                        src={`/guide-images/${activeCategory.topicSlug}/${item.slug}-thumb.png`}
-                                        alt={item.title}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                        onError={(e) => {
-                                            e.currentTarget.style.display = 'none';
-                                        }}
-                                    />
 
-                                </div>
 
                                 {/* Content */}
                                 <div className="flex-1 p-6 flex flex-col justify-end">
