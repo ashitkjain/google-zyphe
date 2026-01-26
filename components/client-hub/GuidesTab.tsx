@@ -570,14 +570,21 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                                     Common Misunderstandings
                                                 </h2>
                                                 <div className="space-y-4">
-                                                    {guideContent.commonMisunderstandings.map((item, i) => (
-                                                        <div key={i}>
-                                                            <div className="text-amber-900 font-black text-[10px] uppercase tracking-widest mb-1">Misunderstanding</div>
-                                                            <p className="text-amber-700 text-[11px] font-bold italic mb-2">"{item.misunderstanding}"</p>
-                                                            <div className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-1">Reality</div>
-                                                            <p className="text-slate-600 text-xs font-normal leading-relaxed">{item.reality}</p>
-                                                        </div>
-                                                    ))}
+                                                    {guideContent.commonMisunderstandings
+                                                        .filter(item => item.misunderstanding && item.reality).length > 0 ? (
+                                                        guideContent.commonMisunderstandings
+                                                            .filter(item => item.misunderstanding && item.reality)
+                                                            .map((item, i) => (
+                                                                <div key={i}>
+                                                                    <div className="text-amber-900 font-black text-[10px] uppercase tracking-widest mb-1">Misunderstanding</div>
+                                                                    <p className="text-amber-700 text-[11px] font-bold italic mb-2">"{item.misunderstanding}"</p>
+                                                                    <div className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-1">Reality</div>
+                                                                    <p className="text-slate-600 text-xs font-normal leading-relaxed">{item.reality}</p>
+                                                                </div>
+                                                            ))
+                                                    ) : (
+                                                        <p className="text-slate-500 text-sm italic">Content is being generated. Please refresh the page or click "Back to Library" and try again.</p>
+                                                    )}
                                                 </div>
                                             </section>
                                         </div>
