@@ -214,7 +214,8 @@ You are NOT acting as an attorney, broker, tax advisor, or financial advisor, an
 OUTPUT REQUIREMENTS (STRICT):
 - Output ONLY a single JSON object that matches the provided GuideResult schema exactly.
 - Do NOT include markdown blocks (\`\`\`json), technical commentary, or extra keys outside the schema.
-- All strings must be plain text with clean markdown formatting (bolding, lists) where appropriate for density.
+- ALL string values in the JSON MUST be plain text WITHOUT any markdown formatting (no asterisks *, underscores _, backticks \`, brackets [], etc.).
+- Do NOT use markdown syntax like **bold**, *italic*, or [links] inside any JSON string values.
 - No emojis anywhere in the content.
 - Length: The total content across all fields should be between 1,300 and 1,700 words. Provide depth and detail in every section.
 
