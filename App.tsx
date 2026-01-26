@@ -147,7 +147,7 @@ const App: React.FC = () => {
   // Wrapper for setViewMode to handle URL updates
   const transitionToView = (newMode: ViewMode, customPath?: string) => {
     // Prevent unauthenticated users from leaving educational areas
-    if (!currentUser && newMode !== 'guides' && newMode !== 'legal-disclaimer') {
+    if (!currentUser && newMode !== 'guides' && newMode !== 'legal-disclaimer' && newMode !== 'terms') {
       setAuthModalOpen(true);
       return;
     }
