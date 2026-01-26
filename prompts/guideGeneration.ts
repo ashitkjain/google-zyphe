@@ -46,6 +46,7 @@ export interface GuideResult {
       answer: string;
    }>;
    keyTakeaways: string[];
+   heroImage?: string; // Optional URL to generated hero image
 
 }
 
