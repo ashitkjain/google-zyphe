@@ -781,35 +781,37 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                             <button
                                 key={item.id}
                                 onClick={() => handleViewGuide(item)}
-                                className="group bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all text-left flex flex-col h-full"
+                                className="group bg-white rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all text-left flex flex-col h-full overflow-hidden"
                             >
-                                <div className="flex-1">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gradient-to-br from-indigo-50 to-blue-50 group-hover:scale-105 transition-all shadow-sm">
-                                            <img
-                                                src={`/guide-images/${activeCategory.topicSlug}/${item.slug}-thumb.png`}
-                                                alt={item.title}
-                                                className="w-full h-full object-cover"
-                                                onError={(e) => {
-                                                    e.currentTarget.style.display = 'none';
-                                                    e.currentTarget.parentElement!.innerHTML = '<i class="fa-solid fa-file-lines text-indigo-600 text-xl"></i>';
-                                                }}
-                                            />
-                                        </div>
-                                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                                {/* Hero Image */}
+                                <div className="relative h-40 w-full overflow-hidden bg-gradient-to-br from-indigo-50 to-blue-50">
+                                    <img
+                                        src={`/guide-images/${activeCategory.topicSlug}/${item.slug}-thumb.png`}
+                                        alt={item.title}
+                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = 'none';
+                                        }}
+                                    />
+                                    <div className="absolute top-3 right-3">
+                                        <span className="text-[10px] font-black text-white/80 bg-black/20 backdrop-blur-sm px-2 py-1 rounded-lg uppercase tracking-widest">
                                             #{idx + 1}
                                         </span>
                                     </div>
-                                    <h3 className="text-sm font-black text-slate-800 leading-snug mb-3 group-hover:text-indigo-600 transition-colors">
+                                </div>
+
+                                {/* Content */}
+                                <div className="flex-1 p-6 flex flex-col">
+                                    <h3 className="text-sm font-black text-slate-800 leading-snug mb-3 group-hover:text-indigo-600 transition-colors flex-1">
                                         {item.title}
                                     </h3>
 
-                                </div>
-                                <div className="flex items-center justify-between pt-6 mt-6 border-t border-slate-50 opacity-0 group-hover:opacity-100 transition-all">
-                                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.15em]">
-                                        Read Guide
-                                    </span>
-                                    <i className="fa-solid fa-arrow-right text-[10px] text-indigo-500 translate-x-1"></i>
+                                    <div className="flex items-center justify-between pt-4 mt-4 border-t border-slate-50 opacity-0 group-hover:opacity-100 transition-all">
+                                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.15em]">
+                                            Read Guide
+                                        </span>
+                                        <i className="fa-solid fa-arrow-right text-[10px] text-indigo-500 translate-x-1"></i>
+                                    </div>
                                 </div>
                             </button>
                         ))}
