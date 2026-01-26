@@ -11,7 +11,7 @@ import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompt
 import { biddingStrategyPrompt } from "../prompts/biddingStrategy";
 import { getLeadReactivationPrompt, leadReactivationSchema } from "../prompts/leadReactivation";
 import { getLeadTransformationPrompt } from "../prompts/leadTransformation";
-import { getGuideGenerationPrompt } from "../prompts/guideGeneration";
+import { getGuideGenerationPrompt, guideGenerationSchema, GuideResult } from "../prompts/guideGeneration";
 import { APP_CONFIG } from "../config";
 import { logLLMCall, updateLLMCall } from "./firebase/llm_logs";
 
@@ -765,7 +765,7 @@ export const transformLeadCsv = async (csvData: string, userId: string = "unknow
   }
 };
 
-export const generateGuide = async (category: string, title: string, userId: string = "unknown"): Promise<string> => {
+export const generateGuide = async (category: string, title: string, userId: string = "unknown"): Promise<GuideResult> => {
   const prompt = getGuideGenerationPrompt(category, title);
   let logId: string | null = null;
 
@@ -801,7 +801,7 @@ export const generateGuide = async (category: string, title: string, userId: str
       }).catch(err => console.error("Failed to update AI log:", err));
     }
 
-    return responseText;
+    return extractJson<GuideResult>(responseText);
   } catch (error: any) {
     if (logId) {
       updateLLMCall(logId, {

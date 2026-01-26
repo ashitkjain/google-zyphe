@@ -1,12 +1,13 @@
 import { db } from './config';
 import { doc, setDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { GuideResult } from '../../prompts/guideGeneration';
 
 export interface GuideContent {
     id: string;
     topicSlug: string;
     slug: string;
     title: string;
-    content: string;
+    content: GuideResult | string;
     lastUpdated: any;
 }
 
