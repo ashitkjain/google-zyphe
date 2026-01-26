@@ -825,15 +825,15 @@ const App: React.FC = () => {
                 <i className={`fa-solid ${viewMode === 'guides' ? 'fa-house' : 'fa-book-open'} text-[10px]`}></i>
                 {viewMode === 'guides' ? 'BACK TO EXPLORE' : 'CLIENT GUIDES'}
               </button>
-              <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
-              {currentUser ? (
-                <div className="flex items-center gap-4">
-                  <span className="text-indigo-400 tracking-[0.3em] font-black uppercase text-[10px]">{currentUser.displayName}</span>
-                  <button onClick={handleSignOut} className="text-white hover:text-rose-400 transition-colors">SIGN OUT</button>
-                  <button onClick={() => handleDeleteAccount()} className="text-slate-500 hover:text-rose-500 transition-colors"><i className="fa-solid fa-trash-can"></i></button>
-                </div>
-              ) : (
-                <button onClick={() => setAuthModalOpen(true)} className="text-white hover:text-indigo-400 transition-colors">Sign In</button>
+              {currentUser && (
+                <>
+                  <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-indigo-400 tracking-[0.3em] font-black uppercase text-[10px]">{currentUser.displayName}</span>
+                    <button onClick={handleSignOut} className="text-white hover:text-rose-400 transition-colors">SIGN OUT</button>
+                    <button onClick={() => handleDeleteAccount()} className="text-slate-500 hover:text-rose-500 transition-colors"><i className="fa-solid fa-trash-can"></i></button>
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -845,12 +845,7 @@ const App: React.FC = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between gap-4">
               <Logo size={80} className="scale-75 md:scale-90 origin-left" onClick={() => transitionToView('main')} />
-              {!currentUser && window.location.pathname !== '/' && (
-                <button onClick={() => setAuthModalOpen(true)} className="flex items-center gap-2 bg-white border border-slate-200 px-6 py-3 rounded-2xl text-xs font-black uppercase text-slate-700 hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap">
-                  <i className="fa-solid fa-user-circle text-lg text-indigo-600"></i>
-                  <span>Sign In</span>
-                </button>
-              )}
+
             </div>
           </div>
         </header>
@@ -861,17 +856,7 @@ const App: React.FC = () => {
 
         {viewMode === 'guides' || !currentUser ? (
           <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500">
-            {!currentUser && window.location.pathname !== '/' && (
-              <div className="absolute top-6 right-10 z-[100]">
-                <button
-                  onClick={() => setAuthModalOpen(true)}
-                  className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl text-xs font-black uppercase hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200"
-                >
-                  <i className="fa-solid fa-lock text-sm"></i>
-                  Sign In for Full Access
-                </button>
-              </div>
-            )}
+
             <GuidesTab onNavigate={transitionToView} />
           </div>
         ) : exploreTab}
