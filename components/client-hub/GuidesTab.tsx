@@ -500,7 +500,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                                                             </div>
 
                                                                             <div className="w-full">
-                                                                                <h3 className="font-black text-slate-900 text-sm mb-2 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{event}</h3>
+                                                                                <h3 className="font-medium text-slate-900 text-sm mb-2 group-hover:text-indigo-600 transition-colors capitalize">{event.toLowerCase()}</h3>
                                                                                 <p className="text-slate-500 text-[10px] font-normal leading-relaxed line-clamp-4 group-hover:text-slate-700 transition-colors px-4">
                                                                                     {impact}
                                                                                 </p>
@@ -527,7 +527,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                                                         <div className="bg-indigo-50 text-indigo-900 border border-indigo-100 px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest w-fit mb-4">
                                                                             {timeframe}
                                                                         </div>
-                                                                        <div className="font-black text-lg text-slate-900 mb-2 leading-tight uppercase tracking-tight">{event}</div>
+                                                                        <div className="font-medium text-lg text-slate-900 mb-2 leading-tight capitalize">{event.toLowerCase()}</div>
                                                                         {impact && <div className="text-slate-500 font-normal text-[11px] leading-relaxed italic border-l-2 border-slate-200 pl-4 py-1">{impact}</div>}
                                                                     </div>
                                                                 </div>
