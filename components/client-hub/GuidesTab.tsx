@@ -503,6 +503,12 @@ const GuidesTab: React.FC = () => {
 
 
                                 <div className="mt-20 pt-12 border-t border-slate-100">
+                                    <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-8 mb-12">
+                                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-800 mb-2">Educational Notice:</h4>
+                                        <p className="text-xs font-bold text-slate-500 leading-relaxed italic">
+                                            This article provides general information about homeownership processes and does not provide legal, tax, or financial advice. Laws and procedures may vary by location and change over time.
+                                        </p>
+                                    </div>
 
                                     <button
                                         onClick={() => {
