@@ -46,6 +46,7 @@ import AuthModal from './components/AuthModal';
 import AddClientModal from './components/AddClientModal';
 import ClientHub from './components/ClientHub';
 import Footer from './components/Footer';
+import ExploreTab from './components/ExploreTab';
 
 type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard';
 
@@ -520,349 +521,244 @@ const App: React.FC = () => {
     ? favorites.some(f => String(f.zpid) === String(propertyData.zpid))
     : false;
 
+  /* ---------------------- Render Helpers ---------------------- */
+  const searchBar = (
+    <form onSubmit={(e) => { e.preventDefault(); performSearch(address); }} className="flex-1 relative z-50 w-full">
+      <div className="relative group">
+        <input
+          type="text"
+          value={address}
+          onFocus={() => setShowHistory(true)}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="Enter property address..."
+          className="w-full pl-12 pr-44 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all text-xs font-medium"
+        />
+        <i className="fa-solid fa-house-laptop absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+          {propertyData && (
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleFavorite(); }}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isFavorited ? 'bg-rose-50 text-rose-500 shadow-inner' : 'bg-slate-200/50 text-slate-400 hover:text-rose-400 hover:bg-rose-50'}`}
+              title={isFavorited ? "Remove from Favorites" : "Add to Favorites"}
+            >
+              <i className={`${isFavorited ? 'fa-solid' : 'fa-regular'} fa-heart text-sm`}></i>
+            </button>
+          )}
+          <button type="submit" disabled={loading} className="bg-indigo-700 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-200">Analyze</button>
+        </div>
+      </div>
+
+      {showHistory && (searchHistory.length > 0 || cloudHistory.length > 0 || favorites.length > 0) && (
+        <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[60]">
+          <div className="max-h-[300px] overflow-y-auto p-2">
+            {favorites.length > 0 && (
+              <div className="mb-2">
+                <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-rose-500 uppercase tracking-widest flex items-center gap-2">
+                  <i className="fa-solid fa-heart"></i>
+                  Favorites
+                </div>
+                {favorites.map((item: any, idx) => (
+                  <div key={`fav-wrapper-${idx}`} className="group relative">
+                    <button
+                      onClick={() => handleHistoryItemClick(item.address)}
+                      className="w-full text-left px-4 py-3 rounded-xl hover:bg-rose-50/50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between"
+                    >
+                      <span className="truncate pr-8">{item.address}</span>
+                      <i className="fa-solid fa-heart text-rose-500 text-xs"></i>
+                    </button>
+                    <button
+                      onClick={(e) => handleRemoveFavoriteItem(e, item)}
+                      className="absolute right-10 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all"
+                      title="Remove from favorites"
+                    >
+                      <i className="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {searchHistory.length > 0 && (
+              <div className="mb-2">
+                <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-indigo-400 uppercase tracking-widest flex items-center gap-2 border-t border-gray-100 mt-2 pt-4 first:border-t-0 first:mt-0 first:pt-2">
+                  <i className="fa-solid fa-clock-rotate-left"></i>
+                  Recent Searches
+                </div>
+                {searchHistory.map((item, idx) => (
+                  <button
+                    key={`local-${idx}`}
+                    onClick={() => handleHistoryItemClick(item.address)}
+                    className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between group"
+                  >
+                    <span className="truncate">{item.address}</span>
+                    <i className="fa-solid fa-arrow-right -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all text-indigo-500 text-xs"></i>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {cloudHistory.length > 0 && (
+              <div>
+                <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-indigo-400 uppercase tracking-widest flex items-center gap-2 border-t border-gray-100 mt-2 pt-4">
+                  <i className="fa-solid fa-cloud"></i>
+                  Saved History
+                </div>
+                {cloudHistory.map((item: any, idx) => (
+                  <button
+                    key={`cloud-${idx}`}
+                    onClick={() => handleHistoryItemClick(item.address)}
+                    className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between group"
+                  >
+                    <span className="truncate">{item.address}</span>
+                    <i className="fa-solid fa-cloud-arrow-down -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all text-indigo-500 text-xs"></i>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </form>
+  );
+
+  const exploreTab = (
+    <ExploreTab
+      propertyData={propertyData}
+      loading={loading}
+      loadingSublabel={loadingSublabel}
+      viewMode={viewMode === 'dashboard' ? 'main' : viewMode} // Fallback just in case
+      setViewMode={setViewMode as any}
+      imagesLoading={imagesLoading}
+      isFavorited={isFavorited}
+      onToggleFavorite={handleToggleFavorite}
+      onRunCustomAnalysis={handleRunCustomAnalysis}
+      customAnalysis={customAnalysis}
+      customAnalysisLoading={customAnalysisLoading}
+      onRunComprehensive={handleRunComprehensive}
+      comprehensiveAnalysis={comprehensiveAnalysis}
+      comprehensiveLoading={comprehensiveLoading}
+      onUpdateAnalysis={async (updated) => {
+        setCustomAnalysis(updated);
+        if (propertyData?.zpid) {
+          await saveVisualAnalysisToCloud(propertyData.zpid, updated);
+        }
+      }}
+      addLog={addLog}
+      logs={logs}
+      userRole={currentUser?.role}
+      searchBar={searchBar}
+    />
+  );
+
+  /* ------------------- Render Logic ------------------- */
+
+  // REALTOR LAYOUT: Merged ClientHub + Homepage
+  if (currentUser?.role === 'realtor') {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
+        <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} inviteData={inviteData} />
+        {currentUser && (
+          <AddClientModal
+            isOpen={addClientModalOpen}
+            onClose={() => setAddClientModalOpen(false)}
+            realtorName={currentUser.displayName}
+            realtorId={currentUser.uid}
+          />
+        )}
+
+        <ClientHub
+          realtorId={currentUser.uid}
+          realtorName={currentUser.displayName}
+          onSignOut={handleSignOut}
+          onBack={() => setViewMode('main')} // This might be redundant now
+          exploreContent={exploreTab}
+        />
+
+        {/* Chat Interface needs to be rendered at top level if it's fixed? 
+            Actually ClientHub is z-100. ChatInterface is usually z-50.
+            Need to ensure ChatInterface works. It is fixed bottom right. 
+            If ClientHub is fixed inset-0, ChatInterface might be hidden if z-index is lower. 
+            Let's check ChatInterface z-index. Usually z-[60] or z-50.
+            ClientHub is z-[100]. ChatInterface will be behind it.
+            ExploreTab renders ChatInterface! So it will be INSIDE ClientHub content area.
+            That area is 'flex-1 overflow-y-auto'.
+            Fixed position inside a transformed/flex container can behave weirdly.
+            But ClientHub main content is just a div.
+            Actually, let's keep ChatInterface in ExploreTab (Line 869 of original App.tsx was OUTSIDE main).
+            Wait, ExploreTab renders ChatInterface internally now.
+            If ChatInterface uses 'fixed bottom-4', it will be relative to the viewport.
+            But ClientHub is on top.
+            If ChatInterface is rendered INSIDE ExploreTab, and ExploreTab is inside ClientHub,
+            it should appear on top of ClientHub's white background.
+            We should double check z-index of ChatInterface in the file if possible, or just trust ExploreTab.
+        */}
+      </div>
+    );
+  }
+
+  // STANDARD LAYOUT (Non-Realtor / Guest)
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
       <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} inviteData={inviteData} />
-      {currentUser && (
-        <AddClientModal
-          isOpen={addClientModalOpen}
-          onClose={() => setAddClientModalOpen(false)}
-          realtorName={currentUser.displayName}
-          realtorId={currentUser.uid}
-        />
-      )}
 
-      {currentUser && (
-        <div className={`py-4 px-4 shadow-inner border-b border-white/5 relative z-[60] transition-all duration-500 ${currentUser.role === 'realtor'
-          ? 'bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 text-white border-indigo-500/20'
-          : 'bg-slate-900 text-white'
-          }`}>
-          <div className="max-w-7xl mx-auto flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em]">
-            <div className="flex items-center gap-3">
-              {currentUser.role === 'realtor' ? (
-                <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-amber-400/90 to-amber-600/90 rounded-full text-slate-900 text-[8px] shadow-lg shadow-amber-900/20">
-                  <i className="fa-solid fa-crown text-[10px]"></i>
-                  <span>Professional Realtor Mode</span>
-                </div>
-              ) : (
-                <>
-                  <span className="opacity-40">Intelligence Access:</span>
-                  <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] border border-indigo-500/30">PRO</span>
-                  <span className="hidden sm:inline opacity-20">|</span>
-                  <span className="hidden sm:inline opacity-40">{currentUser.role} Account</span>
-                </>
-              )}
-            </div>
+      {/* Top Bar (Simplified for Guests) */}
+      <div className="py-4 px-4 bg-slate-900 text-white border-b border-white/5 relative z-[60]">
+        <div className="max-w-7xl mx-auto flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em]">
+          <div className="flex items-center gap-3">
+            {currentUser ? (
+              <>
+                <span className="opacity-40">Intelligence Access:</span>
+                <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] border border-indigo-500/30">PRO</span>
+                <span className="hidden sm:inline opacity-20">|</span>
+                <span className="hidden sm:inline opacity-40">{currentUser.role} Account</span>
+              </>
+            ) : (
+              <span className="text-slate-500">Guest Access</span>
+            )}
+          </div>
 
-            <div className="flex items-center gap-6">
-              {currentUser.role === 'realtor' && (
-                <>
-                  <button
-                    onClick={() => setAddClientModalOpen(true)}
-                    className="flex items-center gap-2 bg-indigo-500/20 text-white px-4 py-1.5 rounded-lg hover:bg-indigo-500/30 transition-all border border-indigo-400/30"
-                  >
-                    <i className="fa-solid fa-user-plus text-xs"></i>
-                    Add Client
-                  </button>
-                  <button
-                    onClick={() => setViewMode('dashboard')}
-                    className="flex items-center gap-2 bg-indigo-500/20 text-white px-4 py-1.5 rounded-lg hover:bg-indigo-500/30 transition-all border border-indigo-400/30"
-                  >
-                    <i className="fa-solid fa-chart-line text-xs"></i>
-                    Client Hub
-                  </button>
-                </>
-              )}
-
-              <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
-
-              <div className="relative" ref={settingsRef}>
-                <div className="flex items-center gap-4">
-                  <div className="flex flex-col items-end">
-                    <span className={`${currentUser.role === 'realtor' ? 'text-indigo-300' : 'text-indigo-400'} tracking-[0.3em] font-black uppercase text-[10px]`}>
-                      {currentUser.displayName}
-                    </span>
-                    <button
-                      onClick={handleSignOut}
-                      className="flex items-center gap-2 text-[10px] font-black text-white transition-colors tracking-widest mt-0.5 group/signout cursor-pointer"
-                    >
-                      <i className="fa-solid fa-right-from-bracket text-[11px] group-hover/signout:-translate-x-0.5 transition-transform text-white"></i>
-                      SIGN OUT
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => setShowSettings(!showSettings)}
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${showSettings ? 'bg-white/10 text-white' : 'text-white hover:bg-white/5 shadow-inner'}`}
-                    title="Account Settings"
-                  >
-                    <i className={`fa-solid fa-gear text-lg transition-transform duration-700 ${showSettings ? 'rotate-180' : ''}`}></i>
-                  </button>
-                </div>
-
-                {showSettings && (
-                  <div className="absolute top-full right-0 mt-3 w-48 bg-slate-900 border border-white/10 rounded-xl shadow-2xl py-2 z-[70] animate-in fade-in slide-in-from-top-2 duration-200">
-                    <button
-                      onClick={() => {
-                        setShowSettings(false);
-                        handleDeleteAccount();
-                      }}
-                      className="w-full text-left px-4 py-2 text-rose-500 hover:bg-rose-500/10 transition-colors flex items-center gap-2"
-                    >
-                      <i className="fa-solid fa-trash-can text-[10px]"></i>
-                      <span>Delete Account</span>
-                    </button>
-                  </div>
-                )}
+          <div className="flex items-center gap-6">
+            <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
+            {currentUser ? (
+              <div className="flex items-center gap-4">
+                <span className="text-indigo-400 tracking-[0.3em] font-black uppercase text-[10px]">{currentUser.displayName}</span>
+                <button onClick={handleSignOut} className="text-white hover:text-rose-400 transition-colors">SIGN OUT</button>
+                <button onClick={() => handleDeleteAccount()} className="text-slate-500 hover:text-rose-500 transition-colors"><i className="fa-solid fa-trash-can"></i></button>
               </div>
-            </div>
+            ) : (
+              <button onClick={() => setAuthModalOpen(true)} className="text-white hover:text-indigo-400 transition-colors">Sign In</button>
+            )}
           </div>
         </div>
-      )
-      }
+      </div>
 
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50 py-3 shadow-sm backdrop-blur-md bg-white/90">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <Logo size={100} className="scale-75 md:scale-90 origin-left" onClick={() => setViewMode('main')} />
-            <div className="flex-1 max-w-3xl relative" ref={historyRef}>
-              <div className="flex items-center gap-4">
-                <form onSubmit={(e) => { e.preventDefault(); performSearch(address); }} className="flex-1 relative z-50">
-                  <div className="relative group">
-                    <input
-                      type="text"
-                      value={address}
-                      onFocus={() => setShowHistory(true)}
-                      onChange={(e) => setAddress(e.target.value)}
-                      placeholder="Enter property address..."
-                      className="w-full pl-12 pr-44 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all text-xs font-medium"
-                    />
-                    <i className="fa-solid fa-house-laptop absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                      {propertyData && (
-                        <button
-                          type="button"
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleFavorite(); }}
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isFavorited ? 'bg-rose-50 text-rose-500 shadow-inner' : 'bg-slate-200/50 text-slate-400 hover:text-rose-400 hover:bg-rose-50'}`}
-                          title={isFavorited ? "Remove from Favorites" : "Add to Favorites"}
-                        >
-                          <i className={`${isFavorited ? 'fa-solid' : 'fa-regular'} fa-heart text-sm`}></i>
-                        </button>
-                      )}
-                      <button type="submit" disabled={loading} className="bg-indigo-700 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-200">Analyze</button>
-                    </div>
-                  </div>
-
-                  {showHistory && (searchHistory.length > 0 || cloudHistory.length > 0 || favorites.length > 0) && (
-                    <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                      <div className="max-h-[300px] overflow-y-auto p-2">
-                        {favorites.length > 0 && (
-                          <div className="mb-2">
-                            <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-rose-500 uppercase tracking-widest flex items-center gap-2">
-                              <i className="fa-solid fa-heart"></i>
-                              Favorites
-                            </div>
-                            {favorites.map((item: any, idx) => (
-                              <div key={`fav-wrapper-${idx}`} className="group relative">
-                                <button
-                                  onClick={() => handleHistoryItemClick(item.address)}
-                                  className="w-full text-left px-4 py-3 rounded-xl hover:bg-rose-50/50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between"
-                                >
-                                  <span className="truncate pr-8">{item.address}</span>
-                                  <i className="fa-solid fa-heart text-rose-500 text-xs"></i>
-                                </button>
-                                <button
-                                  onClick={(e) => handleRemoveFavoriteItem(e, item)}
-                                  className="absolute right-10 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all"
-                                  title="Remove from favorites"
-                                >
-                                  <i className="fa-solid fa-trash-can text-xs"></i>
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {searchHistory.length > 0 && (
-                          <div className="mb-2">
-                            <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-indigo-400 uppercase tracking-widest flex items-center gap-2 border-t border-gray-100 mt-2 pt-4 first:border-t-0 first:mt-0 first:pt-2">
-                              <i className="fa-solid fa-clock-rotate-left"></i>
-                              Recent Searches
-                            </div>
-                            {searchHistory.map((item, idx) => (
-                              <button
-                                key={`local-${idx}`}
-                                onClick={() => handleHistoryItemClick(item.address)}
-                                className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between group"
-                              >
-                                <span className="truncate">{item.address}</span>
-                                <i className="fa-solid fa-arrow-right -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all text-indigo-500 text-xs"></i>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {cloudHistory.length > 0 && (
-                          <div>
-                            <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-indigo-400 uppercase tracking-widest flex items-center gap-2 border-t border-gray-100 mt-2 pt-4">
-                              <i className="fa-solid fa-cloud"></i>
-                              Saved History
-                            </div>
-                            {cloudHistory.map((item: any, idx) => (
-                              <button
-                                key={`cloud-${idx}`}
-                                onClick={() => handleHistoryItemClick(item.address)}
-                                className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between group"
-                              >
-                                <span className="truncate">{item.address}</span>
-                                <i className="fa-solid fa-cloud-arrow-down -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all text-indigo-500 text-xs"></i>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </form>
-                {!currentUser ? (
-                  <button onClick={() => setAuthModalOpen(true)} className="flex items-center gap-2 bg-white border border-slate-200 px-6 py-3 rounded-2xl text-xs font-black uppercase text-slate-700 hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap">
-                    <i className="fa-solid fa-user-circle text-lg text-indigo-600"></i>
-                    <span>Sign In</span>
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowHistory(true)}
-                      className="flex items-center gap-2 bg-white border border-slate-200 px-6 py-3 rounded-2xl text-[10px] font-black uppercase text-slate-700 hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap"
-                    >
-                      <i className="fa-solid fa-heart text-rose-500"></i>
-                      <span>Favorites ({favorites.length})</span>
-                    </button>
-                    {isFavorited && (
-                      <button
-                        onClick={(e) => { e.preventDefault(); handleToggleFavorite(); }}
-                        className="flex items-center gap-2 bg-rose-50 border border-rose-100 px-4 py-3 rounded-2xl text-[10px] font-black uppercase text-rose-500 hover:bg-rose-100 transition-all shadow-sm shadow-rose-100 animate-in fade-in slide-in-from-right-2"
-                        title="Remove from favorites"
-                      >
-                        <i className="fa-solid fa-trash-can text-xs"></i>
-                        <span>Remove</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+          <div className="flex items-center justify-between gap-4">
+            <Logo size={80} className="scale-75 md:scale-90 origin-left" onClick={() => setViewMode('main')} />
+            {!currentUser && (
+              <button onClick={() => setAuthModalOpen(true)} className="flex items-center gap-2 bg-white border border-slate-200 px-6 py-3 rounded-2xl text-xs font-black uppercase text-slate-700 hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap">
+                <i className="fa-solid fa-user-circle text-lg text-indigo-600"></i>
+                <span>Sign In</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-10">
         {error && <div className="bg-rose-50 border border-rose-100 text-rose-700 p-4 rounded-2xl mb-8">{error}</div>}
-
-        {viewMode === 'dashboard' ? (
-          currentUser?.role === 'realtor' ? (
-            <ClientHub
-              realtorId={currentUser.uid}
-              realtorName={currentUser.displayName}
-              onSignOut={async () => {
-                await signOut(auth);
-                setViewMode('main');
-              }}
-              onBack={() => setViewMode('main')}
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center py-32 text-slate-400">
-              <i className="fa-solid fa-lock text-6xl mb-6 text-slate-200"></i>
-              <h2 className="text-2xl font-black text-slate-900">Restricted Access</h2>
-              <p className="text-sm font-medium mt-2">The Client Hub is reserved for Realtor Pro accounts only.</p>
-              <button onClick={() => setViewMode('main')} className="mt-8 bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold uppercase text-[10px] tracking-widest shadow-lg shadow-indigo-200">Return to Search</button>
-            </div>
-          )
-        ) : loading && !propertyData ? (
-          <div className="flex flex-col items-center justify-center py-32 text-slate-400">
-            <Logo size={220} className="animate-pulse" />
-            <h2 className="text-2xl font-black text-slate-900 mt-10">Analyzing Property DNA...</h2>
-            <p className="text-sm font-black text-indigo-600 mt-4 uppercase tracking-[0.2em]">{loadingSublabel}</p>
-          </div>
-        ) : viewMode === 'main' ? (
-          propertyData ? (
-            <div className="space-y-10">
-              <PropertyHeader
-                data={propertyData}
-                isFavorited={isFavorited}
-                onToggleFavorite={handleToggleFavorite}
-                onRunAnalysis={() => handleRunCustomAnalysis(false)}
-              />
-              <PropertyImages images={propertyData.images} loading={imagesLoading} />
-              <PropertyFacts facts={propertyData.resoFacts} />
-              <MobilityScores data={propertyData} />
-              <SchoolScores data={propertyData} />
-              <ClimateRiskSection data={propertyData} />
-              <PropertyMaps mapZoomIn={propertyData.mapZoomIn} mapZoomOut={propertyData.mapZoomOut} />
-            </div>
-          ) : (
-            <div className="max-w-4xl mx-auto py-6 text-center space-y-12">
-              <p className="text-2xl text-slate-500 font-medium leading-relaxed">The world's most advanced property analysis suite.</p>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
-                {[
-                  { title: 'For Buyers', icon: 'fa-shopping-bag', color: 'indigo', desc: "Navigate the market with unmatched clarity. Our AI cross-references public records, maps and property pictures, and resident sentiment to uncover hidden structural risks, neighborhood, community pulse on what people like and don't, and score lifestyle compatibility for your family." },
-                  { title: 'For Sellers', icon: 'fa-money-bill-trend-up', color: 'slate', desc: 'Discover how to maximize your home value with AI-driven staging and market insights.' },
-                  { title: 'For Realtors', icon: 'fa-briefcase', color: 'indigo', desc: 'Provide comprehensive home report, concierge chat box to your clients and track their preferences. Generate professional multi-source reports and compelling marketing copy in seconds.' }
-                ].map((item, i) => (
-                  <div key={i} className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 hover:-translate-y-2 transition-all group">
-                    <div className={`w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
-                      <i className={`fa-solid ${item.icon} text-2xl`}></i>
-                    </div>
-                    <h3 className="text-xl font-black text-slate-900 mb-4">{item.title}</h3>
-                    <p className="text-slate-500 text-sm leading-relaxed font-medium">{item.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )
-        ) : viewMode === 'visual-report' ? (
-          <CustomAIAnalysis
-            analysis={customAnalysis}
-            loading={customAnalysisLoading}
-            onBack={() => setViewMode('main')}
-            onRefresh={() => handleRunCustomAnalysis(true)}
-            onRunComprehensive={() => handleRunComprehensive(false)}
-            comprehensiveResult={comprehensiveAnalysis}
-            hasImages={(propertyData?.images?.length || 0) > 0}
-            userRole={currentUser?.role}
-            propertyImages={propertyData?.images}
-            zpid={propertyData?.zpid}
-            propertyData={propertyData}
-            onUpdateAnalysis={async (updated) => {
-              setCustomAnalysis(updated);
-              if (propertyData?.zpid) {
-                const res = await saveVisualAnalysisToCloud(propertyData.zpid, updated);
-                if (!res.success) {
-                  addLog('System', { type: 'error' }, { message: "Cloud Cache Save Failed", task: 'visual_analysis', error: res.error });
-                }
-              }
-            }}
-            addLog={addLog}
-            isFavorited={isFavorited}
-            onToggleFavorite={handleToggleFavorite}
-          />
-        ) : (
-          <ComprehensiveAnalysis
-            analysis={comprehensiveAnalysis}
-            loading={comprehensiveLoading}
-            onBack={() => setViewMode('visual-report')}
-            isFavorited={isFavorited}
-            onToggleFavorite={handleToggleFavorite}
-          />
-        )}
+        {exploreTab}
         {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
           <SystemLogs logs={logs} />
         )}
       </main>
-      {propertyData && <ChatInterface property={propertyData} visual={customAnalysis} comprehensive={comprehensiveAnalysis} />}
+
       <Footer />
-    </div >
+    </div>
   );
 };
 

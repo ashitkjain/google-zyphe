@@ -25,16 +25,18 @@ interface Props {
     realtorName: string;
     onSignOut: () => void;
     onBack: () => void;
+    exploreContent?: React.ReactNode;
 }
 
 const generateClientID = () => {
     return 'C-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 };
 
-type HubTab = 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio';
+type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio';
 
-const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack }) => {
-    const [activeTab, setActiveTab] = useState<HubTab>('leads');
+const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent }) => {
+    // Default to 'explore' if content is provided, otherwise 'leads'
+    const [activeTab, setActiveTab] = useState<HubTab>(exploreContent ? 'explore' : 'leads');
     const [realtorProfile, setRealtorProfile] = useState<UserProfile | null>(null);
     const [settingsSubTab, setSettingsSubTab] = useState<'statuses' | 'properties'>('statuses');
     const [isToolsOpen, setIsToolsOpen] = useState(false);
@@ -375,6 +377,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
     };
 
     const mainTabs: { id: HubTab; label: string; icon: string }[] = [
+        { id: 'explore', label: 'Explore', icon: 'fa-globe' },
         { id: 'leads', label: 'Funnel', icon: 'fa-bullseye' },
         { id: 'closing', label: 'Closing', icon: 'fa-file-invoice-dollar' },
         { id: 'reactivate', label: 'Reactivate', icon: 'fa-bolt' },
@@ -466,13 +469,10 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
         <div className="fixed inset-0 z-[100] bg-[#F8FAFC] flex flex-col animate-in fade-in duration-500 font-sans selection:bg-indigo-100 selection:text-indigo-900">
             {/* Top Header / Tab Bar */}
             <header className="bg-slate-900 px-8 py-0 flex items-center justify-between border-b border-white/5 shadow-2xl relative z-[110]">
-                <div className="flex items-center gap-12">
+                <div className="flex items-center gap-12 flex-1">
                     <div className="flex items-center gap-6 py-4">
-                        <Logo size={90} onClick={onBack} className="cursor-pointer transition-transform hover:scale-105" />
+                        <Logo size={50} onClick={() => setActiveTab('explore')} className="cursor-pointer transition-transform hover:scale-105 origin-left" />
                         <div className="h-8 w-px bg-white/10"></div>
-                        <div className="flex flex-col">
-                            <h1 className="text-white font-black text-2xl tracking-tighter">Client Hub</h1>
-                        </div>
                     </div>
 
                     <nav className="flex items-center h-[72px]">
@@ -524,6 +524,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                             )}
                         </div>
                     </nav>
+
+
                 </div>
 
                 <div className="flex items-center gap-8">
@@ -537,20 +539,18 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack 
                             Sign Out
                         </button>
                     </div>
-
-                    <button
-                        onClick={onBack}
-                        className="group flex items-center gap-2 text-white font-black uppercase tracking-widest text-[10px] bg-indigo-600 px-6 py-3 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 border border-indigo-500/30"
-                    >
-                        <i className="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
-                        Exit Hub
-                    </button>
                 </div>
             </header>
 
             <div className="flex-1 overflow-hidden">
                 <div className="flex flex-col h-full">
                     <div className="flex flex-col h-full">
+                        {activeTab === 'explore' && exploreContent && (
+                            <div className="flex-1 overflow-y-auto bg-slate-50">
+                                {exploreContent}
+                            </div>
+                        )}
+
                         {activeTab === 'clients' && (
                             <ClientDetailsView
                                 realtorId={realtorId}
