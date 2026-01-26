@@ -822,11 +822,22 @@ export const generateGuide = async (category: string, title: string, userId: str
 };
 
 export const generateGuideImage = async (category: string, title: string, topicSlug: string, guideSlug: string, userId: string = "unknown"): Promise<string | null> => {
-  // TODO: Implement correct Imagen 3.0 API
-  // The generateImages method used here doesn't exist in the current @google/genai SDK
-  // Until the correct API endpoint is available, returning null to skip image generation
-  console.warn('[Image Generation] Imagen API not yet implemented in SDK, skipping image generation');
-  console.log(`[Image Generation] Would generate image for: ${category} - ${title}`);
+  // Use static public assets instead of dynamic generation
+  // Images are stored in /public/guide-images/{topicSlug}/{guideSlug}.png
+  const imagePath = `/guide-images/${topicSlug}/${guideSlug}.png`;
+
+  // Check if image exists by attempting to fetch it
+  try {
+    const response = await fetch(imagePath, { method: 'HEAD' });
+    if (response.ok) {
+      console.log(`[Image] Using static image: ${imagePath}`);
+      return imagePath;
+    }
+  } catch (error) {
+    // Image doesn't exist, that's okay
+  }
+
+  console.log(`[Image] No image found for: ${topicSlug}/${guideSlug}`);
   return null;
 };
 
