@@ -175,25 +175,47 @@ function validateGuide(entry: GuideEntry): string[] {
     return errors;
 }
 
-// Execution
+// Execution logic
 const dataPath = path.resolve(__dirname, '../guides_content.json');
 const guides: GuideEntry[] = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
 
-// Test for the specific guide requested
-const targetSlug = 'hoa-lien-process-california';
-const target = guides.find(g => g.slug === targetSlug);
+const args = process.argv.slice(2);
+const targetSlug = args[0];
 
-if (!target) {
-    console.error(`Guide not found: ${targetSlug}`);
-    process.exit(1);
-}
+if (!targetSlug || targetSlug === 'all') {
+    console.log(`\n🚀 BATCH VALIDATION STARTING: ${guides.length} guides found.\n`);
+    let passCount = 0;
 
-console.log(`Validating Guide: ${target.title} (${target.slug})`);
-const results = validateGuide(target);
+    guides.forEach((g, index) => {
+        const results = validateGuide(g);
+        if (results.length === 0) {
+            passCount++;
+            console.log(`[${index + 1}/${guides.length}] ✅ PASS: ${g.slug}`);
+        } else {
+            console.log(`[${index + 1}/${guides.length}] ❌ FAIL: ${g.slug}`);
+            results.forEach(err => console.log(`      - ${err}`));
+        }
+    });
 
-if (results.length === 0) {
-    console.log('✅ CONTENT VALIDATED: FULLY COMPLIANT');
+    console.log(`\n🏁 BATCH VALIDATION COMPLETE`);
+    console.log(`📈 Summary: ${passCount} passed, ${guides.length - passCount} failed.\n`);
 } else {
-    console.log('❌ VALIDATION FAILED:');
-    results.forEach(err => console.log(`  - ${err}`));
+    const target = guides.find(g => g.slug === targetSlug);
+
+    if (!target) {
+        console.error(`❌ ERROR: Guide with slug "${targetSlug}" not found.`);
+        process.exit(1);
+    }
+
+    console.log(`\n🔍 Validating Guide: ${target.title} (${target.slug})`);
+    const results = validateGuide(target);
+
+    if (results.length === 0) {
+        console.log('✅ CONTENT VALIDATED: FULLY COMPLIANT\n');
+    } else {
+        console.log('❌ VALIDATION FAILED:');
+        results.forEach(err => console.log(`  - ${err}`));
+        console.log('');
+        process.exit(1);
+    }
 }
