@@ -16,7 +16,7 @@ interface ReactivateTabProps {
 }
 
 const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdateLead }) => {
-    const [selectedModule, setSelectedModule] = useState<'DASHBOARD' | 'AUTOMATED' | 'TRAIL' | 'ANALYTICS' | 'TRIGGERS' | 'REPORT'>('DASHBOARD');
+    const [selectedModule, setSelectedModule] = useState<'OLD_LEADS' | 'AI_PLAN' | 'DASHBOARD' | 'TRAIL' | 'ANALYTICS' | 'TRIGGERS' | 'REPORT'>('OLD_LEADS');
     const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
     return (
@@ -25,11 +25,18 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
                 {/* Sub Tab Navigation */}
                 <div className="flex items-center gap-8 border-b border-slate-200 overflow-x-auto no-scrollbar">
                     <button
-                        onClick={() => setSelectedModule('AUTOMATED')}
-                        className={`pb-5 text-sm font-black uppercase tracking-widest transition-all relative whitespace-nowrap ${selectedModule === 'AUTOMATED' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                        onClick={() => setSelectedModule('OLD_LEADS')}
+                        className={`pb-5 text-sm font-black uppercase tracking-widest transition-all relative whitespace-nowrap ${selectedModule === 'OLD_LEADS' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
                     >
-                        Outreach
-                        {selectedModule === 'AUTOMATED' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8_rgba(79,70,229,0.3)]"></div>}
+                        Old Leads
+                        {selectedModule === 'OLD_LEADS' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8_rgba(79,70,229,0.3)]"></div>}
+                    </button>
+                    <button
+                        onClick={() => setSelectedModule('AI_PLAN')}
+                        className={`pb-5 text-sm font-black uppercase tracking-widest transition-all relative whitespace-nowrap ${selectedModule === 'AI_PLAN' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        AI Plan
+                        {selectedModule === 'AI_PLAN' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8_rgba(79,70,229,0.3)]"></div>}
                     </button>
                     <button
                         onClick={() => setSelectedModule('DASHBOARD')}
@@ -76,12 +83,23 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
                         />
                     )}
 
-                    {selectedModule === 'AUTOMATED' && (
+                    {selectedModule === 'OLD_LEADS' && (
                         <AutomatedModule
                             realtorId={realtorId}
                             leads={leads}
                             onOpenLeadDetails={(leadId) => setSelectedClientId(leadId)}
                             onUpdateLead={onUpdateLead}
+                            forcedSubTab="GENERATE"
+                        />
+                    )}
+
+                    {selectedModule === 'AI_PLAN' && (
+                        <AutomatedModule
+                            realtorId={realtorId}
+                            leads={leads}
+                            onOpenLeadDetails={(leadId) => setSelectedClientId(leadId)}
+                            onUpdateLead={onUpdateLead}
+                            forcedSubTab="PLANS"
                         />
                     )}
 

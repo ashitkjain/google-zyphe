@@ -20,9 +20,10 @@ interface AutomatedModuleProps {
     leads?: Lead[];
     onOpenLeadDetails?: (leadId: string) => void;
     onUpdateLead?: (leadId: string, updates: Partial<Lead>) => void;
+    forcedSubTab?: 'GENERATE' | 'PLANS';
 }
 
-const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = [], onOpenLeadDetails, onUpdateLead }) => {
+const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = [], onOpenLeadDetails, onUpdateLead, forcedSubTab }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [file, setFile] = useState<File | null>(null);
     const [fileContent, setFileContent] = useState<string | null>(null);
@@ -32,7 +33,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
     const [validationError, setValidationError] = useState<string | null>(null);
     const [result, setResult] = useState<LeadReactivationResult | null>(null);
-    const [activeSubTab, setActiveSubTab] = useState<'GENERATE' | 'PLANS'>('GENERATE');
+    const [activeSubTab, setActiveSubTab] = useState<'GENERATE' | 'PLANS'>(forcedSubTab || 'GENERATE');
     const [aggregatedData, setAggregatedData] = useState<LeadReactivationResult | null>(null);
     const [loadingAggregated, setLoadingAggregated] = useState(false);
     const [recentDocuments, setRecentDocuments] = useState<LeadDocument[]>([]);
@@ -532,23 +533,25 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {/* Sub Tab Navigation */}
-            <div className="flex items-center gap-8 border-b border-slate-200">
-                <button
-                    onClick={() => setActiveSubTab('GENERATE')}
-                    className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${activeSubTab === 'GENERATE' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-                >
-                    AI Analysis
-                    {activeSubTab === 'GENERATE' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full"></div>}
-                </button>
-                <button
-                    onClick={() => setActiveSubTab('PLANS')}
-                    className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${activeSubTab === 'PLANS' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-                >
-                    Action Plans
-                    {activeSubTab === 'PLANS' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full"></div>}
-                </button>
-            </div>
+            {/* Sub Tab Navigation - Only show if not forced */}
+            {!forcedSubTab && (
+                <div className="flex items-center gap-8 border-b border-slate-200">
+                    <button
+                        onClick={() => setActiveSubTab('GENERATE')}
+                        className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${activeSubTab === 'GENERATE' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        Old Leads
+                        {activeSubTab === 'GENERATE' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full"></div>}
+                    </button>
+                    <button
+                        onClick={() => setActiveSubTab('PLANS')}
+                        className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${activeSubTab === 'PLANS' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        AI Plan
+                        {activeSubTab === 'PLANS' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full"></div>}
+                    </button>
+                </div>
+            )}
 
             {activeSubTab === 'GENERATE' ? (
                 <>
@@ -952,7 +955,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                 </div>
                                 <h3 className="text-xl font-black text-slate-900 tracking-tight">No Active Plans Found</h3>
                                 <p className="text-slate-500 text-sm leading-relaxed">
-                                    You haven't generated any reactivation plans yet. Head over to the "AI Analysis" tab to get started with your lead database.
+                                    You haven't generated any reactivation plans yet. Head over to the "Old Leads" tab to get started with your lead database.
                                 </p>
                             </div>
                         </div>

@@ -342,19 +342,6 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <h3 className="text-xl font-black text-slate-900">Action Plans</h3>
-
-                        <div className="flex items-center gap-3 px-4 py-2 bg-slate-50/80 rounded-2xl border border-slate-100 min-w-[300px] focus-within:bg-white focus-within:border-indigo-200 transition-all ml-4">
-                            <i className="fa-solid fa-magnifying-glass text-slate-300 text-xs"></i>
-                            <input
-                                type="text"
-                                placeholder="Filter action plans..."
-                                className="bg-transparent border-none outline-none w-full text-slate-700 placeholder:text-slate-400 font-bold text-xs"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                        </div>
-
                         {showReset && onReset && (
                             <button
                                 onClick={onReset}
@@ -427,6 +414,18 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                     </div>
 
                     <div className="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">
+                        {/* Search box on the left */}
+                        <div className="flex items-center gap-3 px-4 py-2 bg-slate-50/80 rounded-2xl border border-slate-100 min-w-[300px] focus-within:bg-white focus-within:border-indigo-200 transition-all">
+                            <i className="fa-solid fa-magnifying-glass text-slate-300 text-xs"></i>
+                            <input
+                                type="text"
+                                placeholder="Search by name"
+                                className="bg-transparent border-none outline-none w-full text-slate-700 placeholder:text-slate-400 font-bold text-xs"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+
                         <span>Showing {filteredPlans.length} Reactivation Paths for {activeCityTab}</span>
                     </div>
 
@@ -446,13 +445,8 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                             {/* Lead Info */}
                                             <div className="lg:col-span-3 space-y-4">
                                                 <div>
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <div className="w-8 h-8 rounded-lg bg-slate-50 text-slate-400 flex items-center justify-center font-bold text-xs" title="Lead Position in List">
-                                                            #{idx + 1}
-                                                        </div>
-                                                        <span className="text-xs font-black uppercase tracking-widest text-slate-400" title="Primary Market">{plan.market}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                    {/* Name at top with status and action buttons */}
+                                                    <div className="flex items-center gap-2 flex-wrap mb-2">
                                                         <h4 className="text-lg font-black text-slate-900 truncate" title="Lead Name">{plan.lead_name}</h4>
 
                                                         <div className="flex items-center gap-1.5 ml-auto">
@@ -539,6 +533,11 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                     <div className="text-sm font-bold text-slate-600 capitalize">{plan.staleness_reason}</div>
                                                 </div>
 
+                                                {/* Location at bottom */}
+                                                <div className="pt-2">
+                                                    <span className="text-xs font-black uppercase tracking-widest text-slate-400" title="Primary Market">{plan.market}</span>
+                                                </div>
+
                                                 {/* Market Insight for this Lead */}
                                                 {result.market_context.find(m => m.market_name === plan.market) && (
                                                     <div className="pt-4 mt-4 border-t border-slate-50 space-y-3">
@@ -568,10 +567,16 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                             <div className="lg:col-span-9 space-y-6">
                                                 {/* First Touch */}
                                                 <div className="relative">
-                                                    <div className="absolute left-4 top-8 bottom-0 w-0.5 border-l-2 border-dashed border-slate-100"></div>
+                                                    <div className={`absolute left-4 top-8 bottom-0 w-0.5 ${(plan.first_touch?.sent_at || permanentlySentKeys.has(`${originalIdx}-first`))
+                                                        ? 'border-l-2 border-solid border-purple-700' // Solid purple if step 1 is done
+                                                        : 'border-l-2 border-dashed border-slate-100' // Dashed gray otherwise
+                                                        }`}></div>
                                                     <div className="flex gap-6">
                                                         <div
-                                                            className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black z-10 shadow-lg shadow-indigo-200"
+                                                            className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-black z-10 shadow-lg ${(plan.first_touch?.sent_at || permanentlySentKeys.has(`${originalIdx}-first`))
+                                                                ? 'bg-purple-700 text-white shadow-purple-200' // Done - purple
+                                                                : 'bg-purple-700 text-white shadow-purple-200' // Next - also purple
+                                                                }`}
                                                             title="Step 1: Initial Outreach"
                                                         >
                                                             1
@@ -693,10 +698,21 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                 {plan.sequence.enabled && plan.sequence.steps.map((step, sIdx) => (
                                                     <div key={sIdx} className="flex gap-6 relative">
                                                         {sIdx < plan.sequence.steps.length - 1 && (
-                                                            <div className="absolute left-4 top-8 bottom-0 w-0.5 border-l-2 border-dashed border-slate-100"></div>
+                                                            <div className={`absolute left-4 top-8 bottom-0 w-0.5 ${
+                                                                // Solid purple if this step is done and next step exists
+                                                                (step.sent_at || permanentlySentKeys.has(`${originalIdx}-${sIdx}`))
+                                                                    ? 'border-l-2 border-solid border-purple-700'
+                                                                    : 'border-l-2 border-dashed border-slate-100'
+                                                                }`}></div>
                                                         )}
                                                         <div
-                                                            className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 border-2 border-white flex items-center justify-center text-xs font-black z-10 shadow-sm"
+                                                            className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-black z-10 border-2 border-white shadow-sm ${(step.sent_at || permanentlySentKeys.has(`${originalIdx}-${sIdx}`))
+                                                                ? 'bg-purple-700 text-white' // Done - purple
+                                                                : !(plan.first_touch?.sent_at || permanentlySentKeys.has(`${originalIdx}-first`)) ||
+                                                                    (sIdx > 0 && !plan.sequence.steps.slice(0, sIdx).every((s, i) => s.sent_at || permanentlySentKeys.has(`${originalIdx}-${i}`)))
+                                                                    ? 'bg-slate-200 text-slate-400' // Future (grayed out)
+                                                                    : 'bg-purple-700 text-white' // Next - purple
+                                                                }`}
                                                             title={`Step ${sIdx + 2}: Follow-up Outreach`}
                                                         >
                                                             {sIdx + 2}

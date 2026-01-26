@@ -180,10 +180,16 @@ export const LeadReactivationList: React.FC<LeadReactivationListProps> = ({
                                     </p>
                                     {renderNameSubtext && renderNameSubtext(lead)}
                                 </div>
-                                <div className="group/info relative cursor-help" onClick={(e) => e.stopPropagation()}>
+                                <div
+                                    className="group/info relative cursor-pointer"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onLeadClick?.(lead);
+                                    }}
+                                >
                                     <i className="fa-solid fa-circle-info text-slate-300 hover:text-indigo-400 transition-colors text-sm"></i>
                                     <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-slate-800 text-white text-[9px] font-bold px-2 py-1 rounded-md opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all whitespace-nowrap z-50 pointer-events-none shadow-xl">
-                                        Double-click for details
+                                        Click for details
                                         <div className="absolute left-0 top-1/2 -translate-y-1/2 -ml-1 border-4 border-transparent border-r-slate-800"></div>
                                     </div>
                                 </div>
