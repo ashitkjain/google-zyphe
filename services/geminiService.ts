@@ -12,6 +12,7 @@ import { biddingStrategyPrompt } from "../prompts/biddingStrategy";
 import { getLeadReactivationPrompt, leadReactivationSchema } from "../prompts/leadReactivation";
 import { getLeadTransformationPrompt } from "../prompts/leadTransformation";
 import { getGuideGenerationPrompt, guideGenerationSchema, GuideResult } from "../prompts/guideGeneration";
+import { getGuideImagePrompt } from "../prompts/guideImageGeneration";
 import { APP_CONFIG } from "../config";
 import { logLLMCall, updateLLMCall } from "./firebase/llm_logs";
 
@@ -821,7 +822,6 @@ export const generateGuide = async (category: string, title: string, userId: str
 };
 
 export const generateGuideImage = async (category: string, title: string, userId: string = "unknown"): Promise<string | null> => {
-  const { getGuideImagePrompt } = require('../prompts/guideImageGeneration');
   const prompt = getGuideImagePrompt(category, title);
   let logId: string | null = null;
 
