@@ -213,6 +213,7 @@ You are NOT acting as an attorney, broker, tax advisor, or financial advisor, an
 
 OUTPUT REQUIREMENTS (STRICT):
 - Output ONLY a single JSON object that matches the provided GuideResult schema exactly.
+- Use the EXACT field names specified in the schema - do not rename or substitute fields.
 - Do NOT include markdown blocks (\`\`\`json), technical commentary, or extra keys outside the schema.
 - ALL string values in the JSON MUST be plain text WITHOUT any markdown formatting (no asterisks *, underscores _, backticks \`, brackets [], etc.).
 - Do NOT use markdown syntax like **bold**, *italic*, or [links] inside any JSON string values.
@@ -300,7 +301,10 @@ FIELD-SPECIFIC INSTRUCTIONS (KEEP JSON SHAPE UNCHANGED):
 - points: Explicitly correct common misconceptions. Clarify limits of applicability.
 
 10) commonMisunderstandings (array)
-- Neutral explanations of common misunderstandings vs reality. Avoid corrective advice.
+- Each item MUST be an object with exactly these keys: "misunderstanding" (string) and "reality" (string).
+- "misunderstanding": A common incorrect belief or assumption.
+- "reality": The factual correction or clarification.
+- Provide neutral explanations. Avoid corrective advice or imperative language.
 
 11) expertPerspective (object)
 - title: neutral (e.g., "Practical Considerations and Common Pitfalls")
