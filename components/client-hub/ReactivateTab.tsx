@@ -46,6 +46,13 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
                         {selectedModule === 'DASHBOARD' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>}
                     </button>
                     <button
+                        onClick={() => setSelectedModule('REPORT')}
+                        className={`pb-5 text-sm font-black uppercase tracking-widest transition-all relative whitespace-nowrap ${selectedModule === 'REPORT' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        Report
+                        {selectedModule === 'REPORT' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>}
+                    </button>
+                    <button
                         onClick={() => setSelectedModule('TRAIL')}
                         className={`pb-5 text-sm font-black uppercase tracking-widest transition-all relative whitespace-nowrap ${selectedModule === 'TRAIL' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
                     >
@@ -65,13 +72,6 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
                     >
                         Triggers
                         {selectedModule === 'TRIGGERS' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>}
-                    </button>
-                    <button
-                        onClick={() => setSelectedModule('REPORT')}
-                        className={`pb-5 text-sm font-black uppercase tracking-widest transition-all relative whitespace-nowrap ${selectedModule === 'REPORT' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-                    >
-                        Snapshot Report
-                        {selectedModule === 'REPORT' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>}
                     </button>
                 </div>
 

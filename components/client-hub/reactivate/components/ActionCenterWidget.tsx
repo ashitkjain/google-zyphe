@@ -196,7 +196,6 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
                         <i className="fa-solid fa-bell text-sm"></i>
                     </div>
                     <div>
-                        <h3 className="text-base font-black text-slate-800">Action Required</h3>
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{actionItems.length} Leads Waiting for Response</p>
                     </div>
                 </div>
