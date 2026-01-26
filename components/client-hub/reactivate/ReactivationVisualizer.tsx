@@ -338,11 +338,11 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {/* Lead Action Plans */}
+            {/* Action Plans */}
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <h3 className="text-xl font-black text-slate-900">Lead Action Plans</h3>
+                        <h3 className="text-xl font-black text-slate-900">Action Plans</h3>
 
                         <div className="flex items-center gap-3 px-4 py-2 bg-slate-50/80 rounded-2xl border border-slate-100 min-w-[300px] focus-within:bg-white focus-within:border-indigo-200 transition-all ml-4">
                             <i className="fa-solid fa-magnifying-glass text-slate-300 text-xs"></i>
@@ -447,13 +447,13 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                             <div className="lg:col-span-3 space-y-4">
                                                 <div>
                                                     <div className="flex items-center gap-2 mb-2">
-                                                        <div className="w-8 h-8 rounded-lg bg-slate-50 text-slate-400 flex items-center justify-center font-bold text-xs">
+                                                        <div className="w-8 h-8 rounded-lg bg-slate-50 text-slate-400 flex items-center justify-center font-bold text-xs" title="Lead Position in List">
                                                             #{idx + 1}
                                                         </div>
-                                                        <span className="text-xs font-black uppercase tracking-widest text-slate-400">{plan.market}</span>
+                                                        <span className="text-xs font-black uppercase tracking-widest text-slate-400" title="Primary Market">{plan.market}</span>
                                                     </div>
                                                     <div className="flex items-center gap-2 flex-wrap">
-                                                        <h4 className="text-lg font-black text-slate-900 truncate">{plan.lead_name}</h4>
+                                                        <h4 className="text-lg font-black text-slate-900 truncate" title="Lead Name">{plan.lead_name}</h4>
 
                                                         <div className="flex items-center gap-1.5 ml-auto">
                                                             {/* Status Badge */}
@@ -461,7 +461,9 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                 (plan as any).reactivation_status === 'responded' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                                                                     (plan as any).reactivation_status === 'not_pursuing' || (plan as any).reactivation_status === 'archived' ? 'bg-slate-50 text-slate-500 border-slate-200 opacity-60' :
                                                                         'bg-amber-50 text-amber-700 border-amber-200'
-                                                                }`}>
+                                                                }`}
+                                                                title={`Current Reactivation Status: ${((plan as any).reactivation_status || 'Suggested').toUpperCase()}`}
+                                                            >
                                                                 {(plan as any).reactivation_status || 'Suggested'}
                                                             </div>
 
@@ -521,18 +523,18 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                         plan.recommended_channel === 'email' ? 'bg-blue-50 text-blue-600' :
                                                             plan.recommended_channel === 'call' ? 'bg-orange-50 text-orange-600' :
                                                                 'bg-purple-50 text-purple-600'
-                                                        }`}>
+                                                        }`} title="AI Recommended Outreach Channel">
                                                         {plan.recommended_channel?.replace('_', ' ') || 'N/A'}
                                                     </div>
-                                                    <div className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-wider">
+                                                    <div className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-wider" title="AI Suggested Communication Tone">
                                                         {plan.tone?.replace('_', ' ') || 'N/A'}
                                                     </div>
-                                                    <div className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-wider">
+                                                    <div className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-wider" title="Lead Potential Score (Higher is better)">
                                                         {(plan.priority_score * 100).toFixed(0)}% Priority
                                                     </div>
                                                 </div>
 
-                                                <div className="space-y-1">
+                                                <div className="space-y-1" title="Reason for Lead Inactivity">
                                                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Drift Cause</label>
                                                     <div className="text-sm font-bold text-slate-600 capitalize">{plan.staleness_reason}</div>
                                                 </div>
@@ -540,7 +542,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                 {/* Market Insight for this Lead */}
                                                 {result.market_context.find(m => m.market_name === plan.market) && (
                                                     <div className="pt-4 mt-4 border-t border-slate-50 space-y-3">
-                                                        <div className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Market Intelligence</div>
+                                                        <div className="text-[10px] font-black uppercase tracking-widest text-indigo-500" title="Key Market Indicators for this Lead">Market Intelligence</div>
                                                         <div className="grid grid-cols-2 gap-2">
                                                             <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50" title="Local Interest Rate Trends">
                                                                 <div className="text-[8px] font-black uppercase text-slate-400 mb-0.5">Rates</div>
@@ -555,7 +557,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <div className="text-[10px] text-slate-500 font-medium leading-tight line-clamp-2 italic">
+                                                        <div className="text-[10px] text-slate-500 font-medium leading-tight line-clamp-2 italic" title="AI Analyst Notes on Buyer Leverage">
                                                             "{result.market_context.find(m => m.market_name === plan.market)?.buyer_leverage_notes}"
                                                         </div>
                                                     </div>
@@ -576,7 +578,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                         </div>
                                                         <div className="flex-1 bg-slate-50 p-6 rounded-2xl border border-slate-100 relative group-hover:bg-white group-hover:border-indigo-100 transition-colors max-h-[400px] overflow-y-auto custom-scrollbar">
                                                             <div className="flex justify-between items-center mb-3 sticky top-0 bg-inherit z-10">
-                                                                <div className="flex items-center gap-3">
+                                                                <div className="flex items-center gap-3" title="Message Goal & Timing">
                                                                     <div className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Day {plan.first_touch?.send_after_days || 1}: Immediate Hook</div>
                                                                     {editingKey === `${originalIdx}-first` && (
                                                                         <select
@@ -657,7 +659,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
 
                                                             {(plan.first_touch?.sent_at || permanentlySentKeys.has(`${originalIdx}-first`)) && (
                                                                 <div className="mt-3 pt-3 border-t border-slate-100/50 flex items-center justify-between">
-                                                                    <div className="flex items-center gap-2">
+                                                                    <div className="flex items-center gap-2" title="Delivery Status">
                                                                         <i className="fa-solid fa-clock text-[10px] text-slate-300"></i>
                                                                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                                                                             Sent {plan.first_touch?.sent_at ? (plan.first_touch.sent_at.toDate ? plan.first_touch.sent_at.toDate().toLocaleDateString() : new Date(plan.first_touch.sent_at).toLocaleDateString()) : 'Today'}
@@ -701,7 +703,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
                                                         </div>
                                                         <div className="flex-1 bg-slate-50/50 p-6 rounded-2xl border border-slate-100 relative group-hover:bg-white group-hover:border-indigo-100/50 transition-colors max-h-[300px] overflow-y-auto custom-scrollbar">
                                                             <div className="flex justify-between items-center mb-3 sticky top-0 bg-inherit z-10">
-                                                                <div className="flex items-center gap-3">
+                                                                <div className="flex items-center gap-3" title="Message Goal & Timing">
                                                                     <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Day {step.day_offset}: Follow-up via {step.channel || 'N/A'}</div>
                                                                     {editingKey === `${originalIdx}-${sIdx}` && (
                                                                         <select
@@ -792,7 +794,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
 
                                                             {step.sent_at && (
                                                                 <div className="mt-3 pt-3 border-t border-slate-100/50 flex items-center justify-between">
-                                                                    <div className="flex items-center gap-2">
+                                                                    <div className="flex items-center gap-2" title="Delivery Status">
                                                                         <i className="fa-solid fa-clock text-[10px] text-slate-300"></i>
                                                                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                                                                             Sent {step.sent_at.toDate ? step.sent_at.toDate().toLocaleDateString() : new Date(step.sent_at).toLocaleDateString()}

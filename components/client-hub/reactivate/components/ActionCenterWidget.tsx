@@ -186,8 +186,8 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
     if (actionItems.length === 0) return null;
 
     return (
-        <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-xl shadow-indigo-500/5 mb-8 animate-in slide-in-from-top-4 duration-700">
-            <div className="bg-gradient-to-r from-rose-50 to-white px-8 py-4 border-b border-rose-100 flex items-center justify-between">
+        <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-xl shadow-indigo-500/5 animate-in slide-in-from-top-4 duration-700">
+            <div className="bg-gradient-to-r from-rose-50 to-white px-4 py-2 border-b border-rose-100 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div
                         className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/30 animate-pulse"
@@ -207,7 +207,7 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
                     <div
                         key={item.id}
                         onClick={() => onOpenLead(item.leadId)}
-                        className="p-6 hover:bg-slate-50 transition-colors cursor-pointer group flex items-start gap-4"
+                        className="px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer group flex items-start gap-4"
                     >
                         {/* Status Indicator */}
                         <div

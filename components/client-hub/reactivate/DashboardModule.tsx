@@ -124,16 +124,16 @@ const DashboardModule: React.FC<DashboardModuleProps> = ({ realtorId, onOpenLead
                     </div>
 
                     <div className="space-y-4">
-                        <h3 className="text-2xl font-black text-slate-900 tracking-tight">No Leads Being Reactivated</h3>
+                        <h3 className="text-2xl font-black text-slate-900 tracking-tight">AI Strategy Center</h3>
                         <p className="text-slate-500 text-base leading-relaxed">
-                            Your reactivation intelligence pipeline is currently empty. Our AI is ready to analyze your stale leads and architect high-conversion comeback strategies.
+                            Your reactivation intelligence pipeline is ready. Our AI is waiting to analyze your cold leads and architect high-conversion comeback strategies.
                         </p>
                     </div>
 
                     <div className="inline-flex flex-col items-center gap-4">
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600/50">Next Logical Step</p>
                         <div className="px-8 py-4 bg-slate-50 rounded-2xl border border-slate-200 text-slate-400 group-hover:border-indigo-200 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-all duration-500">
-                            <span className="text-xs font-black uppercase tracking-widest whitespace-nowrap">Upload Cold Leads in the "Automated" Tab</span>
+                            <span className="text-xs font-black uppercase tracking-widest whitespace-nowrap">View Plans in the "Automated" Tab</span>
                         </div>
                     </div>
                 </div>
@@ -142,29 +142,12 @@ const DashboardModule: React.FC<DashboardModuleProps> = ({ realtorId, onOpenLead
     }
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-6">
             <ActionCenterWidget
                 realtorId={realtorId}
                 onOpenLead={(id) => {
-                    const hasPlan = aggregatedData?.lead_plans.some(p => p.lead_id === id);
-                    if (hasPlan) {
-                        setHighlightedLeadId(null); // Clear first to trigger effect if same ID
-                        setTimeout(() => setHighlightedLeadId(id), 10);
-                    } else {
-                        // Fallback: Open standard lead profile if no reactivation plan exists yet
-                        onOpenLeadDetails?.(id);
-                    }
-                }}
-            />
-
-            <ReactivationVisualizer
-                result={aggregatedData}
-                showReset={false}
-                title="Portfolio Reactivation Dashboard"
-                agentId={realtorId}
-                highlightedLeadId={highlightedLeadId}
-                onOpenLeadDetails={(leadId) => {
-                    onOpenLeadDetails?.(leadId);
+                    // Open standard lead profile
+                    onOpenLeadDetails?.(id);
                 }}
             />
 
