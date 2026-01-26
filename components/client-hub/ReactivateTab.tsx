@@ -97,7 +97,12 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
                     )}
 
                     {selectedModule === 'AUTOMATED' && (
-                        <AutomatedModule realtorId={realtorId} leads={leads} />
+                        <AutomatedModule
+                            realtorId={realtorId}
+                            leads={leads}
+                            onOpenLeadDetails={(leadId) => setSelectedClientId(leadId)}
+                            onUpdateLead={onUpdateLead}
+                        />
                     )}
 
                     {selectedModule === 'ASSISTED' && (

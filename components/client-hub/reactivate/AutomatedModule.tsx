@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { analyzeLeadDatabase, transformLeadCsv } from '../../../services/geminiService';
 import { uploadLeadCSV, getLeadDocuments, getLeadDocumentContent } from '../../../services/firebase/leads_documents';
 import {
@@ -11,13 +12,16 @@ import {
 import { LeadReactivationResult, LeadDocument, Lead, LeadPlanRecord, ReactivationAnalysisSummary } from '../../../types';
 import { getTimeSince } from './shared';
 import ReactivationVisualizer from './ReactivationVisualizer';
+import ClientDetailsView from '../ClientDetailsView';
 
 interface AutomatedModuleProps {
     realtorId: string;
     leads?: Lead[];
+    onOpenLeadDetails?: (leadId: string) => void;
+    onUpdateLead?: (leadId: string, updates: Partial<Lead>) => void;
 }
 
-const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = [] }) => {
+const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = [], onOpenLeadDetails, onUpdateLead }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [file, setFile] = useState<File | null>(null);
     const [fileContent, setFileContent] = useState<string | null>(null);
@@ -920,76 +924,39 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                     }
 
                     {/* Editable Profile Drawer */}
-                    {
-                        selectedLeadForDetails && (
-                            <div className="fixed inset-0 z-[100] flex justify-end">
-                                <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setSelectedLeadForDetails(null)} />
-                                <div className="relative w-full max-w-[500px] bg-white h-full shadow-2xl animate-in slide-in-from-right duration-500 flex flex-col">
-                                    <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                                        <div className="flex items-center gap-4">
-                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-black border shadow-sm ${selectedLeadForDetails.leadType === 'Seller' ? 'bg-amber-100 text-amber-600 border-amber-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>{selectedLeadForDetails.leadType === 'Seller' ? 'S' : 'B'}</div>
-                                            <div>
-                                                <input type="text" defaultValue={selectedLeadForDetails.fullName} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, fullName: e.target.value } : null)} className="text-xl font-black text-slate-900 uppercase tracking-tight bg-transparent border-none outline-none focus:ring-0 w-full hover:bg-slate-100/50 px-2 rounded-lg transition-colors" />
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 px-2">Client Profile • Persistence Active</p>
-                                            </div>
-                                        </div>
-                                        <button onClick={() => setSelectedLeadForDetails(null)} className="w-10 h-10 rounded-xl hover:bg-slate-200 flex items-center justify-center text-slate-400 transition-colors"><i className="fa-solid fa-xmark text-lg"></i></button>
-                                    </div>
-                                    <div className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-10">
-                                        <section className="space-y-4">
-                                            <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-address-book text-indigo-400"></i> Primary Contact</h3>
-                                            <div className="grid grid-cols-1 gap-4">
-                                                <div className="space-y-1">
-                                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Email Address</label>
-                                                    <div className="group flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl focus-within:bg-white focus-within:border-indigo-200 transition-all">
-                                                        <i className="fa-solid fa-envelope text-slate-300"></i>
-                                                        <input type="email" defaultValue={selectedLeadForDetails.primaryContact?.email || selectedLeadForDetails.email} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, email: e.target.value, primaryContact: { ...prev.primaryContact!, email: e.target.value } } : null)} className="bg-transparent border-none outline-none text-sm font-bold text-slate-600 w-full" />
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Phone Number</label>
-                                                    <div className="group flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl focus-within:bg-white focus-within:border-indigo-200 transition-all">
-                                                        <i className="fa-solid fa-phone text-slate-300"></i>
-                                                        <input type="tel" defaultValue={selectedLeadForDetails.primaryContact?.phone || selectedLeadForDetails.phone} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, phone: e.target.value, primaryContact: { ...prev.primaryContact!, phone: e.target.value } } : null)} className="bg-transparent border-none outline-none text-sm font-bold text-slate-600 w-full" />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </section>
-                                        <section className="space-y-4">
-                                            <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-compass text-indigo-400"></i> Market Intelligence</h3>
-                                            <div className="bg-indigo-50/30 rounded-[2.5rem] p-8 border border-indigo-100/50 space-y-8">
-                                                <div className="space-y-2">
-                                                    <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Target Market / Locations</label>
-                                                    <input type="text" defaultValue={selectedLeadForDetails.searchCriteria?.locations} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, searchCriteria: { ...prev.searchCriteria!, locations: e.target.value } } : null)} className="bg-white border border-indigo-100/50 outline-none text-sm font-black text-slate-800 w-full p-4 rounded-xl shadow-sm focus:border-indigo-300 transition-all" />
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-6">
-                                                    <div className="space-y-2">
-                                                        <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Budget Capacity</label>
-                                                        <input type="number" defaultValue={selectedLeadForDetails.financialVitals?.budgetMax} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, financialVitals: { ...prev.financialVitals!, budgetMax: parseInt(e.target.value) } } : null)} className="bg-white border border-indigo-100/50 outline-none text-sm font-black text-slate-800 w-full p-4 rounded-xl shadow-sm focus:border-indigo-300 transition-all" />
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Lead Category</label>
-                                                        <select value={selectedLeadForDetails.leadType} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, leadType: e.target.value as 'Buyer' | 'Seller' } : null)} className="bg-white border border-indigo-100/50 outline-none text-sm font-black text-slate-800 w-full p-4 rounded-xl shadow-sm appearance-none cursor-pointer">
-                                                            <option value="Buyer">Buyer</option>
-                                                            <option value="Seller">Seller</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </section>
-                                        <section className="pb-8 space-y-4">
-                                            <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-note-sticky text-indigo-400"></i> Internal Record</h3>
-                                            <textarea rows={4} defaultValue={selectedLeadForDetails.leadInfo?.customerMessage || selectedLeadForDetails.notes} onChange={(e) => setSelectedLeadForDetails(prev => prev ? { ...prev, notes: e.target.value, leadInfo: { ...prev.leadInfo!, customerMessage: e.target.value } } : null)} className="w-full bg-slate-50 border border-slate-100 rounded-[2rem] p-6 text-sm font-medium text-slate-600 outline-none focus:bg-white transition-all resize-none" placeholder="Record intelligence..." />
-                                        </section>
-                                    </div>
-                                    <div className="p-8 border-t border-slate-100 bg-white grid grid-cols-2 gap-4">
-                                        <button onClick={() => { setLocalLeads(prev => prev.map(l => l.id === selectedLeadForDetails.id ? selectedLeadForDetails : l)); setSelectedLeadForDetails(null); }} className="bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-200"><i className="fa-solid fa-floppy-disk"></i> Save Profile</button>
-                                        <button onClick={() => { toggleLeadSelection(selectedLeadForDetails.id); setSelectedLeadForDetails(null); }} className="bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl flex items-center justify-center gap-3 active:scale-[0.98] uppercase tracking-widest text-[10px]"><i className="fa-solid fa-plus"></i> Add to Reactivate</button>
-                                    </div>
+                    {selectedLeadForDetails && typeof document !== 'undefined' && createPortal(
+                        <div className="fixed inset-0 z-[100] flex justify-end">
+                            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setSelectedLeadForDetails(null)} />
+                            <div className="relative w-full max-w-6xl h-full p-8 flex flex-col pointer-events-none justify-center">
+                                <div className="bg-white h-[90vh] rounded-[2rem] shadow-2xl overflow-hidden pointer-events-auto flex flex-col animate-in slide-in-from-right duration-500 relative">
+                                    <ClientDetailsView
+                                        realtorId={realtorId}
+                                        clients={[]}
+                                        leads={localLeads}
+                                        onUpdateClient={async (id: string, updates: any, collectionName: string) => {
+                                            /* Update local state immediately */
+                                            setLocalLeads(prev => prev.map(l => l.id === id ? { ...l, ...updates } : l));
+
+                                            /* Propagate to parent if available */
+                                            if (onUpdateLead) {
+                                                onUpdateLead(id, updates);
+                                            }
+                                            return true;
+                                        }}
+                                        initialSelectedId={selectedLeadForDetails.id}
+                                        hideClientList={true}
+                                    />
+                                    <button
+                                        onClick={() => setSelectedLeadForDetails(null)}
+                                        className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors shadow-lg z-10"
+                                    >
+                                        <i className="fa-solid fa-xmark"></i>
+                                    </button>
                                 </div>
                             </div>
-                        )
-                    }
+                        </div>,
+                        document.body
+                    )}
                 </>
             ) : (
                 <div className="space-y-6">
