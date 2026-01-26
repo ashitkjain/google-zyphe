@@ -13,6 +13,7 @@ import { LeadReactivationResult, LeadDocument, Lead, LeadPlanRecord, Reactivatio
 import { getTimeSince } from './shared';
 import ReactivationVisualizer from './ReactivationVisualizer';
 import ClientDetailsView from '../ClientDetailsView';
+import { LeadReactivationList } from './components/LeadReactivationList';
 
 interface AutomatedModuleProps {
     realtorId: string;
@@ -46,13 +47,15 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
     const [activeCityTab, setActiveCityTab] = useState('All');
     const [currentPage, setCurrentPage] = useState(1);
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'lastSeen', direction: 'desc' });
+    const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
+    const [actionMenuPosition, setActionMenuPosition] = useState<{ top: number; left: number } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         setLocalLeads(leads);
     }, [leads]);
 
-    const eligibleLeads = (localLeads || []).filter(l => l.status === 'Archived' || l.health === 'Stale' || l.engagementScore === 'Hot' || l.engagementScore === 'Cold');
+    const eligibleLeads = (localLeads || []).filter(l => l.funnelStage === 'Archived');
 
     const getCity = (l: Lead) => {
         const loc = l.searchCriteria?.locations;
@@ -120,6 +123,17 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
             key,
             direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc'
         }));
+    };
+
+    const handleOpenActionMenu = (e: React.MouseEvent, leadId: string) => {
+        e.stopPropagation();
+        const rect = e.currentTarget.getBoundingClientRect();
+        const menuWidth = 180;
+        setActionMenuPosition({
+            top: rect.bottom + 8,
+            left: rect.right - menuWidth + 8
+        });
+        setOpenActionMenuId(openActionMenuId === leadId ? null : leadId);
     };
 
     useEffect(() => {
@@ -647,183 +661,76 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                                     </div>
                                                 </div>
 
-                                                {/* Table Headers - Interactive Sorting */}
-                                                <div className="bg-white border-b border-slate-100 px-8 py-3 flex items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                                    <div className="w-[3%] flex items-center justify-center">
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                if (selectedLeadIds.length === archivedLeads.length) {
-                                                                    setSelectedLeadIds([]);
-                                                                } else {
-                                                                    setSelectedLeadIds(archivedLeads.map(l => l.id));
-                                                                }
-                                                            }}
-                                                            className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${selectedLeadIds.length > 0 ? 'bg-indigo-600 border-indigo-600 shadow-md shadow-indigo-500/20' : 'border-slate-200 hover:border-indigo-400'}`}
-                                                        >
-                                                            {selectedLeadIds.length === archivedLeads.length && archivedLeads.length > 0 && <i className="fa-solid fa-check text-[10px] text-white"></i>}
-                                                            {selectedLeadIds.length > 0 && selectedLeadIds.length < archivedLeads.length && <i className="fa-solid fa-minus text-[10px] text-white"></i>}
-                                                        </button>
-                                                    </div>
-
-                                                    {[
-                                                        { id: 'type', label: 'Type', width: '4%', align: 'center' },
-                                                        { id: 'name', label: 'Lead Name', width: '18%', align: 'left', padding: 'px-4' },
-                                                        { id: 'market', label: 'Target Market', width: '15%', align: 'left', padding: 'px-4' },
-                                                        { id: 'source', label: 'Source', width: '7%', align: 'left', padding: 'px-2' },
-                                                        { id: 'status', label: 'Status', width: '5%', align: 'center' }
-                                                    ].map(col => (
-                                                        <button
-                                                            key={col.id}
-                                                            onClick={() => handleSort(col.id)}
-                                                            className={`w-[${col.width}] flex items-center ${col.align === 'center' ? 'justify-center' : 'justify-start'} ${col.padding || ''} group/head transition-colors hover:text-slate-900`}
-                                                        >
-                                                            {col.label}
-                                                            <i className={`fa-solid fa-chevron-${sortConfig.key === col.id && sortConfig.direction === 'asc' ? 'up' : 'down'} ml-1.5 text-[8px] transition-all ${sortConfig.key === col.id ? 'text-indigo-500 opacity-100' : 'text-slate-200 opacity-0 group-hover/head:opacity-100'}`}></i>
-                                                        </button>
-                                                    ))}
-
-                                                    <div className="w-[36%] font-black text-indigo-400 uppercase bg-indigo-50/30 px-3 py-1 rounded-md border border-indigo-100/50">Staff Note</div>
-
-                                                    <button
-                                                        onClick={() => handleSort('lastSeen')}
-                                                        className="w-[12%] flex items-center justify-start pl-4 group/head transition-colors hover:text-slate-900"
-                                                    >
-                                                        Last Seen
-                                                        <i className={`fa-solid fa-chevron-${sortConfig.key === 'lastSeen' && sortConfig.direction === 'asc' ? 'up' : 'down'} ml-1.5 text-[8px] transition-all ${sortConfig.key === 'lastSeen' ? 'text-indigo-500 opacity-100' : 'text-slate-200 opacity-0 group-hover/head:opacity-100'}`}></i>
-                                                    </button>
-                                                </div>
-
-                                                <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
-                                                    <div className="divide-y divide-slate-50 bg-white">
-                                                        {paginatedLeads.map(lead => {
-                                                            const isSelected = selectedLeadIds.includes(lead.id);
-                                                            return (
-                                                                <div
-                                                                    key={lead.id}
-                                                                    onDoubleClick={() => setSelectedLeadForDetails(lead)}
-                                                                    className={`flex items-center px-8 py-2.5 hover:bg-indigo-50/30 transition-all cursor-default group border-b border-slate-50/50 relative overflow-hidden`}
-                                                                >
-                                                                    {/* SELECTION COLUMN */}
-                                                                    <div className="w-[3%] flex items-center relative z-10" onClick={(e) => e.stopPropagation()}>
-                                                                        <div
-                                                                            onClick={() => toggleLeadSelection(lead.id)}
-                                                                            className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 cursor-pointer ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-200 hover:border-indigo-400'}`}
-                                                                        >
-                                                                            {isSelected && <i className="fa-solid fa-check text-[10px] text-white"></i>}
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* ROLE COLUMN */}
-                                                                    <div className="w-[4%] flex justify-center">
-                                                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border shadow-sm ${lead.leadType === 'Seller' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
-                                                                            {lead.leadType === 'Seller' ? 'S' : 'B'}
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* NAME COLUMN */}
-                                                                    <div className="w-[18%] flex items-center px-4 gap-2">
-                                                                        <p className="text-[12px] font-black text-slate-800 truncate tracking-tight group-hover:text-indigo-600 transition-colors uppercase leading-tight">
-                                                                            {lead.fullName}
-                                                                        </p>
-                                                                        <div className="group/info relative cursor-help">
-                                                                            <i className="fa-solid fa-circle-info text-slate-300 hover:text-indigo-400 transition-colors text-sm"></i>
-                                                                            <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-slate-800 text-white text-[9px] font-bold px-2 py-1 rounded-md opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all whitespace-nowrap z-50 pointer-events-none shadow-xl">
-                                                                                Double-click for details
-                                                                                <div className="absolute left-0 top-1/2 -translate-y-1/2 -ml-1 border-4 border-transparent border-r-slate-800"></div>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* TARGET MARKET COLUMN */}
-                                                                    <div className="w-[15%] flex items-center px-4">
-                                                                        <p className="text-[12px] font-bold text-slate-500 truncate">{lead.searchCriteria?.locations || ''}</p>
-                                                                    </div>
-
-                                                                    {/* COMPANY/SOURCE COLUMN */}
-                                                                    <div className="w-[7%] flex items-center px-2">
-                                                                        <p className="text-[12px] font-bold text-slate-400 truncate">{lead.source || 'Direct Entry'}</p>
-                                                                    </div>
-
-                                                                    {/* STATUS COLUMN */}
-                                                                    <div className="w-[5%] flex justify-center relative">
-                                                                        <button
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                setStatusMenuOpen(statusMenuOpen === lead.id ? null : lead.id);
-                                                                            }}
-                                                                            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-sm border ${lead.engagementScore === 'Hot' ? 'bg-rose-50 text-rose-500 border-rose-100' : lead.engagementScore === 'Cold' ? 'bg-sky-50 text-sky-500 border-sky-100' : lead.health === 'Stale' ? 'bg-slate-50 text-slate-400 border-slate-200' : 'bg-indigo-50 text-indigo-500 border-indigo-100'}`}
-                                                                        >
-                                                                            {lead.engagementScore === 'Hot' && <i className="fa-solid fa-fire text-xs text-rose-500"></i>}
-                                                                            {lead.engagementScore === 'Cold' && <i className="fa-solid fa-snowflake text-xs text-sky-400"></i>}
-                                                                            {lead.health === 'Stale' && lead.engagementScore !== 'Hot' && lead.engagementScore !== 'Cold' && <i className="fa-solid fa-clock-rotate-left text-xs text-slate-400"></i>}
-                                                                            {!['Hot', 'Cold', 'Stale'].includes(lead.engagementScore || lead.health || '') && <i className="fa-solid fa-circle-dot text-[8px] text-indigo-300"></i>}
-                                                                        </button>
-
-                                                                        {statusMenuOpen === lead.id && (
-                                                                            <div className="absolute top-full mt-2 z-50 bg-white rounded-xl shadow-2xl border border-slate-100 p-2 min-w-[120px] animate-in fade-in zoom-in-95 duration-200">
-                                                                                {[
-                                                                                    { id: 'Hot', icon: 'fa-fire', label: 'Hot', color: 'text-rose-500', bg: 'hover:bg-rose-50' },
-                                                                                    { id: 'Cold', icon: 'fa-snowflake', label: 'Cold', color: 'text-sky-500', bg: 'hover:bg-sky-50' },
-                                                                                    { id: 'Stale', icon: 'fa-clock-rotate-left', label: 'Stale', color: 'text-slate-400', bg: 'hover:bg-slate-50' }
-                                                                                ].map(opt => (
-                                                                                    <button
-                                                                                        key={opt.id}
-                                                                                        onClick={(e) => {
-                                                                                            e.stopPropagation();
-                                                                                            updateLeadStatus(lead.id, opt.id);
-                                                                                        }}
-                                                                                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[11px] font-black uppercase tracking-tight transition-colors ${opt.bg} ${opt.color}`}
-                                                                                    >
-                                                                                        <i className={`fa-solid ${opt.icon} w-4`}></i>
-                                                                                        {opt.label}
-                                                                                    </button>
-                                                                                ))}
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-
-                                                                    {/* STAFF NOTE COLUMN */}
-                                                                    <div className="w-[36%] flex items-center px-4 py-1">
-                                                                        <p className="text-[11px] font-medium text-slate-400 italic pr-6 border-l border-slate-50 pl-4 leading-relaxed line-clamp-2 hover:line-clamp-none transition-all">
-                                                                            {lead.leadInfo?.customerMessage || lead.notes || 'No active notes'}
-                                                                        </p>
-                                                                    </div>
-
-                                                                    {/* LAST SEEN & ACTION COLUMN */}
-                                                                    <div className="w-[12%] flex items-center justify-end pl-4 pr-8 shrink-0">
-                                                                        <p className="text-[12px] font-bold text-slate-400 whitespace-nowrap">
-                                                                            {lead.lastActivity ? getTimeSince(lead.lastActivity) : (lead.receivedAt ? getTimeSince(lead.receivedAt) : 'Long ago')}
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                                {totalPages > 1 && (
-                                                    <div className="p-6 border-t border-slate-100 bg-white flex items-center justify-between">
-                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                                            Page {currentPage} of {totalPages}
-                                                        </p>
-                                                        <div className="flex items-center gap-2">
+                                                <LeadReactivationList
+                                                    leads={paginatedLeads}
+                                                    selectedLeads={selectedLeadIds}
+                                                    onToggleSelection={toggleLeadSelection}
+                                                    onToggleAll={() => setSelectedLeadIds(selectedLeadIds.length === archivedLeads.length ? [] : archivedLeads.map(l => l.id))}
+                                                    onLeadClick={setSelectedLeadForDetails}
+                                                    onStatusChange={updateLeadStatus}
+                                                    pagination={{
+                                                        currentPage,
+                                                        totalPages,
+                                                        onPageChange: setCurrentPage
+                                                    }}
+                                                    sortConfig={sortConfig}
+                                                    onSort={handleSort}
+                                                    actionHeaderLabel=""
+                                                    maxHeight="600px"
+                                                    variant="flat"
+                                                    mode="action"
+                                                    renderActionColumn={(lead) => (
+                                                        <div className="relative" onClick={(e) => e.stopPropagation()}>
                                                             <button
-                                                                onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.max(1, prev - 1)); }}
-                                                                disabled={currentPage === 1}
-                                                                className="w-10 h-10 rounded-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                                                                onClick={(e) => handleOpenActionMenu(e, lead.id)}
+                                                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${openActionMenuId === lead.id ? 'bg-indigo-600 text-white shadow-md scale-110' : 'bg-white border border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-600'}`}
                                                             >
-                                                                <i className="fa-solid fa-chevron-left text-xs"></i>
+                                                                <i className="fa-solid fa-ellipsis-vertical text-xs"></i>
                                                             </button>
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.min(totalPages, prev + 1)); }}
-                                                                disabled={currentPage === totalPages}
-                                                                className="w-10 h-10 rounded-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-                                                            >
-                                                                <i className="fa-solid fa-chevron-right text-xs"></i>
-                                                            </button>
+
+                                                            {openActionMenuId === lead.id && actionMenuPosition && typeof document !== 'undefined' && createPortal(
+                                                                <>
+                                                                    <div className="fixed inset-0 z-[100]" onClick={() => setOpenActionMenuId(null)} />
+                                                                    <div
+                                                                        className="fixed z-[101] bg-white rounded-xl shadow-2xl border border-slate-100 p-2 min-w-[180px] animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1"
+                                                                        style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
+                                                                    >
+                                                                        <div className="px-3 py-2 border-b border-slate-50 mb-1 flex items-center justify-between">
+                                                                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Actions</p>
+                                                                            <i className="fa-solid fa-bolt text-[10px] text-indigo-400"></i>
+                                                                        </div>
+                                                                        {[
+                                                                            { id: 'email', icon: 'fa-envelope', label: 'Send Email', color: 'text-indigo-500', bg: 'hover:bg-indigo-50' },
+                                                                            { id: 'call', icon: 'fa-phone', label: 'Log Call', color: 'text-emerald-500', bg: 'hover:bg-emerald-50' },
+                                                                            { id: 'sms', icon: 'fa-comment', label: 'Send SMS', color: 'text-blue-500', bg: 'hover:bg-blue-50' },
+                                                                            { id: 'whatsapp', icon: 'fa-brands fa-whatsapp', label: 'WhatsApp', color: 'text-green-500', bg: 'hover:bg-green-50' },
+                                                                            { id: 'mail', icon: 'fa-paper-plane', label: 'Direct Mail', color: 'text-purple-500', bg: 'hover:bg-purple-50' }
+                                                                        ].map(action => (
+                                                                            <button
+                                                                                key={action.id}
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    // Handle action - for now just close menu
+                                                                                    // In the future, this could open an outreach modal for this lead
+                                                                                    console.log('Action:', action.id, 'for lead:', lead.id);
+                                                                                    setOpenActionMenuId(null);
+                                                                                }}
+                                                                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold text-slate-600 transition-colors ${action.bg} text-left group`}
+                                                                            >
+                                                                                <div className={`w-6 h-6 rounded-md bg-white border border-slate-100 flex items-center justify-center group-hover:border-transparent ${action.color}`}>
+                                                                                    <i className={`fa-solid ${action.icon} text-[10px]`}></i>
+                                                                                </div>
+                                                                                {action.label}
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
+                                                                </>,
+                                                                document.body
+                                                            )}
                                                         </div>
-                                                    </div>
-                                                )}
+                                                    )}
+                                                />
+
                                             </div>
                                             <div className="flex justify-center p-8">
                                                 <button
