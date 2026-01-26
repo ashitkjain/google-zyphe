@@ -50,7 +50,7 @@ import ExploreTab from './components/ExploreTab';
 import GuidesTab from './components/client-hub/GuidesTab';
 import LegalDisclaimer from './components/LegalDisclaimer';
 
-type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer';
+type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -88,32 +88,51 @@ const App: React.FC = () => {
     const handleUrlChange = () => {
       const path = window.location.pathname;
       const parts = path.split('/').filter(Boolean);
+      const isRealtorPath = parts[0] === 'realtor';
+      const subPath = isRealtorPath ? parts.slice(1) : parts;
 
-      // If unauthenticated, redirect to guides unless visiting a guide or disclaimer
+      // Escrow specific handling: if it's just /escrow, redirect to /realtor/escrow
+      if (path === '/escrow' || (parts.length === 1 && parts[0] === 'escrow')) {
+        window.history.replaceState({ mode: 'guides' }, '', '/realtor/escrow');
+        setViewMode('guides');
+        return;
+      }
+
+      // If unauthenticated, redirect to /realtor/guides unless visiting a disclaimer
       if (!currentUser) {
         if (path === '/legal-disclaimer') {
           setViewMode('legal-disclaimer');
           return;
         }
-        // If it's a guide-like path or /guides
-        if (path === '/guides' || parts.length === 2 || (parts.length === 1 && ['hoa', 'insurance', 'escrow', 'property-taxes', 'repairs-liability'].includes(parts[0]))) {
+
+        // If it's a guide-like path under /realtor or /realtor/guides
+        const isGuidePath = (isRealtorPath && (subPath[0] === 'guides' || subPath.length === 2 || ['hoa', 'insurance', 'escrow', 'property-taxes', 'repairs-liability'].includes(subPath[0])));
+
+        if (isGuidePath) {
           setViewMode('guides');
           return;
         }
-        // Otherwise redirect home to /guides
-        if (path !== '/guides') {
-          window.history.replaceState({ mode: 'guides' }, '', '/guides');
+
+        // Catch-all: redirect home/other to /realtor/guides for guests
+        if (path !== '/realtor/guides') {
+          window.history.replaceState({ mode: 'guides' }, '', '/realtor/guides');
           setViewMode('guides');
           return;
         }
       }
 
-      if (path === '/guides') {
-        setViewMode('guides');
+      // Authenticated paths
+      if (isRealtorPath) {
+        if (subPath.length === 0) {
+          setViewMode('main'); // Dashboard
+        } else if (subPath[0] === 'guides' || subPath.length === 2 || ['hoa', 'insurance', 'escrow', 'property-taxes', 'repairs-liability'].includes(subPath[0])) {
+          setViewMode('guides');
+        } else {
+          // Dynamic tab matching
+          setViewMode(subPath[0] as ViewMode);
+        }
       } else if (path === '/legal-disclaimer') {
         setViewMode('legal-disclaimer');
-      } else if (parts.length === 2 || (parts.length === 1 && ['hoa', 'insurance', 'escrow', 'property-taxes', 'repairs-liability'].includes(parts[0]))) {
-        setViewMode('guides');
       } else {
         setViewMode('main');
       }
@@ -136,12 +155,18 @@ const App: React.FC = () => {
 
     setViewMode(newMode);
     let path = '/';
+
     if (customPath) {
-      path = customPath;
+      // Ensure custom paths are relative to /realtor if user is a realtor
+      path = customPath.startsWith('/realtor') ? customPath : `/realtor${customPath.startsWith('/') ? '' : '/'}${customPath}`;
     } else if (newMode === 'guides') {
-      path = '/guides';
+      path = '/realtor/guides';
     } else if (newMode === 'legal-disclaimer') {
       path = '/legal-disclaimer';
+    } else if (newMode === 'main') {
+      path = '/realtor';
+    } else {
+      path = `/realtor/${newMode}`;
     }
 
     if (window.location.pathname !== path) {
@@ -746,7 +771,7 @@ const App: React.FC = () => {
           onSignOut={handleSignOut}
           onBack={() => transitionToView('main')} // This might be redundant now
           exploreContent={exploreTab}
-          initialTab={viewMode as any}
+          initialTab={(viewMode === 'main' ? 'explore' : viewMode) as any}
           onNavigate={transitionToView}
         />
 

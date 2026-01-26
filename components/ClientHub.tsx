@@ -488,7 +488,10 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         {mainTabs.map((tab) => (
                             <button
                                 key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
+                                onClick={() => {
+                                    setActiveTab(tab.id);
+                                    if (onNavigate) onNavigate(tab.id as any);
+                                }}
                                 className={`relative h-full flex items-center gap-3 px-6 text-[11px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${activeTab === tab.id ? 'text-white' : 'text-slate-400 hover:text-slate-200'
                                     }`}
                             >
@@ -522,6 +525,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                             onClick={() => {
                                                 setActiveTab(tab.id);
                                                 setIsToolsOpen(false);
+                                                if (onNavigate) onNavigate(tab.id as any);
                                             }}
                                             className={`w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-500'}`}
                                         >
@@ -534,7 +538,10 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         </div>
                         {/* Guides Tab */}
                         <button
-                            onClick={() => setActiveTab('guides')}
+                            onClick={() => {
+                                setActiveTab('guides');
+                                if (onNavigate) onNavigate('guides');
+                            }}
                             className={`relative h-full flex items-center gap-3 px-6 text-[11px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${activeTab === 'guides' ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
                         >
                             <i className={`fa-solid fa-book transition-transform group-hover:scale-110 ${activeTab === 'guides' ? 'text-indigo-500' : 'text-slate-500'}`}></i>

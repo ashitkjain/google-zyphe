@@ -178,7 +178,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
         setError(null);
 
         // Update URL
-        const newPath = `/${category.topicSlug}/${guide.slug}`;
+        const newPath = `/realtor/${category.topicSlug}/${guide.slug}`;
         if (onNavigate) {
             onNavigate('guides', newPath);
         } else if (window.location.pathname !== newPath) {
@@ -234,11 +234,13 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
         const syncWithUrl = () => {
             const path = window.location.pathname;
             const parts = path.split('/').filter(Boolean);
+            const isRealtor = parts[0] === 'realtor';
+            const subPath = isRealtor ? parts.slice(1) : parts;
 
-            if (parts.length === 2) {
-                // /topic/guide
-                const topicSlug = parts[0];
-                const guideSlug = parts[1];
+            if (subPath.length === 2) {
+                // topic/guide
+                const topicSlug = subPath[0];
+                const guideSlug = subPath[1];
                 const category = GUIDE_DATA.find(c => c.topicSlug === topicSlug);
                 if (category) {
                     setActiveCategoryId(category.id);
@@ -247,15 +249,14 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                         handleViewGuide(guide, category);
                     }
                 }
-            } else if (parts.length === 1 && parts[0] !== 'guides') {
-                // /topic
-                const category = GUIDE_DATA.find(c => c.topicSlug === parts[0]);
+            } else if (subPath.length === 1 && !['guides', 'realtor'].includes(subPath[0])) {
+                // topic
+                const category = GUIDE_DATA.find(c => c.topicSlug === subPath[0]);
                 if (category) {
                     setActiveCategoryId(category.id);
                     setSelectedGuide(null);
                 }
             } else {
-                // /guides or other
                 setSelectedGuide(null);
             }
         };
@@ -270,7 +271,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
         setSelectedGuide(null);
         const category = GUIDE_DATA.find(c => c.id === catId);
         if (category) {
-            const newPath = `/${category.topicSlug}`;
+            const newPath = `/realtor/${category.topicSlug}`;
             if (onNavigate) {
                 onNavigate('guides', newPath);
             } else if (window.location.pathname !== newPath) {
@@ -282,7 +283,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
     const handleGoBack = () => {
         setSelectedGuide(null);
         const category = GUIDE_DATA.find(c => c.id === activeCategoryId);
-        const newPath = category ? `/${category.topicSlug}` : '/guides';
+        const newPath = category ? `/realtor/${category.topicSlug}` : '/realtor/guides';
 
         if (onNavigate) {
             onNavigate('guides', newPath);
