@@ -301,7 +301,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
         return (
             <div className="flex-1 flex flex-col bg-white overflow-hidden animate-in fade-in duration-500">
                 {/* Article Header */}
-                <div className="px-10 py-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10 transition-all">
+                <div className="px-10 py-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-[73px] z-10 transition-all">
                     <div className="flex items-center gap-6">
                         <button
                             onClick={handleGoBack}
@@ -738,8 +738,8 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
 
             {/* Main Content Area */}
             <div className="flex-1 overflow-hidden flex flex-col transition-all">
-                {/* Header */}
-                <div className="bg-white border-b border-slate-200 px-10 py-8">
+                {/* Header - Simplified as main header is now global */}
+                <div className="bg-white border-b border-slate-200 px-10 py-4 shadow-sm sticky top-[73px] z-10">
                     <div className="mb-4">
                         <div>
                             <div className="flex items-center gap-3 mb-2">

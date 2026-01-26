@@ -845,16 +845,14 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {viewMode !== 'guides' && (
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-50 py-3 shadow-sm backdrop-blur-md bg-white/90">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between gap-4">
-              <Logo size={80} className="scale-75 md:scale-90 origin-left" onClick={() => transitionToView('main')} />
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 py-3 shadow-sm backdrop-blur-md bg-white/90">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-4">
+            <Logo size={80} className="scale-75 md:scale-90 origin-left" onClick={() => transitionToView('main')} />
 
-            </div>
           </div>
-        </header>
-      )}
+        </div>
+      </header>
 
       <main className={`flex-1 w-full ${viewMode === 'guides' ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 overflow-y-auto'}`}>
         {error && <div className="bg-rose-50 border border-rose-100 text-rose-700 p-4 rounded-2xl mb-8">{error}</div>}
