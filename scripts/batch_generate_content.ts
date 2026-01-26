@@ -63,7 +63,7 @@ async function main() {
     console.log(`Guides needing generation: ${guidesToGenerate.length}`);
 
     // Higher limit for batch run
-    const LIMIT = 20;
+    const LIMIT = 100;
     const itemsToProcess = guidesToGenerate.slice(0, LIMIT);
     console.log(`Processing next ${itemsToProcess.length} items...`);
 
