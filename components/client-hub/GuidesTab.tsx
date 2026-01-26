@@ -732,41 +732,40 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
     }
 
     return (
-        <div className="flex h-full bg-[#F8FAFC] animate-in fade-in duration-500">
-            {/* Sidebar */}
-            <div className="w-80 border-r border-slate-200 bg-white flex flex-col shadow-sm z-10 transition-all">
-                <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex flex-col-reverse lg:flex-row h-full bg-[#F8FAFC] animate-in fade-in duration-500">
+            {/* Sidebar / Bottom Nav */}
+            <div className="w-full lg:w-80 h-auto lg:h-full border-t lg:border-t-0 lg:border-r border-slate-200 bg-white flex flex-row lg:flex-col shadow-lg lg:shadow-sm z-20 shrink-0">
+                <div className="hidden lg:block p-6 border-b border-slate-100 bg-slate-50/50">
                     <h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800">
                         Knowledge Center
                     </h2>
                 </div>
 
-                <div className="flex-1 overflow-y-auto py-4 space-y-1">
+                <div className="flex-1 w-full overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto flex flex-row lg:flex-col p-2 lg:p-0 gap-2 lg:gap-1 no-scrollbar">
                     {GUIDE_DATA.map((category) => (
                         <button
                             key={category.id}
                             onClick={() => handleCategoryChange(category.id)}
-                            className={`w-full flex items-center justify-between px-6 py-4 transition-all group ${activeCategoryId === category.id
-                                ? 'bg-indigo-50 border-r-4 border-indigo-600'
-                                : 'hover:bg-slate-50 border-r-4 border-transparent'
+                            className={`flex lg:w-full items-center justify-center lg:justify-between px-3 py-2 lg:px-6 lg:py-4 transition-all group rounded-xl lg:rounded-none min-w-[80px] lg:min-w-0 ${activeCategoryId === category.id
+                                ? 'bg-indigo-50 lg:bg-indigo-50 lg:border-r-4 border-indigo-600'
+                                : 'hover:bg-slate-50 lg:border-r-4 border-transparent'
                                 }`}
                         >
-                            <div className="flex items-center gap-4">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeCategoryId === category.id
+                            <div className="flex flex-col lg:flex-row items-center gap-1 lg:gap-4">
+                                <div className={`w-8 h-8 lg:w-10 lg:h-10 rounded-xl flex items-center justify-center transition-all ${activeCategoryId === category.id
                                     ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
                                     : 'bg-slate-100 text-slate-400 group-hover:bg-white group-hover:text-indigo-500 shadow-inner'
                                     }`}>
-                                    <i className={`fa-solid ${category.icon} text-sm`}></i>
+                                    <i className={`fa-solid ${category.icon} text-xs lg:text-sm`}></i>
                                 </div>
-                                <div className="text-left">
-                                    <div className={`text-xs font-black tracking-tight ${activeCategoryId === category.id ? 'text-indigo-900' : 'text-slate-600'
+                                <div className="text-center lg:text-left">
+                                    <div className={`text-[10px] lg:text-xs font-black tracking-tight whitespace-nowrap ${activeCategoryId === category.id ? 'text-indigo-900' : 'text-slate-600'
                                         }`}>
                                         {category.title}
                                     </div>
-
                                 </div>
                             </div>
-                            <i className={`fa-solid fa-chevron-right text-[8px] transition-transform ${activeCategoryId === category.id ? 'text-indigo-400 translate-x-1' : 'text-slate-300 opacity-0 group-hover:opacity-100'
+                            <i className={`hidden lg:block fa-solid fa-chevron-right text-[8px] transition-transform ${activeCategoryId === category.id ? 'text-indigo-400 translate-x-1' : 'text-slate-300 opacity-0 group-hover:opacity-100'
                                 }`}></i>
                         </button>
                     ))}
