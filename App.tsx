@@ -51,7 +51,7 @@ import GuidesTab from './components/client-hub/GuidesTab';
 import LegalDisclaimer from './components/LegalDisclaimer';
 import TermsView from './components/TermsView';
 
-type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio';
+type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio' | 'realtor-landing';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -103,6 +103,11 @@ const App: React.FC = () => {
       if (!currentUser) {
         if (path === '/legal-disclaimer' || path === '/terms') {
           setViewMode(path === '/legal-disclaimer' ? 'legal-disclaimer' : 'terms');
+          return;
+        }
+
+        if (path === '/realtor' && subPath.length === 0) {
+          setViewMode('realtor-landing');
           return;
         }
 
@@ -859,12 +864,32 @@ const App: React.FC = () => {
       <main className={`flex-1 w-full ${viewMode === 'guides' ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 overflow-y-auto'}`}>
         {error && <div className="bg-rose-50 border border-rose-100 text-rose-700 p-4 rounded-2xl mb-8">{error}</div>}
 
-        {viewMode === 'guides' || !currentUser ? (
+        {viewMode === 'realtor-landing' ? (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8 animate-in fade-in zoom-in duration-500">
+            <div className="relative">
+              <div className="absolute -inset-4 bg-indigo-500/20 blur-xl rounded-full"></div>
+              <Logo size={96} className="relative drop-shadow-xl" />
+            </div>
+            <div className="max-w-md space-y-4">
+              <h1 className="text-4xl font-black text-slate-900 tracking-tight">Realtor Access</h1>
+              <p className="text-slate-500 font-medium leading-relaxed text-lg">
+                Sign in to access your professional dashboard, manage leads, and generate intelligent property reports.
+              </p>
+            </div>
+            <button
+              onClick={() => setAuthModalOpen(true)}
+              className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 transition-all transform hover:scale-105 active:scale-95 flex items-center gap-3 text-lg"
+            >
+              <span>Sign In to Zyphe</span>
+              <i className="fa-solid fa-arrow-right"></i>
+            </button>
+          </div>
+        ) : (viewMode === 'guides' || !currentUser ? (
           <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500">
 
             <GuidesTab onNavigate={transitionToView} />
           </div>
-        ) : exploreTab}
+        ) : exploreTab)}
 
 
       </main>
