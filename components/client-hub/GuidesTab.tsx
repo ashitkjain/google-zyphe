@@ -157,7 +157,11 @@ const GUIDE_DATA: GuideCategory[] = [
     }
 ];
 
-const GuidesTab: React.FC = () => {
+interface GuidesTabProps {
+    onNavigate?: (view: any, path: string) => void;
+}
+
+const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
     const [activeCategoryId, setActiveCategoryId] = useState(GUIDE_DATA[0].id);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedGuide, setSelectedGuide] = useState<GuideItem | null>(null);
@@ -167,14 +171,23 @@ const GuidesTab: React.FC = () => {
 
     const activeCategory = GUIDE_DATA.find(c => c.id === activeCategoryId) || GUIDE_DATA[0];
 
-    const handleViewGuide = async (guide: GuideItem) => {
+    const handleViewGuide = async (guide: GuideItem, categoryOverride?: GuideCategory) => {
+        const category = categoryOverride || activeCategory;
         setSelectedGuide(guide);
         setLoadingContent(true);
         setError(null);
 
+        // Update URL
+        const newPath = `/${category.topicSlug}/${guide.slug}`;
+        if (onNavigate) {
+            onNavigate('guides', newPath);
+        } else if (window.location.pathname !== newPath) {
+            window.history.pushState({ mode: 'guides' }, '', newPath);
+        }
+
         try {
             // 1. Try to fetch from Firebase
-            const cachedData = await getGuideBySlug(activeCategory.topicSlug, guide.slug);
+            const cachedData = await getGuideBySlug(category.topicSlug, guide.slug);
             if (cachedData) {
                 setGuideContent(cachedData.content);
                 setLoadingContent(false);
@@ -183,13 +196,13 @@ const GuidesTab: React.FC = () => {
 
             // 2. If not found, generate with Gemini
             console.log(`[Guides] Generating new guide for: ${guide.title}`);
-            const generatedContent = await generateGuide(activeCategory.title, guide.title);
+            const generatedContent = await generateGuide(category.title, guide.title);
             setGuideContent(generatedContent);
 
             // 3. Save to Firebase for future use
             await saveGuideContent({
-                id: `${activeCategory.topicSlug}_${guide.slug}`,
-                topicSlug: activeCategory.topicSlug,
+                id: `${category.topicSlug}_${guide.slug}`,
+                topicSlug: category.topicSlug,
                 slug: guide.slug,
                 title: guide.title,
                 content: generatedContent,
@@ -206,6 +219,68 @@ const GuidesTab: React.FC = () => {
         }
     };
 
+    // Sync state with URL on initial load and popstate
+    useEffect(() => {
+        const syncWithUrl = () => {
+            const path = window.location.pathname;
+            const parts = path.split('/').filter(Boolean);
+
+            if (parts.length === 2) {
+                // /topic/guide
+                const topicSlug = parts[0];
+                const guideSlug = parts[1];
+                const category = GUIDE_DATA.find(c => c.topicSlug === topicSlug);
+                if (category) {
+                    setActiveCategoryId(category.id);
+                    const guide = category.items.find(i => i.slug === guideSlug);
+                    if (guide) {
+                        handleViewGuide(guide, category);
+                    }
+                }
+            } else if (parts.length === 1 && parts[0] !== 'guides') {
+                // /topic
+                const category = GUIDE_DATA.find(c => c.topicSlug === parts[0]);
+                if (category) {
+                    setActiveCategoryId(category.id);
+                    setSelectedGuide(null);
+                }
+            } else {
+                // /guides or other
+                setSelectedGuide(null);
+            }
+        };
+
+        syncWithUrl();
+        window.addEventListener('popstate', syncWithUrl);
+        return () => window.removeEventListener('popstate', syncWithUrl);
+    }, []);
+
+    const handleCategoryChange = (catId: string) => {
+        setActiveCategoryId(catId);
+        setSelectedGuide(null);
+        const category = GUIDE_DATA.find(c => c.id === catId);
+        if (category) {
+            const newPath = `/${category.topicSlug}`;
+            if (onNavigate) {
+                onNavigate('guides', newPath);
+            } else if (window.location.pathname !== newPath) {
+                window.history.pushState({ mode: 'guides' }, '', newPath);
+            }
+        }
+    };
+
+    const handleGoBack = () => {
+        setSelectedGuide(null);
+        const category = GUIDE_DATA.find(c => c.id === activeCategoryId);
+        const newPath = category ? `/${category.topicSlug}` : '/guides';
+
+        if (onNavigate) {
+            onNavigate('guides', newPath);
+        } else if (window.location.pathname !== newPath) {
+            window.history.pushState({ mode: 'guides' }, '', newPath);
+        }
+    };
+
     const filteredItems = activeCategory.items.filter(item =>
         item.title.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -217,7 +292,7 @@ const GuidesTab: React.FC = () => {
                 <div className="px-10 py-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10 transition-all">
                     <div className="flex items-center gap-6">
                         <button
-                            onClick={() => setSelectedGuide(null)}
+                            onClick={handleGoBack}
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-50 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all font-black text-[10px] uppercase tracking-widest group"
                         >
                             <i className="fa-solid fa-arrow-left transition-transform group-hover:-translate-x-1"></i>
@@ -233,7 +308,7 @@ const GuidesTab: React.FC = () => {
                                 <div className="flex items-center gap-2 mt-1">
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{activeCategory.title}</span>
                                     <span className="w-1 h-1 rounded-full bg-slate-200"></span>
-                                    <span className="text-[10px] font-bold text-indigo-400 font-mono tracking-tight">/{activeCategory.topicSlug}/{selectedGuide.slug}</span>
+
                                 </div>
                             </div>
                         </div>
@@ -536,14 +611,13 @@ const GuidesTab: React.FC = () => {
                     <h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800">
                         Knowledge Center
                     </h2>
-                    <p className="text-[10px] font-bold text-slate-400 mt-1">Professional Client Guides</p>
                 </div>
 
                 <div className="flex-1 overflow-y-auto py-4 space-y-1">
                     {GUIDE_DATA.map((category) => (
                         <button
                             key={category.id}
-                            onClick={() => setActiveCategoryId(category.id)}
+                            onClick={() => handleCategoryChange(category.id)}
                             className={`w-full flex items-center justify-between px-6 py-4 transition-all group ${activeCategoryId === category.id
                                 ? 'bg-indigo-50 border-r-4 border-indigo-600'
                                 : 'hover:bg-slate-50 border-r-4 border-transparent'
@@ -620,9 +694,7 @@ const GuidesTab: React.FC = () => {
                                     <h3 className="text-sm font-black text-slate-800 leading-snug mb-3 group-hover:text-indigo-600 transition-colors">
                                         {item.title}
                                     </h3>
-                                    <div className="text-[10px] font-bold text-slate-400 font-mono tracking-tight bg-slate-50 px-2 py-1 rounded inline-block">
-                                        /{activeCategory.topicSlug}/{item.slug}
-                                    </div>
+
                                 </div>
                                 <div className="flex items-center justify-between pt-6 mt-6 border-t border-slate-50 opacity-0 group-hover:opacity-100 transition-all">
                                     <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.15em]">
