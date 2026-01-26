@@ -16,6 +16,7 @@ import { isTerminalStatus, getFunnelStageForStatus, getStatusOptions } from '../
 import WhiteboardTab from './client-hub/WhiteboardTab';
 import ClosingDashboard from './client-hub/ClosingDashboard';
 import BestPracticesTab from './client-hub/BestPracticesTab';
+import GuidesTab from './client-hub/GuidesTab';
 import ReactivateTab from './client-hub/ReactivateTab';
 import CreativeStudioWidget from './client-hub/reactivate/components/CreativeStudioWidget';
 import Footer from './Footer';
@@ -32,7 +33,7 @@ const generateClientID = () => {
     return 'C-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 };
 
-type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio';
+type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio' | 'guides';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent }) => {
     // Default to 'explore' if content is provided, otherwise 'leads'
@@ -523,6 +524,17 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                 </div>
                             )}
                         </div>
+                        {/* Guides Tab */}
+                        <button
+                            onClick={() => setActiveTab('guides')}
+                            className={`relative h-full flex items-center gap-3 px-6 text-[11px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${activeTab === 'guides' ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                        >
+                            <i className={`fa-solid fa-book transition-transform group-hover:scale-110 ${activeTab === 'guides' ? 'text-indigo-500' : 'text-slate-500'}`}></i>
+                            Guides
+                            {activeTab === 'guides' && (
+                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500 animate-in slide-in-from-bottom border-t border-indigo-400/50"></div>
+                            )}
+                        </button>
                     </nav>
 
 
@@ -731,6 +743,10 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
                         {activeTab === 'best_practices' && (
                             <BestPracticesTab />
+                        )}
+
+                        {activeTab === 'guides' && (
+                            <GuidesTab />
                         )}
 
                     </div>

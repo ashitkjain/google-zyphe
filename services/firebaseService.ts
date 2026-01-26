@@ -15,4 +15,5 @@ export * from './firebase/parties';
 export * from './firebase/documents';
 export * from './firebase/transactions';
 export * from './firebase/seed';
+export * from './firebase/guides';
 
