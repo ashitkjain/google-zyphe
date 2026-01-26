@@ -822,69 +822,11 @@ export const generateGuide = async (category: string, title: string, userId: str
 };
 
 export const generateGuideImage = async (category: string, title: string, topicSlug: string, guideSlug: string, userId: string = "unknown"): Promise<string | null> => {
-  const prompt = getGuideImagePrompt(category, title);
-  let logId: string | null = null;
-
-  try {
-    logId = await logLLMCall({
-      user_id: userId,
-      prompt_filename: "guideImageGeneration.ts",
-      llm_name: "imagen-3.0-generate-001",
-      raw_payload: prompt,
-      raw_response: null,
-      status: 'pending',
-      request_sent_at: serverTimestamp()
-    });
-
-    const ai = getAi();
-    const response = await ai.models.generateImages({
-      model: "imagen-3.0-generate-001",
-      prompt: prompt,
-      config: {
-        numberOfImages: 1,
-        aspectRatio: "16:9",
-        safetyFilterLevel: "BLOCK_SOME",
-        personGeneration: "DONT_ALLOW"
-      }
-    });
-
-    // Get the first image
-    const imageResult = response.images?.[0];
-    if (!imageResult) {
-      throw new Error("No image generated");
-    }
-
-    // Convert to base64 data URL
-    const base64Data = `data:image/png;base64,${imageResult.image.bytesBase64Encoded}`;
-
-    // Upload to Firebase Storage and get public URL
-    const { uploadImageToStorage, getGuideImagePath } = require('./firebase/storage');
-    const storagePath = getGuideImagePath(topicSlug, guideSlug);
-    const publicUrl = await uploadImageToStorage(base64Data, storagePath);
-
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: `Image uploaded to Storage: ${storagePath}`,
-        status: 'completed',
-        response_received_at: serverTimestamp(),
-        ...extractMetadata(response)
-      }).catch(err => console.error("Failed to update AI log:", err));
-    }
-
-    return publicUrl;
-  } catch (error: any) {
-    console.error("Image generation error:", error);
-
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: error.message,
-        status: 'failed',
-        error: error.stack || error.message,
-        response_received_at: serverTimestamp()
-      }).catch(err => console.error("Failed to update AI error log:", err));
-    }
-
-    // Return null instead of throwing to allow guide generation to continue
-    return null;
-  }
+  // TODO: Implement correct Imagen 3.0 API
+  // The generateImages method used here doesn't exist in the current @google/genai SDK
+  // Until the correct API endpoint is available, returning null to skip image generation
+  console.warn('[Image Generation] Imagen API not yet implemented in SDK, skipping image generation');
+  console.log(`[Image Generation] Would generate image for: ${category} - ${title}`);
+  return null;
 };
+
