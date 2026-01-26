@@ -27,16 +27,17 @@ const GUIDE_DATA: GuideCategory[] = [
         icon: 'fa-landmark-dome',
         count: '20 pages',
         items: [
-            { id: 'h1', title: 'What happens if HOA fines go unpaid in California?', slug: 'what-happens-if-hoa-fines-go-unpaid-california' },
-            { id: 'h2', title: 'Can an HOA place a lien on your home in CA?', slug: 'hoa-lien-process-california' },
-            { id: 'h3', title: 'How long before HOA can foreclose in California?', slug: 'hoa-foreclosure-timeline-california' },
-            { id: 'h4', title: 'Can HOA increase dues without homeowner approval?', slug: 'can-hoa-increase-dues-without-homeowner-approval' },
-            { id: 'h5', title: 'What is an HOA special assessment?', slug: 'what-is-an-hoa-special-assessment' },
-            { id: 'h6', title: 'Can HOA deny exterior changes?', slug: 'can-hoa-deny-exterior-changes' },
-            { id: 'h7', title: 'Can HOA restrict rentals in California?', slug: 'can-hoa-restrict-rentals-in-california' },
-            { id: 'h8', title: 'What happens if you ignore HOA violation notices?', slug: 'what-happens-if-you-ignore-hoa-violation-notices' },
-            { id: 'h9', title: 'Can HOA tow your car from your driveway?', slug: 'can-hoa-tow-your-car-from-your-driveway' },
-            { id: 'h10', title: 'HOA dispute process explained', slug: 'hoa-dispute-process-explained' },
+            { id: 'h1', title: 'What happens if HOA fines go unpaid in California?', slug: 'what-happens-if-hoa-fines-go-unpaid-california', description: 'When HOA fines remain unpaid, the association may pursue several collection methods. In California, this can lead to late fees, personal lawsuits, or even property liens.' },
+            { id: 'h2', title: 'Can an HOA place a lien on your home in CA?', slug: 'hoa-lien-process-california', description: 'California law allows HOAs to record a lien against a property for delinquent assessments. This secured interest must follow strict notification and procedural requirements under the Davis-Stirling Act.' },
+            { id: 'h3', title: 'How long before HOA can foreclose in California?', slug: 'hoa-foreclosure-timeline-california', description: 'The foreclosure process is strictly regulated and cannot begin until thresholds are met. Associations must typically wait until debt reaches $1,800 or remains unpaid for 12 months.' },
+            { id: 'h4', title: 'Can HOA increase dues without homeowner approval?', slug: 'can-hoa-increase-dues-without-homeowner-approval', description: 'HOA boards generally possess the authority to increase regular assessments by up to 20% annually without a member vote. Larger increases or special assessments typically require homeowner approval.' },
+            { id: 'h5', title: 'What is an HOA special assessment?', slug: 'what-is-an-hoa-special-assessment', description: 'A special assessment is a one-time fee levied for major repairs or unexpected community expenses. These charges are often necessary when reserve funds are insufficient for critical infrastructure updates.' },
+            { id: 'h6', title: 'Can HOA deny exterior changes?', slug: 'can-hoa-deny-exterior-changes', description: 'Architectural control allows HOAs to regulate the aesthetic harmony of the community. Proposed modifications must generally comply with the specific guidelines outlined in the community governing documents.' },
+            { id: 'h7', title: 'Can HOA restrict rentals in California?', slug: 'can-hoa-restrict-rentals-in-california', description: 'California law significantly limits the ability of HOAs to prohibit rentals. While some restrictions on short-term stays may exist, associations generally cannot ban long-term leasing of properties.' },
+            { id: 'h8', title: 'What happens if you ignore HOA violation notices?', slug: 'what-happens-if-you-ignore-hoa-violation-notices', description: 'Ignoring architectural or conduct violations can lead to escalating fines and legal actions. Prompt communication and dispute resolution are essential to avoiding costly enforcement proceedings.' },
+            { id: 'h9', title: 'Can HOA tow your car from your driveway?', slug: 'can-hoa-tow-your-car-from-your-driveway', description: 'Towing authority depends on whether the driveway is considered private or community property. California law requires specific signage and notification before an association can authorize vehicle removal.' },
+            { id: 'h10', title: 'HOA dispute process explained', slug: 'hoa-dispute-process-explained', description: 'Internal Dispute Resolution (IDR) and Meet-and-Confer procedures offer non-judicial ways to settle conflicts. These steps are often required before either party can proceed to formal litigation or arbitration.' },
+
             { id: 'h11', title: 'Can HOA fine without notice?', slug: 'can-hoa-fine-without-notice' },
             { id: 'h12', title: 'What rights do homeowners have against HOA?', slug: 'what-rights-do-homeowners-have-against-hoa' },
             { id: 'h13', title: 'How HOA collections work', slug: 'how-hoa-collections-work' },
@@ -56,11 +57,11 @@ const GUIDE_DATA: GuideCategory[] = [
         icon: 'fa-house-shield',
         count: '20 pages',
         items: [
-            { id: 'i1', title: 'Why was my homeowners insurance claim denied?', slug: 'homeowners-insurance-claim-denied' },
-            { id: 'i2', title: 'What happens after filing a homeowners claim?', slug: 'what-happens-after-filing-a-homeowners-claim' },
-            { id: 'i3', title: 'How long does an insurance investigation take?', slug: 'insurance-adjuster-investigation-timeline' },
-            { id: 'i4', title: 'What does an insurance adjuster do?', slug: 'what-does-an-insurance-adjuster-do' },
-            { id: 'i5', title: 'Replacement cost vs actual cash value', slug: 'replacement-cost-vs-actual-cash-value' },
+            { id: 'i1', title: 'Why was my homeowners insurance claim denied?', slug: 'homeowners-insurance-claim-denied', description: 'Claim denials often occur due to coverage exclusions, filing delays, or insufficient documentation. Understanding the specific reasons for denial is the first step in the appeals process.' },
+            { id: 'i2', title: 'What happens after filing a homeowners claim?', slug: 'what-happens-after-filing-a-homeowners-claim', description: 'Once a claim is submitted, the insurer initiates an investigation to assess the damage. This process involves adjuster inspections, evidence gathering, and coverage determination.' },
+            { id: 'i3', title: 'How long does an insurance investigation take?', slug: 'insurance-adjuster-investigation-timeline', description: 'California law sets specific timeframes for insurers to acknowledge, investigate, and decide on claims. Most standard investigations are completed within 40 to 60 days of submission.' },
+            { id: 'i4', title: 'What does an insurance adjuster do?', slug: 'what-does-an-insurance-adjuster-do', description: 'Adjusters are responsible for evaluating the cause and extent of property damage. They act as the primary liaison between the homeowner and the insurance company during the claim lifecycle.' },
+            { id: 'i5', title: 'Replacement cost vs actual cash value', slug: 'replacement-cost-vs-actual-cash-value', description: 'Replacement cost covers the full price of new items, while actual cash value factors in depreciation. Choosing the right coverage type significantly impacts your final settlement amount.' },
             { id: 'i6', title: 'Does filing a claim raise premiums?', slug: 'does-filing-a-claim-raise-premiums' },
             { id: 'i7', title: 'What damages are excluded from homeowners insurance?', slug: 'what-damages-are-excluded-from-homeowners-insurance' },
             { id: 'i8', title: 'Can insurance cancel coverage after a claim?', slug: 'can-insurance-cancel-coverage-after-a-claim' },
@@ -85,11 +86,11 @@ const GUIDE_DATA: GuideCategory[] = [
         icon: 'fa-file-invoice-dollar',
         count: '20 pages',
         items: [
-            { id: 'e1', title: 'How long does escrow take in California?', slug: 'how-long-does-escrow-take-california' },
-            { id: 'e2', title: 'What happens after escrow opens?', slug: 'what-happens-after-escrow-opens' },
-            { id: 'e3', title: 'What delays escrow closing?', slug: 'what-delays-escrow-closing' },
-            { id: 'e4', title: 'What does “clear to close” mean?', slug: 'what-does-clear-to-close-mean' },
-            { id: 'e5', title: 'What is a preliminary title report?', slug: 'what-is-a-preliminary-title-report' },
+            { id: 'e1', title: 'How long does escrow take in California?', slug: 'how-long-does-escrow-take-california', description: 'The typical escrow period in California ranges from 30 to 45 days. Timelines can vary based on loan processing, inspection findings, and the complexity of the title search.' },
+            { id: 'e2', title: 'What happens after escrow opens?', slug: 'what-happens-after-escrow-opens', description: 'After opening, the escrow officer collects deposits, orders title reports, and coordinates between all parties. This stage initiates the formal due diligence and closing sequence.' },
+            { id: 'e3', title: 'What delays escrow closing?', slug: 'what-delays-escrow-closing', description: 'Common delays include financing issues, unexpected title clouds, or unresolved repair requests. Proactive communication and timely document submission are key to staying on schedule.' },
+            { id: 'e4', title: 'What does “clear to close” mean?', slug: 'what-does-clear-to-close-mean', description: 'Receiving a "clear to close" status means the lender has finalized all underwriting requirements. This is the final milestone before signing closing documents and transferring funds.' },
+            { id: 'e5', title: 'What is a preliminary title report?', slug: 'what-is-a-preliminary-title-report', description: 'This report details the property ownership history and any existing liens or encumbrances. It is a vital document for identifying potential legal hurdles before the sale is finalized.' },
             { id: 'e6', title: 'Common title defects explained', slug: 'common-title-defects-explained' },
             { id: 'e7', title: 'Can escrow close without repairs?', slug: 'can-escrow-close-without-repairs' },
             { id: 'e8', title: 'What happens if escrow doesn’t close on time?', slug: 'what-happens-if-escrow-doesnt-close-on-time' },
@@ -752,41 +753,40 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
 
                 </div>
 
-                {/* Grid */}
-                <div className="flex-1 overflow-y-auto p-10 bg-slate-50/50">
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {filteredItems.map((item, idx) => (
-                            <button
-                                key={item.id}
-                                onClick={() => handleViewGuide(item)}
-                                className="group bg-white rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all text-left flex flex-col h-full overflow-hidden"
-                            >
+                {/* List View Container */}
+                <div className="flex-1 overflow-y-auto p-10 bg-white">
+                    <div className="max-w-6xl mx-auto">
+                        <div className="mb-12 border-b border-slate-100 pb-8">
+                            <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Table of Contents</h2>
+                            <p className="text-slate-500 font-medium uppercase tracking-widest text-[10px]">Select a guide to view detailed professional educational content</p>
+                        </div>
 
-
-                                {/* Content */}
-                                <div className="flex-1 p-6 flex flex-col justify-end">
-                                    <h3 className="text-sm font-black text-slate-800 leading-snug group-hover:text-indigo-600 transition-colors">
-                                        {item.title}
-                                    </h3>
-                                </div>
-                            </button>
-                        ))}
-
-                        {filteredItems.length === 0 && (
-                            <div className="col-span-full py-20 text-center">
-                                <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-6">
-                                    <i className="fa-solid fa-file-circle-question text-3xl text-slate-300"></i>
-                                </div>
-                                <h3 className="text-lg font-black text-slate-900">No guides found</h3>
-                                <p className="text-slate-500 font-medium mt-2">Try adjusting your search query.</p>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-16 gap-y-12">
+                            {filteredItems.map((item, idx) => (
                                 <button
-                                    onClick={() => setSearchQuery('')}
-                                    className="mt-6 text-indigo-600 font-black text-xs uppercase tracking-widest hover:text-indigo-700"
+                                    key={item.id}
+                                    onClick={() => handleViewGuide(item)}
+                                    className="group flex gap-6 text-left hover:bg-slate-50/50 p-4 -m-4 rounded-3xl transition-all duration-300"
                                 >
-                                    Clear search
+                                    {/* Number/Section Tag */}
+                                    <div className="flex-shrink-0">
+                                        <div className="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
+                                            Guide {idx + 1}
+                                        </div>
+                                    </div>
+
+                                    {/* Content Snapshot */}
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="text-base font-black text-slate-900 mb-2 leading-snug group-hover:text-indigo-600 transition-colors duration-300 truncate">
+                                            {item.title}
+                                        </h3>
+                                        <p className="text-sm text-slate-500 font-medium leading-relaxed line-clamp-2 selection:bg-indigo-100">
+                                            {item.description || "Detailed professional educational guide covering the legal and regulatory framework in California. This content provides neutral, factual information to help homeowners navigate common property operations."}
+                                        </p>
+                                    </div>
                                 </button>
-                            </div>
-                        )}
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
