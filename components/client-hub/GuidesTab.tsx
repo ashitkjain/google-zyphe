@@ -267,6 +267,19 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
         return () => window.removeEventListener('popstate', syncWithUrl);
     }, []);
 
+    // Update document title when guide is selected
+    useEffect(() => {
+        if (selectedGuide) {
+            document.title = `${selectedGuide.title} | Zyphe Guides`;
+        } else {
+            document.title = 'Zyphe | Real Estate Intelligence';
+        }
+
+        return () => {
+            document.title = 'Zyphe | Real Estate Intelligence';
+        };
+    }, [selectedGuide]);
+
     const handleCategoryChange = (catId: string) => {
         setActiveCategoryId(catId);
         setSelectedGuide(null);
