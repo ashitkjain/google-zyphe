@@ -247,7 +247,6 @@ FIELD-SPECIFIC INSTRUCTIONS (KEEP JSON SHAPE UNCHANGED):
 - Must be phrased as a question where possible.
 
 2) introduction (string)
-- Start with the educational notice (required).
 - Explain why the topic matters in practical terms (stress-reducing, process clarity).
 - No sales language, no calls to action.
 
