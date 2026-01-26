@@ -6,39 +6,39 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Define the schema types
-interface Statute {
+export interface Statute {
     code: string;
     relevance: string;
 }
 
-interface TimelineEvent {
+export interface TimelineEvent {
     event: string;
     timeframe: string;
     impact: string;
 }
 
-interface Role {
+export interface Role {
     role: string;
     description: string;
 }
 
-interface PathwayStep {
+export interface PathwayStep {
     step: number;
     title: string;
     action: string;
 }
 
-interface Misunderstanding {
+export interface Misunderstanding {
     misunderstanding: string;
     reality: string;
 }
 
-interface FAQ {
+export interface FAQ {
     question: string;
     answer: string;
 }
 
-interface GuideContent {
+export interface GuideContent {
     title: string;
     introduction: string;
     whatThisMeans: { title: string; content: string };
@@ -54,7 +54,7 @@ interface GuideContent {
     keyTakeaways: string[];
 }
 
-interface GuideEntry {
+export interface GuideEntry {
     topicSlug: string;
     slug: string;
     title: string;
@@ -106,7 +106,7 @@ function getAllStringValues(obj: any): string[] {
     return values;
 }
 
-function validateGuide(entry: GuideEntry): string[] {
+export function validateGuide(entry: GuideEntry): string[] {
     const errors: string[] = [];
 
     if (typeof entry.content === 'string') {

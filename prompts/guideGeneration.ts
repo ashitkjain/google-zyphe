@@ -219,7 +219,7 @@ OUTPUT REQUIREMENTS (STRICT):
 - ALL string values in the JSON MUST be plain text WITHOUT any markdown formatting (no asterisks *, underscores _, backticks \`, brackets [], etc.).
 - Do NOT use markdown syntax like **bold**, *italic*, or [links] inside any JSON string values.
 - No emojis anywhere in the content.
-- Length: The total content across all fields should be between 1,300 and 1,700 words. Provide depth and detail in every section.
+- Length: The total content across all fields should be between 1,500 and 2,000 words. Provide significant depth and detail in every section to reach this length.
 
 STYLE & TONE:
 - Use clear subheadings within sections if needed and keep paragraphs short and readable.
@@ -233,8 +233,10 @@ SCOPE & DISCLAIMER LANGUAGE (MUST BE INCLUDED IN CONTENT):
   "This guide provides general educational information and does not provide legal, tax, or financial advice. Rules and timelines may vary by location and change over time."
 - Throughout the guide, clearly indicate variability (e.g., “generally,” “typically,” “often,” “may,” “can include,” “in many cases”).
 
-SAFETY & LEGAL GUARDRAILS (MANDATORY):
-- Do NOT instruct the reader what they should/must do. Avoid imperative directives.
+SAFETY & LEGAL GUARDRAILS (CRITICAL):
+- ABSOLUTELY NO IMPERATIVE DIRECTIVES. Do NOT use words like "should," "must," "need to," "ensure that," or "do this."
+- Avoid telling the reader actions they "ought" to take.
+- Frame all information as descriptive (how things work) rather than prescriptive (what to do).
 - Do NOT provide guarantees, absolute outcomes, or definitive predictions.
 - Avoid definitive deadlines unless presented as commonly observed ranges and explicitly stated as variable.
 - Do NOT claim to be fully up-to-date in 2026 unless the information is framed as “commonly used references” and “may change.”
