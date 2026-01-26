@@ -725,9 +725,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                         }`}>
                                         {category.title}
                                     </div>
-                                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
-                                        {category.count}
-                                    </div>
+
                                 </div>
                             </div>
                             <i className={`fa-solid fa-chevron-right text-[8px] transition-transform ${activeCategoryId === category.id ? 'text-indigo-400 translate-x-1' : 'text-slate-300 opacity-0 group-hover:opacity-100'
