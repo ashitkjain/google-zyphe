@@ -33,7 +33,6 @@ export const getGuideBySlug = async (topicSlug: string, slug: string) => {
         }
         return null;
     } catch (error) {
-        console.error('Error fetching guide content:', error);
         return null;
     }
 };

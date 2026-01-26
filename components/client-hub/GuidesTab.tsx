@@ -14,8 +14,6 @@ interface GuideCategory {
     title: string;
     icon: string;
     count: string;
-    rpmEmoji: string;
-    rpmRange: string;
     items: GuideItem[];
 }
 
@@ -26,8 +24,6 @@ const GUIDE_DATA: GuideCategory[] = [
         title: 'HOA & Community Rules',
         icon: 'fa-landmark-dome',
         count: '20 pages',
-        rpmEmoji: '🏛',
-        rpmRange: '$70–$120',
         items: [
             { id: 'h1', title: 'What happens if HOA fines go unpaid in California?', slug: 'what-happens-if-hoa-fines-go-unpaid-california' },
             { id: 'h2', title: 'Can an HOA place a lien on your home in CA?', slug: 'hoa-lien-process-california' },
@@ -57,8 +53,6 @@ const GUIDE_DATA: GuideCategory[] = [
         title: 'Homeowners Insurance',
         icon: 'fa-house-shield',
         count: '20 pages',
-        rpmEmoji: '🏠',
-        rpmRange: '$60–$100',
         items: [
             { id: 'i1', title: 'Why was my homeowners insurance claim denied?', slug: 'homeowners-insurance-claim-denied' },
             { id: 'i2', title: 'What happens after filing a homeowners claim?', slug: 'what-happens-after-filing-a-homeowners-claim' },
@@ -88,8 +82,6 @@ const GUIDE_DATA: GuideCategory[] = [
         title: 'Escrow, Title & Closing',
         icon: 'fa-file-invoice-dollar',
         count: '20 pages',
-        rpmEmoji: '🧾',
-        rpmRange: '$40–$70',
         items: [
             { id: 'e1', title: 'How long does escrow take in California?', slug: 'how-long-does-escrow-take-california' },
             { id: 'e2', title: 'What happens after escrow opens?', slug: 'what-happens-after-escrow-opens' },
@@ -119,8 +111,6 @@ const GUIDE_DATA: GuideCategory[] = [
         title: 'Property Taxes & Assessments',
         icon: 'fa-receipt',
         count: '15 pages',
-        rpmEmoji: '🏘',
-        rpmRange: '$35–$60',
         items: [
             { id: 't1', title: 'What happens if property taxes go unpaid?', slug: 'what-happens-if-property-taxes-go-unpaid' },
             { id: 't2', title: 'How long before a tax lien is placed?', slug: 'how-long-before-a-tax-lien-is-placed' },
@@ -145,8 +135,6 @@ const GUIDE_DATA: GuideCategory[] = [
         title: 'Maintenance, Liability & Disputes',
         icon: 'fa-screwdriver-wrench',
         count: '15 pages',
-        rpmEmoji: '🔧',
-        rpmRange: '$30–$60',
         items: [
             { id: 'm1', title: 'Who pays for fence repairs between neighbors?', slug: 'who-pays-for-fence-repairs' },
             { id: 'm2', title: 'Who is responsible for sidewalk injuries?', slug: 'homeowner-liability-sidewalk-injuries' },
@@ -341,28 +329,15 @@ const GuidesTab: React.FC = () => {
                         </button>
                     ))}
                 </div>
-
-                <div className="p-6 border-t border-slate-100 bg-indigo-900 text-white">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-500/30 flex items-center justify-center border border-indigo-400/30">
-                            <i className="fa-solid fa-chart-line text-[10px]"></i>
-                        </div>
-                        <div>
-                            <div className="text-[10px] font-black uppercase tracking-widest opacity-60">Avg. Revenue</div>
-                            <div className="text-xs font-black tracking-tight">System High-Yield</div>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             {/* Main Content Area */}
             <div className="flex-1 overflow-hidden flex flex-col transition-all">
                 {/* Header */}
                 <div className="bg-white border-b border-slate-200 px-10 py-8">
-                    <div className="flex items-center justify-between mb-8">
+                    <div className="mb-8">
                         <div>
                             <div className="flex items-center gap-3 mb-2">
-                                <span className="text-2xl">{activeCategory.rpmEmoji}</span>
                                 <h1 className="text-3xl font-black text-slate-900 tracking-tight">
                                     {activeCategory.title}
                                 </h1>
@@ -370,10 +345,6 @@ const GuidesTab: React.FC = () => {
                             <p className="text-slate-500 font-medium max-w-2xl">
                                 Detailed professional guides for {activeCategory.title.toLowerCase()}. Provide these to your clients to establish expert authority.
                             </p>
-                        </div>
-                        <div className="bg-indigo-50 border border-indigo-100 px-6 py-4 rounded-3xl text-right">
-                            <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.15em] mb-1">Estimated RPM Impact</div>
-                            <div className="text-2xl font-black text-indigo-700 tracking-tighter">{activeCategory.rpmRange}</div>
                         </div>
                     </div>
 

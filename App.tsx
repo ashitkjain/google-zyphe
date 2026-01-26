@@ -47,8 +47,9 @@ import AddClientModal from './components/AddClientModal';
 import ClientHub from './components/ClientHub';
 import Footer from './components/Footer';
 import ExploreTab from './components/ExploreTab';
+import GuidesTab from './components/client-hub/GuidesTab';
 
-type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard';
+type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -80,6 +81,33 @@ const App: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const historyRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
+
+  // Simple Routing Logic
+  useEffect(() => {
+    const handleUrlChange = () => {
+      const path = window.location.pathname;
+      if (path === '/guides') {
+        setViewMode('guides');
+      } else if (viewMode === 'guides') {
+        setViewMode('main');
+      }
+    };
+
+    // Set initial view mode based on URL
+    handleUrlChange();
+
+    window.addEventListener('popstate', handleUrlChange);
+    return () => window.removeEventListener('popstate', handleUrlChange);
+  }, []);
+
+  // Wrapper for setViewMode to handle URL updates
+  const transitionToView = (newMode: ViewMode) => {
+    setViewMode(newMode);
+    const path = newMode === 'guides' ? '/guides' : '/';
+    if (window.location.pathname !== path) {
+      window.history.pushState({ mode: newMode }, '', path);
+    }
+  };
 
   const sessionId = useMemo(() => Math.random().toString(36).substring(2, 15), []);
 
@@ -628,7 +656,7 @@ const App: React.FC = () => {
       loading={loading}
       loadingSublabel={loadingSublabel}
       viewMode={viewMode === 'dashboard' ? 'main' : viewMode} // Fallback just in case
-      setViewMode={setViewMode as any}
+      setViewMode={transitionToView as any}
       imagesLoading={imagesLoading}
       isFavorited={isFavorited}
       onToggleFavorite={handleToggleFavorite}
@@ -672,7 +700,7 @@ const App: React.FC = () => {
           realtorId={currentUser.uid}
           realtorName={currentUser.displayName}
           onSignOut={handleSignOut}
-          onBack={() => setViewMode('main')} // This might be redundant now
+          onBack={() => transitionToView('main')} // This might be redundant now
           exploreContent={exploreTab}
         />
 
@@ -705,53 +733,70 @@ const App: React.FC = () => {
       <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} inviteData={inviteData} />
 
       {/* Top Bar (Simplified for Guests) */}
-      <div className="py-4 px-4 bg-slate-900 text-white border-b border-white/5 relative z-[60]">
-        <div className="max-w-7xl mx-auto flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em]">
-          <div className="flex items-center gap-3">
-            {currentUser ? (
-              <>
-                <span className="opacity-40">Intelligence Access:</span>
-                <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] border border-indigo-500/30">PRO</span>
-                <span className="hidden sm:inline opacity-20">|</span>
-                <span className="hidden sm:inline opacity-40">{currentUser.role} Account</span>
-              </>
-            ) : (
-              <span className="text-slate-500">Guest Access</span>
-            )}
-          </div>
+      {viewMode !== 'guides' && (
+        <div className="py-4 px-4 bg-slate-900 text-white border-b border-white/5 relative z-[60]">
+          <div className="max-w-7xl mx-auto flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em]">
+            <div className="flex items-center gap-3">
+              {currentUser ? (
+                <>
+                  <span className="opacity-40">Intelligence Access:</span>
+                  <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] border border-indigo-500/30">PRO</span>
+                  <span className="hidden sm:inline opacity-20">|</span>
+                  <span className="hidden sm:inline opacity-40">{currentUser.role} Account</span>
+                </>
+              ) : (
+                <span className="text-slate-500">Guest Access</span>
+              )}
+            </div>
 
-          <div className="flex items-center gap-6">
-            <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
-            {currentUser ? (
-              <div className="flex items-center gap-4">
-                <span className="text-indigo-400 tracking-[0.3em] font-black uppercase text-[10px]">{currentUser.displayName}</span>
-                <button onClick={handleSignOut} className="text-white hover:text-rose-400 transition-colors">SIGN OUT</button>
-                <button onClick={() => handleDeleteAccount()} className="text-slate-500 hover:text-rose-500 transition-colors"><i className="fa-solid fa-trash-can"></i></button>
-              </div>
-            ) : (
-              <button onClick={() => setAuthModalOpen(true)} className="text-white hover:text-indigo-400 transition-colors">Sign In</button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 py-3 shadow-sm backdrop-blur-md bg-white/90">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-4">
-            <Logo size={80} className="scale-75 md:scale-90 origin-left" onClick={() => setViewMode('main')} />
-            {!currentUser && (
-              <button onClick={() => setAuthModalOpen(true)} className="flex items-center gap-2 bg-white border border-slate-200 px-6 py-3 rounded-2xl text-xs font-black uppercase text-slate-700 hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap">
-                <i className="fa-solid fa-user-circle text-lg text-indigo-600"></i>
-                <span>Sign In</span>
+            <div className="flex items-center gap-6">
+              <button
+                onClick={() => transitionToView('guides')}
+                className="text-white/60 hover:text-white transition-colors flex items-center gap-2"
+              >
+                <i className="fa-solid fa-book-open text-[10px]"></i>
+                CLIENT GUIDES
               </button>
-            )}
+              <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
+              {currentUser ? (
+                <div className="flex items-center gap-4">
+                  <span className="text-indigo-400 tracking-[0.3em] font-black uppercase text-[10px]">{currentUser.displayName}</span>
+                  <button onClick={handleSignOut} className="text-white hover:text-rose-400 transition-colors">SIGN OUT</button>
+                  <button onClick={() => handleDeleteAccount()} className="text-slate-500 hover:text-rose-500 transition-colors"><i className="fa-solid fa-trash-can"></i></button>
+                </div>
+              ) : (
+                <button onClick={() => setAuthModalOpen(true)} className="text-white hover:text-indigo-400 transition-colors">Sign In</button>
+              )}
+            </div>
           </div>
         </div>
-      </header>
+      )}
 
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-10">
+      {viewMode !== 'guides' && (
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-50 py-3 shadow-sm backdrop-blur-md bg-white/90">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between gap-4">
+              <Logo size={80} className="scale-75 md:scale-90 origin-left" onClick={() => transitionToView('main')} />
+              {!currentUser && (
+                <button onClick={() => setAuthModalOpen(true)} className="flex items-center gap-2 bg-white border border-slate-200 px-6 py-3 rounded-2xl text-xs font-black uppercase text-slate-700 hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap">
+                  <i className="fa-solid fa-user-circle text-lg text-indigo-600"></i>
+                  <span>Sign In</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </header>
+      )}
+
+      <main className={`flex-1 w-full ${viewMode === 'guides' ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10'}`}>
         {error && <div className="bg-rose-50 border border-rose-100 text-rose-700 p-4 rounded-2xl mb-8">{error}</div>}
-        {exploreTab}
+
+        {viewMode === 'guides' ? (
+          <div className="bg-white shadow-2xl overflow-hidden h-screen animate-in fade-in duration-500">
+            <GuidesTab />
+          </div>
+        ) : exploreTab}
+
         {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
           <SystemLogs logs={logs} />
         )}
