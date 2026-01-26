@@ -756,10 +756,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                 {/* List View Container */}
                 <div className="flex-1 overflow-y-auto p-10 bg-white">
                     <div className="max-w-6xl mx-auto">
-                        <div className="mb-12 border-b border-slate-100 pb-8">
-                            <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Table of Contents</h2>
-                            <p className="text-slate-500 font-medium uppercase tracking-widest text-[10px]">Select a guide to view detailed professional educational content</p>
-                        </div>
+
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-16 gap-y-12">
                             {filteredItems.map((item, idx) => (
