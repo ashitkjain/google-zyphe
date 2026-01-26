@@ -129,10 +129,10 @@ function validateGuide(entry: GuideEntry): string[] {
 
     if (errors.length > 0) return errors;
 
-    // 2. Word Count (1300 - 3000)
+    // 2. Word Count (1500 - 3000)
     const wordCount = getTotalWordCount(c);
-    if (wordCount < 1300 || wordCount > 3000) {
-        errors.push(`V-101: Word count is ${wordCount}. Must be between 1300 and 3000.`);
+    if (wordCount < 1500 || wordCount > 3000) {
+        errors.push(`V-101: Word count is ${wordCount}. Must be between 1500 and 3000.`);
     }
 
     const allStrings = getAllStringValues(c);
