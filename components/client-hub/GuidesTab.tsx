@@ -587,11 +587,12 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                                         guideContent.commonMisunderstandings
                                                             .filter(item => item.misunderstanding && item.reality)
                                                             .map((item, i) => (
-                                                                <div key={i}>
-                                                                    <div className="text-amber-900 font-black text-[10px] uppercase tracking-widest mb-1">Misunderstanding</div>
-                                                                    <p className="text-amber-700 text-[11px] font-bold italic mb-2">"{item.misunderstanding}"</p>
-                                                                    <div className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-1">Reality</div>
-                                                                    <p className="text-slate-600 text-xs font-normal leading-relaxed">{item.reality}</p>
+                                                                <div key={i} className="border-b border-amber-100 last:border-0 pb-4 last:pb-0">
+                                                                    <p className="text-amber-800 text-[12px] font-bold italic mb-1.5 leading-snug">"{item.misunderstanding}"</p>
+                                                                    <p className="text-slate-600 text-[11px] font-normal leading-relaxed">
+                                                                        <span className="text-slate-400 font-black text-[9px] uppercase tracking-widest mr-2 inline-block">Reality:</span>
+                                                                        {item.reality}
+                                                                    </p>
                                                                 </div>
                                                             ))
                                                     ) : (
