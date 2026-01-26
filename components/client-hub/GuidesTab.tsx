@@ -794,11 +794,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                             e.currentTarget.style.display = 'none';
                                         }}
                                     />
-                                    <div className="absolute top-3 right-3">
-                                        <span className="text-[10px] font-black text-white/80 bg-black/20 backdrop-blur-sm px-2 py-1 rounded-lg uppercase tracking-widest">
-                                            #{idx + 1}
-                                        </span>
-                                    </div>
+
                                 </div>
 
                                 {/* Content */}
