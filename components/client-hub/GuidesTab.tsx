@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getGuideBySlug, saveGuideContent } from '../../services/firebaseService';
-import { generateGuide } from '../../services/geminiService';
+import { generateGuide, generateGuideImage } from '../../services/geminiService';
 import { GuideResult } from '../../prompts/guideGeneration';
 
 interface GuideItem {
@@ -194,18 +194,28 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                 return;
             }
 
-            // 2. If not found, generate with Gemini
+            // 2. If not found, generate content and image in parallel
             console.log(`[Guides] Generating new guide for: ${guide.title}`);
-            const generatedContent = await generateGuide(category.title, guide.title);
-            setGuideContent(generatedContent);
 
-            // 3. Save to Firebase for future use
+            const [generatedContent, heroImage] = await Promise.all([
+                generateGuide(category.title, guide.title),
+                generateGuideImage(category.title, guide.title).catch(err => {
+                    console.warn('Hero image generation failed, continuing without image:', err);
+                    return null;
+                })
+            ]);
+
+            // Add the hero image to the content if generated
+            const contentWithImage = heroImage ? { ...generatedContent, heroImage } : generatedContent;
+            setGuideContent(contentWithImage);
+
+            // 3. Save to Firebase for future use (with hero image if available)
             await saveGuideContent({
                 id: `${category.topicSlug}_${guide.slug}`,
                 topicSlug: category.topicSlug,
                 slug: guide.slug,
                 title: guide.title,
-                content: generatedContent,
+                content: contentWithImage,
                 lastUpdated: new Date()
             });
 
@@ -356,6 +366,18 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                     </div>
                                 ) : guideContent && (
                                     <div className="space-y-16">
+                                        {/* Hero Image */}
+                                        {guideContent.heroImage && (
+                                            <div className="relative -mx-10 -mt-12 mb-8">
+                                                <img
+                                                    src={guideContent.heroImage}
+                                                    alt={guideContent.title}
+                                                    className="w-full h-auto rounded-3xl shadow-2xl"
+                                                />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent rounded-3xl"></div>
+                                            </div>
+                                        )}
+
                                         <section>
                                             <h1 className="text-4xl font-black text-slate-900 mb-8 border-b-[6px] border-indigo-600 pb-6 leading-tight tracking-tight">
                                                 {guideContent.title}
