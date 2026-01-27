@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+```
+import React, { useState, useEffect, useMemo } from 'react';
 import { Lead, Transaction } from '../../types';
 import { createTransaction, getTransactions, getTransactionByClientId, updateTransaction, getTransactionTasks, updateTask } from '../../services/firebaseService';
 import GanttChart from './GanttChart';
 import { ChecklistCategory } from '../../types/transaction';
-import { getInitialCategories } from '../../services/transactionService';
+import { getInitialCategories, calculateChecklistSchedule } from '../../services/transactionService';
 
 
 interface Props {
@@ -199,23 +200,67 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
                 <h3 className="text-xl font-black text-slate-900 mb-2">No Transaction Record</h3>
                 <p className="text-slate-500 text-center max-w-sm mb-8">
                     {isClosingStage
-                        ? `Start a new transaction record for ${lead.firstName} to track documents, dates, and signers.`
-                        : `Transactions can only be managed for leads in the "Closing" stage. Move ${lead.firstName} to the Contract stage to begin.`
+                        ? `Start a new transaction record for ${ lead.firstName } to track documents, dates, and signers.`
+                        : `Transactions can only be managed for leads in the "Closing" stage.Move ${ lead.firstName } to the Contract stage to begin.`
                     }
                 </p>
                 <button
                     onClick={handleCreateTransaction}
                     disabled={isCreating || !isClosingStage}
-                    className={`px-8 py-4 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg transition-all ${isClosingStage
-                        ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'
-                        : 'bg-slate-300 cursor-not-allowed shadow-none'
-                        }`}
+                    className={`px - 8 py - 4 text - white rounded - 2xl text - xs font - black uppercase tracking - widest shadow - lg transition - all ${
+    isClosingStage
+        ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'
+        : 'bg-slate-300 cursor-not-allowed shadow-none'
+} `}
                 >
                     {isCreating ? 'Creating...' : 'Initialize Transaction'}
                 </button>
             </div>
         );
     }
+
+    const keyDates = useMemo(() => {
+        if (!transaction) return {};
+
+        // Base date: Acceptance Date or Created At
+        const baseDate = transaction.important_dates?.acceptance_date?.toDate
+            ? transaction.important_dates.acceptance_date.toDate()
+            : (transaction.important_dates?.acceptance_date ? new Date(transaction.important_dates.acceptance_date) : new Date(transaction.created_at));
+
+        // Use the categories state which should have current task dates
+        const scheduled = calculateChecklistSchedule(categories, baseDate);
+        const allTasks = scheduled.flatMap(c => c.tasks);
+
+        let contingencyDate = null;
+        let appraisalDate = null;
+        let closingDate = null;
+
+        // Seller Logic
+        if (transaction.type === 'SELL') {
+            const contingencyTask = allTasks.find(t => t.name.includes('Secure Contingency Removal') || t.name.includes('Contingency Removal'));
+            if (contingencyTask?.dueDate) contingencyDate = contingencyTask.dueDate;
+
+            const appraisalTask = allTasks.find(t => t.name.includes('Coordinate Inspections') || t.name.includes('Appraisal'));
+            if (appraisalTask?.dueDate) appraisalDate = appraisalTask.dueDate;
+        } else {
+            // Buyer Logic (Placeholder / Fallback)
+             const contingencyTask = allTasks.find(t => t.name.includes('Contingency'));
+            if (contingencyTask?.dueDate) contingencyDate = contingencyTask.dueDate;
+        }
+
+        // Closing Date: Max due date of all tasks
+        if (allTasks.length > 0) {
+            const maxDate = allTasks.reduce((max, t) => t.dueDate && t.dueDate > max ? t.dueDate : max, allTasks[0].dueDate || baseDate);
+            closingDate = maxDate;
+        }
+
+        return {
+            acceptance: baseDate,
+            contingency: contingencyDate || (transaction.important_dates?.contingency_removal_date?.toDate ? transaction.important_dates.contingency_removal_date.toDate() : (transaction.important_dates?.contingency_removal_date ? new Date(transaction.important_dates.contingency_removal_date) : null)),
+            appraisal: appraisalDate || (transaction.important_dates?.appraisal_date?.toDate ? transaction.important_dates.appraisal_date.toDate() : (transaction.important_dates?.appraisal_date ? new Date(transaction.important_dates.appraisal_date) : null)),
+            closing: closingDate || (transaction.close_of_escrow_date?.toDate ? transaction.close_of_escrow_date.toDate() : (transaction.close_of_escrow_date ? new Date(transaction.close_of_escrow_date) : null))
+        };
+    }, [transaction, categories]);
 
     return (
         <div className="space-y-6">
@@ -237,7 +282,7 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
                             <div>
                                 <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Price</label>
                                 <div className="text-xs font-bold text-slate-800">
-                                    {transaction.purchase_price ? `$${transaction.purchase_price.toLocaleString()}` : '--'}
+                                    {transaction.purchase_price ? `$${ transaction.purchase_price.toLocaleString() } ` : '--'}
                                 </div>
                             </div>
                             <div>
@@ -263,13 +308,13 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
                             <div>
                                 <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Acceptance</label>
                                 <div className="text-xs font-bold text-slate-800">
-                                    {transaction.important_dates?.acceptance_date?.toDate ? new Date(transaction.important_dates.acceptance_date.toDate()).toLocaleDateString() : (transaction.important_dates?.acceptance_date ? new Date(transaction.important_dates.acceptance_date).toLocaleDateString() : '--')}
+                                    {keyDates.acceptance ? keyDates.acceptance.toLocaleDateString() : '--'}
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Closing</label>
                                 <div className="text-xs font-bold text-indigo-600">
-                                    {transaction.close_of_escrow_date?.toDate ? new Date(transaction.close_of_escrow_date.toDate()).toLocaleDateString() : (transaction.close_of_escrow_date ? new Date(transaction.close_of_escrow_date).toLocaleDateString() : '--')}
+                                    {keyDates.closing ? keyDates.closing.toLocaleDateString() : '--'}
                                 </div>
                             </div>
                         </div>
@@ -277,13 +322,13 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
                             <div>
                                 <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Contingency removal</label>
                                 <div className="text-xs font-bold text-slate-800">
-                                    {transaction.important_dates?.contingency_removal_date?.toDate ? new Date(transaction.important_dates.contingency_removal_date.toDate()).toLocaleDateString() : (transaction.important_dates?.contingency_removal_date ? new Date(transaction.important_dates.contingency_removal_date).toLocaleDateString() : '--')}
+                                    {keyDates.contingency ? keyDates.contingency.toLocaleDateString() : '--'}
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Appraisal</label>
                                 <div className="text-xs font-bold text-slate-800">
-                                    {transaction.important_dates?.appraisal_date?.toDate ? new Date(transaction.important_dates.appraisal_date.toDate()).toLocaleDateString() : (transaction.important_dates?.appraisal_date ? new Date(transaction.important_dates.appraisal_date).toLocaleDateString() : '--')}
+                                    {keyDates.appraisal ? keyDates.appraisal.toLocaleDateString() : '--'}
                                 </div>
                             </div>
                         </div>
