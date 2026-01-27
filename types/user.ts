@@ -26,4 +26,21 @@ export interface UserProfile {
     };
     stickyNotes?: any[]; // Simplified for UserProfile to avoid circular imports if any
     realtorNotes?: any[];
+    // Extended Profile Fields
+    photoURL?: string;
+    bio?: string;
+    licenseNumber?: string;
+    brokerage?: string;
+    yearsExperience?: number;
+    specialties?: string[];
+    languages?: string[];
+    awards?: string[];
+    website?: string;
+    socialLinks?: {
+        linkedin?: string;
+        facebook?: string;
+        instagram?: string;
+        twitter?: string;
+    };
+    serviceAreas?: string[];
 }
