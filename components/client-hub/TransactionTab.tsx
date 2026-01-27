@@ -36,7 +36,7 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
 
         // Seller Logic
         if (transaction.type === 'SELL') {
-            const contingencyTask = allTasks.find(t => t.name.includes('Secure Contingency Removal') || t.name.includes('Contingency Removal'));
+            const contingencyTask = allTasks.find(t => t.name === 'Secure Contingency Removals');
             if (contingencyTask?.dueDate) contingencyDate = contingencyTask.dueDate;
 
             const appraisalTask = allTasks.find(t => t.name.includes('Coordinate Inspections') || t.name.includes('Appraisal'));
