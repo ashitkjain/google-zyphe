@@ -18,6 +18,9 @@ export interface RealtorNode {
         twitter?: string;
     };
     serviceAreas?: string[];
+    totalSales?: string;
+    avgPrice?: string;
+    totalClients?: string;
 }
 
 export interface UserProfile {

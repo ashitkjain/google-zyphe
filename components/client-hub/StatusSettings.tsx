@@ -22,7 +22,13 @@ const PROPERTY_CATEGORIES = [
 
 const StatusSettings: React.FC<StatusSettingsProps> = () => {
     const [activeCategory, setActiveCategory] = useState<string>('Leads');
-    const [expandedFields, setExpandedFields] = useState<Set<string>>(new Set());
+    const [expandedFields, setExpandedFields] = useState<Set<string>>(() => {
+        const allConfigs = [...DEFAULT_PROPERTIES, ...LEAD_STAGE_LIFECYCLE_CONFIG];
+        const expandableIds = allConfigs
+            .filter(p => p.type === 'object' || p.type === 'list')
+            .map(p => p.id);
+        return new Set(expandableIds);
+    });
 
     // Unified list of all properties from configuration
     const allProperties = React.useMemo(() => {

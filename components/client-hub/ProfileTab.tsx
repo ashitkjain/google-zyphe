@@ -16,12 +16,11 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
         email: profile?.email || ''
     });
 
-    // Mock Stats
     const stats = [
-        { label: 'Total Sales', value: '142', icon: 'fa-house-circle-check' },
-        { label: 'Experience', value: `${profile?.realtor?.yearsExperience || 12} Years`, icon: 'fa-certificate' },
-        { label: 'Avg Price', value: '$1.2M', icon: 'fa-sack-dollar' },
-        { label: 'Clients', value: '350+', icon: 'fa-users' },
+        { label: 'Total Sales', value: profile?.realtor?.totalSales || '142', icon: 'fa-house-circle-check', key: 'totalSales' },
+        { label: 'Experience', value: `${profile?.realtor?.yearsExperience || 10} Years`, icon: 'fa-certificate', key: 'yearsExperience' },
+        { label: 'Avg Price', value: profile?.realtor?.avgPrice || '$1.2M', icon: 'fa-sack-dollar', key: 'avgPrice' },
+        { label: 'Clients', value: profile?.realtor?.totalClients || '350+', icon: 'fa-users', key: 'totalClients' },
     ];
 
     if (!profile) return <div className="p-10 text-center text-slate-400">Loading Profile...</div>;
@@ -76,8 +75,8 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                 }}
                                 className="px-4 py-2 bg-white/10 backdrop-blur-sm text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-white/20 transition-all flex items-center gap-2 border border-white/20"
                             >
-                                <i className="fa-solid fa-pen text-[10px]"></i>
-                                Edit Profile
+                                <i className="fa-solid fa-pen-to-square text-[10px]"></i>
+                                Create / Edit Profile
                             </button>
                         )}
                     </div>
@@ -113,6 +112,48 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                         className="w-full text-base font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
                                         placeholder="Brokerage / Company"
                                     />
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Total Sales</label>
+                                            <input
+                                                type="text"
+                                                value={realtorForm.totalSales || ''}
+                                                onChange={e => setRealtorForm({ ...realtorForm, totalSales: e.target.value })}
+                                                className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                placeholder="142"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Experience (Yrs)</label>
+                                            <input
+                                                type="number"
+                                                value={realtorForm.yearsExperience || ''}
+                                                onChange={e => setRealtorForm({ ...realtorForm, yearsExperience: parseInt(e.target.value) || 0 })}
+                                                className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                placeholder="10"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Avg Price</label>
+                                            <input
+                                                type="text"
+                                                value={realtorForm.avgPrice || ''}
+                                                onChange={e => setRealtorForm({ ...realtorForm, avgPrice: e.target.value })}
+                                                className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                placeholder="$1.2M"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Clients</label>
+                                            <input
+                                                type="text"
+                                                value={realtorForm.totalClients || ''}
+                                                onChange={e => setRealtorForm({ ...realtorForm, totalClients: e.target.value })}
+                                                className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                placeholder="350+"
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="relative overflow-visible">
@@ -187,8 +228,14 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                                 <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-4">
                                                     <i className="fa-solid fa-pen-nib text-2xl"></i>
                                                 </div>
-                                                <h3 className="text-slate-900 font-bold mb-1">No Bio Added Yet</h3>
-                                                <p className="text-slate-400 text-sm max-w-xs mx-auto">Click "Edit Profile" to verify your professional bio and help clients get to know you.</p>
+                                                <h3 className="text-slate-900 font-bold mb-1">No Professional Bio</h3>
+                                                <p className="text-slate-400 text-sm max-w-xs mx-auto mb-6">Create your professional bio to help clients get to know your expertise and philosophy.</p>
+                                                <button
+                                                    onClick={() => setIsEditing(true)}
+                                                    className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition-all"
+                                                >
+                                                    Set Up Profile
+                                                </button>
                                             </div>
                                         )}
                                     </div>
@@ -241,6 +288,28 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
 
                     {/* Right Column / Sidebar */}
                     <div className="space-y-8">
+
+                        {/* Quick Actions */}
+                        {!isEditing && (
+                            <div className="bg-white p-6 rounded-[2rem] shadow-xl shadow-indigo-900/5 border border-indigo-100">
+                                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Account Settings</h3>
+                                <button
+                                    onClick={() => {
+                                        setRealtorForm(profile.realtor || {});
+                                        setBasicForm({
+                                            displayName: profile.displayName || '',
+                                            phoneNumber: profile.phoneNumber || '',
+                                            email: profile.email || ''
+                                        });
+                                        setIsEditing(true);
+                                    }}
+                                    className="w-full py-3 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20"
+                                >
+                                    <i className="fa-solid fa-user-gear text-[10px]"></i>
+                                    Create / Edit Profile
+                                </button>
+                            </div>
+                        )}
 
                         {/* Contact Card */}
                         <div className="bg-white p-6 rounded-[2rem] shadow-xl shadow-indigo-900/5 border border-slate-100">
