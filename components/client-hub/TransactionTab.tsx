@@ -18,6 +18,49 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
     const [isCreating, setIsCreating] = useState(false);
     const [categories, setCategories] = useState<ChecklistCategory[]>(getInitialCategories(lead.leadType === 'Seller' ? 'Seller' : 'Buyer'));
 
+    const keyDates = useMemo(() => {
+        if (!transaction) return {};
+
+        // Base date: Acceptance Date or Created At
+        const baseDate = transaction.important_dates?.acceptance_date?.toDate
+            ? transaction.important_dates.acceptance_date.toDate()
+            : (transaction.important_dates?.acceptance_date ? new Date(transaction.important_dates.acceptance_date) : new Date(transaction.created_at));
+
+        // Use the categories state which should have current task dates
+        const scheduled = calculateChecklistSchedule(categories, baseDate);
+        const allTasks = scheduled.flatMap(c => c.tasks);
+
+        let contingencyDate = null;
+        let appraisalDate = null;
+        let closingDate = null;
+
+        // Seller Logic
+        if (transaction.type === 'SELL') {
+            const contingencyTask = allTasks.find(t => t.name.includes('Secure Contingency Removal') || t.name.includes('Contingency Removal'));
+            if (contingencyTask?.dueDate) contingencyDate = contingencyTask.dueDate;
+
+            const appraisalTask = allTasks.find(t => t.name.includes('Coordinate Inspections') || t.name.includes('Appraisal'));
+            if (appraisalTask?.dueDate) appraisalDate = appraisalTask.dueDate;
+        } else {
+            // Buyer Logic (Placeholder / Fallback)
+            const contingencyTask = allTasks.find(t => t.name.includes('Contingency'));
+            if (contingencyTask?.dueDate) contingencyDate = contingencyTask.dueDate;
+        }
+
+        // Closing Date: Max due date of all tasks
+        if (allTasks.length > 0) {
+            const maxDate = allTasks.reduce((max, t) => t.dueDate && t.dueDate > max ? t.dueDate : max, allTasks[0].dueDate || baseDate);
+            closingDate = maxDate;
+        }
+
+        return {
+            acceptance: baseDate,
+            contingency: contingencyDate || (transaction.important_dates?.contingency_removal_date?.toDate ? transaction.important_dates.contingency_removal_date.toDate() : (transaction.important_dates?.contingency_removal_date ? new Date(transaction.important_dates.contingency_removal_date) : null)),
+            appraisal: appraisalDate || (transaction.important_dates?.appraisal_date?.toDate ? transaction.important_dates.appraisal_date.toDate() : (transaction.important_dates?.appraisal_date ? new Date(transaction.important_dates.appraisal_date) : null)),
+            closing: closingDate || (transaction.close_of_escrow_date?.toDate ? transaction.close_of_escrow_date.toDate() : (transaction.close_of_escrow_date ? new Date(transaction.close_of_escrow_date) : null))
+        };
+    }, [transaction, categories]);
+
     const fetchTransaction = async () => {
         if (!realtorId || !lead?.id) return;
         setLoading(true);
@@ -218,48 +261,7 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
         );
     }
 
-    const keyDates = useMemo(() => {
-        if (!transaction) return {};
 
-        // Base date: Acceptance Date or Created At
-        const baseDate = transaction.important_dates?.acceptance_date?.toDate
-            ? transaction.important_dates.acceptance_date.toDate()
-            : (transaction.important_dates?.acceptance_date ? new Date(transaction.important_dates.acceptance_date) : new Date(transaction.created_at));
-
-        // Use the categories state which should have current task dates
-        const scheduled = calculateChecklistSchedule(categories, baseDate);
-        const allTasks = scheduled.flatMap(c => c.tasks);
-
-        let contingencyDate = null;
-        let appraisalDate = null;
-        let closingDate = null;
-
-        // Seller Logic
-        if (transaction.type === 'SELL') {
-            const contingencyTask = allTasks.find(t => t.name.includes('Secure Contingency Removal') || t.name.includes('Contingency Removal'));
-            if (contingencyTask?.dueDate) contingencyDate = contingencyTask.dueDate;
-
-            const appraisalTask = allTasks.find(t => t.name.includes('Coordinate Inspections') || t.name.includes('Appraisal'));
-            if (appraisalTask?.dueDate) appraisalDate = appraisalTask.dueDate;
-        } else {
-            // Buyer Logic (Placeholder / Fallback)
-            const contingencyTask = allTasks.find(t => t.name.includes('Contingency'));
-            if (contingencyTask?.dueDate) contingencyDate = contingencyTask.dueDate;
-        }
-
-        // Closing Date: Max due date of all tasks
-        if (allTasks.length > 0) {
-            const maxDate = allTasks.reduce((max, t) => t.dueDate && t.dueDate > max ? t.dueDate : max, allTasks[0].dueDate || baseDate);
-            closingDate = maxDate;
-        }
-
-        return {
-            acceptance: baseDate,
-            contingency: contingencyDate || (transaction.important_dates?.contingency_removal_date?.toDate ? transaction.important_dates.contingency_removal_date.toDate() : (transaction.important_dates?.contingency_removal_date ? new Date(transaction.important_dates.contingency_removal_date) : null)),
-            appraisal: appraisalDate || (transaction.important_dates?.appraisal_date?.toDate ? transaction.important_dates.appraisal_date.toDate() : (transaction.important_dates?.appraisal_date ? new Date(transaction.important_dates.appraisal_date) : null)),
-            closing: closingDate || (transaction.close_of_escrow_date?.toDate ? transaction.close_of_escrow_date.toDate() : (transaction.close_of_escrow_date ? new Date(transaction.close_of_escrow_date) : null))
-        };
-    }, [transaction, categories]);
 
     return (
         <div className="space-y-6">
