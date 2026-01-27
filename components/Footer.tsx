@@ -12,7 +12,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Logo size={50} className="opacity-30 grayscale hover:grayscale-0 transition-all" />
-                        <span className="text-[7px] font-black uppercase tracking-widest text-slate-400">© 2026 Zyphe Guides. Informational content only. No legal or financial advice.</span>
+                        <span className="text-[9px] font-medium text-slate-400">© 2026 Zyphe informational content only, no legal or financial advice.</span>
                     </div>
 
                     <div className="flex items-center gap-6">
