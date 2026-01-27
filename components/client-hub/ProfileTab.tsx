@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserProfile } from '../../types';
+import { UserProfile, RealtorNode } from '../../types';
 
 interface ProfileTabProps {
     profile: UserProfile | null;
@@ -8,12 +8,18 @@ interface ProfileTabProps {
 
 const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => {
     const [isEditing, setIsEditing] = useState(false);
-    const [editForm, setEditForm] = useState<Partial<UserProfile>>(profile || {});
+    const [realtorForm, setRealtorForm] = useState<Partial<RealtorNode>>(profile?.realtor || {});
+    // Top-level fields that are also editable here
+    const [basicForm, setBasicForm] = useState({
+        displayName: profile?.displayName || '',
+        phoneNumber: profile?.phoneNumber || '',
+        email: profile?.email || ''
+    });
 
     // Mock Stats
     const stats = [
         { label: 'Total Sales', value: '142', icon: 'fa-house-circle-check' },
-        { label: 'Experience', value: `${profile?.yearsExperience || 12} Years`, icon: 'fa-certificate' },
+        { label: 'Experience', value: `${profile?.realtor?.yearsExperience || 12} Years`, icon: 'fa-certificate' },
         { label: 'Avg Price', value: '$1.2M', icon: 'fa-sack-dollar' },
         { label: 'Clients', value: '350+', icon: 'fa-users' },
     ];
@@ -21,7 +27,13 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
     if (!profile) return <div className="p-10 text-center text-slate-400">Loading Profile...</div>;
 
     const handleSave = () => {
-        onUpdateProfile(editForm);
+        onUpdateProfile({
+            ...basicForm,
+            realtor: {
+                ...profile.realtor,
+                ...realtorForm
+            }
+        });
         setIsEditing(false);
     };
 
@@ -30,12 +42,12 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
             {/* Hero Header */}
             <div className="relative bg-white pb-8">
                 {/* Cover Image */}
-                <div className="h-48 bg-gradient-to-br from-indigo-900 via-indigo-800 to-indigo-900 relative overflow-hidden">
+                <div className="h-48 bg-gradient-to-br from-indigo-900 via-indigo-800 to-indigo-900 relative z-0">
                     <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80')] opacity-10 bg-cover bg-center"></div>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
 
                     {/* Edit Button */}
-                    <div className="absolute top-6 right-8">
+                    <div className="absolute top-6 right-8 text-white z-10">
                         {isEditing ? (
                             <div className="flex gap-2">
                                 <button
@@ -46,7 +58,7 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                 </button>
                                 <button
                                     onClick={handleSave}
-                                    className="px-6 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 transition-all"
+                                    className="px-6 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 transition-all border border-emerald-400"
                                 >
                                     Save Changes
                                 </button>
@@ -54,10 +66,15 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                         ) : (
                             <button
                                 onClick={() => {
-                                    setEditForm(profile);
+                                    setRealtorForm(profile.realtor || {});
+                                    setBasicForm({
+                                        displayName: profile.displayName || '',
+                                        phoneNumber: profile.phoneNumber || '',
+                                        email: profile.email || ''
+                                    });
                                     setIsEditing(true);
                                 }}
-                                className="px-4 py-2 bg-white/10 backdrop-blur-sm text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-white/20 transition-all flex items-center gap-2"
+                                className="px-4 py-2 bg-white/10 backdrop-blur-sm text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-white/20 transition-all flex items-center gap-2 border border-white/20"
                             >
                                 <i className="fa-solid fa-pen text-[10px]"></i>
                                 Edit Profile
@@ -66,50 +83,48 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                     </div>
                 </div>
 
-                <div className="max-w-6xl mx-auto px-8 relative">
-                    <div className="flex flex-col md:flex-row items-end -mt-16 gap-8 mb-6">
+                <div className="max-w-6xl mx-auto px-8 relative z-50">
+                    <div className="flex flex-col md:flex-row items-end -mt-12 gap-8 mb-6 overflow-visible">
                         {/* Avatar */}
-                        <div className="w-40 h-40 rounded-[2rem] border-4 border-white shadow-xl bg-white overflow-hidden relative group">
-                            {profile.photoURL ? (
-                                <img src={profile.photoURL} alt={profile.displayName} className="w-full h-full object-cover" />
+                        <div className="w-40 h-40 rounded-[2rem] border-4 border-white shadow-xl bg-white overflow-hidden relative group shrink-0">
+                            {profile.realtor?.photoURL ? (
+                                <img src={profile.realtor.photoURL} alt={profile.displayName} className="w-full h-full object-cover" />
                             ) : (
                                 <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-300">
                                     <i className="fa-solid fa-user text-5xl"></i>
                                 </div>
                             )}
-                            {/* Upload overlay would go here */}
                         </div>
 
-                        {/* Basic Info */}
-                        <div className="flex-1 pb-2">
+                        <div className="flex-1 pb-2 relative z-50 overflow-visible">
                             {isEditing ? (
-                                <div className="space-y-3 max-w-md">
+                                <div className="space-y-3 max-w-md overflow-visible">
                                     <input
                                         type="text"
-                                        value={editForm.displayName || ''}
-                                        onChange={e => setEditForm({ ...editForm, displayName: e.target.value })}
-                                        className="w-full text-3xl font-black text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2"
+                                        value={basicForm.displayName}
+                                        onChange={e => setBasicForm({ ...basicForm, displayName: e.target.value })}
+                                        className="w-full text-3xl font-black text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
                                         placeholder="Full Name"
                                     />
                                     <input
                                         type="text"
-                                        value={editForm.brokerage || ''} // Assuming we add this field or reuse address
-                                        onChange={e => setEditForm({ ...editForm, brokerage: e.target.value })}
-                                        className="w-full text-base font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2"
+                                        value={realtorForm.brokerage || ''}
+                                        onChange={e => setRealtorForm({ ...realtorForm, brokerage: e.target.value })}
+                                        className="w-full text-base font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
                                         placeholder="Brokerage / Company"
                                     />
                                 </div>
                             ) : (
-                                <div>
-                                    <h1 className="text-4xl font-black text-slate-800 tracking-tight mb-1">
+                                <div className="relative overflow-visible">
+                                    <h1 className="text-4xl font-black text-slate-800 tracking-tight mb-1 leading-tight py-2 overflow-visible">
                                         {profile.displayName}
                                     </h1>
                                     <div className="flex items-center gap-2 text-indigo-600 font-bold text-sm uppercase tracking-wide opacity-80 mb-4">
                                         <i className="fa-solid fa-building"></i>
-                                        {profile.brokerage || 'Real Estate Professional'}
+                                        {profile.realtor?.brokerage || 'Real Estate Professional'}
                                     </div>
                                     <div className="flex flex-wrap gap-3">
-                                        {profile.serviceAreas?.map(area => (
+                                        {profile.realtor?.serviceAreas?.map(area => (
                                             <span key={area} className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold">
                                                 <i className="fa-solid fa-location-dot text-[10px] mr-1.5 opacity-50"></i>
                                                 {area}
@@ -158,15 +173,15 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
 
                                 {isEditing ? (
                                     <textarea
-                                        value={editForm.bio || ''}
-                                        onChange={e => setEditForm({ ...editForm, bio: e.target.value })}
-                                        className="w-full h-64 p-4 border border-slate-200 rounded-xl bg-slate-50 text-slate-600 leading-relaxed focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-medium resize-none"
+                                        value={realtorForm.bio || ''}
+                                        onChange={e => setRealtorForm({ ...realtorForm, bio: e.target.value })}
+                                        className="w-full h-64 p-4 border border-slate-200 rounded-xl bg-slate-50 text-slate-600 leading-relaxed focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-medium resize-none outline-none"
                                         placeholder="Tell potential clients about your experience, philosophy, and what makes you unique..."
                                     />
                                 ) : (
                                     <div className="prose prose-slate max-w-none prose-p:font-medium prose-p:text-slate-600 prose-headings:font-bold prose-headings:text-slate-800">
-                                        {profile.bio ? (
-                                            profile.bio.split('\n').map((p, i) => <p key={i}>{p}</p>)
+                                        {profile.realtor?.bio ? (
+                                            profile.realtor.bio.split('\n').map((p, i) => <p key={i}>{p}</p>)
                                         ) : (
                                             <div className="flex flex-col items-center justify-center py-12 text-center">
                                                 <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-4">
@@ -241,9 +256,9 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                         {isEditing ? (
                                             <input
                                                 type="tel"
-                                                value={editForm.phoneNumber || ''}
-                                                onChange={e => setEditForm({ ...editForm, phoneNumber: e.target.value })}
-                                                className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-sm font-bold text-slate-800"
+                                                value={basicForm.phoneNumber}
+                                                onChange={e => setBasicForm({ ...basicForm, phoneNumber: e.target.value })}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500"
                                             />
                                         ) : (
                                             <div className="text-sm font-black text-slate-800 truncate">{profile.phoneNumber || '--'}</div>
@@ -260,9 +275,9 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                         {isEditing ? (
                                             <input
                                                 type="email"
-                                                value={editForm.email || ''}
-                                                onChange={e => setEditForm({ ...editForm, email: e.target.value })}
-                                                className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-sm font-bold text-slate-800"
+                                                value={basicForm.email}
+                                                onChange={e => setBasicForm({ ...basicForm, email: e.target.value })}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500"
                                             />
                                         ) : (
                                             <div className="text-sm font-black text-slate-800 truncate">{profile.email || '--'}</div>
@@ -279,14 +294,14 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                         {isEditing ? (
                                             <input
                                                 type="url"
-                                                value={editForm.website || ''}
-                                                onChange={e => setEditForm({ ...editForm, website: e.target.value })}
-                                                className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-sm font-bold text-slate-800"
+                                                value={realtorForm.website || ''}
+                                                onChange={e => setRealtorForm({ ...realtorForm, website: e.target.value })}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500"
                                                 placeholder="https://"
                                             />
                                         ) : (
-                                            <a href={profile.website} target="_blank" rel="noopener noreferrer" className="text-sm font-black text-indigo-600 hover:underline truncate block">
-                                                {profile.website ? new URL(profile.website).hostname : '--'}
+                                            <a href={profile.realtor?.website} target="_blank" rel="noopener noreferrer" className="text-sm font-black text-indigo-600 hover:underline truncate block">
+                                                {profile.realtor?.website ? new URL(profile.realtor.website).hostname : '--'}
                                             </a>
                                         )}
                                     </div>
@@ -309,14 +324,14 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                             <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Specialties</h3>
                             {isEditing ? (
                                 <textarea
-                                    className="w-full h-24 p-2 text-xs border border-slate-200 rounded-lg bg-slate-50"
+                                    className="w-full h-24 p-2 text-xs border border-slate-200 rounded-lg bg-slate-50 outline-none focus:border-indigo-500"
                                     placeholder="Enter comma separated specialties (e.g. Luxury, First Time Buyers)"
-                                    value={editForm.specialties?.join(', ') || ''}
-                                    onChange={e => setEditForm({ ...editForm, specialties: e.target.value.split(',').map(s => s.trim()) })}
+                                    value={realtorForm.specialties?.join(', ') || ''}
+                                    onChange={e => setRealtorForm({ ...realtorForm, specialties: e.target.value.split(',').map(s => s.trim()) })}
                                 />
                             ) : (
                                 <div className="flex flex-wrap gap-2">
-                                    {profile.specialties?.map(s => (
+                                    {profile.realtor?.specialties?.map(s => (
                                         <span key={s} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[11px] font-bold border border-emerald-100">
                                             {s}
                                         </span>
@@ -330,14 +345,14 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                             <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Languages Spoken</h3>
                             {isEditing ? (
                                 <textarea
-                                    className="w-full h-20 p-2 text-xs border border-slate-200 rounded-lg bg-slate-50"
+                                    className="w-full h-20 p-2 text-xs border border-slate-200 rounded-lg bg-slate-50 outline-none focus:border-indigo-500"
                                     placeholder="Enter comma separated languages"
-                                    value={editForm.languages?.join(', ') || ''}
-                                    onChange={e => setEditForm({ ...editForm, languages: e.target.value.split(',').map(s => s.trim()) })}
+                                    value={realtorForm.languages?.join(', ') || ''}
+                                    onChange={e => setRealtorForm({ ...realtorForm, languages: e.target.value.split(',').map(s => s.trim()) })}
                                 />
                             ) : (
                                 <div className="flex flex-wrap gap-2">
-                                    {profile.languages?.map(l => (
+                                    {profile.realtor?.languages?.map(l => (
                                         <span key={l} className="px-3 py-1 bg-slate-50 text-slate-600 rounded-lg text-xs font-bold">
                                             {l}
                                         </span>

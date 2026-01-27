@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getLeads, getTasks, getTemplates, seedMockData, saveUserProfile, getUserProfile, updateLead, getReminderRules, updateReminderRule, deleteAllMockData, getRealtorClients } from '../services/firebaseService';
+import ProfileTab from './client-hub/ProfileTab';
+import AddClientModal from './AddClientModal';
+import { getLeads, getTasks, getTemplates, seedMockData, saveUserProfile, getUserProfile, updateLead, getReminderRules, updateReminderRule, deleteAllMockData, getRealtorClients, deleteLead, deleteUserAccount } from '../services/firebaseService';
 import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates, getInitialMockTransactions } from '../services/mockDataService';
 import { getDefaultReminderRules } from '../services/reminderRulesService';
-import { UserProfile, Lead, CRMTask, CommTemplate, FunnelStage, ReminderRule, LeadNote } from '../types';
+import { UserProfile, Lead, CRMTask, CommTemplate, FunnelStage, ReminderRule, LeadNote, RealtorNode } from '../types';
 import { DropResult } from '@hello-pangea/dnd';
 import Logo from './Logo';
 import LeadsList from './LeadsList';
@@ -35,7 +37,7 @@ const generateClientID = () => {
     return 'C-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 };
 
-type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio' | 'guides';
+type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio' | 'guides' | 'profile';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab, onNavigate }) => {
     // Default to 'explore' if content is provided, otherwise 'leads'
@@ -50,6 +52,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     const [settingsSubTab, setSettingsSubTab] = useState<'statuses' | 'properties'>('statuses');
     const [isToolsOpen, setIsToolsOpen] = useState(false);
     const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
+    const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
     const toolsRef = useRef<HTMLDivElement>(null);
 
     const [clients, setClients] = useState<UserProfile[]>([]);
@@ -151,13 +154,35 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         initializeHubData();
     }, [realtorId]);
 
+
     useEffect(() => {
         const fetchRealtorProfile = async () => {
             const profile = await getUserProfile(realtorId);
+            if (profile && !profile.realtor && profile.role === 'realtor') {
+                // Migration: Populate dynamic realtor node if missing
+                const defaultRealtor: RealtorNode = {
+                    bio: "Real estate professional dedicated to providing exceptional service and market expertise. Helping clients find their dream homes with data-driven insights.",
+                    brokerage: "Zyphe Real Estate",
+                    yearsExperience: 10,
+                    specialties: ["Residential", "Luxury Properties", "Strategic Negotiation"],
+                    languages: ["English"],
+                    serviceAreas: ["Major Metropolitan Area"],
+                    socialLinks: {
+                        linkedin: "",
+                        facebook: "",
+                        instagram: "",
+                        twitter: ""
+                    }
+                };
+                profile.realtor = defaultRealtor;
+                // Optional: Save this default state back to DB
+                await saveUserProfile(realtorId, { realtor: defaultRealtor });
+            }
             setRealtorProfile(profile);
         };
         fetchRealtorProfile();
     }, [realtorId]);
+
 
     const handleRefreshTasks = async () => {
         const _tasks = await getTasks(realtorId);
@@ -584,8 +609,21 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                 <div className="p-1.5 space-y-0.5">
                                     <button
                                         onClick={() => {
-                                            setActiveTab('settings'); // Or specific modal
-                                            // Handle Add Client logic here
+                                            setActiveTab('profile');
+                                            setIsSettingsDropdownOpen(false);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 rounded-xl transition-colors group"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                                            <i className="fa-solid fa-id-badge text-xs"></i>
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-700 group-hover:text-slate-900">My Profile</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            setIsAddClientModalOpen(true);
+                                            setIsSettingsDropdownOpen(false);
                                         }}
                                         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 rounded-xl transition-colors group"
                                     >
@@ -597,8 +635,9 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
                                     <button
                                         onClick={() => {
-                                            // Handle Remove Client logic
                                             setActiveTab('clients');
+                                            setIsSettingsDropdownOpen(false);
+                                            // Optional: Show a hint or auto-select a lead to delete
                                         }}
                                         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 rounded-xl transition-colors group"
                                     >
@@ -611,17 +650,22 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                     <div className="h-px bg-slate-100 my-1 mx-2"></div>
 
                                     <button
-                                        onClick={() => {
-                                            // Handle Delete Account
-                                            if (window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
-                                                // Call delete logic or sign out
-                                                onSignOut();
+                                        onClick={async () => {
+                                            if (window.confirm("CRITICAL: Are you sure you want to delete your account? This will permanently remove your profile and all associated data. This cannot be undone.")) {
+                                                try {
+                                                    const success = await deleteUserAccount(realtorId);
+                                                    if (success) {
+                                                        onSignOut();
+                                                    }
+                                                } catch (err: any) {
+                                                    alert(err.message || "Failed to delete account");
+                                                }
                                             }
                                         }}
                                         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-rose-50 rounded-xl transition-colors group"
                                     >
                                         <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center group-hover:bg-rose-100 transition-colors">
-                                            <i className="fa-solid fa-trash text-xs"></i>
+                                            <i className="fa-solid fa-triangle-exclamation text-xs"></i>
                                         </div>
                                         <span className="text-xs font-bold text-rose-600 group-hover:text-rose-700">Delete Account</span>
                                     </button>
@@ -809,6 +853,24 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                             />
                         )}
 
+                        {activeTab === 'profile' && (
+                            <ProfileTab
+                                profile={realtorProfile}
+                                onUpdateProfile={async (updates) => {
+                                    if (!realtorId) return;
+                                    // Optimistic update
+                                    setRealtorProfile(prev => prev ? { ...prev, ...updates } : null);
+                                    // Save to DB
+                                    try {
+                                        await saveUserProfile(realtorId, updates);
+                                    } catch (err) {
+                                        console.error("Failed to save profile", err);
+                                        // Revert or show toast on real error
+                                    }
+                                }}
+                            />
+                        )}
+
                         {activeTab === 'whiteboard' && (
                             <WhiteboardTab userId={realtorId} />
                         )}
@@ -909,6 +971,13 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                     <Footer />
                 </div>
             </div>
+
+            <AddClientModal
+                isOpen={isAddClientModalOpen}
+                onClose={() => setIsAddClientModalOpen(false)}
+                realtorName={realtorName}
+                realtorId={realtorId}
+            />
         </div>
     );
 };

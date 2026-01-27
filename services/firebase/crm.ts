@@ -172,6 +172,19 @@ export const updateLead = async (leadId: string, updates: Partial<Lead>, collect
     }
 };
 
+export const deleteLead = async (leadId: string, collectionName: string = 'leads') => {
+    if (!db) return false;
+    try {
+        const docRef = doc(db, collectionName, leadId);
+        logFirestoreQuery('deleteDoc', collectionName, { leadId });
+        await deleteDoc(docRef);
+        return true;
+    } catch (error) {
+        handleFirestoreError(error, `deleteLead (${collectionName})`);
+        return false;
+    }
+};
+
 export const getLeads = async (realtorId: string, collectionNames: string[] = ['leads']) => {
     if (!db) return [];
     try {
