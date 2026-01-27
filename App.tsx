@@ -85,6 +85,7 @@ const App: React.FC = () => {
   const settingsRef = useRef<HTMLDivElement>(null);
 
   // Simple Routing Logic
+  // Simple Routing Logic
   useEffect(() => {
     const handleUrlChange = () => {
       const path = window.location.pathname;
@@ -92,30 +93,22 @@ const App: React.FC = () => {
       const isRealtorPath = parts[0] === 'realtor';
       const subPath = isRealtorPath ? parts.slice(1) : parts;
 
-      // Escrow specific handling: if it's just /escrow, redirect to /realtor/escrow
+      // Escrow specific handling: if it's just /escrow, redirect to /realtor/escrow to maintain structure
+      // But will be blocked if not signed in, per new rule.
       if (path === '/escrow' || (parts.length === 1 && parts[0] === 'escrow')) {
         window.history.replaceState({ mode: 'guides' }, '', '/realtor/escrow');
-        setViewMode('guides');
-        return;
+        // Fall through to authentication check
       }
 
-      // If unauthenticated, allow /guides and root to stay without redirecting
+      // If unauthenticated, protect all /realtor routes
       if (!currentUser) {
-        if (path === '/legal-disclaimer' || path === '/terms') {
-          setViewMode(path === '/legal-disclaimer' ? 'legal-disclaimer' : 'terms');
-          return;
-        }
-
-        if (path === '/realtor' && subPath.length === 0) {
+        if (isRealtorPath) {
           setViewMode('realtor-landing');
           return;
         }
 
-        // If it's a guide-like path under /realtor or /realtor/guides
-        const isGuidePath = (isRealtorPath && (subPath[0] === 'guides' || subPath.length === 2 || ['hoa', 'insurance', 'escrow', 'property-taxes', 'repairs-liability'].includes(subPath[0])));
-
-        if (isGuidePath) {
-          setViewMode('guides');
+        if (path === '/legal-disclaimer' || path === '/terms') {
+          setViewMode(path === '/legal-disclaimer' ? 'legal-disclaimer' : 'terms');
           return;
         }
 
