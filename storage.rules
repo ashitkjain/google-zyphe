@@ -17,6 +17,11 @@ service firebase.storage {
       allow read, write: if isAuthenticated() && (request.auth.uid == realtorId || request.auth.uid == 'admin');
     }
 
+    // User Profile Images
+    match /users/{userId}/profile/{fileName} {
+      allow read, write: if isAuthenticated() && (request.auth.uid == userId);
+    }
+
     // Default deny
     match /{allPaths=**} {
       allow read, write: if false;

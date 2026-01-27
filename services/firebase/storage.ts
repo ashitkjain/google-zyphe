@@ -1,4 +1,4 @@
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { ref, uploadString, getDownloadURL, uploadBytes } from 'firebase/storage';
 import { storage } from './config';
 
 /**
@@ -38,4 +38,47 @@ export const uploadImageToStorage = async (base64Data: string, path: string): Pr
  */
 export const getGuideImagePath = (topicSlug: string, guideSlug: string): string => {
     return `guide-images/${topicSlug}/${guideSlug}.png`;
+};
+
+/**
+ * Uploads a user's profile picture to Firebase Storage and returns the public URL.
+ * 
+ * @param userId - The user's ID (used for path structure).
+ * @param file - The JS File object selected by the user.
+ */
+export const uploadProfileImage = async (userId: string, file: File): Promise<string> => {
+    const storage = (await import('./config')).storage;
+    if (!storage) {
+        throw new Error('Firebase Storage is not initialized');
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+        throw new Error('Only image files are allowed');
+    }
+
+    // Validate file size (e.g., 5MB limit)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+        throw new Error('File size exceeds 5MB limit');
+    }
+
+    try {
+        const fileExt = file.name.split('.').pop() || 'jpg';
+        const fileName = `avatar_${Date.now()}.${fileExt}`;
+        const storagePath = `users/${userId}/profile/${fileName}`;
+        const storageRef = ref(storage, storagePath);
+
+        // Upload the file directly
+        const snapshot = await uploadBytes(storageRef, file);
+
+        // Get the download URL
+        const downloadURL = await getDownloadURL(snapshot.ref);
+
+        console.log(`[Storage] Profile image uploaded successfully: ${storagePath}`);
+        return downloadURL;
+    } catch (error: any) {
+        console.error(`[Storage] Failed to upload profile image:`, error);
+        throw new Error(error.message || "Failed to upload image");
+    }
 };

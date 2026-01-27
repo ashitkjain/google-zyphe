@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile, RealtorNode } from '../../types';
+import { uploadProfileImage } from '../../services/firebaseService';
 
 interface ProfileTabProps {
     profile: UserProfile | null;
@@ -47,21 +48,20 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
         }
     };
 
-    const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file) return;
+        if (!file || !profile?.uid) return;
 
         setUploading(true);
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setRealtorForm(prev => ({ ...prev, photoURL: reader.result as string }));
+        try {
+            const downloadURL = await uploadProfileImage(profile.uid, file);
+            setRealtorForm(prev => ({ ...prev, photoURL: downloadURL }));
+        } catch (err: any) {
+            console.error("Upload failed", err);
+            alert(`Failed to upload photo: ${err.message}`);
+        } finally {
             setUploading(false);
-        };
-        reader.onerror = () => {
-            console.error("FileReader error");
-            setUploading(false);
-        };
-        reader.readAsDataURL(file);
+        }
     };
 
     return (
