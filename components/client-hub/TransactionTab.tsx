@@ -273,10 +273,18 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
                                 </div>
                             </div>
                         </div>
-                        <div>
-                            <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Contingency removal</label>
-                            <div className="text-xs font-bold text-slate-800">
-                                {transaction.important_dates?.contingency_removal_date?.toDate ? new Date(transaction.important_dates.contingency_removal_date.toDate()).toLocaleDateString() : (transaction.important_dates?.contingency_removal_date ? new Date(transaction.important_dates.contingency_removal_date).toLocaleDateString() : '--')}
+                        <div className="grid grid-cols-2 gap-2">
+                            <div>
+                                <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Contingency removal</label>
+                                <div className="text-xs font-bold text-slate-800">
+                                    {transaction.important_dates?.contingency_removal_date?.toDate ? new Date(transaction.important_dates.contingency_removal_date.toDate()).toLocaleDateString() : (transaction.important_dates?.contingency_removal_date ? new Date(transaction.important_dates.contingency_removal_date).toLocaleDateString() : '--')}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Appraisal</label>
+                                <div className="text-xs font-bold text-slate-800">
+                                    {transaction.important_dates?.appraisal_date?.toDate ? new Date(transaction.important_dates.appraisal_date.toDate()).toLocaleDateString() : (transaction.important_dates?.appraisal_date ? new Date(transaction.important_dates.appraisal_date).toLocaleDateString() : '--')}
+                                </div>
                             </div>
                         </div>
                     </div>
