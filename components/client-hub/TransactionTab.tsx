@@ -305,7 +305,7 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Key Dates</span>
                     </div>
                     <div className="space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-x-2 gap-y-4">
                             <div>
                                 <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Acceptance</label>
                                 <div className="text-xs font-bold text-slate-800">
@@ -313,23 +313,21 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Closing</label>
-                                <div className="text-xs font-bold text-indigo-600">
-                                    {keyDates.closing ? keyDates.closing.toLocaleDateString() : '--'}
+                                <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Appraisal</label>
+                                <div className="text-xs font-bold text-slate-800">
+                                    {keyDates.appraisal ? keyDates.appraisal.toLocaleDateString() : '--'}
                                 </div>
                             </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
                             <div>
-                                <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Contingency removal</label>
+                                <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Contingency Removal</label>
                                 <div className="text-xs font-bold text-slate-800">
                                     {keyDates.contingency ? keyDates.contingency.toLocaleDateString() : '--'}
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Appraisal</label>
-                                <div className="text-xs font-bold text-slate-800">
-                                    {keyDates.appraisal ? keyDates.appraisal.toLocaleDateString() : '--'}
+                                <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Closing</label>
+                                <div className="text-xs font-bold text-indigo-600">
+                                    {keyDates.closing ? keyDates.closing.toLocaleDateString() : '--'}
                                 </div>
                             </div>
                         </div>
