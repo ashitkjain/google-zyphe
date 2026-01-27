@@ -44,9 +44,12 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
             const appraisalTask = allTasks.find(t => t.name.includes('Coordinate Inspections') || t.name.includes('Appraisal'));
             if (appraisalTask?.dueDate) appraisalDate = getDate(appraisalTask.dueDate);
         } else {
-            // Buyer Logic (Placeholder / Fallback)
+            // Buyer Logic
             const contingencyTask = allTasks.find(t => t.name.includes('Contingency'));
             if (contingencyTask?.dueDate) contingencyDate = getDate(contingencyTask.dueDate);
+
+            const appraisalTask = allTasks.find(t => t.name.includes('Review appraisal report and approvals'));
+            if (appraisalTask?.dueDate) appraisalDate = getDate(appraisalTask.dueDate);
         }
 
         // Closing Date: Max due date of all tasks
