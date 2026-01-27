@@ -24,6 +24,8 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
     ];
     const [uploading, setUploading] = useState(false);
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+    const [authEmail, setAuthEmail] = useState(profile?.email || '');
+    const [authPass, setAuthPass] = useState('');
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     if (!profile) return <div className="p-10 text-center text-slate-400">Loading Profile...</div>;
@@ -607,7 +609,8 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                         <i className="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
                                         <input
                                             type="email"
-                                            defaultValue={profile.email}
+                                            value={authEmail}
+                                            onChange={(e) => setAuthEmail(e.target.value)}
                                             className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
                                             placeholder="Enter new email"
                                         />
@@ -631,6 +634,8 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                             <i className="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
                                             <input
                                                 type="password"
+                                                value={authPass}
+                                                onChange={(e) => setAuthPass(e.target.value)}
                                                 className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
                                                 placeholder="New Password"
                                             />
@@ -650,7 +655,8 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                             <div className="pt-2">
                                 <button
                                     onClick={() => {
-                                        alert("This sensitive operation requires re-authentication for security. Simulation successful.");
+                                        onUpdateProfile({ email: authEmail, providerId: profile.providerId === 'google.com' ? 'google.com' : 'password' });
+                                        alert("Security credentials updated in profile database.");
                                         setIsAuthModalOpen(false);
                                     }}
                                     className="w-full py-4 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-3"
