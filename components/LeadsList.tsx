@@ -20,9 +20,7 @@ const LeadsList: React.FC<InternalProps> = ({
     handleUpdateNote,
     handleDeleteNote,
     handleDragEnd,
-    realtorSettings,
     onUpdateAvatar,
-    onUpdateSettings,
     onTabChange
 }) => {
     // State
@@ -166,7 +164,6 @@ const LeadsList: React.FC<InternalProps> = ({
                     handleUpdateNote={handleUpdateNote}
                     handleDeleteNote={handleDeleteNote}
                     onUpdateAvatar={onUpdateAvatar}
-                    realtorSettings={realtorSettings}
                     realtorId={realtorId}
                     boardSettings={boardSettings}
                 />
@@ -221,7 +218,6 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 onUpdateLeadStatus={onUpdateLead}
                                                 visibleColumns={new Set()}
                                                 onUpdateLead={onUpdateLead}
-                                                realtorSettings={realtorSettings}
                                                 onArchive={() => onUpdateLead(lead.id, { funnelStage: 'Archived' })}
                                                 onActivate={onActivateLead}
                                             />
@@ -282,7 +278,6 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 onUpdateLeadStatus={onUpdateLead}
                                                 visibleColumns={new Set()}
                                                 onUpdateLead={onUpdateLead}
-                                                realtorSettings={realtorSettings}
                                                 onArchive={() => onUpdateLead(lead.id, { funnelStage: 'Archived' })}
                                                 onActivate={onActivateLead}
                                             />

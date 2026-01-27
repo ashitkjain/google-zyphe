@@ -637,7 +637,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                 handleUpdateNote={handleUpdateLeadNote}
                                 handleDeleteNote={handleDeleteLeadNote}
                                 handleDragEnd={handleDragEnd}
-                                realtorSettings={realtorProfile?.settings}
                                 onUpdateAvatar={async (leadId, file) => {
                                     // Mock upload simulation as requested
                                     console.log('Simulating upload for file:', file.name);
@@ -651,26 +650,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                         await handleUpdateLead(leadId, { avatarUrl: newAvatarUrl });
                                     }
                                 }}
-                                onUpdateSettings={async (settings) => {
-                                    const success = await saveUserProfile(realtorId, {
-                                        settings: {
-                                            ...realtorProfile?.settings,
-                                            ...settings
-                                        }
-                                    });
-                                    if (success) {
-                                        setRealtorProfile(prev => prev ? {
-                                            ...prev,
-                                            settings: {
-                                                ...prev.settings,
-                                                ...settings
-                                            }
-                                        } : null);
-                                    }
-                                }}
                                 onTabChange={(tab: any) => {
                                     if (tab === 'settings:properties') {
-                                        setSettingsSubTab('properties');
                                         setActiveTab('settings');
                                     } else if (tab !== 'Buyer' && tab !== 'Buyer2' && tab !== 'Seller') {
                                         setActiveTab(tab);

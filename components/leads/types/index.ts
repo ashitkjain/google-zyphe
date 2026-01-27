@@ -14,9 +14,7 @@ export interface InternalProps {
     handleUpdateNote: (noteId: string, updates: Partial<LeadNote>) => void;
     handleDeleteNote: (noteId: string) => void;
     handleDragEnd: (result: DropResult) => void;
-    realtorSettings?: UserProfile['settings'];
     onUpdateAvatar: (leadId: string, file: File) => void;
-    onUpdateSettings: (settings: Partial<UserProfile['settings']>) => void;
     onTabChange?: (tab: any) => void;
 }
 

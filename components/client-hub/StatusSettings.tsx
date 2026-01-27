@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PropertyOption } from '../../types';
-import { LEAD_FIELD_CONFIG as DEFAULT_PROPERTIES, LEAD_STAGE_LIFECYCLE_CONFIG } from '../../types/lead';
+import { LEAD_FIELD_CONFIG as DEFAULT_PROPERTIES, LEAD_STAGE_LIFECYCLE_CONFIG, LEAD_STATUS_CONFIG } from '../../types/lead';
 
 interface StatusSettingsProps {
     realtorId: string;
@@ -11,6 +11,7 @@ interface ManagedProperty extends PropertyOption {
 }
 
 const PROPERTY_CATEGORIES = [
+    'Pipeline Statuses',
     'Leads',
     'Nurture',
     'Active Search',
@@ -46,6 +47,59 @@ const StatusSettings: React.FC<StatusSettingsProps> = () => {
     };
 
     const renderTable = (groups: string[]) => {
+        if (groups.includes('Pipeline Statuses')) {
+            return (
+                <div className="bg-white rounded-[2.5rem] border border-indigo-100 shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-between py-6 px-8 bg-indigo-50/30">
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-100 text-indigo-600">
+                                <i className="fa-solid fa-route"></i>
+                            </div>
+                            <div>
+                                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-indigo-900">Pipeline Lifecycle Statuses</h3>
+                                <p className="text-[10px] text-slate-400 font-medium leading-none mt-1.5">{LEAD_STATUS_CONFIG.length} Standard Statuses</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="border-t border-indigo-50/50">
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-50 border-b border-slate-100">
+                                <tr>
+                                    <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[200px]">Status Label</th>
+                                    <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[160px]">Funnel Stage</th>
+                                    <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Logic & Description</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {LEAD_STATUS_CONFIG.sort((a, b) => (a.order || 0) - (b.order || 0)).map((status, idx) => (
+                                    <tr key={`status-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                                        <td className="px-8 py-5 align-top">
+                                            <div className="flex items-center gap-3">
+                                                <div className="font-bold text-slate-900 text-sm whitespace-nowrap">{status.label}</div>
+                                                <div className="flex gap-1">
+                                                    {status.visibility?.includes('Buyer') && <div className="w-4 h-4 rounded-md bg-sky-500 flex items-center justify-center text-[7px] font-black text-white" title="Buyer">B</div>}
+                                                    {status.visibility?.includes('Seller') && <div className="w-4 h-4 rounded-md bg-emerald-500 flex items-center justify-center text-[7px] font-black text-white" title="Seller">S</div>}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-5 align-top">
+                                            <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-wider border border-indigo-100">
+                                                {status.funnelStage}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-5 align-top">
+                                            <p className="text-sm text-slate-600 font-medium leading-relaxed">{status.description}</p>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+
         return (
             <div className="space-y-6">
                 {groups.map((group) => {

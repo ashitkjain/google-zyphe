@@ -7,7 +7,6 @@ import ClientDetailsView from '../../components/client-hub/ClientDetailsView';
 interface LeadsKanbanBoardProps {
     leads: Lead[];
     onUpdateLead: (id: string, updates: Partial<Lead>) => void;
-    realtorSettings: any;
     leadType: 'Buyer' | 'Seller';
     realtorId: string;
     boardSettings: {
@@ -28,7 +27,6 @@ const KANBAN_COLUMNS = [
 const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
     leads,
     onUpdateLead,
-    realtorSettings,
     leadType,
     realtorId,
     boardSettings
@@ -37,7 +35,7 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
     const [selectedLeadForOverlay, setSelectedLeadForOverlay] = useState<Lead | null>(null);
 
     const getColumnIdForLead = (lead: Lead) => {
-        let stage = getFunnelStageForStatus(lead.status, lead.leadType, realtorSettings);
+        let stage = getFunnelStageForStatus(lead.status, lead.leadType);
 
         // Fallback: If status mapping falls back to 'Leads' (default) but the lead has a specific funnelStage, trust the explicit stage.
         if (stage === 'Leads' && lead.funnelStage && lead.funnelStage !== 'Leads') {
@@ -104,7 +102,7 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
         });
 
         return cols;
-    }, [leads, leadType, realtorSettings, boardSettings]);
+    }, [leads, leadType, boardSettings]);
 
     const handleDragEnd = (result: DropResult) => {
         const { destination, source, draggableId } = result;
@@ -127,7 +125,7 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
         if (!targetColDef) return;
 
         const primaryStage = targetColDef.stages[0];
-        const allOptions = getStatusOptions(leadType, realtorSettings);
+        const allOptions = getStatusOptions(leadType);
         const stageOptions = allOptions.filter((o: any) => o.funnelStage === primaryStage);
 
         if (stageOptions.length >= 1) {
@@ -204,7 +202,6 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
                                                                 lead={lead}
                                                                 provided={provided}
                                                                 snapshot={snapshot}
-                                                                realtorSettings={realtorSettings}
                                                                 onUpdateLead={onUpdateLead}
                                                                 onClick={() => setSelectedLeadForOverlay(lead)}
                                                             />
@@ -301,7 +298,7 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
     );
 };
 
-const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSettings: any, onUpdateLead: (id: string, updates: Partial<Lead>) => void, onClick: () => void }> = ({ lead, provided, snapshot, realtorSettings, onUpdateLead, onClick }) => {
+const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, onUpdateLead: (id: string, updates: Partial<Lead>) => void, onClick: () => void }> = ({ lead, provided, snapshot, onUpdateLead, onClick }) => {
     // Determine border color based on temperature/score
     let accentColor = 'border-l-indigo-500';
     if (lead.engagementScore === 'Hot') accentColor = 'border-l-orange-500';
@@ -328,7 +325,7 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, realtorSe
     };
 
     // Determine relevant status based on stage
-    const currentFunnelStage = getFunnelStageForStatus(lead.status, lead.leadType, realtorSettings);
+    const currentFunnelStage = getFunnelStageForStatus(lead.status, lead.leadType);
     let displayStatusLabel = 'Status';
     let displayStatusValue = lead.status;
 

@@ -35,7 +35,6 @@ interface LeadGalleryItemProps {
     onUpdateAvatar: (leadId: string, file: File) => void;
     stage: string;
     onUpdateLead: (id: string, updates: Partial<Lead>) => void;
-    realtorSettings: any;
 }
 
 const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
@@ -43,7 +42,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
     editNoteId, setEditNoteId, editContent, setEditContent, handleUpdateNote,
     onDoneToggle, onDeleteClick, pendingNote, draftContent, setDraftContent,
     handleSaveNote, setPendingNote, deleteCoords, deletingNoteId, celebratingNoteId, isFlyingUpId,
-    onArchive, onActivate, visibleColumns, activeTab, onUpdateAvatar, stage, onUpdateLead, realtorSettings
+    onArchive, onActivate, visibleColumns, activeTab, onUpdateAvatar, stage, onUpdateLead
 }) => {
     const [editingCell, setEditingCell] = React.useState<string | null>(null);
     const [editValue, setEditValue] = React.useState<string>('');
@@ -330,7 +329,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
         if (isEditing) {
             if (field === 'status' || field === 'engagementScore') {
                 const options = field === 'status'
-                    ? getStatusOptions(lead.leadType, realtorSettings).map((o: any) => o.label)
+                    ? getStatusOptions(lead.leadType).map((o: any) => o.label)
                     : ['Cold', 'Warm', 'Hot', 'Stale'];
 
                 return (
