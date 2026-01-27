@@ -169,7 +169,10 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         facebook: "",
                         instagram: "",
                         twitter: ""
-                    }
+                    },
+                    totalSales: "142",
+                    avgPrice: "$1.2M",
+                    totalClients: "350+"
                 };
                 profile.realtor = defaultRealtor;
                 // Optional: Save this default state back to DB

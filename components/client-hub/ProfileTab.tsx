@@ -84,7 +84,12 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                         ) : (
                             <button
                                 onClick={() => {
-                                    setRealtorForm(profile.realtor || {});
+                                    setRealtorForm({
+                                        totalSales: '142',
+                                        avgPrice: '$1.2M',
+                                        totalClients: '350+',
+                                        ...(profile.realtor || {})
+                                    });
                                     setBasicForm({
                                         displayName: profile.displayName || '',
                                         phoneNumber: profile.phoneNumber || '',
@@ -335,7 +340,12 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Account Settings</h3>
                                 <button
                                     onClick={() => {
-                                        setRealtorForm(profile.realtor || {});
+                                        setRealtorForm({
+                                            totalSales: '142',
+                                            avgPrice: '$1.2M',
+                                            totalClients: '350+',
+                                            ...(profile.realtor || {})
+                                        });
                                         setBasicForm({
                                             displayName: profile.displayName || '',
                                             phoneNumber: profile.phoneNumber || '',
