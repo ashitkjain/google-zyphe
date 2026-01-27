@@ -61,6 +61,7 @@ const App: React.FC = () => {
     email: string, name: string, role: any, realtorId: string, realtorName: string
   } | null>(null);
   const [cloudHistory, setCloudHistory] = useState<any[]>([]);
+  const [realtorName, setRealtorName] = useState<string | null>(null);
 
   const [searchHistory, setSearchHistory] = useState<{ address: string, timestamp: number }[]>([]);
   const [favorites, setFavorites] = useState<any[]>([]);
@@ -263,6 +264,16 @@ const App: React.FC = () => {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (currentUser?.realtorId) {
+      getUserProfile(currentUser.realtorId).then(profile => {
+        if (profile) setRealtorName(profile.displayName);
+      });
+    } else {
+      setRealtorName(null);
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     const checkConnection = async () => {
@@ -823,7 +834,9 @@ const App: React.FC = () => {
                   <span className="opacity-40">Intelligence Access:</span>
                   <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] border border-indigo-500/30">PRO</span>
                   <span className="hidden sm:inline opacity-20">|</span>
-                  <span className="hidden sm:inline opacity-40">{currentUser.role} Account</span>
+                  <span className="hidden sm:inline opacity-40">
+                    {realtorName ? `Client of ${realtorName}` : `${currentUser.role} Account`}
+                  </span>
                 </>
               ) : (
                 <span className="text-slate-500"></span>

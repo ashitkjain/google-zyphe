@@ -178,6 +178,7 @@ export const getRealtorClients = async (realtorId: string) => {
     if (!db) return [];
     try {
         const usersCol = collection(db, "users");
+        // Simple query for realtorId match
         const q = query(usersCol, where("realtorId", "==", realtorId));
         logFirestoreQuery('getDocs', 'users', { realtorId });
         const snap = await getDocs(q);
@@ -185,5 +186,17 @@ export const getRealtorClients = async (realtorId: string) => {
     } catch (error) {
         console.error("Error fetching realtor clients:", error);
         return [];
+    }
+};
+export const removeClient = async (clientId: string) => {
+    if (!db) return false;
+    try {
+        logFirestoreQuery('deleteDoc', 'users', { uid: clientId });
+        await deleteDoc(doc(db, "users", clientId));
+        return true;
+    } catch (error) {
+        console.error("Error removing client:", error);
+        handleFirestoreError(error, "removeClient");
+        return false;
     }
 };

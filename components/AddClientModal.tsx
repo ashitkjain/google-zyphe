@@ -19,8 +19,7 @@ const AddClientModal: React.FC<Props> = ({ isOpen, onClose, realtorName, realtor
     const [sending, setSending] = useState(false);
     const [emailSent, setEmailSent] = useState(false);
     const [emailError, setEmailError] = useState<string | null>(null);
-    const [minPrice, setMinPrice] = useState('');
-    const [maxPrice, setMaxPrice] = useState('');
+
 
     if (!isOpen) return null;
 
@@ -36,8 +35,7 @@ const AddClientModal: React.FC<Props> = ({ isOpen, onClose, realtorName, realtor
             email: email,
             name: name,
             role: role,
-            minPrice: minPrice,
-            maxPrice: maxPrice
+
         });
 
         setGeneratedLink(`${baseUrl}?${params.toString()}`);
@@ -159,30 +157,7 @@ const AddClientModal: React.FC<Props> = ({ isOpen, onClose, realtorName, realtor
                                 />
                             </div>
 
-                            {role === 'buyer' && (
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Min Price ($)</label>
-                                        <input
-                                            type="number"
-                                            value={minPrice}
-                                            onChange={(e) => setMinPrice(e.target.value)}
-                                            className="w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all"
-                                            placeholder="400000"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Max Price ($)</label>
-                                        <input
-                                            type="number"
-                                            value={maxPrice}
-                                            onChange={(e) => setMaxPrice(e.target.value)}
-                                            className="w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all"
-                                            placeholder="600000"
-                                        />
-                                    </div>
-                                </div>
-                            )}
+
 
                             <button
                                 type="submit"

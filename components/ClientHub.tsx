@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ProfileTab from './client-hub/ProfileTab';
 import AddClientModal from './AddClientModal';
+import RemoveClientModal from './RemoveClientModal';
 import { getLeads, getTasks, getTemplates, seedMockData, saveUserProfile, getUserProfile, updateLead, getReminderRules, updateReminderRule, deleteAllMockData, getRealtorClients, deleteLead, deleteUserAccount } from '../services/firebaseService';
 import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates, getInitialMockTransactions } from '../services/mockDataService';
 import { getDefaultReminderRules } from '../services/reminderRulesService';
@@ -54,6 +55,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     const [isToolsOpen, setIsToolsOpen] = useState(false);
     const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
     const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
+    const [isRemoveClientModalOpen, setIsRemoveClientModalOpen] = useState(false);
     const toolsRef = useRef<HTMLDivElement>(null);
 
     const [clients, setClients] = useState<UserProfile[]>([]);
@@ -577,9 +579,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
                                     <button
                                         onClick={() => {
-                                            setActiveTab('clients');
+                                            setIsRemoveClientModalOpen(true);
                                             setIsSettingsDropdownOpen(false);
-                                            // Optional: Show a hint or auto-select a lead to delete
                                         }}
                                         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 rounded-xl transition-colors group"
                                     >
@@ -884,8 +885,21 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             <AddClientModal
                 isOpen={isAddClientModalOpen}
                 onClose={() => setIsAddClientModalOpen(false)}
-                realtorName={realtorName}
+                realtorName={realtorProfile?.displayName || 'Your Realtor'}
                 realtorId={realtorId}
+            />
+
+            <RemoveClientModal
+                isOpen={isRemoveClientModalOpen}
+                onClose={() => setIsRemoveClientModalOpen(false)}
+                realtorId={realtorId}
+                onClientRemoved={() => {
+                    // Refresh clients list if needed, or just let the local state in modal handle it
+                    // Ideally we should also refresh the main clients list in ClientHub
+                    // For now, let's just close or keep open, the modal handles its own list state.
+                    // To be perfect, we should trigger a refresh of 'clients' state in ClientHub
+                    getRealtorClients(realtorId).then(setClients);
+                }}
             />
         </div>
     );
