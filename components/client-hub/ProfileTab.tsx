@@ -357,15 +357,24 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                             <div className="space-y-4">
                                 <div>
                                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Login Email / UserID</div>
-                                    <div className="text-sm font-black text-slate-800 flex items-center justify-between">
-                                        {profile.email}
-                                        <i className="fa-solid fa-circle-check text-emerald-500 text-[10px]"></i>
+                                    <div className="text-sm font-black text-slate-800 flex items-center justify-between gap-2">
+                                        <span className="truncate">{profile.email}</span>
+                                        {profile.providerId === 'google.com' ? (
+                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-50 border border-slate-100 rounded-lg shrink-0">
+                                                <img src="https://www.google.com/favicon.ico" className="w-3 h-3 grayscale opacity-60" alt="google" />
+                                                <span className="text-[9px] text-slate-400">Google</span>
+                                            </div>
+                                        ) : (
+                                            <i className="fa-solid fa-circle-check text-emerald-500 text-[10px]"></i>
+                                        )}
                                     </div>
                                 </div>
-                                <div>
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Password</div>
-                                    <div className="text-sm font-black text-slate-400 tracking-[4px]">••••••••</div>
-                                </div>
+                                {profile.providerId !== 'google.com' && (
+                                    <div>
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Password</div>
+                                        <div className="text-sm font-black text-slate-400 tracking-[4px]">••••••••</div>
+                                    </div>
+                                )}
                                 <button
                                     onClick={() => setIsAuthModalOpen(true)}
                                     className="w-full mt-2 py-3 bg-slate-50 border border-slate-100 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-50 hover:border-indigo-100 transition-all flex items-center justify-center gap-2"

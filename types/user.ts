@@ -41,6 +41,7 @@ export interface UserProfile {
     maxPrice?: number;
     isMock?: boolean;
     createdAt?: any;
+    providerId?: string;
     settings?: {
         // No active settings
     };

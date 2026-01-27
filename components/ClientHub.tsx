@@ -6,6 +6,7 @@ import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates, getI
 import { getDefaultReminderRules } from '../services/reminderRulesService';
 import { UserProfile, Lead, CRMTask, CommTemplate, FunnelStage, ReminderRule, LeadNote, RealtorNode } from '../types';
 import { DropResult } from '@hello-pangea/dnd';
+import { auth } from '../services/firebase/config';
 import Logo from './Logo';
 import LeadsList from './LeadsList';
 
@@ -155,28 +156,44 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     useEffect(() => {
         const fetchRealtorProfile = async () => {
             const profile = await getUserProfile(realtorId);
-            if (profile && !profile.realtor && profile.role === 'realtor') {
+            if (profile) {
+                const currentUser = auth?.currentUser;
+                const actualProviderId = currentUser?.providerData[0]?.providerId || (currentUser?.emailVerified ? 'password' : 'unknown');
+
+                let profileUpdates: Partial<UserProfile> = {};
+
                 // Migration: Populate dynamic realtor node if missing
-                const defaultRealtor: RealtorNode = {
-                    bio: "Real estate professional dedicated to providing exceptional service and market expertise. Helping clients find their dream homes with data-driven insights.",
-                    brokerage: "Zyphe Real Estate",
-                    yearsExperience: 10,
-                    specialties: ["Residential", "Luxury Properties", "Strategic Negotiation"],
-                    languages: ["English"],
-                    serviceAreas: ["Major Metropolitan Area"],
-                    socialLinks: {
-                        linkedin: "",
-                        facebook: "",
-                        instagram: "",
-                        twitter: ""
-                    },
-                    totalSales: "142",
-                    avgPrice: "$1.2M",
-                    totalClients: "350+"
-                };
-                profile.realtor = defaultRealtor;
-                // Optional: Save this default state back to DB
-                await saveUserProfile(realtorId, { realtor: defaultRealtor });
+                if (!profile.realtor && profile.role === 'realtor') {
+                    const defaultRealtor: RealtorNode = {
+                        bio: "Real estate professional dedicated to providing exceptional service and market expertise. Helping clients find their dream homes with data-driven insights.",
+                        brokerage: "Zyphe Real Estate",
+                        yearsExperience: 10,
+                        specialties: ["Residential", "Luxury Properties", "Strategic Negotiation"],
+                        languages: ["English"],
+                        serviceAreas: ["Major Metropolitan Area"],
+                        socialLinks: {
+                            linkedin: "",
+                            facebook: "",
+                            instagram: "",
+                            twitter: ""
+                        },
+                        totalSales: "142",
+                        avgPrice: "$1.2M",
+                        totalClients: "350+"
+                    };
+                    profile.realtor = defaultRealtor;
+                    profileUpdates.realtor = defaultRealtor;
+                }
+
+                // Sync providerId if missing
+                if (!profile.providerId && actualProviderId) {
+                    profile.providerId = actualProviderId;
+                    profileUpdates.providerId = actualProviderId;
+                }
+
+                if (Object.keys(profileUpdates).length > 0) {
+                    await saveUserProfile(realtorId, profileUpdates);
+                }
             }
             setRealtorProfile(profile);
         };
