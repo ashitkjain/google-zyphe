@@ -22,6 +22,8 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
         { label: 'Avg Price', value: profile?.realtor?.avgPrice || '$1.2M', icon: 'fa-sack-dollar', key: 'avgPrice' },
         { label: 'Clients', value: profile?.realtor?.totalClients || '350+', icon: 'fa-users', key: 'totalClients' },
     ];
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     if (!profile) return <div className="p-10 text-center text-slate-400">Loading Profile...</div>;
 
@@ -34,6 +36,23 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
             }
         });
         setIsEditing(false);
+    };
+
+    const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploading(true);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setRealtorForm(prev => ({ ...prev, photoURL: reader.result as string }));
+            setUploading(false);
+        };
+        reader.onerror = () => {
+            console.error("FileReader error");
+            setUploading(false);
+        };
+        reader.readAsDataURL(file);
     };
 
     return (
@@ -86,13 +105,34 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                     <div className="flex flex-col md:flex-row items-end -mt-12 gap-8 mb-6 overflow-visible">
                         {/* Avatar */}
                         <div className="w-40 h-40 rounded-[2rem] border-4 border-white shadow-xl bg-white overflow-hidden relative group shrink-0">
-                            {profile.realtor?.photoURL ? (
-                                <img src={profile.realtor.photoURL} alt={profile.displayName} className="w-full h-full object-cover" />
+                            {realtorForm.photoURL || profile.realtor?.photoURL ? (
+                                <img src={realtorForm.photoURL || profile.realtor?.photoURL} alt={profile.displayName} className="w-full h-full object-cover" />
                             ) : (
                                 <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-300">
                                     <i className="fa-solid fa-user text-5xl"></i>
                                 </div>
                             )}
+
+                            {isEditing && (
+                                <div
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]"
+                                >
+                                    {uploading ? (
+                                        <i className="fa-solid fa-circle-notch fa-spin text-2xl mb-2"></i>
+                                    ) : (
+                                        <i className="fa-solid fa-camera text-2xl mb-2"></i>
+                                    )}
+                                    <span className="text-[10px] font-black uppercase tracking-widest">{uploading ? 'Uploading...' : 'Change Photo'}</span>
+                                </div>
+                            )}
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handlePhotoUpload}
+                                className="hidden"
+                                accept="image/*"
+                            />
                         </div>
 
                         <div className="flex-1 pb-2 relative z-50 overflow-visible">
@@ -114,43 +154,43 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                     />
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Total Sales</label>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 whitespace-nowrap overflow-hidden text-ellipsis block">Total Sales</label>
                                             <input
                                                 type="text"
                                                 value={realtorForm.totalSales || ''}
                                                 onChange={e => setRealtorForm({ ...realtorForm, totalSales: e.target.value })}
                                                 className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
-                                                placeholder="142"
+                                                placeholder="e.g. 142"
                                             />
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Experience (Yrs)</label>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 whitespace-nowrap overflow-hidden text-ellipsis block">Experience</label>
                                             <input
                                                 type="number"
                                                 value={realtorForm.yearsExperience || ''}
                                                 onChange={e => setRealtorForm({ ...realtorForm, yearsExperience: parseInt(e.target.value) || 0 })}
                                                 className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
-                                                placeholder="10"
+                                                placeholder="Experience in Years"
                                             />
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Avg Price</label>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 whitespace-nowrap overflow-hidden text-ellipsis block">Avg Price</label>
                                             <input
                                                 type="text"
                                                 value={realtorForm.avgPrice || ''}
                                                 onChange={e => setRealtorForm({ ...realtorForm, avgPrice: e.target.value })}
                                                 className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
-                                                placeholder="$1.2M"
+                                                placeholder="e.g. $1.2M"
                                             />
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Clients</label>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 whitespace-nowrap overflow-hidden text-ellipsis block">Clients</label>
                                             <input
                                                 type="text"
                                                 value={realtorForm.totalClients || ''}
                                                 onChange={e => setRealtorForm({ ...realtorForm, totalClients: e.target.value })}
                                                 className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
-                                                placeholder="350+"
+                                                placeholder="e.g. 350+"
                                             />
                                         </div>
                                     </div>
@@ -379,12 +419,59 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
 
                             <hr className="border-slate-100 my-6" />
 
-                            <div className="flex justify-center gap-4">
-                                {['linkedin', 'facebook', 'instagram', 'twitter'].map(network => (
-                                    <button key={network} className="w-10 h-10 rounded-full bg-slate-50 text-slate-400 hover:bg-indigo-500 hover:text-white transition-all flex items-center justify-center">
-                                        <i className={`fa-brands fa-${network} text-lg`}></i>
-                                    </button>
-                                ))}
+                            <div className="flex flex-col gap-4">
+                                {isEditing ? (
+                                    <div className="space-y-3">
+                                        {[
+                                            { id: 'linkedin', icon: 'fa-linkedin', label: 'LinkedIn', placeholder: 'linkedin.com/in/username' },
+                                            { id: 'facebook', icon: 'fa-facebook', label: 'Facebook', placeholder: 'facebook.com/username' },
+                                            { id: 'instagram', icon: 'fa-instagram', label: 'Instagram', placeholder: 'instagram.com/username' },
+                                            { id: 'twitter', icon: 'fa-twitter', label: 'Twitter', placeholder: 'twitter.com/username' }
+                                        ].map(net => (
+                                            <div key={net.id} className="flex items-center gap-3 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
+                                                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-slate-400 shadow-sm">
+                                                    <i className={`fa-brands ${net.icon}`}></i>
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={realtorForm.socialLinks?.[net.id as keyof NonNullable<RealtorNode['socialLinks']>] || ''}
+                                                    onChange={e => setRealtorForm({
+                                                        ...realtorForm,
+                                                        socialLinks: {
+                                                            ...(realtorForm.socialLinks || {}),
+                                                            [net.id]: e.target.value
+                                                        }
+                                                    })}
+                                                    placeholder={net.placeholder}
+                                                    className="flex-1 bg-transparent border-none text-xs font-bold text-slate-800 outline-none placeholder:text-slate-300"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex justify-center gap-4">
+                                        {[
+                                            { id: 'linkedin', icon: 'fa-linkedin' },
+                                            { id: 'facebook', icon: 'fa-facebook' },
+                                            { id: 'instagram', icon: 'fa-instagram' },
+                                            { id: 'twitter', icon: 'fa-twitter' }
+                                        ].map(net => {
+                                            const url = profile.realtor?.socialLinks?.[net.id as keyof NonNullable<RealtorNode['socialLinks']>] || '';
+                                            return (
+                                                <a
+                                                    key={net.id}
+                                                    href={url ? (url.startsWith('http') ? url : `https://${url}`) : '#'}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={!url ? (e) => e.preventDefault() : undefined}
+                                                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${url ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white shadow-sm' : 'bg-slate-50 text-slate-300 cursor-not-allowed'}`}
+                                                >
+                                                    <i className={`fa-brands ${net.icon} text-lg`}></i>
+                                                </a>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         </div>
 

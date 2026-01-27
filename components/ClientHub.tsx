@@ -210,7 +210,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
             // Automatically sync funnelStage if status is changing
             if (updates.status && updates.status !== currentLead.status) {
-                const newStage = getFunnelStageForStatus(updates.status, currentLead.leadType, realtorProfile?.settings) as any;
+                const newStage = getFunnelStageForStatus(updates.status, currentLead.leadType) as any;
                 if (newStage !== currentLead.funnelStage) {
                     updates.funnelStage = newStage;
                 }
@@ -239,7 +239,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                 updates.activatedAt = now;
             }
 
-            if (isTerminalStatus(updates.status || '', currentLead.leadType, realtorProfile?.settings) && !isTerminalStatus(currentLead.status, currentLead.leadType, realtorProfile?.settings)) {
+            if (isTerminalStatus(updates.status || '', currentLead.leadType) && !isTerminalStatus(currentLead.status, currentLead.leadType)) {
                 updates.closedAt = now;
             }
 
@@ -435,7 +435,16 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             <header className="bg-slate-900 px-8 py-0 flex items-center justify-between border-b border-white/5 shadow-2xl relative z-[110]">
                 <div className="flex items-center gap-12 flex-1">
                     <div className="flex items-center gap-6 py-4">
-                        <Logo size={50} onClick={() => setActiveTab('explore')} className="cursor-pointer transition-transform hover:scale-105 origin-left" />
+                        {realtorProfile?.realtor?.photoURL ? (
+                            <img
+                                src={realtorProfile.realtor.photoURL}
+                                alt="Profile"
+                                onClick={() => setActiveTab('profile')}
+                                className="w-[50px] h-[50px] rounded-2xl object-cover cursor-pointer transition-transform hover:scale-105 border border-white/20 shadow-lg"
+                            />
+                        ) : (
+                            <Logo size={50} onClick={() => setActiveTab('explore')} className="cursor-pointer transition-transform hover:scale-105 origin-left" />
+                        )}
                         <div className="h-8 w-px bg-white/10"></div>
                     </div>
 

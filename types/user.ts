@@ -42,9 +42,7 @@ export interface UserProfile {
     isMock?: boolean;
     createdAt?: any;
     settings?: {
-        // leadStatuses?: StatusOption[]; // Deprecated: Moved to LEAD_STATUS_CONFIG in lead.ts
-        // leadProperties?: PropertyOption[]; // Deprecated: Pulls from LEAD_FIELD_CONFIG
-        // columnSettings?: Record<string, string[]>; // Deprecated: Currently unused
+        // No active settings
     };
     stickyNotes?: any[]; // Simplified for UserProfile to avoid circular imports if any
     realtorNotes?: any[];
