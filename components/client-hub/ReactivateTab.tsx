@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Lead } from '../../types';
 import TriggersModule from './reactivate/TriggersModule';
 import TrailModule from './reactivate/TrailModule';
-import AnalyticsModule from './reactivate/AnalyticsModule';
 import AutomatedModule from './reactivate/AutomatedModule';
 import DashboardModule from './reactivate/DashboardModule';
 
@@ -16,7 +15,7 @@ interface ReactivateTabProps {
 }
 
 const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdateLead }) => {
-    const [selectedModule, setSelectedModule] = useState<'OLD_LEADS' | 'AI_PLAN' | 'DASHBOARD' | 'TRAIL' | 'ANALYTICS' | 'TRIGGERS' | 'REPORT'>('OLD_LEADS');
+    const [selectedModule, setSelectedModule] = useState<'OLD_LEADS' | 'AI_PLAN' | 'DASHBOARD' | 'TRAIL' | 'TRIGGERS' | 'REPORT'>('OLD_LEADS');
     const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
     return (
@@ -59,13 +58,7 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
                         Message Trail
                         {selectedModule === 'TRAIL' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>}
                     </button>
-                    <button
-                        onClick={() => setSelectedModule('ANALYTICS')}
-                        className={`pb-5 text-sm font-black uppercase tracking-widest transition-all relative whitespace-nowrap ${selectedModule === 'ANALYTICS' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-                    >
-                        Analytics
-                        {selectedModule === 'ANALYTICS' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full shadow-[0_-2px_8px_rgba(79,70,229,0.3)]"></div>}
-                    </button>
+
                     <button
                         onClick={() => setSelectedModule('TRIGGERS')}
                         className={`pb-5 text-sm font-black uppercase tracking-widest transition-all relative whitespace-nowrap ${selectedModule === 'TRIGGERS' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
@@ -105,10 +98,6 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
 
                     {selectedModule === 'TRAIL' && (
                         <TrailModule realtorId={realtorId} leads={leads} />
-                    )}
-
-                    {selectedModule === 'ANALYTICS' && (
-                        <AnalyticsModule realtorId={realtorId} leads={leads} />
                     )}
 
                     {selectedModule === 'TRIGGERS' && (
