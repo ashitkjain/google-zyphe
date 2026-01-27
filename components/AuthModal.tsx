@@ -42,7 +42,16 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
   const [copySuccess, setCopySuccess] = useState(false);
   const [resetMode, setResetMode] = useState(false);
   const [resetSent, setResetSent] = useState(false);
-  const preferredProvider = localStorage.getItem('zyphe_last_provider') || 'google.com';
+  const [preferredProvider, setPreferredProvider] = useState('google.com');
+
+  // Load preference when modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      const saved = localStorage.getItem('zyphe_last_provider') || 'google.com';
+      console.log("[AuthModal] Opening with preference:", saved);
+      setPreferredProvider(saved);
+    }
+  }, [isOpen]);
 
   // Sync state when inviteData changes or when modal opens
   React.useEffect(() => {
@@ -368,9 +377,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
             </div>
           )}
 
-          {/* This is the Form area */}
           <form onSubmit={resetMode ? handleResetPassword : handleSubmit} className="space-y-4">
-            {/* ... form fields content here ... */}
             {resetSent && (
               <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-600 text-xs font-bold flex items-center gap-3 animate-in zoom-in-95">
                 <i className="fa-solid fa-circle-check text-emerald-500 text-sm"></i>
