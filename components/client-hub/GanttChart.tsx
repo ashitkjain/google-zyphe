@@ -51,7 +51,7 @@ const CATEGORY_COLORS = [
 ];
 
 const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate, onTaskStatusChange, onAddComment, onUpdateTask }) => {
-    const [zoom, setZoom] = useState<'day' | 'week'>('week');
+    const [zoom, setZoom] = useState<'day' | 'week' | 'list'>('week');
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['c1']));
     const [editModal, setEditModal] = useState<{
         isOpen: boolean;
@@ -280,252 +280,373 @@ const GanttChart: React.FC<GanttChartProps> = ({ categories, startDate, onTaskSt
                     </div>
                 </div>
                 <div className="flex bg-slate-100 p-1 rounded-lg">
+                    <button onClick={() => setZoom('list')} className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all ${zoom === 'list' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`}>List</button>
                     <button onClick={() => setZoom('week')} className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all ${zoom === 'week' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`}>Weekly</button>
                     <button onClick={() => setZoom('day')} className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all ${zoom === 'day' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`}>Daily</button>
                 </div>
             </div>
 
-            <div className="flex-1 overflow-auto relative custom-scrollbar bg-white">
-                <div className="relative min-w-max" style={{ width: totalWidth + 300, height: totalHeight + headerHeight }}>
+            {zoom !== 'list' ? (
+                <div className="flex-1 overflow-auto relative custom-scrollbar bg-white">
+                    <div className="relative min-w-max" style={{ width: totalWidth + 300, height: totalHeight + headerHeight }}>
 
-                    {/* Grid & Header */}
-                    <div className="absolute top-0 left-[300px] right-0 bottom-0">
-                        {/* Header */}
-                        <div className="h-[60px] border-b border-slate-200 flex flex-col sticky top-0 bg-white z-40 w-full shadow-sm">
-                            {/* Month Row */}
-                            <div className="flex-1 flex border-b border-slate-100">
-                                {/* We need to span months. A simple way: render every day and check if month changes. */}
+                        {/* Grid & Header */}
+                        <div className="absolute top-0 left-[300px] right-0 bottom-0">
+                            {/* Header */}
+                            <div className="h-[60px] border-b border-slate-200 flex flex-col sticky top-0 bg-white z-40 w-full shadow-sm">
+                                {/* Month Row */}
+                                <div className="flex-1 flex border-b border-slate-100">
+                                    {/* We need to span months. A simple way: render every day and check if month changes. */}
+                                    {Array.from({ length: viewEndDay - viewStartDay }).map((_, i) => {
+                                        const dayIndex = viewStartDay + i;
+                                        const { day, month, year } = getDateLabel(dayIndex);
+                                        // Show label if day 1 or index 0
+                                        const showLabel = i === 0 || day === 1;
+                                        return (
+                                            <div key={`m-${dayIndex}`} style={{ width: dayWidth }} className="flex-shrink-0 relative">
+                                                {showLabel && (
+                                                    <div className="absolute left-0 top-0 bottom-0 pl-2 flex items-center whitespace-nowrap z-20">
+                                                        <span className="text-[10px] font-bold text-slate-500 uppercase">{month} {year}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                                {/* Day Row (Now Weekly Headers) */}
+                                <div className="flex-1 flex relative overflow-hidden">
+                                    {Array.from({ length: viewEndDay - viewStartDay }).map((_, i) => {
+                                        const dayIndex = viewStartDay + i;
+                                        const { fullDate, isWeekend } = getDateLabel(dayIndex);
+
+                                        // Start of Week (Project relative: every 7 days from start)
+                                        const isStartOfWeek = dayIndex % 7 === 0;
+                                        const showLabel = isStartOfWeek || i === 0;
+
+                                        // Project Week Number
+                                        const projectWeekNum = Math.floor(dayIndex / 7) + 1;
+
+                                        return (
+                                            <div key={`d-${dayIndex}`} style={{ width: dayWidth }} className={`flex-shrink-0 flex items-center border-r border-slate-100 relative ${isWeekend ? 'bg-slate-50' : 'bg-white'}`}>
+                                                {showLabel && (
+                                                    <div className="absolute left-1 whitespace-nowrap z-10 bg-white/80 px-1 rounded text-[10px] font-bold text-slate-500">
+                                                        WEEK {projectWeekNum} • {fullDate.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Grid Lines */}
+                            <div className="absolute top-[60px] bottom-0 left-0 right-0 flex pointer-events-none">
                                 {Array.from({ length: viewEndDay - viewStartDay }).map((_, i) => {
-                                    const dayIndex = viewStartDay + i;
-                                    const { day, month, year } = getDateLabel(dayIndex);
-                                    // Show label if day 1 or index 0
-                                    const showLabel = i === 0 || day === 1;
-                                    return (
-                                        <div key={`m-${dayIndex}`} style={{ width: dayWidth }} className="flex-shrink-0 relative">
-                                            {showLabel && (
-                                                <div className="absolute left-0 top-0 bottom-0 pl-2 flex items-center whitespace-nowrap z-20">
-                                                    <span className="text-[10px] font-bold text-slate-500 uppercase">{month} {year}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )
+                                    const { isWeekend, fullDate } = getDateLabel(viewStartDay + i);
+                                    const isEndOfWeek = fullDate.getDay() === 0; // Sunday
+                                    return <div key={i} style={{ width: dayWidth }} className={`border-r h-full ${isEndOfWeek ? 'border-slate-300' : 'border-slate-100'} ${isWeekend ? 'bg-slate-50/40' : ''}`}></div>
                                 })}
                             </div>
-                            {/* Day Row (Now Weekly Headers) */}
-                            <div className="flex-1 flex relative overflow-hidden">
-                                {Array.from({ length: viewEndDay - viewStartDay }).map((_, i) => {
-                                    const dayIndex = viewStartDay + i;
-                                    const { fullDate, isWeekend } = getDateLabel(dayIndex);
+                        </div>
 
-                                    // Start of Week (Project relative: every 7 days from start)
-                                    const isStartOfWeek = dayIndex % 7 === 0;
-                                    const showLabel = isStartOfWeek || i === 0;
-
-                                    // Project Week Number
-                                    const projectWeekNum = Math.floor(dayIndex / 7) + 1;
-
-                                    return (
-                                        <div key={`d-${dayIndex}`} style={{ width: dayWidth }} className={`flex-shrink-0 flex items-center border-r border-slate-100 relative ${isWeekend ? 'bg-slate-50' : 'bg-white'}`}>
-                                            {showLabel && (
-                                                <div className="absolute left-1 whitespace-nowrap z-10 bg-white/80 px-1 rounded text-[10px] font-bold text-slate-500">
-                                                    WEEK {projectWeekNum} • {fullDate.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
+                        {/* Left Sidebar (Tree Table) */}
+                        <div className="sticky left-0 w-[300px] bg-white border-r border-slate-200 z-30 h-full shadow-[4px_0_12px_-6px_rgba(0,0,0,0.1)]">
+                            <div className="h-[60px] border-b border-slate-200 bg-slate-50 sticky top-0 z-40 flex items-end pb-2 px-4 shadow-[0_4px_12px_-8px_rgba(0,0,0,0.05)]">
+                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Activity</span>
                             </div>
-                        </div>
-
-                        {/* Grid Lines */}
-                        <div className="absolute top-[60px] bottom-0 left-0 right-0 flex pointer-events-none">
-                            {Array.from({ length: viewEndDay - viewStartDay }).map((_, i) => {
-                                const { isWeekend, fullDate } = getDateLabel(viewStartDay + i);
-                                const isEndOfWeek = fullDate.getDay() === 0; // Sunday
-                                return <div key={i} style={{ width: dayWidth }} className={`border-r h-full ${isEndOfWeek ? 'border-slate-300' : 'border-slate-100'} ${isWeekend ? 'bg-slate-50/40' : ''}`}></div>
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Left Sidebar (Tree Table) */}
-                    <div className="sticky left-0 w-[300px] bg-white border-r border-slate-200 z-30 h-full shadow-[4px_0_12px_-6px_rgba(0,0,0,0.1)]">
-                        <div className="h-[60px] border-b border-slate-200 bg-slate-50 sticky top-0 z-40 flex items-end pb-2 px-4 shadow-[0_4px_12px_-8px_rgba(0,0,0,0.05)]">
-                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Activity</span>
-                        </div>
-                        <div className="bg-white">
-                            {visibleItems.map((item, idx) => (
-                                <div
-                                    key={item.id}
-                                    style={{ minHeight: rowHeight }}
-                                    className={`flex items-center py-2 px-0 border-b border-slate-100 transition-colors 
+                            <div className="bg-white">
+                                {visibleItems.map((item, idx) => (
+                                    <div
+                                        key={item.id}
+                                        style={{ minHeight: rowHeight }}
+                                        className={`flex items-center py-2 px-0 border-b border-slate-100 transition-colors 
                                         ${item.type === 'category' ? 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer' : 'hover:bg-slate-50 text-slate-700'}
                                     `}
-                                    onClick={() => item.type === 'category' ? toggleExpand(item.id) : null}
-                                >
-                                    <div className="flex-1 flex items-center gap-2 px-4 min-w-0">
-                                        {item.type === 'category' ? (
-                                            <>
-                                                <i className={`fa-solid fa-chevron-right text-[10px] w-4 transition-transform duration-200 ${expandedIds.has(item.id) ? 'rotate-90' : ''}`}></i>
-                                                <span className="text-xs font-bold tracking-tight flex-1 whitespace-normal break-words">{item.name}</span>
-                                                {/* Parent Task Dot Indicator */}
-                                                {(item as CategoryBar).hasComments && (
-                                                    <div className="w-2 h-2 rounded-full bg-white ml-2 shadow-sm animate-pulse"></div>
-                                                )}
-                                            </>
-                                        ) : (
-                                            <>
-                                                {/* Note Icon */}
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        const task = item as ProcessedTask;
+                                        onClick={() => item.type === 'category' ? toggleExpand(item.id) : null}
+                                    >
+                                        <div className="flex-1 flex items-center gap-2 px-4 min-w-0">
+                                            {item.type === 'category' ? (
+                                                <>
+                                                    <i className={`fa-solid fa-chevron-right text-[10px] w-4 transition-transform duration-200 ${expandedIds.has(item.id) ? 'rotate-90' : ''}`}></i>
+                                                    <span className="text-xs font-bold tracking-tight flex-1 whitespace-normal break-words">{item.name}</span>
+                                                    {/* Parent Task Dot Indicator */}
+                                                    {(item as CategoryBar).hasComments && (
+                                                        <div className="w-2 h-2 rounded-full bg-white ml-2 shadow-sm animate-pulse"></div>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {/* Note Icon */}
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const task = item as ProcessedTask;
 
-                                                        // Helper to format date for input type="date"
-                                                        const formatDate = (date: any) => {
-                                                            if (!date) return '';
-                                                            const d = date.toDate ? date.toDate() : new Date(date);
-                                                            return d.toISOString().split('T')[0];
-                                                        };
+                                                            // Helper to format date for input type="date"
+                                                            const formatDate = (date: any) => {
+                                                                if (!date) return '';
+                                                                const d = date.toDate ? date.toDate() : new Date(date);
+                                                                return d.toISOString().split('T')[0];
+                                                            };
 
-                                                        setEditModal({
-                                                            isOpen: true,
-                                                            catId: task.catId,
-                                                            taskId: task.id,
-                                                            taskName: task.name,
-                                                            currentComment: task.comments || '',
-                                                            startDate: formatDate(task.rawTask.startDate),
-                                                            dueDate: formatDate(task.rawTask.dueDate)
-                                                        });
-                                                        setDateError(null);
-                                                    }}
-                                                    className={`w-5 h-5 flex-shrink-0 flex items-center justify-center mr-1 transition-colors ${(item as ProcessedTask).comments ? 'text-indigo-600' : 'text-slate-300 hover:text-slate-500'
-                                                        }`}
-                                                    title="Edit Task"
-                                                >
-                                                    <i className="fa-solid fa-pen-to-square text-xs"></i>
-                                                </button>
+                                                            setEditModal({
+                                                                isOpen: true,
+                                                                catId: task.catId,
+                                                                taskId: task.id,
+                                                                taskName: task.name,
+                                                                currentComment: task.comments || '',
+                                                                startDate: formatDate(task.rawTask.startDate),
+                                                                dueDate: formatDate(task.rawTask.dueDate)
+                                                            });
+                                                            setDateError(null);
+                                                        }}
+                                                        className={`w-5 h-5 flex-shrink-0 flex items-center justify-center mr-1 transition-colors ${(item as ProcessedTask).comments ? 'text-indigo-600' : 'text-slate-300 hover:text-slate-500'
+                                                            }`}
+                                                        title="Edit Task"
+                                                    >
+                                                        <i className="fa-solid fa-pen-to-square text-xs"></i>
+                                                    </button>
 
-                                                {/* Toggle Button (Replaces Serial #) */}
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        const task = item as ProcessedTask;
-                                                        const newStatus = task.status === 'Completed' ? 'Pending' : 'Completed';
-                                                        if (onTaskStatusChange) {
-                                                            onTaskStatusChange(task.catId, task.id, newStatus);
-                                                        }
-                                                    }}
-                                                    className={`w-5 h-5 flex-shrink-0 rounded-full flex items-center justify-center transition-all shadow-sm border mr-2 ${(item as ProcessedTask).status === 'Completed'
-                                                        ? 'bg-emerald-500 border-emerald-600 text-white hover:bg-emerald-600'
-                                                        : 'bg-slate-100 border-slate-300 text-slate-300 hover:bg-slate-200 hover:border-slate-400'
-                                                        }`}
-                                                >
-                                                    <i className="fa-solid fa-thumbs-up text-[10px]"></i>
-                                                </button>
+                                                    {/* Toggle Button (Replaces Serial #) */}
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const task = item as ProcessedTask;
+                                                            const newStatus = task.status === 'Completed' ? 'Pending' : 'Completed';
+                                                            if (onTaskStatusChange) {
+                                                                onTaskStatusChange(task.catId, task.id, newStatus);
+                                                            }
+                                                        }}
+                                                        className={`w-5 h-5 flex-shrink-0 rounded-full flex items-center justify-center transition-all shadow-sm border mr-2 ${(item as ProcessedTask).status === 'Completed'
+                                                            ? 'bg-emerald-500 border-emerald-600 text-white hover:bg-emerald-600'
+                                                            : 'bg-slate-100 border-slate-300 text-slate-300 hover:bg-slate-200 hover:border-slate-400'
+                                                            }`}
+                                                    >
+                                                        <i className="fa-solid fa-thumbs-up text-[10px]"></i>
+                                                    </button>
 
-                                                <span className={`text-xs whitespace-normal leading-tight transition-colors duration-300 ${(item as ProcessedTask).status === 'Completed' ? 'text-slate-400' : ''}`}>
-                                                    {item.name}
-                                                </span>
-                                            </>
-                                        )}
+                                                    <span className={`text-xs whitespace-normal leading-tight transition-colors duration-300 ${(item as ProcessedTask).status === 'Completed' ? 'text-slate-400' : ''}`}>
+                                                        {item.name}
+                                                    </span>
+                                                </>
+                                            )}
+                                        </div>
+                                        {/* Status Column REMOVED */}
                                     </div>
-                                    {/* Status Column REMOVED */}
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
-                    </div>
 
-                    {/* Right Side: Timeline Bars */}
-                    <div className="absolute top-[60px] left-[300px] bottom-0 right-0 py-0">
-                        {/* Dependency Lines Layer */}
-                        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
-                            <defs>
-                                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                                    <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
-                                </marker>
-                            </defs>
-                            {visibleItems.map(target => {
-                                // Don't show dependencies pointing to parent tasks (categories)
-                                if (target.type === 'category') return null;
+                        {/* Right Side: Timeline Bars */}
+                        <div className="absolute top-[60px] left-[300px] bottom-0 right-0 py-0">
+                            {/* Dependency Lines Layer */}
+                            <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+                                <defs>
+                                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                        <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+                                    </marker>
+                                </defs>
+                                {visibleItems.map(target => {
+                                    // Don't show dependencies pointing to parent tasks (categories)
+                                    if (target.type === 'category') return null;
 
-                                const dependsOn = target.dependsOn || [];
-                                return dependsOn.map(sourceId => {
-                                    let sourceItem = visibleItems.find(i => i.id === sourceId);
+                                    const dependsOn = target.dependsOn || [];
+                                    return dependsOn.map(sourceId => {
+                                        let sourceItem = visibleItems.find(i => i.id === sourceId);
 
-                                    // Fallback for connecting to collapsed categories
-                                    if (!sourceItem && target.type === 'task') {
-                                        const sourceTask = globalTaskMap.get(sourceId);
-                                        if (sourceTask && !expandedIds.has(sourceTask.catId)) {
-                                            sourceItem = visibleItems.find(i => i.id === sourceTask.catId && i.type === 'category');
+                                        // Fallback for connecting to collapsed categories
+                                        if (!sourceItem && target.type === 'task') {
+                                            const sourceTask = globalTaskMap.get(sourceId);
+                                            if (sourceTask && !expandedIds.has(sourceTask.catId)) {
+                                                sourceItem = visibleItems.find(i => i.id === sourceTask.catId && i.type === 'category');
+                                            }
                                         }
-                                    }
 
-                                    if (!sourceItem) return null;
+                                        if (!sourceItem) return null;
 
-                                    const startX = (sourceItem.endDay - viewStartDay) * dayWidth;
-                                    const startY = (sourceItem.row * rowHeight) + (rowHeight / 2);
-                                    const endX = (target.startDay - viewStartDay) * dayWidth;
-                                    const endY = (target.row * rowHeight) + (rowHeight / 2);
+                                        const startX = (sourceItem.endDay - viewStartDay) * dayWidth;
+                                        const startY = (sourceItem.row * rowHeight) + (rowHeight / 2);
+                                        const endX = (target.startDay - viewStartDay) * dayWidth;
+                                        const endY = (target.row * rowHeight) + (rowHeight / 2);
 
-                                    // Orthogonal Path for clearer dense view
-                                    const midX = (startX + endX) / 2;
-                                    // Logic: Start -> Right -> Down/Up -> Right -> End
-                                    // Actually sigmoid is less cluttered for density
-                                    const path = `M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`;
+                                        // Orthogonal Path for clearer dense view
+                                        const midX = (startX + endX) / 2;
+                                        // Logic: Start -> Right -> Down/Up -> Right -> End
+                                        // Actually sigmoid is less cluttered for density
+                                        const path = `M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`;
 
-                                    return (
-                                        <path
-                                            key={`${sourceId}-${target.id}`}
-                                            d={path}
-                                            stroke="#64748b"
-                                            strokeWidth="1.5"
-                                            fill="none"
-                                            markerEnd="url(#arrowhead)"
-                                            strokeDasharray={target.type === 'task' ? "3 3" : "0"}
-                                            strokeOpacity="0.8"
-                                        />
-                                    );
-                                });
-                            })}
-                        </svg>
+                                        return (
+                                            <path
+                                                key={`${sourceId}-${target.id}`}
+                                                d={path}
+                                                stroke="#64748b"
+                                                strokeWidth="1.5"
+                                                fill="none"
+                                                markerEnd="url(#arrowhead)"
+                                                strokeDasharray={target.type === 'task' ? "3 3" : "0"}
+                                                strokeOpacity="0.8"
+                                            />
+                                        );
+                                    });
+                                })}
+                            </svg>
 
-                        {/* Bars Layer */}
-                        {visibleItems.map(item => {
-                            const isCat = item.type === 'category';
+                            {/* Bars Layer */}
+                            {visibleItems.map(item => {
+                                const isCat = item.type === 'category';
 
-                            return (
-                                <div
-                                    key={item.id}
-                                    className="absolute group"
-                                    style={{
-                                        left: (item.startDay - viewStartDay) * dayWidth,
-                                        top: (item.row * rowHeight) + ((rowHeight - taskBarHeight) / 2),
-                                        width: Math.max(item.duration * dayWidth, isCat ? dayWidth : 4),
-                                        height: taskBarHeight,
-                                        zIndex: isCat ? 5 : 20
-                                    }}
-                                    onClick={() => isCat ? toggleExpand(item.id) : null}
-                                >
-                                    {/* Bar Shape */}
-                                    <div className={`w-full h-full shadow-sm relative overflow-visible flex items-center
+                                return (
+                                    <div
+                                        key={item.id}
+                                        className="absolute group"
+                                        style={{
+                                            left: (item.startDay - viewStartDay) * dayWidth,
+                                            top: (item.row * rowHeight) + ((rowHeight - taskBarHeight) / 2),
+                                            width: Math.max(item.duration * dayWidth, isCat ? dayWidth : 4),
+                                            height: taskBarHeight,
+                                            zIndex: isCat ? 5 : 20
+                                        }}
+                                        onClick={() => isCat ? toggleExpand(item.id) : null}
+                                    >
+                                        {/* Bar Shape */}
+                                        <div className={`w-full h-full shadow-sm relative overflow-visible flex items-center
                                         ${isCat ? 'bg-indigo-200/50 cursor-pointer' : 'bg-sky-500 rounded border border-sky-600 shadow cursor-default hover:bg-sky-400'}
                                      `}>
-                                        {/* Start/End Markers for Category */}
-                                        {isCat && (
-                                            <>
-                                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-400"></div>
-                                                <div className="absolute right-0 top-0 bottom-0 w-1 bg-indigo-400"></div>
-                                                <div className="absolute top-0 left-0 right-0 h-[1px] bg-indigo-300"></div>
-                                                <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-indigo-300"></div>
-                                            </>
-                                        )}
+                                            {/* Start/End Markers for Category */}
+                                            {isCat && (
+                                                <>
+                                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-400"></div>
+                                                    <div className="absolute right-0 top-0 bottom-0 w-1 bg-indigo-400"></div>
+                                                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-indigo-300"></div>
+                                                    <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-indigo-300"></div>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
-            </div>
+            ) : (
+                <div className="flex-1 overflow-auto bg-white p-6">
+                    <div className="w-full border border-slate-200 rounded-xl overflow-hidden">
+                        {/* Table Header */}
+                        <div className="grid grid-cols-[3fr_1fr_1fr_1fr] bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                            <div className="px-6 py-4">Activity</div>
+                            <div className="px-4 py-4">Start Date</div>
+                            <div className="px-4 py-4">End Date</div>
+                            <div className="px-4 py-4 text-center">Actions</div>
+                        </div>
+
+                        {/* Table Body */}
+                        <div>
+                            {visibleItems.map((item) => {
+                                // Format dates
+                                let sDate = '--';
+                                let eDate = '--';
+                                if (item.type === 'task') {
+                                    const task = item as ProcessedTask;
+                                    const s = task.rawTask.startDate?.toDate ? task.rawTask.startDate.toDate() : (task.rawTask.startDate ? new Date(task.rawTask.startDate) : null);
+                                    const e = task.rawTask.dueDate?.toDate ? task.rawTask.dueDate.toDate() : (task.rawTask.dueDate ? new Date(task.rawTask.dueDate) : null);
+                                    if (s) sDate = s.toLocaleDateString();
+                                    if (e) eDate = e.toLocaleDateString();
+                                }
+
+                                return (
+                                    <div
+                                        key={item.id}
+                                        className={`grid grid-cols-[3fr_1fr_1fr_1fr] border-b border-slate-100 last:border-0 items-center transition-colors 
+                                            ${item.type === 'category' ? 'bg-indigo-50/50 hover:bg-indigo-50 border-t border-indigo-100' : 'hover:bg-slate-50'}
+                                        `}
+                                    >
+                                        <div className="px-6 py-4">
+                                            {item.type === 'category' ? (
+                                                <button
+                                                    onClick={() => toggleExpand(item.id)}
+                                                    className="flex items-center gap-2 w-full text-left"
+                                                >
+                                                    <i className={`fa-solid fa-chevron-right text-[10px] w-4 transition-transform duration-200 text-indigo-500 ${expandedIds.has(item.id) ? 'rotate-90' : ''}`}></i>
+                                                    <span className="text-xs font-bold text-indigo-900">{item.name}</span>
+                                                </button>
+                                            ) : (
+                                                <div className="flex items-center gap-3 pl-8">
+                                                    <span className={`text-xs font-medium ${(item as ProcessedTask).status === 'Completed' ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                                                        {item.name}
+                                                    </span>
+                                                    {(item as ProcessedTask).comments && (
+                                                        <i className="fa-regular fa-comment-dots text-indigo-400 text-xs" title="Has notes"></i>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="px-4 py-4 text-xs font-semibold text-slate-600">
+                                            {item.type === 'task' ? sDate : ''}
+                                        </div>
+
+                                        <div className="px-4 py-4 text-xs font-semibold text-slate-600">
+                                            {item.type === 'task' ? eDate : ''}
+                                        </div>
+
+                                        <div className="px-4 py-4 flex items-center justify-center gap-2">
+                                            {item.type === 'task' && (
+                                                <>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const task = item as ProcessedTask;
+                                                            const newStatus = task.status === 'Completed' ? 'Pending' : 'Completed';
+                                                            if (onTaskStatusChange) {
+                                                                onTaskStatusChange(task.catId, task.id, newStatus);
+                                                            }
+                                                        }}
+                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all border
+                                                            ${(item as ProcessedTask).status === 'Completed'
+                                                                ? 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100'
+                                                                : 'bg-white border-slate-200 text-slate-400 hover:border-emerald-500 hover:text-emerald-500'
+                                                            }`}
+                                                        title={(item as ProcessedTask).status === 'Completed' ? "Mark as Pending" : "Mark as Done"}
+                                                    >
+                                                        <i className="fa-solid fa-check text-xs"></i>
+                                                    </button>
+
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const task = item as ProcessedTask;
+                                                            const formatDate = (date: any) => {
+                                                                if (!date) return '';
+                                                                const d = date.toDate ? date.toDate() : new Date(date);
+                                                                return d.toISOString().split('T')[0];
+                                                            };
+
+                                                            setEditModal({
+                                                                isOpen: true,
+                                                                catId: task.catId,
+                                                                taskId: task.id,
+                                                                taskName: task.name,
+                                                                currentComment: task.comments || '',
+                                                                startDate: formatDate(task.rawTask.startDate),
+                                                                dueDate: formatDate(task.rawTask.dueDate)
+                                                            });
+                                                            setDateError(null);
+                                                        }}
+                                                        className="w-8 h-8 rounded-lg flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:border-indigo-500 hover:text-indigo-600 transition-all"
+                                                        title="Edit Task"
+                                                    >
+                                                        <i className="fa-solid fa-pen text-xs"></i>
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Edit Task Modal */}
             {
