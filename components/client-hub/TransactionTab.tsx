@@ -1,4 +1,4 @@
-```
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lead, Transaction } from '../../types';
 import { createTransaction, getTransactions, getTransactionByClientId, updateTransaction, getTransactionTasks, updateTask } from '../../services/firebaseService';
@@ -200,18 +200,17 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
                 <h3 className="text-xl font-black text-slate-900 mb-2">No Transaction Record</h3>
                 <p className="text-slate-500 text-center max-w-sm mb-8">
                     {isClosingStage
-                        ? `Start a new transaction record for ${ lead.firstName } to track documents, dates, and signers.`
-                        : `Transactions can only be managed for leads in the "Closing" stage.Move ${ lead.firstName } to the Contract stage to begin.`
+                        ? `Start a new transaction record for ${lead.firstName} to track documents, dates, and signers.`
+                        : `Transactions can only be managed for leads in the "Closing" stage.Move ${lead.firstName} to the Contract stage to begin.`
                     }
                 </p>
                 <button
                     onClick={handleCreateTransaction}
                     disabled={isCreating || !isClosingStage}
-                    className={`px - 8 py - 4 text - white rounded - 2xl text - xs font - black uppercase tracking - widest shadow - lg transition - all ${
-    isClosingStage
-        ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'
-        : 'bg-slate-300 cursor-not-allowed shadow-none'
-} `}
+                    className={`px-8 py-4 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg transition-all ${isClosingStage
+                        ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'
+                        : 'bg-slate-300 cursor-not-allowed shadow-none'
+                        } `}
                 >
                     {isCreating ? 'Creating...' : 'Initialize Transaction'}
                 </button>
@@ -244,7 +243,7 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
             if (appraisalTask?.dueDate) appraisalDate = appraisalTask.dueDate;
         } else {
             // Buyer Logic (Placeholder / Fallback)
-             const contingencyTask = allTasks.find(t => t.name.includes('Contingency'));
+            const contingencyTask = allTasks.find(t => t.name.includes('Contingency'));
             if (contingencyTask?.dueDate) contingencyDate = contingencyTask.dueDate;
         }
 
@@ -282,7 +281,7 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
                             <div>
                                 <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Price</label>
                                 <div className="text-xs font-bold text-slate-800">
-                                    {transaction.purchase_price ? `$${ transaction.purchase_price.toLocaleString() } ` : '--'}
+                                    {transaction.purchase_price ? `$${transaction.purchase_price.toLocaleString()} ` : '--'}
                                 </div>
                             </div>
                             <div>
