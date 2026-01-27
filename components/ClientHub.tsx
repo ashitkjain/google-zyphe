@@ -556,6 +556,13 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                 </div>
 
                 <div className="flex items-center gap-8">
+                    <button
+                        onClick={() => setActiveTab('settings')}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'settings' ? 'bg-indigo-500/20 text-indigo-200' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                        title="Settings"
+                    >
+                        <i className="fa-solid fa-gear text-sm"></i>
+                    </button>
                     <div className="flex flex-col items-end">
                         <span className="text-white font-black text-sm tracking-tight">{realtorName}</span>
                         <button
