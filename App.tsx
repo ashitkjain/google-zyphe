@@ -716,7 +716,7 @@ const App: React.FC = () => {
       propertyData={propertyData}
       loading={loading}
       loadingSublabel={loadingSublabel}
-      viewMode={(viewMode === 'dashboard' || viewMode === 'guides') ? 'main' : viewMode} // Fallback just in case
+      viewMode={(viewMode === 'dashboard' || viewMode === 'guides' || viewMode === 'explore') ? 'main' : viewMode} // Fallback just in case
       setViewMode={transitionToView as any}
       imagesLoading={imagesLoading}
       isFavorited={isFavorited}
