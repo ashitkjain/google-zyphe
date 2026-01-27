@@ -28,7 +28,8 @@ export const saveUserProfile = async (uid: string, profile: Partial<UserProfile>
         return true;
     } catch (error) {
         console.error("[Firestore] saveUserProfile error:", error);
-        return handleFirestoreError(error, "saveUserProfile");
+        handleFirestoreError(error, "saveUserProfile");
+        return false;
     }
 };
 

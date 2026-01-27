@@ -792,13 +792,19 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
                                     // Save to DB
                                     try {
-                                        await saveUserProfile(realtorId, updates);
-                                    } catch (err) {
-                                        console.error("Failed to save profile", err);
+                                        console.log("[ClientHub] Saving profile updates:", updates);
+                                        const success = await saveUserProfile(realtorId, updates);
+                                        if (!success) {
+                                            throw new Error("Database save operation returned false");
+                                        }
+                                        console.log("[ClientHub] Profile saved successfully to DB");
+                                    } catch (err: any) {
+                                        console.error("Failed to save profile:", err);
                                         // Re-fetch to ensure sync after failure
                                         const fresh = await getUserProfile(realtorId);
                                         setRealtorProfile(fresh);
-                                        alert("There was an error saving your profile changes. Please try again.");
+                                        alert(`Failed to save profile: ${err.message || 'Unknown error'}`);
+                                        throw err; // Propagate to ProfileTab to stop spinner
                                     }
                                 }}
                             />
