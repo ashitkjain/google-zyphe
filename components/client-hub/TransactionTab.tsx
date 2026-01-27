@@ -26,9 +26,11 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
             ? transaction.important_dates.acceptance_date.toDate()
             : (transaction.important_dates?.acceptance_date ? new Date(transaction.important_dates.acceptance_date) : new Date(transaction.created_at));
 
-        // Use the categories state which should have current task dates
-        const scheduled = calculateChecklistSchedule(categories, baseDate);
-        const allTasks = scheduled.flatMap(c => c.tasks);
+        // Use the current categories state directly so we reflect live edits/DB state
+        const allTasks = categories.flatMap(c => c.tasks);
+
+        // Helper to safely convert Firestore Timestamps or strings to Date
+        const getDate = (d: any) => d?.toDate ? d.toDate() : (d ? new Date(d) : null);
 
         let contingencyDate = null;
         let appraisalDate = null;
@@ -37,20 +39,27 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
         // Seller Logic
         if (transaction.type === 'SELL') {
             const contingencyTask = allTasks.find(t => t.name === 'Secure Contingency Removals');
-            if (contingencyTask?.dueDate) contingencyDate = contingencyTask.dueDate;
+            if (contingencyTask?.dueDate) contingencyDate = getDate(contingencyTask.dueDate);
 
             const appraisalTask = allTasks.find(t => t.name.includes('Coordinate Inspections') || t.name.includes('Appraisal'));
-            if (appraisalTask?.dueDate) appraisalDate = appraisalTask.dueDate;
+            if (appraisalTask?.dueDate) appraisalDate = getDate(appraisalTask.dueDate);
         } else {
             // Buyer Logic (Placeholder / Fallback)
             const contingencyTask = allTasks.find(t => t.name.includes('Contingency'));
-            if (contingencyTask?.dueDate) contingencyDate = contingencyTask.dueDate;
+            if (contingencyTask?.dueDate) contingencyDate = getDate(contingencyTask.dueDate);
         }
 
         // Closing Date: Max due date of all tasks
         if (allTasks.length > 0) {
-            const maxDate = allTasks.reduce((max, t) => t.dueDate && t.dueDate > max ? t.dueDate : max, allTasks[0].dueDate || baseDate);
-            closingDate = maxDate;
+            // Filter out invalid dates and sort descending
+            const dates = allTasks
+                .map(t => getDate(t.dueDate))
+                .filter((d): d is Date => d !== null && !isNaN(d.getTime()));
+
+            if (dates.length > 0) {
+                dates.sort((a, b) => b.getTime() - a.getTime());
+                closingDate = dates[0];
+            }
         }
 
         return {
