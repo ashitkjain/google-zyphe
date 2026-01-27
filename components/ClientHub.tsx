@@ -49,6 +49,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     const [realtorProfile, setRealtorProfile] = useState<UserProfile | null>(null);
     const [settingsSubTab, setSettingsSubTab] = useState<'statuses' | 'properties'>('statuses');
     const [isToolsOpen, setIsToolsOpen] = useState(false);
+    const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
     const toolsRef = useRef<HTMLDivElement>(null);
 
     const [clients, setClients] = useState<UserProfile[]>([]);
@@ -555,14 +556,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
                 </div>
 
-                <div className="flex items-center gap-8">
-                    <button
-                        onClick={() => setActiveTab('settings')}
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'settings' ? 'bg-indigo-500/20 text-indigo-200' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
-                        title="Settings"
-                    >
-                        <i className="fa-solid fa-gear text-sm"></i>
-                    </button>
+                <div className="flex items-center gap-6">
                     <div className="flex flex-col items-end">
                         <span className="text-white font-black text-sm tracking-tight">{realtorName}</span>
                         <button
@@ -572,6 +566,68 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                             <i className="fa-solid fa-right-from-bracket text-[10px] text-white group-hover/signout:-translate-x-0.5 transition-all"></i>
                             Sign Out
                         </button>
+                    </div>
+
+                    <div className="relative z-50">
+                        <button
+                            onClick={() => setIsSettingsDropdownOpen(!isSettingsDropdownOpen)}
+                            onBlur={() => setTimeout(() => setIsSettingsDropdownOpen(false), 200)}
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isSettingsDropdownOpen || activeTab === 'settings' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/50' : 'bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-700'}`}
+                            title="Settings"
+                        >
+                            <i className="fa-solid fa-gear text-sm"></i>
+                        </button>
+
+                        {/* Dropdown Menu */}
+                        {isSettingsDropdownOpen && (
+                            <div className="absolute right-0 top-full mt-3 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+                                <div className="p-1.5 space-y-0.5">
+                                    <button
+                                        onClick={() => {
+                                            setActiveTab('settings'); // Or specific modal
+                                            // Handle Add Client logic here
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 rounded-xl transition-colors group"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                                            <i className="fa-solid fa-user-plus text-xs"></i>
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-700 group-hover:text-slate-900">Add a client</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            // Handle Remove Client logic
+                                            setActiveTab('clients');
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 rounded-xl transition-colors group"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-slate-50 text-slate-500 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
+                                            <i className="fa-solid fa-user-minus text-xs"></i>
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-700 group-hover:text-slate-900">Remove a client</span>
+                                    </button>
+
+                                    <div className="h-px bg-slate-100 my-1 mx-2"></div>
+
+                                    <button
+                                        onClick={() => {
+                                            // Handle Delete Account
+                                            if (window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
+                                                // Call delete logic or sign out
+                                                onSignOut();
+                                            }
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-rose-50 rounded-xl transition-colors group"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center group-hover:bg-rose-100 transition-colors">
+                                            <i className="fa-solid fa-trash text-xs"></i>
+                                        </div>
+                                        <span className="text-xs font-bold text-rose-600 group-hover:text-rose-700">Delete Account</span>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </header>
