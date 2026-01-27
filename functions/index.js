@@ -1,6 +1,11 @@
-const functions = require('firebase-functions');
+const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
+const telnyx = require('telnyx')('KEY019BFFFEE99769B3985278C839A4C1AA_11aDo6xzW4pdHMr6LOFnth');
+
 admin.initializeApp();
+
+// TODO: Replace with your actual Telnyx Phone Number or Messaging Profile ID
+const TELNYX_FROM_NUMBER = '+12242194686';
 
 /**
  * Telnyx Webhook for Real-Time SMS Interaction
@@ -10,28 +15,68 @@ admin.initializeApp();
  * message to the Communication Hub and Client Timeline.
  */
 exports.telnyxWebhook = functions.https.onRequest(async (req, res) => {
-    const payload = req.body.data;
+    const publicKey = 'Rj7eIQ1Nly5P3tvhxFVjNUFnshBQWGNZRxC+feFqy1c=';
 
-    // 1. Verify it's an incoming message
-    if (!payload || payload.event_type !== 'message.received') {
-        return res.status(200).send('Ignored');
+    // Verify Signature
+    const signature = req.headers['telnyx-signature-ed25519'];
+    const timestamp = req.headers['telnyx-timestamp'];
+    const rawBodyBuffer = req.rawBody;
+
+    if (!signature || !timestamp || !rawBodyBuffer) {
+        console.error('[SMS] Missing headers or body');
+        return res.status(400).send('Missing headers or body');
     }
 
     try {
+        const rawBody = rawBodyBuffer.toString('utf8');
+        const { TelnyxWebhook } = require('telnyx/webhooks');
+        const webhook = new TelnyxWebhook(publicKey);
+        webhook.verify(rawBody, req.headers);
+
+        // Verification Successful - Parse Payload
+        const event = JSON.parse(rawBody);
+        const payload = event.data;
+
+        // 1. Verify it's an incoming message
+        if (!payload || payload.event_type !== 'message.received') {
+            return res.status(200).send('Ignored');
+        }
+
         const { from, text, id, to } = payload.payload;
-        const fromPhone = from.phone_number;
+        const fromPhone = from.phone_number; // e.g., +14088231142
+        const strippedPhone = fromPhone.replace(/^\+1/, ''); // e.g., 4088231142
 
         // 2. Find the client by phone number
-        // We check both the 'users' (Buyer/Seller) and potentially 'leads' collection
-        const userQuery = await admin.firestore().collection('users')
-            .where('phoneNumber', '==', fromPhone)
+        // We check both the 'users' (Buyer/Seller) and 'leads' collection
+        // And we check both formats: E.164 (+1) and 10-digit National
+        const db = admin.firestore();
+        let client = null;
+        let isLead = false;
+
+        // Search Users (check both formats)
+        // Since we can't do OR queries easily across multiple fields/values without an index, 
+        // we will just run two quick checks if the first fails.
+        let userQuery = await db.collection('users')
+            .where('phoneNumber', 'in', [fromPhone, strippedPhone])
             .limit(1).get();
 
-        let client = !userQuery.empty ? { ...userQuery.docs[0].data(), uid: userQuery.docs[0].id } : null;
+        if (!userQuery.empty) {
+            client = { ...userQuery.docs[0].data(), uid: userQuery.docs[0].id };
+        } else {
+            // Search Leads (using flat 'phone' field)
+            const leadQuery = await db.collection('leads')
+                .where('phone', 'in', [fromPhone, strippedPhone])
+                .limit(1).get();
 
-        if (client && client.smsConsent) {
+            if (!leadQuery.empty) {
+                client = { ...leadQuery.docs[0].data(), uid: leadQuery.docs[0].id };
+                isLead = true;
+            }
+        }
+
+        if (client) {
             // 3. Persist Message to Global Feed
-            await admin.firestore().collection('messages').add({
+            await db.collection('messages').add({
                 threadId: `thread_${client.uid}`,
                 senderId: client.uid,
                 receiverId: client.realtorId || 'system',
@@ -42,15 +87,35 @@ exports.telnyxWebhook = functions.https.onRequest(async (req, res) => {
                 timestamp: admin.firestore.FieldValue.serverTimestamp()
             });
 
-            // 4. Auto-Log to Activity Timeline for the specific client
-            await admin.firestore().collection('users').doc(client.uid).collection('activity').add({
+            // 4. If it's a Lead, also log to 'reactivation_messages' for the Trail
+            if (isLead) {
+                const threadId = `thread-${client.uid}-${client.realtorId || 'system'}`;
+
+                await db.collection('reactivation_messages').add({
+                    message_id: id,
+                    lead_id: client.uid,
+                    realtorId: client.realtorId || 'system',
+                    channel: 'sms',
+                    content: text,
+                    sent_at: admin.firestore.FieldValue.serverTimestamp(),
+                    reply_received: true, // It is a reply
+                    sentiment: 'neutral',
+                    isInbound: true,
+                    thread_id: threadId,
+                    requires_action: true
+                });
+            }
+
+            // 5. Auto-Log to Activity Timeline
+            const targetCollection = isLead ? 'leads' : 'users';
+            await db.collection(targetCollection).doc(client.uid).collection('activity').add({
                 type: 'SMS',
                 content: text,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
                 authorId: client.uid
             });
 
-            console.log(`[SMS] Received and logged from: ${fromPhone} for client: ${client.displayName}`);
+            console.log(`[SMS] Received and logged from: ${fromPhone} for ${isLead ? 'lead' : 'client'}: ${client.displayName || client.fullName}`);
         } else {
             console.log(`[SMS] Received from ${fromPhone} but no consenting client found.`);
         }
@@ -61,6 +126,67 @@ exports.telnyxWebhook = functions.https.onRequest(async (req, res) => {
         res.status(500).send('Internal Server Error');
     }
 });
+
+/**
+ * Outbound SMS Processor
+ * Triggers when a message is added to 'reactivation_messages'.
+ * Sends the SMS via Telnyx if it is an outbound SMS.
+ */
+exports.processOutboundSms = functions.firestore
+    .document('reactivation_messages/{messageId}')
+    .onCreate(async (snap, context) => {
+        const msg = snap.data();
+        const db = admin.firestore();
+
+        // Filter: Must be Outbound SMS and not yet processed
+        if (msg.isInbound || msg.channel !== 'sms' || msg.status === 'sent') {
+            return null;
+        }
+
+        console.log(`[Outbound SMS] Processing message ${context.params.messageId} for lead ${msg.lead_id}`);
+
+        try {
+            // 1. Get Lead Phone Number
+            const leadDoc = await db.collection('leads').doc(msg.lead_id).get();
+            if (!leadDoc.exists) {
+                console.error(`[Outbound SMS] Lead ${msg.lead_id} not found.`);
+                await snap.ref.update({ status: 'failed', error: 'Lead not found' });
+                return null;
+            }
+
+            const lead = leadDoc.data();
+            const toPhone = lead.phone || lead.primaryContact?.phone; // Handle different schemas
+
+            if (!toPhone) {
+                console.error(`[Outbound SMS] Lead ${msg.lead_id} has no phone number.`);
+                await snap.ref.update({ status: 'failed', error: 'No phone number' });
+                return null;
+            }
+
+            // 2. Send via Telnyx
+            const telnyxResponse = await telnyx.messages.create({
+                from: TELNYX_FROM_NUMBER,
+                to: toPhone,
+                text: msg.content
+            });
+
+            // 3. Update Message Status
+            await snap.ref.update({
+                status: 'sent',
+                provider_id: telnyxResponse.data.id,
+                sent_at: admin.firestore.FieldValue.serverTimestamp() // Confirm exact sent time
+            });
+
+            console.log(`[Outbound SMS] Successfully sent to ${toPhone}. Telnyx ID: ${telnyxResponse.data.id}`);
+
+        } catch (error) {
+            console.error(`[Outbound SMS] Failed to send:`, error);
+            await snap.ref.update({
+                status: 'failed',
+                error: error.message || 'Unknown error'
+            });
+        }
+    });
 
 /**
  * Reminder Rules Engine
@@ -205,3 +331,49 @@ function parseInterval(value) {
     if (unit.startsWith('day')) return n * 24 * 60 * 60 * 1000;
     return 0;
 }
+
+/**
+ * Public API to test Telnyx Webhook with Signature Verification
+ * Uses the provided public key: Rj7eIQ1Nly5P3tvhxFVjNUFnshBQWGNZRxC+feFqy1c=
+ */
+exports.telnyxWebhookTest = functions.https.onRequest((req, res) => {
+    const publicKey = 'Rj7eIQ1Nly5P3tvhxFVjNUFnshBQWGNZRxC+feFqy1c=';
+
+    // Telnyx sends the signature and timestamp in headers
+    const signature = req.headers['telnyx-signature-ed25519'];
+    const timestamp = req.headers['telnyx-timestamp'];
+    const rawBodyBuffer = req.rawBody; // Firebase Functions provides the raw buffer
+
+    if (!signature || !timestamp || !rawBodyBuffer) {
+        console.error('[TelnyxTest] Missing headers or body');
+        return res.status(400).send('Missing headers or body');
+    }
+
+    try {
+        // We need to use the raw body string for verification
+        const rawBody = rawBodyBuffer.toString('utf8');
+
+        // Dynamically import the Webhook class if it's not on the main export
+        // Based on the file structure `telnyx/webhooks.js` exports `TelnyxWebhook`
+        const { TelnyxWebhook } = require('telnyx/webhooks');
+
+        const webhook = new TelnyxWebhook(publicKey);
+
+        // Verify sends an error if it fails
+        webhook.verify(rawBody, req.headers);
+
+        // If we get here, it is verified.
+        // We can now safely parse the body
+        const event = JSON.parse(rawBody);
+
+        console.log('[TelnyxTest] Webhook Verified Successfully:', event.data?.id);
+        console.log('[TelnyxTest] Event Type:', event.data?.event_type);
+
+        // Return success
+        return res.status(200).json({ status: 'verified', event: event.data?.event_type });
+
+    } catch (err) {
+        console.error('[TelnyxTest] Verification Error:', err.message);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+});

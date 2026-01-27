@@ -16,6 +16,46 @@ export const saveUserProfile = async (uid: string, profile: Partial<UserProfile>
     }
     try {
         console.log(`[Firestore] Attempting to save profile for UID: ${uid}`, profile);
+
+        // --- VALIDATION: Check for Duplicates ---
+        const usersCol = collection(db, "users");
+
+        // 1. Check Phone Number Uniqueness
+        if (profile.phoneNumber) {
+            // Check both strict match and potential format variations could be added here,
+            // but for now we enforce exactly what is submitted.
+            // Ideally also check stripped version (no country code), but that requires 'in' query or multiple queries.
+            // Let's stick to exact match for the one they are trying to save.
+
+            const phoneQuery = query(usersCol, where("phoneNumber", "==", profile.phoneNumber), limit(1));
+            const phoneSnap = await getDocs(phoneQuery);
+
+            if (!phoneSnap.empty) {
+                const existingDoc = phoneSnap.docs[0];
+                if (existingDoc.id !== uid) {
+                    const msg = `Phone number ${profile.phoneNumber} is already in use by another account.`;
+                    console.error("[Firestore] Duplicate Phone Prevention:", msg);
+                    throw new Error(msg);
+                }
+            }
+        }
+
+        // 2. Check Email Uniqueness (only if email is being updated/saved in Firestore)
+        if (profile.email) {
+            const emailQuery = query(usersCol, where("email", "==", profile.email), limit(1));
+            const emailSnap = await getDocs(emailQuery);
+
+            if (!emailSnap.empty) {
+                const existingDoc = emailSnap.docs[0];
+                if (existingDoc.id !== uid) {
+                    const msg = `Email ${profile.email} is already in use by another account.`;
+                    console.error("[Firestore] Duplicate Email Prevention:", msg);
+                    throw new Error(msg);
+                }
+            }
+        }
+        // --- END VALIDATION ---
+
         const userRef = doc(db, "users", uid);
         const sanitized = sanitizeForFirestore(profile);
         logFirestoreQuery('setDoc', 'users', { uid });
@@ -27,6 +67,10 @@ export const saveUserProfile = async (uid: string, profile: Partial<UserProfile>
         console.log("[Firestore] Profile saved successfully.");
         return true;
     } catch (error) {
+        // If it was our custom error, rethrow it so UI can catch it
+        if (error instanceof Error && (error.message.includes("already in use"))) {
+            throw error;
+        }
         console.error("[Firestore] saveUserProfile error:", error);
         handleFirestoreError(error, "saveUserProfile");
         return false;

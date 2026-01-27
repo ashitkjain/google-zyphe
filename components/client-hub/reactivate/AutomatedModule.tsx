@@ -713,6 +713,14 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                                                                 key={action.id}
                                                                                 onClick={(e) => {
                                                                                     e.stopPropagation();
+
+                                                                                    if (action.id === 'whatsapp') {
+                                                                                        const name = lead.fullName || lead.firstName || '';
+                                                                                        const text = name ? `Hi ${name}` : 'Hi';
+                                                                                        const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+                                                                                        window.open(url, '_blank');
+                                                                                    }
+
                                                                                     // Handle action - for now just close menu
                                                                                     // In the future, this could open an outreach modal for this lead
                                                                                     console.log('Action:', action.id, 'for lead:', lead.id);
