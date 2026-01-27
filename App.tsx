@@ -826,7 +826,7 @@ const App: React.FC = () => {
                 className="text-white/60 hover:text-white transition-colors flex items-center gap-2"
               >
                 <i className={`fa-solid ${viewMode === 'guides' ? 'fa-house' : 'fa-book-open'} text-[10px]`}></i>
-                {viewMode === 'guides' ? 'BACK TO EXPLORE' : 'CLIENT GUIDES'}
+                {viewMode === 'guides' ? 'BACK TO EXPLORE' : 'LEARN'}
               </button>
               {currentUser && (
                 <>
