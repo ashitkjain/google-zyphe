@@ -185,8 +185,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                     profileUpdates.realtor = defaultRealtor;
                 }
 
-                // Sync providerId if missing
-                if (!profile.providerId && actualProviderId) {
+                // Sync providerId to ensure it matches the current auth method
+                if (actualProviderId && actualProviderId !== 'unknown' && profile.providerId !== actualProviderId) {
                     profile.providerId = actualProviderId;
                     profileUpdates.providerId = actualProviderId;
                 }

@@ -615,27 +615,37 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                 </div>
                             </section>
 
-                            <section className="space-y-4 pb-4">
-                                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Security</h3>
-                                <div className="space-y-3">
-                                    <div className="relative">
-                                        <i className="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
-                                        <input
-                                            type="password"
-                                            className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                                            placeholder="New Password"
-                                        />
+                            {profile.providerId === 'google.com' ? (
+                                <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                                    <div className="flex items-center gap-3 text-slate-500 mb-2">
+                                        <i className="fa-brands fa-google text-slate-400"></i>
+                                        <span className="text-xs font-bold uppercase tracking-widest">Managed by Google</span>
                                     </div>
-                                    <div className="relative">
-                                        <i className="fa-solid fa-lock-open absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
-                                        <input
-                                            type="password"
-                                            className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                                            placeholder="Confirm New Password"
-                                        />
-                                    </div>
+                                    <p className="text-[11px] text-slate-400 leading-relaxed font-medium">Your password and security settings are managed through your Google account. To update them, please visit your Google Security Dashboard.</p>
                                 </div>
-                            </section>
+                            ) : (
+                                <section className="space-y-4 pb-4">
+                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Security</h3>
+                                    <div className="space-y-3">
+                                        <div className="relative">
+                                            <i className="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
+                                            <input
+                                                type="password"
+                                                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                                                placeholder="New Password"
+                                            />
+                                        </div>
+                                        <div className="relative">
+                                            <i className="fa-solid fa-lock-open absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
+                                            <input
+                                                type="password"
+                                                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                                                placeholder="Confirm New Password"
+                                            />
+                                        </div>
+                                    </div>
+                                </section>
+                            )}
 
                             <div className="pt-2">
                                 <button
@@ -656,11 +666,25 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                             </div>
 
                             <div className="flex gap-4">
-                                <button className="flex-1 py-3 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-3 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">
+                                <button
+                                    onClick={() => {
+                                        onUpdateProfile({ providerId: 'google.com' });
+                                        alert("Provider switched to Google (Secure Simulation)");
+                                        setIsAuthModalOpen(false);
+                                    }}
+                                    className="flex-1 py-3 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-3 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                                >
                                     <img src="https://www.google.com/favicon.ico" className="w-4 h-4 grayscale" alt="google" />
                                     Google Auth
                                 </button>
-                                <button className="flex-1 py-3 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-3 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">
+                                <button
+                                    onClick={() => {
+                                        onUpdateProfile({ providerId: 'password' });
+                                        alert("Provider switched to Email/Password (Secure Simulation)");
+                                        setIsAuthModalOpen(false);
+                                    }}
+                                    className="flex-1 py-3 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-3 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                                >
                                     <i className="fa-solid fa-envelope text-slate-400"></i>
                                     Email/Pass
                                 </button>
