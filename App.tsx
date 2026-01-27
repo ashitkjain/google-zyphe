@@ -816,7 +816,7 @@ const App: React.FC = () => {
                   <span className="hidden sm:inline opacity-40">{currentUser.role} Account</span>
                 </>
               ) : (
-                <span className="text-slate-500">Guest Access</span>
+                <span className="text-slate-500"></span>
               )}
             </div>
 
