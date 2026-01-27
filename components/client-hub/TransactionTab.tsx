@@ -313,6 +313,12 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
                                 </div>
                             </div>
                             <div>
+                                <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Closing</label>
+                                <div className="text-xs font-bold text-indigo-600">
+                                    {keyDates.closing ? keyDates.closing.toLocaleDateString() : '--'}
+                                </div>
+                            </div>
+                            <div>
                                 <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Appraisal</label>
                                 <div className="text-xs font-bold text-slate-800">
                                     {keyDates.appraisal ? keyDates.appraisal.toLocaleDateString() : '--'}
@@ -322,12 +328,6 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
                                 <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Contingency Removal</label>
                                 <div className="text-xs font-bold text-slate-800">
                                     {keyDates.contingency ? keyDates.contingency.toLocaleDateString() : '--'}
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Closing</label>
-                                <div className="text-xs font-bold text-indigo-600">
-                                    {keyDates.closing ? keyDates.closing.toLocaleDateString() : '--'}
                                 </div>
                             </div>
                         </div>
