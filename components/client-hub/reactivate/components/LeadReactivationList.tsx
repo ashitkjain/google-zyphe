@@ -105,8 +105,8 @@ export const LeadReactivationList: React.FC<LeadReactivationListProps> = ({
 
     // Widths based on mode
     const widthMarket = 'w-[15%]';
-    const widthNote = mode === 'action' ? 'w-[42%]' : 'w-[36%]';
-    const widthAction = mode === 'action' ? 'w-[6%]' : 'w-[12%]';
+    const widthNote = mode === 'action' ? 'w-[38%]' : 'w-[36%]';
+    const widthAction = mode === 'action' ? 'w-[10%]' : 'w-[12%]';
 
     return (
         <div className={`flex flex-col ${variant === 'card' ? 'bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden' : ''}`}>

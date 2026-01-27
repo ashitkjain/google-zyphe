@@ -678,7 +678,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                                     }}
                                                     sortConfig={sortConfig}
                                                     onSort={handleSort}
-                                                    actionHeaderLabel=""
+                                                    actionHeaderLabel="Self Reachout"
                                                     maxHeight="600px"
                                                     variant="flat"
                                                     mode="action"
