@@ -773,6 +773,16 @@ const App: React.FC = () => {
           exploreContent={exploreTab}
           initialTab={(viewMode === 'main' ? 'explore' : viewMode) as any}
           onNavigate={transitionToView}
+          onUpdateProfile={(updates) => {
+            setCurrentUser(prev => {
+              if (!prev) return null;
+              const next = { ...prev, ...updates };
+              if (updates.realtor && prev.realtor) {
+                next.realtor = { ...prev.realtor, ...updates.realtor };
+              }
+              return next;
+            });
+          }}
         />
 
         {/* Chat Interface needs to be rendered at top level if it's fixed? 

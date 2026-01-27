@@ -3,7 +3,7 @@ import { UserProfile, RealtorNode } from '../../types';
 
 interface ProfileTabProps {
     profile: UserProfile | null;
-    onUpdateProfile: (updates: Partial<UserProfile>) => void;
+    onUpdateProfile: (updates: Partial<UserProfile>) => Promise<void> | void;
 }
 
 const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => {
@@ -23,22 +23,28 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
         { label: 'Clients', value: profile?.realtor?.totalClients || '350+', icon: 'fa-users', key: 'totalClients' },
     ];
     const [uploading, setUploading] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-    const [authEmail, setAuthEmail] = useState(profile?.email || '');
-    const [authPass, setAuthPass] = useState('');
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     if (!profile) return <div className="p-10 text-center text-slate-400">Loading Profile...</div>;
 
-    const handleSave = () => {
-        onUpdateProfile({
-            ...basicForm,
-            realtor: {
-                ...profile.realtor,
-                ...realtorForm
-            }
-        });
-        setIsEditing(false);
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            await onUpdateProfile({
+                ...basicForm,
+                realtor: {
+                    ...profile.realtor,
+                    ...realtorForm
+                }
+            });
+            setIsEditing(false);
+        } catch (err) {
+            console.error("Save failed", err);
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,9 +85,11 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                 </button>
                                 <button
                                     onClick={handleSave}
-                                    className="px-6 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 transition-all border border-emerald-400"
+                                    disabled={saving}
+                                    className="px-6 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 transition-all border border-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                 >
-                                    Save Changes
+                                    {saving && <i className="fa-solid fa-circle-notch fa-spin"></i>}
+                                    {saving ? 'Saving...' : 'Save Changes'}
                                 </button>
                             </div>
                         ) : (
@@ -359,24 +367,15 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                             <div className="space-y-4">
                                 <div>
                                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Login Email / UserID</div>
-                                    <div className="text-sm font-black text-slate-800 flex items-center justify-between gap-2">
-                                        <span className="truncate">{profile.email}</span>
-                                        {profile.providerId === 'google.com' ? (
-                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-50 border border-slate-100 rounded-lg shrink-0">
-                                                <img src="https://www.google.com/favicon.ico" className="w-3 h-3 grayscale opacity-60" alt="google" />
-                                                <span className="text-[9px] text-slate-400">Google</span>
-                                            </div>
-                                        ) : (
-                                            <i className="fa-solid fa-circle-check text-emerald-500 text-[10px]"></i>
-                                        )}
+                                    <div className="text-sm font-black text-slate-800 flex items-center justify-between">
+                                        {profile.email}
+                                        <i className="fa-solid fa-circle-check text-emerald-500 text-[10px]"></i>
                                     </div>
                                 </div>
-                                {profile.providerId !== 'google.com' && (
-                                    <div>
-                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Password</div>
-                                        <div className="text-sm font-black text-slate-400 tracking-[4px]">••••••••</div>
-                                    </div>
-                                )}
+                                <div>
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Password</div>
+                                    <div className="text-sm font-black text-slate-400 tracking-[4px]">••••••••</div>
+                                </div>
                                 <button
                                     onClick={() => setIsAuthModalOpen(true)}
                                     className="w-full mt-2 py-3 bg-slate-50 border border-slate-100 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-50 hover:border-indigo-100 transition-all flex items-center justify-center gap-2"
@@ -609,8 +608,7 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                         <i className="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
                                         <input
                                             type="email"
-                                            value={authEmail}
-                                            onChange={(e) => setAuthEmail(e.target.value)}
+                                            defaultValue={profile.email}
                                             className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
                                             placeholder="Enter new email"
                                         />
@@ -618,45 +616,32 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                 </div>
                             </section>
 
-                            {profile.providerId === 'google.com' ? (
-                                <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
-                                    <div className="flex items-center gap-3 text-slate-500 mb-2">
-                                        <i className="fa-brands fa-google text-slate-400"></i>
-                                        <span className="text-xs font-bold uppercase tracking-widest">Managed by Google</span>
+                            <section className="space-y-4 pb-4">
+                                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Security</h3>
+                                <div className="space-y-3">
+                                    <div className="relative">
+                                        <i className="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
+                                        <input
+                                            type="password"
+                                            className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                                            placeholder="New Password"
+                                        />
                                     </div>
-                                    <p className="text-[11px] text-slate-400 leading-relaxed font-medium">Your password and security settings are managed through your Google account. To update them, please visit your Google Security Dashboard.</p>
+                                    <div className="relative">
+                                        <i className="fa-solid fa-lock-open absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
+                                        <input
+                                            type="password"
+                                            className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                                            placeholder="Confirm New Password"
+                                        />
+                                    </div>
                                 </div>
-                            ) : (
-                                <section className="space-y-4 pb-4">
-                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Security</h3>
-                                    <div className="space-y-3">
-                                        <div className="relative">
-                                            <i className="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
-                                            <input
-                                                type="password"
-                                                value={authPass}
-                                                onChange={(e) => setAuthPass(e.target.value)}
-                                                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                                                placeholder="New Password"
-                                            />
-                                        </div>
-                                        <div className="relative">
-                                            <i className="fa-solid fa-lock-open absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
-                                            <input
-                                                type="password"
-                                                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                                                placeholder="Confirm New Password"
-                                            />
-                                        </div>
-                                    </div>
-                                </section>
-                            )}
+                            </section>
 
                             <div className="pt-2">
                                 <button
                                     onClick={() => {
-                                        onUpdateProfile({ email: authEmail, providerId: profile.providerId === 'google.com' ? 'google.com' : 'password' });
-                                        alert("Security credentials updated in profile database.");
+                                        alert("This sensitive operation requires re-authentication for security. Simulation successful.");
                                         setIsAuthModalOpen(false);
                                     }}
                                     className="w-full py-4 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-3"
@@ -672,27 +657,11 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                             </div>
 
                             <div className="flex gap-4">
-                                <button
-                                    onClick={() => {
-                                        onUpdateProfile({ providerId: 'google.com' });
-                                        localStorage.setItem('zyphe_last_provider', 'google.com');
-                                        alert("Provider switched to Google (Secure Simulation)");
-                                        setIsAuthModalOpen(false);
-                                    }}
-                                    className="flex-1 py-3 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-3 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
-                                >
+                                <button className="flex-1 py-3 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-3 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">
                                     <img src="https://www.google.com/favicon.ico" className="w-4 h-4 grayscale" alt="google" />
                                     Google Auth
                                 </button>
-                                <button
-                                    onClick={() => {
-                                        onUpdateProfile({ providerId: 'password' });
-                                        localStorage.setItem('zyphe_last_provider', 'password');
-                                        alert("Switched to Email/Password mode. Please set your credentials above.");
-                                        // Don't close modal, let them set credentials
-                                    }}
-                                    className="flex-1 py-3 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-3 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
-                                >
+                                <button className="flex-1 py-3 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-3 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">
                                     <i className="fa-solid fa-envelope text-slate-400"></i>
                                     Email/Pass
                                 </button>

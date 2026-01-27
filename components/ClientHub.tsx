@@ -6,7 +6,6 @@ import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates, getI
 import { getDefaultReminderRules } from '../services/reminderRulesService';
 import { UserProfile, Lead, CRMTask, CommTemplate, FunnelStage, ReminderRule, LeadNote, RealtorNode } from '../types';
 import { DropResult } from '@hello-pangea/dnd';
-import { auth } from '../services/firebase/config';
 import Logo from './Logo';
 import LeadsList from './LeadsList';
 
@@ -32,6 +31,7 @@ interface Props {
     exploreContent?: React.ReactNode;
     initialTab?: HubTab;
     onNavigate?: (view: any, path: string) => void;
+    onUpdateProfile?: (updates: Partial<UserProfile>) => void;
 }
 
 const generateClientID = () => {
@@ -40,7 +40,7 @@ const generateClientID = () => {
 
 type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio' | 'guides' | 'profile';
 
-const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab, onNavigate }) => {
+const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab, onNavigate, onUpdateProfile }) => {
     // Default to 'explore' if content is provided, otherwise 'leads'
     const [activeTab, setActiveTab] = useState<HubTab>(initialTab || (exploreContent ? 'explore' : 'leads'));
 
@@ -156,44 +156,28 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     useEffect(() => {
         const fetchRealtorProfile = async () => {
             const profile = await getUserProfile(realtorId);
-            if (profile) {
-                const currentUser = auth?.currentUser;
-                const actualProviderId = currentUser?.providerData[0]?.providerId || (currentUser?.emailVerified ? 'password' : 'unknown');
-
-                let profileUpdates: Partial<UserProfile> = {};
-
+            if (profile && !profile.realtor && profile.role === 'realtor') {
                 // Migration: Populate dynamic realtor node if missing
-                if (!profile.realtor && profile.role === 'realtor') {
-                    const defaultRealtor: RealtorNode = {
-                        bio: "Real estate professional dedicated to providing exceptional service and market expertise. Helping clients find their dream homes with data-driven insights.",
-                        brokerage: "Zyphe Real Estate",
-                        yearsExperience: 10,
-                        specialties: ["Residential", "Luxury Properties", "Strategic Negotiation"],
-                        languages: ["English"],
-                        serviceAreas: ["Major Metropolitan Area"],
-                        socialLinks: {
-                            linkedin: "",
-                            facebook: "",
-                            instagram: "",
-                            twitter: ""
-                        },
-                        totalSales: "142",
-                        avgPrice: "$1.2M",
-                        totalClients: "350+"
-                    };
-                    profile.realtor = defaultRealtor;
-                    profileUpdates.realtor = defaultRealtor;
-                }
-
-                // Sync providerId if missing (initial setup)
-                if (!profile.providerId && actualProviderId && actualProviderId !== 'unknown') {
-                    profile.providerId = actualProviderId;
-                    profileUpdates.providerId = actualProviderId;
-                }
-
-                if (Object.keys(profileUpdates).length > 0) {
-                    await saveUserProfile(realtorId, profileUpdates);
-                }
+                const defaultRealtor: RealtorNode = {
+                    bio: "Real estate professional dedicated to providing exceptional service and market expertise. Helping clients find their dream homes with data-driven insights.",
+                    brokerage: "Zyphe Real Estate",
+                    yearsExperience: 10,
+                    specialties: ["Residential", "Luxury Properties", "Strategic Negotiation"],
+                    languages: ["English"],
+                    serviceAreas: ["Major Metropolitan Area"],
+                    socialLinks: {
+                        linkedin: "",
+                        facebook: "",
+                        instagram: "",
+                        twitter: ""
+                    },
+                    totalSales: "142",
+                    avgPrice: "$1.2M",
+                    totalClients: "350+"
+                };
+                profile.realtor = defaultRealtor;
+                // Optional: Save this default state back to DB
+                await saveUserProfile(realtorId, { realtor: defaultRealtor });
             }
             setRealtorProfile(profile);
         };
@@ -790,14 +774,31 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                 profile={realtorProfile}
                                 onUpdateProfile={async (updates) => {
                                     if (!realtorId) return;
-                                    // Optimistic update
-                                    setRealtorProfile(prev => prev ? { ...prev, ...updates } : null);
+
+                                    // Deep merge for optimistic update to prevent wiping out nested fields
+                                    setRealtorProfile(prev => {
+                                        if (!prev) return null;
+                                        const next = { ...prev, ...updates };
+                                        if (updates.realtor && prev.realtor) {
+                                            next.realtor = { ...prev.realtor, ...updates.realtor };
+                                        }
+                                        return next;
+                                    });
+
+                                    // Forward to parent if provided to keep global header in sync
+                                    if (onUpdateProfile) {
+                                        onUpdateProfile(updates);
+                                    }
+
                                     // Save to DB
                                     try {
                                         await saveUserProfile(realtorId, updates);
                                     } catch (err) {
                                         console.error("Failed to save profile", err);
-                                        // Revert or show toast on real error
+                                        // Re-fetch to ensure sync after failure
+                                        const fresh = await getUserProfile(realtorId);
+                                        setRealtorProfile(fresh);
+                                        alert("There was an error saving your profile changes. Please try again.");
                                     }
                                 }}
                             />
