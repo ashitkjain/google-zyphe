@@ -42,6 +42,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
   const [copySuccess, setCopySuccess] = useState(false);
   const [resetMode, setResetMode] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const preferredProvider = localStorage.getItem('zyphe_last_provider') || 'google.com';
 
   // Sync state when inviteData changes or when modal opens
   React.useEffect(() => {
@@ -162,6 +163,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
           createdAt: new Date()
         });
       } else {
+        localStorage.setItem('zyphe_last_provider', 'google.com');
         localStorage.removeItem('zyphe_pending_role');
       }
       onClose();
@@ -195,6 +197,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
+        localStorage.setItem('zyphe_last_provider', 'password');
       } else {
         // Store the intended role in localStorage so App.tsx can find it if Firestore fails or is slow
         localStorage.setItem('zyphe_pending_role', role);
@@ -343,7 +346,8 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
             </div>
           )}
 
-          {!resetMode && (
+          {/* Google Login (Main or Secondary) */}
+          {preferredProvider === 'google.com' && !resetMode && (
             <button
               onClick={handleGoogleLogin}
               disabled={loading}
@@ -357,12 +361,16 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
           {!resetMode && (
             <div className="flex items-center gap-4 mb-6">
               <div className="flex-1 h-px bg-slate-100"></div>
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">or email</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                {preferredProvider === 'google.com' ? 'or email' : 'Sign in with Email'}
+              </span>
               <div className="flex-1 h-px bg-slate-100"></div>
             </div>
           )}
 
+          {/* This is the Form area */}
           <form onSubmit={resetMode ? handleResetPassword : handleSubmit} className="space-y-4">
+            {/* ... form fields content here ... */}
             {resetSent && (
               <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-600 text-xs font-bold flex items-center gap-3 animate-in zoom-in-95">
                 <i className="fa-solid fa-circle-check text-emerald-500 text-sm"></i>
@@ -479,6 +487,24 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
                 : (isLogin ? "Don't have an account? Create one" : (inviteData ? "" : "Already have an account? Sign in"))}
             </button>
           </div>
+
+          {preferredProvider === 'password' && !resetMode && (
+            <div className="mt-6">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="flex-1 h-px bg-slate-100"></div>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">or continue with</span>
+                <div className="flex-1 h-px bg-slate-100"></div>
+              </div>
+              <button
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-3 py-3.5 border-2 border-slate-100 rounded-2xl hover:bg-slate-50 hover:border-slate-200 transition-all font-bold text-slate-700 mb-6 active:scale-[0.98] disabled:opacity-50"
+              >
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+                Google Account
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

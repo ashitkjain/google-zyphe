@@ -675,6 +675,7 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                 <button
                                     onClick={() => {
                                         onUpdateProfile({ providerId: 'google.com' });
+                                        localStorage.setItem('zyphe_last_provider', 'google.com');
                                         alert("Provider switched to Google (Secure Simulation)");
                                         setIsAuthModalOpen(false);
                                     }}
@@ -686,8 +687,9 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                 <button
                                     onClick={() => {
                                         onUpdateProfile({ providerId: 'password' });
-                                        alert("Provider switched to Email/Password (Secure Simulation)");
-                                        setIsAuthModalOpen(false);
+                                        localStorage.setItem('zyphe_last_provider', 'password');
+                                        alert("Switched to Email/Password mode. Please set your credentials above.");
+                                        // Don't close modal, let them set credentials
                                     }}
                                     className="flex-1 py-3 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-3 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
                                 >
