@@ -316,31 +316,32 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
             </div>
           )}
 
-          <div className="px-5 mb-6">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">I am a...</label>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { id: 'buyer', label: 'Buyer', icon: 'fa-shopping-cart' },
-                { id: 'seller', label: 'Seller', icon: 'fa-house-user' },
-                { id: 'realtor', label: 'Realtor', icon: 'fa-briefcase' }
-              ].map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => !inviteData && setRole(r.id as any)}
-                  disabled={!!inviteData}
-                  className={`py-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${role === r.id
-                    ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
-                    : 'border-slate-100 text-slate-400 hover:border-slate-200'
-                    } ${inviteData ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <i className={`fa-solid ${r.icon} text-xs`}></i>
-                  <span className="text-[9px] font-black uppercase tracking-widest">{r.label}</span>
-                </button>
-              ))}
+          {!isLogin && (
+            <div className="px-5 mb-6">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">I am a...</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'buyer', label: 'Buyer', icon: 'fa-shopping-cart' },
+                  { id: 'seller', label: 'Seller', icon: 'fa-house-user' },
+                  { id: 'realtor', label: 'Realtor', icon: 'fa-briefcase' }
+                ].map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => !inviteData && setRole(r.id as any)}
+                    disabled={!!inviteData}
+                    className={`py-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${role === r.id
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                      : 'border-slate-100 text-slate-400 hover:border-slate-200'
+                      } ${inviteData ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <i className={`fa-solid ${r.icon} text-xs`}></i>
+                    <span className="text-[9px] font-black uppercase tracking-widest">{r.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            {isLogin && <p className="text-[9px] text-slate-400 mt-2 ml-1 text-center italic">Required for first-time Google sign-ins</p>}
-          </div>
+          )}
 
           {!resetMode && (
             <button
