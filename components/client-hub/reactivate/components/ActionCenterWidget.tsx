@@ -24,16 +24,25 @@ interface ActionCenterWidgetProps {
     realtorId: string;
 }
 
+import { createPortal } from 'react-dom';
+
+// ... (imports remain the same, just ensure createPortal is added if not present in the file imports above, which I will handling by replacing the whole file content or careful partial editing. Since I am replacing the component body, I need to make sure imports are correct.
+// Actually, I should check if createPortal is imported. It is NOT in the current file. I need to add it.)
+
 const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, realtorId }) => {
     const [actionItems, setActionItems] = useState<ActionItem[]>([]);
     const [loading, setLoading] = useState(true);
-    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+    const [menuState, setMenuState] = useState<{ id: string, top: number, left: number } | null>(null);
 
     // Close menu when clicking outside
     useEffect(() => {
-        const handleClick = () => setOpenMenuId(null);
+        const handleClick = () => setMenuState(null);
         window.addEventListener('click', handleClick);
-        return () => window.removeEventListener('click', handleClick);
+        window.addEventListener('scroll', handleClick, true); // Close on scroll too
+        return () => {
+            window.removeEventListener('click', handleClick);
+            window.removeEventListener('scroll', handleClick, true);
+        };
     }, []);
 
     useEffect(() => {
@@ -53,12 +62,13 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
 
                 // 3. Transform database messages to ActionItem format
                 const replyItems: ActionItem[] = inboundMessages.map((msg: any) => {
-                    const plan = plans.find(p => p.lead_id === msg.lead_id);
+                    const leadId = msg.lead_id || msg.senderId;
+                    const plan = plans.find(p => p.lead_id === leadId);
                     return {
                         id: msg.id,
                         type: 'reply' as const,
                         leadName: msg.lead_name || plan?.lead_name || 'Unknown Lead',
-                        leadId: msg.lead_id,
+                        leadId: leadId,
                         planId: plan?.id,
                         content: msg.content,
                         timestamp: msg.sent_at?.toDate ? msg.sent_at.toDate() : new Date(msg.sent_at),
@@ -154,7 +164,7 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
 
         // Remove from local state
         setActionItems(prev => prev.filter(item => item.id !== id));
-        setOpenMenuId(null);
+        setMenuState(null);
     };
 
     const handleArchive = async (item: ActionItem, e: React.MouseEvent) => {
@@ -169,8 +179,25 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
 
             // Remove all items for this lead from the widget
             setActionItems(prev => prev.filter(i => i.leadId !== item.leadId));
-            setOpenMenuId(null);
+            setMenuState(null);
         }
+    };
+
+    const handleMenuClick = (e: React.MouseEvent, itemId: string) => {
+        e.stopPropagation();
+        if (menuState?.id === itemId) {
+            setMenuState(null);
+            return;
+        }
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        // Calculate position - Align right edge of menu to right edge of button
+        // 192px is roughly w-48 (12rem)
+        setMenuState({
+            id: itemId,
+            top: rect.bottom + window.scrollY + 4,
+            left: rect.right + window.scrollX - 192
+        });
     };
 
     if (loading) {
@@ -183,128 +210,152 @@ const ActionCenterWidget: React.FC<ActionCenterWidgetProps> = ({ onOpenLead, rea
         );
     }
 
-    if (actionItems.length === 0) return null;
-
-    return (
-        <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-xl shadow-indigo-500/5 animate-in slide-in-from-top-4 duration-700">
-            <div className="bg-gradient-to-r from-rose-50 to-white px-4 py-2 border-b border-rose-100 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div
-                        className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/30 animate-pulse"
-                        title="Action Required: New Replies or Overdue Tasks"
-                    >
-                        <i className="fa-solid fa-bell text-sm"></i>
+    if (actionItems.length === 0) {
+        return (
+            <div className="bg-white rounded-[3rem] border border-slate-100 p-12 text-center shadow-xl shadow-indigo-500/5 mb-8 group overflow-hidden relative">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent"></div>
+                <div className="relative space-y-6">
+                    <div className="w-20 h-20 bg-emerald-50 rounded-[2rem] flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-500">
+                        <i className="fa-solid fa-check-double text-3xl text-emerald-500"></i>
                     </div>
                     <div>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{actionItems.length} Leads Waiting for Response</p>
+                        <h3 className="text-xl font-black text-slate-800">You're All Caught Up</h3>
+                        <p className="text-slate-500 text-sm mt-2 max-w-sm mx-auto">
+                            No active lead replies or overdue tasks at the moment. Our AI is monitoring your pipeline for developments.
+                        </p>
                     </div>
                 </div>
             </div>
+        );
+    }
 
-            <div className="divide-y divide-slate-50">
-                {actionItems.map(item => (
-                    <div
-                        key={item.id}
-                        onClick={() => onOpenLead(item.leadId)}
-                        className="px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer group flex items-start gap-4"
-                    >
-                        {/* Status Indicator */}
+    const item = menuState ? actionItems.find(i => i.id === menuState.id) : null;
+
+    return (
+        <>
+            <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-xl shadow-indigo-500/5 animate-in slide-in-from-top-4 duration-700">
+                <div className="bg-gradient-to-r from-rose-50 to-white px-4 py-2 border-b border-rose-100 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
                         <div
-                            className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${item.priority === 'high' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]' : 'bg-amber-500'}`}
-                            title={`Priority: ${item.priority.toUpperCase()}`}
-                        ></div>
+                            className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/30 animate-pulse"
+                            title="Action Required: New Replies or Overdue Tasks"
+                        >
+                            <i className="fa-solid fa-bell text-sm"></i>
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{actionItems.length} Leads Waiting for Response</p>
+                        </div>
+                    </div>
+                </div>
 
-                        <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-start gap-4">
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-0.5">
-                                        <span className="font-black text-slate-700 text-sm">{item.leadName}</span>
-                                        {item.type === 'reply' ? (
-                                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${item.sentiment === 'positive' ? 'bg-emerald-100 text-emerald-700' :
-                                                item.sentiment === 'question' ? 'bg-amber-100 text-amber-700' :
-                                                    'bg-slate-100 text-slate-600'
-                                                }`}>
-                                                {item.sentiment}
+                <div className="divide-y divide-slate-50">
+                    {actionItems.map(item => (
+                        <div
+                            key={item.id}
+                            onClick={() => onOpenLead(item.leadId)}
+                            className="px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer group flex items-start gap-4"
+                        >
+                            {/* Status Indicator */}
+                            <div
+                                className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${item.priority === 'high' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]' : 'bg-amber-500'}`}
+                                title={`Priority: ${item.priority.toUpperCase()}`}
+                            ></div>
+
+                            <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-start gap-4">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                            <span className="font-black text-slate-700 text-sm">{item.leadName}</span>
+                                            {item.type === 'reply' ? (
+                                                <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${item.sentiment === 'positive' ? 'bg-emerald-100 text-emerald-700' :
+                                                    item.sentiment === 'question' ? 'bg-amber-100 text-amber-700' :
+                                                        'bg-slate-100 text-slate-600'
+                                                    }`}>
+                                                    {item.sentiment}
+                                                </span>
+                                            ) : (
+                                                <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700">
+                                                    Follow-up Due
+                                                </span>
+                                            )}
+                                            <span className="text-[10px] font-bold text-slate-400">
+                                                {item.timestamp.toLocaleDateString([], { month: 'short', day: 'numeric' })} • {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </span>
-                                        ) : (
-                                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700">
-                                                Follow-up Due
-                                            </span>
-                                        )}
-                                        <span className="text-[10px] font-bold text-slate-400">
-                                            {item.timestamp.toLocaleDateString([], { month: 'short', day: 'numeric' })} • {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
+                                        </div>
+
+                                        <p className="text-sm font-medium text-slate-600 italic leading-relaxed">
+                                            {item.type === 'reply' ? `"${item.content}"` : item.content}
+                                        </p>
                                     </div>
 
-                                    <p className="text-sm font-medium text-slate-600 italic leading-relaxed">
-                                        {item.type === 'reply' ? `"${item.content}"` : item.content}
-                                    </p>
-                                </div>
-
-                                <div className="relative flex-shrink-0">
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setOpenMenuId(openMenuId === item.id ? null : item.id);
-                                        }}
-                                        className="w-8 h-8 rounded-full hover:bg-slate-200 flex items-center justify-center text-slate-400 transition-colors"
-                                        title="Show available actions"
-                                    >
-                                        <i className="fa-solid fa-ellipsis-vertical"></i>
-                                    </button>
-
-                                    {openMenuId === item.id && (
-                                        <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-2xl border border-slate-100 py-2 z-[100] animate-in fade-in zoom-in-95 duration-200">
-                                            {item.type === 'reply' && (
-                                                <button
-                                                    onClick={() => {
-                                                        onOpenLead(item.leadId);
-                                                        setOpenMenuId(null);
-                                                    }}
-                                                    className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors"
-                                                >
-                                                    <i className="fa-solid fa-reply text-indigo-500 w-4"></i>
-                                                    Reply Now
-                                                </button>
-                                            )}
-
-                                            <button
-                                                onClick={() => {
-                                                    onOpenLead(item.leadId);
-                                                    setOpenMenuId(null);
-                                                }}
-                                                className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors"
-                                            >
-                                                <i className="fa-solid fa-paper-plane text-indigo-500 w-4"></i>
-                                                Send Follow-up
-                                            </button>
-
-                                            <button
-                                                onClick={(e) => handleDismiss(item.id, e)}
-                                                className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors"
-                                            >
-                                                <i className="fa-solid fa-check text-emerald-500 w-4"></i>
-                                                Dismiss
-                                            </button>
-
-                                            <div className="my-1 border-t border-slate-50"></div>
-
-                                            <button
-                                                onClick={(e) => handleArchive(item, e)}
-                                                className="w-full text-left px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-3 transition-colors"
-                                            >
-                                                <i className="fa-solid fa-box-archive w-4"></i>
-                                                Archive Plan
-                                            </button>
-                                        </div>
-                                    )}
+                                    <div className="relative flex-shrink-0">
+                                        <button
+                                            onClick={(e) => handleMenuClick(e, item.id)}
+                                            className="w-8 h-8 rounded-full hover:bg-slate-200 flex items-center justify-center text-slate-400 transition-colors"
+                                            title="Show available actions"
+                                        >
+                                            <i className="fa-solid fa-ellipsis-vertical"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
-        </div>
+
+            {/* Portal Menu */}
+            {menuState && item && typeof document !== 'undefined' && createPortal(
+                <div
+                    className="fixed z-[9999] w-48 bg-white rounded-xl shadow-2xl border border-slate-100 py-2 animate-in fade-in zoom-in-95 duration-200"
+                    style={{ top: menuState.top, left: menuState.left }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {item.type === 'reply' && (
+                        <button
+                            onClick={() => {
+                                onOpenLead(item.leadId);
+                                setMenuState(null);
+                            }}
+                            className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors"
+                        >
+                            <i className="fa-solid fa-reply text-indigo-500 w-4"></i>
+                            Reply Now
+                        </button>
+                    )}
+
+                    <button
+                        onClick={() => {
+                            onOpenLead(item.leadId);
+                            setMenuState(null);
+                        }}
+                        className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors"
+                    >
+                        <i className="fa-solid fa-paper-plane text-indigo-500 w-4"></i>
+                        Send Follow-up
+                    </button>
+
+                    <button
+                        onClick={(e) => handleDismiss(item.id, e)}
+                        className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors"
+                    >
+                        <i className="fa-solid fa-check text-emerald-500 w-4"></i>
+                        Dismiss
+                    </button>
+
+                    <div className="my-1 border-t border-slate-50"></div>
+
+                    <button
+                        onClick={(e) => handleArchive(item, e)}
+                        className="w-full text-left px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-3 transition-colors"
+                    >
+                        <i className="fa-solid fa-box-archive w-4"></i>
+                        Archive Plan
+                    </button>
+                </div>,
+                document.body
+            )}
+        </>
     );
 };
 

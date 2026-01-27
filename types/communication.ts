@@ -50,6 +50,10 @@ export interface MessageEvent {
     raw_payload?: Record<string, any>; // jsonb
 }
 
+/**
+ * View Model for Reactivation Visualizer & Reports.
+ * Mapped from 'messages' collection in communications service.
+ */
 export interface ReactivationMessage {
     message_id: string;
     lead_id: string;

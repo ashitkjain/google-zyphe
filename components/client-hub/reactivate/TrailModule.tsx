@@ -348,7 +348,7 @@ const TrailModule: React.FC<TrailModuleProps> = ({ realtorId, leads }) => {
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-2 truncate">
                                                 <span className="text-[12px] font-bold text-slate-700 truncate">
-                                                    {lead ? `${lead.firstName} ${lead.lastName}` : 'Unknown Lead'}
+                                                    {lead ? `${lead.firstName} ${lead.lastName}` : (item.lead_name || 'Unknown Lead')}
                                                 </span>
                                             </div>
                                         </td>

@@ -92,10 +92,21 @@ async function seedActionItems() {
 
     try {
         for (const message of mockInboundMessages) {
-            const docRef = doc(db, 'reactivation_messages', message.message_id);
+            // New Schema Mapping
+            const docRef = doc(db, 'messages', message.message_id);
             await setDoc(docRef, {
-                ...message,
-                sent_at: serverTimestamp() // Use server timestamp for consistency
+                threadId: message.thread_id,
+                senderId: message.lead_id, // Inbound: Sender is Lead
+                receiverId: message.realtorId, // Inbound: Receiver is Realtor
+                content: message.content,
+                channel: message.channel.toUpperCase(), // SMS, EMAIL
+                status: 'delivered', // Inbound messages are delivered
+                direction: 'inbound',
+                timestamp: serverTimestamp(),
+                requires_action: true, // Key for Action Items
+                // maintain legacy fields if needed for UI mapping until fully refactored
+                lead_name: message.lead_name,
+                sentiment: message.sentiment
             });
             console.log(`✅ Created message from ${message.lead_name} (${message.channel})`);
         }

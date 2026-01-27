@@ -57,15 +57,39 @@
             ]
         },
         {
-            "collectionGroup": "reactivation_messages",
+            "collectionGroup": "messages",
             "queryScope": "COLLECTION",
             "fields": [
                 {
-                    "fieldPath": "realtorId",
+                    "fieldPath": "threadId",
                     "order": "ASCENDING"
                 },
                 {
-                    "fieldPath": "isInbound",
+                    "fieldPath": "timestamp",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "messages",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "senderId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "timestamp",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "messages",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "receiverId",
                     "order": "ASCENDING"
                 },
                 {
@@ -73,39 +97,7 @@
                     "order": "ASCENDING"
                 },
                 {
-                    "fieldPath": "sent_at",
-                    "order": "DESCENDING"
-                }
-            ]
-        },
-        {
-            "collectionGroup": "reactivation_messages",
-            "queryScope": "COLLECTION",
-            "fields": [
-                {
-                    "fieldPath": "realtorId",
-                    "order": "ASCENDING"
-                },
-                {
-                    "fieldPath": "lead_id",
-                    "order": "ASCENDING"
-                },
-                {
-                    "fieldPath": "sent_at",
-                    "order": "DESCENDING"
-                }
-            ]
-        },
-        {
-            "collectionGroup": "reactivation_messages",
-            "queryScope": "COLLECTION",
-            "fields": [
-                {
-                    "fieldPath": "realtorId",
-                    "order": "ASCENDING"
-                },
-                {
-                    "fieldPath": "sent_at",
+                    "fieldPath": "timestamp",
                     "order": "DESCENDING"
                 }
             ]

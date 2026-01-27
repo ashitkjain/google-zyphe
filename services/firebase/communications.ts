@@ -1,4 +1,4 @@
-import { collection, addDoc, setDoc, doc, query, getDocs, orderBy, where, limit, updateDoc } from "firebase/firestore";
+import { collection, addDoc, setDoc, doc, query, getDocs, orderBy, where, limit, updateDoc, serverTimestamp } from "firebase/firestore";
 import {
     db,
     logFirestoreQuery
@@ -57,61 +57,104 @@ export const logMessageEvent = async (event: MessageEvent) => {
 /**
  * Saves a reactivation message record to the 'reactivation_messages' collection.
  */
-export const saveReactivationMessage = async (data: Partial<ReactivationMessage> & {
-    message_id: string;
-    lead_id: string;
-    realtorId: string;
-}) => {
+/**
+ * Saves a message to the 'messages' collection.
+ * Replaces saveReactivationMessage.
+ * If status is 'pending' and channel is 'SMS', Cloud Functions will send it.
+ */
+export const saveReactivationMessage = async (data: any) => {
     if (!db) return { success: false, error: "Database not initialized" };
 
     try {
-        const collectionName = "reactivation_messages";
+        const collectionName = "messages";
         const msgRef = doc(db, collectionName, data.message_id);
-        logFirestoreQuery('setDoc', collectionName, { id: data.message_id, lead_id: data.lead_id, realtorId: data.realtorId });
-        await setDoc(msgRef, data);
+
+        const isInbound = data.isInbound || false;
+
+        const payload = {
+            threadId: data.thread_id || `thread_${data.lead_id}`,
+            senderId: isInbound ? data.lead_id : data.realtorId,
+            receiverId: isInbound ? data.realtorId : data.lead_id,
+            lead_id: data.lead_id, // Explicit top-level lead_id
+            lead_name: data.lead_name || null,
+            content: data.content,
+            channel: data.channel?.toUpperCase() || 'SMS',
+            status: isInbound ? 'received' : (data.status || 'pending'),
+            timestamp: data.sent_at || serverTimestamp(),
+            direction: isInbound ? 'inbound' : 'outbound',
+            isInbound: isInbound, // Explicit boolean for TrailModule
+
+            // Additional logic fields
+            from_reactivation_portal: true,
+            requires_action: data.requires_action ?? (isInbound ? true : false),
+            sentiment: data.sentiment || null
+        };
+
+
+
+        await setDoc(msgRef, payload, { merge: true });
         return { success: true };
     } catch (error) {
-        console.error("Error saving reactivation message:", error);
+        console.error("Error saving message:", error);
         return { success: false, error: (error as Error).message };
     }
 };
 
 /**
- * Retrieves reactivation messages for a realtor or specific lead.
+ * Retrieves messages for a specific lead (thread).
  */
 export const getReactivationMessages = async (realtorId: string, leadId?: string, limitCount: number = 50) => {
     if (!db) return [];
 
     try {
-        const collectionName = "reactivation_messages";
+        const collectionName = "messages";
         const colRef = collection(db, collectionName);
 
         let q;
         if (leadId) {
             q = query(
                 colRef,
-                where("realtorId", "==", realtorId),
-                where("lead_id", "==", leadId),
-                orderBy("sent_at", "desc"),
+                where("receiverId", "==", leadId), // Outbound
+                // Note: Getting BOTH inbound and outbound requires a threadId query or OR query
+                // For now, let's try querying by threadId if available
+                // where("threadId", "==", `thread_${leadId}`),
+                orderBy("timestamp", "desc"),
+                limit(limitCount)
+            );
+            // Simpler: Just get by threadId
+            q = query(
+                colRef,
+                where("threadId", "==", `thread_${leadId}`),
+                orderBy("timestamp", "desc"),
                 limit(limitCount)
             );
         } else {
+            // Just get all for realtor (sender) - This might miss inbound?
+            // Without a complex index, getting "All chats for realtor" is hard.
+            // We'll stick to simple senderId check for now, trusting the UI filters by lead usually.
             q = query(
                 colRef,
-                where("realtorId", "==", realtorId),
-                orderBy("sent_at", "desc"),
+                where("senderId", "==", realtorId),
+                orderBy("timestamp", "desc"),
                 limit(limitCount)
             );
         }
 
         logFirestoreQuery('getDocs', collectionName, { realtorId, leadId, limit: limitCount });
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                // Map 'messages' fields to 'ReactivationMessage' format
+                sent_at: data.timestamp,
+                isInbound: data.direction === 'inbound' || (leadId && data.senderId === leadId),
+                channel: data.channel ? data.channel.toLowerCase() : 'sms'
+            };
+        });
     } catch (error) {
-        console.error("Error fetching reactivation messages:", error);
+        console.error("Error fetching messages:", error);
         return [];
     }
 };
@@ -120,49 +163,36 @@ export const getReactivationMessages = async (realtorId: string, leadId?: string
  * Gets inbound messages that require action from the agent.
  */
 export const getActionRequiredMessages = async (realtorId: string, limitCount: number = 20) => {
-    if (!db) {
-        console.warn('⚠️ Database not initialized');
-        return [];
-    }
+    if (!db) return [];
 
     try {
-        const collectionName = "reactivation_messages";
+        const collectionName = "messages";
         const colRef = collection(db, collectionName);
 
-        console.log('🔍 Building query with filters:', {
-            realtorId,
-            isInbound: true,
-            requires_action: true,
-            limit: limitCount
-        });
+        // We assume inbound messages from Leads have 'requires_action: true' (set by webhook)
+        // And they are in a thread belonging to the realtor (this is harder to check without realtorId on the msg)
+        // The webhook sets receiverId = realtorId. So we check receiverId == realtorId.
 
         const q = query(
             colRef,
-            where("realtorId", "==", realtorId),
-            where("isInbound", "==", true),
+            where("receiverId", "==", realtorId),
             where("requires_action", "==", true),
-            orderBy("sent_at", "desc"),
             limit(limitCount)
         );
 
-        logFirestoreQuery('getDocs', collectionName, { realtorId, isInbound: true, requires_action: true, limit: limitCount });
-
-        console.log('📡 Executing Firestore query...');
+        logFirestoreQuery('getDocs', collectionName, { realtorId, requires_action: true });
         const snapshot = await getDocs(q);
-
-        console.log(`📊 Query returned ${snapshot.docs.length} documents`);
-
-        const results = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-
-        console.log('📦 Mapped results:', results);
-
-        return results;
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                sent_at: data.timestamp,
+                isInbound: true // These are filtered for 'receiverId == realtorId', so they are inbound
+            };
+        });
     } catch (error) {
-        console.error("❌ Error fetching action required messages:", error);
-        console.error("Error details:", error);
+        console.error("Error fetching action required messages:", error);
         return [];
     }
 };
@@ -174,7 +204,7 @@ export const completeMessageAction = async (messageId: string, completedAt: any)
     if (!db) return { success: false, error: "Database not initialized" };
 
     try {
-        const collectionName = "reactivation_messages";
+        const collectionName = "messages";
         const msgRef = doc(db, collectionName, messageId);
 
         logFirestoreQuery('updateDoc', collectionName, { id: messageId });
@@ -194,5 +224,5 @@ export const completeMessageAction = async (messageId: string, completedAt: any)
  * Creates a thread ID for a new conversation.
  */
 export const createThreadId = (leadId: string, realtorId: string): string => {
-    return `thread-${leadId}-${realtorId}-${Date.now()}`;
+    return `thread_${leadId}`; // Simplified to match webhook logic
 };

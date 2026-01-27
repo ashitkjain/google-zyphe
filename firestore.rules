@@ -116,8 +116,18 @@ service cloud.firestore {
 
     // 5. COMMUNICATION & MESSAGES
     match /messages/{messageId} {
-      allow create: if request.auth != null;
-      allow read: if request.auth != null;
+      allow read: if request.auth != null && (
+          resource.data.senderId == request.auth.uid || 
+          resource.data.receiverId == request.auth.uid
+      );
+      allow create: if request.auth != null && (
+          request.resource.data.senderId == request.auth.uid || 
+          request.resource.data.receiverId == request.auth.uid
+      );
+      allow update: if request.auth != null && (
+          resource.data.senderId == request.auth.uid || 
+          resource.data.receiverId == request.auth.uid
+      );
     }
 
     match /mail/{mailId} {
@@ -192,11 +202,7 @@ service cloud.firestore {
                              (resource != null && resource.data.agent_id == request.auth.uid) );
     }
 
-    match /reactivation_messages/{messageId} {
-      allow read, write: if request.auth != null && 
-                           ( (resource == null && request.resource.data.realtorId == request.auth.uid) || 
-                             (resource != null && resource.data.realtorId == request.auth.uid) );
-    }
+
 
 match /audit_events/{auditId} {
   // Allow read access only if the user is authenticated,

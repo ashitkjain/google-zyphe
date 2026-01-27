@@ -171,17 +171,28 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
             const now = new Date();
 
             if (stepIdx === 'first') {
+                const existingFirst = updated[planIdx].first_touch || {};
                 updated[planIdx] = {
                     ...updated[planIdx],
                     reactivation_status: 'responded',
                     statusUpdatedOn: now,
-                    first_touch: { ...updated[planIdx].first_touch, reply_received: true }
+                    first_touch: {
+                        ...existingFirst,
+                        reply_received: true,
+                        // Ensure sent_at is present if it was just sent
+                        sent_at: existingFirst.sent_at || now
+                    }
                 } as any;
             } else {
                 const steps = [...updated[planIdx].sequence.steps];
                 const numericStepIdx = typeof stepIdx === 'number' ? stepIdx : parseInt(stepIdx);
                 if (!isNaN(numericStepIdx)) {
-                    steps[numericStepIdx] = { ...steps[numericStepIdx], reply_received: true };
+                    const existingStep = steps[numericStepIdx] || {};
+                    steps[numericStepIdx] = {
+                        ...existingStep,
+                        reply_received: true,
+                        sent_at: existingStep.sent_at || now
+                    };
                     updated[planIdx] = {
                         ...updated[planIdx],
                         reactivation_status: 'responded',
@@ -259,7 +270,7 @@ const ReactivationVisualizer: React.FC<ReactivationVisualizerProps> = ({
 
                     await updateLeadPlanStatus(currentPlan.id, newStatus);
                     await updateLeadPlanStep(currentPlan.id, stepIdx, {
-                        sent_at: serverTimestamp(),
+                        sent_at: new Date(),
                         reply_received: false
                     });
 

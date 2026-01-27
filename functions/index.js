@@ -76,6 +76,7 @@ exports.telnyxWebhook = functions.https.onRequest(async (req, res) => {
 
         if (client) {
             // 3. Persist Message to Global Feed
+            // Note: For INBOUND messages, status is 'delivered'.
             await db.collection('messages').add({
                 threadId: `thread_${client.uid}`,
                 senderId: client.uid,
@@ -83,30 +84,13 @@ exports.telnyxWebhook = functions.https.onRequest(async (req, res) => {
                 content: text,
                 channel: 'SMS',
                 status: 'delivered',
+                direction: 'inbound',
                 providerId: id,
-                timestamp: admin.firestore.FieldValue.serverTimestamp()
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                requires_action: isLead // Set action required if it's a lead msg
             });
 
-            // 4. If it's a Lead, also log to 'reactivation_messages' for the Trail
-            if (isLead) {
-                const threadId = `thread-${client.uid}-${client.realtorId || 'system'}`;
-
-                await db.collection('reactivation_messages').add({
-                    message_id: id,
-                    lead_id: client.uid,
-                    realtorId: client.realtorId || 'system',
-                    channel: 'sms',
-                    content: text,
-                    sent_at: admin.firestore.FieldValue.serverTimestamp(),
-                    reply_received: true, // It is a reply
-                    sentiment: 'neutral',
-                    isInbound: true,
-                    thread_id: threadId,
-                    requires_action: true
-                });
-            }
-
-            // 5. Auto-Log to Activity Timeline
+            // 4. Auto-Log to Activity Timeline
             const targetCollection = isLead ? 'leads' : 'users';
             await db.collection(targetCollection).doc(client.uid).collection('activity').add({
                 type: 'SMS',
@@ -128,59 +112,72 @@ exports.telnyxWebhook = functions.https.onRequest(async (req, res) => {
 });
 
 /**
- * Outbound SMS Processor
- * Triggers when a message is added to 'reactivation_messages'.
- * Sends the SMS via Telnyx if it is an outbound SMS.
+ * Universal SMS Sender (Replaces processOutboundSms)
+ * Triggers when a message is added to 'messages' collection with status: 'pending'.
+ * Sends the SMS via Telnyx.
  */
-exports.processOutboundSms = functions.firestore
-    .document('reactivation_messages/{messageId}')
+exports.processSmsQueue = functions.firestore
+    .document('messages/{messageId}')
     .onCreate(async (snap, context) => {
         const msg = snap.data();
         const db = admin.firestore();
 
-        // Filter: Must be Outbound SMS and not yet processed
-        if (msg.isInbound || msg.channel !== 'sms' || msg.status === 'sent') {
+        // 1. Filter: Must be pending SMS
+        if (msg.status !== 'pending' || msg.channel !== 'SMS') {
             return null;
         }
 
-        console.log(`[Outbound SMS] Processing message ${context.params.messageId} for lead ${msg.lead_id}`);
+        console.log(`[Universal Sender] Processing message ${context.params.messageId} to receiver ${msg.receiverId}`);
 
         try {
-            // 1. Get Lead Phone Number
-            const leadDoc = await db.collection('leads').doc(msg.lead_id).get();
-            if (!leadDoc.exists) {
-                console.error(`[Outbound SMS] Lead ${msg.lead_id} not found.`);
-                await snap.ref.update({ status: 'failed', error: 'Lead not found' });
-                return null;
-            }
+            // 2. Lookup Recipient Phone Number
+            // receiverId could be a User or a Lead.
 
-            const lead = leadDoc.data();
-            const toPhone = lead.phone || lead.primaryContact?.phone; // Handle different schemas
+            let toPhone = null;
+
+            // Try Users First
+            let docRef = await db.collection('users').doc(msg.receiverId).get();
+            if (docRef.exists) {
+                const data = docRef.data();
+                toPhone = data.phoneNumber || data.phone;
+            } else {
+                // Try Leads
+                docRef = await db.collection('leads').doc(msg.receiverId).get();
+                if (docRef.exists) {
+                    const data = docRef.data();
+                    toPhone = data.phone || data.primaryContact?.phone;
+                }
+            }
 
             if (!toPhone) {
-                console.error(`[Outbound SMS] Lead ${msg.lead_id} has no phone number.`);
-                await snap.ref.update({ status: 'failed', error: 'No phone number' });
+                console.error(`[Universal Sender] Recipient ${msg.receiverId} not found (checked users & leads).`);
+                await snap.ref.update({ status: 'failed', error: 'Recipient not found' });
                 return null;
             }
 
-            // 2. Send via Telnyx
+            // Ensure E.164 format if missing
+            if (!toPhone.startsWith('+')) {
+                toPhone = '+1' + toPhone.replace(/\D/g, '');
+            }
+
+            // 3. Send via Telnyx API
             const telnyxResponse = await telnyx.messages.create({
                 from: TELNYX_FROM_NUMBER,
                 to: toPhone,
                 text: msg.content
             });
 
-            // 3. Update Message Status
+            // 4. Update Message Status
             await snap.ref.update({
                 status: 'sent',
-                provider_id: telnyxResponse.data.id,
-                sent_at: admin.firestore.FieldValue.serverTimestamp() // Confirm exact sent time
+                providerId: telnyxResponse.data.id,
+                sentAt: admin.firestore.FieldValue.serverTimestamp()
             });
 
-            console.log(`[Outbound SMS] Successfully sent to ${toPhone}. Telnyx ID: ${telnyxResponse.data.id}`);
+            console.log(`[Universal Sender] Successfully sent to ${toPhone}. Telnyx ID: ${telnyxResponse.data.id}`);
 
         } catch (error) {
-            console.error(`[Outbound SMS] Failed to send:`, error);
+            console.error(`[Universal Sender] Failed to send:`, error);
             await snap.ref.update({
                 status: 'failed',
                 error: error.message || 'Unknown error'
