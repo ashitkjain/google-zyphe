@@ -144,7 +144,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
     setErrorLink(null);
 
     // Show fallback option if it takes too long
-    const waitTimer = setTimeout(() => setLongWait(true), 5000);
+    const waitTimer = setTimeout(() => setLongWait(true), 3000);
 
     // Timeout safety: If Google popup takes > 30s, something is wrong
     const timeoutPromise = new Promise((_, reject) => {
