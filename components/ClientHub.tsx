@@ -447,7 +447,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             {/* Top Header / Tab Bar */}
             <header className="bg-slate-900 px-8 py-0 flex items-center justify-between border-b border-white/5 shadow-2xl relative z-[110]">
                 <div className="flex items-center gap-12 flex-1">
-                    <div className="flex items-center gap-6 py-4">
+                    <div className="hidden sm:flex items-center gap-6 py-4">
                         {realtorProfile?.realtor?.photoURL ? (
                             <img
                                 src={realtorProfile.realtor.photoURL}
@@ -462,7 +462,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                     </div>
 
                     {/* Mobile Navigation (Swipe) */}
-                    <div className="sm:hidden flex-1 ml-6 mr-4 overflow-x-auto no-scrollbar mask-gradient-right">
+                    <div className="sm:hidden flex-1 mr-4 overflow-x-auto no-scrollbar mask-gradient-right">
                         <div className="flex items-center gap-3 pr-4">
                             {[
                                 ...mainTabs,
@@ -475,13 +475,80 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                         setActiveTab(tab.id as HubTab);
                                         if (onNavigate) onNavigate(tab.id as any, '');
                                     }}
-                                    className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap shrink-0 ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-white border border-white/5'}`}
+                                    className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap shrink-0 ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-white border border-white/5'}`}
                                 >
                                     <i className={`fa-solid ${tab.icon} ${activeTab === tab.id ? 'text-white' : 'text-slate-500'} text-xs`}></i>
                                     {tab.label}
                                 </button>
                             ))}
+
+                            <button
+                                onClick={() => setIsSettingsDropdownOpen(!isSettingsDropdownOpen)}
+                                className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap shrink-0 ${isSettingsDropdownOpen ? 'bg-indigo-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-white border border-white/5'}`}
+                            >
+                                <i className={`fa-solid ${isSettingsDropdownOpen ? 'fa-xmark' : 'fa-bars'} text-xs`}></i>
+                                Menu
+                            </button>
                         </div>
+
+                        {/* Mobile Menu Dropdown */}
+                        {isSettingsDropdownOpen && (
+                            <div className="fixed top-[60px] right-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 z-[200] animate-in fade-in slide-in-from-top-4 duration-200">
+                                <div className="p-1.5 space-y-0.5">
+                                    <button
+                                        onClick={() => {
+                                            setActiveTab('profile');
+                                            setIsSettingsDropdownOpen(false);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 rounded-xl transition-colors group"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                                            <i className="fa-solid fa-id-badge text-xs"></i>
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-700 group-hover:text-slate-900">My Profile</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            setIsAddClientModalOpen(true);
+                                            setIsSettingsDropdownOpen(false);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 rounded-xl transition-colors group"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                                            <i className="fa-solid fa-user-plus text-xs"></i>
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-700 group-hover:text-slate-900">Add a client</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            setIsRemoveClientModalOpen(true);
+                                            setIsSettingsDropdownOpen(false);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 rounded-xl transition-colors group"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-slate-50 text-slate-500 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
+                                            <i className="fa-solid fa-user-minus text-xs"></i>
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-700 group-hover:text-slate-900">Remove a client</span>
+                                    </button>
+
+                                    <div className="h-px bg-slate-100 my-1 mx-2"></div>
+
+                                    {/* Sign Out (Moved here for mobile) */}
+                                    <button
+                                        onClick={onSignOut}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-rose-50 rounded-xl transition-colors group"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center group-hover:bg-rose-100 transition-colors">
+                                            <i className="fa-solid fa-right-from-bracket text-xs"></i>
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-700 group-hover:text-rose-600">Sign Out</span>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <nav className="hidden sm:flex items-center h-[72px]">
@@ -555,7 +622,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
                 </div>
 
-                <div className="flex items-center gap-6">
+                <div className="hidden sm:flex items-center gap-6">
                     <div className="flex flex-col items-end">
                         <span className="text-white font-black text-sm tracking-tight">{realtorName}</span>
                         <button
