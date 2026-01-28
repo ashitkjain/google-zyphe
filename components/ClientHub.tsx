@@ -16,6 +16,7 @@ import TaskBoard from './client-hub/TaskBoard';
 import StatusSettings from './client-hub/StatusSettings';
 import { StatusOption } from '../types';
 import { isTerminalStatus, getFunnelStageForStatus, getStatusOptions } from '../services/statusService';
+import { getDeviceType } from '../utils/deviceDetection';
 import WhiteboardTab from './client-hub/WhiteboardTab';
 import ClosingDashboard from './client-hub/ClosingDashboard';
 import BestPracticesTab from './client-hub/BestPracticesTab';
@@ -50,6 +51,12 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             setActiveTab(initialTab);
         }
     }, [initialTab]);
+
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        setIsMobile(getDeviceType() === 'mobile');
+    }, []);
+
     const [realtorProfile, setRealtorProfile] = useState<UserProfile | null>(null);
     const [settingsSubTab, setSettingsSubTab] = useState<'statuses' | 'properties'>('statuses');
     const [isToolsOpen, setIsToolsOpen] = useState(false);
@@ -454,27 +461,26 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         <div className="h-8 w-px bg-white/10"></div>
                     </div>
 
-                    {/* Mobile Navigation */}
-                    <div className="sm:hidden flex-1 ml-6 mr-4">
-                        <div className="relative">
-                            <i className="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-                            <select
-                                value={activeTab}
-                                onChange={(e) => {
-                                    const val = e.target.value as HubTab;
-                                    setActiveTab(val);
-                                    if (onNavigate) onNavigate(val as any, '');
-                                }}
-                                className="w-full appearance-none bg-slate-800 border border-slate-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all cursor-pointer"
-                            >
-                                <optgroup label="Main Navigation">
-                                    {mainTabs.map(tab => <option key={tab.id} value={tab.id}>{tab.label}</option>)}
-                                </optgroup>
-                                <optgroup label="Tools">
-                                    {toolTabs.map(tab => <option key={tab.id} value={tab.id}>{tab.label}</option>)}
-                                </optgroup>
-                                <option value="guides">Guides</option>
-                            </select>
+                    {/* Mobile Navigation (Swipe) */}
+                    <div className="sm:hidden flex-1 ml-6 mr-4 overflow-x-auto no-scrollbar mask-gradient-right">
+                        <div className="flex items-center gap-3 pr-4">
+                            {[
+                                ...mainTabs,
+                                ...toolTabs,
+                                { id: 'guides', label: 'Guides', icon: 'fa-book' }
+                            ].map((tab: any) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => {
+                                        setActiveTab(tab.id as HubTab);
+                                        if (onNavigate) onNavigate(tab.id as any, '');
+                                    }}
+                                    className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap shrink-0 ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-white border border-white/5'}`}
+                                >
+                                    <i className={`fa-solid ${tab.icon} ${activeTab === tab.id ? 'text-white' : 'text-slate-500'} text-xs`}></i>
+                                    {tab.label}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
