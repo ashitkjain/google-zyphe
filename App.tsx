@@ -50,8 +50,9 @@ import ExploreTab from './components/ExploreTab';
 import GuidesTab from './components/client-hub/GuidesTab';
 import LegalDisclaimer from './components/LegalDisclaimer';
 import TermsView from './components/TermsView';
+import PrivacyPolicy from './components/PrivacyPolicy';
 
-type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio' | 'realtor-landing';
+type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio' | 'realtor-landing';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -108,8 +109,8 @@ const App: React.FC = () => {
           return;
         }
 
-        if (path === '/legal-disclaimer' || path === '/terms') {
-          setViewMode(path === '/legal-disclaimer' ? 'legal-disclaimer' : 'terms');
+        if (path === '/legal-disclaimer' || path === '/terms' || path === '/privacy') {
+          setViewMode(path === '/legal-disclaimer' ? 'legal-disclaimer' : path === '/terms' ? 'terms' : 'privacy');
           return;
         }
 
@@ -129,8 +130,8 @@ const App: React.FC = () => {
           // Dynamic tab matching
           setViewMode(subPath[0] as ViewMode);
         }
-      } else if (path === '/legal-disclaimer' || path === '/terms') {
-        setViewMode(path === '/legal-disclaimer' ? 'legal-disclaimer' : 'terms');
+      } else if (path === '/legal-disclaimer' || path === '/terms' || path === '/privacy') {
+        setViewMode(path === '/legal-disclaimer' ? 'legal-disclaimer' : path === '/terms' ? 'terms' : 'privacy');
       } else {
         setViewMode('main');
       }
@@ -146,7 +147,7 @@ const App: React.FC = () => {
   // Wrapper for setViewMode to handle URL updates
   const transitionToView = (newMode: ViewMode, customPath?: string) => {
     // Prevent unauthenticated users from leaving educational areas
-    if (!currentUser && newMode !== 'guides' && newMode !== 'legal-disclaimer' && newMode !== 'terms') {
+    if (!currentUser && newMode !== 'guides' && newMode !== 'legal-disclaimer' && newMode !== 'terms' && newMode !== 'privacy') {
       setAuthModalOpen(true);
       return;
     }
@@ -158,8 +159,8 @@ const App: React.FC = () => {
       path = customPath;
     } else if (newMode === 'guides') {
       path = '/guides';
-    } else if (newMode === 'legal-disclaimer' || newMode === 'terms') {
-      path = newMode === 'legal-disclaimer' ? '/legal-disclaimer' : '/terms';
+    } else if (newMode === 'legal-disclaimer' || newMode === 'terms' || newMode === 'privacy') {
+      path = newMode === 'legal-disclaimer' ? '/legal-disclaimer' : newMode === 'terms' ? '/terms' : '/privacy';
     } else if (newMode === 'main') {
       path = currentUser?.role === 'realtor' ? '/realtor' : '/';
     } else {
@@ -759,6 +760,10 @@ const App: React.FC = () => {
 
   if (viewMode === 'terms') {
     return <TermsView />;
+  }
+
+  if (viewMode === 'privacy') {
+    return <PrivacyPolicy />;
   }
 
   // REALTOR LAYOUT: Merged ClientHub + Homepage

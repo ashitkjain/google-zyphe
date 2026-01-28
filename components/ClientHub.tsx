@@ -878,7 +878,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                 }
               `
                     }} />
-                    <Footer />
+                    <Footer onNavigate={onNavigate} />
                 </div>
             </div>
 

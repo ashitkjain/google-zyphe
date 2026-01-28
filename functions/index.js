@@ -5,7 +5,7 @@ const telnyx = require('telnyx')('KEY019BFFFEE99769B3985278C839A4C1AA_11aDo6xzW4
 admin.initializeApp();
 
 // TODO: Replace with your actual Telnyx Phone Number or Messaging Profile ID
-const TELNYX_FROM_NUMBER = '+12242194686';
+const TELNYX_FROM_NUMBER = '+19252363260';
 
 /**
  * Telnyx Webhook for Real-Time SMS Interaction

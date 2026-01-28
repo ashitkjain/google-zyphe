@@ -33,6 +33,12 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                             >
                                 Terms
                             </button>
+                            <button
+                                onClick={() => onNavigate ? onNavigate('privacy') : window.location.href = '/privacy'}
+                                className="text-[7px] font-black uppercase tracking-widest text-slate-300 hover:text-indigo-600 transition-colors"
+                            >
+                                Privacy
+                            </button>
                         </div>
                     </div>
                 </div>
