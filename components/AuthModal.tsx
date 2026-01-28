@@ -384,21 +384,44 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
 
           {/* Fallback for stuck logins */}
           {loading && longWait && (
-            <div className="mb-6 -mt-4 text-center animate-in fade-in slide-in-from-top-2">
-              <p className="text-[10px] text-amber-600 font-bold mb-1">Taking longer than usual?</p>
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await signInWithRedirect(auth, googleProvider);
-                  } catch (e) {
-                    handleFirebaseError(e);
-                  }
-                }}
-                className="text-xs font-black text-indigo-600 underline hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100"
-              >
-                Wrapper: Force Mobile Login
-              </button>
+            <div className="mb-6 -mt-4 text-center animate-in fade-in slide-in-from-top-2 flex flex-col gap-2 items-center">
+              <p className="text-[10px] text-amber-600 font-bold mb-1">Stuck? Try these options:</p>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!auth) { alert("System Error: Auth service unavailable."); return; }
+                    try {
+                      // alert("Attempting Redirect...");
+                      await signInWithRedirect(auth, googleProvider);
+                    } catch (e: any) {
+                      alert("Redirect Error: " + e.message);
+                      handleFirebaseError(e);
+                    }
+                  }}
+                  className="text-[10px] font-black text-white bg-indigo-600 px-3 py-2 rounded-lg shadow-md active:scale-95 transition-all"
+                >
+                  Force Redirect (Mobile)
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!auth) { alert("System Error: Auth service unavailable."); return; }
+                    try {
+                      // alert("Attempting Popup...");
+                      await signInWithPopup(auth, googleProvider);
+                    } catch (e: any) {
+                      alert("Popup Error: " + e.message);
+                      handleFirebaseError(e);
+                    }
+                  }}
+                  className="text-[10px] font-black text-indigo-600 bg-white border border-indigo-200 px-3 py-2 rounded-lg shadow-sm active:scale-95 transition-all"
+                >
+                  Force Popup (Desktop)
+                </button>
+              </div>
             </div>
           )}
 
