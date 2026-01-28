@@ -35,520 +35,78 @@ export const getInitialMockLeads = (): Lead[] => {
         const lastName = nameParts.slice(1).join(' ');
 
         return {
-            ...l,
-            receivedAt: new Date(l.receivedAt), // Convert string to Date
-            lastUpdated: new Date(l.lastUpdated || Date.now()),
-            health: 'Stale',
-            isMock: true,
-            collectionName: 'leads',
-
-            // Ensure required nested fields are present
-            financialVitals: l.financialVitals ? {
-                preApprovalStatus: false,
-                isAllCash: false,
-                ...l.financialVitals
-            } : undefined,
-            searchCriteria: l.searchCriteria ? {
-                mustHaves: '',
-                dealBreakers: '',
-                ...l.searchCriteria
-            } : undefined,
-
-            // Flat accessors for UI
+            id: l.id,
+            clientId: l.id, // Ensure clientId is set
             firstName,
             lastName,
             email: l.primaryContact.email,
             phone: l.primaryContact.phone,
+            status: 'Archived', // Explicitly set status matching FunnelStage
+            source: l.source,
+            leadType: l.leadType as any, // Cast to LeadType
+            funnelStage: 'Archived',
+            receivedAt: new Date(l.receivedAt),
+            lastUpdated: new Date(),
+            health: 'Stale',
+            engagementScore: 'None',
+            isMock: true,
+            collectionName: 'leads',
+
+            // Map search criteria
+            searchCriteria: {
+                locations: l.searchCriteria.locations,
+                priceMin: 0,
+                priceMax: l.searchCriteria.priceMax,
+                mustHaves: '',
+                dealBreakers: ''
+            },
+
+            // Default financial vitals
+            financialVitals: {
+                budgetMax: l.searchCriteria.priceMax,
+                preApprovalStatus: false, // Default
+                isAllCash: false, // Default
+            },
+
+            // Other fields
+            leadInfo: {
+                ...l.leadInfo,
+                referralType: 'Direct',
+                campaign: 'None'
+            },
+            notes: l.leadInfo.customerMessage,
+
+            // Flat accessors for UI compatibility
             legalName: l.fullName,
             subjectProperty: l.searchCriteria.locations,
             propertyAddress: l.searchCriteria.locations,
-        } as Lead;
+
+            realtorId: 'mock_realtor', // Will be overwritten by seeder
+        } as unknown as Lead;
     });
 
     return [...leads, ...archivedLeads];
 };
 
 const MOCK_ARCHIVED_DATA = [
-    {
-        "id": "archived_lead_1",
-        "fullName": "James Wilson",
-        "primaryContact": {
-            "phone": "555-0101",
-            "email": "j.wilson@email.com",
-            "homeAddress": "98102"
-        },
-        "searchCriteria": {
-            "locations": "Seattle, Capitol Hill"
-        },
-        "source": "Zillow",
-        "receivedAt": "2023-03-12",
-        "lastUpdated": "2023-06-15",
-        "financialVitals": {
-            "budgetMax": 1200000
-        },
-        "leadType": "Buyer",
-        "leadInfo": {
-            "customerMessage": "Wants a modern condo with a view. Pre-approved but hesitant on rates."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_2",
-        "fullName": "Sarah Thompson",
-        "primaryContact": {
-            "phone": "555-0102",
-            "email": "sarah.t@gmail.com",
-            "homeAddress": "98004"
-        },
-        "searchCriteria": {
-            "locations": "Bellevue, Westway"
-        },
-        "source": "Referral",
-        "receivedAt": "2022-11-05",
-        "lastUpdated": "2023-01-20",
-        "financialVitals": {
-            "budgetMax": 2500000
-        },
-        "leadType": "Seller",
-        "leadInfo": {
-            "customerMessage": "Moving to California. Home needs minor staging before listing."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_3",
-        "fullName": "Michael Chen",
-        "primaryContact": {
-            "phone": "555-0103",
-            "email": "mchen88@outlook.com",
-            "homeAddress": "98052"
-        },
-        "searchCriteria": {
-            "locations": "Redmond, Education Hill"
-        },
-        "source": "Facebook",
-        "receivedAt": "2023-06-20",
-        "lastUpdated": "2023-09-10",
-        "financialVitals": {
-            "budgetMax": 950000
-        },
-        "leadType": "Buyer",
-        "leadInfo": {
-            "customerMessage": "First-time buyer. Looking for 3+ bedrooms near Microsoft."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_4",
-        "fullName": "Emily Rodriguez",
-        "primaryContact": {
-            "phone": "555-0104",
-            "email": "emily.rod@yahoo.com",
-            "homeAddress": "98034"
-        },
-        "searchCriteria": {
-            "locations": "Kirkland, Juanita"
-        },
-        "source": "Direct Mail",
-        "receivedAt": "2023-01-15",
-        "lastUpdated": "2023-04-02",
-        "financialVitals": {
-            "budgetMax": 1100000
-        },
-        "leadType": "Buyer",
-        "leadInfo": {
-            "customerMessage": "Relocating for work. Needs a yard for two dogs."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_5",
-        "fullName": "David Miller",
-        "primaryContact": {
-            "phone": "555-0105",
-            "email": "dmiller_builds@email.com",
-            "homeAddress": "98402"
-        },
-        "searchCriteria": {
-            "locations": "Tacoma"
-        },
-        "source": "Google",
-        "receivedAt": "2023-07-30",
-        "lastUpdated": "2023-11-20",
-        "financialVitals": {
-            "budgetMax": 650000
-        },
-        "leadType": "Buyer",
-        "leadInfo": {
-            "customerMessage": "Investor looking for multi-family units or fix-and-flips."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_6",
-        "fullName": "Jessica Lee",
-        "primaryContact": {
-            "phone": "555-0106",
-            "email": "jlee.design@me.com",
-            "homeAddress": "98029"
-        },
-        "searchCriteria": {
-            "locations": "Issaquah, Highlands"
-        },
-        "source": "Zillow",
-        "receivedAt": "2023-02-10",
-        "lastUpdated": "2023-05-25",
-        "financialVitals": {
-            "budgetMax": 1400000
-        },
-        "leadType": "Buyer",
-        "leadInfo": {
-            "customerMessage": "Upsizing from a townhouse. Prefers new construction."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_7",
-        "fullName": "Robert Garcia",
-        "primaryContact": {
-            "phone": "555-0107",
-            "email": "rgarcia_wa@protonmail.com",
-            "homeAddress": "98058"
-        },
-        "searchCriteria": {
-            "locations": "Renton"
-        },
-        "source": "Referral",
-        "receivedAt": "2022-09-14",
-        "lastUpdated": "2022-12-01",
-        "financialVitals": {
-            "budgetMax": 800000
-        },
-        "leadType": "Seller",
-        "leadInfo": {
-            "customerMessage": "Downsizing after retirement. Ready to list once they find a smaller place."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_8",
-        "fullName": "Amanda White",
-        "primaryContact": {
-            "phone": "555-0108",
-            "email": "awhite.home@email.com",
-            "homeAddress": "98021"
-        },
-        "searchCriteria": {
-            "locations": "Bothel, Canyon Park"
-        },
-        "source": "Facebook",
-        "receivedAt": "2023-05-02",
-        "lastUpdated": "2023-08-14",
-        "financialVitals": {
-            "budgetMax": 900000
-        },
-        "leadType": "Buyer",
-        "leadInfo": {
-            "customerMessage": "Searching for a quiet cul-de-sac. Needs a dedicated home office."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_9",
-        "fullName": "William Taylor",
-        "primaryContact": {
-            "phone": "555-0109",
-            "email": "wtaylor.pro@gmail.com",
-            "homeAddress": "98119"
-        },
-        "searchCriteria": {
-            "locations": "Seattle, Queen Anne"
-        },
-        "source": "Instagram",
-        "receivedAt": "2023-08-18",
-        "lastUpdated": "2023-10-05",
-        "financialVitals": {
-            "budgetMax": 1750000
-        },
-        "leadType": "Buyer",
-        "leadInfo": {
-            "customerMessage": "High-end buyer. Interested in historic homes with original character."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_10",
-        "fullName": "Linda Martinez",
-        "primaryContact": {
-            "phone": "555-0110",
-            "email": "lmartinez_77@yahoo.com",
-            "homeAddress": "98031"
-        },
-        "searchCriteria": {
-            "locations": "Kent"
-        },
-        "source": "Zillow",
-        "receivedAt": "2023-04-12",
-        "lastUpdated": "2023-07-22",
-        "financialVitals": {
-            "budgetMax": 700000
-        },
-        "leadType": "Buyer",
-        "leadInfo": {
-            "customerMessage": "Looking for a starter home. Budget is strict."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_11",
-        "fullName": "Thomas Anderson",
-        "primaryContact": {
-            "phone": "555-0111",
-            "email": "tanderson.neo@email.com",
-            "homeAddress": "98074"
-        },
-        "searchCriteria": {
-            "locations": "Sammamish"
-        },
-        "source": "Google",
-        "receivedAt": "2023-01-25",
-        "lastUpdated": "2023-05-10",
-        "financialVitals": {
-            "budgetMax": 2200000
-        },
-        "leadType": "Buyer",
-        "leadInfo": {
-            "customerMessage": "Wants a large lot near the lake. Cash buyer potential."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_12",
-        "fullName": "Karen Brown",
-        "primaryContact": {
-            "phone": "555-0112",
-            "email": "kbrown.re@outlook.com",
-            "homeAddress": "98117"
-        },
-        "searchCriteria": {
-            "locations": "Seattle, Ballard"
-        },
-        "source": "Referral",
-        "receivedAt": "2022-12-08",
-        "lastUpdated": "2023-03-15",
-        "financialVitals": {
-            "budgetMax": 1100000
-        },
-        "leadType": "Seller",
-        "leadInfo": {
-            "customerMessage": "Inherited property. Emotional sale. Needs guidance on repairs."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_13",
-        "fullName": "Christopher Scott",
-        "primaryContact": {
-            "phone": "555-0113",
-            "email": "cscott.it@gmail.com",
-            "homeAddress": "98006"
-        },
-        "searchCriteria": {
-            "locations": "Bellevue, Somerset"
-        },
-        "source": "Zillow",
-        "receivedAt": "2023-07-05",
-        "lastUpdated": "2023-09-28",
-        "financialVitals": {
-            "budgetMax": 1800000
-        },
-        "leadType": "Buyer",
-        "leadInfo": {
-            "customerMessage": "Priority on school district ranking. Needs 4 bedrooms."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_14",
-        "fullName": "Elizabeth Moore",
-        "primaryContact": {
-            "phone": "555-0114",
-            "email": "emoore.arts@me.com",
-            "homeAddress": "98033"
-        },
-        "searchCriteria": {
-            "locations": "Kirkland, Totem Lake"
-        },
-        "source": "Facebook",
-        "receivedAt": "2023-03-19",
-        "lastUpdated": "2023-06-30",
-        "financialVitals": {
-            "budgetMax": 850000
-        },
-        "leadType": "Buyer",
-        "leadInfo": {
-            "customerMessage": "Single professional. Wants a low-maintenance condo near transit."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_15",
-        "fullName": "Daniel Harris",
-        "primaryContact": {
-            "phone": "555-0115",
-            "email": "dharris_const@email.com",
-            "homeAddress": "98133"
-        },
-        "searchCriteria": {
-            "locations": "Shoreline"
-        },
-        "source": "Direct Mail",
-        "receivedAt": "2023-05-25",
-        "lastUpdated": "2023-08-10",
-        "financialVitals": {
-            "budgetMax": 1050000
-        },
-        "leadType": "Buyer",
-        "leadInfo": {
-            "customerMessage": "General contractor. Looking for a \"diamond in the rough\" to renovate."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_16",
-        "fullName": "Jennifer Clark",
-        "primaryContact": {
-            "phone": "555-0116",
-            "email": "jclark.nurse@yahoo.com",
-            "homeAddress": "98036"
-        },
-        "searchCriteria": {
-            "locations": "Lynnwood"
-        },
-        "source": "Google",
-        "receivedAt": "2022-10-15",
-        "lastUpdated": "2023-01-12",
-        "financialVitals": {
-            "budgetMax": 750000
-        },
-        "leadType": "Buyer",
-        "leadInfo": {
-            "customerMessage": "Shift worker. Quiet neighborhood is a must."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_17",
-        "fullName": "Matthew Lewis",
-        "primaryContact": {
-            "phone": "555-0117",
-            "email": "mlewis_tech@gmail.com",
-            "homeAddress": "98103"
-        },
-        "searchCriteria": {
-            "locations": "Seattle, Fremont"
-        },
-        "source": "Instagram",
-        "receivedAt": "2023-09-02",
-        "lastUpdated": "2023-11-15",
-        "financialVitals": {
-            "budgetMax": 1300000
-        },
-        "leadType": "Buyer",
-        "leadInfo": {
-            "customerMessage": "Tech worker. Wants to be walk-distance to coffee shops and parks."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_18",
-        "fullName": "Susan Hall",
-        "primaryContact": {
-            "phone": "555-0118",
-            "email": "shall.homes@outlook.com",
-            "homeAddress": "98072"
-        },
-        "searchCriteria": {
-            "locations": "Woodinville"
-        },
-        "source": "Referral",
-        "receivedAt": "2023-02-28",
-        "lastUpdated": "2023-06-05",
-        "financialVitals": {
-            "budgetMax": 1600000
-        },
-        "leadType": "Seller",
-        "leadInfo": {
-            "customerMessage": "Moving to a retirement community. Custom-built home with a large garden."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_19",
-        "fullName": "Andrew Young",
-        "primaryContact": {
-            "phone": "555-0119",
-            "email": "ayoung_dev@email.com",
-            "homeAddress": "98201"
-        },
-        "searchCriteria": {
-            "locations": "Everett"
-        },
-        "source": "Zillow",
-        "receivedAt": "2023-04-05",
-        "lastUpdated": "2023-07-10",
-        "financialVitals": {
-            "budgetMax": 600000
-        },
-        "leadType": "Buyer",
-        "leadInfo": {
-            "customerMessage": "Looking for a fixer-upper with potential for an ADU."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    },
-    {
-        "id": "archived_lead_20",
-        "fullName": "Barbara Adams",
-        "primaryContact": {
-            "phone": "555-0120",
-            "email": "badams.law@me.com",
-            "homeAddress": "98004"
-        },
-        "searchCriteria": {
-            "locations": "Bellevue, Enatai"
-        },
-        "source": "Google",
-        "receivedAt": "2023-06-12",
-        "lastUpdated": "2023-09-01",
-        "financialVitals": {
-            "budgetMax": 3500000
-        },
-        "leadType": "Buyer",
-        "leadInfo": {
-            "customerMessage": "Luxury buyer looking for waterfront or high-end estate."
-        },
-        "funnelStage": "Archived",
-        "status": "New"
-    }
+    // --- BUYERS (10) ---
+    { id: 'L-B01', fullName: 'Sarah Miller', receivedAt: new Date(Date.now() - 86400000 * 45).toISOString(), source: 'Zillow', leadType: 'Buyer', funnelStage: 'Archived', lastActivity: new Date(Date.now() - 86400000 * 45).toISOString(), searchCriteria: { locations: 'Denver, CO', priceMax: 750000 }, primaryContact: { email: 'sarah.m@example.com', phone: '+15551234567' }, leadInfo: { customerMessage: 'Looking for 3bd in Denver.' } },
+    { id: 'L-B02', fullName: 'Mike Johnson', receivedAt: new Date(Date.now() - 86400000 * 120).toISOString(), source: 'Realtor.com', leadType: 'Buyer', funnelStage: 'Archived', lastActivity: new Date(Date.now() - 86400000 * 120).toISOString(), searchCriteria: { locations: 'Aurora, CO', priceMax: 500000 }, primaryContact: { email: 'mike.j@example.com', phone: '+15559876543' }, leadInfo: { customerMessage: 'Investment property interest.' } },
+    { id: 'L-B03', fullName: 'Jennifer Davis', receivedAt: new Date(Date.now() - 86400000 * 14).toISOString(), source: 'Open House', leadType: 'Buyer', funnelStage: 'Archived', lastActivity: new Date(Date.now() - 86400000 * 14).toISOString(), searchCriteria: { locations: 'Boulder, CO', priceMax: 850000 }, primaryContact: { email: 'jen.d@example.com', phone: '+15554567890' }, leadInfo: { customerMessage: 'Visited 123 Main St.' } },
+    { id: 'L-B04', fullName: 'Robert Chen', receivedAt: new Date(Date.now() - 86400000 * 180).toISOString(), source: 'Referral', leadType: 'Buyer', funnelStage: 'Archived', lastActivity: new Date(Date.now() - 86400000 * 180).toISOString(), searchCriteria: { locations: 'Cherry Creek, CO', priceMax: 1200000 }, primaryContact: { email: 'r.chen@example.com', phone: '+15557890123' }, leadInfo: { customerMessage: 'Ghosted after 2 showings.' } },
+    { id: 'L-B05', fullName: 'Amanda Wilson', receivedAt: new Date(Date.now() - 86400000 * 60).toISOString(), source: 'Website', leadType: 'Buyer', funnelStage: 'Archived', lastActivity: new Date(Date.now() - 86400000 * 60).toISOString(), searchCriteria: { locations: 'Lakewood, CO', priceMax: 500000 }, primaryContact: { email: 'amanda.w@example.com', phone: '+15551112233' }, leadInfo: { customerMessage: 'First time homebuyer.' } },
+    { id: 'L-B06', fullName: 'David Lee', receivedAt: new Date(Date.now() - 86400000 * 90).toISOString(), source: 'Zillow', leadType: 'Buyer', funnelStage: 'Archived', lastActivity: new Date(Date.now() - 86400000 * 90).toISOString(), searchCriteria: { locations: 'Denver, CO', priceMax: 450000 }, primaryContact: { email: 'david.l@example.com', phone: '+15552223344' }, leadInfo: { customerMessage: 'Looking for condo.' } },
+    { id: 'L-B07', fullName: 'Emma Thompson', receivedAt: new Date(Date.now() - 86400000 * 200).toISOString(), source: 'Realtor.com', leadType: 'Buyer', funnelStage: 'Archived', lastActivity: new Date(Date.now() - 86400000 * 200).toISOString(), searchCriteria: { locations: 'Highlands Ranch, CO', priceMax: 900000 }, primaryContact: { email: 'emma.t@example.com', phone: '+15553334455' }, leadInfo: { customerMessage: 'Relocating.' } },
+    { id: 'L-B08', fullName: 'James Garcia', receivedAt: new Date(Date.now() - 86400000 * 30).toISOString(), source: 'Referral', leadType: 'Buyer', funnelStage: 'Archived', lastActivity: new Date(Date.now() - 86400000 * 30).toISOString(), searchCriteria: { locations: 'Arvada, CO', priceMax: 700000 }, primaryContact: { email: 'james.g@example.com', phone: '+15554445566' }, leadInfo: { customerMessage: 'Pre-approved but picky.' } },
+    { id: 'L-B09', fullName: 'Sophia Martinez', receivedAt: new Date(Date.now() - 86400000 * 25).toISOString(), source: 'Open House', leadType: 'Buyer', funnelStage: 'Archived', lastActivity: new Date(Date.now() - 86400000 * 25).toISOString(), searchCriteria: { locations: 'Golden, CO', priceMax: 0 }, primaryContact: { email: 'sophia.m@example.com', phone: '+15555556677' }, leadInfo: { customerMessage: 'Just looking.' } },
+    { id: 'L-B10', fullName: 'William Brown', receivedAt: new Date(Date.now() - 86400000 * 300).toISOString(), source: 'Website', leadType: 'Buyer', funnelStage: 'Archived', lastActivity: new Date(Date.now() - 86400000 * 300).toISOString(), searchCriteria: { locations: 'Centennial, CO', priceMax: 600000 }, primaryContact: { email: 'bill.b@example.com', phone: '+15556667788' }, leadInfo: { customerMessage: 'Inactive.' } },
+
+    // --- SELLERS (5) ---
+    { id: 'L-S01', fullName: 'Linda Taylor', receivedAt: new Date(Date.now() - 86400000 * 40).toISOString(), source: 'Home Valuation', leadType: 'Seller', funnelStage: 'Archived', lastActivity: new Date(Date.now() - 86400000 * 40).toISOString(), searchCriteria: { locations: 'Parker, CO', priceMax: 850000 }, primaryContact: { email: 'linda.t@example.com', phone: '+15559998877' }, leadInfo: { customerMessage: 'Thinking of selling.' } },
+    { id: 'L-S02', fullName: 'Richard Anderson', receivedAt: new Date(Date.now() - 86400000 * 100).toISOString(), source: 'Referral', leadType: 'Seller', funnelStage: 'Archived', lastActivity: new Date(Date.now() - 86400000 * 100).toISOString(), searchCriteria: { locations: 'Boulder, CO', priceMax: 1100000 }, primaryContact: { email: 'rich.a@example.com', phone: '+15558887766' }, leadInfo: { customerMessage: 'Delayed selling.' } },
+    { id: 'L-S03', fullName: 'Patricia Thomas', receivedAt: new Date(Date.now() - 86400000 * 150).toISOString(), source: 'Direct Mail', leadType: 'Seller', funnelStage: 'Archived', lastActivity: new Date(Date.now() - 86400000 * 150).toISOString(), searchCriteria: { locations: 'Thornton, CO', priceMax: 650000 }, primaryContact: { email: 'pat.t@example.com', phone: '+15557776655' }, leadInfo: { customerMessage: 'Testing the waters.' } },
+    { id: 'L-S04', fullName: 'Charles Jackson', receivedAt: new Date(Date.now() - 86400000 * 10).toISOString(), source: 'Zillow', leadType: 'Seller', funnelStage: 'Archived', lastActivity: new Date(Date.now() - 86400000 * 10).toISOString(), searchCriteria: { locations: 'Englewood, CO', priceMax: 400000 }, primaryContact: { email: 'charles.j@example.com', phone: '+15556665544' }, leadInfo: { customerMessage: 'Inherited property.' } },
+    { id: 'L-S05', fullName: 'Barbara White', receivedAt: new Date(Date.now() - 86400000 * 20).toISOString(), source: 'Website', leadType: 'Seller', funnelStage: 'Archived', lastActivity: new Date(Date.now() - 86400000 * 20).toISOString(), searchCriteria: { locations: 'Littleton, CO', priceMax: 750000 }, primaryContact: { email: 'barb.w@example.com', phone: '+15555554433' }, leadInfo: { customerMessage: 'Looking to downsize.' } }
 ];
 
 export const getInitialMockTasks = (realtorId: string): CRMTask[] => [

@@ -24,14 +24,14 @@ interface AutomatedModuleProps {
 }
 
 const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = [], onOpenLeadDetails, onUpdateLead, forcedSubTab }) => {
-    const [isDragging, setIsDragging] = useState(false);
-    const [file, setFile] = useState<File | null>(null);
+    // const [isDragging, setIsDragging] = useState(false); // Removed
+    // const [file, setFile] = useState<File | null>(null); // Removed
     const [fileContent, setFileContent] = useState<string | null>(null);
     const [csvPreview, setCsvPreview] = useState<string[][]>([]);
     const [selectedDocName, setSelectedDocName] = useState<string | null>(null);
     const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
-    const [validationError, setValidationError] = useState<string | null>(null);
+    // const [validationError, setValidationError] = useState<string | null>(null); // Removed
     const [result, setResult] = useState<LeadReactivationResult | null>(null);
     const [activeSubTab, setActiveSubTab] = useState<'GENERATE' | 'PLANS'>(forcedSubTab || 'GENERATE');
     const [aggregatedData, setAggregatedData] = useState<LeadReactivationResult | null>(null);
@@ -50,7 +50,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'lastSeen', direction: 'desc' });
     const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
     const [actionMenuPosition, setActionMenuPosition] = useState<{ top: number; left: number } | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    // const fileInputRef = useRef<HTMLInputElement>(null); // Removed
 
     useEffect(() => {
         setLocalLeads(leads);
@@ -68,10 +68,11 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
 
     const archivedLeads = eligibleLeads
         .filter(l => {
+            const term = searchTerm.toLowerCase();
             const matchesSearch = !searchTerm || (
-                l.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                l.primaryContact?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                l.searchCriteria?.locations?.toLowerCase().includes(searchTerm.toLowerCase())
+                (l.fullName || '').toLowerCase().includes(term) ||
+                (l.firstName || '').toLowerCase().includes(term) ||
+                (l.lastName || '').toLowerCase().includes(term)
             );
             const matchesCity = activeCityTab === 'All' || getCity(l) === activeCityTab;
             return matchesSearch && matchesCity;
@@ -115,7 +116,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
             return 0;
         });
 
-    const pageSize = 25;
+    const pageSize = 10;
     const totalPages = Math.ceil(archivedLeads.length / pageSize);
     const paginatedLeads = archivedLeads.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
@@ -219,137 +220,8 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
         }
     }, [result]);
 
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(true);
-    };
-
-    const handleDragLeave = () => {
-        setIsDragging(false);
-    };
-
-    const validateAndProcessCSV = (text: string): string[][] | null => {
-        setValidationError(null);
-        const rows: string[][] = [];
-        const lines = text.split(/\r?\n/).filter(line => line.trim());
-
-        if (lines.length === 0) {
-            setValidationError("The file appears to be empty.");
-            return null;
-        }
-
-        for (const line of lines) {
-            const values: string[] = [];
-            let value = '';
-            let inQuotes = false;
-
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                const nextChar = line[i + 1];
-
-                if (char === '"') {
-                    if (inQuotes && nextChar === '"') {
-                        value += '"';
-                        i++;
-                    } else {
-                        inQuotes = !inQuotes;
-                    }
-                } else if (char === ',' && !inQuotes) {
-                    values.push(normalizeValue(value));
-                    value = '';
-                } else {
-                    value += char;
-                }
-            }
-            values.push(normalizeValue(value));
-            rows.push(values);
-        }
-
-        if (rows.length === 0) return null;
-
-        const headers = rows[0];
-        const EnglishHeaderRegex = /^[a-zA-Z0-9_\s]{2,50}$/;
-        for (const header of headers) {
-            if (!EnglishHeaderRegex.test(header) || header.toLowerCase() === 'null') {
-                setValidationError(`Invalid or non-descriptive header detected: "${header}". Headers should be descriptive English.`);
-                return null;
-            }
-        }
-
-        const sensitivePatterns = [
-            /(password|passwd|secret|apikey|api_key|token)/i,
-            /AIza[0-9A-Za-z-_]{35}/,
-            /sk_(live|test)_[0-9a-zA-Z]{24}/,
-            /[0-9a-f]{32}/i
-        ];
-
-        for (const row of rows) {
-            for (const cell of row) {
-                for (const pattern of sensitivePatterns) {
-                    if (pattern.test(cell)) {
-                        setValidationError("Security Alert: We detected potentially sensitive data (password, API key, or token) in your file. Please remove it before uploading.");
-                        return null;
-                    }
-                }
-            }
-        }
-
-        return rows;
-    };
-
-    const normalizeValue = (val: string): string => {
-        let processed = val.replace(/\|/g, '-');
-        processed = processed.trim();
-        processed = processed.replace(/[\r\n]+/g, ' ');
-        return processed === '' ? 'NULL' : processed;
-    };
-
-    const handleDrop = async (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
-        const droppedFile = e.dataTransfer.files[0];
-        if (droppedFile) {
-            processFile(droppedFile);
-        }
-    };
-
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const selectedFile = e.target.files?.[0];
-        if (selectedFile) {
-            processFile(selectedFile);
-        }
-    };
-
-    const processFile = async (selectedFile: File) => {
-        setFile(selectedFile);
-        setValidationError(null);
-        setSelectedDocName(selectedFile.name);
-        try {
-            const text = await selectedFile.text();
-            const processedRows = validateAndProcessCSV(text);
-            if (processedRows) {
-                setCsvPreview(processedRows);
-                const outputContent = processedRows.map(row => row.join('|')).join('\n');
-                setFileContent(outputContent);
-
-                setUploadStatus('uploading');
-                const uploadedDoc = await uploadLeadCSV(realtorId, selectedFile);
-                if (uploadedDoc) {
-                    setSelectedDocId(uploadedDoc.id);
-                    setRecentDocuments(prev => [uploadedDoc, ...prev]);
-                    setUploadStatus('idle');
-                } else {
-                    setUploadStatus('error');
-                }
-            } else {
-                setFile(null);
-                setFileContent(null);
-                setCsvPreview([]);
-            }
-        } catch (err) {
-            setValidationError("Failed to read file. Please ensure it is a valid UTF-8 encoded CSV.");
-        }
-    };
+    // File handling functions removed as the UI component was removed.
+    // (handleDragOver, handleDragLeave, validateAndProcessCSV, normalizeValue, handleDrop, handleFileSelect, processFile)
 
     const parseForPreview = (text: string) => {
         const lines = text.split(/\r?\n/).filter(line => line.trim());
@@ -407,7 +279,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
     const handleTransform = async () => {
         if (!fileContent) return;
         setIsTransforming(true);
-        setValidationError(null);
+        // setValidationError(null);
 
         try {
             const transformed = await transformLeadCsv(fileContent, realtorId);
@@ -444,7 +316,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
 
             setFileContent(content);
             parseForPreview(content);
-            setFile(null);
+            // setFile(null);
             setUploadStatus('idle');
         } catch (error) {
             console.error('Failed to process archived database:', error);
@@ -520,14 +392,14 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
     };
 
     const reset = () => {
-        setFile(null);
+        // setFile(null);
         setFileContent(null);
         setCsvPreview([]);
         setSelectedDocName(null);
         setSelectedDocId(null);
         setResult(null);
         setUploadStatus('idle');
-        setValidationError(null);
+        // setValidationError(null);
         setSelectedLeadIds([]);
     };
 
@@ -686,6 +558,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                                         <div className="relative" onClick={(e) => e.stopPropagation()}>
                                                             <button
                                                                 onClick={(e) => handleOpenActionMenu(e, lead.id)}
+                                                                title="Reach out options"
                                                                 className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${openActionMenuId === lead.id ? 'bg-indigo-600 text-white shadow-md scale-110' : 'bg-white border border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-600'}`}
                                                             >
                                                                 <i className="fa-solid fa-ellipsis-vertical text-xs"></i>
@@ -741,55 +614,6 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                                         </div>
                                                     )}
                                                 />
-
-                                            </div>
-                                            <div className="flex justify-center p-8">
-                                                <button
-                                                    onClick={handleAnalyzeSelectedLeads}
-                                                    disabled={selectedLeadIds.length === 0}
-                                                    className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black py-6 px-10 rounded-[2rem] shadow-2xl shadow-indigo-500/20 transition-all flex items-center justify-center gap-4 active:scale-[0.98] text-sm uppercase tracking-widest"
-                                                >
-                                                    <i className="fa-solid fa-wand-sparkles text-lg"></i>
-                                                    Generate High-Intent Analysis for {selectedLeadIds.length} Selected Leads
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <div className="relative pt-4 pb-0 mt-4 mb-4 mx-12">
-                                            <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                                                <div className="w-full border-t border-slate-100"></div>
-                                            </div>
-                                            <div className="relative flex justify-center text-[10px] font-black uppercase tracking-widest">
-                                                <span className="bg-white px-8 text-slate-300">OR UPLOAD EXTERNAL CSV</span>
-                                            </div>
-                                        </div>
-
-                                        <div
-                                            onDragOver={handleDragOver}
-                                            onDragLeave={handleDragLeave}
-                                            onDrop={handleDrop}
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className={`relative border-2 border-dashed rounded-[2.5rem] p-16 transition-all cursor-pointer group mx-12 mb-12 ${isDragging ? 'border-indigo-500 bg-indigo-50/50 scale-[1.02]' : 'border-slate-200 hover:border-indigo-400 hover:bg-slate-50'}`}
-                                        >
-                                            <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".csv" />
-                                            <div className="space-y-6">
-                                                <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto transition-all group-hover:scale-110 group-hover:text-indigo-600 group-hover:bg-indigo-50 shadow-inner">
-                                                    <i className="fa-solid fa-cloud-arrow-up text-2xl"></i>
-                                                </div>
-                                                {validationError ? (
-                                                    <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
-                                                        <p className="text-sm font-bold text-rose-500 bg-rose-50 px-4 py-2 rounded-xl border border-rose-100 italic">{validationError}</p>
-                                                    </div>
-                                                ) : file ? (
-                                                    <div className="space-y-2 animate-in zoom-in-95 duration-300">
-                                                        <p className="text-lg font-black text-indigo-600">{file.name}</p>
-                                                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{(file.size / 1024).toFixed(1)} KB • CSV Ready</p>
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-2">
-                                                        <p className="text-xs text-slate-400 font-medium">Click to browse or drag & drop external CSV</p>
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -860,46 +684,9 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                         <p className="text-indigo-600 font-black uppercase tracking-widest text-xs">Architecting Lead Reactivation Plan</p>
                                     </div>
                                 )}
-
-                                {/* Features Footer */}
-                                <div className="grid grid-cols-3 gap-8 pt-10 border-t border-slate-100 mt-12 px-12 pb-12">
-                                    {[{ icon: 'fa-earth-americas', label: 'Multi-Market' }, { icon: 'fa-shield-check', label: 'Compliance' }, { icon: 'fa-chart-network', label: 'Event Tracks' }].map((item, i) => (
-                                        <div key={i} className="text-center space-y-3">
-                                            <i className={`fa-solid ${item.icon} text-lg text-slate-400`}></i>
-                                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{item.label}</p>
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
                         </div>
                     )}
-
-                    {/* Recent Uploads Section */}
-                    {
-                        recentDocuments.length > 0 && uploadStatus === 'idle' && !result && (
-                            <div className="mt-16 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-                                <div className="flex items-center justify-between mb-8">
-                                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Previously Uploaded Leads</h3>
-                                    <div className="h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent mx-8"></div>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {recentDocuments.slice(0, 3).map((doc) => (
-                                        <div key={doc.id} onClick={() => handleSelectPreviousDoc(doc)} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all cursor-pointer active:scale-95 flex items-center justify-between group">
-                                            <div className="flex items-center gap-5">
-                                                <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 shadow-sm"><i className="fa-solid fa-file-csv text-lg"></i></div>
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-black text-slate-900 truncate pr-4">{doc.name}</p>
-                                                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">{getTimeSince(doc.created_at)}</p>
-                                                </div>
-                                            </div>
-                                            <div className="text-[10px] font-black text-slate-300 uppercase tracking-tighter shrink-0">{(doc.size / 1024).toFixed(0)} KB</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )
-                    }
-
                     {/* Editable Profile Drawer */}
                     {selectedLeadForDetails && typeof document !== 'undefined' && createPortal(
                         <div className="fixed inset-0 z-[100] flex justify-end">
@@ -969,8 +756,9 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                         </div>
                     )}
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 };
 

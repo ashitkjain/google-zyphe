@@ -214,6 +214,7 @@ export const LeadReactivationList: React.FC<LeadReactivationListProps> = ({
                                                 e.stopPropagation();
                                                 setStatusMenuOpen(statusMenuOpen === lead.id ? null : lead.id);
                                             }}
+                                            title={`Current Status: ${lead.engagementScore || lead.health || 'Unknown'}`}
                                             className={`w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-sm border ${lead.engagementScore === 'Hot' ? 'bg-rose-50 text-rose-500 border-rose-100' : lead.engagementScore === 'Cold' ? 'bg-sky-50 text-sky-500 border-sky-100' : lead.health === 'Stale' ? 'bg-slate-50 text-slate-400 border-slate-200' : 'bg-indigo-50 text-indigo-500 border-indigo-100'}`}
                                         >
                                             {lead.engagementScore === 'Hot' && <i className="fa-solid fa-fire text-xs text-rose-500"></i>}
@@ -246,7 +247,10 @@ export const LeadReactivationList: React.FC<LeadReactivationListProps> = ({
                                         )}
                                     </>
                                 ) : (
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-sm border ${lead.engagementScore === 'Hot' ? 'bg-rose-50 text-rose-500 border-rose-100' : lead.engagementScore === 'Cold' ? 'bg-sky-50 text-sky-500 border-sky-100' : lead.health === 'Stale' ? 'bg-slate-50 text-slate-400 border-slate-200' : 'bg-indigo-50 text-indigo-500 border-indigo-100'}`}>
+                                    <div
+                                        title={`Current Status: ${lead.engagementScore || lead.health || 'Unknown'}`}
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center shadow-sm border ${lead.engagementScore === 'Hot' ? 'bg-rose-50 text-rose-500 border-rose-100' : lead.engagementScore === 'Cold' ? 'bg-sky-50 text-sky-500 border-sky-100' : lead.health === 'Stale' ? 'bg-slate-50 text-slate-400 border-slate-200' : 'bg-indigo-50 text-indigo-500 border-indigo-100'}`}
+                                    >
                                         {lead.engagementScore === 'Hot' && <i className="fa-solid fa-fire text-xs text-rose-500"></i>}
                                         {lead.engagementScore === 'Cold' && <i className="fa-solid fa-snowflake text-xs text-sky-400"></i>}
                                         {lead.health === 'Stale' && lead.engagementScore !== 'Hot' && lead.engagementScore !== 'Cold' && <i className="fa-solid fa-clock-rotate-left text-xs text-slate-400"></i>}
@@ -277,26 +281,26 @@ export const LeadReactivationList: React.FC<LeadReactivationListProps> = ({
 
             {/* Pagination */}
             {pagination && pagination.totalPages > 1 && (
-                <div className="p-6 border-t border-slate-100 bg-white flex items-center justify-between">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        Page {pagination.currentPage} of {pagination.totalPages}
-                    </p>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={(e) => { e.stopPropagation(); pagination.onPageChange(Math.max(1, pagination.currentPage - 1)); }}
-                            disabled={pagination.currentPage === 1}
-                            className="w-10 h-10 rounded-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-                        >
-                            <i className="fa-solid fa-chevron-left text-xs"></i>
-                        </button>
-                        <button
-                            onClick={(e) => { e.stopPropagation(); pagination.onPageChange(Math.min(pagination.totalPages, pagination.currentPage + 1)); }}
-                            disabled={pagination.currentPage === pagination.totalPages}
-                            className="w-10 h-10 rounded-xl border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-                        >
-                            <i className="fa-solid fa-chevron-right text-xs"></i>
-                        </button>
-                    </div>
+                <div className="p-4 border-t border-slate-100 bg-white flex items-center justify-center gap-6">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); pagination.onPageChange(Math.max(1, pagination.currentPage - 1)); }}
+                        disabled={pagination.currentPage === 1}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                    >
+                        <i className="fa-solid fa-chevron-left text-xs"></i>
+                    </button>
+
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                        Page {pagination.currentPage} / {pagination.totalPages}
+                    </span>
+
+                    <button
+                        onClick={(e) => { e.stopPropagation(); pagination.onPageChange(Math.min(pagination.totalPages, pagination.currentPage + 1)); }}
+                        disabled={pagination.currentPage === pagination.totalPages}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                    >
+                        <i className="fa-solid fa-chevron-right text-xs"></i>
+                    </button>
                 </div>
             )}
         </div>
