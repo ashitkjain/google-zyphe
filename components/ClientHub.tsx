@@ -68,7 +68,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     const [clients, setClients] = useState<UserProfile[]>([]);
     const [loadingClients, setLoadingClients] = useState(true);
     const [explicitlySelectedClientId, setExplicitlySelectedClientId] = useState<string | undefined>(undefined);
-    const [selectedLeadForModal, setSelectedLeadForModal] = useState<string | null>(null);
 
 
 
@@ -704,12 +703,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                 }}
                                 onActivateLead={(leadOrId: any) => {
                                     const id = typeof leadOrId === 'string' ? leadOrId : leadOrId.id;
-                                    if (isMobile) {
-                                        setExplicitlySelectedClientId(id);
-                                        setActiveTab('clients');
-                                    } else {
-                                        setSelectedLeadForModal(id);
-                                    }
+                                    setExplicitlySelectedClientId(id);
+                                    setActiveTab('clients');
                                 }}
                             />
                         )}
@@ -916,32 +911,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                     <Footer onNavigate={onNavigate} />
                 </div>
             </div>
-
-            {/* Client Details Modal (Desktop Popup) */}
-            {selectedLeadForModal && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 md:p-12 animate-in fade-in duration-200" onClick={(e) => {
-                    // Close if clicking outside
-                    if (e.target === e.currentTarget) setSelectedLeadForModal(null);
-                }}>
-                    <div className="bg-white w-full h-full max-w-7xl rounded-3xl shadow-2xl overflow-hidden relative flex flex-col border border-white/20 ring-1 ring-black/5">
-                        <button
-                            onClick={() => setSelectedLeadForModal(null)}
-                            className="absolute top-5 right-5 z-50 w-9 h-9 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center text-slate-500 hover:bg-white hover:text-slate-900 transition-all border border-slate-200 shadow-sm hover:shadow-md hover:scale-105"
-                        >
-                            <i className="fa-solid fa-xmark text-lg"></i>
-                        </button>
-                        <ClientDetailsView
-                            realtorId={realtorId}
-                            clients={clients}
-                            leads={leads}
-                            loading={loadingClients}
-                            onUpdateClient={handleUpdateLead}
-                            initialSelectedId={selectedLeadForModal}
-                            hideClientList={true}
-                        />
-                    </div>
-                </div>
-            )}
 
             <AddClientModal
                 isOpen={isAddClientModalOpen}

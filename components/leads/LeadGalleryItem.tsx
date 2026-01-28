@@ -523,53 +523,17 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                 </div>
                                 <div className="flex flex-col gap-0.5 text-[12px] text-slate-400 font-bold whitespace-nowrap overflow-hidden">
                                     {lead.email && (
-                                        <a
-                                            href={`mailto:${lead.email}`}
-                                            onClick={e => e.stopPropagation()}
-                                            className="flex items-center gap-1.5 pr-2 min-w-0 pb-1 hover:text-indigo-600 transition-colors group/link"
-                                        >
-                                            <i className="fa-solid fa-envelope opacity-30 text-[8px] flex-shrink-0 group-hover/link:opacity-100 group-hover/link:text-indigo-500"></i>
+                                        <div className="flex items-center gap-1.5 pr-2 min-w-0 pb-1">
+                                            <i className="fa-solid fa-envelope opacity-30 text-[8px] flex-shrink-0"></i>
                                             <span className="truncate">{lead.email}</span>
-                                        </a>
+                                        </div>
                                     )}
                                     {lead.phone && (
-                                        <a
-                                            href={`tel:${lead.phone}`}
-                                            onClick={e => e.stopPropagation()}
-                                            className="flex items-center gap-1.5 pr-2 min-w-0 hover:text-emerald-600 transition-colors group/link"
-                                        >
-                                            <i className="fa-solid fa-phone opacity-30 text-[8px] flex-shrink-0 group-hover/link:opacity-100 group-hover/link:text-emerald-500"></i>
+                                        <div className="flex items-center gap-1.5 pr-2 min-w-0">
+                                            <i className="fa-solid fa-phone opacity-30 text-[8px] flex-shrink-0"></i>
                                             <span className="truncate">{lead.phone}</span>
-                                        </a>
+                                        </div>
                                     )}
-                                </div>
-
-                                {/* Mobile Quick Actions */}
-                                <div className="flex items-center gap-3 mt-3 mb-1 sm:hidden">
-                                    {lead.phone && (
-                                        <a
-                                            href={`tel:${lead.phone}`}
-                                            onClick={e => e.stopPropagation()}
-                                            className="w-10 h-10 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center text-emerald-600 shadow-sm active:scale-95 transition-all"
-                                        >
-                                            <i className="fa-solid fa-phone text-sm"></i>
-                                        </a>
-                                    )}
-                                    {lead.email && (
-                                        <a
-                                            href={`mailto:${lead.email}`}
-                                            onClick={e => e.stopPropagation()}
-                                            className="w-10 h-10 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center justify-center text-indigo-600 shadow-sm active:scale-95 transition-all"
-                                        >
-                                            <i className="fa-solid fa-envelope text-sm"></i>
-                                        </a>
-                                    )}
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); setIsAddingComment(true); }}
-                                        className="w-10 h-10 bg-yellow-50 border border-yellow-200 rounded-xl flex items-center justify-center text-yellow-600 shadow-sm active:scale-95 transition-all"
-                                    >
-                                        <i className="fa-solid fa-note-sticky text-sm"></i>
-                                    </button>
                                 </div>
                                 <div className="flex items-center gap-1.5 text-xs text-slate-400 font-bold mt-2 flex-wrap leading-tight">
                                     <span className="">Source: <span className="text-slate-600">{lead.source || 'Unknown'}</span></span>

@@ -9,7 +9,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
     return (
         <footer className="bg-white border-t border-slate-200 py-1.5">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Logo size={50} className="opacity-30 grayscale hover:grayscale-0 transition-all" />
                         <span className="text-xs font-medium text-slate-400">© 2026 Zyphe informational content only, no legal or financial advice.</span>
