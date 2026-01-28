@@ -148,9 +148,13 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
         localStorage.setItem('zyphe_realtor_id', inviteData.realtorId);
       }
 
-      // Mobile: Use Redirect to avoid popup blockers
-      if (getDeviceType() === 'mobile') {
-        console.log("[Auth] Mobile device detected, using signInWithRedirect");
+      // Mobile/Tablet/Touch: Use Redirect to avoid popup blockers and communication issues
+      // We diligently check for touch points or small screens to catch devices requesting "Desktop Site"
+      const isTouchDevice = typeof navigator !== 'undefined' && (navigator.maxTouchPoints > 0 || 'ontouchstart' in window);
+      const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 1024;
+
+      if (getDeviceType() === 'mobile' || isTouchDevice || isSmallScreen) {
+        console.log("[Auth] Touch/Mobile device detected, using signInWithRedirect");
         await signInWithRedirect(auth, googleProvider);
         return; // Page will redirect
       }
