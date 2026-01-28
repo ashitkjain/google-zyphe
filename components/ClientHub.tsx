@@ -454,13 +454,37 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         <div className="h-8 w-px bg-white/10"></div>
                     </div>
 
-                    <nav className="flex items-center h-[72px]">
+                    {/* Mobile Navigation */}
+                    <div className="sm:hidden flex-1 ml-6 mr-4">
+                        <div className="relative">
+                            <i className="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                            <select
+                                value={activeTab}
+                                onChange={(e) => {
+                                    const val = e.target.value as HubTab;
+                                    setActiveTab(val);
+                                    if (onNavigate) onNavigate(val as any, '');
+                                }}
+                                className="w-full appearance-none bg-slate-800 border border-slate-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all cursor-pointer"
+                            >
+                                <optgroup label="Main Navigation">
+                                    {mainTabs.map(tab => <option key={tab.id} value={tab.id}>{tab.label}</option>)}
+                                </optgroup>
+                                <optgroup label="Tools">
+                                    {toolTabs.map(tab => <option key={tab.id} value={tab.id}>{tab.label}</option>)}
+                                </optgroup>
+                                <option value="guides">Guides</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <nav className="hidden sm:flex items-center h-[72px]">
                         {mainTabs.map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => {
                                     setActiveTab(tab.id);
-                                    if (onNavigate) onNavigate(tab.id as any);
+                                    if (onNavigate) onNavigate(tab.id as any, '');
                                 }}
                                 className={`relative h-full flex items-center gap-3 px-6 text-[11px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${activeTab === tab.id ? 'text-white' : 'text-slate-400 hover:text-slate-200'
                                     }`}
@@ -495,7 +519,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                             onClick={() => {
                                                 setActiveTab(tab.id);
                                                 setIsToolsOpen(false);
-                                                if (onNavigate) onNavigate(tab.id as any);
+                                                if (onNavigate) onNavigate(tab.id as any, '');
                                             }}
                                             className={`w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-500'}`}
                                         >
@@ -510,7 +534,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         <button
                             onClick={() => {
                                 setActiveTab('guides');
-                                if (onNavigate) onNavigate('guides');
+                                if (onNavigate) onNavigate('guides', '');
                             }}
                             className={`relative h-full flex items-center gap-3 px-6 text-[11px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${activeTab === 'guides' ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
                         >
