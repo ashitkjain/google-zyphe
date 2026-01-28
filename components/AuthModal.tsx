@@ -165,7 +165,9 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
 
       if (getDeviceType() === 'mobile' || isTouchDevice || isSmallScreen) {
         console.log("[Auth] Touch/Mobile device detected, using signInWithRedirect");
-        await signInWithRedirect(auth, googleProvider);
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        await signInWithRedirect(auth, provider);
         return; // Page will redirect
       }
 
