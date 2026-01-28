@@ -462,7 +462,7 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, lead
     };
 
     return (
-        <div className="flex-1 overflow-y-auto bg-[#F8FAFC]">
+        <div className="flex-1 bg-[#F8FAFC]">
             <div className="p-12 max-w-screen-2xl mx-auto">
                 {renderHeader()}
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">

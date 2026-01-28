@@ -755,15 +755,30 @@ const App: React.FC = () => {
   /* ------------------- Render Logic ------------------- */
 
   if (viewMode === 'legal-disclaimer') {
-    return <LegalDisclaimer />;
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        <div className="flex-1"><LegalDisclaimer /></div>
+        <Footer onNavigate={transitionToView} />
+      </div>
+    );
   }
 
   if (viewMode === 'terms') {
-    return <TermsView />;
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        <div className="flex-1"><TermsView /></div>
+        <Footer onNavigate={transitionToView} />
+      </div>
+    );
   }
 
   if (viewMode === 'privacy') {
-    return <PrivacyPolicy />;
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        <div className="flex-1"><PrivacyPolicy /></div>
+        <Footer onNavigate={transitionToView} />
+      </div>
+    );
   }
 
   // REALTOR LAYOUT: Merged ClientHub + Homepage
@@ -912,10 +927,8 @@ const App: React.FC = () => {
           </div>
         ) : exploreTab)}
 
-
+        <Footer onNavigate={transitionToView} />
       </main>
-
-      <Footer onNavigate={transitionToView} />
     </div>
   );
 };

@@ -680,11 +680,11 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                 </div>
             )}
 
-            <div className="flex-1 overflow-hidden">
-                <div className="flex flex-col h-full">
-                    <div className="flex flex-col h-full">
+            <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50">
+                <div className="flex flex-col min-h-full">
+                    <div className="flex-1 flex flex-col">
                         {activeTab === 'explore' && exploreContent && (
-                            <div className="flex-1 overflow-y-auto bg-slate-50">
+                            <div className="bg-slate-50">
                                 {exploreContent}
                             </div>
                         )}
@@ -891,12 +891,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         )}
 
                     </div>
-
-
-
-
-
-
 
                     <style dangerouslySetInnerHTML={{
                         __html: `

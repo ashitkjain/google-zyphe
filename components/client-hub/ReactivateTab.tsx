@@ -19,7 +19,7 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
     const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
     return (
-        <div className="flex-1 h-full overflow-y-auto bg-slate-50 px-12 pt-4 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-700 scroll-smooth">
+        <div className="flex-1 bg-slate-50 px-12 pt-4 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-700 scroll-smooth">
             <div className="max-w-7xl mx-auto space-y-4">
                 {/* Sub Tab Navigation */}
                 <div className="flex items-center gap-8 border-b border-slate-200 overflow-x-auto no-scrollbar">

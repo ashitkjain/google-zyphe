@@ -342,7 +342,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                 </div>
 
                 {/* Article Body */}
-                <div className="flex-1 min-h-0 overflow-y-auto bg-white">
+                <div className="bg-white">
                     <div className="max-w-5xl mx-auto px-10 py-12 pb-20">
                         {error && (
                             <div className="bg-rose-50 border border-rose-100 text-rose-700 p-6 rounded-3xl mb-10 font-bold flex items-center gap-4">
@@ -766,27 +766,19 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
             </div>
 
             {/* Main Content Area */}
-            <div className="flex-1 overflow-hidden flex flex-col transition-all">
+            <div className="flex-1 flex flex-col transition-all">
                 {/* Header */}
                 <div className="bg-white border-b border-slate-200 px-10 py-8">
                     <div className="mb-4">
-                        <div>
-                            <div className="flex items-center gap-3 mb-2">
-                                <h1 className="text-xl font-black text-slate-900 tracking-tight">
-                                    {activeCategory.title}
-                                </h1>
-                            </div>
-                        </div>
+                        <h1 className="text-xl font-black text-slate-900 tracking-tight">
+                            {activeCategory.title}
+                        </h1>
                     </div>
-
-
                 </div>
 
                 {/* List View Container */}
-                <div className="flex-1 overflow-y-auto p-10 bg-white">
+                <div className="p-10 bg-white">
                     <div className="max-w-6xl mx-auto">
-
-
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-16 gap-y-12">
                             {filteredItems.map((item, idx) => (
                                 <button
@@ -809,7 +801,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                     </div>
                 </div>
             </div>
-        </div >
+        </div>
     );
 };
 

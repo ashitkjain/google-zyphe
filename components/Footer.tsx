@@ -14,12 +14,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                         <Logo size={50} className="opacity-30 grayscale hover:grayscale-0 transition-all" />
                         <span className="text-xs font-medium text-slate-400">© 2026 Zyphe informational content only, no legal or financial advice.</span>
                     </div>
-
                     <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                            <span className="text-xs font-black uppercase tracking-tighter text-slate-400">Systems Operational</span>
-                        </div>
                         <div className="hidden sm:flex items-center gap-4">
                             <button
                                 onClick={() => onNavigate ? onNavigate('legal-disclaimer') : window.location.href = '/legal-disclaimer'}

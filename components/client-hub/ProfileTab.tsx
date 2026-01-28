@@ -65,7 +65,7 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-50 overflow-y-auto">
+        <div className="flex flex-col bg-slate-50">
             {/* Hero Header */}
             <div className="relative bg-white pb-8">
                 {/* Cover Image */}

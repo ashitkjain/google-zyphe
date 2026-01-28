@@ -160,7 +160,7 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
     };
 
     return (
-        <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
+        <div className="flex flex-col bg-slate-50">
             <div className="flex-1 overflow-x-auto overflow-y-hidden p-6 custom-scrollbar">
                 <DragDropContext onDragEnd={handleDragEnd}>
                     <div className="flex gap-6 h-full min-w-max">

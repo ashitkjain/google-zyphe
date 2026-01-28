@@ -77,7 +77,7 @@ const BestPracticesTab: React.FC = () => {
                 />
 
                 {/* Main Content Area */}
-                <div className="flex-1 overflow-y-auto h-full scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
+                <div className="flex-1 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
                     <div className="max-w-5xl mx-auto p-6 lg:p-12 pb-24">
                         {renderContent()}
                     </div>
