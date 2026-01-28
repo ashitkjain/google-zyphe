@@ -407,22 +407,40 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {/* Sub Tab Navigation - Only show if not forced */}
             {!forcedSubTab && (
-                <div className="flex items-center gap-8 border-b border-slate-200 overflow-x-auto">
-                    <button
-                        onClick={() => setActiveSubTab('GENERATE')}
-                        className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${activeSubTab === 'GENERATE' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-                    >
-                        Old Leads
-                        {activeSubTab === 'GENERATE' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full"></div>}
-                    </button>
-                    <button
-                        onClick={() => setActiveSubTab('PLANS')}
-                        className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${activeSubTab === 'PLANS' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-                    >
-                        AI Plan
-                        {activeSubTab === 'PLANS' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full"></div>}
-                    </button>
-                </div>
+                <>
+                    {/* Mobile Navigation (Dropdown) */}
+                    <div className="sm:hidden border-b border-slate-200 pb-4">
+                        <div className="relative">
+                            <i className="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                            <select
+                                value={activeSubTab}
+                                onChange={(e) => setActiveSubTab(e.target.value as any)}
+                                className="w-full appearance-none bg-white border border-slate-200 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50/50 transition-all cursor-pointer"
+                            >
+                                <option value="GENERATE">Old Leads</option>
+                                <option value="PLANS">AI Plan</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Desktop Navigation (Tabs) */}
+                    <div className="hidden sm:flex items-center gap-8 border-b border-slate-200 overflow-x-auto">
+                        <button
+                            onClick={() => setActiveSubTab('GENERATE')}
+                            className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${activeSubTab === 'GENERATE' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            Old Leads
+                            {activeSubTab === 'GENERATE' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full"></div>}
+                        </button>
+                        <button
+                            onClick={() => setActiveSubTab('PLANS')}
+                            className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${activeSubTab === 'PLANS' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            AI Plan
+                            {activeSubTab === 'PLANS' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-full"></div>}
+                        </button>
+                    </div>
+                </>
             )}
 
             {activeSubTab === 'GENERATE' ? (
