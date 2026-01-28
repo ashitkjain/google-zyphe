@@ -34,8 +34,8 @@ const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCr
 
     return (
         <div className="bg-slate-50 border-b border-slate-200 px-4 py-2 flex-shrink-0 w-full relative z-[60]">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 flex-1">
+            <div className="flex flex-wrap items-center justify-between gap-y-4">
+                <div className="flex items-center gap-4 flex-1 overflow-x-auto no-scrollbar pr-4 pb-1">
                     {/* Tab Switcher */}
                     <div className="flex bg-slate-200/50 p-1 rounded-xl items-center mr-2 flex-shrink-0">
                         <button
@@ -63,7 +63,7 @@ const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCr
                     </button>
 
                     {/* Filter, Sort, Search next to + */}
-                    <div className="flex items-center gap-2 ml-2 flex-1" ref={dropdownRef}>
+                    <div className="flex items-center gap-2 ml-2 flex-shrink-0" ref={dropdownRef}>
                         {/* Filter */}
                         <div className="relative">
                             <button
@@ -159,7 +159,7 @@ const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCr
                         </div>
 
                         {/* Global Search */}
-                        <div className="relative ml-4 max-w-sm flex-1">
+                        <div className="relative ml-4 w-48 md:w-64 flex-shrink-0">
                             <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
                             <input
                                 type="text"
@@ -181,7 +181,7 @@ const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCr
                 </div>
 
                 {/* View Toggles */}
-                <div className="flex bg-slate-200/50 p-1 rounded-2xl items-center">
+                <div className="hidden md:flex bg-slate-200/50 p-1 rounded-2xl items-center">
                     <button
                         onClick={() => setDisplayMode('kanban')}
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${displayMode === 'kanban' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}

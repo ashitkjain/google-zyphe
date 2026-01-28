@@ -186,7 +186,8 @@ const PartiesTab: React.FC<PartiesTabProps> = ({ lead, realtorId }) => {
                 </div>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left">
                     <thead>
                         <tr className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
@@ -362,6 +363,133 @@ const PartiesTab: React.FC<PartiesTabProps> = ({ lead, realtorId }) => {
                         ))}
                     </tbody>
                 </table>
+            </div>
+
+            {/* Mobile Card List View */}
+            <div className="md:hidden space-y-4">
+                {isAdding && (
+                    <div className="bg-indigo-50/50 border border-indigo-200 rounded-xl p-4 space-y-3">
+                        <h4 className="font-bold text-indigo-700 text-sm">Add New Party</h4>
+                        <input
+                            type="text"
+                            placeholder="Name"
+                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                            value={editForm.display_name || ''}
+                            onChange={e => setEditForm({ ...editForm, display_name: e.target.value })}
+                            autoFocus
+                        />
+                        <select
+                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                            value={editForm.role || 'OTHER'}
+                            onChange={e => setEditForm({ ...editForm, role: e.target.value as TransactionRole })}
+                        >
+                            {ROLES.map(role => <option key={role} value={role}>{role}</option>)}
+                        </select>
+                        <input
+                            type="email"
+                            placeholder="Email"
+                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                            value={editForm.email || ''}
+                            onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                        />
+                        <input
+                            type="tel"
+                            placeholder="Phone"
+                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                            value={editForm.phone || ''}
+                            onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
+                        />
+                        <div className="flex gap-2 pt-2">
+                            <button onClick={handleAdd} className="flex-1 py-2 bg-indigo-600 text-white rounded-lg font-bold text-xs uppercase shadow-lg shadow-indigo-300">Add</button>
+                            <button onClick={() => setIsAdding(false)} className="flex-1 py-2 bg-white border border-slate-200 text-slate-500 rounded-lg font-bold text-xs uppercase">Cancel</button>
+                        </div>
+                    </div>
+                )}
+
+                {parties.map(party => (
+                    <div key={party.id} className="bg-white border boundary-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h3 className="font-bold text-slate-900">{party.display_name}</h3>
+                                <span className="inline-block px-2 py-0.5 mt-1 bg-slate-100 rounded text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+                                    {party.role}
+                                </span>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={() => handleEdit(party)} className="w-8 h-8 rounded-full bg-slate-50 text-indigo-500 flex items-center justify-center hover:bg-indigo-50 border border-slate-100">
+                                    <i className="fa-solid fa-pen text-xs"></i>
+                                </button>
+                                <button onClick={() => handleDelete(party.id)} className="w-8 h-8 rounded-full bg-slate-50 text-rose-500 flex items-center justify-center hover:bg-rose-50 border border-slate-100">
+                                    <i className="fa-solid fa-trash text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        {editingId === party.id ? (
+                            <div className="space-y-3 pt-2">
+                                <input
+                                    type="text"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                                    value={editForm.display_name || ''}
+                                    onChange={e => setEditForm({ ...editForm, display_name: e.target.value })}
+                                />
+                                <div className="flex gap-2">
+                                    <button onClick={() => handleSave(party.id)} className="flex-1 py-2 bg-indigo-600 text-white rounded-lg font-bold text-xs uppercase">Save Changes</button>
+                                    <button onClick={() => setEditingId(null)} className="flex-1 py-2 bg-white border border-slate-200 text-slate-500 rounded-lg font-bold text-xs uppercase">Cancel</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {party.phone ? (
+                                        <a href={`tel:${party.phone}`} className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-100 active:scale-95 transition-all">
+                                            <div className="w-6 h-6 rounded-full bg-emerald-200 flex items-center justify-center flex-shrink-0">
+                                                <i className="fa-solid fa-phone text-[10px] text-emerald-700"></i>
+                                            </div>
+                                            <span>Call</span>
+                                        </a>
+                                    ) : (
+                                        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 text-slate-400 font-bold text-xs border border-slate-100">
+                                            <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+                                                <i className="fa-solid fa-phone-slash text-[10px] text-slate-400"></i>
+                                            </div>
+                                            <span>No Phone</span>
+                                        </div>
+                                    )}
+
+                                    {party.email ? (
+                                        <a href={`mailto:${party.email}`} className="flex items-center gap-3 p-3 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-xs border border-indigo-100 active:scale-95 transition-all">
+                                            <div className="w-6 h-6 rounded-full bg-indigo-200 flex items-center justify-center flex-shrink-0">
+                                                <i className="fa-solid fa-envelope text-[10px] text-indigo-700"></i>
+                                            </div>
+                                            <span>Email</span>
+                                        </a>
+                                    ) : (
+                                        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 text-slate-400 font-bold text-xs border border-slate-100">
+                                            <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+                                                <i className="fa-solid fa-envelope text-[10px] text-slate-400"></i>
+                                            </div>
+                                            <span>No Email</span>
+                                        </div>
+                                    )}
+                                </div>
+                                {party.address && (
+                                    <div className="flex items-start gap-2 text-xs text-slate-500 px-1">
+                                        <i className="fa-solid fa-location-dot mt-0.5 opacity-50"></i>
+                                        <span>{party.address}</span>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                ))}
+
+                {parties.length === 0 && !isAdding && (
+                    <div className="text-center py-10 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                        <i className="fa-solid fa-users-slash text-2xl text-slate-300 mb-2"></i>
+                        <p className="text-sm font-bold text-slate-400">No parties added</p>
+                    </div>
+                )}
             </div>
         </div>
     );

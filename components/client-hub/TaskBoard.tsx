@@ -255,7 +255,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
 
                 {/* My Tasks View */}
                 {activeTab === 'tasks' && (
-                    <div className="flex-1 bg-white px-12 pt-3 pb-12 overflow-y-auto font-sans leading-normal text-slate-900">
+                    <div className="flex-1 bg-white px-4 md:px-12 pt-3 pb-12 overflow-y-auto font-sans leading-normal text-slate-900">
                         <div className="max-w-6xl mx-auto">
                             <div className="flex justify-end mb-3">
                                 <button
@@ -269,194 +269,309 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                             </div>
                             <div className="space-y-12">
                                 {[
-                                    { name: '', mainColor: '#1d3d50', secondaryColor: '#539fc9', items: tasks.filter(t => t.priority === 'Urgent') },
-                                    { name: '.', mainColor: '#4c6122', secondaryColor: '#8cae3e', items: tasks.filter(t => t.priority === 'High') },
-                                    { name: '', mainColor: '#a15c1e', secondaryColor: '#d68b44', items: tasks.filter(t => t.priority === 'Normal' || t.priority === 'Low') }
+                                    { name: 'Urgent Priority', mainColor: '#1d3d50', secondaryColor: '#539fc9', priorityFilter: 'Urgent', items: tasks.filter(t => t.priority === 'Urgent') },
+                                    { name: 'High Priority', mainColor: '#4c6122', secondaryColor: '#8cae3e', priorityFilter: 'High', items: tasks.filter(t => t.priority === 'High') },
+                                    { name: 'Standard Priority', mainColor: '#a15c1e', secondaryColor: '#d68b44', priorityFilter: 'Normal', items: tasks.filter(t => t.priority === 'Normal' || t.priority === 'Low') }
                                 ].map((section, sIdx) => (
                                     <div key={sIdx} className="w-full">
-                                        <table className="w-full border-collapse border border-slate-300">
-                                            <thead>
-                                                <tr>
-                                                    <th colSpan={1} className="w-12 text-left px-3 py-1 bg-[#1d3d50] text-white text-sm font-bold border border-slate-300">Name</th>
-                                                    <th colSpan={5} className="px-3 py-1 bg-[#f9f9f9] border border-slate-300 text-left font-normal italic text-slate-500">
-                                                        {section.name || ''}
-                                                    </th>
-                                                    <th className="bg-[#f9f9f9] border border-slate-300 w-10 p-0 text-center">
-                                                        <button
-                                                            onClick={() => addRowToSection(sIdx)}
-                                                            className="w-full h-full text-slate-400 hover:text-indigo-600 transition-colors"
-                                                        >
-                                                            <i className="fa-solid fa-plus text-xs"></i>
-                                                        </button>
-                                                    </th>
-                                                </tr>
-                                                <tr>
-                                                    <th className="w-[5%] px-3 py-2 text-center text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>Done</th>
-                                                    <th className="w-[10%] px-3 py-2 text-left text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>Client</th>
-                                                    <th className="w-[7%] px-3 py-2 text-left text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>Priority</th>
-                                                    <th className="w-[28%] px-3 py-2 text-left text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>Task</th>
-                                                    <th className="w-[10%] px-3 py-2 text-left text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.secondaryColor }}>Date Due</th>
-                                                    <th className="w-[35%] px-3 py-2 text-left text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.secondaryColor }}>Notes</th>
-                                                    <th className="w-[5%] px-3 py-2 text-center text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.secondaryColor }}></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {section.items.map((item, i) => (
-                                                    <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                                                        <td className="border border-slate-200 p-0 text-center align-middle">
+                                        {/* Desktop Table View */}
+                                        <div className="hidden md:block overflow-x-auto custom-scrollbar rounded-lg shadow-sm">
+                                            <table className="w-full border-collapse border border-slate-300 min-w-[800px]">
+                                                <thead>
+                                                    <tr>
+                                                        <th colSpan={1} className="w-12 text-left px-3 py-1 bg-[#1d3d50] text-white text-sm font-bold border border-slate-300">Name</th>
+                                                        <th colSpan={5} className="px-3 py-1 bg-[#f9f9f9] border border-slate-300 text-left font-normal italic text-slate-500">
+                                                            {section.name}
+                                                        </th>
+                                                        <th className="bg-[#f9f9f9] border border-slate-300 w-10 p-0 text-center">
                                                             <button
-                                                                onClick={() => handleTaskChange(item.id, 'status', item.status === 'Completed' ? 'Pending' : 'Completed')}
-                                                                className={`w-5 h-5 mx-auto rounded-md flex items-center justify-center transition-all border ${item.status === 'Completed'
-                                                                    ? 'bg-emerald-500 border-emerald-500 shadow-sm'
-                                                                    : 'bg-white border-slate-300 hover:border-emerald-300'
-                                                                    }`}
+                                                                onClick={() => addRowToSection(sIdx)}
+                                                                className="w-full h-full text-slate-400 hover:text-indigo-600 transition-colors"
                                                             >
-                                                                {item.status === 'Completed' && (
-                                                                    <i className="fa-solid fa-check text-[10px] text-white"></i>
-                                                                )}
+                                                                <i className="fa-solid fa-plus text-xs"></i>
                                                             </button>
-                                                        </td>
-                                                        <td className="border border-slate-200 p-0 align-top">
-                                                            <ClientSelector
-                                                                leads={leads}
-                                                                selectedClientId={item.clientId}
-                                                                onSelect={(id) => handleTaskChange(item.id, 'clientId', id)}
-                                                                className="h-full"
-                                                                hideIcon={true}
-                                                                inputClassName="bg-transparent font-normal text-slate-600 !px-3"
-                                                            />
-                                                        </td>
-                                                        <td className="border border-slate-200 p-0 align-top">
-                                                            <select
-                                                                className="w-full h-full px-3 py-2 bg-transparent border-none text-xs text-slate-600 focus:ring-1 focus:ring-indigo-500 outline-none appearance-none"
-                                                                value={item.priority}
-                                                                onChange={(e) => handleTaskChange(item.id, 'priority', e.target.value as any)}
-                                                            >
-                                                                <option value="Urgent">Urgent</option>
-                                                                <option value="High">High</option>
-                                                                <option value="Normal">Normal</option>
-                                                                <option value="Low">Low</option>
-                                                            </select>
-                                                        </td>
-                                                        <td className="border border-slate-200 p-0 align-top">
-                                                            <textarea
-                                                                className="w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-xs font-medium text-slate-800 focus:ring-1 focus:ring-indigo-500 outline-none resize-none overflow-hidden"
+                                                        </th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th className="w-[5%] px-3 py-2 text-center text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>Done</th>
+                                                        <th className="w-[10%] px-3 py-2 text-left text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>Client</th>
+                                                        <th className="w-[7%] px-3 py-2 text-left text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>Priority</th>
+                                                        <th className="w-[28%] px-3 py-2 text-left text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>Task</th>
+                                                        <th className="w-[10%] px-3 py-2 text-left text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.secondaryColor }}>Date Due</th>
+                                                        <th className="w-[35%] px-3 py-2 text-left text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.secondaryColor }}>Notes</th>
+                                                        <th className="w-[5%] px-3 py-2 text-center text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.secondaryColor }}></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {section.items.map((item, i) => (
+                                                        <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                                                            <td className="border border-slate-200 p-0 text-center align-middle">
+                                                                <button
+                                                                    onClick={() => handleTaskChange(item.id, 'status', item.status === 'Completed' ? 'Pending' : 'Completed')}
+                                                                    className={`w-5 h-5 mx-auto rounded-md flex items-center justify-center transition-all border ${item.status === 'Completed'
+                                                                        ? 'bg-emerald-500 border-emerald-500 shadow-sm'
+                                                                        : 'bg-white border-slate-300 hover:border-emerald-300'
+                                                                        }`}
+                                                                >
+                                                                    {item.status === 'Completed' && (
+                                                                        <i className="fa-solid fa-check text-[10px] text-white"></i>
+                                                                    )}
+                                                                </button>
+                                                            </td>
+                                                            <td className="border border-slate-200 p-0 align-top">
+                                                                <ClientSelector
+                                                                    leads={leads}
+                                                                    selectedClientId={item.clientId}
+                                                                    onSelect={(id) => handleTaskChange(item.id, 'clientId', id)}
+                                                                    className="h-full"
+                                                                    hideIcon={true}
+                                                                    inputClassName="bg-transparent font-normal text-slate-600 !px-3"
+                                                                />
+                                                            </td>
+                                                            <td className="border border-slate-200 p-0 align-top">
+                                                                <select
+                                                                    className="w-full h-full px-3 py-2 bg-transparent border-none text-xs text-slate-600 focus:ring-1 focus:ring-indigo-500 outline-none appearance-none"
+                                                                    value={item.priority}
+                                                                    onChange={(e) => handleTaskChange(item.id, 'priority', e.target.value as any)}
+                                                                >
+                                                                    <option value="Urgent">Urgent</option>
+                                                                    <option value="High">High</option>
+                                                                    <option value="Normal">Normal</option>
+                                                                    <option value="Low">Low</option>
+                                                                </select>
+                                                            </td>
+                                                            <td className="border border-slate-200 p-0 align-top">
+                                                                <textarea
+                                                                    className="w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-xs font-medium text-slate-800 focus:ring-1 focus:ring-indigo-500 outline-none resize-none overflow-hidden"
+                                                                    value={item.name}
+                                                                    rows={1}
+                                                                    onChange={(e) => handleTaskChange(item.id, 'name', e.target.value)}
+                                                                />
+                                                            </td>
+                                                            <td className="border border-slate-200 p-0 align-top">
+                                                                <textarea
+                                                                    className="w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-xs text-slate-600 focus:ring-1 focus:ring-indigo-500 outline-none resize-none overflow-hidden"
+                                                                    value={formatDate(item.dueDate)}
+                                                                    rows={1}
+                                                                    onChange={(e) => handleTaskChange(item.id, 'dueDate', e.target.value)}
+                                                                />
+                                                            </td>
+                                                            <td className="border border-slate-200 p-0 align-top">
+                                                                <textarea
+                                                                    className="w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-xs text-slate-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none overflow-hidden"
+                                                                    value={item.comment || ''}
+                                                                    rows={1}
+                                                                    onChange={(e) => handleTaskChange(item.id, 'comment', e.target.value)}
+                                                                />
+                                                            </td>
+                                                            <td className="border border-slate-200 p-0 text-center align-middle">
+                                                                <button
+                                                                    onClick={() => handleDeleteTask(item.id)}
+                                                                    className="p-2 text-slate-300 hover:text-red-500 transition-colors"
+                                                                    title="Delete Task"
+                                                                >
+                                                                    <i className="fa-solid fa-trash-can text-xs"></i>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                    {/* Editable Placeholder Rows */}
+                                                    {(extraRows[sIdx] || []).map((row, i) => (
+                                                        <tr key={`empty-${sIdx}-${i}`} className="min-h-[40px]">
+                                                            <td className="border border-slate-200 p-0 text-center align-middle">
+                                                                <button
+                                                                    onClick={() => handleExtraRowChange(sIdx, i, 'done', row.done === 'Yes' ? 'No' : 'Yes')}
+                                                                    className={`w-5 h-5 mx-auto rounded-md flex items-center justify-center transition-all border ${row.done === 'Yes'
+                                                                        ? 'bg-emerald-500 border-emerald-500 shadow-sm'
+                                                                        : 'bg-white border-slate-300 hover:border-emerald-300'
+                                                                        }`}
+                                                                >
+                                                                    {row.done === 'Yes' && (
+                                                                        <i className="fa-solid fa-check text-[10px] text-white"></i>
+                                                                    )}
+                                                                </button>
+                                                            </td>
+                                                            <td className="border border-slate-200 p-0 align-top">
+                                                                <ClientSelector
+                                                                    leads={leads}
+                                                                    selectedClientId={row.clientId}
+                                                                    onSelect={(id) => handleExtraRowChange(sIdx, i, 'clientId', id)}
+                                                                    className="h-full"
+                                                                    hideIcon={true}
+                                                                    inputClassName="bg-transparent font-normal text-slate-400 !px-3"
+                                                                />
+                                                            </td>
+                                                            <td className="border border-slate-200 p-0 align-top">
+                                                                <select
+                                                                    className="w-full h-full px-3 py-2 bg-transparent border-none text-xs text-slate-400 focus:ring-1 focus:ring-indigo-500 outline-none appearance-none"
+                                                                    value={row.priority || (section.priorityFilter === 'Normal' ? 'Normal' : section.priorityFilter)}
+                                                                    onChange={(e) => handleExtraRowChange(sIdx, i, 'priority', e.target.value)}
+                                                                >
+                                                                    <option value="Urgent">Urgent</option>
+                                                                    <option value="High">High</option>
+                                                                    <option value="Normal">Normal</option>
+                                                                    <option value="Low">Low</option>
+                                                                </select>
+                                                            </td>
+                                                            <td className="border border-slate-200 p-0 align-top">
+                                                                <textarea
+                                                                    placeholder="..."
+                                                                    className="w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-xs text-slate-800 focus:ring-1 focus:ring-indigo-500 outline-none placeholder:text-slate-200 resize-none overflow-hidden"
+                                                                    value={row.task || ''}
+                                                                    rows={1}
+                                                                    onChange={(e) => handleExtraRowChange(sIdx, i, 'task', e.target.value)}
+                                                                />
+                                                            </td>
+                                                            <td className="border border-slate-200 p-0 align-top">
+                                                                <textarea
+                                                                    placeholder="..."
+                                                                    className="w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-xs text-slate-600 focus:ring-1 focus:ring-indigo-500 outline-none placeholder:text-slate-200 resize-none overflow-hidden"
+                                                                    value={row.date || ''}
+                                                                    rows={1}
+                                                                    onChange={(e) => handleExtraRowChange(sIdx, i, 'date', e.target.value)}
+                                                                />
+                                                            </td>
+                                                            <td className="border border-slate-200 p-0 align-top">
+                                                                <textarea
+                                                                    placeholder="..."
+                                                                    className="w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-xs text-slate-500 focus:ring-1 focus:ring-indigo-500 outline-none placeholder:text-slate-200 resize-none overflow-hidden"
+                                                                    value={row.notes || ''}
+                                                                    rows={1}
+                                                                    onChange={(e) => handleExtraRowChange(sIdx, i, 'notes', e.target.value)}
+                                                                />
+                                                            </td>
+                                                            <td className="border border-slate-200 p-0 text-center align-middle">
+                                                                <button
+                                                                    onClick={() => handleDeleteExtraRow(sIdx, i)}
+                                                                    className="p-2 text-slate-300 hover:text-red-500 transition-colors"
+                                                                    title="Remove Row"
+                                                                >
+                                                                    <i className="fa-solid fa-trash-can text-xs"></i>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {/* Mobile Card List View */}
+                                        <div className="md:hidden space-y-4">
+                                            <div className="flex items-center justify-between" style={{ color: section.mainColor }}>
+                                                <h3 className="font-bold text-lg uppercase tracking-tight">{section.name}</h3>
+                                                <button onClick={() => addRowToSection(sIdx)} className="bg-slate-100 p-2 rounded-full hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors">
+                                                    <i className="fa-solid fa-plus text-sm"></i>
+                                                </button>
+                                            </div>
+
+                                            {section.items.map((item, i) => (
+                                                <div key={item.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+                                                    <div className="flex items-start gap-3">
+                                                        <button
+                                                            onClick={() => handleTaskChange(item.id, 'status', item.status === 'Completed' ? 'Pending' : 'Completed')}
+                                                            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all border mt-1 shrink-0 ${item.status === 'Completed'
+                                                                ? 'bg-emerald-500 border-emerald-500 shadow-sm'
+                                                                : 'bg-white border-slate-300'
+                                                                }`}
+                                                        >
+                                                            {item.status === 'Completed' && <i className="fa-solid fa-check text-xs text-white"></i>}
+                                                        </button>
+                                                        <div className="flex-1 min-w-0 space-y-2">
+                                                            <input
+                                                                className="w-full bg-transparent font-bold text-slate-800 text-sm focus:outline-none placeholder:text-slate-300"
                                                                 value={item.name}
-                                                                rows={1}
+                                                                placeholder="Task name..."
                                                                 onChange={(e) => handleTaskChange(item.id, 'name', e.target.value)}
                                                             />
-                                                        </td>
-                                                        <td className="border border-slate-200 p-0 align-top">
+                                                            <div className="flex items-center gap-2">
+                                                                <ClientSelector
+                                                                    leads={leads}
+                                                                    selectedClientId={item.clientId}
+                                                                    onSelect={(id) => handleTaskChange(item.id, 'clientId', id)}
+                                                                    className="flex-1 max-w-[140px]"
+                                                                    hideIcon={false}
+                                                                    inputClassName="bg-slate-50 rounded-lg px-2 py-1 text-xs border-transparent hover:border-slate-200"
+                                                                />
+                                                                <div className="h-4 w-px bg-slate-200"></div>
+                                                                <input
+                                                                    className="w-24 bg-transparent text-xs text-slate-500 focus:outline-none"
+                                                                    value={formatDate(item.dueDate)}
+                                                                    onChange={(e) => handleTaskChange(item.id, 'dueDate', e.target.value)}
+                                                                />
+                                                            </div>
                                                             <textarea
-                                                                className="w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-xs text-slate-600 focus:ring-1 focus:ring-indigo-500 outline-none resize-none overflow-hidden"
-                                                                value={formatDate(item.dueDate)}
-                                                                rows={1}
-                                                                onChange={(e) => handleTaskChange(item.id, 'dueDate', e.target.value)}
-                                                            />
-                                                        </td>
-                                                        <td className="border border-slate-200 p-0 align-top">
-                                                            <textarea
-                                                                className="w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-xs text-slate-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none overflow-hidden"
+                                                                className="w-full bg-slate-50 rounded-lg p-2 text-xs text-slate-600 focus:outline-none resize-none border border-transparent focus:border-indigo-100 focus:bg-white transition-all"
                                                                 value={item.comment || ''}
-                                                                rows={1}
+                                                                placeholder="Add notes..."
+                                                                rows={2}
                                                                 onChange={(e) => handleTaskChange(item.id, 'comment', e.target.value)}
                                                             />
-                                                        </td>
-                                                        <td className="border border-slate-200 p-0 text-center align-middle">
-                                                            <button
-                                                                onClick={() => handleDeleteTask(item.id)}
-                                                                className="p-2 text-slate-300 hover:text-red-500 transition-colors"
-                                                                title="Delete Task"
-                                                            >
-                                                                <i className="fa-solid fa-trash-can text-xs"></i>
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                                {/* Editable Placeholder Rows */}
-                                                {(extraRows[sIdx] || []).map((row, i) => (
-                                                    <tr key={`empty-${sIdx}-${i}`} className="min-h-[40px]">
-                                                        <td className="border border-slate-200 p-0 text-center align-middle">
-                                                            <button
-                                                                onClick={() => handleExtraRowChange(sIdx, i, 'done', row.done === 'Yes' ? 'No' : 'Yes')}
-                                                                className={`w-5 h-5 mx-auto rounded-md flex items-center justify-center transition-all border ${row.done === 'Yes'
-                                                                    ? 'bg-emerald-500 border-emerald-500 shadow-sm'
-                                                                    : 'bg-white border-slate-300 hover:border-emerald-300'
-                                                                    }`}
-                                                            >
-                                                                {row.done === 'Yes' && (
-                                                                    <i className="fa-solid fa-check text-[10px] text-white"></i>
-                                                                )}
-                                                            </button>
-                                                        </td>
-                                                        <td className="border border-slate-200 p-0 align-top">
-                                                            <ClientSelector
-                                                                leads={leads}
-                                                                selectedClientId={row.clientId}
-                                                                onSelect={(id) => handleExtraRowChange(sIdx, i, 'clientId', id)}
-                                                                className="h-full"
-                                                                hideIcon={true}
-                                                                inputClassName="bg-transparent font-normal text-slate-400 !px-3"
-                                                            />
-                                                        </td>
-                                                        <td className="border border-slate-200 p-0 align-top">
-                                                            <select
-                                                                className="w-full h-full px-3 py-2 bg-transparent border-none text-xs text-slate-400 focus:ring-1 focus:ring-indigo-500 outline-none appearance-none"
-                                                                value={row.priority || 'Normal'}
-                                                                onChange={(e) => handleExtraRowChange(sIdx, i, 'priority', e.target.value)}
-                                                            >
-                                                                <option value="Urgent">Urgent</option>
-                                                                <option value="High">High</option>
-                                                                <option value="Normal">Normal</option>
-                                                                <option value="Low">Low</option>
-                                                            </select>
-                                                        </td>
-                                                        <td className="border border-slate-200 p-0 align-top">
-                                                            <textarea
-                                                                placeholder="..."
-                                                                className="w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-xs text-slate-800 focus:ring-1 focus:ring-indigo-500 outline-none placeholder:text-slate-200 resize-none overflow-hidden"
+                                                        </div>
+                                                        <button onClick={() => handleDeleteTask(item.id)} className="text-slate-300 hover:text-red-500 p-1">
+                                                            <i className="fa-solid fa-xmark"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {/* Mobile New Rows */}
+                                            {(extraRows[sIdx] || []).map((row, i) => (
+                                                <div key={`empty-${sIdx}-${i}`} className="bg-slate-50 border border-slate-200 border-dashed rounded-xl p-4 space-y-3 opacity-90">
+                                                    <div className="flex items-start gap-3">
+                                                        <button
+                                                            onClick={() => handleExtraRowChange(sIdx, i, 'done', row.done === 'Yes' ? 'No' : 'Yes')}
+                                                            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all border mt-1 shrink-0 ${row.done === 'Yes'
+                                                                ? 'bg-emerald-500 border-emerald-500 shadow-sm'
+                                                                : 'bg-white border-slate-300'
+                                                                }`}
+                                                        >
+                                                            {row.done === 'Yes' && <i className="fa-solid fa-check text-xs text-white"></i>}
+                                                        </button>
+                                                        <div className="flex-1 min-w-0 space-y-2">
+                                                            <input
+                                                                className="w-full bg-transparent font-medium text-slate-800 text-sm focus:outline-none placeholder:text-slate-400"
                                                                 value={row.task || ''}
-                                                                rows={1}
+                                                                placeholder="New task..."
                                                                 onChange={(e) => handleExtraRowChange(sIdx, i, 'task', e.target.value)}
                                                             />
-                                                        </td>
-                                                        <td className="border border-slate-200 p-0 align-top">
+                                                            <div className="flex items-center gap-2">
+                                                                <ClientSelector
+                                                                    leads={leads}
+                                                                    selectedClientId={row.clientId}
+                                                                    onSelect={(id) => handleExtraRowChange(sIdx, i, 'clientId', id)}
+                                                                    className="flex-1 max-w-[140px]"
+                                                                    hideIcon={false}
+                                                                    inputClassName="bg-white rounded-lg px-2 py-1 text-xs border border-slate-200"
+                                                                />
+                                                                <div className="h-4 w-px bg-slate-200"></div>
+                                                                <input
+                                                                    className="w-24 bg-transparent text-xs text-slate-400 focus:outline-none"
+                                                                    value={row.date || ''}
+                                                                    placeholder="Due date..."
+                                                                    onChange={(e) => handleExtraRowChange(sIdx, i, 'date', e.target.value)}
+                                                                />
+                                                            </div>
                                                             <textarea
-                                                                placeholder="..."
-                                                                className="w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-xs text-slate-600 focus:ring-1 focus:ring-indigo-500 outline-none placeholder:text-slate-200 resize-none overflow-hidden"
-                                                                value={row.date || ''}
-                                                                rows={1}
-                                                                onChange={(e) => handleExtraRowChange(sIdx, i, 'date', e.target.value)}
-                                                            />
-                                                        </td>
-                                                        <td className="border border-slate-200 p-0 align-top">
-                                                            <textarea
-                                                                placeholder="..."
-                                                                className="w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-xs text-slate-500 focus:ring-1 focus:ring-indigo-500 outline-none placeholder:text-slate-200 resize-none overflow-hidden"
+                                                                className="w-full bg-white rounded-lg p-2 text-xs text-slate-600 focus:outline-none resize-none border border-slate-200 focus:border-indigo-300 transition-all"
                                                                 value={row.notes || ''}
-                                                                rows={1}
+                                                                placeholder="Add notes..."
+                                                                rows={2}
                                                                 onChange={(e) => handleExtraRowChange(sIdx, i, 'notes', e.target.value)}
                                                             />
-                                                        </td>
-                                                        <td className="border border-slate-200 p-0 text-center align-middle">
-                                                            <button
-                                                                onClick={() => handleDeleteExtraRow(sIdx, i)}
-                                                                className="p-2 text-slate-300 hover:text-red-500 transition-colors"
-                                                                title="Remove Row"
-                                                            >
-                                                                <i className="fa-solid fa-trash-can text-xs"></i>
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                                        </div>
+                                                        <button onClick={() => handleDeleteExtraRow(sIdx, i)} className="text-slate-300 hover:text-red-500 p-1">
+                                                            <i className="fa-solid fa-trash-can text-xs"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
 
                             <div className="mt-12 mb-8 text-center text-xs text-slate-400 font-medium">
-                                Smartsheet Inc. ©2025
+                                Zyphe Inc. ©2026
                             </div>
                         </div>
                     </div>

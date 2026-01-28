@@ -30,15 +30,15 @@ const LeadsViewControls: React.FC<LeadsViewControlsProps> = ({
     return (
         <div className="flex flex-col gap-4 mb-4 border-b border-slate-100 pb-3">
             {/* Primary Navigation Row */}
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     {/* Sub-Category Selector */}
-                    <div className="flex bg-slate-100/50 p-1 rounded-xl border border-slate-200/60 shadow-sm">
+                    <div className="flex bg-slate-100/50 p-1 rounded-xl border border-slate-200/60 shadow-sm overflow-x-auto max-w-[calc(100vw-2rem)] md:max-w-none no-scrollbar">
                         {['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed & Archived'].map((cat) => (
                             <button
                                 key={cat}
                                 onClick={() => onFunnelCategoryChange(cat as any)}
-                                className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeFunnelCategory === cat ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0 ${activeFunnelCategory === cat ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                             >
                                 {cat === 'Contract' ? 'Closing' : cat}
                             </button>

@@ -315,7 +315,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
         return (
             <div className="flex-1 flex flex-col bg-white overflow-hidden animate-in fade-in duration-500">
                 {/* Article Header */}
-                <div className="px-10 py-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10 transition-all">
+                <div className="px-4 lg:px-10 py-4 lg:py-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10 transition-all">
                     <div className="flex items-center gap-6">
                         <button
                             onClick={handleGoBack}
@@ -342,8 +342,8 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                 </div>
 
                 {/* Article Body */}
-                <div className="flex-1 min-h-0 overflow-y-auto bg-white">
-                    <div className="max-w-5xl mx-auto px-10 py-12 pb-20">
+                <div className="flex-1 min-w-0 overflow-y-auto bg-white">
+                    <div className="max-w-5xl mx-auto px-4 lg:px-10 py-8 lg:py-12 pb-20">
                         {error && (
                             <div className="bg-rose-50 border border-rose-100 text-rose-700 p-6 rounded-3xl mb-10 font-bold flex items-center gap-4">
                                 <i className="fa-solid fa-circle-exclamation text-xl"></i>
@@ -752,7 +752,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                     <i className={`fa-solid ${category.icon} text-xs lg:text-sm`}></i>
                                 </div>
                                 <div className="text-center lg:text-left">
-                                    <div className={`text-[10px] lg:text-xs font-black tracking-tight whitespace-nowrap ${activeCategoryId === category.id ? 'text-indigo-900' : 'text-slate-600'
+                                    <div className={`text-[10px] lg:text-xs font-black tracking-tight lg:whitespace-nowrap ${activeCategoryId === category.id ? 'text-indigo-900' : 'text-slate-600'
                                         }`}>
                                         {category.title}
                                     </div>
@@ -768,7 +768,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
             {/* Main Content Area */}
             <div className="flex-1 overflow-hidden flex flex-col transition-all">
                 {/* Header */}
-                <div className="bg-white border-b border-slate-200 px-10 py-8">
+                <div className="bg-white border-b border-slate-200 px-4 lg:px-10 py-6 lg:py-8">
                     <div className="mb-4">
                         <div>
                             <div className="flex items-center gap-3 mb-2">
@@ -783,7 +783,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                 </div>
 
                 {/* List View Container */}
-                <div className="flex-1 overflow-y-auto p-10 bg-white">
+                <div className="flex-1 overflow-y-auto p-4 lg:p-10 bg-white">
                     <div className="max-w-6xl mx-auto">
 
 

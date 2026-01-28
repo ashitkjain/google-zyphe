@@ -7,6 +7,7 @@ import LeadGalleryItem from './leads/LeadGalleryItem';
 import LeadsHeader from './leads/LeadsHeader';
 import LeadsViewControls from './leads/LeadsViewControls';
 import LeadsKanbanBoard from './leads/LeadsKanbanBoard';
+import { getDeviceType } from '../utils/deviceDetection';
 
 const LeadsList: React.FC<InternalProps> = ({
     leads,
@@ -30,6 +31,14 @@ const LeadsList: React.FC<InternalProps> = ({
     const [buyer2FunnelCategory, setBuyer2FunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
     const [sellerFunnelCategory, setSellerFunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
     const [currentDisplayMode, setCurrentDisplayMode] = useState<DisplayMode>('kanban');
+
+    // Auto-switch to grid on mobile
+    React.useEffect(() => {
+        if (getDeviceType() === 'mobile') {
+            setCurrentDisplayMode('grid');
+        }
+    }, []);
+
     const [boardSettings, setBoardSettings] = useState({
         search: '',
         sort: 'newest' as 'newest' | 'oldest' | 'name' | 'temp',

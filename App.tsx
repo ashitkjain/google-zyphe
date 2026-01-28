@@ -17,6 +17,7 @@ import {
   getComprehensiveAnalysisFromCloud,
   auth,
   getUserProfile,
+  saveUserProfile,
   trackUserPropertyView,
   getUserViewHistory,
 
@@ -217,6 +218,7 @@ const App: React.FC = () => {
             if (profile) {
               // Successfully got profile, clear temporary role storage
               localStorage.removeItem('zyphe_pending_role');
+              localStorage.removeItem('zyphe_realtor_id');
               break;
             }
           } catch (e: any) {
@@ -234,17 +236,29 @@ const App: React.FC = () => {
         if (profile) {
           setCurrentUser(profile);
         } else {
-          // Fallback to localStorage role if available, otherwise default to buyer
+          // Fallback: Profile not found in Firestore (Redirect signup path)
           const pendingRole = (localStorage.getItem('zyphe_pending_role') as any) || 'buyer';
-          console.log(`Profile not found in Firestore. Using role: ${pendingRole}`);
+          const pendingRealtorId = localStorage.getItem('zyphe_realtor_id');
+          console.log(`Profile not found in Firestore. Creating new profile as: ${pendingRole}`);
 
-          setCurrentUser({
+          const newProfileData: UserProfile = {
             uid: user.uid,
             email: user.email || '',
-            displayName: user.displayName || 'Guest User',
+            displayName: user.displayName || 'User',
             role: pendingRole,
+            realtorId: pendingRealtorId || undefined,
             createdAt: new Date()
-          });
+          };
+
+          // Auto-save the new profile to Firestore (fire & forget)
+          saveUserProfile(user.uid, newProfileData)
+            .then(() => console.log("Auto-created profile in Firestore via App fallback"))
+            .catch(err => console.error("Failed to auto-create profile:", err));
+
+          localStorage.removeItem('zyphe_pending_role');
+          localStorage.removeItem('zyphe_realtor_id');
+
+          setCurrentUser(newProfileData);
         }
 
         // Fetch cloud data regardless of profile existence as long as we have a UID

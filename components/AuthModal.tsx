@@ -10,10 +10,12 @@ import {
 } from '../services/firebaseService';
 import {
   signInWithPopup,
+  signInWithRedirect,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
+import { getDeviceType } from '../utils/deviceDetection';
 import Logo from './Logo';
 
 interface Props {
@@ -142,6 +144,17 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
 
     try {
       localStorage.setItem('zyphe_pending_role', role);
+      if (inviteData?.realtorId) {
+        localStorage.setItem('zyphe_realtor_id', inviteData.realtorId);
+      }
+
+      // Mobile: Use Redirect to avoid popup blockers
+      if (getDeviceType() === 'mobile') {
+        console.log("[Auth] Mobile device detected, using signInWithRedirect");
+        await signInWithRedirect(auth, googleProvider);
+        return; // Page will redirect
+      }
+
       console.log("[Google Auth] Starting sign-in flow...");
       const result = (await Promise.race([
         signInWithPopup(auth, googleProvider),
