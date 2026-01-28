@@ -61,6 +61,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     const [settingsSubTab, setSettingsSubTab] = useState<'statuses' | 'properties'>('statuses');
     const [isToolsOpen, setIsToolsOpen] = useState(false);
     const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
     const [isRemoveClientModalOpen, setIsRemoveClientModalOpen] = useState(false);
     const toolsRef = useRef<HTMLDivElement>(null);
@@ -445,44 +446,16 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     return (
         <div className="fixed inset-0 z-[100] bg-[#F8FAFC] flex flex-col animate-in fade-in duration-500 font-sans selection:bg-indigo-100 selection:text-indigo-900">
             {/* Top Header / Tab Bar */}
-            <header className="bg-slate-900 px-8 py-0 flex items-center justify-between border-b border-white/5 shadow-2xl relative z-[110]">
-                <div className="flex items-center gap-12 flex-1">
-                    <div className="flex items-center gap-6 py-4">
-                        {realtorProfile?.realtor?.photoURL ? (
-                            <img
-                                src={realtorProfile.realtor.photoURL}
-                                alt="Profile"
-                                onClick={() => setActiveTab('profile')}
-                                className="w-[50px] h-[50px] rounded-2xl object-cover cursor-pointer transition-transform hover:scale-105 border border-white/20 shadow-lg"
-                            />
-                        ) : (
-                            <Logo size={50} onClick={() => setActiveTab('explore')} className="cursor-pointer transition-transform hover:scale-105 origin-left" />
-                        )}
-                        <div className="h-8 w-px bg-white/10"></div>
-                    </div>
-
-                    {/* Mobile Navigation (Swipe) */}
-                    <div className="sm:hidden flex-1 ml-6 mr-4 overflow-x-auto no-scrollbar mask-gradient-right">
-                        <div className="flex items-center gap-3 pr-4">
-                            {[
-                                ...mainTabs,
-                                ...toolTabs,
-                                { id: 'guides', label: 'Guides', icon: 'fa-book' }
-                            ].map((tab: any) => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => {
-                                        setActiveTab(tab.id as HubTab);
-                                        if (onNavigate) onNavigate(tab.id as any, '');
-                                    }}
-                                    className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap shrink-0 ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-white border border-white/5'}`}
-                                >
-                                    <i className={`fa-solid ${tab.icon} ${activeTab === tab.id ? 'text-white' : 'text-slate-500'} text-xs`}></i>
-                                    {tab.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+            <header className="bg-slate-900 px-4 sm:px-8 py-0 grid grid-cols-3 items-center border-b border-white/5 shadow-2xl relative z-[110]">
+                {/* Left Section: Navigation / Hamburger */}
+                <div className="flex items-center justify-start h-full">
+                    {/* Hamburger Menu (Mobile Only) */}
+                    <button
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                        className="sm:hidden w-10 h-10 flex items-center justify-center text-white text-xl"
+                    >
+                        <i className={`fa-solid ${isMobileMenuOpen ? 'fa-xmark' : 'fa-bars'}`}></i>
+                    </button>
 
                     <nav className="hidden sm:flex items-center h-[72px]">
                         {mainTabs.map((tab) => (
@@ -492,8 +465,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                     setActiveTab(tab.id);
                                     if (onNavigate) onNavigate(tab.id as any, '');
                                 }}
-                                className={`relative h-full flex items-center gap-3 px-6 text-[11px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${activeTab === tab.id ? 'text-white' : 'text-slate-400 hover:text-slate-200'
-                                    }`}
+                                className={`relative h-full flex items-center gap-3 px-4 text-[10px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${activeTab === tab.id ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
                             >
                                 <i className={`fa-solid ${tab.icon} transition-transform group-hover:scale-110 ${activeTab === tab.id ? 'text-indigo-500' : 'text-slate-500'}`}></i>
                                 {tab.label}
@@ -507,10 +479,10 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         <div className="relative h-full" ref={toolsRef}>
                             <button
                                 onClick={() => setIsToolsOpen(!isToolsOpen)}
-                                className={`relative h-full flex items-center gap-3 px-6 text-[11px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${toolTabs.some(t => t.id === activeTab) ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                                className={`relative h-full flex items-center gap-3 px-4 text-[10px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${toolTabs.some(t => t.id === activeTab) ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
                             >
                                 <i className={`fa-solid fa-toolbox transition-transform group-hover:scale-110 ${toolTabs.some(t => t.id === activeTab) ? 'text-indigo-500' : 'text-slate-500'}`}></i>
-                                Realtor Tools
+                                Tools
                                 <i className={`fa-solid fa-chevron-down text-[8px] transition-transform duration-300 ${isToolsOpen ? 'rotate-180' : ''}`}></i>
                                 {toolTabs.some(t => t.id === activeTab) && (
                                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500 animate-in slide-in-from-bottom border-t border-indigo-400/50"></div>
@@ -542,7 +514,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                 setActiveTab('guides');
                                 if (onNavigate) onNavigate('guides', '');
                             }}
-                            className={`relative h-full flex items-center gap-3 px-6 text-[11px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${activeTab === 'guides' ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                            className={`relative h-full flex items-center gap-3 px-4 text-[10px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${activeTab === 'guides' ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
                         >
                             <i className={`fa-solid fa-book transition-transform group-hover:scale-110 ${activeTab === 'guides' ? 'text-indigo-500' : 'text-slate-500'}`}></i>
                             Guides
@@ -551,23 +523,44 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                             )}
                         </button>
                     </nav>
-
-
                 </div>
 
-                <div className="flex items-center gap-6">
-                    <div className="flex flex-col items-end">
-                        <span className="text-white font-black text-sm tracking-tight">{realtorName}</span>
+                {/* Center Section: Logo */}
+                <div className="flex items-center justify-center py-4">
+                    <Logo size={isMobile ? 45 : 60} onClick={() => {
+                        setActiveTab('explore');
+                        setIsMobileMenuOpen(false);
+                    }} className="cursor-pointer transition-transform hover:scale-105" />
+                </div>
+
+                {/* Right Section: User Controls */}
+                <div className="flex items-center justify-end gap-3 sm:gap-6 h-full">
+                    <div className="hidden lg:flex flex-col items-end">
+                        <span className="text-white font-black text-[11px] tracking-tight">{realtorName}</span>
                         <button
                             onClick={onSignOut}
-                            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white transition-colors mt-0.5 group/signout cursor-pointer"
+                            className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-400 transition-colors mt-0.5 group/signout cursor-pointer"
                         >
-                            <i className="fa-solid fa-right-from-bracket text-[10px] text-white group-hover/signout:-translate-x-0.5 transition-all"></i>
+                            <i className="fa-solid fa-right-from-bracket text-[9px] group-hover/signout:-translate-x-0.5 transition-all"></i>
                             Sign Out
                         </button>
                     </div>
 
-                    <div className="relative z-50">
+                    {realtorProfile?.realtor?.photoURL && (
+                        <div>
+                            <img
+                                src={realtorProfile.realtor.photoURL}
+                                alt="Profile"
+                                onClick={() => {
+                                    setActiveTab('profile');
+                                    setIsMobileMenuOpen(false);
+                                }}
+                                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full sm:rounded-xl object-cover cursor-pointer transition-transform hover:scale-105 border border-white/10 shadow-lg"
+                            />
+                        </div>
+                    )}
+
+                    <div className="relative z-50 hidden sm:block">
                         <button
                             onClick={() => setIsSettingsDropdownOpen(!isSettingsDropdownOpen)}
                             onBlur={() => setTimeout(() => setIsSettingsDropdownOpen(false), 200)}
@@ -648,6 +641,44 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                     </div>
                 </div>
             </header>
+
+            {/* Mobile Dropdown Menu */}
+            {isMobileMenuOpen && (
+                <div className="sm:hidden fixed inset-0 z-[105] bg-slate-900 pt-[72px] animate-in slide-in-from-top duration-300">
+                    <div className="flex flex-col p-4 space-y-1.5 max-h-screen overflow-y-auto pb-24">
+                        {[
+                            ...mainTabs,
+                            ...toolTabs,
+                            { id: 'guides', label: 'Guides', icon: 'fa-book' },
+                            { id: 'settings', label: 'Settings', icon: 'fa-gear' },
+                            { id: 'profile', label: 'My Profile', icon: 'fa-id-badge' }
+                        ].map((tab: any) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => {
+                                    setActiveTab(tab.id as HubTab);
+                                    setIsMobileMenuOpen(false);
+                                    if (onNavigate) onNavigate(tab.id as any, '');
+                                }}
+                                className={`flex items-center gap-4 w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-xl' : 'bg-slate-800/50 text-slate-400 hover:text-white border border-white/5'}`}
+                            >
+                                <i className={`fa-solid ${tab.icon} w-5 text-center ${activeTab === tab.id ? 'text-white' : 'text-slate-500'} text-xs`}></i>
+                                {tab.label}
+                            </button>
+                        ))}
+
+                        <div className="pt-2 mt-4 border-t border-white/5">
+                            <button
+                                onClick={onSignOut}
+                                className="flex items-center gap-4 w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] text-rose-400 bg-rose-500/5 border border-rose-500/10"
+                            >
+                                <i className="fa-solid fa-right-from-bracket w-5 text-center text-xs"></i>
+                                Sign Out
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="flex-1 overflow-hidden">
                 <div className="flex flex-col h-full">
