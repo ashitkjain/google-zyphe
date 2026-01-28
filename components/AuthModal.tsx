@@ -10,13 +10,10 @@ import {
 } from '../services/firebaseService';
 import {
   signInWithPopup,
-  signInWithRedirect,
-  GoogleAuthProvider,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import { getDeviceType } from '../utils/deviceDetection';
 import Logo from './Logo';
 
 interface Props {
@@ -45,7 +42,6 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
   const [copySuccess, setCopySuccess] = useState(false);
   const [resetMode, setResetMode] = useState(false);
   const [resetSent, setResetSent] = useState(false);
-  const [longWait, setLongWait] = useState(false);
 
   // Sync state when inviteData changes or when modal opens
   React.useEffect(() => {
@@ -139,14 +135,6 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
     setError(null);
     setErrorLink(null);
 
-    setLoading(true);
-    setLongWait(false);
-    setError(null);
-    setErrorLink(null);
-
-    // Show fallback option if it takes too long
-    const waitTimer = setTimeout(() => setLongWait(true), 3000);
-
     // Timeout safety: If Google popup takes > 30s, something is wrong
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error("Login timed out. Please check if your popup was blocked or if the Identity Toolkit API is enabled.")), 30000);
@@ -154,23 +142,6 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
 
     try {
       localStorage.setItem('zyphe_pending_role', role);
-      if (inviteData?.realtorId) {
-        localStorage.setItem('zyphe_realtor_id', inviteData.realtorId);
-      }
-
-      // Mobile/Tablet/Touch: Use Redirect to avoid popup blockers and communication issues
-      // We diligently check for touch points or small screens to catch devices requesting "Desktop Site"
-      const isTouchDevice = typeof navigator !== 'undefined' && (navigator.maxTouchPoints > 0 || 'ontouchstart' in window);
-      const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 1024;
-
-      if (getDeviceType() === 'mobile' || isTouchDevice || isSmallScreen) {
-        console.log("[Auth] Touch/Mobile device detected, using signInWithRedirect");
-        const provider = new GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
-        await signInWithRedirect(auth, provider);
-        return; // Page will redirect
-      }
-
       console.log("[Google Auth] Starting sign-in flow...");
       const result = (await Promise.race([
         signInWithPopup(auth, googleProvider),
@@ -202,9 +173,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
         handleFirebaseError(err);
       }
     } finally {
-      clearTimeout(waitTimer);
       setLoading(false);
-      setLongWait(false);
     }
   };
 
@@ -383,57 +352,6 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
               <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
               Continue with Google
             </button>
-          )}
-
-          {/* Fallback for stuck logins */}
-          {loading && longWait && (
-            <div className="mb-6 -mt-4 text-center animate-in fade-in slide-in-from-top-2 flex flex-col gap-2 items-center">
-              <p className="text-[10px] text-amber-600 font-bold mb-1">Stuck? Try these options:</p>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!auth) { alert("System Error: Auth service unavailable."); return; }
-                    if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost') {
-                      alert("Security Error: Google Auth requires HTTPS. Please check your URL.");
-                      return;
-                    }
-                    try {
-                      alert("Step 1: Starting Redirect Flow...");
-                      const provider = new GoogleAuthProvider(); // Try fresh provider
-                      // provider.addScope('profile');
-                      // provider.addScope('email');
-                      await signInWithRedirect(auth, provider);
-                      alert("Step 2: Redirect Function Called (Page should have changed).");
-                    } catch (e: any) {
-                      alert("Redirect Auth Error: " + e.message + " (" + e.code + ")");
-                      console.error(e);
-                    }
-                  }}
-                  className="text-[10px] font-black text-white bg-indigo-600 px-3 py-2 rounded-lg shadow-md active:scale-95 transition-all"
-                >
-                  Force Redirect (Mobile)
-                </button>
-
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!auth) { alert("System Error: Auth service unavailable."); return; }
-                    try {
-                      await signInWithPopup(auth, googleProvider);
-                    } catch (e: any) {
-                      // Don't alert "popup closed" as it's annoying, just log it?
-                      // User complained about it.
-                      alert("Popup Failed: " + e.code + " - " + e.message);
-                    }
-                  }}
-                  className="text-[10px] font-black text-indigo-600 bg-white border border-indigo-200 px-3 py-2 rounded-lg shadow-sm active:scale-95 transition-all"
-                >
-                  Force Popup (Desktop)
-                </button>
-              </div>
-            </div>
           )}
 
           {!resetMode && (
