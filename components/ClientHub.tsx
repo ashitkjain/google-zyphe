@@ -452,12 +452,12 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                     {/* Hamburger Menu (Mobile Only) */}
                     <button
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                        className="sm:hidden w-10 h-10 flex items-center justify-center text-white text-xl"
+                        className={`${isMobile ? 'flex' : 'sm:hidden'} w-10 h-10 items-center justify-center text-white text-xl`}
                     >
                         <i className={`fa-solid ${isMobileMenuOpen ? 'fa-xmark' : 'fa-bars'}`}></i>
                     </button>
 
-                    <nav className="hidden sm:flex items-center h-[72px]">
+                    <nav className={`${isMobile ? 'hidden' : 'hidden sm:flex'} items-center h-[72px]`}>
                         {mainTabs.map((tab) => (
                             <button
                                 key={tab.id}
@@ -535,7 +535,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
                 {/* Right Section: User Controls */}
                 <div className="flex items-center justify-end gap-3 sm:gap-6 h-full">
-                    <div className="hidden lg:flex flex-col items-end">
+                    <div className={`${isMobile ? 'hidden' : 'hidden lg:flex'} flex-col items-end`}>
                         <span className="text-white font-black text-[11px] tracking-tight">{realtorName}</span>
                         <button
                             onClick={onSignOut}
@@ -560,7 +560,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         </div>
                     )}
 
-                    <div className="relative z-50 hidden sm:block">
+                    <div className={`relative z-50 ${isMobile ? 'hidden' : 'hidden sm:block'}`}>
                         <button
                             onClick={() => setIsSettingsDropdownOpen(!isSettingsDropdownOpen)}
                             onBlur={() => setTimeout(() => setIsSettingsDropdownOpen(false), 200)}
@@ -643,8 +643,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             </header>
 
             {/* Mobile Dropdown Menu */}
-            {isMobileMenuOpen && (
-                <div className="sm:hidden fixed inset-0 z-[105] bg-slate-900 pt-[72px] animate-in slide-in-from-top duration-300">
+            {(isMobile || isMobileMenuOpen) && isMobileMenuOpen && (
+                <div className="fixed inset-0 z-[105] bg-slate-900 pt-[72px] animate-in slide-in-from-top duration-300">
                     <div className="flex flex-col p-4 space-y-1.5 max-h-screen overflow-y-auto pb-24">
                         {[
                             ...mainTabs,
