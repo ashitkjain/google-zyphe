@@ -28,7 +28,18 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-    if (!profile) return <div className="p-10 text-center text-slate-400">Loading Profile...</div>;
+    React.useEffect(() => {
+        if (profile && !isEditing) {
+            setRealtorForm(profile.realtor || {});
+            setBasicForm({
+                displayName: profile.displayName || '',
+                phoneNumber: profile.phoneNumber || '',
+                email: profile.email || ''
+            });
+        }
+    }, [profile, isEditing]);
+
+    if (!profile) return <div className="p-10 text-center text-slate-400 font-bold animate-pulse">Loading Profile...</div>;
 
     const handleSave = async () => {
         setSaving(true);

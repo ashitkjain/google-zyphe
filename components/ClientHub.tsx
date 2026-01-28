@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import ProfileTab from './client-hub/ProfileTab';
 import AddClientModal from './AddClientModal';
 import RemoveClientModal from './RemoveClientModal';
-import { getLeads, getTasks, getTemplates, seedMockData, saveUserProfile, getUserProfile, updateLead, getReminderRules, updateReminderRule, deleteAllMockData, getRealtorClients, deleteLead, deleteUserAccount } from '../services/firebaseService';
+import { getLeads, getTasks, getTemplates, seedMockData, saveUserProfile, getUserProfile, updateLead, getReminderRules, updateReminderRule, deleteAllMockData, getRealtorClients, deleteLead, deleteUserAccount, auth } from '../services/firebaseService';
 import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates, getInitialMockTransactions } from '../services/mockDataService';
 import { getDefaultReminderRules } from '../services/reminderRulesService';
 import { UserProfile, Lead, CRMTask, CommTemplate, FunnelStage, ReminderRule, LeadNote, RealtorNode } from '../types';
@@ -126,7 +126,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
             // 2. Define Mock Data (Always available for potential seeding)
             console.log("[ClientHub] Seeding initial mock data...");
-            const initialLeads: Lead[] = getInitialMockLeads();
+            const initialLeads: Lead[] = getInitialMockLeads(realtorId);
             const initialTasks: CRMTask[] = getInitialMockTasks(realtorId);
             const initialTemplates: CommTemplate[] = getInitialMockTemplates(realtorId);
 
@@ -178,7 +178,19 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
     useEffect(() => {
         const fetchRealtorProfile = async () => {
-            const profile = await getUserProfile(realtorId);
+            let profile = await getUserProfile(realtorId);
+
+            // If no profile exists in Firestore, use a skeleton based on props
+            if (!profile) {
+                profile = {
+                    uid: realtorId,
+                    displayName: realtorName,
+                    role: 'realtor',
+                    email: auth?.currentUser?.email || '', // Get email from current auth session
+                    createdAt: new Date()
+                } as UserProfile;
+            }
+
             if (profile && !profile.realtor && profile.role === 'realtor') {
                 // Migration: Populate dynamic realtor node if missing
                 const defaultRealtor: RealtorNode = {
@@ -205,7 +217,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             setRealtorProfile(profile);
         };
         fetchRealtorProfile();
-    }, [realtorId]);
+    }, [realtorId, realtorName]);
 
 
     const handleRefreshTasks = async () => {
@@ -387,6 +399,39 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         if (!pendingNote || !content.trim()) return;
         await handleAddNote(pendingNote.leadId, content, pendingNote.color);
         setPendingNote(null);
+    };
+
+    const handleResetAllData = async () => {
+        try {
+            await deleteAllMockData(realtorId);
+            // Refresh leads and tasks
+            const _leads = await getLeads(realtorId, ['leads']);
+            const _tasks = await getTasks(realtorId);
+            setLeads(_leads);
+            setTasks(_tasks);
+        } catch (err) {
+            console.error("Failed to reset data:", err);
+            throw err;
+        }
+    };
+
+    const handleSeedManualMockData = async () => {
+        try {
+            const initialLeads = getInitialMockLeads(realtorId);
+            const initialTasks = getInitialMockTasks(realtorId);
+            const initialTemplates = getInitialMockTemplates(realtorId);
+            const initialTransactions = getInitialMockTransactions(realtorId);
+            await seedMockData(realtorId, initialLeads, initialTasks, initialTemplates, initialTransactions);
+
+            // Refresh
+            const _leads = await getLeads(realtorId, ['leads']);
+            const _tasks = await getTasks(realtorId);
+            setLeads(_leads);
+            setTasks(_tasks);
+        } catch (err) {
+            console.error("Failed to seed data:", err);
+            throw err;
+        }
     };
 
     const handleUpdateLeadNote = async (noteId: string, updates: Partial<LeadNote>) => {
@@ -626,6 +671,34 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                         <span className="text-xs font-bold text-slate-700 group-hover:text-slate-900">Remove a client</span>
                                     </button>
 
+                                    <button
+                                        onClick={async () => {
+                                            if (window.confirm("Are you sure you want to RESET all data? This will delete all mock leads, tasks, and templates.")) {
+                                                await handleResetAllData();
+                                                alert("Data reset successfully.");
+                                            }
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-rose-50 rounded-xl transition-colors group"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center group-hover:bg-rose-100 transition-colors">
+                                            <i className="fa-solid fa-trash-can text-xs"></i>
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-700 group-hover:text-rose-600">Reset Data</span>
+                                    </button>
+
+                                    <button
+                                        onClick={async () => {
+                                            await handleSeedManualMockData();
+                                            alert("Mock data seeded successfully.");
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-indigo-50 rounded-xl transition-colors group"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                                            <i className="fa-solid fa-database text-xs"></i>
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-600">Seed Mock Data</span>
+                                    </button>
+
                                     <div className="h-px bg-slate-100 my-1 mx-2"></div>
 
                                     <button
@@ -742,6 +815,28 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                     >
                                         <i className="fa-solid fa-user-plus w-5 text-center text-[10px]"></i>
                                         Add a client
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            if (window.confirm("Are you sure you want to RESET all data? This will delete all mock leads, tasks, and templates.")) {
+                                                await handleResetAllData();
+                                                alert("Data reset successfully.");
+                                            }
+                                        }}
+                                        className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-rose-400 transition-all"
+                                    >
+                                        <i className="fa-solid fa-trash-can w-5 text-center text-[10px]"></i>
+                                        Reset Data
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            await handleSeedManualMockData();
+                                            alert("Mock data seeded successfully.");
+                                        }}
+                                        className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-indigo-400 transition-all"
+                                    >
+                                        <i className="fa-solid fa-database w-5 text-center text-[10px]"></i>
+                                        Seed Mock Data
                                     </button>
                                     <button
                                         onClick={() => {
@@ -937,6 +1032,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         {activeTab === 'settings' && (
                             <StatusSettings
                                 realtorId={realtorId}
+                                onResetData={handleResetAllData}
+                                onSeedData={handleSeedManualMockData}
                             />
                         )}
 

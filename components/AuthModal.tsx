@@ -276,7 +276,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
                     </span>
                   </span>
                 )
-                : (isLogin ? 'Access your saved property insights.' : 'Start your intelligent property journey.'))}
+                : (isLogin ? null : 'Start your intelligent property journey.'))}
           </p>
         </div>
 

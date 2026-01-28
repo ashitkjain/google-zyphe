@@ -912,13 +912,37 @@ const App: React.FC = () => {
                 Sign in to access your professional dashboard, manage leads, and generate intelligent property reports.
               </p>
             </div>
-            <button
-              onClick={() => setAuthModalOpen(true)}
-              className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 transition-all transform hover:scale-105 active:scale-95 flex items-center gap-3 text-lg"
-            >
-              <span>Sign In to Zyphe</span>
-              <i className="fa-solid fa-arrow-right"></i>
-            </button>
+            <div className="flex flex-col items-center gap-6">
+              <button
+                onClick={() => setAuthModalOpen(true)}
+                className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 transition-all transform hover:scale-105 active:scale-95 flex items-center gap-3 text-lg"
+              >
+                <span>Sign In to Zyphe</span>
+                <i className="fa-solid fa-arrow-right"></i>
+              </button>
+
+              <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <button
+                  onClick={() => {
+                    alert("Please sign in first to reset your specific account data. You can also find these options in 'Data Fields' once logged in.");
+                  }}
+                  className="hover:text-rose-500 transition-colors"
+                >
+                  <i className="fa-solid fa-trash-can mr-2"></i>
+                  Reset Data
+                </button>
+                <span className="opacity-20 text-slate-300">|</span>
+                <button
+                  onClick={() => {
+                    alert("Please sign in first to seed your specific account data. You can also find these options in 'Data Fields' once logged in.");
+                  }}
+                  className="hover:text-indigo-600 transition-colors"
+                >
+                  <i className="fa-solid fa-database mr-2"></i>
+                  Add Mock Data
+                </button>
+              </div>
+            </div>
           </div>
         ) : (viewMode === 'guides' || !currentUser ? (
           <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500">
