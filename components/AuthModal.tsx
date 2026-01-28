@@ -44,6 +44,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
   const [copySuccess, setCopySuccess] = useState(false);
   const [resetMode, setResetMode] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [longWait, setLongWait] = useState(false);
 
   // Sync state when inviteData changes or when modal opens
   React.useEffect(() => {
@@ -137,6 +138,14 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
     setError(null);
     setErrorLink(null);
 
+    setLoading(true);
+    setLongWait(false);
+    setError(null);
+    setErrorLink(null);
+
+    // Show fallback option if it takes too long
+    const waitTimer = setTimeout(() => setLongWait(true), 5000);
+
     // Timeout safety: If Google popup takes > 30s, something is wrong
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error("Login timed out. Please check if your popup was blocked or if the Identity Toolkit API is enabled.")), 30000);
@@ -190,7 +199,9 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
         handleFirebaseError(err);
       }
     } finally {
+      clearTimeout(waitTimer);
       setLoading(false);
+      setLongWait(false);
     }
   };
 
@@ -369,6 +380,26 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
               <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
               Continue with Google
             </button>
+          )}
+
+          {/* Fallback for stuck logins */}
+          {loading && longWait && (
+            <div className="mb-6 -mt-4 text-center animate-in fade-in slide-in-from-top-2">
+              <p className="text-[10px] text-amber-600 font-bold mb-1">Taking longer than usual?</p>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await signInWithRedirect(auth, googleProvider);
+                  } catch (e) {
+                    handleFirebaseError(e);
+                  }
+                }}
+                className="text-xs font-black text-indigo-600 underline hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100"
+              >
+                Wrapper: Force Mobile Login
+              </button>
+            </div>
           )}
 
           {!resetMode && (
