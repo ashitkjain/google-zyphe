@@ -407,7 +407,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {/* Sub Tab Navigation - Only show if not forced */}
             {!forcedSubTab && (
-                <div className="flex items-center gap-8 border-b border-slate-200">
+                <div className="flex items-center gap-8 border-b border-slate-200 overflow-x-auto">
                     <button
                         onClick={() => setActiveSubTab('GENERATE')}
                         className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${activeSubTab === 'GENERATE' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
@@ -504,7 +504,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                                             <i className="fa-solid fa-magnifying-glass text-slate-300"></i>
                                                             <input
                                                                 type="text"
-                                                                placeholder="Search across all fields..."
+                                                                placeholder="Search by name..."
                                                                 className="bg-transparent border-none outline-none w-full text-slate-700 placeholder:text-slate-400 font-bold text-xs"
                                                                 value={searchTerm}
                                                                 onChange={(e) => setSearchTerm(e.target.value)}
