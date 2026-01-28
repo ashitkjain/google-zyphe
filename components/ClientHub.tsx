@@ -53,15 +53,28 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     }, [initialTab]);
 
     const [isMobile, setIsMobile] = useState(false);
+    const [isNarrow, setIsNarrow] = useState(false);
+
     useEffect(() => {
         setIsMobile(getDeviceType() === 'mobile');
+
+        const handleResize = () => {
+            setIsNarrow(window.innerWidth < 1200);
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    const showHamburger = isMobile || isNarrow;
 
     const [realtorProfile, setRealtorProfile] = useState<UserProfile | null>(null);
     const [settingsSubTab, setSettingsSubTab] = useState<'statuses' | 'properties'>('statuses');
     const [isToolsOpen, setIsToolsOpen] = useState(false);
     const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isMobileToolsExpanded, setIsMobileToolsExpanded] = useState(false);
+    const [isMobileSettingsExpanded, setIsMobileSettingsExpanded] = useState(false);
     const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
     const [isRemoveClientModalOpen, setIsRemoveClientModalOpen] = useState(false);
     const toolsRef = useRef<HTMLDivElement>(null);
@@ -452,12 +465,12 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                     {/* Hamburger Menu (Mobile Only) */}
                     <button
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                        className={`${isMobile ? 'flex' : 'sm:hidden'} w-10 h-10 items-center justify-center text-white text-xl`}
+                        className={`${showHamburger ? 'flex' : 'hidden'} w-10 h-10 items-center justify-center text-white text-xl`}
                     >
                         <i className={`fa-solid ${isMobileMenuOpen ? 'fa-xmark' : 'fa-bars'}`}></i>
                     </button>
 
-                    <nav className={`${isMobile ? 'hidden' : 'hidden sm:flex'} items-center h-[72px]`}>
+                    <nav className={`${showHamburger ? 'hidden' : 'flex'} items-center h-[72px]`}>
                         {mainTabs.map((tab) => (
                             <button
                                 key={tab.id}
@@ -527,7 +540,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
                 {/* Center Section: Logo */}
                 <div className="flex items-center justify-center py-4">
-                    <Logo size={isMobile ? 45 : 60} onClick={() => {
+                    <Logo size={showHamburger ? 45 : 60} onClick={() => {
                         setActiveTab('explore');
                         setIsMobileMenuOpen(false);
                     }} className="cursor-pointer transition-transform hover:scale-105" />
@@ -535,7 +548,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
                 {/* Right Section: User Controls */}
                 <div className="flex items-center justify-end gap-3 sm:gap-6 h-full">
-                    <div className={`${isMobile ? 'hidden' : 'hidden lg:flex'} flex-col items-end`}>
+                    <div className={`${showHamburger ? 'hidden' : 'flex'} flex-col items-end`}>
                         <span className="text-white font-black text-[11px] tracking-tight">{realtorName}</span>
                         <button
                             onClick={onSignOut}
@@ -560,7 +573,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         </div>
                     )}
 
-                    <div className={`relative z-50 ${isMobile ? 'hidden' : 'hidden sm:block'}`}>
+                    <div className={`relative z-50 ${showHamburger ? 'hidden' : 'block'}`}>
                         <button
                             onClick={() => setIsSettingsDropdownOpen(!isSettingsDropdownOpen)}
                             onBlur={() => setTimeout(() => setIsSettingsDropdownOpen(false), 200)}
@@ -643,16 +656,11 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             </header>
 
             {/* Mobile Dropdown Menu */}
-            {(isMobile || isMobileMenuOpen) && isMobileMenuOpen && (
+            {showHamburger && isMobileMenuOpen && (
                 <div className="fixed inset-0 z-[105] bg-slate-900 pt-[72px] animate-in slide-in-from-top duration-300">
                     <div className="flex flex-col p-4 space-y-1.5 max-h-screen overflow-y-auto pb-24">
-                        {[
-                            ...mainTabs,
-                            ...toolTabs,
-                            { id: 'guides', label: 'Guides', icon: 'fa-book' },
-                            { id: 'settings', label: 'Settings', icon: 'fa-gear' },
-                            { id: 'profile', label: 'My Profile', icon: 'fa-id-badge' }
-                        ].map((tab: any) => (
+                        {/* Main Navigation Sections */}
+                        {[...mainTabs, { id: 'guides', label: 'Guides', icon: 'fa-book' }].map((tab: any) => (
                             <button
                                 key={tab.id}
                                 onClick={() => {
@@ -666,6 +674,106 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                 {tab.label}
                             </button>
                         ))}
+
+                        {/* Realtor Tools Group (Data Fields moved here) */}
+                        <div className="space-y-1.5 pt-2">
+                            <button
+                                onClick={() => setIsMobileToolsExpanded(!isMobileToolsExpanded)}
+                                className={`flex items-center justify-between w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${toolTabs.some(t => t.id === activeTab && t.id !== 'settings') || (activeTab === 'settings' && isMobileToolsExpanded) ? 'text-indigo-400' : 'text-slate-400 hover:text-white bg-slate-800/50 border border-white/5'}`}
+                            >
+                                <div className="flex items-center gap-4">
+                                    <i className="fa-solid fa-toolbox w-5 text-center text-xs"></i>
+                                    Realtor Tools
+                                </div>
+                                <i className={`fa-solid fa-chevron-down text-[10px] transition-transform duration-300 ${isMobileToolsExpanded ? 'rotate-180' : ''}`}></i>
+                            </button>
+
+                            {isMobileToolsExpanded && (
+                                <div className="pl-4 space-y-1.5 animate-in slide-in-from-top-2 duration-200">
+                                    {toolTabs.map((tab) => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => {
+                                                setActiveTab(tab.id as HubTab);
+                                                setIsMobileMenuOpen(false);
+                                                if (onNavigate) onNavigate(tab.id as any, '');
+                                            }}
+                                            className={`flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] transition-all ${activeTab === tab.id ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300'}`}
+                                        >
+                                            <i className={`fa-solid ${tab.icon} w-5 text-center text-[10px]`}></i>
+                                            {tab.label === 'Data Fields' ? 'Data Fields' : tab.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Settings Group (Account and Profile) */}
+                        <div className="space-y-1.5 pt-2">
+                            <button
+                                onClick={() => setIsMobileSettingsExpanded(!isMobileSettingsExpanded)}
+                                className={`flex items-center justify-between w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === 'profile' ? 'text-indigo-400' : 'text-slate-400 hover:text-white bg-slate-800/50 border border-white/5'}`}
+                            >
+                                <div className="flex items-center gap-4">
+                                    <i className="fa-solid fa-gear w-5 text-center text-xs"></i>
+                                    Settings
+                                </div>
+                                <i className={`fa-solid fa-chevron-down text-[10px] transition-transform duration-300 ${isMobileSettingsExpanded ? 'rotate-180' : ''}`}></i>
+                            </button>
+
+                            {isMobileSettingsExpanded && (
+                                <div className="pl-4 space-y-1.5 animate-in slide-in-from-top-2 duration-200">
+                                    <button
+                                        onClick={() => {
+                                            setActiveTab('profile');
+                                            setIsMobileMenuOpen(false);
+                                        }}
+                                        className={`flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] transition-all ${activeTab === 'profile' ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300'}`}
+                                    >
+                                        <i className="fa-solid fa-id-badge w-5 text-center text-[10px]"></i>
+                                        My Profile
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setIsAddClientModalOpen(true);
+                                            setIsMobileMenuOpen(false);
+                                        }}
+                                        className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-slate-300 transition-all"
+                                    >
+                                        <i className="fa-solid fa-user-plus w-5 text-center text-[10px]"></i>
+                                        Add a client
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setIsRemoveClientModalOpen(true);
+                                            setIsMobileMenuOpen(false);
+                                        }}
+                                        className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-slate-300 transition-all"
+                                    >
+                                        <i className="fa-solid fa-user-minus w-5 text-center text-[10px]"></i>
+                                        Remove a client
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            if (window.confirm("CRITICAL: Are you sure you want to delete your account? This will permanently remove your profile and all associated data. This cannot be undone.")) {
+                                                try {
+                                                    const success = await deleteUserAccount(realtorId);
+                                                    if (success) {
+                                                        onSignOut();
+                                                    }
+                                                } catch (err: any) {
+                                                    alert(err.message || "Failed to delete account");
+                                                }
+                                            }
+                                        }}
+                                        className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-rose-500/80 hover:text-rose-400 transition-all"
+                                    >
+                                        <i className="fa-solid fa-triangle-exclamation w-5 text-center text-[10px]"></i>
+                                        Delete Account
+                                    </button>
+                                </div>
+                            )}
+                        </div>
 
                         <div className="pt-2 mt-4 border-t border-white/5">
                             <button
@@ -704,6 +812,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                             <LeadsList
                                 realtorId={realtorId}
                                 leads={leads}
+                                isMobile={isMobile}
                                 onUpdateLead={(id, updates) => handleUpdateLead(id, updates)}
                                 onCreateLead={handleCreateLead}
                                 pendingNote={pendingNote}

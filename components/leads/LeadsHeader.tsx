@@ -16,9 +16,10 @@ interface LeadsHeaderProps {
         sort: 'newest' | 'oldest' | 'name' | 'temp';
         tempFilter: string[];
     }>>;
+    isMobile?: boolean;
 }
 
-const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCreateLead, displayMode, setDisplayMode, boardSettings, setBoardSettings }) => {
+const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCreateLead, displayMode, setDisplayMode, boardSettings, setBoardSettings, isMobile }) => {
     const [activeDropdown, setActiveDropdown] = React.useState<'filter' | 'sort' | null>(null);
     const dropdownRef = React.useRef<HTMLDivElement>(null);
 
@@ -65,98 +66,103 @@ const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCr
                     {/* Filter, Sort, Search next to + */}
                     <div className="flex items-center gap-2 ml-2 flex-1" ref={dropdownRef}>
                         {/* Filter */}
-                        <div className="relative">
-                            <button
-                                onClick={() => setActiveDropdown(activeDropdown === 'filter' ? null : 'filter')}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${boardSettings.tempFilter.length > 0 ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100' : 'text-slate-500 hover:bg-slate-200/50'}`}
-                            >
-                                <i className="fa-solid fa-filter"></i>
-                                Filter
-                                {boardSettings.tempFilter.length > 0 && <span className="bg-indigo-600 text-white w-4 h-4 rounded-full flex items-center justify-center text-[8px]">{boardSettings.tempFilter.length}</span>}
-                            </button>
+                        {displayMode !== 'gallery' && (
+                            <div className="relative">
+                                <button
+                                    onClick={() => setActiveDropdown(activeDropdown === 'filter' ? null : 'filter')}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${boardSettings.tempFilter.length > 0 ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100' : 'text-slate-500 hover:bg-slate-200/50'}`}
+                                >
+                                    <i className="fa-solid fa-filter"></i>
+                                    Filter
+                                    {boardSettings.tempFilter.length > 0 && <span className="bg-indigo-600 text-white w-4 h-4 rounded-full flex items-center justify-center text-[8px]">{boardSettings.tempFilter.length}</span>}
+                                </button>
 
-                            {activeDropdown === 'filter' && (
-                                <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 z-[70] animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3 block">Filter Temperature</label>
-                                    <div className="space-y-1">
-                                        {[
-                                            { id: 'Hot', icon: 'fa-fire', color: 'text-orange-500', bg: 'hover:bg-orange-50' },
-                                            { id: 'Warm', icon: 'fa-mug-hot', color: 'text-amber-500', bg: 'hover:bg-amber-50' },
-                                            { id: 'Cold', icon: 'fa-snowflake', color: 'text-sky-300', bg: 'hover:bg-sky-50' },
-                                            { id: 'Stale', icon: 'fa-ghost', color: 'text-slate-400', bg: 'hover:bg-slate-50' }
-                                        ].map(opt => {
-                                            const isActive = boardSettings.tempFilter.includes(opt.id);
-                                            return (
+                                {activeDropdown === 'filter' && (
+                                    <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 z-[70] animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3 block">Filter Temperature</label>
+                                        <div className="space-y-1">
+                                            {[
+                                                { id: 'Hot', icon: 'fa-fire', color: 'text-orange-500', bg: 'hover:bg-orange-50' },
+                                                { id: 'Warm', icon: 'fa-mug-hot', color: 'text-amber-500', bg: 'hover:bg-amber-50' },
+                                                { id: 'Cold', icon: 'fa-snowflake', color: 'text-sky-300', bg: 'hover:bg-sky-50' },
+                                                { id: 'Stale', icon: 'fa-ghost', color: 'text-slate-400', bg: 'hover:bg-slate-50' }
+                                            ].map(opt => {
+                                                const isActive = boardSettings.tempFilter.includes(opt.id);
+                                                return (
+                                                    <button
+                                                        key={opt.id}
+                                                        onClick={() => {
+                                                            const newFilter = isActive
+                                                                ? boardSettings.tempFilter.filter(f => f !== opt.id)
+                                                                : [...boardSettings.tempFilter, opt.id];
+                                                            setBoardSettings({ ...boardSettings, tempFilter: newFilter });
+                                                        }}
+                                                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${isActive ? 'bg-indigo-600 text-white' : `text-slate-600 ${opt.bg}`}`}
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <i className={`fa-solid ${opt.icon} ${isActive ? 'text-white' : opt.color}`}></i>
+                                                            {opt.id}
+                                                        </div>
+                                                        {isActive && <i className="fa-solid fa-check text-[10px]"></i>}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {boardSettings.tempFilter.length > 0 && (
+                                            <button
+                                                onClick={() => setBoardSettings({ ...boardSettings, tempFilter: [] })}
+                                                className="w-full mt-3 pt-3 border-t border-slate-100 text-[9px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-700 font-sans"
+                                            >
+                                                Clear Filters
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Sort */}
+                        {displayMode !== 'gallery' && (
+                            <div className="relative">
+                                <button
+                                    onClick={() => setActiveDropdown(activeDropdown === 'sort' ? null : 'sort')}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${boardSettings.sort !== 'newest' ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100' : 'text-slate-500 hover:bg-slate-200/50'}`}
+                                >
+                                    <i className="fa-solid fa-arrow-up-down-z-a"></i>
+                                    Sort
+                                </button>
+
+                                {activeDropdown === 'sort' && (
+                                    <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 z-[70] animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3 block">Sort By</label>
+                                        <div className="space-y-1">
+                                            {[
+                                                { id: 'newest', label: 'Newest First', icon: 'fa-calendar-plus' },
+                                                { id: 'oldest', label: 'Oldest First', icon: 'fa-calendar-minus' },
+                                                { id: 'name', label: 'Name (A-Z)', icon: 'fa-arrow-down-a-z' },
+                                                { id: 'temp', label: 'Temperature', icon: 'fa-fire' }
+                                            ].map(opt => (
                                                 <button
                                                     key={opt.id}
                                                     onClick={() => {
-                                                        const newFilter = isActive
-                                                            ? boardSettings.tempFilter.filter(f => f !== opt.id)
-                                                            : [...boardSettings.tempFilter, opt.id];
-                                                        setBoardSettings({ ...boardSettings, tempFilter: newFilter });
+                                                        setBoardSettings({ ...boardSettings, sort: opt.id as any });
+                                                        setActiveDropdown(null);
                                                     }}
-                                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${isActive ? 'bg-indigo-600 text-white' : `text-slate-600 ${opt.bg}`}`}
+                                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${boardSettings.sort === opt.id ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
                                                 >
                                                     <div className="flex items-center gap-3">
-                                                        <i className={`fa-solid ${opt.icon} ${isActive ? 'text-white' : opt.color}`}></i>
-                                                        {opt.id}
+                                                        <i className={`fa-solid ${opt.icon} ${boardSettings.sort === opt.id ? 'text-white' : 'text-slate-400'}`}></i>
+                                                        {opt.label}
                                                     </div>
-                                                    {isActive && <i className="fa-solid fa-check text-[10px]"></i>}
+                                                    {boardSettings.sort === opt.id && <i className="fa-solid fa-check text-[10px]"></i>}
                                                 </button>
-                                            );
-                                        })}
+                                            ))}
+                                        </div>
                                     </div>
-                                    {boardSettings.tempFilter.length > 0 && (
-                                        <button
-                                            onClick={() => setBoardSettings({ ...boardSettings, tempFilter: [] })}
-                                            className="w-full mt-3 pt-3 border-t border-slate-100 text-[9px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-700 font-sans"
-                                        >
-                                            Clear Filters
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Sort */}
-                        <div className="relative">
-                            <button
-                                onClick={() => setActiveDropdown(activeDropdown === 'sort' ? null : 'sort')}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${boardSettings.sort !== 'newest' ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100' : 'text-slate-500 hover:bg-slate-200/50'}`}
-                            >
-                                <i className="fa-solid fa-arrow-up-down-z-a"></i>
-                                Sort
-                            </button>
-
-                            {activeDropdown === 'sort' && (
-                                <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 z-[70] animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3 block">Sort By</label>
-                                    <div className="space-y-1">
-                                        {[
-                                            { id: 'newest', label: 'Newest First', icon: 'fa-calendar-plus' },
-                                            { id: 'oldest', label: 'Oldest First', icon: 'fa-calendar-minus' },
-                                            { id: 'name', label: 'Name (A-Z)', icon: 'fa-arrow-down-a-z' },
-                                            { id: 'temp', label: 'Temperature', icon: 'fa-fire' }
-                                        ].map(opt => (
-                                            <button
-                                                key={opt.id}
-                                                onClick={() => {
-                                                    setBoardSettings({ ...boardSettings, sort: opt.id as any });
-                                                    setActiveDropdown(null);
-                                                }}
-                                                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${boardSettings.sort === opt.id ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <i className={`fa-solid ${opt.icon} ${boardSettings.sort === opt.id ? 'text-white' : 'text-slate-400'}`}></i>
-                                                    {opt.label}
-                                                </div>
-                                                {boardSettings.sort === opt.id && <i className="fa-solid fa-check text-[10px]"></i>}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* Global Search */}
                         <div className="relative ml-4 max-w-sm flex-1">
@@ -181,22 +187,24 @@ const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCr
                 </div>
 
                 {/* View Toggles */}
-                <div className="flex bg-slate-200/50 p-1 rounded-2xl items-center">
-                    <button
-                        onClick={() => setDisplayMode('kanban')}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${displayMode === 'kanban' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                    >
-                        <i className="fa-solid fa-columns"></i>
-                        Kanban
-                    </button>
-                    <button
-                        onClick={() => setDisplayMode('gallery')}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${displayMode === 'gallery' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                    >
-                        <i className="fa-solid fa-table-cells-large"></i>
-                        Gallery
-                    </button>
-                </div>
+                {!isMobile && (
+                    <div className="flex bg-slate-200/50 p-1 rounded-2xl items-center">
+                        <button
+                            onClick={() => setDisplayMode('kanban')}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${displayMode === 'kanban' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            <i className="fa-solid fa-columns"></i>
+                            Kanban
+                        </button>
+                        <button
+                            onClick={() => setDisplayMode('gallery')}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${displayMode === 'gallery' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            <i className="fa-solid fa-table-cells-large"></i>
+                            Gallery
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

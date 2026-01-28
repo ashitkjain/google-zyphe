@@ -21,7 +21,8 @@ const LeadsList: React.FC<InternalProps> = ({
     handleDeleteNote,
     handleDragEnd,
     onUpdateAvatar,
-    onTabChange
+    onTabChange,
+    isMobile
 }) => {
     // State
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -29,7 +30,14 @@ const LeadsList: React.FC<InternalProps> = ({
     const [buyerFunnelCategory, setBuyerFunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
     const [buyer2FunnelCategory, setBuyer2FunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
     const [sellerFunnelCategory, setSellerFunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
-    const [currentDisplayMode, setCurrentDisplayMode] = useState<DisplayMode>('kanban');
+    const [currentDisplayMode, setCurrentDisplayMode] = useState<DisplayMode>(isMobile ? 'gallery' : 'kanban');
+
+    // Sync display mode with mobile status
+    React.useEffect(() => {
+        if (isMobile) {
+            setCurrentDisplayMode('gallery');
+        }
+    }, [isMobile]);
     const [boardSettings, setBoardSettings] = useState({
         search: '',
         sort: 'newest' as 'newest' | 'oldest' | 'name' | 'temp',
@@ -148,6 +156,7 @@ const LeadsList: React.FC<InternalProps> = ({
                 setDisplayMode={setCurrentDisplayMode}
                 boardSettings={boardSettings}
                 setBoardSettings={setBoardSettings}
+                isMobile={isMobile}
             />
 
             {/* Kanban View */}

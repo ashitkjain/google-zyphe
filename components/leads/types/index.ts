@@ -16,6 +16,7 @@ export interface InternalProps {
     handleDragEnd: (result: DropResult) => void;
     onUpdateAvatar: (leadId: string, file: File) => void;
     onTabChange?: (tab: any) => void;
+    isMobile?: boolean;
 }
 
 export type ViewMode = 'past6Months' | 'older';
