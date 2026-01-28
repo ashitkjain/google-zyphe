@@ -11,6 +11,7 @@ import {
 import {
   signInWithPopup,
   signInWithRedirect,
+  GoogleAuthProvider,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile
@@ -392,12 +393,20 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
                   type="button"
                   onClick={async () => {
                     if (!auth) { alert("System Error: Auth service unavailable."); return; }
+                    if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost') {
+                      alert("Security Error: Google Auth requires HTTPS. Please check your URL.");
+                      return;
+                    }
                     try {
-                      // alert("Attempting Redirect...");
-                      await signInWithRedirect(auth, googleProvider);
+                      alert("Step 1: Starting Redirect Flow...");
+                      const provider = new GoogleAuthProvider(); // Try fresh provider
+                      // provider.addScope('profile');
+                      // provider.addScope('email');
+                      await signInWithRedirect(auth, provider);
+                      alert("Step 2: Redirect Function Called (Page should have changed).");
                     } catch (e: any) {
-                      alert("Redirect Error: " + e.message);
-                      handleFirebaseError(e);
+                      alert("Redirect Auth Error: " + e.message + " (" + e.code + ")");
+                      console.error(e);
                     }
                   }}
                   className="text-[10px] font-black text-white bg-indigo-600 px-3 py-2 rounded-lg shadow-md active:scale-95 transition-all"
@@ -410,11 +419,11 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
                   onClick={async () => {
                     if (!auth) { alert("System Error: Auth service unavailable."); return; }
                     try {
-                      // alert("Attempting Popup...");
                       await signInWithPopup(auth, googleProvider);
                     } catch (e: any) {
-                      alert("Popup Error: " + e.message);
-                      handleFirebaseError(e);
+                      // Don't alert "popup closed" as it's annoying, just log it?
+                      // User complained about it.
+                      alert("Popup Failed: " + e.code + " - " + e.message);
                     }
                   }}
                   className="text-[10px] font-black text-indigo-600 bg-white border border-indigo-200 px-3 py-2 rounded-lg shadow-sm active:scale-95 transition-all"
