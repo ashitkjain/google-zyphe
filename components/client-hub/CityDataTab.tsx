@@ -258,7 +258,7 @@ const CityDataTab: React.FC = () => {
                         const zipResp = await fetch(zipApiUrl, {
                             method: 'GET',
                             headers: {
-                                'X-RapidAPI-Key': config.key,
+                                'X-RapidAPI-Key': config.zipCodesApi.key,
                                 'X-RapidAPI-Host': config.zipCodesApi.host
                             }
                         });

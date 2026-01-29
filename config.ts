@@ -36,6 +36,7 @@ export const APP_CONFIG = {
             }
         },
         zipCodesApi: {
+            key: process.env.ZIPCODES_KEY || process.env.RAPID_API_KEY || 'ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f',
             host: 'us-zipcodes.p.rapidapi.com',
             endpoint: '/get',
             path: '/codes'
