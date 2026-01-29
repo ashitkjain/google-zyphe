@@ -68,90 +68,89 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
         );
     }
 
-    if (viewMode === 'main') {
-        return (
-            <div className="space-y-10 animate-in fade-in duration-500">
-                {searchBar && (
-                    <div className="max-w-4xl mx-auto pt-8 pb-4 px-4 sticky top-0 z-[40] bg-slate-50/80 backdrop-blur-md">
-                        {searchBar}
-                    </div>
-                )}
-                {propertyData ? (
-                    <>
-                        <PropertyHeader
-                            data={propertyData}
-                            isFavorited={isFavorited}
-                            onToggleFavorite={onToggleFavorite}
-                            onRunAnalysis={() => onRunCustomAnalysis(false)}
-                        />
-                        <PropertyImages images={propertyData.images} loading={imagesLoading} />
-                        <PropertyFacts facts={propertyData.resoFacts} />
-                        <MobilityScores data={propertyData} />
-                        <SchoolScores data={propertyData} />
-                        <ClimateRiskSection data={propertyData} />
-                        <PropertyMaps mapZoomIn={propertyData.mapZoomIn} mapZoomOut={propertyData.mapZoomOut} />
-                        <ChatInterface property={propertyData} visual={customAnalysis} comprehensive={comprehensiveAnalysis} />
-                    </>
-                ) : (
-                    <div className="max-w-4xl mx-auto py-6 text-center space-y-12">
-                        <p className="text-2xl text-slate-500 font-medium leading-relaxed">The world's most advanced property analysis suite.</p>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
-                            {[
-                                { title: 'For Buyers', icon: 'fa-shopping-bag', color: 'indigo', desc: "Navigate the market with unmatched clarity. Our AI cross-references public records, maps and property pictures, and resident sentiment to uncover hidden structural risks, neighborhood, community pulse on what people like and don't, and score lifestyle compatibility for your family." },
-                                { title: 'For Sellers', icon: 'fa-money-bill-trend-up', color: 'slate', desc: 'Discover how to maximize your home value with AI-driven staging and market insights.' },
-                                { title: 'For Realtors', icon: 'fa-briefcase', color: 'indigo', desc: 'Provide comprehensive home report, concierge chat box to your clients and track their preferences. Generate professional multi-source reports and compelling marketing copy in seconds.' }
-                            ].map((item, i) => (
-                                <div key={i} className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 hover:-translate-y-2 transition-all group">
-                                    <div className={`w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
-                                        <i className={`fa-solid ${item.icon} text-2xl`}></i>
-                                    </div>
-                                    <h3 className="text-xl font-black text-slate-900 mb-4">{item.title}</h3>
-                                    <p className="text-slate-500 text-sm leading-relaxed font-medium">{item.desc}</p>
-                                </div>
-                            ))}
+    return (
+        <>
+            {viewMode === 'main' && (
+                <div className="space-y-10 animate-in fade-in duration-500">
+                    {searchBar && (
+                        <div className="max-w-4xl mx-auto pt-8 pb-4 px-4 sticky top-0 z-[40] bg-slate-50/80 backdrop-blur-md">
+                            {searchBar}
                         </div>
-                    </div>
-                )}
-            </div>
-        );
-    }
+                    )}
+                    {propertyData ? (
+                        <>
+                            <PropertyHeader
+                                data={propertyData}
+                                isFavorited={isFavorited}
+                                onToggleFavorite={onToggleFavorite}
+                                onRunAnalysis={() => onRunCustomAnalysis(false)}
+                            />
+                            <PropertyImages images={propertyData.images} loading={imagesLoading} />
+                            <PropertyFacts facts={propertyData.resoFacts} />
+                            <MobilityScores data={propertyData} />
+                            <SchoolScores data={propertyData} />
+                            <ClimateRiskSection data={propertyData} />
+                            <PropertyMaps mapZoomIn={propertyData.mapZoomIn} mapZoomOut={propertyData.mapZoomOut} />
+                        </>
+                    ) : (
+                        <div className="max-w-4xl mx-auto py-6 text-center space-y-12">
+                            <p className="text-2xl text-slate-500 font-medium leading-relaxed">The world's most advanced property analysis suite.</p>
 
-    if (viewMode === 'visual-report') {
-        return (
-            <CustomAIAnalysis
-                analysis={customAnalysis}
-                loading={customAnalysisLoading}
-                onBack={() => setViewMode('main')}
-                onRefresh={() => onRunCustomAnalysis(true)}
-                onRunComprehensive={() => onRunComprehensive(false)}
-                comprehensiveResult={comprehensiveAnalysis}
-                hasImages={(propertyData?.images?.length || 0) > 0}
-                userRole={userRole}
-                propertyImages={propertyData?.images}
-                zpid={propertyData?.zpid}
-                propertyData={propertyData}
-                onUpdateAnalysis={onUpdateAnalysis}
-                addLog={addLog}
-                isFavorited={isFavorited}
-                onToggleFavorite={onToggleFavorite}
-            />
-        );
-    }
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
+                                {[
+                                    { title: 'For Buyers', icon: 'fa-shopping-bag', color: 'indigo', desc: "Navigate the market with unmatched clarity. Our AI cross-references public records, maps and property pictures, and resident sentiment to uncover hidden structural risks, neighborhood, community pulse on what people like and don't, and score lifestyle compatibility for your family." },
+                                    { title: 'For Sellers', icon: 'fa-money-bill-trend-up', color: 'slate', desc: 'Discover how to maximize your home value with AI-driven staging and market insights.' },
+                                    { title: 'For Realtors', icon: 'fa-briefcase', color: 'indigo', desc: 'Provide comprehensive home report, concierge chat box to your clients and track their preferences. Generate professional multi-source reports and compelling marketing copy in seconds.' }
+                                ].map((item, i) => (
+                                    <div key={i} className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 hover:-translate-y-2 transition-all group">
+                                        <div className={`w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
+                                            <i className={`fa-solid ${item.icon} text-2xl`}></i>
+                                        </div>
+                                        <h3 className="text-xl font-black text-slate-900 mb-4">{item.title}</h3>
+                                        <p className="text-slate-500 text-sm leading-relaxed font-medium">{item.desc}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
 
-    if (viewMode === 'comprehensive-report') {
-        return (
-            <ComprehensiveAnalysis
-                analysis={comprehensiveAnalysis}
-                loading={comprehensiveLoading}
-                onBack={() => setViewMode('visual-report')}
-                isFavorited={isFavorited}
-                onToggleFavorite={onToggleFavorite}
-            />
-        );
-    }
+            {viewMode === 'visual-report' && (
+                <CustomAIAnalysis
+                    analysis={customAnalysis}
+                    loading={customAnalysisLoading}
+                    onBack={() => setViewMode('main')}
+                    onRefresh={() => onRunCustomAnalysis(true)}
+                    onRunComprehensive={() => onRunComprehensive(false)}
+                    comprehensiveResult={comprehensiveAnalysis}
+                    hasImages={(propertyData?.images?.length || 0) > 0}
+                    userRole={userRole}
+                    propertyImages={propertyData?.images}
+                    zpid={propertyData?.zpid}
+                    propertyData={propertyData}
+                    onUpdateAnalysis={onUpdateAnalysis}
+                    addLog={addLog}
+                    isFavorited={isFavorited}
+                    onToggleFavorite={onToggleFavorite}
+                />
+            )}
 
-    return null;
+            {viewMode === 'comprehensive-report' && (
+                <ComprehensiveAnalysis
+                    analysis={comprehensiveAnalysis}
+                    loading={comprehensiveLoading}
+                    onBack={() => setViewMode('visual-report')}
+                    isFavorited={isFavorited}
+                    onToggleFavorite={onToggleFavorite}
+                />
+            )}
+
+            {propertyData && (
+                <ChatInterface property={propertyData} visual={customAnalysis} comprehensive={comprehensiveAnalysis} />
+            )}
+        </>
+    );
 };
 
 export default ExploreTab;
