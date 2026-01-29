@@ -1,6 +1,12 @@
 
 import React, { useState } from 'react';
 import { APP_CONFIG } from '../../config';
+import {
+    saveCityZipMapping,
+    getCityZipMapping,
+    saveZipListings,
+    getZipListings
+} from '../../services/firebase/cityData';
 
 const CityDataTab: React.FC = () => {
     const [city, setCity] = useState('');
@@ -56,23 +62,31 @@ const CityDataTab: React.FC = () => {
 
     const fetchListings = async (zip: string) => {
         const config = APP_CONFIG.rapidapi;
-        const cacheKey = `zyphe_cache_listings_${zip}`;
 
-        // 1. Check local cache first
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-            try {
-                const parsed = JSON.parse(cached);
-                // Simple expiry: 24 hours
-                if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
-                    return parsed.data;
-                }
-            } catch (e) {
-                console.warn('Cache parse failed for', zip);
+        // 1. Check Cloud Cache first (Database)
+        const cloudCached = await getZipListings(zip);
+        if (cloudCached && cloudCached.timestamp) {
+            const timestamp = cloudCached.timestamp.toDate?.()?.getTime() || cloudCached.timestamp;
+            // 24 hour TTL for listings
+            if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+                console.log(`[Cloud Cache] Hit for Zip: ${zip}`);
+                return cloudCached.listings;
             }
         }
 
-        // 2. Network Request
+        // 2. Check Local Cache (Fallback/Performance)
+        const cacheKey = `zyphe_cache_listings_${zip}`;
+        const localCached = localStorage.getItem(cacheKey);
+        if (localCached) {
+            try {
+                const parsed = JSON.parse(localCached);
+                if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+                    return parsed.data;
+                }
+            } catch (e) { }
+        }
+
+        // 3. Network Request
         const url = `https://${config.host}${config.endpoints.list}`;
         const body = {
             ...config.defaults,
@@ -92,8 +106,11 @@ const CityDataTab: React.FC = () => {
         const result = await response.json();
         const data = result.data?.home_search?.results || [];
 
-        // 3. Save to cache
+        // 4. Save to Cloud Cache
         if (data.length > 0) {
+            await saveZipListings(zip, data);
+
+            // Also sync local storage
             localStorage.setItem(cacheKey, JSON.stringify({
                 timestamp: Date.now(),
                 data: data
@@ -126,22 +143,43 @@ const CityDataTab: React.FC = () => {
             if (isPostalCodeInput) {
                 targetZips = [city.trim()];
             } else {
-                // Step 1: Resolve Zip Codes for the City
-                const autoUrl = `https://${config.host}${config.endpoints.autoComplete}?input=${encodeURIComponent(city.trim() + (stateCode ? `, ${stateCode.trim()}` : ''))}&limit=20`;
-                const autoResp = await fetch(autoUrl, {
-                    method: 'GET',
-                    headers: {
-                        'X-RapidAPI-Key': config.key,
-                        'X-RapidAPI-Host': config.host
-                    }
-                });
-                const autoResult = await autoResp.json();
+                const normalizedCity = city.trim();
+                const normalizedState = stateCode.trim();
 
-                // Filter suggestions for postal codes in the same city/state
-                if (autoResult.data) {
-                    targetZips = autoResult.data
-                        .filter((s: any) => s.area_type === 'postal_code' || s.postal_code)
-                        .map((s: any) => s.postal_code || s.mpr_id);
+                // Step 1: Check Cloud Cache for City-to-Zip Mapping
+                const cachedMapping = await getCityZipMapping(normalizedCity, normalizedState);
+                if (cachedMapping && cachedMapping.zipCodes.length > 0) {
+                    const timestamp = cachedMapping.timestamp?.toDate?.()?.getTime() || cachedMapping.timestamp || 0;
+                    // 7 day TTL for location mappings
+                    if (Date.now() - timestamp < 7 * 24 * 60 * 60 * 1000) {
+                        console.log(`[Cloud Cache] Hit for City Mapping: ${normalizedCity}`);
+                        targetZips = cachedMapping.zipCodes;
+                    }
+                }
+
+                if (targetZips.length === 0) {
+                    // Step 2: Resolve Zip Codes for the City (Network)
+                    const autoUrl = `https://${config.host}${config.endpoints.autoComplete}?input=${encodeURIComponent(normalizedCity + (normalizedState ? `, ${normalizedState}` : ''))}&limit=20`;
+                    const autoResp = await fetch(autoUrl, {
+                        method: 'GET',
+                        headers: {
+                            'X-RapidAPI-Key': config.key,
+                            'X-RapidAPI-Host': config.host
+                        }
+                    });
+                    const autoResult = await autoResp.json();
+
+                    // Filter suggestions for postal codes in the same city/state
+                    if (autoResult.data) {
+                        targetZips = autoResult.data
+                            .filter((s: any) => s.area_type === 'postal_code' || s.postal_code)
+                            .map((s: any) => s.postal_code || s.mpr_id);
+
+                        // Save resolved mapping to Cloud
+                        if (targetZips.length > 0) {
+                            await saveCityZipMapping(normalizedCity, normalizedState, targetZips);
+                        }
+                    }
                 }
 
                 // Fallback if no specific zips found
@@ -150,7 +188,7 @@ const CityDataTab: React.FC = () => {
                     const url = `https://${config.host}${config.endpoints.list}`;
                     const body = {
                         ...config.defaults,
-                        location: city.trim() + (stateCode ? `, ${stateCode.trim()}` : '')
+                        location: normalizedCity + (normalizedState ? `, ${normalizedState}` : '')
                     };
                     const response = await fetch(url, {
                         method: 'POST',
