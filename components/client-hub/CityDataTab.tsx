@@ -10,7 +10,7 @@ import {
 
 const CityDataTab: React.FC = () => {
     const [city, setCity] = useState('');
-    const [stateCode, setStateCode] = useState('');
+    // State removed as per new API requirements
     const [listings, setListings] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [statusLog, setStatusLog] = useState<string[]>([]);
@@ -99,7 +99,7 @@ const CityDataTab: React.FC = () => {
         setStatusLog([]);
         setListings([]);
 
-        log(`Starting ingestion for: ${city} ${stateCode}`);
+        log(`Starting ingestion for: ${city}`);
 
         try {
             const isPostalCodeInput = /^\d{5}(-\d{4})?$/.test(city.trim());
@@ -110,10 +110,10 @@ const CityDataTab: React.FC = () => {
                 log(`Identified direct Zip Code: ${targetZips[0]}`);
             } else {
                 const normalizedCity = city.trim();
-                const normalizedState = stateCode.trim();
 
                 // Step 1: Check Cloud Cache for City-to-Zip Mapping
-                const cachedMapping = await getCityZipMapping(normalizedCity, normalizedState);
+                // We pass empty string for state since we removed the input
+                const cachedMapping = await getCityZipMapping(normalizedCity, '');
                 if (cachedMapping && cachedMapping.zipCodes.length > 0) {
                     const timestamp = cachedMapping.timestamp?.toDate?.()?.getTime() || cachedMapping.timestamp || 0;
                     if (Date.now() - timestamp < 7 * 24 * 60 * 60 * 1000) {
@@ -124,33 +124,45 @@ const CityDataTab: React.FC = () => {
 
                 if (targetZips.length === 0) {
                     log(`Resolving Zip Codes for ${normalizedCity}...`);
-                    // Step 2: Resolve Zip Codes for the City (Network)
+                    // Step 2: Resolve Zip Codes for the City (Network) using US Zip Codes API
                     try {
-                        const autoUrl = `https://${config.host}${config.endpoints.autoComplete}?input=${encodeURIComponent(normalizedCity + (normalizedState ? `, ${normalizedState}` : ''))}&limit=20`;
-                        const autoResp = await fetch(autoUrl, {
+                        const zipApiUrl = `https://${config.zipCodesApi.host}${config.zipCodesApi.path}?q=${encodeURIComponent(normalizedCity)}`;
+                        const zipResp = await fetch(zipApiUrl, {
                             method: 'GET',
                             headers: {
                                 'X-RapidAPI-Key': config.key,
-                                'X-RapidAPI-Host': config.host
+                                'X-RapidAPI-Host': config.zipCodesApi.host
                             }
                         });
-                        if (autoResp.status === 429) {
+
+                        if (zipResp.status === 429) {
                             log('Rate Limit Hit (429) on Zip Resolution.');
                         } else {
-                            const autoResult = await autoResp.json();
-                            if (autoResult.data) {
-                                targetZips = autoResult.data
-                                    .filter((s: any) => s.area_type === 'postal_code' || s.postal_code)
-                                    .map((s: any) => s.postal_code || s.mpr_id);
+                            const zipResult = await zipResp.json();
+                            // US Zip Codes API returns array of zip strings or objects? 
+                            // Usually it returns an array of objects or simple strings depending on endpoint. 
+                            // The user didn't specify format, but usually for ?q= it returns a list.
+                            // Let's assume response is array of objects { zip_code: "..." } or simple array.
+                            // We'll log it to be safe and try to parse.
+                            // If the response is { [key]: "value" ... } or [ ... ]
 
-                                log(`Resolved ${targetZips.length} Zip Codes from autocomplete`);
+                            // Trying robust parse assuming it returns something like [{zip_code: "94566"}, ...] or ["94566", ...]
+                            let foundZips: string[] = [];
 
-                                // Save resolved mapping to Cloud
-                                if (targetZips.length > 0) {
-                                    saveCityZipMapping(normalizedCity, normalizedState, targetZips).catch(console.error);
-                                }
-                            } else {
-                                log('Autocomplete returned no data structure.');
+                            if (Array.isArray(zipResult)) {
+                                foundZips = zipResult.map((x: any) => typeof x === 'string' ? x : x.zip_code || x.zipCode);
+                            } else if (zipResult.zip_codes) {
+                                foundZips = zipResult.zip_codes;
+                            }
+
+                            // Clean up
+                            targetZips = foundZips.filter(z => z && typeof z === 'string');
+
+                            log(`Resolved ${targetZips.length} Zip Codes from new API`);
+
+                            // Save resolved mapping to Cloud
+                            if (targetZips.length > 0) {
+                                saveCityZipMapping(normalizedCity, '', targetZips).catch(console.error);
                             }
                         }
                     } catch (e) {
@@ -166,7 +178,7 @@ const CityDataTab: React.FC = () => {
                 const url = `https://${config.host}${config.endpoints.list}`;
                 const body = {
                     ...config.defaults,
-                    location: `${city.trim()}, ${stateCode.trim()}`
+                    location: `${city.trim()}`
                 };
 
                 const response = await fetch(url, {
@@ -293,7 +305,7 @@ const CityDataTab: React.FC = () => {
             {/* API Config & Search */}
             <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/40 mb-8">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end">
-                    <div className="lg:col-span-5 relative">
+                    <div className="lg:col-span-7 relative">
                         <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">Location or Zip</label>
                         <input
                             type="text"
@@ -301,18 +313,6 @@ const CityDataTab: React.FC = () => {
                             onChange={(e) => setCity(e.target.value)}
                             placeholder="Type a city (e.g. New York)..."
                             className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:bg-white focus:border-indigo-500 transition-all font-medium text-sm shadow-inner"
-                        />
-                    </div>
-
-                    <div className="lg:col-span-2">
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">State</label>
-                        <input
-                            type="text"
-                            value={stateCode}
-                            onChange={(e) => setStateCode(e.target.value)}
-                            placeholder="CO"
-                            maxLength={2}
-                            className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:bg-white focus:border-indigo-500 transition-all font-medium text-sm shadow-inner uppercase"
                         />
                     </div>
 

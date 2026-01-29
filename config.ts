@@ -34,6 +34,12 @@ export const APP_CONFIG = {
                 direction: "desc",
                 field: "list_date"
             }
+        },
+        zipCodesApi: {
+            host: 'us-zipcodes.p.rapidapi.com',
+            endpoint: '/get' // Note: user said /codes?q= but typically it might be usually /codes or /get. User url: https://us-zipcodes.p.rapidapi.com/codes?q=pleasanton. 
+            // Let's verify standard rapidapi naming. The user gave 'https://us-zipcodes.p.rapidapi.com/codes'. So endpoint is '/codes'.
+            path: '/codes'
         }
     }
 };
