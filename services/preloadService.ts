@@ -5,9 +5,10 @@ import {
   savePropertyToCloud,
   saveVisualAnalysisToCloud,
   saveComprehensiveAnalysisToCloud,
-  saveImageQualityAnalysisToCloud
+  saveImageQualityAnalysisToCloud,
+  getImageQualityAnalysisFromCloud
 } from './firebaseService.ts';
-import { PropertyData, CustomAIAnalysisResult } from '../types.ts';
+import { PropertyData, CustomAIAnalysisResult } from '../types';
 
 export interface PipelineProgress {
   step: string;
@@ -74,11 +75,18 @@ export const runFullIntelligencePipeline = async (
     // 8. Quality Audit (New Pipeline Step)
     onProgress({ step: 'Quality Audit', status: 'running', message: 'Performing deep picture quality scan...' });
     if (images.length > 0) {
-      const qualityResult = await analyzeImageQuality(images);
-      visualResult.image_quality_analysis = qualityResult;
-      // Save specifically to the new collection
-      await saveImageQualityAnalysisToCloud(zpid, qualityResult);
-      onProgress({ step: 'Quality Audit', status: 'completed', message: 'Picture quality intelligence generated.' });
+      // Check for cached analysis first
+      const cachedQuality = await getImageQualityAnalysisFromCloud(zpid);
+      if (cachedQuality) {
+        visualResult.image_quality_analysis = cachedQuality;
+        onProgress({ step: 'Quality Audit', status: 'completed', message: 'Picture quality audit restored from cache.' });
+      } else {
+        const qualityResult = await analyzeImageQuality(images);
+        visualResult.image_quality_analysis = qualityResult;
+        // Save specifically to the new collection
+        await saveImageQualityAnalysisToCloud(zpid, qualityResult);
+        onProgress({ step: 'Quality Audit', status: 'completed', message: 'Picture quality intelligence generated.' });
+      }
     } else {
       onProgress({ step: 'Quality Audit', status: 'completed', message: 'Skipped (no images).' });
     }
