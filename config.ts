@@ -18,5 +18,8 @@ export const APP_CONFIG = {
         buyer: ['interior', 'rooms', 'exterior', 'neighborhood', 'pulse', 'image_analysis', 'investment', 'bidding'],
         seller: ['image_analysis', 'quality'],
         realtor: ['interior', 'rooms', 'exterior', 'neighborhood', 'pulse', 'image_analysis', 'investment', 'bidding', 'quality']
+    },
+    rapidapi: {
+        key: import.meta.env.VITE_RAPID_API_KEY || '',
     }
 };

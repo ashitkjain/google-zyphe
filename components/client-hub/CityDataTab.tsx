@@ -1,17 +1,23 @@
 
 import React, { useState } from 'react';
+import { APP_CONFIG } from '../../config';
 
 const CityDataTab: React.FC = () => {
     const [city, setCity] = useState('');
     const [stateCode, setStateCode] = useState('');
-    const [apiKey, setApiKey] = useState('');
     const [listings, setListings] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const handleSearch = async () => {
-        if (!city || !stateCode || !apiKey) {
-            setError('Please provide City, State Code, and RapidAPI Key.');
+        if (!city || !stateCode) {
+            setError('Please provide City and State Code.');
+            return;
+        }
+
+        const apiKey = APP_CONFIG.rapidapi.key;
+        if (!apiKey) {
+            setError('RapidAPI Key not configured in system.');
             return;
         }
 
@@ -76,17 +82,7 @@ const CityDataTab: React.FC = () => {
                     </span>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-                    <div className="lg:col-span-2">
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">RapidAPI Gateway Key</label>
-                        <input
-                            type="password"
-                            value={apiKey}
-                            onChange={(e) => setApiKey(e.target.value)}
-                            placeholder="Paste your X-RapidAPI-Key..."
-                            className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-indigo-500 transition-all font-medium text-sm shadow-inner"
-                        />
-                    </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                     <div>
                         <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">Target City</label>
                         <input
@@ -216,7 +212,7 @@ const CityDataTab: React.FC = () => {
                         <i className="fa-solid fa-earth-americas text-4xl text-slate-200"></i>
                     </div>
                     <h3 className="text-2xl font-black text-slate-900 mb-2">Ready to Pipeline</h3>
-                    <p className="text-slate-400 font-medium max-w-sm mx-auto">Authorize with your RapidAPI key and provide a target city to begin ingestion.</p>
+                    <p className="text-slate-400 font-medium max-w-sm mx-auto">Provide a target city and state to begin discovering active listings.</p>
                 </div>
             )}
 
