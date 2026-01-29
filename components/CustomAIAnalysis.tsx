@@ -941,7 +941,8 @@ const CustomAIAnalysis: React.FC<Props> = ({
                   <div className="absolute inset-0 flex items-center justify-center"><i className="fa-solid fa-camera text-indigo-600 text-2xl animate-pulse"></i></div>
                 </div>
                 <h3 className="text-3xl font-black text-indigo-900 mb-4 tracking-tight">Picture Audit...</h3>
-                <div className="mb-8"><span className="px-5 py-2 bg-white border border-indigo-100 rounded-full text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] shadow-sm flex items-center gap-2"><i className="fa-solid fa-clock animate-pulse"></i> Time: <span className="font-mono text-xs">{timer}s</span></span></div>
+                <div className="mb-4"><span className="px-5 py-2 bg-white border border-indigo-100 rounded-full text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] shadow-sm flex items-center gap-2"><i className="fa-solid fa-clock animate-pulse"></i> Time: <span className="font-mono text-xs">{timer}s</span></span></div>
+                {propertyData?.address && <p className="text-indigo-900/40 font-black uppercase tracking-widest text-[10px] mt-2 bg-white/50 px-4 py-1 rounded-lg inline-block">{propertyData.address}</p>}
               </div>
             ) : !image_quality_analysis ? <EmptyState section="Quality Audit" /> : (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
@@ -968,8 +969,9 @@ const CustomAIAnalysis: React.FC<Props> = ({
                   <div className="absolute inset-0 flex items-center justify-center"><i className="fa-solid fa-magnifying-glass-dollar text-indigo-600 text-2xl animate-pulse"></i></div>
                 </div>
                 <h3 className="text-3xl font-black text-indigo-900 mb-4 tracking-tight">Market Research...</h3>
-                <div className="mb-8"><span className="px-5 py-2 bg-white border border-indigo-100 rounded-full text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] shadow-sm flex items-center gap-2"><i className="fa-solid fa-clock animate-pulse"></i> Time: <span className="font-mono text-xs">{timer}s</span></span></div>
+                <div className="mb-4"><span className="px-5 py-2 bg-white border border-indigo-100 rounded-full text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] shadow-sm flex items-center gap-2"><i className="fa-solid fa-clock animate-pulse"></i> Time: <span className="font-mono text-xs">{timer}s</span></span></div>
                 <p className="text-indigo-700/70 text-lg font-medium">Scouring STR data and historicals for 2026.</p>
+                {propertyData?.address && <p className="text-indigo-900/40 font-black uppercase tracking-widest text-[10px] mt-4 bg-white/50 px-4 py-1 rounded-lg inline-block">{propertyData.address}</p>}
               </div>
             ) : !investment_research ? <EmptyState section="Investment Research" /> : <InvestmentView data={investment_research} />}
           </section>
@@ -984,8 +986,9 @@ const CustomAIAnalysis: React.FC<Props> = ({
                   <div className="absolute inset-0 flex items-center justify-center"><i className="fa-solid fa-gavel text-indigo-600 text-2xl animate-pulse"></i></div>
                 </div>
                 <h3 className="text-3xl font-black text-indigo-900 mb-4 tracking-tight">Strategizing Offer...</h3>
-                <div className="mb-8"><span className="px-5 py-2 bg-white border border-indigo-100 rounded-full text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] shadow-sm flex items-center gap-2"><i className="fa-solid fa-clock animate-pulse"></i> Time: <span className="font-mono text-xs">{timer}s</span></span></div>
+                <div className="mb-4"><span className="px-5 py-2 bg-white border border-indigo-100 rounded-full text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] shadow-sm flex items-center gap-2"><i className="fa-solid fa-clock animate-pulse"></i> Time: <span className="font-mono text-xs">{timer}s</span></span></div>
                 <p className="text-indigo-700/70 text-lg font-medium">Analyzing DOM benchmarks and inventory pressure.</p>
+                {propertyData?.address && <p className="text-indigo-900/40 font-black uppercase tracking-widest text-[10px] mt-4 bg-white/50 px-4 py-1 rounded-lg inline-block">{propertyData.address}</p>}
               </div>
             ) : !bidding_strategy ? <EmptyState section="Bidding Strategy" /> : <BiddingView data={bidding_strategy} comps={propertyData?.comps} priceHistory={propertyData?.priceHistory} />}
           </section>
