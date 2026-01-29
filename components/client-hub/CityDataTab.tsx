@@ -119,26 +119,6 @@ const CityDataTab: React.FC = () => {
             setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime } : j));
 
             try {
-                // Map to PropertyData for initial save (fallback if pipeline fails)
-                const propertyData: Partial<PropertyData> = {
-                    zpid: zpid,
-                    address: item.location?.address?.line,
-                    city: item.location?.address?.city,
-                    homeStatus: item.status,
-                    price: item.list_price,
-                    bedrooms: item.description?.beds,
-                    bathrooms: item.description?.baths,
-                    livingAreaValue: item.description?.sqft,
-                    lotSize: item.description?.lot_sqft?.toString(),
-                    description: item.description?.text,
-                    homeType: item.description?.type,
-                    images: item.primary_photo?.href ? [item.primary_photo.href] : [],
-                    listedDate: item.list_date
-                };
-
-                // Basic Save
-                await savePropertyToCloud(zpid, propertyData);
-
                 // Run Full Intelligence Pipeline
                 await runFullIntelligencePipeline(address, (progress) => {
                     setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
