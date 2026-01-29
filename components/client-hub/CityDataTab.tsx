@@ -41,6 +41,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         llmLogs: LLMCallEvent[];
         apiLogs: APICallEvent[];
     } | null>(null);
+    const [viewMode, setViewMode] = useState<'table' | 'ingestion'>('table');
 
     const availableStates = useMemo(() => {
         const states = new Set<string>();
@@ -111,6 +112,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
         setLoading(true);
         setError(null);
+        setViewMode('ingestion');
+        setIngestionReport(null); // Reset previous report
         const batchStartTime = Date.now();
         log(`Starting Parallel Bulk Ingest & Intelligence Pipeline for ${selectedIds.size} properties...`);
 
@@ -506,384 +509,421 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
     return (
         <div className="max-w-7xl mx-auto py-10 px-6 animate-in fade-in duration-700">
-            <div className="mb-8 items-center justify-between flex">
-                <div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">City Data Engine</h1>
+            {viewMode === 'table' ? (
+                <>
+                    <div className="mb-8 items-center justify-between flex">
+                        <div>
+                            <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">City Data Engine</h1>
+                            <p className="text-slate-500 text-sm font-medium">Scan cities for new properties and trigger the intelligence pipeline.</p>
+                        </div>
+                        {selectedIds.size > 0 && (
+                            <button
+                                onClick={handleBulkIngest}
+                                disabled={loading}
+                                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-200 transition-all flex items-center gap-2 animate-in fade-in slide-in-from-right-4"
+                            >
+                                {loading ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>}
+                                Ingest Selected ({selectedIds.size})
+                            </button>
+                        )}
+                    </div>
+
+                    {/* API Config & Search */}
+                    <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/40 mb-8">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end">
+                            <div className="lg:col-span-7 relative">
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">Location or Zip</label>
+                                <input
+                                    type="text"
+                                    value={city}
+                                    onChange={(e) => setCity(e.target.value)}
+                                    placeholder="Type a city (e.g. New York)..."
+                                    className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:bg-white focus:border-indigo-500 transition-all font-medium text-sm shadow-inner"
+                                />
+                            </div>
+
+                            <div className="lg:col-span-5">
+                                <button
+                                    onClick={handleSearch}
+                                    disabled={loading}
+                                    className="w-full px-8 py-3 bg-slate-900 hover:bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {loading ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-solid fa-search"></i>}
+                                    {loading ? 'Processing...' : 'Fetch Zip Codes & For-Sale Properties'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {error && (
+                            <div className="mt-6 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-3 text-rose-600 text-sm font-bold animate-in slide-in-from-top-2">
+                                <i className="fa-solid fa-triangle-exclamation"></i>
+                                {error}
+                            </div>
+                        )}
+                    </div>
+                </>
+            ) : (
+                <div className="mb-12">
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => setViewMode('table')}
+                                className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm"
+                            >
+                                <i className="fa-solid fa-arrow-left"></i>
+                            </button>
+                            <div>
+                                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Ingest Dashboard</h1>
+                                <p className="text-slate-500 text-sm font-medium">Monitoring {ingestionQueue.length} intelligence pipelines</p>
+                            </div>
+                        </div>
+
+                        {!loading && (
+                            <button
+                                onClick={() => setViewMode('table')}
+                                className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-[1.2rem] text-sm font-black shadow-lg shadow-slate-200 transition-all animate-in zoom-in"
+                            >
+                                Done & Return to Listings
+                            </button>
+                        )}
+                    </div>
                 </div>
-                {selectedIds.size > 0 && (
-                    <button
-                        onClick={handleBulkIngest}
-                        disabled={loading}
-                        className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-200 transition-all flex items-center gap-2 animate-in fade-in slide-in-from-right-4"
-                    >
-                        {loading ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>}
-                        Ingest Selected ({selectedIds.size})
-                    </button>
-                )}
-            </div>
-
-            {/* API Config & Search */}
-            <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/40 mb-8">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end">
-                    <div className="lg:col-span-7 relative">
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">Location or Zip</label>
-                        <input
-                            type="text"
-                            value={city}
-                            onChange={(e) => setCity(e.target.value)}
-                            placeholder="Type a city (e.g. New York)..."
-                            className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:bg-white focus:border-indigo-500 transition-all font-medium text-sm shadow-inner"
-                        />
-                    </div>
-
-                    <div className="lg:col-span-5">
-                        <button
-                            onClick={handleSearch}
-                            disabled={loading}
-                            className="w-full px-8 py-3 bg-slate-900 hover:bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {loading ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-solid fa-search"></i>}
-                            {loading ? 'Ingesting Data...' : 'Fetch Zip Codes & For-Sale Properties'}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Status Log */}
-                {error && (
-                    <div className="mt-6 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-3 text-rose-600 text-sm font-bold animate-in slide-in-from-top-2">
-                        <i className="fa-solid fa-triangle-exclamation"></i>
-                        {error}
-                    </div>
-                )}
-            </div>
+            )}
 
             {/* Grouped Results */}
-            {listings.length > 0 ? (
-                <div className="space-y-12">
-                    {/* Filter Controls */}
-                    {availableStates.length > 1 && (
-                        <div className="flex items-center gap-2 mb-8 bg-white/50 p-2 rounded-xl w-fit">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-3">Filter State:</span>
-                            {availableStates.map(st => (
+            {viewMode === 'table' && (
+                listings.length > 0 ? (
+                    <div className="space-y-12">
+                        {/* Filter Controls */}
+                        {availableStates.length > 1 && (
+                            <div className="flex items-center gap-2 mb-8 bg-white/50 p-2 rounded-xl w-fit">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-3">Filter State:</span>
+                                {availableStates.map(st => (
+                                    <button
+                                        key={st}
+                                        onClick={() => setStateFilter(st)}
+                                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${stateFilter === st ? 'bg-slate-900 text-white shadow-md' : 'bg-transparent text-slate-500 hover:bg-white hover:text-slate-800'}`}
+                                    >
+                                        {st}
+                                    </button>
+                                ))}
                                 <button
-                                    key={st}
-                                    onClick={() => setStateFilter(st)}
-                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${stateFilter === st ? 'bg-slate-900 text-white shadow-md' : 'bg-transparent text-slate-500 hover:bg-white hover:text-slate-800'}`}
+                                    onClick={() => setStateFilter('ALL')}
+                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${stateFilter === 'ALL' ? 'bg-slate-900 text-white shadow-md' : 'bg-transparent text-slate-500 hover:bg-white hover:text-slate-800'}`}
                                 >
-                                    {st}
+                                    All
                                 </button>
-                            ))}
-                            <button
-                                onClick={() => setStateFilter('ALL')}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${stateFilter === 'ALL' ? 'bg-slate-900 text-white shadow-md' : 'bg-transparent text-slate-500 hover:bg-white hover:text-slate-800'}`}
-                            >
-                                All
-                            </button>
-                        </div>
-                    )}
+                            </div>
+                        )}
 
-                    {(Object.entries(groupedListings) as [string, any[]][]).map(([groupKey, groupItems]) => (
-                        <div key={groupKey} className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
-                            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
-                                        <i className="fa-solid fa-map-location-dot"></i>
-                                    </div>
-                                    <div>
-                                        <h2 className="text-xl font-black text-slate-900">{groupKey}</h2>
-                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-widest">
-                                            <span>{groupItems.length} Properties</span>
-                                            <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                                            <span className="text-emerald-600">Active</span>
+                        {(Object.entries(groupedListings) as [string, any[]][]).map(([groupKey, groupItems]) => (
+                            <div key={groupKey} className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+                                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                                            <i className="fa-solid fa-map-location-dot"></i>
+                                        </div>
+                                        <div>
+                                            <h2 className="text-xl font-black text-slate-900">{groupKey}</h2>
+                                            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                                                <span>{groupItems.length} Properties</span>
+                                                <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                                <span className="text-emerald-600">Active</span>
+                                            </div>
                                         </div>
                                     </div>
+                                    <button
+                                        onClick={() => copyToClipboard((groupItems as any[]).map(l => l.location?.address?.line).join('\n'))}
+                                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm flex items-center gap-2"
+                                    >
+                                        <i className="fa-solid fa-copy"></i> Copy Addresses
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={() => copyToClipboard((groupItems as any[]).map(l => l.location?.address?.line).join('\n'))}
-                                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm flex items-center gap-2"
-                                >
-                                    <i className="fa-solid fa-copy"></i> Copy Addresses
-                                </button>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <tr>
+                                                <th className="p-4 w-12 text-center">
+                                                    ID
+                                                </th>
+                                                <th className="p-4">Property</th>
+                                                <th className="p-4 text-right">Price</th>
+                                                <th className="p-4 text-right">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {(groupItems as any[]).map((item, idx) => (
+                                                <ListingRow key={idx} item={item} />
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left">
-                                    <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                        <tr>
-                                            <th className="p-4 w-12 text-center">
-                                                ID
-                                            </th>
-                                            <th className="p-4">Property</th>
-                                            <th className="p-4 text-right">Price</th>
-                                            <th className="p-4 text-right">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {(groupItems as any[]).map((item, idx) => (
-                                            <ListingRow key={idx} item={item} />
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                !loading && !error && (
-                    <div className="text-center py-24 opacity-40">
-                        <i className="fa-solid fa-table-cells text-6xl mb-4 text-slate-300"></i>
-                        <p className="font-medium text-slate-400">Data table is empty. Start a search above.</p>
+                        ))}
                     </div>
+                ) : (
+                    !loading && !error && (
+                        <div className="text-center py-24 opacity-40">
+                            <i className="fa-solid fa-table-cells text-6xl mb-4 text-slate-300"></i>
+                            <p className="font-medium text-slate-400">Data table is empty. Start a search above.</p>
+                        </div>
+                    )
                 )
             )}
 
-            {/* Active Ingestion Jobs (Rich UI) */}
-            {ingestionQueue.length > 0 && (
-                <div className="mt-12 space-y-6">
-                    <div className="flex items-center justify-between px-4">
-                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Active Ingestion Jobs</h3>
-                        <span className="px-3 py-1 bg-slate-100 rounded-full text-[9px] font-black text-slate-500 uppercase">
-                            {ingestionQueue.filter(q => q.status === 'completed').length} / {ingestionQueue.length} Done
-                        </span>
-                    </div>
+            <div className={`${viewMode === 'ingestion' ? 'block' : 'hidden'}`}>
+                {/* Active Ingestion Jobs (Rich UI) */}
+                {ingestionQueue.length > 0 && (
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between px-4">
+                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Active Ingestion Jobs</h3>
+                            <span className="px-3 py-1 bg-slate-100 rounded-full text-[9px] font-black text-slate-500 uppercase">
+                                {ingestionQueue.filter(q => q.status === 'completed').length} / {ingestionQueue.length} Done
+                            </span>
+                        </div>
 
-                    <div className="grid grid-cols-1 gap-4">
-                        {ingestionQueue.map((item) => (
-                            <div key={item.zpid} className={`bg-white p-6 rounded-[2rem] border transition-all ${item.status === 'completed' ? 'border-emerald-100 shadow-emerald-50' : item.status === 'error' ? 'border-rose-100 shadow-rose-50' : 'border-slate-100 shadow-lg shadow-slate-200/50'}`}>
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-3 overflow-hidden">
-                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
+                        <div className="grid grid-cols-1 gap-4">
+                            {ingestionQueue.map((item) => (
+                                <div key={item.zpid} className={`bg-white p-6 rounded-[2rem] border transition-all ${item.status === 'completed' ? 'border-emerald-100 shadow-emerald-50' : item.status === 'error' ? 'border-rose-100 shadow-rose-50' : 'border-slate-100 shadow-lg shadow-slate-200/50'}`}>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
+                                                item.status === 'error' ? 'bg-rose-50 text-rose-600' :
+                                                    item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
+                                                        'bg-slate-50 text-slate-400'
+                                                }`}>
+                                                <i className={`fa-solid ${item.status === 'completed' ? 'fa-circle-check' :
+                                                    item.status === 'error' ? 'fa-circle-xmark' :
+                                                        item.status === 'running' ? 'fa-spinner animate-spin' :
+                                                            'fa-hourglass-start'
+                                                    }`}></i>
+                                            </div>
+                                            <span className="text-sm font-black text-slate-900 truncate">{item.address}</span>
+                                        </div>
+                                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
                                             item.status === 'error' ? 'bg-rose-50 text-rose-600' :
                                                 item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
-                                                    'bg-slate-50 text-slate-400'
+                                                    'bg-slate-100 text-slate-400'
                                             }`}>
-                                            <i className={`fa-solid ${item.status === 'completed' ? 'fa-circle-check' :
-                                                item.status === 'error' ? 'fa-circle-xmark' :
-                                                    item.status === 'running' ? 'fa-spinner animate-spin' :
-                                                        'fa-hourglass-start'
-                                                }`}></i>
-                                        </div>
-                                        <span className="text-sm font-black text-slate-900 truncate">{item.address}</span>
+                                            {item.status}
+                                        </span>
                                     </div>
-                                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
-                                        item.status === 'error' ? 'bg-rose-50 text-rose-600' :
-                                            item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
-                                                'bg-slate-100 text-slate-400'
-                                        }`}>
-                                        {item.status}
-                                    </span>
-                                </div>
 
-                                {item.status === 'running' && item.progress && (
-                                    <div className="space-y-3 animate-in fade-in">
-                                        <div className="flex justify-between text-[10px] font-black uppercase tracking-tighter text-slate-400">
-                                            <div className="flex items-center gap-2">
-                                                <span>{item.progress.step}</span>
-                                                <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                                                <span className="font-mono text-indigo-500">
-                                                    {item.startTime ? Math.floor((Date.now() - item.startTime) / 1000) : 0}s
-                                                </span>
+                                    {item.status === 'running' && item.progress && (
+                                        <div className="space-y-3 animate-in fade-in">
+                                            <div className="flex justify-between text-[10px] font-black uppercase tracking-tighter text-slate-400">
+                                                <div className="flex items-center gap-2">
+                                                    <span>{item.progress.step}</span>
+                                                    <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                                    <span className="font-mono text-indigo-500">
+                                                        {item.startTime ? Math.floor((Date.now() - item.startTime) / 1000) : 0}s
+                                                    </span>
+                                                </div>
+                                                <span className="text-indigo-600">Active</span>
                                             </div>
-                                            <span className="text-indigo-600">Active</span>
+                                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-indigo-600 transition-all duration-500 ease-out"
+                                                    style={{ width: `${(100 / 9) * (['Geocoding', 'Status Check', 'Property Data', 'Gallery', 'Visual AI', 'Spatial AI', 'Market AI', 'Quality Audit', 'Narrative AI'].indexOf(item.progress.step) + 1)}%` }}
+                                                ></div>
+                                            </div>
+                                            <p className="text-[11px] text-slate-500 font-medium italic">
+                                                {item.progress.message}
+                                            </p>
                                         </div>
-                                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                            <div
-                                                className="h-full bg-indigo-600 transition-all duration-500 ease-out"
-                                                style={{ width: `${(100 / 9) * (['Geocoding', 'Status Check', 'Property Data', 'Gallery', 'Visual AI', 'Spatial AI', 'Market AI', 'Quality Audit', 'Narrative AI'].indexOf(item.progress.step) + 1)}%` }}
-                                            ></div>
-                                        </div>
-                                        <p className="text-[11px] text-slate-500 font-medium italic">
-                                            {item.progress.message}
+                                    )}
+
+                                    {item.status === 'error' && (
+                                        <p className="text-[11px] text-rose-600 font-medium bg-rose-50 p-3 rounded-xl border border-rose-100">
+                                            <i className="fa-solid fa-triangle-exclamation mr-2"></i>
+                                            {item.error}
                                         </p>
-                                    </div>
-                                )}
+                                    )}
 
-                                {item.status === 'error' && (
-                                    <p className="text-[11px] text-rose-600 font-medium bg-rose-50 p-3 rounded-xl border border-rose-100">
-                                        <i className="fa-solid fa-triangle-exclamation mr-2"></i>
-                                        {item.error}
-                                    </p>
-                                )}
-
-                                {item.status === 'completed' && (
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest bg-emerald-50 py-2 px-4 rounded-xl w-fit">
-                                            <i className="fa-solid fa-check"></i>
-                                            Intelligence Suite Ready
+                                    {item.status === 'completed' && (
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest bg-emerald-50 py-2 px-4 rounded-xl w-fit">
+                                                <i className="fa-solid fa-check"></i>
+                                                Intelligence Suite Ready
+                                            </div>
+                                            {item.startTime && item.endTime && (
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    Total: <span className="text-slate-900 font-mono">{Math.floor((item.endTime - item.startTime) / 1000)}s</span>
+                                                </span>
+                                            )}
                                         </div>
-                                        {item.startTime && item.endTime && (
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                                Total: <span className="text-slate-900 font-mono">{Math.floor((item.endTime - item.startTime) / 1000)}s</span>
-                                            </span>
-                                        )}
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Ingestion Summary Report */}
+                {ingestionReport && (
+                    <div className="mt-16 bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl p-10 animate-in fade-in zoom-in duration-500">
+                        <div className="flex items-center gap-6 mb-10 pb-8 border-b border-slate-100">
+                            <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
+                                <i className="fa-solid fa-chart-line text-2xl"></i>
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-black text-slate-900">Ingestion Usage Report</h2>
+                                <p className="text-sm font-bold text-slate-500 uppercase tracking-[0.2em] mt-1">Audit of intelligence pipeline execution</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            {/* Gemini Summary */}
+                            <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 group hover:border-indigo-200 transition-all">
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-indigo-600 shadow-sm">
+                                        <i className="fa-solid fa-brain"></i>
                                     </div>
-                                )}
+                                    <span className="text-xs font-black uppercase tracking-widest text-slate-500">Gemini AI</span>
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-baseline">
+                                        <span className="text-sm font-bold text-slate-600">Total Calls</span>
+                                        <span className="text-2xl font-black text-slate-900">{ingestionReport.llmLogs.length}</span>
+                                    </div>
+                                    <div className="flex justify-between items-baseline">
+                                        <span className="text-sm font-bold text-slate-600">Total Tokens</span>
+                                        <span className="text-2xl font-black text-indigo-600">
+                                            {(ingestionReport.llmLogs.reduce((acc, log) => acc + (log.usage_metadata?.totalTokenCount || 0), 0)).toLocaleString()}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
-                        ))}
-                    </div>
-                </div>
-            )}
 
-            {/* Ingestion Summary Report */}
-            {ingestionReport && (
-                <div className="mt-16 bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl p-10 animate-in fade-in zoom-in duration-500">
-                    <div className="flex items-center gap-6 mb-10 pb-8 border-b border-slate-100">
-                        <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
-                            <i className="fa-solid fa-chart-line text-2xl"></i>
-                        </div>
-                        <div>
-                            <h2 className="text-2xl font-black text-slate-900">Ingestion Usage Report</h2>
-                            <p className="text-sm font-bold text-slate-500 uppercase tracking-[0.2em] mt-1">Audit of intelligence pipeline execution</p>
-                        </div>
-                    </div>
+                            {/* API Summary */}
+                            <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 group hover:border-emerald-200 transition-all">
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-emerald-600 shadow-sm">
+                                        <i className="fa-solid fa-cloud-arrow-down"></i>
+                                    </div>
+                                    <span className="text-xs font-black uppercase tracking-widest text-slate-500">External APIs</span>
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-baseline">
+                                        <span className="text-sm font-bold text-slate-600">RapidAPI Calls</span>
+                                        <span className="text-2xl font-black text-slate-900">
+                                            {ingestionReport.apiLogs.filter(l => l.api_name === 'RapidAPI').length}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-baseline">
+                                        <span className="text-sm font-bold text-slate-600">Radar Geocoding</span>
+                                        <span className="text-2xl font-black text-slate-900">
+                                            {ingestionReport.apiLogs.filter(l => l.api_name === 'Radar').length}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        {/* Gemini Summary */}
-                        <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 group hover:border-indigo-200 transition-all">
-                            <div className="flex items-center gap-4 mb-6">
-                                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-indigo-600 shadow-sm">
-                                    <i className="fa-solid fa-brain"></i>
+                            {/* Performance Summary */}
+                            <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 group hover:border-amber-200 transition-all">
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-amber-600 shadow-sm">
+                                        <i className="fa-solid fa-bolt"></i>
+                                    </div>
+                                    <span className="text-xs font-black uppercase tracking-widest text-slate-500">System Speed</span>
                                 </div>
-                                <span className="text-xs font-black uppercase tracking-widest text-slate-500">Gemini AI</span>
-                            </div>
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-baseline">
-                                    <span className="text-sm font-bold text-slate-600">Total Calls</span>
-                                    <span className="text-2xl font-black text-slate-900">{ingestionReport.llmLogs.length}</span>
-                                </div>
-                                <div className="flex justify-between items-baseline">
-                                    <span className="text-sm font-bold text-slate-600">Total Tokens</span>
-                                    <span className="text-2xl font-black text-indigo-600">
-                                        {(ingestionReport.llmLogs.reduce((acc, log) => acc + (log.usage_metadata?.totalTokenCount || 0), 0)).toLocaleString()}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* API Summary */}
-                        <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 group hover:border-emerald-200 transition-all">
-                            <div className="flex items-center gap-4 mb-6">
-                                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-emerald-600 shadow-sm">
-                                    <i className="fa-solid fa-cloud-arrow-down"></i>
-                                </div>
-                                <span className="text-xs font-black uppercase tracking-widest text-slate-500">External APIs</span>
-                            </div>
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-baseline">
-                                    <span className="text-sm font-bold text-slate-600">RapidAPI Calls</span>
-                                    <span className="text-2xl font-black text-slate-900">
-                                        {ingestionReport.apiLogs.filter(l => l.api_name === 'RapidAPI').length}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-baseline">
-                                    <span className="text-sm font-bold text-slate-600">Radar Geocoding</span>
-                                    <span className="text-2xl font-black text-slate-900">
-                                        {ingestionReport.apiLogs.filter(l => l.api_name === 'Radar').length}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Performance Summary */}
-                        <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 group hover:border-amber-200 transition-all">
-                            <div className="flex items-center gap-4 mb-6">
-                                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-amber-600 shadow-sm">
-                                    <i className="fa-solid fa-bolt"></i>
-                                </div>
-                                <span className="text-xs font-black uppercase tracking-widest text-slate-500">System Speed</span>
-                            </div>
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-baseline">
-                                    <span className="text-sm font-bold text-slate-600">Avg API Latency</span>
-                                    <span className="text-2xl font-black text-slate-900">
-                                        {Math.round(ingestionReport.apiLogs.reduce((acc, log) => acc + (log.response_time_ms || 0), 0) / (ingestionReport.apiLogs.length || 1))}ms
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-baseline">
-                                    <span className="text-sm font-bold text-slate-600">Avg AI Response</span>
-                                    <span className="text-2xl font-black text-slate-900">
-                                        {Math.round(ingestionReport.llmLogs.length > 0 ? (ingestionReport.llmLogs.reduce((acc, log) => {
-                                            if (log.response_received_at && log.request_sent_at) {
-                                                const start = (log.request_sent_at as any).toMillis?.() || 0;
-                                                const end = (log.response_received_at as any).toMillis?.() || 0;
-                                                return acc + (end - start);
-                                            }
-                                            return acc;
-                                        }, 0) / ingestionReport.llmLogs.length) / 1000 : 0)}s
-                                    </span>
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-baseline">
+                                        <span className="text-sm font-bold text-slate-600">Avg API Latency</span>
+                                        <span className="text-2xl font-black text-slate-900">
+                                            {Math.round(ingestionReport.apiLogs.reduce((acc, log) => acc + (log.response_time_ms || 0), 0) / (ingestionReport.apiLogs.length || 1))}ms
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-baseline">
+                                        <span className="text-sm font-bold text-slate-600">Avg AI Response</span>
+                                        <span className="text-2xl font-black text-slate-900">
+                                            {Math.round(ingestionReport.llmLogs.length > 0 ? (ingestionReport.llmLogs.reduce((acc, log) => {
+                                                if (log.response_received_at && log.request_sent_at) {
+                                                    const start = (log.request_sent_at as any).toMillis?.() || 0;
+                                                    const end = (log.response_received_at as any).toMillis?.() || 0;
+                                                    return acc + (end - start);
+                                                }
+                                                return acc;
+                                            }, 0) / ingestionReport.llmLogs.length) / 1000 : 0)}s
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="mt-12 overflow-x-auto rounded-3xl border border-slate-100">
-                        <table className="w-full text-left">
-                            <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                <tr>
-                                    <th className="p-5">Call Type</th>
-                                    <th className="p-5">Endpoint / Agent</th>
-                                    <th className="p-5 text-right">Tokens / Time</th>
-                                    <th className="p-5 text-right">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {ingestionReport.llmLogs.sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0)).map(log => (
-                                    <tr key={log.id} className="text-sm transition-colors hover:bg-slate-50/50">
-                                        <td className="p-5">
-                                            <div className="flex items-center gap-2">
-                                                <i className="fa-solid fa-robot text-indigo-500 w-4"></i>
-                                                <span className="font-bold text-slate-900">Gemini</span>
-                                            </div>
-                                        </td>
-                                        <td className="p-5 font-medium text-slate-600">{log.prompt_filename || 'Unknown Agent'}</td>
-                                        <td className="p-5 text-right font-mono text-indigo-600 font-bold">
-                                            {log.usage_metadata?.totalTokenCount || 0} tkn
-                                        </td>
-                                        <td className="p-5 text-right">
-                                            <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${log.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                                {log.status}
-                                            </span>
-                                        </td>
+                        <div className="mt-12 overflow-x-auto rounded-3xl border border-slate-100">
+                            <table className="w-full text-left">
+                                <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                    <tr>
+                                        <th className="p-5">Call Type</th>
+                                        <th className="p-5">Endpoint / Agent</th>
+                                        <th className="p-5 text-right">Tokens / Time</th>
+                                        <th className="p-5 text-right">Status</th>
                                     </tr>
-                                ))}
-                                {ingestionReport.apiLogs.sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0)).map(log => (
-                                    <tr key={log.id} className="text-sm transition-colors hover:bg-slate-50/50">
-                                        <td className="p-5">
-                                            <div className="flex items-center gap-2">
-                                                <i className={`fa-solid ${log.api_name === 'Radar' ? 'fa-location-crosshairs text-emerald-500' : 'fa-server text-blue-500'} w-4`}></i>
-                                                <span className="font-bold text-slate-900">{log.api_name}</span>
-                                            </div>
-                                        </td>
-                                        <td className="p-5 font-medium text-slate-600">{log.endpoint}</td>
-                                        <td className="p-5 text-right font-mono text-slate-500">
-                                            {log.response_time_ms ? `${log.response_time_ms}ms` : '--'}
-                                        </td>
-                                        <td className="p-5 text-right">
-                                            <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${log.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                                {log.status}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {ingestionReport.llmLogs.sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0)).map(log => (
+                                        <tr key={log.id} className="text-sm transition-colors hover:bg-slate-50/50">
+                                            <td className="p-5">
+                                                <div className="flex items-center gap-2">
+                                                    <i className="fa-solid fa-robot text-indigo-500 w-4"></i>
+                                                    <span className="font-bold text-slate-900">Gemini</span>
+                                                </div>
+                                            </td>
+                                            <td className="p-5 font-medium text-slate-600">{log.prompt_filename || 'Unknown Agent'}</td>
+                                            <td className="p-5 text-right font-mono text-indigo-600 font-bold">
+                                                {log.usage_metadata?.totalTokenCount || 0} tkn
+                                            </td>
+                                            <td className="p-5 text-right">
+                                                <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${log.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                    {log.status}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {ingestionReport.apiLogs.sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0)).map(log => (
+                                        <tr key={log.id} className="text-sm transition-colors hover:bg-slate-50/50">
+                                            <td className="p-5">
+                                                <div className="flex items-center gap-2">
+                                                    <i className={`fa-solid ${log.api_name === 'Radar' ? 'fa-location-crosshairs text-emerald-500' : 'fa-server text-blue-500'} w-4`}></i>
+                                                    <span className="font-bold text-slate-900">{log.api_name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="p-5 font-medium text-slate-600">{log.endpoint}</td>
+                                            <td className="p-5 text-right font-mono text-slate-500">
+                                                {log.response_time_ms ? `${log.response_time_ms}ms` : '--'}
+                                            </td>
+                                            <td className="p-5 text-right">
+                                                <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${log.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                    {log.status}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Legacy Log (kept small for debugging overflow) */}
-            {statusLog.length > 0 && (
-                <div className="mt-12 p-6 bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl shadow-slate-900/20 opacity-50 hover:opacity-100 transition-opacity">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                        System Event Log
+                {/* Ingestion Console (Available in both, but emphasized in ingestion mode) */}
+                {statusLog.length > 0 && (
+                    <div className={`mt-12 p-6 bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl shadow-slate-900/20 transition-all ${viewMode === 'ingestion' ? 'opacity-100' : 'opacity-40 hover:opacity-100'}`}>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                                System Event Log
+                            </div>
+                            <span className="text-[9px] font-mono opacity-50">{statusLog.length} events logged</span>
+                        </div>
+                        <div className={`${viewMode === 'ingestion' ? 'max-h-64' : 'max-h-24'} overflow-y-auto font-mono text-[11px] text-slate-300 space-y-1.5`}>
+                            {statusLog.map((log, i) => (
+                                <div key={i} className="border-l-2 border-slate-800 pl-3 py-0.5 animate-in slide-in-from-left-2">{log}</div>
+                            ))}
+                        </div>
                     </div>
-                    <div className="max-h-24 overflow-y-auto font-mono text-[11px] text-slate-300 space-y-1.5">
-                        {statusLog.map((log, i) => (
-                            <div key={i} className="border-l-2 border-slate-800 pl-3 py-0.5">{log}</div>
-                        ))}
-                    </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 };
