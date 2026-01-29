@@ -21,7 +21,7 @@ interface IngestionJob {
     error?: string;
 }
 
-const CityDataTab: React.FC = () => {
+const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => void }> = ({ onNavigate }) => {
     const [city, setCity] = useState('');
     // State removed as per new API requirements
     const [listings, setListings] = useState<any[]>([]);
@@ -407,7 +407,7 @@ const CityDataTab: React.FC = () => {
     };
 
     // Table Row Component
-    const ListingRow = ({ item }: { item: any }) => {
+    const ListingRow = ({ item }: { item: any, key?: any }) => {
         const isSelected = selectedIds.has(item.property_id);
         const isCached = cachedPropertyIds.has(item.property_id);
 
@@ -446,7 +446,16 @@ const CityDataTab: React.FC = () => {
                             )}
                         </div>
                         <div>
-                            <div className="font-bold text-slate-900 text-sm">{item.location?.address?.line || 'Unknown Address'}</div>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const fullAddress = `${item.location?.address?.line}, ${item.location?.address?.city}, ${item.location?.address?.state_code} ${item.location?.address?.postal_code}`;
+                                    if (onNavigate) onNavigate('explore', fullAddress);
+                                }}
+                                className="font-bold text-slate-900 text-sm hover:text-indigo-600 hover:underline text-left transition-colors"
+                            >
+                                {item.location?.address?.line || 'Unknown Address'}
+                            </button>
                             <div className="text-xs text-slate-500">{item.location?.address?.city}, {item.location?.address?.state_code} {item.location?.address?.postal_code}</div>
                         </div>
                     </div>
@@ -545,7 +554,7 @@ const CityDataTab: React.FC = () => {
                         </div>
                     )}
 
-                    {Object.entries(groupedListings).map(([groupKey, groupItems]) => (
+                    {(Object.entries(groupedListings) as [string, any[]][]).map(([groupKey, groupItems]) => (
                         <div key={groupKey} className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
                             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                                 <div className="flex items-center gap-4">
@@ -562,7 +571,7 @@ const CityDataTab: React.FC = () => {
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => copyToClipboard(groupItems.map(l => l.location?.address?.line).join('\n'))}
+                                    onClick={() => copyToClipboard((groupItems as any[]).map(l => l.location?.address?.line).join('\n'))}
                                     className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm flex items-center gap-2"
                                 >
                                     <i className="fa-solid fa-copy"></i> Copy Addresses
@@ -572,8 +581,8 @@ const CityDataTab: React.FC = () => {
                                 <table className="w-full text-left">
                                     <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
                                         <tr>
-                                            <th className="p-4 w-12">
-                                                {/* Select All could go here if needed, but per-group is tricky. Keeping blank or 'Select' label. */}
+                                            <th className="p-4 w-12 text-center">
+                                                ID
                                             </th>
                                             <th className="p-4">Property</th>
                                             <th className="p-4 text-right">Price</th>
@@ -581,7 +590,7 @@ const CityDataTab: React.FC = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {groupItems.map((item, idx) => (
+                                        {(groupItems as any[]).map((item, idx) => (
                                             <ListingRow key={idx} item={item} />
                                         ))}
                                     </tbody>

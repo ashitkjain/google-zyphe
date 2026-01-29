@@ -1157,7 +1157,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         )}
 
                         {activeTab === 'city_data' && (
-                            <CityDataTab />
+                            <CityDataTab onNavigate={onNavigate} />
                         )}
 
                     </div>

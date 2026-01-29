@@ -152,16 +152,23 @@ const App: React.FC = () => {
       return;
     }
 
+    // Check if customPath is actually an address payload (doesn't start with /)
+    const isAddress = customPath && !customPath.startsWith('/');
+    if (newMode === 'explore' && isAddress) {
+      setAddress(customPath);
+      performSearch(customPath);
+    }
+
     setViewMode(newMode);
     let path = '/';
 
-    if (customPath) {
+    if (customPath && !isAddress) {
       path = customPath;
     } else if (newMode === 'guides') {
       path = '/guides';
     } else if (newMode === 'legal-disclaimer' || newMode === 'terms' || newMode === 'privacy') {
       path = newMode === 'legal-disclaimer' ? '/legal-disclaimer' : newMode === 'terms' ? '/terms' : '/privacy';
-    } else if (newMode === 'main') {
+    } else if (newMode === 'main' || newMode === 'explore') {
       path = currentUser?.role === 'realtor' ? '/realtor' : '/';
     } else {
       path = `/realtor/${newMode}`;
