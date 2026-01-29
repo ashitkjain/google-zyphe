@@ -24,7 +24,7 @@ interface Props {
   onToggleFavorite?: () => void;
 }
 
-type TabType = 'interior' | 'rooms' | 'exterior' | 'neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding';
+type TabType = 'interior' | 'rooms' | 'exterior' | 'neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding' | 'image_analysis';
 
 const CustomAIAnalysis: React.FC<Props> = ({
   analysis,
@@ -241,7 +241,8 @@ const CustomAIAnalysis: React.FC<Props> = ({
     community_pulse,
     image_quality_analysis,
     investment_research,
-    bidding_strategy
+    bidding_strategy,
+    image_by_image_analysis
   } = analysis;
 
   const tabs = [
@@ -253,6 +254,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
     { id: 'quality', label: 'Picture Quality Audit', icon: 'fa-camera-rotate' },
     { id: 'investment', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
     { id: 'bidding', label: 'Bidding Strategy', icon: 'fa-gavel' },
+    { id: 'image_analysis', label: 'Image by Image analysis', icon: 'fa-images' },
   ].filter(tab => allowedTabs.includes(tab.id));
 
   const getCleanDomain = (src: string) => {
@@ -638,6 +640,39 @@ const CustomAIAnalysis: React.FC<Props> = ({
     </div>
   );
 
+  const ImageAnalysisView = ({ data, images }: { data: string[]; images: string[] }) => (
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 max-w-5xl mx-auto space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {data.map((text, idx) => {
+          const imgUrl = images[idx];
+          return (
+            <div key={idx} className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden flex flex-col hover:shadow-xl transition-all group">
+              {imgUrl && (
+                <div className="relative h-64 overflow-hidden">
+                  <img
+                    src={imgUrl}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    alt={`Image ${idx + 1}`}
+                  />
+                  <div className="absolute top-4 left-4">
+                    <span className="px-4 py-2 bg-black/50 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-widest rounded-xl">
+                      Image {idx + 1}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <div className="p-8 space-y-4">
+                <p className="text-gray-800 font-sans font-normal text-[14px] leading-[1.7]">
+                  {text.replace(/^Image \d+[\s:]*/i, '')}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   const EmptyState = ({ section }: { section: string }) => (
     <div className="p-20 bg-white/50 rounded-[2rem] text-center border-2 border-dashed border-gray-200 flex flex-col items-center justify-center">
       <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6 text-gray-400">
@@ -846,6 +881,15 @@ const CustomAIAnalysis: React.FC<Props> = ({
                 <p className="text-indigo-700/70 text-lg font-medium">Analyzing DOM benchmarks and inventory pressure.</p>
               </div>
             ) : !bidding_strategy ? <EmptyState section="Bidding Strategy" /> : <BiddingView data={bidding_strategy} comps={propertyData?.comps} priceHistory={propertyData?.priceHistory} />}
+          </section>
+        )}
+        {activeTab === 'image_analysis' && (
+          <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {!image_by_image_analysis || image_by_image_analysis.length === 0 ? (
+              <EmptyState section="Image by Image Analysis" />
+            ) : (
+              <ImageAnalysisView data={image_by_image_analysis} images={propertyImages} />
+            )}
           </section>
         )}
       </div>

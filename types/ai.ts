@@ -132,6 +132,7 @@ export interface BiddingStrategyResult {
 
 export interface CustomAIAnalysisResult {
     report_title: string;
+    image_by_image_analysis?: string[];
     home_interior: {
         overall_description: string;
         design_style: {

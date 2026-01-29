@@ -15,8 +15,8 @@ export const APP_CONFIG = {
         bidding_strategy: 'gemini-2.5-flash', // Reverted to Flash as per user request
     },
     roleTabs: {
-        buyer: ['interior', 'rooms', 'exterior', 'neighborhood', 'pulse', 'investment', 'bidding'],
-        seller: ['quality'],
-        realtor: ['interior', 'rooms', 'exterior', 'neighborhood', 'pulse', 'quality', 'investment', 'bidding']
+        buyer: ['interior', 'rooms', 'exterior', 'neighborhood', 'pulse', 'image_analysis', 'investment', 'bidding'],
+        seller: ['quality', 'image_analysis'],
+        realtor: ['interior', 'rooms', 'exterior', 'neighborhood', 'pulse', 'quality', 'image_analysis', 'investment', 'bidding']
     }
 };
