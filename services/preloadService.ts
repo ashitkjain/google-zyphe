@@ -1,16 +1,12 @@
 
 import { normalizeAddress, fetchPropertyData, fetchPropertyImages } from './apiService.ts';
-import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, analyzeImageQuality, analyzeInvestmentResearch, analyzeBiddingStrategy, AiResponseError } from './geminiService.ts';
+import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, analyzeImageQuality, AiResponseError } from './geminiService.ts';
 import {
   savePropertyToCloud,
   saveVisualAnalysisToCloud,
   saveComprehensiveAnalysisToCloud,
   saveImageQualityAnalysisToCloud,
-  getImageQualityAnalysisFromCloud,
-  saveInvestmentResearchToCloud,
-  getInvestmentResearchFromCloud,
-  saveBiddingStrategyToCloud,
-  getBiddingStrategyFromCloud
+  getImageQualityAnalysisFromCloud
 } from './firebaseService.ts';
 import { PropertyData, CustomAIAnalysisResult } from '../types';
 
@@ -93,32 +89,6 @@ export const runFullIntelligencePipeline = async (
       }
     } else {
       onProgress({ step: 'Quality Audit', status: 'completed', message: 'Skipped (no images).' });
-    }
-
-    // 8.5 Investment AI
-    onProgress({ step: 'Investment AI', status: 'running', message: 'Analyzing local STR market performance...' });
-    const cachedInvestment = await getInvestmentResearchFromCloud(zpid);
-    if (cachedInvestment) {
-      visualResult.investment_research = cachedInvestment;
-      onProgress({ step: 'Investment AI', status: 'completed', message: 'Investment research restored from cache.' });
-    } else {
-      const investmentResult = await analyzeInvestmentResearch(enrichedData);
-      visualResult.investment_research = investmentResult;
-      await saveInvestmentResearchToCloud(zpid, investmentResult);
-      onProgress({ step: 'Investment AI', status: 'completed', message: 'Market performance analysis complete.' });
-    }
-
-    // 8.6 Bidding AI
-    onProgress({ step: 'Bidding AI', status: 'running', message: 'Calculating strategic bidding floor...' });
-    const cachedBidding = await getBiddingStrategyFromCloud(zpid);
-    if (cachedBidding) {
-      visualResult.bidding_strategy = cachedBidding;
-      onProgress({ step: 'Bidding AI', status: 'completed', message: 'Bidding strategy restored from cache.' });
-    } else {
-      const biddingResult = await analyzeBiddingStrategy(enrichedData);
-      visualResult.bidding_strategy = biddingResult;
-      await saveBiddingStrategyToCloud(zpid, biddingResult);
-      onProgress({ step: 'Bidding AI', status: 'completed', message: 'Strategic bidding model generated.' });
     }
 
     await saveVisualAnalysisToCloud(zpid, visualResult);

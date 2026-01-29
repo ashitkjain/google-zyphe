@@ -8,7 +8,7 @@ export const APP_CONFIG = {
         visual_analysis: true,
         image_quality: true,
         investment_research: true,
-        bidding_strategy: true,
+        bidding_strategy: false, // Explicitly disabled as per user request
     },
     models: {
         default: 'gemini-2.5-flash',

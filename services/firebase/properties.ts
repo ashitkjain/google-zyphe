@@ -11,8 +11,7 @@ import {
     CustomAIAnalysisResult,
     ComprehensiveAnalysisResult,
     ImageQualityAnalysisResult,
-    InvestmentResearchResult,
-    BiddingStrategyResult
+    InvestmentResearchResult
 } from "../../types";
 
 export const savePropertyToCloud = async (zpid: string, data: Partial<PropertyData>) => {
@@ -163,34 +162,6 @@ export const getInvestmentResearchFromCloud = async (zpid: string): Promise<Inve
         return docSnap.exists() ? (docSnap.data() as InvestmentResearchResult) : null;
     } catch (error) {
         handleFirestoreError(error, "getInvestmentResearchFromCloud");
-        return null;
-    }
-};
-
-export const saveBiddingStrategyToCloud = async (zpid: string, strategy: BiddingStrategyResult) => {
-    if (!db) return { success: false, error: "Database not initialized" };
-    try {
-        const docRef = doc(db, "bidding_strategies", zpid);
-        logFirestoreQuery('setDoc', 'bidding_strategies', { zpid });
-        await setDoc(docRef, {
-            ...sanitizeForFirestore(strategy),
-            timestamp: serverTimestamp()
-        });
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: handleFirestoreError(error, "saveBiddingStrategyToCloud") as string };
-    }
-};
-
-export const getBiddingStrategyFromCloud = async (zpid: string): Promise<BiddingStrategyResult | null> => {
-    if (!db) return null;
-    try {
-        const docRef = doc(db, "bidding_strategies", zpid);
-        logFirestoreQuery('getDoc', 'bidding_strategies', { zpid });
-        const docSnap = await getDoc(docRef);
-        return docSnap.exists() ? (docSnap.data() as BiddingStrategyResult) : null;
-    } catch (error) {
-        handleFirestoreError(error, "getBiddingStrategyFromCloud");
         return null;
     }
 };
