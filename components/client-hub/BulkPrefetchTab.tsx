@@ -7,12 +7,20 @@ interface PrefetchStatus {
     progress: PipelineProgress | null;
     status: 'idle' | 'running' | 'completed' | 'error';
     error?: string;
+    startTime?: number;
+    endTime?: number;
 }
 
 const BulkPrefetchTab: React.FC = () => {
     const [input, setInput] = useState('');
     const [queue, setQueue] = useState<PrefetchStatus[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [tick, setTick] = useState(0);
+
+    React.useEffect(() => {
+        const interval = setInterval(() => setTick(t => t + 1), 1000);
+        return () => clearInterval(interval);
+    }, []);
 
     const handleStart = async () => {
         const addresses = input
@@ -33,9 +41,10 @@ const BulkPrefetchTab: React.FC = () => {
 
         for (let i = 0; i < addresses.length; i++) {
             const currentAddr = addresses[i];
+            const startTime = Date.now();
 
             setQueue(prev => prev.map((item, idx) =>
-                idx === i ? { ...item, status: 'running' } : item
+                idx === i ? { ...item, status: 'running', startTime } : item
             ));
 
             try {
@@ -46,12 +55,12 @@ const BulkPrefetchTab: React.FC = () => {
                 });
 
                 setQueue(prev => prev.map((item, idx) =>
-                    idx === i ? { ...item, status: 'completed' } : item
+                    idx === i ? { ...item, status: 'completed', endTime: Date.now() } : item
                 ));
             } catch (err: any) {
                 console.error(`Prefetch failed for ${currentAddr}:`, err);
                 setQueue(prev => prev.map((item, idx) =>
-                    idx === i ? { ...item, status: 'error', error: err.message || 'Unknown error' } : item
+                    idx === i ? { ...item, status: 'error', error: err.message || 'Unknown error', endTime: Date.now() } : item
                 ));
             }
         }
@@ -158,7 +167,13 @@ const BulkPrefetchTab: React.FC = () => {
                                     {item.status === 'running' && item.progress && (
                                         <div className="space-y-3 animate-in fade-in">
                                             <div className="flex justify-between text-[10px] font-black uppercase tracking-tighter text-slate-400">
-                                                <span>{item.progress.step}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span>{item.progress.step}</span>
+                                                    <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                                    <span className="font-mono text-indigo-500">
+                                                        {item.startTime ? Math.floor((Date.now() - item.startTime) / 1000) : 0}s
+                                                    </span>
+                                                </div>
                                                 <span className="text-indigo-600">Active</span>
                                             </div>
                                             <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -181,9 +196,16 @@ const BulkPrefetchTab: React.FC = () => {
                                     )}
 
                                     {item.status === 'completed' && (
-                                        <div className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest bg-emerald-50 py-2 px-4 rounded-xl w-fit">
-                                            <i className="fa-solid fa-check"></i>
-                                            Intelligence Suite Ready
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest bg-emerald-50 py-2 px-4 rounded-xl w-fit">
+                                                <i className="fa-solid fa-check"></i>
+                                                Intelligence Suite Ready
+                                            </div>
+                                            {item.startTime && item.endTime && (
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    Total: <span className="text-slate-900 font-mono">{Math.floor((item.endTime - item.startTime) / 1000)}s</span>
+                                                </span>
+                                            )}
                                         </div>
                                     )}
                                 </div>
