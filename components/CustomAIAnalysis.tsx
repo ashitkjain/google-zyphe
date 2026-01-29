@@ -251,10 +251,10 @@ const CustomAIAnalysis: React.FC<Props> = ({
     { id: 'exterior', label: 'Exterior', icon: 'fa-tree' },
     { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
     { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
-    { id: 'quality', label: 'Picture Quality Audit', icon: 'fa-camera-rotate' },
     { id: 'investment', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
     { id: 'bidding', label: 'Bidding Strategy', icon: 'fa-gavel' },
     { id: 'image_analysis', label: 'Image by Image analysis', icon: 'fa-images' },
+    { id: 'quality', label: 'Picture Quality Audit', icon: 'fa-camera-rotate' },
   ].filter(tab => allowedTabs.includes(tab.id));
 
   const getCleanDomain = (src: string) => {

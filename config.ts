@@ -16,7 +16,7 @@ export const APP_CONFIG = {
     },
     roleTabs: {
         buyer: ['interior', 'rooms', 'exterior', 'neighborhood', 'pulse', 'image_analysis', 'investment', 'bidding'],
-        seller: ['quality', 'image_analysis'],
-        realtor: ['interior', 'rooms', 'exterior', 'neighborhood', 'pulse', 'quality', 'image_analysis', 'investment', 'bidding']
+        seller: ['image_analysis', 'quality'],
+        realtor: ['interior', 'rooms', 'exterior', 'neighborhood', 'pulse', 'image_analysis', 'investment', 'bidding', 'quality']
     }
 };
