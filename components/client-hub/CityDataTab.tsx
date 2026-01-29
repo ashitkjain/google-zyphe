@@ -6,8 +6,53 @@ const CityDataTab: React.FC = () => {
     const [city, setCity] = useState('');
     const [stateCode, setStateCode] = useState('');
     const [listings, setListings] = useState<any[]>([]);
+    const [suggestions, setSuggestions] = useState<any[]>([]);
+    const [loadingSuggestions, setLoadingSuggestions] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const handleAutoComplete = async (input: string) => {
+        setCity(input);
+        if (input.length < 3) {
+            setSuggestions([]);
+            return;
+        }
+
+        const config = APP_CONFIG.rapidapi;
+        if (!config.key) return;
+
+        setLoadingSuggestions(true);
+        const url = `https://${config.host}${config.endpoints.autoComplete}?input=${encodeURIComponent(input)}&limit=10`;
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-RapidAPI-Key': config.key,
+                    'X-RapidAPI-Host': config.host
+                }
+            });
+            const result = await response.json();
+            if (result.data) {
+                setSuggestions(result.data);
+            }
+        } catch (err) {
+            console.error('Autocomplete failed:', err);
+        } finally {
+            setLoadingSuggestions(false);
+        }
+    };
+
+    const selectSuggestion = (s: any) => {
+        if (s.area_type === 'postal_code' || s.postal_code) {
+            setCity(s.postal_code || s.mpr_id); // Zip search
+            setStateCode('');
+        } else {
+            setCity(s.city || s.area_type);
+            setStateCode(s.state_code || '');
+        }
+        setSuggestions([]);
+    };
 
     const handleSearch = async () => {
         if (!city && !stateCode) {
@@ -26,7 +71,7 @@ const CityDataTab: React.FC = () => {
         setListings([]);
 
         // RapidAPI Realty-in-us v3/list (POST)
-        const url = `https://${config.host}/properties/v3/list`;
+        const url = `https://${config.host}${config.endpoints.list}`;
 
         // Build the request body based on user logic and config defaults
         const isPostalCode = /^\d{5}(-\d{4})?$/.test(city.trim());
@@ -79,7 +124,7 @@ const CityDataTab: React.FC = () => {
             </div>
 
             {/* API Config & Search */}
-            <div className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-2xl shadow-slate-200/50 mb-12 relative overflow-hidden">
+            <div className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-2xl shadow-slate-200/50 mb-12 relative overflow-visible">
                 <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
                     <i className="fa-solid fa-server text-9xl"></i>
                 </div>
@@ -89,20 +134,47 @@ const CityDataTab: React.FC = () => {
                         Point 01: Realty-In-US v3/list (POST)
                     </span>
                     <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-md border border-emerald-100">
-                        High Speed Stream
+                        Autofill Active
                     </span>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                    <div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 relative">
+                    <div className="relative">
                         <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">Location or Zip</label>
                         <input
                             type="text"
                             value={city}
-                            onChange={(e) => setCity(e.target.value)}
-                            placeholder="e.g. Aspen or 90004"
+                            onChange={(e) => handleAutoComplete(e.target.value)}
+                            placeholder="Type a city (e.g. New York)..."
                             className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-indigo-500 transition-all font-medium text-sm shadow-inner"
                         />
+
+                        {/* Suggestions Dropdown */}
+                        {suggestions.length > 0 && (
+                            <div className="absolute z-50 left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2">
+                                {suggestions.map((s, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => selectSuggestion(s)}
+                                        className="w-full px-6 py-4 text-left hover:bg-slate-50 flex items-center justify-between group transition-colors"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <i className={`fa-solid ${s.area_type === 'postal_code' ? 'fa-envelope' : 'fa-location-dot'} text-slate-300 group-hover:text-indigo-500`}></i>
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold text-slate-800">{s.city ? `${s.city}, ${s.state_code}` : s.area_type.toUpperCase()}</span>
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{s.area_type} {s.postal_code && `• ${s.postal_code}`}</span>
+                                            </div>
+                                        </div>
+                                        <i className="fa-solid fa-chevron-right text-[10px] text-slate-200 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all"></i>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        {loadingSuggestions && (
+                            <div className="absolute right-4 top-11">
+                                <i className="fa-solid fa-circle-notch animate-spin text-indigo-400"></i>
+                            </div>
+                        )}
                     </div>
                     <div>
                         <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">State (Optional for Zip)</label>

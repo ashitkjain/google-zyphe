@@ -22,6 +22,10 @@ export const APP_CONFIG = {
     rapidapi: {
         key: 'ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f',
         host: 'realty-in-us.p.rapidapi.com',
+        endpoints: {
+            list: '/properties/v3/list',
+            autoComplete: '/locations/v2/auto-complete'
+        },
         defaults: {
             limit: 200,
             offset: 0,
