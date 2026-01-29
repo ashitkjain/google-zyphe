@@ -4,6 +4,7 @@ import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, anal
 import {
   savePropertyToCloud,
   saveVisualAnalysisToCloud,
+  getVisualAnalysisFromCloud,
   saveComprehensiveAnalysisToCloud,
   saveImageQualityAnalysisToCloud,
   getImageQualityAnalysisFromCloud
@@ -55,8 +56,17 @@ export const runFullIntelligencePipeline = async (
 
     // 5. Visual Intelligence
     onProgress({ step: 'Visual AI', status: 'running', message: 'Analyzing interior and style...' });
-    const visualResult = await analyzePropertyImages(images, enrichedData);
-    onProgress({ step: 'Visual AI', status: 'completed', message: 'Fresh visual analysis complete.' });
+
+    let visualResult: CustomAIAnalysisResult;
+    const cachedVisual = await getVisualAnalysisFromCloud(zpid);
+
+    if (cachedVisual) {
+      visualResult = cachedVisual;
+      onProgress({ step: 'Visual AI', status: 'completed', message: 'Visual analysis restored from cache.' });
+    } else {
+      visualResult = await analyzePropertyImages(images, enrichedData);
+      onProgress({ step: 'Visual AI', status: 'completed', message: 'Fresh visual analysis complete.' });
+    }
 
     // 6. Spatial AI
     onProgress({ step: 'Spatial AI', status: 'running', message: 'Analyzing neighborhood context...' });
