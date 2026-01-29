@@ -109,12 +109,6 @@ const BulkPrefetchTab: React.FC = () => {
                         </button>
                     </div>
 
-                    <div className="bg-amber-50 border border-amber-100 rounded-3xl p-6 flex gap-4">
-                        <i className="fa-solid fa-circle-info text-amber-500 mt-1"></i>
-                        <p className="text-sm text-amber-900/70 font-medium leading-relaxed">
-                            <strong>Note:</strong> Bulk ingestion consumes Gemini AI tokens for each property. Ensure you have sufficient quota before running large queues.
-                        </p>
-                    </div>
                 </div>
 
                 {/* Progress Tracking */}
@@ -140,22 +134,22 @@ const BulkPrefetchTab: React.FC = () => {
                                     <div className="flex items-center justify-between mb-4">
                                         <div className="flex items-center gap-3 overflow-hidden">
                                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
-                                                    item.status === 'error' ? 'bg-rose-50 text-rose-600' :
-                                                        item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
-                                                            'bg-slate-50 text-slate-400'
+                                                item.status === 'error' ? 'bg-rose-50 text-rose-600' :
+                                                    item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
+                                                        'bg-slate-50 text-slate-400'
                                                 }`}>
                                                 <i className={`fa-solid ${item.status === 'completed' ? 'fa-circle-check' :
-                                                        item.status === 'error' ? 'fa-circle-xmark' :
-                                                            item.status === 'running' ? 'fa-spinner animate-spin' :
-                                                                'fa-hourglass-start'
+                                                    item.status === 'error' ? 'fa-circle-xmark' :
+                                                        item.status === 'running' ? 'fa-spinner animate-spin' :
+                                                            'fa-hourglass-start'
                                                     }`}></i>
                                             </div>
                                             <span className="text-sm font-black text-slate-900 truncate">{item.address}</span>
                                         </div>
                                         <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
-                                                item.status === 'error' ? 'bg-rose-50 text-rose-600' :
-                                                    item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
-                                                        'bg-slate-100 text-slate-400'
+                                            item.status === 'error' ? 'bg-rose-50 text-rose-600' :
+                                                item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
+                                                    'bg-slate-100 text-slate-400'
                                             }`}>
                                             {item.status}
                                         </span>
