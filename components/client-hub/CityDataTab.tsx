@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { APP_CONFIG } from '../../config';
 import {
     saveZipMetadataBatch,
@@ -15,6 +15,19 @@ const CityDataTab: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [statusLog, setStatusLog] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
+
+    const groupedListings = useMemo(() => {
+        const groups: Record<string, any[]> = {};
+        listings.forEach(item => {
+            const city = item.location?.address?.city || 'Unknown City';
+            const state = item.location?.address?.state_code || 'Unknown State';
+            const key = `${city}, ${state}`;
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(item);
+        });
+        // Sort keys if needed, but for now object iteration order is loosely insertion order or alphabetical
+        return groups;
+    }, [listings]);
 
     const log = (message: string) => {
         console.log(message);
@@ -255,7 +268,7 @@ const CityDataTab: React.FC = () => {
 
     // Table Row Component
     const ListingRow = ({ item }: { item: any }) => (
-        <tr className="hover:bg-slate-50 transition-colors group border-b border-slate-100">
+        <tr className="hover:bg-slate-50 transition-colors group border-b border-slate-100 last:border-0">
             <td className="p-4">
                 <div className="flex items-center gap-4">
                     <div className="w-16 h-12 bg-slate-200 rounded-lg overflow-hidden flex-shrink-0">
@@ -354,40 +367,53 @@ const CityDataTab: React.FC = () => {
                 )}
             </div>
 
-            {/* Results Table */}
+            {/* Grouped Results */}
             {listings.length > 0 ? (
-                <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden">
-                    <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                        <div className="flex items-center gap-3">
-                            <span className="text-lg font-black text-slate-900">{listings.length} Properties</span>
-                            <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-widest rounded">Active</span>
+                <div className="space-y-12">
+                    {Object.entries(groupedListings).map(([groupKey, groupItems]) => (
+                        <div key={groupKey} className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+                            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                                        <i className="fa-solid fa-map-location-dot"></i>
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-black text-slate-900">{groupKey}</h2>
+                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                                            <span>{groupItems.length} Properties</span>
+                                            <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                            <span className="text-emerald-600">Active</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => copyToClipboard(groupItems.map(l => l.location?.address?.line).join('\n'))}
+                                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm flex items-center gap-2"
+                                >
+                                    <i className="fa-solid fa-copy"></i> Copy Addresses
+                                </button>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                        <tr>
+                                            <th className="p-4">Property</th>
+                                            <th className="p-4 text-right">Price</th>
+                                            <th className="p-4 text-center">Beds</th>
+                                            <th className="p-4 text-center">Baths</th>
+                                            <th className="p-4 text-center">Sqft</th>
+                                            <th className="p-4 text-right">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {groupItems.map((item, idx) => (
+                                            <ListingRow key={idx} item={item} />
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                        <button
-                            onClick={() => copyToClipboard(listings.map(l => l.location?.address?.line).join('\n'))}
-                            className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-2"
-                        >
-                            <i className="fa-solid fa-copy"></i> Copy All Addresses
-                        </button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                <tr>
-                                    <th className="p-4">Property</th>
-                                    <th className="p-4 text-right">Price</th>
-                                    <th className="p-4 text-center">Beds</th>
-                                    <th className="p-4 text-center">Baths</th>
-                                    <th className="p-4 text-center">Sqft</th>
-                                    <th className="p-4 text-right">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {listings.map((item, idx) => (
-                                    <ListingRow key={idx} item={item} />
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    ))}
                 </div>
             ) : (
                 !loading && !error && (
