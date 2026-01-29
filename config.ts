@@ -20,6 +20,16 @@ export const APP_CONFIG = {
         realtor: ['interior', 'rooms', 'exterior', 'neighborhood', 'pulse', 'image_analysis', 'investment', 'bidding', 'quality']
     },
     rapidapi: {
-        key: import.meta.env.VITE_RAPID_API_KEY || '',
+        key: 'ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f',
+        host: 'realty-in-us.p.rapidapi.com',
+        defaults: {
+            limit: 200,
+            offset: 0,
+            status: ["for_sale", "ready_to_build"],
+            sort: {
+                direction: "desc",
+                field: "list_date"
+            }
+        }
     }
 };

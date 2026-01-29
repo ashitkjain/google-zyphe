@@ -10,13 +10,13 @@ const CityDataTab: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
 
     const handleSearch = async () => {
-        if (!city || !stateCode) {
-            setError('Please provide City and State Code.');
+        if (!city && !stateCode) {
+            setError('Please provide a City or Postal Code.');
             return;
         }
 
-        const apiKey = APP_CONFIG.rapidapi.key;
-        if (!apiKey) {
+        const config = APP_CONFIG.rapidapi;
+        if (!config.key) {
             setError('RapidAPI Key not configured in system.');
             return;
         }
@@ -25,14 +25,25 @@ const CityDataTab: React.FC = () => {
         setError(null);
         setListings([]);
 
-        // RapidAPI Realty-in-us v3/list
-        const url = `https://realty-in-us.p.rapidapi.com/properties/v3/list?location=${encodeURIComponent(`${city}, ${stateCode}`)}&limit=42&offset=0&sort=newest`;
+        // RapidAPI Realty-in-us v3/list (POST)
+        const url = `https://${config.host}/properties/v3/list`;
+
+        // Build the request body based on user logic and config defaults
+        const isPostalCode = /^\d{5}(-\d{4})?$/.test(city.trim());
+
+        const body = {
+            ...config.defaults,
+            [isPostalCode ? 'postal_code' : 'location']: city.trim() + (stateCode && !isPostalCode ? `, ${stateCode.trim()}` : '')
+        };
+
         const options = {
-            method: 'GET',
+            method: 'POST',
             headers: {
-                'X-RapidAPI-Key': apiKey,
-                'X-RapidAPI-Host': 'realty-in-us.p.rapidapi.com'
-            }
+                'X-RapidAPI-Key': config.key,
+                'X-RapidAPI-Host': config.host,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
         };
 
         try {
@@ -75,26 +86,26 @@ const CityDataTab: React.FC = () => {
 
                 <div className="flex items-center gap-3 mb-8">
                     <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-md border border-indigo-100">
-                        Point 01: Realty-In-US v3/list
+                        Point 01: Realty-In-US v3/list (POST)
                     </span>
                     <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-md border border-emerald-100">
-                        Primary Source
+                        High Speed Stream
                     </span>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                     <div>
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">Target City</label>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">Location or Zip</label>
                         <input
                             type="text"
                             value={city}
                             onChange={(e) => setCity(e.target.value)}
-                            placeholder="e.g. Aspen"
+                            placeholder="e.g. Aspen or 90004"
                             className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-indigo-500 transition-all font-medium text-sm shadow-inner"
                         />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">State</label>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">State (Optional for Zip)</label>
                         <input
                             type="text"
                             value={stateCode}
@@ -112,7 +123,7 @@ const CityDataTab: React.FC = () => {
                         disabled={loading}
                         className="w-full md:w-auto px-12 py-5 bg-slate-900 border-b-4 border-slate-700 active:border-b-0 active:translate-y-1 hover:bg-slate-800 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl transition-all flex items-center justify-center gap-4"
                     >
-                        {loading ? <><i className="fa-solid fa-spinner animate-spin"></i> Initializing Stream...</> : <><i className="fa-solid fa-bolt"></i> Execute Query</>}
+                        {loading ? <><i className="fa-solid fa-spinner animate-spin"></i> Streaming Data...</> : <><i className="fa-solid fa-bolt"></i> Execute Query</>}
                     </button>
 
                     {error && (
