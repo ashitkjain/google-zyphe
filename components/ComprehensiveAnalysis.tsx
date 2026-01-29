@@ -64,7 +64,7 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
   };
 
   const SectionCard = ({ title, icon, content, colorClass = "text-gray-700" }: { title: string, icon: string, content: string, colorClass?: string }) => (
-    <div className="bg-white rounded-[2.5rem] p-10 md:p-12 border border-gray-100 shadow-sm mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="bg-white rounded-[2.5rem] pt-16 pb-10 px-10 md:pt-20 md:pb-12 md:px-12 border border-gray-100 shadow-sm mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center gap-4 mb-6">
         <i className={`fa-solid ${icon} text-indigo-600 text-lg`}></i>
         <h3 className="text-xl font-black text-gray-900 tracking-tight">{title}</h3>
@@ -76,8 +76,8 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
   );
 
   return (
-    <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-6 duration-1000 pb-20">
-      <div className="flex items-center justify-between mb-8 sticky top-24 z-40 bg-gray-50/80 backdrop-blur-md py-4">
+    <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-6 duration-1000 pb-20 px-4 sm:px-0">
+      <div className="flex items-center justify-between mb-12 sticky top-0 z-40 bg-gray-50/80 backdrop-blur-md py-6 -mx-4 px-4 sm:mx-0 sm:px-0">
         <button
           onClick={onBack}
           className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-xl font-black text-[10px] uppercase tracking-widest text-gray-700 shadow-sm hover:bg-gray-50 active:scale-95 transition-all group w-fit"
