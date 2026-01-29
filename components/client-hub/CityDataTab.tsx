@@ -54,6 +54,55 @@ const CityDataTab: React.FC = () => {
         setSuggestions([]);
     };
 
+    const fetchListings = async (zip: string) => {
+        const config = APP_CONFIG.rapidapi;
+        const cacheKey = `zyphe_cache_listings_${zip}`;
+
+        // 1. Check local cache first
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            try {
+                const parsed = JSON.parse(cached);
+                // Simple expiry: 24 hours
+                if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+                    return parsed.data;
+                }
+            } catch (e) {
+                console.warn('Cache parse failed for', zip);
+            }
+        }
+
+        // 2. Network Request
+        const url = `https://${config.host}${config.endpoints.list}`;
+        const body = {
+            ...config.defaults,
+            postal_code: zip
+        };
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-RapidAPI-Key': config.key,
+                'X-RapidAPI-Host': config.host,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+
+        const result = await response.json();
+        const data = result.data?.home_search?.results || [];
+
+        // 3. Save to cache
+        if (data.length > 0) {
+            localStorage.setItem(cacheKey, JSON.stringify({
+                timestamp: Date.now(),
+                data: data
+            }));
+        }
+
+        return data;
+    };
+
     const handleSearch = async () => {
         if (!city && !stateCode) {
             setError('Please provide a City or Postal Code.');
@@ -70,41 +119,82 @@ const CityDataTab: React.FC = () => {
         setError(null);
         setListings([]);
 
-        // RapidAPI Realty-in-us v3/list (POST)
-        const url = `https://${config.host}${config.endpoints.list}`;
-
-        // Build the request body based on user logic and config defaults
-        const isPostalCode = /^\d{5}(-\d{4})?$/.test(city.trim());
-
-        const body = {
-            ...config.defaults,
-            [isPostalCode ? 'postal_code' : 'location']: city.trim() + (stateCode && !isPostalCode ? `, ${stateCode.trim()}` : '')
-        };
-
-        const options = {
-            method: 'POST',
-            headers: {
-                'X-RapidAPI-Key': config.key,
-                'X-RapidAPI-Host': config.host,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-        };
-
         try {
-            const response = await fetch(url, options);
-            const result = await response.json();
+            const isPostalCodeInput = /^\d{5}(-\d{4})?$/.test(city.trim());
+            let targetZips: string[] = [];
 
-            if (result.data?.home_search?.results) {
-                setListings(result.data.home_search.results);
-            } else if (result.message) {
-                setError(result.message);
+            if (isPostalCodeInput) {
+                targetZips = [city.trim()];
             } else {
-                setError('No listings found or API response error.');
+                // Step 1: Resolve Zip Codes for the City
+                const autoUrl = `https://${config.host}${config.endpoints.autoComplete}?input=${encodeURIComponent(city.trim() + (stateCode ? `, ${stateCode.trim()}` : ''))}&limit=20`;
+                const autoResp = await fetch(autoUrl, {
+                    method: 'GET',
+                    headers: {
+                        'X-RapidAPI-Key': config.key,
+                        'X-RapidAPI-Host': config.host
+                    }
+                });
+                const autoResult = await autoResp.json();
+
+                // Filter suggestions for postal codes in the same city/state
+                if (autoResult.data) {
+                    targetZips = autoResult.data
+                        .filter((s: any) => s.area_type === 'postal_code' || s.postal_code)
+                        .map((s: any) => s.postal_code || s.mpr_id);
+                }
+
+                // Fallback if no specific zips found
+                if (targetZips.length === 0) {
+                    // Try searching by city name directly in the list API
+                    const url = `https://${config.host}${config.endpoints.list}`;
+                    const body = {
+                        ...config.defaults,
+                        location: city.trim() + (stateCode ? `, ${stateCode.trim()}` : '')
+                    };
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'X-RapidAPI-Key': config.key,
+                            'X-RapidAPI-Host': config.host,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(body)
+                    });
+                    const result = await response.json();
+                    setListings(result.data?.home_search?.results || []);
+                    setLoading(false);
+                    return;
+                }
             }
+
+            // Step 2: Fetch listings for each Zip (with cache)
+            const allResults: any[] = [];
+            const uniqueZips = [...new Set(targetZips)];
+
+            for (const zip of uniqueZips.slice(0, 5)) { // Limit to top 5 zips to avoid explosion
+                const zipListings = await fetchListings(zip);
+                allResults.push(...zipListings);
+            }
+
+            // Step 3: De-duplicate and Set
+            const seenIds = new Set();
+            const deDuplicated = allResults.filter(item => {
+                const id = item.property_id || item.listing_id;
+                if (seenIds.has(id)) return false;
+                seenIds.add(id);
+                return true;
+            });
+
+            setListings(deDuplicated);
+
+            if (deDuplicated.length === 0) {
+                setError('No listings found in the resolved areas.');
+            }
+
         } catch (err: any) {
             console.error(err);
-            setError(err.message || 'Failed to connect to RapidAPI.');
+            setError(err.message || 'Workflow failed. Please check your config.');
         } finally {
             setLoading(false);
         }
