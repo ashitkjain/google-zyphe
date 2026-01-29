@@ -421,12 +421,12 @@ const App: React.FC = () => {
     if (!propertyData) return;
 
     if (!force && customAnalysis) {
-      setViewMode('visual-report');
+      transitionToView('visual-report' as ViewMode);
       return;
     }
 
     setCustomAnalysisLoading(true);
-    setViewMode('visual-report');
+    transitionToView('visual-report' as ViewMode);
 
     try {
       if (!force && propertyData.zpid) {
@@ -488,12 +488,12 @@ const App: React.FC = () => {
     if (!propertyData || !customAnalysis) return;
 
     if (!force && comprehensiveAnalysis) {
-      setViewMode('comprehensive-report');
+      transitionToView('comprehensive-report' as ViewMode);
       return;
     }
 
     setComprehensiveLoading(true);
-    setViewMode('comprehensive-report');
+    transitionToView('comprehensive-report' as ViewMode);
 
     try {
       if (!force && propertyData.zpid) {
@@ -802,7 +802,7 @@ const App: React.FC = () => {
           onSignOut={handleSignOut}
           onBack={() => transitionToView('main')} // This might be redundant now
           exploreContent={exploreTab}
-          initialTab={(viewMode === 'main' ? 'explore' : viewMode) as any}
+          initialTab={(viewMode === 'main' || viewMode === 'visual-report' || viewMode === 'comprehensive-report' ? 'explore' : viewMode) as any}
           onNavigate={transitionToView}
           onUpdateProfile={(updates) => {
             setCurrentUser(prev => {

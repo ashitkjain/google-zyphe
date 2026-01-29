@@ -47,13 +47,9 @@ export const runFullIntelligencePipeline = async (
     await savePropertyToCloud(zpid, enrichedData);
     onProgress({ step: 'Property Data', status: 'completed', message: 'Fresh specs and market data retrieved.' });
 
-    // 4. Gallery
+    // 4. Gallery (Handled by Step 3)
     onProgress({ step: 'Gallery', status: 'running', message: 'Processing property images...' });
-    const images = await fetchPropertyImages(zpid);
-    if (images && images.length > 0) {
-      enrichedData.images = images;
-      await savePropertyToCloud(zpid, { images });
-    }
+    const images = enrichedData.images || [];
     onProgress({ step: 'Gallery', status: 'completed', message: images.length > 0 ? `${images.length} fresh images indexed.` : 'No images available.' });
 
     // 5. Visual Intelligence
