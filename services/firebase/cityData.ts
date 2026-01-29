@@ -1,4 +1,4 @@
-import { doc, setDoc, getDocs, collection, query, where, writeBatch, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDocs, getDoc, collection, query, where, writeBatch, serverTimestamp } from "firebase/firestore";
 import {
     db,
     sanitizeForFirestore,
@@ -98,10 +98,19 @@ export const saveZipListings = async (zipCode: string, listings: any[]) => {
     try {
         const docRef = doc(db, "zip_listings_cache", zipCode);
 
+        // Optimization: Cache ID, Location, Price, and Description (needed for UI)
+        const optimizedListings = listings.map(l => ({
+            property_id: l.property_id,
+            listing_id: l.listing_id,
+            location: l.location,
+            list_price: l.list_price,
+            description: l.description
+        }));
+
         logFirestoreQuery('setDoc', 'zip_listings_cache', { zipCode });
         await setDoc(docRef, {
             zipCode,
-            listings: sanitizeForFirestore(listings),
+            listings: sanitizeForFirestore(optimizedListings),
             timestamp: serverTimestamp()
         });
         return { success: true };
