@@ -29,18 +29,30 @@ const CityDataTab: React.FC = () => {
 
     const groupedListings = useMemo(() => {
         const groups: Record<string, any[]> = {};
+
+        // Determine search context
+        const isZipSearch = /^\d/.test(city.trim());
+        const searchCityTerm = city.split(',')[0].trim().toLowerCase();
+
         listings.forEach(item => {
-            const city = item.location?.address?.city || 'Unknown City';
+            const itemCity = item.location?.address?.city || 'Unknown City';
             const state = item.location?.address?.state_code || 'Unknown State';
 
+            // 1. State Filter (UI Toggle)
             if (stateFilter !== 'ALL' && state !== stateFilter) return;
 
-            const key = `${city}, ${state}`;
+            // 2. City Name Filter (User Intent)
+            // If user searched by name, strictly show ONLY that city (exclude neighbors in same zip)
+            if (!isZipSearch) {
+                if (itemCity.toLowerCase() !== searchCityTerm) return;
+            }
+
+            const key = `${itemCity}, ${state}`;
             if (!groups[key]) groups[key] = [];
             groups[key].push(item);
         });
         return groups;
-    }, [listings, stateFilter]);
+    }, [listings, stateFilter, city]);
 
     const log = (message: string) => {
         console.log(message);
