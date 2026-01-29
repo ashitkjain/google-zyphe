@@ -147,7 +147,7 @@ const CityDataTab: React.FC = () => {
     };
 
     const fetchListings = async (zip: string) => {
-        const config = APP_CONFIG.rapidapi;
+        const config = APP_CONFIG.rapidapi.realtyInUsApi;
 
         // 1. Check Cloud Cache first (Database)
         try {
@@ -213,7 +213,8 @@ const CityDataTab: React.FC = () => {
             return;
         }
 
-        const config = APP_CONFIG.rapidapi;
+        const config = APP_CONFIG.rapidapi.realtyInUsApi;
+        const zipConfig = APP_CONFIG.rapidapi.zipCodesApi;
         if (!config.key) {
             setError('RapidAPI Key not configured in system.');
             return;
@@ -254,12 +255,12 @@ const CityDataTab: React.FC = () => {
                     log(`Resolving Zip Codes for ${normalizedCity}...`);
                     // Step 2: Resolve Zip Codes for the City (Network) using US Zip Codes API
                     try {
-                        const zipApiUrl = `https://${config.zipCodesApi.host}${config.zipCodesApi.path}?q=${encodeURIComponent(normalizedCity)}`;
+                        const zipApiUrl = `https://${zipConfig.host}${zipConfig.path}?q=${encodeURIComponent(normalizedCity)}`;
                         const zipResp = await fetch(zipApiUrl, {
                             method: 'GET',
                             headers: {
-                                'X-RapidAPI-Key': config.zipCodesApi.key,
-                                'X-RapidAPI-Host': config.zipCodesApi.host
+                                'X-RapidAPI-Key': zipConfig.key,
+                                'X-RapidAPI-Host': zipConfig.host
                             }
                         });
 

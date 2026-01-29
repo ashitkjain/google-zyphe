@@ -20,19 +20,21 @@ export const APP_CONFIG = {
         realtor: ['interior', 'rooms', 'exterior', 'neighborhood', 'pulse', 'image_analysis', 'investment', 'bidding', 'quality']
     },
     rapidapi: {
-        key: process.env.RAPID_API_KEY || 'ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f',
-        host: 'realty-in-us.p.rapidapi.com',
-        endpoints: {
-            list: '/properties/v3/list',
-            autoComplete: '/locations/v2/auto-complete'
-        },
-        defaults: {
-            limit: 200,
-            offset: 0,
-            status: ["for_sale", "ready_to_build"],
-            sort: {
-                direction: "desc",
-                field: "list_date"
+        realtyInUsApi: {
+            key: process.env.RAPID_API_KEY || 'ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f',
+            host: 'realty-in-us.p.rapidapi.com',
+            endpoints: {
+                list: '/properties/v3/list',
+                autoComplete: '/locations/v2/auto-complete'
+            },
+            defaults: {
+                limit: 200,
+                offset: 0,
+                status: ["for_sale", "ready_to_build"],
+                sort: {
+                    direction: "desc",
+                    field: "list_date"
+                }
             }
         },
         zipCodesApi: {
