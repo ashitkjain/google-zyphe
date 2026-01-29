@@ -9,6 +9,17 @@ import {
 } from '../../services/firebase/cityData';
 import { savePropertyToCloud } from '../../services/firebase/properties';
 import { PropertyData } from '../../types';
+import { runFullIntelligencePipeline, PipelineProgress } from '../../services/preloadService';
+
+interface IngestionJob {
+    zpid: string;
+    address: string;
+    status: 'pending' | 'running' | 'completed' | 'error';
+    progress: PipelineProgress | null;
+    startTime?: number;
+    endTime?: number;
+    error?: string;
+}
 
 const CityDataTab: React.FC = () => {
     const [city, setCity] = useState('');
@@ -18,6 +29,7 @@ const CityDataTab: React.FC = () => {
     const [statusLog, setStatusLog] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [stateFilter, setStateFilter] = useState<string>('ALL');
+    const [ingestionQueue, setIngestionQueue] = useState<IngestionJob[]>([]);
 
     const availableStates = useMemo(() => {
         const states = new Set<string>();
@@ -81,20 +93,32 @@ const CityDataTab: React.FC = () => {
 
         setLoading(true);
         setError(null);
-        log(`Starting Parallel Bulk Ingest for ${selectedIds.size} properties...`);
+        log(`Starting Parallel Bulk Ingest & Intelligence Pipeline for ${selectedIds.size} properties...`);
 
         const targets = listings.filter(l => selectedIds.has(l.property_id));
+
+        // Initialize Queue
+        const newJobs: IngestionJob[] = targets.map(item => ({
+            zpid: item.property_id,
+            address: item.location?.address?.line || item.property_id,
+            status: 'pending',
+            progress: null
+        }));
+        setIngestionQueue(newJobs);
+
         let successCount = 0;
 
         // Create an array of Promises to run in parallel
         const ingestPromises = targets.map(async (item) => {
             const zpid = item.property_id;
             const address = item.location?.address?.line || zpid;
+            const startTime = Date.now();
+
+            // Mark running
+            setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime } : j));
 
             try {
-                log(`[Started] Ingesting ${address}...`);
-
-                // Map to PropertyData
+                // Map to PropertyData for initial save (fallback if pipeline fails)
                 const propertyData: Partial<PropertyData> = {
                     zpid: zpid,
                     address: item.location?.address?.line,
@@ -111,17 +135,20 @@ const CityDataTab: React.FC = () => {
                     listedDate: item.list_date
                 };
 
-                const result = await savePropertyToCloud(zpid, propertyData);
+                // Basic Save
+                await savePropertyToCloud(zpid, propertyData);
 
-                if (result.success) {
-                    log(`[Success] Ingested ${address}`);
-                    return true;
-                } else {
-                    log(`[Failed] Ingest ${address}: ${result.error}`);
-                    return false;
-                }
+                // Run Full Intelligence Pipeline
+                await runFullIntelligencePipeline(address, (progress) => {
+                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
+                });
+
+                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
+                return true;
+
             } catch (e: any) {
-                log(`[Error] Processing ${address}: ${e.message}`);
+                console.error(e);
+                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
                 return false;
             }
         });
@@ -130,7 +157,7 @@ const CityDataTab: React.FC = () => {
         const results = await Promise.all(ingestPromises);
         successCount = results.filter(r => r === true).length;
 
-        log(`Bulk Ingest Complete. Successfully ingested ${successCount} / ${targets.length} properties.`);
+        log(`Bulk Ingest Complete. Successfully processed ${successCount} / ${targets.length} properties.`);
         setLoading(false);
 
         if (successCount === targets.length) {
@@ -552,14 +579,101 @@ const CityDataTab: React.FC = () => {
                 )
             )}
 
-            {/* Status Log - Moved to Bottom */}
+            {/* Active Ingestion Jobs (Rich UI) */}
+            {ingestionQueue.length > 0 && (
+                <div className="mt-12 space-y-6">
+                    <div className="flex items-center justify-between px-4">
+                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Active Ingestion Jobs</h3>
+                        <span className="px-3 py-1 bg-slate-100 rounded-full text-[9px] font-black text-slate-500 uppercase">
+                            {ingestionQueue.filter(q => q.status === 'completed').length} / {ingestionQueue.length} Done
+                        </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4">
+                        {ingestionQueue.map((item) => (
+                            <div key={item.zpid} className={`bg-white p-6 rounded-[2rem] border transition-all ${item.status === 'completed' ? 'border-emerald-100 shadow-emerald-50' : item.status === 'error' ? 'border-rose-100 shadow-rose-50' : 'border-slate-100 shadow-lg shadow-slate-200/50'}`}>
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
+                                                item.status === 'error' ? 'bg-rose-50 text-rose-600' :
+                                                    item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
+                                                        'bg-slate-50 text-slate-400'
+                                            }`}>
+                                            <i className={`fa-solid ${item.status === 'completed' ? 'fa-circle-check' :
+                                                    item.status === 'error' ? 'fa-circle-xmark' :
+                                                        item.status === 'running' ? 'fa-spinner animate-spin' :
+                                                            'fa-hourglass-start'
+                                                }`}></i>
+                                        </div>
+                                        <span className="text-sm font-black text-slate-900 truncate">{item.address}</span>
+                                    </div>
+                                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
+                                            item.status === 'error' ? 'bg-rose-50 text-rose-600' :
+                                                item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
+                                                    'bg-slate-100 text-slate-400'
+                                        }`}>
+                                        {item.status}
+                                    </span>
+                                </div>
+
+                                {item.status === 'running' && item.progress && (
+                                    <div className="space-y-3 animate-in fade-in">
+                                        <div className="flex justify-between text-[10px] font-black uppercase tracking-tighter text-slate-400">
+                                            <div className="flex items-center gap-2">
+                                                <span>{item.progress.step}</span>
+                                                <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                                <span className="font-mono text-indigo-500">
+                                                    {item.startTime ? Math.floor((Date.now() - item.startTime) / 1000) : 0}s
+                                                </span>
+                                            </div>
+                                            <span className="text-indigo-600">Active</span>
+                                        </div>
+                                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-indigo-600 transition-all duration-500 ease-out"
+                                                style={{ width: `${(100 / 9) * (['Geocoding', 'Status Check', 'Property Data', 'Gallery', 'Visual AI', 'Spatial AI', 'Market AI', 'Quality Audit', 'Narrative AI'].indexOf(item.progress.step) + 1)}%` }}
+                                            ></div>
+                                        </div>
+                                        <p className="text-[11px] text-slate-500 font-medium italic">
+                                            {item.progress.message}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {item.status === 'error' && (
+                                    <p className="text-[11px] text-rose-600 font-medium bg-rose-50 p-3 rounded-xl border border-rose-100">
+                                        <i className="fa-solid fa-triangle-exclamation mr-2"></i>
+                                        {item.error}
+                                    </p>
+                                )}
+
+                                {item.status === 'completed' && (
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest bg-emerald-50 py-2 px-4 rounded-xl w-fit">
+                                            <i className="fa-solid fa-check"></i>
+                                            Intelligence Suite Ready
+                                        </div>
+                                        {item.startTime && item.endTime && (
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                Total: <span className="text-slate-900 font-mono">{Math.floor((item.endTime - item.startTime) / 1000)}s</span>
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Legacy Log (kept small for debugging overflow) */}
             {statusLog.length > 0 && (
-                <div className="mt-12 p-6 bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl shadow-slate-900/20">
+                <div className="mt-12 p-6 bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl shadow-slate-900/20 opacity-50 hover:opacity-100 transition-opacity">
                     <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                        Ingestion Log
+                        System Event Log
                     </div>
-                    <div className="max-h-48 overflow-y-auto font-mono text-[11px] text-slate-300 space-y-1.5">
+                    <div className="max-h-24 overflow-y-auto font-mono text-[11px] text-slate-300 space-y-1.5">
                         {statusLog.map((log, i) => (
                             <div key={i} className="border-l-2 border-slate-800 pl-3 py-0.5">{log}</div>
                         ))}
