@@ -23,6 +23,7 @@ import BestPracticesTab from './client-hub/BestPracticesTab';
 import GuidesTab from './client-hub/GuidesTab';
 import ReactivateTab from './client-hub/ReactivateTab';
 import CreativeStudioWidget from './client-hub/reactivate/components/CreativeStudioWidget';
+import BulkPrefetchTab from './client-hub/BulkPrefetchTab';
 import Footer from './Footer';
 
 interface Props {
@@ -40,7 +41,7 @@ const generateClientID = () => {
     return 'C-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 };
 
-type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio' | 'guides' | 'profile';
+type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio' | 'guides' | 'profile' | 'bulk_prefetch';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab, onNavigate, onUpdateProfile }) => {
     // Default to 'explore' if content is provided, otherwise 'leads'
@@ -490,6 +491,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
     const toolTabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
+        { id: 'bulk_prefetch', label: 'Bulk Ingestion', icon: 'fa-layer-group' },
         { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
         { id: 'creative_studio', label: 'Creative Studio', icon: 'fa-paintbrush' },
         { id: 'settings', label: 'Data Fields', icon: 'fa-sliders' },
@@ -1094,6 +1096,10 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
                         {activeTab === 'guides' && (
                             <GuidesTab onNavigate={onNavigate} />
+                        )}
+
+                        {activeTab === 'bulk_prefetch' && (
+                            <BulkPrefetchTab />
                         )}
 
                     </div>
