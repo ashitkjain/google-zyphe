@@ -71,7 +71,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     const showHamburger = isMobile || isNarrow;
 
     const [realtorProfile, setRealtorProfile] = useState<UserProfile | null>(null);
-    const [settingsSubTab, setSettingsSubTab] = useState<'statuses' | 'properties'>('statuses');
     const [isToolsOpen, setIsToolsOpen] = useState(false);
     const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -492,12 +491,15 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
     const toolTabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
-        { id: 'city_data', label: 'City Data', icon: 'fa-city' },
-        { id: 'bulk_prefetch', label: 'Bulk Ingestion', icon: 'fa-layer-group' },
         { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
         { id: 'creative_studio', label: 'Creative Studio', icon: 'fa-paintbrush' },
         { id: 'settings', label: 'Data Fields', icon: 'fa-sliders' },
         { id: 'best_practices', label: 'Best Practices', icon: 'fa-book-open' },
+    ];
+
+    const adminTabs: { id: HubTab; label: string; icon: string }[] = [
+        { id: 'city_data', label: 'City Data', icon: 'fa-city' },
+        { id: 'bulk_prefetch', label: 'Bulk Ingestion', icon: 'fa-layer-group' },
     ];
 
 
@@ -541,12 +543,12 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         <div className="relative h-full" ref={toolsRef}>
                             <button
                                 onClick={() => setIsToolsOpen(!isToolsOpen)}
-                                className={`relative h-full flex items-center gap-3 px-4 text-[10px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${toolTabs.some(t => t.id === activeTab) ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                                className={`relative h-full flex items-center gap-3 px-4 text-[10px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab)) ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
                             >
-                                <i className={`fa-solid fa-toolbox transition-transform group-hover:scale-110 ${toolTabs.some(t => t.id === activeTab) ? 'text-indigo-500' : 'text-slate-500'}`}></i>
+                                <i className={`fa-solid fa-toolbox transition-transform group-hover:scale-110 ${(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab)) ? 'text-indigo-500' : 'text-slate-500'}`}></i>
                                 Tools
                                 <i className={`fa-solid fa-chevron-down text-[8px] transition-transform duration-300 ${isToolsOpen ? 'rotate-180' : ''}`}></i>
-                                {toolTabs.some(t => t.id === activeTab) && (
+                                {(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab)) && (
                                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500 animate-in slide-in-from-bottom border-t border-indigo-400/50"></div>
                                 )}
                             </button>
@@ -567,6 +569,64 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                             {tab.label}
                                         </button>
                                     ))}
+
+                                    <div className="h-px bg-slate-100 my-1.5 mx-3"></div>
+
+                                    <div className="relative group/admin">
+                                        <button
+                                            className="w-full flex items-center justify-between gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 text-slate-500 hover:text-indigo-600"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <i className="fa-solid fa-lock w-4 text-center text-slate-400 group-hover/admin:text-indigo-600"></i>
+                                                Admin
+                                            </div>
+                                            <i className="fa-solid fa-chevron-right text-[8px] text-slate-300 group-hover/admin:text-indigo-400"></i>
+                                        </button>
+
+                                        {/* Horizontal Flyout Sub-menu */}
+                                        <div className="absolute left-full top-[-12px] ml-1 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl py-3 z-[110] hidden group-hover/admin:block animate-in fade-in slide-in-from-left-2 duration-200">
+                                            {adminTabs.map((tab) => (
+                                                <button
+                                                    key={tab.id}
+                                                    onClick={() => {
+                                                        setActiveTab(tab.id);
+                                                        setIsToolsOpen(false);
+                                                        if (onNavigate) onNavigate(tab.id as any, '');
+                                                    }}
+                                                    className={`w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-500'}`}
+                                                >
+                                                    <i className={`fa-solid ${tab.icon} w-4 text-center ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-400'}`}></i>
+                                                    {tab.label}
+                                                </button>
+                                            ))}
+
+                                            <div className="h-px bg-slate-100 my-1.5 mx-3"></div>
+                                            <button
+                                                onClick={async () => {
+                                                    if (window.confirm("Are you sure you want to RESET all data? This will delete all mock leads, tasks, and templates.")) {
+                                                        await handleResetAllData();
+                                                        setIsToolsOpen(false);
+                                                        alert("Data reset successfully.");
+                                                    }
+                                                }}
+                                                className="w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-rose-50 text-slate-500 hover:text-rose-600"
+                                            >
+                                                <i className="fa-solid fa-trash-can w-4 text-center text-rose-400"></i>
+                                                Reset Data
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    await handleSeedManualMockData();
+                                                    setIsToolsOpen(false);
+                                                    alert("Mock data seeded successfully.");
+                                                }}
+                                                className="w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-indigo-50 text-slate-500 hover:text-indigo-600"
+                                            >
+                                                <i className="fa-solid fa-database w-4 text-center text-indigo-400"></i>
+                                                Seed Mock Data
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -675,34 +735,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                         <span className="text-xs font-bold text-slate-700 group-hover:text-slate-900">Remove a client</span>
                                     </button>
 
-                                    <button
-                                        onClick={async () => {
-                                            if (window.confirm("Are you sure you want to RESET all data? This will delete all mock leads, tasks, and templates.")) {
-                                                await handleResetAllData();
-                                                alert("Data reset successfully.");
-                                            }
-                                        }}
-                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-rose-50 rounded-xl transition-colors group"
-                                    >
-                                        <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center group-hover:bg-rose-100 transition-colors">
-                                            <i className="fa-solid fa-trash-can text-xs"></i>
-                                        </div>
-                                        <span className="text-xs font-bold text-slate-700 group-hover:text-rose-600">Reset Data</span>
-                                    </button>
-
-                                    <button
-                                        onClick={async () => {
-                                            await handleSeedManualMockData();
-                                            alert("Mock data seeded successfully.");
-                                        }}
-                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-indigo-50 rounded-xl transition-colors group"
-                                    >
-                                        <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
-                                            <i className="fa-solid fa-database text-xs"></i>
-                                        </div>
-                                        <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-600">Seed Mock Data</span>
-                                    </button>
-
                                     <div className="h-px bg-slate-100 my-1 mx-2"></div>
 
                                     <button
@@ -756,7 +788,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         <div className="space-y-1.5 pt-2">
                             <button
                                 onClick={() => setIsMobileToolsExpanded(!isMobileToolsExpanded)}
-                                className={`flex items-center justify-between w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${toolTabs.some(t => t.id === activeTab && t.id !== 'settings') || (activeTab === 'settings' && isMobileToolsExpanded) ? 'text-indigo-400' : 'text-slate-400 hover:text-white bg-slate-800/50 border border-white/5'}`}
+                                className={`flex items-center justify-between w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab) || isMobileToolsExpanded) ? 'text-indigo-400' : 'text-slate-400 hover:text-white bg-slate-800/50 border border-white/5'}`}
                             >
                                 <div className="flex items-center gap-4">
                                     <i className="fa-solid fa-toolbox w-5 text-center text-xs"></i>
@@ -781,6 +813,50 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                             {tab.label === 'Data Fields' ? 'Data Fields' : tab.label}
                                         </button>
                                     ))}
+
+                                    <div className="h-px bg-white/5 my-2 mx-4"></div>
+                                    <div className="px-4 py-2 text-[8px] font-black uppercase tracking-[0.2em] text-slate-500">Admin</div>
+
+                                    {adminTabs.map((tab) => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => {
+                                                setActiveTab(tab.id as HubTab);
+                                                setIsMobileMenuOpen(false);
+                                                if (onNavigate) onNavigate(tab.id as any, '');
+                                            }}
+                                            className={`flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] transition-all ${activeTab === tab.id ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300'}`}
+                                        >
+                                            <i className={`fa-solid ${tab.icon} w-5 text-center text-[10px]`}></i>
+                                            {tab.label}
+                                        </button>
+                                    ))}
+
+                                    <div className="h-px bg-white/5 my-2 mx-4"></div>
+                                    <button
+                                        onClick={async () => {
+                                            if (window.confirm("Are you sure you want to RESET all data? This will delete all mock leads, tasks, and templates.")) {
+                                                await handleResetAllData();
+                                                setIsMobileMenuOpen(false);
+                                                alert("Data reset successfully.");
+                                            }
+                                        }}
+                                        className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-rose-400 transition-all"
+                                    >
+                                        <i className="fa-solid fa-trash-can w-5 text-center text-[10px]"></i>
+                                        Reset Data
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            await handleSeedManualMockData();
+                                            setIsMobileMenuOpen(false);
+                                            alert("Mock data seeded successfully.");
+                                        }}
+                                        className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-indigo-400 transition-all"
+                                    >
+                                        <i className="fa-solid fa-database w-5 text-center text-[10px]"></i>
+                                        Seed Mock Data
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -819,28 +895,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                     >
                                         <i className="fa-solid fa-user-plus w-5 text-center text-[10px]"></i>
                                         Add a client
-                                    </button>
-                                    <button
-                                        onClick={async () => {
-                                            if (window.confirm("Are you sure you want to RESET all data? This will delete all mock leads, tasks, and templates.")) {
-                                                await handleResetAllData();
-                                                alert("Data reset successfully.");
-                                            }
-                                        }}
-                                        className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-rose-400 transition-all"
-                                    >
-                                        <i className="fa-solid fa-trash-can w-5 text-center text-[10px]"></i>
-                                        Reset Data
-                                    </button>
-                                    <button
-                                        onClick={async () => {
-                                            await handleSeedManualMockData();
-                                            alert("Mock data seeded successfully.");
-                                        }}
-                                        className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-indigo-400 transition-all"
-                                    >
-                                        <i className="fa-solid fa-database w-5 text-center text-[10px]"></i>
-                                        Seed Mock Data
                                     </button>
                                     <button
                                         onClick={() => {
@@ -1036,8 +1090,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         {activeTab === 'settings' && (
                             <StatusSettings
                                 realtorId={realtorId}
-                                onResetData={handleResetAllData}
-                                onSeedData={handleSeedManualMockData}
                             />
                         )}
 

@@ -448,7 +448,6 @@ const CityDataTab: React.FC = () => {
             <div className="mb-8 items-center justify-between flex">
                 <div>
                     <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">City Data Engine</h1>
-                    <p className="text-slate-500 font-medium">Global MLS Ingestion & Caching</p>
                 </div>
                 {selectedIds.size > 0 && (
                     <button
@@ -504,12 +503,6 @@ const CityDataTab: React.FC = () => {
                     {availableStates.length > 1 && (
                         <div className="flex items-center gap-2 mb-8 bg-white/50 p-2 rounded-xl w-fit">
                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-3">Filter State:</span>
-                            <button
-                                onClick={() => setStateFilter('ALL')}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${stateFilter === 'ALL' ? 'bg-slate-900 text-white shadow-md' : 'bg-transparent text-slate-500 hover:bg-white hover:text-slate-800'}`}
-                            >
-                                All
-                            </button>
                             {availableStates.map(st => (
                                 <button
                                     key={st}
@@ -519,6 +512,12 @@ const CityDataTab: React.FC = () => {
                                     {st}
                                 </button>
                             ))}
+                            <button
+                                onClick={() => setStateFilter('ALL')}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${stateFilter === 'ALL' ? 'bg-slate-900 text-white shadow-md' : 'bg-transparent text-slate-500 hover:bg-white hover:text-slate-800'}`}
+                            >
+                                All
+                            </button>
                         </div>
                     )}
 

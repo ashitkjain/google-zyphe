@@ -4,8 +4,6 @@ import { LEAD_FIELD_CONFIG as DEFAULT_PROPERTIES, LEAD_STAGE_LIFECYCLE_CONFIG, L
 
 interface StatusSettingsProps {
     realtorId: string;
-    onResetData?: () => Promise<void>;
-    onSeedData?: () => Promise<void>;
 }
 
 interface ManagedProperty extends PropertyOption {
@@ -22,8 +20,7 @@ const PROPERTY_CATEGORIES = [
     'General'
 ];
 
-const StatusSettings: React.FC<StatusSettingsProps> = ({ realtorId, onResetData, onSeedData }) => {
-    const [isActionLoading, setIsActionLoading] = useState(false);
+const StatusSettings: React.FC<StatusSettingsProps> = ({ realtorId }) => {
     const [activeCategory, setActiveCategory] = useState<string>('Lead Statuses');
     const [expandedFields, setExpandedFields] = useState<Set<string>>(() => {
         const allConfigs = [...DEFAULT_PROPERTIES, ...LEAD_STAGE_LIFECYCLE_CONFIG];
@@ -244,41 +241,6 @@ const StatusSettings: React.FC<StatusSettingsProps> = ({ realtorId, onResetData,
                     <div>
                         <h2 className="text-2xl font-black text-slate-900 tracking-tight">Data Field Definitions</h2>
                         <p className="text-sm font-medium text-slate-500 mt-1">Reference for system data organization and field requirements.</p>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                        {onResetData && (
-                            <button
-                                onClick={async () => {
-                                    if (window.confirm("Are you sure you want to RESET all data? This will delete all mock leads, tasks, and templates.")) {
-                                        setIsActionLoading(true);
-                                        await onResetData();
-                                        setIsActionLoading(false);
-                                        alert("Data reset successfully.");
-                                    }
-                                }}
-                                disabled={isActionLoading}
-                                className="px-4 py-2 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all disabled:opacity-50"
-                            >
-                                <i className={`fa-solid fa-trash-can mr-2 ${isActionLoading ? 'animate-spin' : ''}`}></i>
-                                Reset Data
-                            </button>
-                        )}
-                        {onSeedData && (
-                            <button
-                                onClick={async () => {
-                                    setIsActionLoading(true);
-                                    await onSeedData();
-                                    setIsActionLoading(false);
-                                    alert("Mock data seeded successfully.");
-                                }}
-                                disabled={isActionLoading}
-                                className="px-4 py-2 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all disabled:opacity-50"
-                            >
-                                <i className={`fa-solid fa-database mr-2 ${isActionLoading ? 'animate-spin' : ''}`}></i>
-                                Add Mock Data
-                            </button>
-                        )}
                     </div>
                 </div>
 
