@@ -7,6 +7,8 @@ import {
     saveZipListings,
     getZipListings
 } from '../../services/firebase/cityData';
+import { savePropertyToCloud } from '../../services/firebase/properties';
+import { PropertyData } from '../../types';
 
 const CityDataTab: React.FC = () => {
     const [city, setCity] = useState('');
@@ -57,6 +59,78 @@ const CityDataTab: React.FC = () => {
     const log = (message: string) => {
         console.log(message);
         setStatusLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
+    };
+
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+    const toggleSelection = (id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const handleBulkIngest = async () => {
+        if (selectedIds.size === 0) return;
+        if (selectedIds.size > 10) {
+            setError(`You can only ingest up to 10 properties at once. You selected ${selectedIds.size}.`);
+            return;
+        }
+
+        setLoading(true);
+        setError(null);
+        log(`Starting Bulk Ingest for ${selectedIds.size} properties...`);
+
+        const targets = listings.filter(l => selectedIds.has(l.property_id));
+        let successCount = 0;
+
+        for (let i = 0; i < targets.length; i++) {
+            const item = targets[i];
+            const currentIndex = i + 1;
+            const zpid = item.property_id;
+
+            try {
+                log(`[${currentIndex}/${targets.length}] Ingesting ${item.location?.address?.line || zpid}...`);
+
+                // Map to PropertyData
+                const propertyData: Partial<PropertyData> = {
+                    zpid: zpid,
+                    address: item.location?.address?.line,
+                    city: item.location?.address?.city,
+                    homeStatus: item.status, // might be 'for_sale' etc
+                    price: item.list_price,
+                    bedrooms: item.description?.beds,
+                    bathrooms: item.description?.baths,
+                    livingAreaValue: item.description?.sqft,
+                    lotSize: item.description?.lot_sqft?.toString(),
+                    description: item.description?.text, // description might be object or string? In search results it's usually just beds/baths/sqft. Text might be missing.
+                    homeType: item.description?.type,
+                    images: item.primary_photo?.href ? [item.primary_photo.href] : [],
+                    listedDate: item.list_date
+                };
+
+                const result = await savePropertyToCloud(zpid, propertyData);
+                if (result.success) {
+                    successCount++;
+                } else {
+                    log(`Failed to ingest ${zpid}: ${result.error}`);
+                }
+            } catch (e: any) {
+                log(`Error processing ${zpid}: ${e.message}`);
+            }
+
+            // Small delay for UI updates
+            await new Promise(r => setTimeout(r, 100));
+        }
+
+        log(`Bulk Ingest Complete. Successfully ingested ${successCount} / ${targets.length} properties.`);
+        setLoading(false);
+        // Optional: Clear selection on success?
+        if (successCount === targets.length) {
+            setSelectedIds(new Set());
+        }
     };
 
     const fetchListings = async (zip: string) => {
@@ -292,39 +366,53 @@ const CityDataTab: React.FC = () => {
     };
 
     // Table Row Component
-    const ListingRow = ({ item }: { item: any }) => (
-        <tr className="hover:bg-slate-50 transition-colors group border-b border-slate-100 last:border-0">
-            <td className="p-4">
-                <div className="flex items-center gap-4">
-                    <div className="w-16 h-12 bg-slate-200 rounded-lg overflow-hidden flex-shrink-0">
-                        {item.primary_photo?.href ? (
-                            <img src={item.primary_photo.href} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-400">
-                                <i className="fa-solid fa-image"></i>
-                            </div>
-                        )}
+    const ListingRow = ({ item }: { item: any }) => {
+        const isSelected = selectedIds.has(item.property_id);
+        return (
+            <tr
+                className={`hover:bg-slate-50 transition-colors group border-b border-slate-100 last:border-0 ${isSelected ? 'bg-indigo-50/30 hover:bg-indigo-50/50' : ''}`}
+                onClick={() => toggleSelection(item.property_id)}
+            >
+                <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelection(item.property_id)}
+                        className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                </td>
+                <td className="p-4 cursor-pointer">
+                    <div className="flex items-center gap-4">
+                        <div className="w-16 h-12 bg-slate-200 rounded-lg overflow-hidden flex-shrink-0">
+                            {item.primary_photo?.href ? (
+                                <img src={item.primary_photo.href} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-slate-400">
+                                    <i className="fa-solid fa-image"></i>
+                                </div>
+                            )}
+                        </div>
+                        <div>
+                            <div className="font-bold text-slate-900 text-sm">{item.location?.address?.line || 'Unknown Address'}</div>
+                            <div className="text-xs text-slate-500">{item.location?.address?.city}, {item.location?.address?.state_code} {item.location?.address?.postal_code}</div>
+                        </div>
                     </div>
-                    <div>
-                        <div className="font-bold text-slate-900 text-sm">{item.location?.address?.line || 'Unknown Address'}</div>
-                        <div className="text-xs text-slate-500">{item.location?.address?.city}, {item.location?.address?.state_code} {item.location?.address?.postal_code}</div>
-                    </div>
-                </div>
-            </td>
-            <td className="p-4 text-right font-medium text-slate-900">
-                ${item.list_price?.toLocaleString() || '--'}
-            </td>
-            <td className="p-4 text-right">
-                <button
-                    onClick={() => copyToClipboard(item.location?.address?.line)}
-                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                    title="Copy Address"
-                >
-                    <i className="fa-solid fa-copy"></i>
-                </button>
-            </td>
-        </tr>
-    );
+                </td>
+                <td className="p-4 text-right font-medium text-slate-900">
+                    ${item.list_price?.toLocaleString() || '--'}
+                </td>
+                <td className="p-4 text-right">
+                    <button
+                        onClick={() => copyToClipboard(item.location?.address?.line)}
+                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                        title="Copy Address"
+                    >
+                        <i className="fa-solid fa-copy"></i>
+                    </button>
+                </td>
+            </tr>
+        );
+    };
 
     return (
         <div className="max-w-7xl mx-auto py-10 px-6 animate-in fade-in duration-700">
@@ -333,6 +421,16 @@ const CityDataTab: React.FC = () => {
                     <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">City Data Engine</h1>
                     <p className="text-slate-500 font-medium">Global MLS Ingestion & Caching</p>
                 </div>
+                {selectedIds.size > 0 && (
+                    <button
+                        onClick={handleBulkIngest}
+                        disabled={loading}
+                        className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-200 transition-all flex items-center gap-2 animate-in fade-in slide-in-from-right-4"
+                    >
+                        {loading ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>}
+                        Ingest Selected ({selectedIds.size})
+                    </button>
+                )}
             </div>
 
             {/* API Config & Search */}
@@ -422,6 +520,9 @@ const CityDataTab: React.FC = () => {
                                 <table className="w-full text-left">
                                     <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
                                         <tr>
+                                            <th className="p-4 w-12">
+                                                {/* Select All could go here if needed, but per-group is tricky. Keeping blank or 'Select' label. */}
+                                            </th>
                                             <th className="p-4">Property</th>
                                             <th className="p-4 text-right">Price</th>
                                             <th className="p-4 text-right">Action</th>
