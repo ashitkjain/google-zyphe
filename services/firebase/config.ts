@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getStorage, FirebaseStorage } from "firebase/storage";
-import { getFirestore, Firestore } from "firebase/firestore";
+import { initializeFirestore, memoryLocalCache, Firestore } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, Auth } from "firebase/auth";
 
 const firebaseConfig = {
@@ -22,7 +22,11 @@ try {
 
 let _db: Firestore | null = null;
 try {
-    if (app) _db = getFirestore(app);
+    if (app) {
+        _db = initializeFirestore(app, {
+            localCache: memoryLocalCache()
+        });
+    }
 } catch (e) {
     console.error("Firestore service initialization failed:", e);
 }

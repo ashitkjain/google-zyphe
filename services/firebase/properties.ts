@@ -16,14 +16,22 @@ import {
 
 export const savePropertyToCloud = async (zpid: string, data: Partial<PropertyData>) => {
     if (!db) return { success: false, error: "Database not initialized" };
+    if (!zpid) {
+        console.error("[Firestore] Blocked savePropertyToCloud call with missing ZPID");
+        return { success: false, error: "Missing ZPID" };
+    }
+
     try {
-        const docRef = doc(db, "properties", zpid);
+        const docRef = doc(db, "properties", String(zpid));
         const sanitized = sanitizeForFirestore(data);
         logFirestoreQuery('setDoc', 'properties', { zpid });
+
         await setDoc(docRef, {
             ...sanitized,
+            zpid: String(zpid), // Ensure zpid is internally set
             lastUpdated: serverTimestamp()
         }, { merge: true });
+
         return { success: true };
     } catch (error: any) {
         return { success: false, error: handleFirestoreError(error, "savePropertyToCloud") };
@@ -48,11 +56,14 @@ export const getPropertyFromCloud = async (zpid: string): Promise<PropertyData |
 
 export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAIAnalysisResult) => {
     if (!db) return { success: false, error: "Database not initialized" };
+    if (!zpid) return { success: false, error: "Missing ZPID" };
+
     try {
-        const docRef = doc(db, "property_analyses_visual", zpid);
+        const docRef = doc(db, "property_analyses_visual", String(zpid));
         logFirestoreQuery('setDoc', 'property_analyses_visual', { zpid });
         await setDoc(docRef, {
             ...sanitizeForFirestore(analysis),
+            zpid: String(zpid), // Explicitly include zpid as key field
             timestamp: serverTimestamp()
         });
         return { success: true };
@@ -75,12 +86,13 @@ export const getVisualAnalysisFromCloud = async (zpid: string): Promise<CustomAI
 };
 
 export const saveComprehensiveAnalysisToCloud = async (zpid: string, analysis: ComprehensiveAnalysisResult) => {
-    if (!db) return false;
+    if (!db || !zpid) return false;
     try {
-        const docRef = doc(db, "property_analyses_comprehensive", zpid);
+        const docRef = doc(db, "property_analyses_comprehensive", String(zpid));
         logFirestoreQuery('setDoc', 'property_analyses_comprehensive', { zpid });
         await setDoc(docRef, {
             ...sanitizeForFirestore(analysis),
+            zpid: String(zpid), // Explicitly include zpid as key field
             timestamp: serverTimestamp()
         });
         return true;
@@ -103,16 +115,17 @@ export const getComprehensiveAnalysisFromCloud = async (zpid: string): Promise<C
 };
 
 export const saveImageQualityAnalysisToCloud = async (zpid: string, analysis: ImageQualityAnalysisResult) => {
-    if (!db) {
-        return { success: false, error: "Database not initialized" };
+    if (!db || !zpid) {
+        return { success: false, error: "Database not initialized or missing ZPID" };
     }
     try {
         const user = auth?.currentUser;
         console.log(`[Firestore] Attempting save picture quality audit for ZPID: "${zpid}". Current Auth: ${user ? user.email : 'NOT_LOGGED_IN'}`);
-        const docRef = doc(db, "image_quality_analysis", zpid);
+        const docRef = doc(db, "image_quality_analysis", String(zpid));
         logFirestoreQuery('setDoc', 'image_quality_analysis', { zpid });
         await setDoc(docRef, {
             ...sanitizeForFirestore(analysis),
+            zpid: String(zpid),
             timestamp: serverTimestamp()
         });
         console.log(`[Firestore] SUCCESS: picture quality audit saved for ZPID: "${zpid}"`);
@@ -137,14 +150,15 @@ export const getImageQualityAnalysisFromCloud = async (zpid: string): Promise<Im
 };
 
 export const saveInvestmentResearchToCloud = async (zpid: string, research: InvestmentResearchResult) => {
-    if (!db) return { success: false, error: "Database not initialized" };
+    if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
     try {
         const user = auth?.currentUser;
         console.log(`[Firestore] Saving investment research for ZPID: "${zpid}". Auth: ${user ? user.email : 'GUEST'}`);
-        const docRef = doc(db, "market_research", zpid);
+        const docRef = doc(db, "market_research", String(zpid));
         logFirestoreQuery('setDoc', 'market_research', { zpid });
         await setDoc(docRef, {
             ...sanitizeForFirestore(research),
+            zpid: String(zpid),
             timestamp: serverTimestamp()
         });
         return { success: true };

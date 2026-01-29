@@ -403,7 +403,14 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
     if (!response || !response.ok) throw new Error(`Property API error: ${response?.status || 'Unknown'}`);
     const data = await response.json();
 
-    const rawZpid = isZpid ? addressOrZpid : (data.zpid || data.props?.zpid || (data.properties && data.properties[0]?.zpid));
+    // STRICT ZPID CHECK: User requires ZPID to be at root 'zpid'.
+    // If we can't find it there, we treat it as a failure to ensure we aren't picking up garbage IDs.
+    if (!data.zpid) {
+      console.error("CRITICAL: Missing 'zpid' in API response root. Full payload:", JSON.stringify(data, null, 2));
+      throw new Error("API Error: Response missing 'zpid' at root. See console for full JSON debug.");
+    }
+
+    const rawZpid = String(data.zpid);
 
     if (!isZpid && rawZpid) {
       const cached = await getPropertyFromCloud(String(rawZpid));

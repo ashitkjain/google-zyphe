@@ -134,7 +134,11 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         // to avoid hitting API rate limit bursts while maintaining some concurrency.
         const ingestPromises = targets.map(async (item, index) => {
             const zpid = item.property_id;
-            const address = item.location?.address?.line || zpid;
+            // Construct strict address for lookup quality
+            const addrObj = item.location?.address;
+            const builtAddress = addrObj
+                ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
+                : (item.location?.address?.line || zpid);
 
             // Wait for stagger delay
             if (index > 0) {
@@ -142,17 +146,20 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             }
 
             const startTime = Date.now();
-            log(`Starting pipeline for property: ${address}`);
+            log(`Starting pipeline for property: ${builtAddress}`);
             // Mark running
             setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime } : j));
 
             try {
                 // Run Full Intelligence Pipeline
-                await runFullIntelligencePipeline(address, (progress) => {
+                // IMPORTANT: We pass 'undefined' for the zpid argument to FORCE the pipeline to look up 
+                // the property by address. This ensures we get the canonical ZPID headers from the API 
+                // rather than trusting the feed's property_id which may be mismatched.
+                await runFullIntelligencePipeline(builtAddress, (progress) => {
                     setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
-                }, zpid, (msg) => log(`[${address}] ${msg}`));
+                }, undefined, (msg) => log(`[${builtAddress}] ${msg}`));
 
-                log(`Successfully completed intelligence suite for: ${address}`);
+                log(`Successfully completed intelligence suite for: ${builtAddress}`);
                 setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
                 return true;
             } catch (e: any) {
