@@ -362,19 +362,6 @@ const CityDataTab: React.FC = () => {
                 </div>
 
                 {/* Status Log */}
-                {statusLog.length > 0 && (
-                    <div className="mt-6 p-4 bg-slate-900 rounded-xl overflow-hidden">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                            Ingestion Log
-                        </div>
-                        <div className="max-h-32 overflow-y-auto font-mono text-[10px] text-slate-300 space-y-1">
-                            {statusLog.map((log, i) => (
-                                <div key={i}>{log}</div>
-                            ))}
-                        </div>
-                    </div>
-                )}
                 {error && (
                     <div className="mt-6 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-3 text-rose-600 text-sm font-bold animate-in slide-in-from-top-2">
                         <i className="fa-solid fa-triangle-exclamation"></i>
@@ -457,6 +444,21 @@ const CityDataTab: React.FC = () => {
                         <p className="font-medium text-slate-400">Data table is empty. Start a search above.</p>
                     </div>
                 )
+            )}
+
+            {/* Status Log - Moved to Bottom */}
+            {statusLog.length > 0 && (
+                <div className="mt-12 p-6 bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl shadow-slate-900/20">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                        Ingestion Log
+                    </div>
+                    <div className="max-h-48 overflow-y-auto font-mono text-[11px] text-slate-300 space-y-1.5">
+                        {statusLog.map((log, i) => (
+                            <div key={i} className="border-l-2 border-slate-800 pl-3 py-0.5">{log}</div>
+                        ))}
+                    </div>
+                </div>
             )}
         </div>
     );
