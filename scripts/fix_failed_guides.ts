@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { getGuideGenerationPrompt, guideGenerationSchema } from "../prompts/guideGeneration.ts";
+import { getGuideGenerationPrompt, guideGenerationSchema } from "../prompts/client/guideGeneration.ts";
 import { GUIDE_DATA } from "./guides_data.ts";
 import fs from "fs";
 import path from "path";
