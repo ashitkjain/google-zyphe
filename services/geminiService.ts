@@ -15,6 +15,7 @@ import { getGuideGenerationPrompt, guideGenerationSchema, GuideResult } from "..
 import { getGuideImagePrompt } from "../prompts/client/guideImageGeneration";
 import { APP_CONFIG } from "../config";
 import { logLLMCall, updateLLMCall } from "./firebase/llm_logs";
+import { optimizePropertyForAi } from "../utils/aiOptimization";
 
 // Use config for model selection
 export const GEMINI_MODEL = APP_CONFIG.models.default;
@@ -165,7 +166,7 @@ async function urlToBase64(url: string): Promise<{ data: string, mimeType: strin
 }
 
 export const analyzeProperty = async (property: PropertyData, userId: string = "unknown"): Promise<AIAnalysisResult> => {
-  const prompt = getPropertyAnalysisPrompt(property);
+  const prompt = getPropertyAnalysisPrompt(optimizePropertyForAi(property) as PropertyData);
   let logId: string | null = null;
   try {
     logId = await logLLMCall({
@@ -218,7 +219,7 @@ export const analyzeProperty = async (property: PropertyData, userId: string = "
 
 export const analyzeNeighborhood = async (mapImageUrl: string, property: PropertyData, userId: string = "unknown"): Promise<NeighborhoodAnalysis> => {
   const { data, mimeType } = await urlToBase64(mapImageUrl);
-  const prompt = getNeighborhoodAnalysisPrompt(property);
+  const prompt = getNeighborhoodAnalysisPrompt(optimizePropertyForAi(property) as PropertyData);
   let logId: string | null = null;
   const sanitizedPrompt = {
     text: prompt,
@@ -280,7 +281,7 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
 };
 
 export const analyzeCommunityPulse = async (property: PropertyData, userId: string = "unknown"): Promise<CommunityPulseResult> => {
-  const prompt = getCommunityPulsePrompt(property);
+  const prompt = getCommunityPulsePrompt(optimizePropertyForAi(property) as PropertyData);
   let logId: string | null = null;
   try {
     logId = await logLLMCall({
@@ -347,8 +348,8 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
 
   const successfulImages = imageParts.length > 0;
   const textInstruction = successfulImages
-    ? getPropertyImagesPrompt(property)
-    : `${getPropertyImagesPrompt(property)}\n\nNOTE: No photographs were provided for this property. Perform analysis based on detailed specifications.`;
+    ? getPropertyImagesPrompt(optimizePropertyForAi(property) as PropertyData)
+    : `${getPropertyImagesPrompt(optimizePropertyForAi(property) as PropertyData)}\n\nNOTE: No photographs were provided for this property. Perform analysis based on detailed specifications.`;
 
   const requestPayload = { text: textInstruction, image_count: imageParts.length };
 
@@ -406,7 +407,7 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
 };
 
 export const analyzeComprehensive = async (property: PropertyData, visual: CustomAIAnalysisResult, userId: string = "unknown"): Promise<ComprehensiveAnalysisResult> => {
-  const prompt = getComprehensiveAnalysisPrompt(property, visual);
+  const prompt = getComprehensiveAnalysisPrompt(optimizePropertyForAi(property) as PropertyData, visual);
   let logId: string | null = null;
   try {
     logId = await logLLMCall({
@@ -537,7 +538,7 @@ export const analyzeImageQuality = async (imageUrls: string[], userId: string = 
 };
 
 export const analyzeInvestmentResearch = async (property: PropertyData, userId: string = "unknown"): Promise<InvestmentResearchResult> => {
-  const prompt = getInvestmentResearchPrompt(property);
+  const prompt = getInvestmentResearchPrompt(optimizePropertyForAi(property) as PropertyData);
   let logId: string | null = null;
   try {
     logId = await logLLMCall({
@@ -589,7 +590,7 @@ export const analyzeInvestmentResearch = async (property: PropertyData, userId: 
 };
 
 export const analyzeBiddingStrategy = async (property: PropertyData, userId: string = "unknown"): Promise<BiddingStrategyResult> => {
-  const prompt = biddingStrategyPrompt(property);
+  const prompt = biddingStrategyPrompt(optimizePropertyForAi(property) as PropertyData);
   let logId: string | null = null;
   try {
     logId = await logLLMCall({
