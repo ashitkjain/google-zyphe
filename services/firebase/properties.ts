@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp, query, collection, where, documentId, getDocs } from "firebase/firestore";
 import {
     db,
     auth,
@@ -185,4 +185,27 @@ export const verifyFirestoreConnection = async () => {
     } catch (error: any) {
         return { success: false, message: `${error.message}. Auth was: ${authStatus}` };
     }
+};
+
+export const checkExistingPropertiesBatch = async (zpids: string[]): Promise<Set<string>> => {
+    if (!db || zpids.length === 0) return new Set();
+    const existing = new Set<string>();
+
+    // Firestore 'in' query limit is 30 (previously 10, now 30 for this type of query or 10 depending on version).
+    // Safest to chunk by 10.
+    const chunkSize = 10;
+    for (let i = 0; i < zpids.length; i += chunkSize) {
+        const chunk = zpids.slice(i, i + chunkSize);
+        try {
+            const q = query(
+                collection(db, "properties"),
+                where(documentId(), "in", chunk)
+            );
+            const snapshot = await getDocs(q);
+            snapshot.forEach(doc => existing.add(doc.id));
+        } catch (e) {
+            console.warn("Failed to check existence for batch", chunk, e);
+        }
+    }
+    return existing;
 };

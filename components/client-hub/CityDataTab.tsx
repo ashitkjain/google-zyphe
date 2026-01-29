@@ -7,7 +7,7 @@ import {
     saveZipListings,
     getZipListings
 } from '../../services/firebase/cityData';
-import { savePropertyToCloud } from '../../services/firebase/properties';
+import { savePropertyToCloud, checkExistingPropertiesBatch } from '../../services/firebase/properties';
 import { PropertyData } from '../../types';
 import { runFullIntelligencePipeline, PipelineProgress } from '../../services/preloadService';
 
@@ -30,6 +30,7 @@ const CityDataTab: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [stateFilter, setStateFilter] = useState<string>('ALL');
     const [ingestionQueue, setIngestionQueue] = useState<IngestionJob[]>([]);
+    const [cachedPropertyIds, setCachedPropertyIds] = useState<Set<string>>(new Set());
 
     const availableStates = useMemo(() => {
         const states = new Set<string>();
@@ -380,6 +381,15 @@ const CityDataTab: React.FC = () => {
             log(`Ingestion Complete. ${deDuplicated.length} unique properties found.`);
             setListings(deDuplicated);
 
+            // Check which properties are already in our database
+            if (deDuplicated.length > 0) {
+                log('Checking against existing database...');
+                const zpids = deDuplicated.map(l => l.property_id);
+                const existing = await checkExistingPropertiesBatch(zpids);
+                setCachedPropertyIds(existing);
+                log(`${existing.size} properties already exist in database.`);
+            }
+
             if (deDuplicated.length === 0) {
                 setError('No listings found in the resolved areas.');
             }
@@ -400,17 +410,23 @@ const CityDataTab: React.FC = () => {
     // Table Row Component
     const ListingRow = ({ item }: { item: any }) => {
         const isSelected = selectedIds.has(item.property_id);
+        const isCached = cachedPropertyIds.has(item.property_id);
+
         return (
             <tr
-                className={`hover:bg-slate-50 transition-colors group border-b border-slate-100 last:border-0 ${isSelected ? 'bg-indigo-50/30 hover:bg-indigo-50/50' : ''}`}
-                onClick={() => toggleSelection(item.property_id)}
+                className={`hover:bg-slate-50 transition-colors group border-b border-slate-100 last:border-0 
+                    ${isSelected ? 'bg-indigo-50/30 hover:bg-indigo-50/50' : ''} 
+                    ${isCached ? 'bg-slate-50 opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                onClick={() => !isCached && toggleSelection(item.property_id)}
             >
                 <td className="p-4" onClick={(e) => e.stopPropagation()}>
                     <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => toggleSelection(item.property_id)}
-                        className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        disabled={isCached}
+                        onChange={() => !isCached && toggleSelection(item.property_id)}
+                        className={`w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 
+                            ${isCached ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'cursor-pointer'}`}
                     />
                 </td>
                 <td className="p-4 cursor-pointer">
@@ -595,22 +611,22 @@ const CityDataTab: React.FC = () => {
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="flex items-center gap-3 overflow-hidden">
                                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
-                                                item.status === 'error' ? 'bg-rose-50 text-rose-600' :
-                                                    item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
-                                                        'bg-slate-50 text-slate-400'
+                                            item.status === 'error' ? 'bg-rose-50 text-rose-600' :
+                                                item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
+                                                    'bg-slate-50 text-slate-400'
                                             }`}>
                                             <i className={`fa-solid ${item.status === 'completed' ? 'fa-circle-check' :
-                                                    item.status === 'error' ? 'fa-circle-xmark' :
-                                                        item.status === 'running' ? 'fa-spinner animate-spin' :
-                                                            'fa-hourglass-start'
+                                                item.status === 'error' ? 'fa-circle-xmark' :
+                                                    item.status === 'running' ? 'fa-spinner animate-spin' :
+                                                        'fa-hourglass-start'
                                                 }`}></i>
                                         </div>
                                         <span className="text-sm font-black text-slate-900 truncate">{item.address}</span>
                                     </div>
                                     <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
-                                            item.status === 'error' ? 'bg-rose-50 text-rose-600' :
-                                                item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
-                                                    'bg-slate-100 text-slate-400'
+                                        item.status === 'error' ? 'bg-rose-50 text-rose-600' :
+                                            item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
+                                                'bg-slate-100 text-slate-400'
                                         }`}>
                                         {item.status}
                                     </span>
