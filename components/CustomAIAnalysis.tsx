@@ -749,7 +749,11 @@ const CustomAIAnalysis: React.FC<Props> = ({
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 max-w-5xl mx-auto space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {data.map((text, idx) => {
-          const imgUrl = images[idx];
+          // Extract "Image X" to get the correct image index (1-based -> 0-based)
+          const match = text.match(/^Image\s+(\d+)/i);
+          const imageIndex = match ? parseInt(match[1], 10) - 1 : idx;
+          const imgUrl = images[imageIndex];
+
           return (
             <div key={idx} className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden flex flex-col hover:shadow-xl transition-all group">
               {imgUrl && (
@@ -757,11 +761,11 @@ const CustomAIAnalysis: React.FC<Props> = ({
                   <img
                     src={imgUrl}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                    alt={`Image ${idx + 1}`}
+                    alt={`Image ${imageIndex + 1}`}
                   />
                   <div className="absolute top-4 left-4">
                     <span className="px-4 py-2 bg-black/50 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-widest rounded-xl">
-                      Image {idx + 1}
+                      Image {imageIndex + 1}
                     </span>
                   </div>
                 </div>
