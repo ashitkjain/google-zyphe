@@ -25,13 +25,13 @@ const CityDataTab: React.FC = () => {
         setError(null);
         setListings([]);
 
-        // RapidAPI Realtor.com v3/list-for-sale
-        const url = `https://realtor.p.rapidapi.com/properties/v3/list-for-sale?location=${encodeURIComponent(`${city}, ${stateCode}`)}&limit=42&offset=0&sort=newest`;
+        // RapidAPI Realty-in-us v3/list
+        const url = `https://realty-in-us.p.rapidapi.com/properties/v3/list?location=${encodeURIComponent(`${city}, ${stateCode}`)}&limit=42&offset=0&sort=newest`;
         const options = {
             method: 'GET',
             headers: {
                 'X-RapidAPI-Key': apiKey,
-                'X-RapidAPI-Host': 'realtor.p.rapidapi.com'
+                'X-RapidAPI-Host': 'realty-in-us.p.rapidapi.com'
             }
         };
 
@@ -75,7 +75,7 @@ const CityDataTab: React.FC = () => {
 
                 <div className="flex items-center gap-3 mb-8">
                     <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-md border border-indigo-100">
-                        Point 01: Realtor.com v3/list
+                        Point 01: Realty-In-US v3/list
                     </span>
                     <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-md border border-emerald-100">
                         Primary Source
@@ -229,7 +229,7 @@ const CityDataTab: React.FC = () => {
                                 </div>
                                 <div>
                                     <span className="block text-xs font-black uppercase tracking-widest text-indigo-400">Endpoint</span>
-                                    <code className="text-[10px] opacity-70">realtor.p.rapidapi.com/properties/v3/list-for-sale</code>
+                                    <code className="text-[10px] opacity-70">realty-in-us.p.rapidapi.com/properties/v3/list</code>
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
