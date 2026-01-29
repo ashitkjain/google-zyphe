@@ -38,12 +38,13 @@ export class AiResponseError extends Error {
 let aiInstance: GoogleGenAI | null = null;
 const getAi = () => {
   if (!aiInstance) {
-    // API key is correctly pulled from process.env.API_KEY
-    const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY) || "";
-    if (!apiKey) {
-      console.error("Missing API Key. Checked process.env.API_KEY.");
+    // API key is correctly pulled from APP_CONFIG
+    const apiKey = APP_CONFIG.gemini.key || (typeof process !== 'undefined' && process.env?.API_KEY) || "";
+
+    if (!apiKey || apiKey.startsWith("AIzaSy...")) {
+      console.error("Missing Gemini API Key in APP_CONFIG.");
       throw new AiResponseError(
-        "API Key is missing. Please create a .env file in the project root with 'GEMINI_API_KEY=your_key_here'.",
+        "Gemini API Key is missing. Please ensure it is set in config.ts or environment variables.",
         "Missing Configuration"
       );
     }

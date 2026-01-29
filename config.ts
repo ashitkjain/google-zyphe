@@ -41,5 +41,8 @@ export const APP_CONFIG = {
             // Let's verify standard rapidapi naming. The user gave 'https://us-zipcodes.p.rapidapi.com/codes'. So endpoint is '/codes'.
             path: '/codes'
         }
+    },
+    gemini: {
+        key: process.env.API_KEY || "AIzaSy..." // Placeholder or fallback
     }
 };
