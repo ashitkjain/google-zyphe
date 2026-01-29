@@ -139,7 +139,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
   };
 
   const handleRunInvestmentResearch = async () => {
-    if (!analysis || !zpid || investmentLoading) return;
+    if (!analysis || !zpid || !propertyData || investmentLoading) return;
 
     setTimer(0);
     setInvestmentLoading(true);
@@ -157,13 +157,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
 
       addLog('Gemini AI', { type: 'request' }, { task: 'investment_research', zpid });
 
-      const mockPropertyData: any = {
-        address: analysis.report_title || "This Property",
-        zpid,
-        bedrooms: analysis.room_highlights?.filter(r => r.room_name?.toLowerCase().includes('bedroom')).length || 2
-      };
-
-      const result = await analyzeInvestmentResearch(mockPropertyData);
+      const result = await analyzeInvestmentResearch(propertyData);
 
       onUpdateAnalysis({ ...analysis, investment_research: result });
       addLog('Gemini AI', { type: 'response' }, { task: 'investment_research', zpid, data: result });
@@ -181,7 +175,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
   };
 
   const handleRunBiddingStrategy = async () => {
-    if (!analysis || !zpid || biddingLoading) return;
+    if (!analysis || !zpid || !propertyData || biddingLoading) return;
 
     setTimer(0);
     setBiddingLoading(true);
@@ -191,12 +185,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
       addLog('Gemini AI', { type: 'request' }, { task: 'bidding_strategy', zpid, model: APP_CONFIG.models.bidding_strategy });
 
       // Use actual property data if available, otherwise fallback to basic context
-      const contextData = propertyData || {
-        address: analysis.report_title || "This Property",
-        zpid
-      };
-
-      const result = await analyzeBiddingStrategy(contextData);
+      const result = await analyzeBiddingStrategy(propertyData);
 
       onUpdateAnalysis({ ...analysis, bidding_strategy: result });
       addLog('Gemini AI', { type: 'response' }, { task: 'bidding_strategy', zpid, data: result });
