@@ -659,6 +659,15 @@ const App: React.FC = () => {
 
       {showHistory && (searchHistory.length > 0 || cloudHistory.length > 0 || favorites.length > 0) && (
         <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[60]">
+          <div className="flex items-center justify-between px-4 py-2 bg-slate-50/50 border-b border-slate-100">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Search History</span>
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowHistory(false); }}
+              className="w-6 h-6 rounded-lg hover:bg-white hover:shadow-sm text-slate-400 hover:text-slate-600 transition-all flex items-center justify-center"
+            >
+              <i className="fa-solid fa-xmark text-xs"></i>
+            </button>
+          </div>
           <div className="max-h-[300px] overflow-y-auto p-2">
             {favorites.length > 0 && (
               <div className="mb-2">
