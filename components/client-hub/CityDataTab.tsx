@@ -502,7 +502,7 @@ const CityDataTab: React.FC = () => {
                             className="w-full px-8 py-3 bg-slate-900 hover:bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {loading ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-solid fa-search"></i>}
-                            {loading ? 'Ingesting Data...' : 'Start Ingestion'}
+                            {loading ? 'Ingesting Data...' : 'Fetch Zip Codes & For-Sale Properties'}
                         </button>
                     </div>
                 </div>
