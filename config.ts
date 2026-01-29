@@ -20,7 +20,7 @@ export const APP_CONFIG = {
         realtor: ['interior', 'rooms', 'exterior', 'neighborhood', 'pulse', 'image_analysis', 'investment', 'bidding', 'quality']
     },
     rapidapi: {
-        key: 'ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f',
+        key: process.env.RAPID_API_KEY || 'ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f',
         host: 'realty-in-us.p.rapidapi.com',
         endpoints: {
             list: '/properties/v3/list',
@@ -37,10 +37,16 @@ export const APP_CONFIG = {
         },
         zipCodesApi: {
             host: 'us-zipcodes.p.rapidapi.com',
-            endpoint: '/get', // Note: user said /codes?q= but typically it might be usually /codes or /get. User url: https://us-zipcodes.p.rapidapi.com/codes?q=pleasanton. 
-            // Let's verify standard rapidapi naming. The user gave 'https://us-zipcodes.p.rapidapi.com/codes'. So endpoint is '/codes'.
+            endpoint: '/get',
             path: '/codes'
         }
+    },
+    usHousingApi: {
+        key: process.env.RAPID_API_KEY || 'ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f',
+        host: process.env.US_HOUSING_HOST || 'us-housing-market-data1.p.rapidapi.com'
+    },
+    radar: {
+        key: process.env.RADAR_API_KEY || 'prj_live_pk_eef2517d56b63939d892c06a7dac57af7f2278cb'
     },
     gemini: {
         key: process.env.API_KEY || "AIzaSy..." // Placeholder or fallback

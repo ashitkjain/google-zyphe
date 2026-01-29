@@ -1,10 +1,11 @@
 
-import { PropertyData, RadarGeocodeResponse, PropertyComp } from "../types.ts";
-import { savePropertyToCloud, getPropertyFromCloud } from "./firebaseService.ts";
+import { PropertyData, RadarGeocodeResponse, PropertyComp } from "../types";
+import { savePropertyToCloud, getPropertyFromCloud } from "./firebaseService";
+import { APP_CONFIG } from "../config";
 
-const RAPID_API_KEY = process.env.RAPID_API_KEY || "ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f";
-const RAPID_API_HOST = process.env.RAPID_API_HOST || "us-housing-market-data1.p.rapidapi.com";
-const RADAR_API_KEY = process.env.RADAR_API_KEY || "prj_live_pk_eef2517d56b63939d892c06a7dac57af7f2278cb";
+const RAPID_API_KEY = APP_CONFIG.usHousingApi.key;
+const RAPID_API_HOST = APP_CONFIG.usHousingApi.host;
+const RADAR_API_KEY = APP_CONFIG.radar.key;
 
 // In-memory deduplication for concurrent requests
 const ongoingRequests = new Map<string, Promise<any>>();
