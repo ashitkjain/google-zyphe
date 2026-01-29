@@ -191,21 +191,27 @@ export const checkExistingPropertiesBatch = async (zpids: string[]): Promise<Set
     if (!db || zpids.length === 0) return new Set();
     const existing = new Set<string>();
 
-    // Firestore 'in' query limit is 30 (previously 10, now 30 for this type of query or 10 depending on version).
-    // Safest to chunk by 10.
     const chunkSize = 10;
+    const chunks: string[][] = [];
     for (let i = 0; i < zpids.length; i += chunkSize) {
-        const chunk = zpids.slice(i, i + chunkSize);
-        try {
+        chunks.push(zpids.slice(i, i + chunkSize));
+    }
+
+    try {
+        // Run all chunk lookups in parallel for maximum speed
+        const results = await Promise.all(chunks.map(async (chunk) => {
             const q = query(
                 collection(db, "properties"),
                 where(documentId(), "in", chunk)
             );
             const snapshot = await getDocs(q);
-            snapshot.forEach(doc => existing.add(doc.id));
-        } catch (e) {
-            console.warn("Failed to check existence for batch", chunk, e);
-        }
+            return snapshot.docs.map(doc => doc.id);
+        }));
+
+        results.flat().forEach(id => existing.add(id));
+    } catch (e) {
+        console.warn("Failed to check existence for batch", e);
     }
+
     return existing;
 };

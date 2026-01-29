@@ -1,3 +1,4 @@
+import { Type } from "@google/genai";
 import { PropertyData, CustomAIAnalysisResult } from "../types";
 
 export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: CustomAIAnalysisResult) => {
@@ -44,4 +45,32 @@ export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: C
     "risks_considerations": "Write a paragraph highlighting any concerns regarding: Location (Crime rate, noise, environmental hazards, lack of essential services, zoning or future development changes), Property Condition (Age and state of roof, foundation, plumbing/electrical, HVAC, outdated layout, accessibility issues, storage/parking limits, energy inefficiency), Financial (Overpricing compared to comps, high property taxes, HOA fees/restrictions, rental market volatility, low appreciation potential, high insurance costs), Infrastructure (limited transit, long distance to hubs, noise pollution), Legal/Compliance (Title disputes, unpermitted work, restrictive ordinances), Any other risk factors mentioned in the provided information. Use **bold** for critical risk factors and warning items."
   }
   `;
+};
+
+export const comprehensiveAnalysisSchema = {
+  type: Type.OBJECT,
+  properties: {
+    summary: { type: Type.STRING },
+    detailed_analysis: {
+      type: Type.OBJECT,
+      properties: {
+        location_neighborhood: { type: Type.STRING },
+        outdoors_view_quality: { type: Type.STRING },
+        visual_appeal_condition: { type: Type.STRING },
+        privacy_layout: { type: Type.STRING },
+        climate_resilience: { type: Type.STRING },
+        additional_considerations: { type: Type.STRING }
+      },
+      required: [
+        "location_neighborhood",
+        "outdoors_view_quality",
+        "visual_appeal_condition",
+        "privacy_layout",
+        "climate_resilience",
+        "additional_considerations"
+      ]
+    },
+    risks_considerations: { type: Type.STRING }
+  },
+  required: ["summary", "detailed_analysis", "risks_considerations"]
 };

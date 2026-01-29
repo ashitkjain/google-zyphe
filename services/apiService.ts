@@ -284,17 +284,32 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
       ? `https://${RAPID_API_HOST}/property?zpid=${addressOrZpid}`
       : `https://${RAPID_API_HOST}/property?address=${encodeURIComponent(addressOrZpid)}`;
 
-    onStep?.("Fetching property facts...");
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'x-rapidapi-host': RAPID_API_HOST,
-        'x-rapidapi-key': RAPID_API_KEY,
-      },
-      cache: 'no-store'
-    });
+    let response;
+    let retries = 3;
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      onStep?.(`Fetching property facts... ${attempt > 1 ? `(Retry ${attempt - 1})` : ''}`);
+      response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'x-rapidapi-host': RAPID_API_HOST,
+          'x-rapidapi-key': RAPID_API_KEY,
+        },
+        cache: 'no-store'
+      });
 
-    if (!response.ok) throw new Error(`Property API error: ${response.status}`);
+      if (response.ok) break;
+
+      if (response.status === 429 && attempt < retries) {
+        const delay = Math.pow(2, attempt) * 1000;
+        onStep?.(`Rate limit hit. Retrying in ${delay / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      throw new Error(`Property API error: ${response.status}`);
+    }
+
+    if (!response || !response.ok) throw new Error(`Property API error: ${response?.status || 'Unknown'}`);
     const data = await response.json();
 
     const rawZpid = isZpid ? addressOrZpid : (data.zpid || data.props?.zpid || (data.properties && data.properties[0]?.zpid));

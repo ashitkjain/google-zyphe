@@ -28,9 +28,10 @@ const CityDataTab: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [statusLog, setStatusLog] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
-    const [stateFilter, setStateFilter] = useState<string>('ALL');
+    const [stateFilter, setStateFilter] = useState<string>('');
     const [ingestionQueue, setIngestionQueue] = useState<IngestionJob[]>([]);
     const [cachedPropertyIds, setCachedPropertyIds] = useState<Set<string>>(new Set());
+    const [isCheckingCache, setIsCheckingCache] = useState(false);
 
     const availableStates = useMemo(() => {
         const states = new Set<string>();
@@ -41,6 +42,13 @@ const CityDataTab: React.FC = () => {
         });
         return Array.from(states).sort();
     }, [listings]);
+
+    // Auto-select first state when results arrive
+    React.useEffect(() => {
+        if (availableStates.length > 0 && (stateFilter === '' || stateFilter === 'ALL')) {
+            setStateFilter(availableStates[0]);
+        }
+    }, [availableStates]);
 
     const groupedListings = useMemo(() => {
         const groups: Record<string, any[]> = {};
@@ -54,7 +62,7 @@ const CityDataTab: React.FC = () => {
             const state = item.location?.address?.state_code || 'Unknown State';
 
             // 1. State Filter (UI Toggle)
-            if (stateFilter !== 'ALL' && state !== stateFilter) return;
+            if (stateFilter && stateFilter !== 'ALL' && state !== stateFilter) return;
 
             // 2. City Name Filter (User Intent)
             // If user searched by name, strictly show ONLY that city (exclude neighbors in same zip)
@@ -109,12 +117,18 @@ const CityDataTab: React.FC = () => {
 
         let successCount = 0;
 
-        // Create an array of Promises to run in parallel
-        const ingestPromises = targets.map(async (item) => {
+        // Staggered parallel scanning: launches pipelines in parallel but staggers their start by 1s each
+        // to avoid hitting API rate limit bursts while maintaining some concurrency.
+        const ingestPromises = targets.map(async (item, index) => {
             const zpid = item.property_id;
             const address = item.location?.address?.line || zpid;
-            const startTime = Date.now();
 
+            // Wait for stagger delay
+            if (index > 0) {
+                await new Promise(r => setTimeout(r, index * 1000));
+            }
+
+            const startTime = Date.now();
             // Mark running
             setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime } : j));
 
@@ -122,13 +136,12 @@ const CityDataTab: React.FC = () => {
                 // Run Full Intelligence Pipeline
                 await runFullIntelligencePipeline(address, (progress) => {
                     setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
-                });
+                }, zpid);
 
                 setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
                 return true;
-
             } catch (e: any) {
-                console.error(e);
+                console.error(`Ingestion failed for ${zpid}:`, e);
                 setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
                 return false;
             }
@@ -364,11 +377,16 @@ const CityDataTab: React.FC = () => {
 
             // Check which properties are already in our database
             if (deDuplicated.length > 0) {
+                setIsCheckingCache(true);
                 log('Checking against existing database...');
-                const zpids = deDuplicated.map(l => l.property_id);
-                const existing = await checkExistingPropertiesBatch(zpids);
-                setCachedPropertyIds(existing);
-                log(`${existing.size} properties already exist in database.`);
+                try {
+                    const zpids = deDuplicated.map(l => l.property_id);
+                    const existing = await checkExistingPropertiesBatch(zpids);
+                    setCachedPropertyIds(existing);
+                    log(`${existing.size} properties already exist in database.`);
+                } finally {
+                    setIsCheckingCache(false);
+                }
             }
 
             if (deDuplicated.length === 0) {
@@ -401,14 +419,20 @@ const CityDataTab: React.FC = () => {
                 onClick={() => !isCached && toggleSelection(item.property_id)}
             >
                 <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                    <input
-                        type="checkbox"
-                        checked={isSelected}
-                        disabled={isCached}
-                        onChange={() => !isCached && toggleSelection(item.property_id)}
-                        className={`w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 
-                            ${isCached ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'cursor-pointer'}`}
-                    />
+                    {isCheckingCache ? (
+                        <div className="w-5 h-5 flex items-center justify-center">
+                            <i className="fa-solid fa-circle-notch animate-spin text-[10px] text-slate-300"></i>
+                        </div>
+                    ) : (
+                        <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={isCached}
+                            onChange={() => !isCached && toggleSelection(item.property_id)}
+                            className={`w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 
+                                ${isCached ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'cursor-pointer'}`}
+                        />
+                    )}
                 </td>
                 <td className="p-4 cursor-pointer">
                     <div className="flex items-center gap-4">

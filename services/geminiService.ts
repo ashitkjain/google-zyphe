@@ -5,7 +5,7 @@ import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/pr
 import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/property/neighborhoodAnalysis";
 import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/property/communityPulse";
 import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/property/propertyImages";
-import { getComprehensiveAnalysisPrompt } from "../prompts/property/comprehensiveAnalysis";
+import { getComprehensiveAnalysisPrompt, comprehensiveAnalysisSchema } from "../prompts/property/comprehensiveAnalysis";
 import { getImageQualityAnalysisPrompt, imageQualityAnalysisSchema } from "../prompts/property/imageQualityAnalysis";
 import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompts/property/investmentResearch";
 import { biddingStrategyPrompt } from "../prompts/property/biddingStrategy";
@@ -425,7 +425,9 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
       contents: prompt,
       config: {
         tools: [groundingTool],
-        temperature: 1.0,
+        temperature: 0.7,
+        responseMimeType: "application/json",
+        responseSchema: comprehensiveAnalysisSchema
       }
     });
     const responseText = response.text;
@@ -442,7 +444,7 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
   } catch (error: any) {
     if (logId) {
       updateLLMCall(logId, {
-        raw_response: error.message,
+        raw_response: error instanceof AiResponseError ? error.rawResponse : error.message,
         status: 'failed',
         error: error.stack || error.message,
         response_received_at: serverTimestamp()

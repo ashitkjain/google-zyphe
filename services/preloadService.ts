@@ -1,5 +1,5 @@
 
-import { normalizeAddress, fetchPropertyData, fetchPropertyImages } from './apiService.ts';
+import { normalizeAddress, fetchPropertyDataFull, fetchPropertyImages } from './apiService.ts';
 import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, analyzeImageQuality, AiResponseError } from './geminiService.ts';
 import {
   savePropertyToCloud,
@@ -19,7 +19,8 @@ export interface PipelineProgress {
 
 export const runFullIntelligencePipeline = async (
   rawAddress: string,
-  onProgress: (p: PipelineProgress) => void
+  onProgress: (p: PipelineProgress) => void,
+  providedZpid?: string
 ): Promise<string> => {
   try {
     // 1. Geocoding
@@ -34,8 +35,12 @@ export const runFullIntelligencePipeline = async (
 
     // 3. Property Data
     onProgress({ step: 'Property Data', status: 'running', message: 'Fetching specifications...' });
-    const propData = await fetchPropertyData(address, true);
-    const zpid = propData.zpid;
+
+    // If we have a providedZpid, we use it directly to fetch data
+    console.log(`[Pipeline] Fetching property data for: ${providedZpid || address} (isZpid: ${!!providedZpid})`);
+    const propData = await fetchPropertyDataFull(providedZpid || address, !!providedZpid);
+    const zpid = propData.zpid || providedZpid;
+    console.log(`[Pipeline] Resolved ZPID: ${zpid}`);
 
     if (!zpid) throw new Error("Could not resolve ZPID for property.");
 
