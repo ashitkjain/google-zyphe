@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CustomAIAnalysisResult, CommunityPulseSection, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, ImageQualityPoint, ImageQualityCategory, InvestmentResearchResult, BiddingStrategyResult, PropertyComp, PriceHistoryItem } from '../types';
 import { analyzeImageQuality, analyzeInvestmentResearch, analyzeBiddingStrategy, AiResponseError } from '../services/geminiService';
-import { saveImageQualityAnalysisToCloud, getImageQualityAnalysisFromCloud, saveInvestmentResearchToCloud, getInvestmentResearchFromCloud } from '../services/firebaseService';
+import { saveImageQualityAnalysisToCloud, getImageQualityAnalysisFromCloud, saveInvestmentResearchToCloud, getInvestmentResearchFromCloud, saveBiddingStrategyToCloud, getBiddingStrategyFromCloud } from '../services/firebaseService';
 import { APP_CONFIG } from '../config';
 
 interface Props {
@@ -181,14 +181,28 @@ const CustomAIAnalysis: React.FC<Props> = ({
     setBiddingLoading(true);
 
     try {
-      // NOTE: Cloud Cache for Bidding Strategy is permanently disabled via APP_CONFIG
-      addLog('Gemini AI', { type: 'request' }, { task: 'bidding_strategy', zpid, model: APP_CONFIG.models.bidding_strategy });
+      if (APP_CONFIG.caching.bidding_strategy) {
+        addLog('Cloud Cache', { type: 'request' }, { task: 'bidding_strategy', zpid });
+        const cached = await getBiddingStrategyFromCloud(zpid);
+        if (cached) {
+          addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'bidding_strategy', zpid, data: cached });
+          onUpdateAnalysis({ ...analysis, bidding_strategy: cached });
+          setBiddingLoading(false);
+          return;
+        }
+        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'bidding_strategy', zpid });
+      }
 
-      // Use actual property data if available, otherwise fallback to basic context
+      addLog('Gemini AI', { type: 'request' }, { task: 'bidding_strategy', zpid, model: APP_CONFIG.models.bidding_strategy });
       const result = await analyzeBiddingStrategy(propertyData);
 
       onUpdateAnalysis({ ...analysis, bidding_strategy: result });
       addLog('Gemini AI', { type: 'response' }, { task: 'bidding_strategy', zpid, data: result });
+
+      if (APP_CONFIG.caching.bidding_strategy) {
+        await saveBiddingStrategyToCloud(zpid, result);
+        addLog('Cloud Cache', { type: 'info' }, { status: 'Saved', task: 'bidding_strategy', zpid });
+      }
     } catch (err: any) {
       console.error("Bidding Strategy Failed:", err);
       addLog('System', { type: 'error' }, { message: "Bidding Strategy Failed", error: err.message || err });

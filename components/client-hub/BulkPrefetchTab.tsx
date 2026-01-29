@@ -179,7 +179,7 @@ const BulkPrefetchTab: React.FC = () => {
                                             <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                                                 <div
                                                     className="h-full bg-indigo-600 transition-all duration-500 ease-out"
-                                                    style={{ width: `${(100 / 9) * (['Geocoding', 'Status Check', 'Property Data', 'Gallery', 'Visual AI', 'Spatial AI', 'Market AI', 'Quality Audit', 'Narrative AI'].indexOf(item.progress.step) + 1)}%` }}
+                                                    style={{ width: `${(100 / 11) * (['Geocoding', 'Status Check', 'Property Data', 'Gallery', 'Visual AI', 'Spatial AI', 'Market AI', 'Quality Audit', 'Investment AI', 'Bidding AI', 'Narrative AI'].indexOf(item.progress.step) + 1)}%` }}
                                                 ></div>
                                             </div>
                                             <p className="text-[11px] text-slate-500 font-medium italic">
