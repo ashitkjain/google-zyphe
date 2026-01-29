@@ -10,6 +10,11 @@ import {
 import { savePropertyToCloud, checkExistingPropertiesBatch } from '../../services/firebase/properties';
 import { PropertyData } from '../../types';
 import { runFullIntelligencePipeline, PipelineProgress } from '../../services/preloadService';
+import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
+import { getAPILogsForTimeRange } from '../../services/firebase/api_logs';
+import { auth } from '../../services/firebase/config';
+import { LLMCallEvent } from '../../types/ai';
+import { APICallEvent } from '../../services/firebase/api_logs';
 
 interface IngestionJob {
     zpid: string;
@@ -32,6 +37,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [ingestionQueue, setIngestionQueue] = useState<IngestionJob[]>([]);
     const [cachedPropertyIds, setCachedPropertyIds] = useState<Set<string>>(new Set());
     const [isCheckingCache, setIsCheckingCache] = useState(false);
+    const [ingestionReport, setIngestionReport] = useState<{
+        llmLogs: LLMCallEvent[];
+        apiLogs: APICallEvent[];
+    } | null>(null);
 
     const availableStates = useMemo(() => {
         const states = new Set<string>();
@@ -102,6 +111,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
         setLoading(true);
         setError(null);
+        const batchStartTime = Date.now();
         log(`Starting Parallel Bulk Ingest & Intelligence Pipeline for ${selectedIds.size} properties...`);
 
         const targets = listings.filter(l => selectedIds.has(l.property_id));
@@ -129,6 +139,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             }
 
             const startTime = Date.now();
+            log(`Starting pipeline for property: ${address}`);
             // Mark running
             setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime } : j));
 
@@ -136,8 +147,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 // Run Full Intelligence Pipeline
                 await runFullIntelligencePipeline(address, (progress) => {
                     setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
-                }, zpid);
+                }, zpid, (msg) => log(`[${address}] ${msg}`));
 
+                log(`Successfully completed intelligence suite for: ${address}`);
                 setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
                 return true;
             } catch (e: any) {
@@ -156,6 +168,22 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
         if (successCount === targets.length) {
             setSelectedIds(new Set());
+        }
+
+        // Generate Report
+        try {
+            const maxEnd = Date.now();
+            const userId = auth?.currentUser?.uid || 'unknown';
+
+            const [llmLogs, apiLogs] = await Promise.all([
+                getLLMLogsForTimeRange(userId, batchStartTime, maxEnd),
+                getAPILogsForTimeRange(userId, batchStartTime, maxEnd)
+            ]);
+
+            setIngestionReport({ llmLogs, apiLogs });
+            log(`Usage Report Generated: ${llmLogs.length} AI calls, ${apiLogs.length} API calls.`);
+        } catch (reportErr) {
+            console.error("Failed to generate ingestion report:", reportErr);
         }
     };
 
@@ -691,6 +719,153 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                 )}
                             </div>
                         ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Ingestion Summary Report */}
+            {ingestionReport && (
+                <div className="mt-16 bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl p-10 animate-in fade-in zoom-in duration-500">
+                    <div className="flex items-center gap-6 mb-10 pb-8 border-b border-slate-100">
+                        <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
+                            <i className="fa-solid fa-chart-line text-2xl"></i>
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-black text-slate-900">Ingestion Usage Report</h2>
+                            <p className="text-sm font-bold text-slate-500 uppercase tracking-[0.2em] mt-1">Audit of intelligence pipeline execution</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        {/* Gemini Summary */}
+                        <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 group hover:border-indigo-200 transition-all">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-indigo-600 shadow-sm">
+                                    <i className="fa-solid fa-brain"></i>
+                                </div>
+                                <span className="text-xs font-black uppercase tracking-widest text-slate-500">Gemini AI</span>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-sm font-bold text-slate-600">Total Calls</span>
+                                    <span className="text-2xl font-black text-slate-900">{ingestionReport.llmLogs.length}</span>
+                                </div>
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-sm font-bold text-slate-600">Total Tokens</span>
+                                    <span className="text-2xl font-black text-indigo-600">
+                                        {(ingestionReport.llmLogs.reduce((acc, log) => acc + (log.usage_metadata?.totalTokenCount || 0), 0)).toLocaleString()}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* API Summary */}
+                        <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 group hover:border-emerald-200 transition-all">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-emerald-600 shadow-sm">
+                                    <i className="fa-solid fa-cloud-arrow-down"></i>
+                                </div>
+                                <span className="text-xs font-black uppercase tracking-widest text-slate-500">External APIs</span>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-sm font-bold text-slate-600">RapidAPI Calls</span>
+                                    <span className="text-2xl font-black text-slate-900">
+                                        {ingestionReport.apiLogs.filter(l => l.api_name === 'RapidAPI').length}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-sm font-bold text-slate-600">Radar Geocoding</span>
+                                    <span className="text-2xl font-black text-slate-900">
+                                        {ingestionReport.apiLogs.filter(l => l.api_name === 'Radar').length}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Performance Summary */}
+                        <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 group hover:border-amber-200 transition-all">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-amber-600 shadow-sm">
+                                    <i className="fa-solid fa-bolt"></i>
+                                </div>
+                                <span className="text-xs font-black uppercase tracking-widest text-slate-500">System Speed</span>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-sm font-bold text-slate-600">Avg API Latency</span>
+                                    <span className="text-2xl font-black text-slate-900">
+                                        {Math.round(ingestionReport.apiLogs.reduce((acc, log) => acc + (log.response_time_ms || 0), 0) / (ingestionReport.apiLogs.length || 1))}ms
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-sm font-bold text-slate-600">Avg AI Response</span>
+                                    <span className="text-2xl font-black text-slate-900">
+                                        {Math.round(ingestionReport.llmLogs.length > 0 ? (ingestionReport.llmLogs.reduce((acc, log) => {
+                                            if (log.response_received_at && log.request_sent_at) {
+                                                const start = (log.request_sent_at as any).toMillis?.() || 0;
+                                                const end = (log.response_received_at as any).toMillis?.() || 0;
+                                                return acc + (end - start);
+                                            }
+                                            return acc;
+                                        }, 0) / ingestionReport.llmLogs.length) / 1000 : 0)}s
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-12 overflow-x-auto rounded-3xl border border-slate-100">
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                <tr>
+                                    <th className="p-5">Call Type</th>
+                                    <th className="p-5">Endpoint / Agent</th>
+                                    <th className="p-5 text-right">Tokens / Time</th>
+                                    <th className="p-5 text-right">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {ingestionReport.llmLogs.sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0)).map(log => (
+                                    <tr key={log.id} className="text-sm transition-colors hover:bg-slate-50/50">
+                                        <td className="p-5">
+                                            <div className="flex items-center gap-2">
+                                                <i className="fa-solid fa-robot text-indigo-500 w-4"></i>
+                                                <span className="font-bold text-slate-900">Gemini</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-5 font-medium text-slate-600">{log.prompt_filename || 'Unknown Agent'}</td>
+                                        <td className="p-5 text-right font-mono text-indigo-600 font-bold">
+                                            {log.usage_metadata?.totalTokenCount || 0} tkn
+                                        </td>
+                                        <td className="p-5 text-right">
+                                            <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${log.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                {log.status}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {ingestionReport.apiLogs.sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0)).map(log => (
+                                    <tr key={log.id} className="text-sm transition-colors hover:bg-slate-50/50">
+                                        <td className="p-5">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`fa-solid ${log.api_name === 'Radar' ? 'fa-location-crosshairs text-emerald-500' : 'fa-server text-blue-500'} w-4`}></i>
+                                                <span className="font-bold text-slate-900">{log.api_name}</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-5 font-medium text-slate-600">{log.endpoint}</td>
+                                        <td className="p-5 text-right font-mono text-slate-500">
+                                            {log.response_time_ms ? `${log.response_time_ms}ms` : '--'}
+                                        </td>
+                                        <td className="p-5 text-right">
+                                            <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${log.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                {log.status}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             )}

@@ -424,7 +424,6 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
       model: GEMINI_MODEL,
       contents: prompt,
       config: {
-        tools: [groundingTool],
         temperature: 0.7,
         responseMimeType: "application/json",
         responseSchema: comprehensiveAnalysisSchema

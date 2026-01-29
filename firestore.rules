@@ -227,7 +227,13 @@ match /audit_events/{auditId} {
     }
 
     match /llm_call_events/{eventId} {
-      allow read, write: if true;
+      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+      allow read, update, delete: if request.auth != null && resource.data.user_id == request.auth.uid;
+    }
+
+    match /api_call_events/{eventId} {
+      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+      allow read, update, delete: if request.auth != null && resource.data.user_id == request.auth.uid;
     }
 
     match /reactivation_analysis_summary/{summaryId} {

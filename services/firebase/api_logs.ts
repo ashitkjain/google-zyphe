@@ -1,8 +1,19 @@
 import { collection, addDoc, doc, updateDoc, serverTimestamp, query, where, getDocs, Timestamp, orderBy } from "firebase/firestore";
 import { db, auth, sanitizeForFirestore } from "./config";
-import { LLMCallEvent } from "../../types/ai";
 
-export const logLLMCall = async (event: Omit<LLMCallEvent, 'id' | 'timestamp'>): Promise<string | null> => {
+export interface APICallEvent {
+    id?: string;
+    user_id: string;
+    api_name: string;
+    endpoint: string;
+    params: any;
+    status: 'pending' | 'completed' | 'failed';
+    error?: string;
+    response_time_ms?: number;
+    timestamp?: any;
+}
+
+export const logAPICall = async (event: Omit<APICallEvent, 'id' | 'timestamp'>): Promise<string | null> => {
     if (!db) return null;
 
     try {
@@ -19,61 +30,53 @@ export const logLLMCall = async (event: Omit<LLMCallEvent, 'id' | 'timestamp'>):
             timestamp: serverTimestamp()
         });
 
-        const docRef = await addDoc(collection(db, "llm_call_events"), docData);
-        console.log(`[LLM Log] Successfully created: ${docRef.id}`);
+        const docRef = await addDoc(collection(db, "api_call_events"), docData);
         return docRef.id;
     } catch (error: any) {
         if (error.code === 'permission-denied') {
-            console.warn("[LLM Log] Permission denied for 'llm_call_events'.");
+            console.warn("[API Log] Permission denied. Please update Firestore rules for 'api_call_events'.");
         } else {
-            console.error("Error creating LLM log:", error);
+            console.error("Error creating API log:", error);
         }
         return null;
     }
 };
-
-export const updateLLMCall = async (id: string, updates: Partial<LLMCallEvent>): Promise<void> => {
-    if (!db || !id) {
-        console.warn("[LLM Log] Update skipped: Missing db or id");
-        return;
-    }
-
+export const updateAPICall = async (id: string, updates: Partial<APICallEvent>): Promise<void> => {
+    if (!db || !id) return;
     try {
-        console.log(`[LLM Log] Updating log: ${id}`, updates);
-        const docRef = doc(db, "llm_call_events", id);
+        const docRef = doc(db, "api_call_events", id);
         const sanitized = sanitizeForFirestore(updates);
         await updateDoc(docRef, sanitized);
-        console.log(`[LLM Log] Successfully updated: ${id}`);
     } catch (error: any) {
         if (error.code === 'permission-denied') {
-            // Silently ignore
+            // Silently ignore or warn once
         } else {
-            console.error(`[LLM Log] Error updating ${id}:`, error.message || error);
+            console.error(`[API Log] Error updating ${id}:`, error.message || error);
         }
     }
 };
 
-export const getLLMLogsForTimeRange = async (userId: string, startTime: number, endTime: number): Promise<LLMCallEvent[]> => {
+export const getAPILogsForTimeRange = async (userId: string, startTime: number, endTime: number): Promise<APICallEvent[]> => {
     if (!db) return [];
     try {
         const start = Timestamp.fromMillis(startTime);
         const end = Timestamp.fromMillis(endTime);
         const q = query(
-            collection(db, "llm_call_events"),
+            collection(db, "api_call_events"),
             where("user_id", "==", userId),
             where("timestamp", ">=", start),
             where("timestamp", "<=", end),
             orderBy("timestamp", "desc")
         );
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LLMCallEvent));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as APICallEvent));
     } catch (error: any) {
         if (error.code === 'failed-precondition') {
-            console.warn("[LLM Log] Query failed: Missing index. Please click the link in the console to create it.");
+            console.warn("[API Log] Query failed: Missing index. Please click the link in the console to create it.");
         } else if (error.code === 'permission-denied') {
-            console.warn("[LLM Log] Permission denied when fetching logs.");
+            console.warn("[API Log] Permission denied when fetching logs.");
         } else {
-            console.error("Error fetching LLM logs:", error);
+            console.error("Error fetching API logs:", error);
         }
         return [];
     }

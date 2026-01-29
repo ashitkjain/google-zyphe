@@ -20,13 +20,15 @@ export interface PipelineProgress {
 export const runFullIntelligencePipeline = async (
   rawAddress: string,
   onProgress: (p: PipelineProgress) => void,
-  providedZpid?: string
+  providedZpid?: string,
+  onLog?: (msg: string) => void
 ): Promise<string> => {
   try {
     // 1. Geocoding
     onProgress({ step: 'Geocoding', status: 'running', message: 'Normalizing address and generating maps...' });
     const radar = await normalizeAddress(rawAddress);
     const address = radar.formattedAddress;
+    onLog?.(`[Geocode] Address normalized: ${address}`);
     onProgress({ step: 'Geocoding', status: 'completed', message: `Address normalized: ${address}` });
 
     // 2. Fresh Scan
@@ -37,10 +39,10 @@ export const runFullIntelligencePipeline = async (
     onProgress({ step: 'Property Data', status: 'running', message: 'Fetching specifications...' });
 
     // If we have a providedZpid, we use it directly to fetch data
-    console.log(`[Pipeline] Fetching property data for: ${providedZpid || address} (isZpid: ${!!providedZpid})`);
+    onLog?.(`[Pipeline] Fetching data for ${providedZpid || address}`);
     const propData = await fetchPropertyDataFull(providedZpid || address, !!providedZpid);
     const zpid = propData.zpid || providedZpid;
-    console.log(`[Pipeline] Resolved ZPID: ${zpid}`);
+    onLog?.(`[Pipeline] Resolved ZPID: ${zpid}`);
 
     if (!zpid) throw new Error("Could not resolve ZPID for property.");
 
@@ -67,8 +69,10 @@ export const runFullIntelligencePipeline = async (
 
     if (cachedVisual) {
       visualResult = cachedVisual;
+      onLog?.(`[Visual] Restored analysis from cache for ${zpid}`);
       onProgress({ step: 'Visual AI', status: 'completed', message: 'Visual analysis restored from cache.' });
     } else {
+      onLog?.(`[Visual] Running fresh AI analysis for ${zpid}...`);
       visualResult = await analyzePropertyImages(images, enrichedData);
       onProgress({ step: 'Visual AI', status: 'completed', message: 'Fresh visual analysis complete.' });
     }

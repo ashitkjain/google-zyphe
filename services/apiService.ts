@@ -2,6 +2,8 @@
 import { PropertyData, RadarGeocodeResponse, PropertyComp } from "../types";
 import { savePropertyToCloud, getPropertyFromCloud } from "./firebaseService";
 import { APP_CONFIG } from "../config";
+import { logAPICall, updateAPICall } from "./firebase/api_logs";
+import { auth } from "./firebase/config";
 
 const RAPID_API_KEY = APP_CONFIG.usHousingApi.key;
 const RAPID_API_HOST = APP_CONFIG.usHousingApi.host;
@@ -63,6 +65,15 @@ const safeStringify = (val: any): string | null => {
 
 export const normalizeAddress = async (address: string): Promise<RadarGeocodeResponse> => {
   const url = `https://api.radar.io/v1/geocode/forward?query=${encodeURIComponent(address)}`;
+  const geocodeLogId = await logAPICall({
+    user_id: auth?.currentUser?.uid || 'unknown',
+    api_name: 'Radar',
+    endpoint: 'geocode/forward',
+    params: { address },
+    status: 'pending'
+  });
+  const start = Date.now();
+
   const geocodeResponse = await fetch(url, {
     method: 'GET',
     headers: {
@@ -72,10 +83,18 @@ export const normalizeAddress = async (address: string): Promise<RadarGeocodeRes
     cache: 'no-store'
   });
 
-  const geocodeData = await geocodeResponse.json();
+  if (geocodeLogId) {
+    updateAPICall(geocodeLogId, {
+      status: geocodeResponse.ok ? 'completed' : 'failed',
+      response_time_ms: Date.now() - start,
+      error: geocodeResponse.ok ? undefined : `Status ${geocodeResponse.status}`
+    });
+  }
   if (!geocodeResponse.ok) {
     throw new Error(`Radar API error: ${geocodeResponse.status}`);
   }
+
+  const geocodeData = await geocodeResponse.json();
 
   const firstResult = geocodeData.addresses[0];
   if (!firstResult) throw new Error("No address found for the provided query.");
@@ -111,6 +130,15 @@ export const fetchScores = async (zpid: string): Promise<{
   const url = `https://${RAPID_API_HOST}/walkAndTransitScore?zpid=${zpid}`;
   const promise = (async () => {
     try {
+      const logId = await logAPICall({
+        user_id: auth?.currentUser?.uid || 'unknown',
+        api_name: 'RapidAPI',
+        endpoint: 'walkAndTransitScore',
+        params: { zpid },
+        status: 'pending'
+      });
+      const start = Date.now();
+
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -119,6 +147,15 @@ export const fetchScores = async (zpid: string): Promise<{
         },
         cache: 'no-store'
       });
+
+      if (logId) {
+        updateAPICall(logId, {
+          status: response.ok ? 'completed' : 'failed',
+          response_time_ms: Date.now() - start,
+          error: response.ok ? undefined : `Status ${response.status}`
+        });
+      }
+
       if (!response.ok) return {};
       const data = await response.json();
 
@@ -151,6 +188,15 @@ export const fetchPropertyComps = async (zpid: string): Promise<PropertyComp[]> 
   const url = `https://${RAPID_API_HOST}/propertyComps?zpid=${zpid}`;
   const promise = (async () => {
     try {
+      const logId = await logAPICall({
+        user_id: auth?.currentUser?.uid || 'unknown',
+        api_name: 'RapidAPI',
+        endpoint: 'propertyComps',
+        params: { zpid },
+        status: 'pending'
+      });
+      const start = Date.now();
+
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -159,6 +205,14 @@ export const fetchPropertyComps = async (zpid: string): Promise<PropertyComp[]> 
         },
         cache: 'no-store'
       });
+      if (logId) {
+        updateAPICall(logId, {
+          status: response.ok ? 'completed' : 'failed',
+          response_time_ms: Date.now() - start,
+          error: response.ok ? undefined : `Status ${response.status}`
+        });
+      }
+
       if (!response.ok) return [];
       const data = await response.json();
 
@@ -219,6 +273,15 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
   const promise = (async () => {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
+        const logId = await logAPICall({
+          user_id: auth?.currentUser?.uid || 'unknown',
+          api_name: 'RapidAPI',
+          endpoint: 'images',
+          params: { zpid, attempt },
+          status: 'pending'
+        });
+        const start = Date.now();
+
         const response = await fetch(url, {
           method: 'GET',
           headers: {
@@ -227,6 +290,14 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
           },
           cache: 'no-store'
         });
+
+        if (logId) {
+          updateAPICall(logId, {
+            status: response.ok ? 'completed' : 'failed',
+            response_time_ms: Date.now() - start,
+            error: response.ok ? undefined : `Status ${response.status}`
+          });
+        }
 
         if (!response.ok) {
           if (response.status === 429 && attempt < retries) {
@@ -237,6 +308,7 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
         }
 
         const data = await response.json();
+
         let images: any[] = [];
         if (Array.isArray(data)) images = data;
         else if (data.images && Array.isArray(data.images)) images = data.images;
@@ -288,6 +360,16 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
     let retries = 3;
     for (let attempt = 1; attempt <= retries; attempt++) {
       onStep?.(`Fetching property facts... ${attempt > 1 ? `(Retry ${attempt - 1})` : ''}`);
+
+      const logId = await logAPICall({
+        user_id: auth?.currentUser?.uid || 'unknown',
+        api_name: 'RapidAPI',
+        endpoint: 'property',
+        params: { addressOrZpid, isZpid, attempt },
+        status: 'pending'
+      });
+      const start = Date.now();
+
       response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -297,10 +379,19 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
         cache: 'no-store'
       });
 
+      if (logId) {
+        updateAPICall(logId, {
+          status: response.ok ? 'completed' : 'failed',
+          response_time_ms: Date.now() - start,
+          error: response.ok ? undefined : `Status ${response.status}`
+        });
+      }
+
       if (response.ok) break;
 
       if (response.status === 429 && attempt < retries) {
         const delay = Math.pow(2, attempt) * 1000;
+        console.warn(`[API] Rate limit (429) hit on attempt ${attempt}. Retrying in ${delay / 1000}s...`);
         onStep?.(`Rate limit hit. Retrying in ${delay / 1000}s...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
@@ -321,7 +412,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
 
     const mappedData: PropertyData = {
       address: formatAddress(data.address || data.props?.address || addressOrZpid),
-      city: typeof data.address === 'object' ? data.address.city : (data.props?.address?.city || undefined),
+      city: (data.address && typeof data.address === 'object') ? data.address.city : (data.props?.address?.city || undefined),
       zpid: rawZpid ? String(rawZpid) : undefined,
       homeStatus: data.homeStatus || data.props?.homeStatus || "OFF_MARKET",
       homeType: data.homeType || data.props?.homeType || "SINGLE_FAMILY",
