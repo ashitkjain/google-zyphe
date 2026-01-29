@@ -21,7 +21,7 @@ export const APP_CONFIG = {
     },
     rapidapi: {
         realtyInUsApi: {
-            key: process.env.RAPID_API_KEY || 'ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f',
+            key: 'ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f',
             host: 'realty-in-us.p.rapidapi.com',
             endpoints: {
                 list: '/properties/v3/list',
@@ -38,20 +38,20 @@ export const APP_CONFIG = {
             }
         },
         zipCodesApi: {
-            key: process.env.ZIPCODES_KEY || process.env.RAPID_API_KEY || 'ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f',
+            key: 'ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f',
             host: 'us-zipcodes.p.rapidapi.com',
             endpoint: '/get',
             path: '/codes'
         }
     },
     usHousingApi: {
-        key: process.env.RAPID_API_KEY || 'ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f',
-        host: process.env.US_HOUSING_HOST || 'us-housing-market-data1.p.rapidapi.com'
+        key: 'ba288e5526msh3083368751f58bdp1edc70jsn2c0645803d3f',
+        host: 'us-housing-market-data1.p.rapidapi.com'
     },
     radar: {
-        key: process.env.RADAR_API_KEY || 'prj_live_pk_eef2517d56b63939d892c06a7dac57af7f2278cb'
+        key: 'prj_live_pk_eef2517d56b63939d892c06a7dac57af7f2278cb'
     },
     gemini: {
-        key: process.env.API_KEY || "AIzaSy..." // Placeholder or fallback
+        key: "AIzaSyBEPZ14POfqhB2wgfqAsgXkzuVPy2w-l90"
     }
 };

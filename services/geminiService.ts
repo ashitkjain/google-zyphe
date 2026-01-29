@@ -39,12 +39,12 @@ let aiInstance: GoogleGenAI | null = null;
 const getAi = () => {
   if (!aiInstance) {
     // API key is correctly pulled from APP_CONFIG
-    const apiKey = APP_CONFIG.gemini.key || (typeof process !== 'undefined' && process.env?.API_KEY) || "";
+    const apiKey = APP_CONFIG.gemini.key;
 
-    if (!apiKey || apiKey.startsWith("AIzaSy...")) {
+    if (!apiKey || apiKey.startsWith("AIzaSy...") && apiKey.length < 20) {
       console.error("Missing Gemini API Key in APP_CONFIG.");
       throw new AiResponseError(
-        "Gemini API Key is missing. Please ensure it is set in config.ts or environment variables.",
+        "Gemini API Key is missing. Please ensure it is set in config.ts.",
         "Missing Configuration"
       );
     }
