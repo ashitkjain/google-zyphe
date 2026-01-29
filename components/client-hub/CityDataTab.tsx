@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import { APP_CONFIG } from '../../config';
 import {
-    saveCityZipMapping,
-    getCityZipMapping,
+    saveZipMetadataBatch,
+    getZipsForCity,
     saveZipListings,
     getZipListings
 } from '../../services/firebase/cityData';
@@ -111,14 +111,17 @@ const CityDataTab: React.FC = () => {
             } else {
                 const normalizedCity = city.trim();
 
-                // Step 1: Check Cloud Cache for City-to-Zip Mapping
-                // We pass empty string for state since we removed the input
-                const cachedMapping = await getCityZipMapping(normalizedCity, '');
-                if (cachedMapping && cachedMapping.zipCodes.length > 0) {
-                    const timestamp = cachedMapping.timestamp?.toDate?.()?.getTime() || cachedMapping.timestamp || 0;
-                    if (Date.now() - timestamp < 7 * 24 * 60 * 60 * 1000) {
-                        log(`Cloud Map Identified ${cachedMapping.zipCodes.length} Zip Codes`);
-                        targetZips = cachedMapping.zipCodes;
+                // Step 1: Check Cloud Cache for Zip Metadata (Grouped by State)
+                const cachedGroups = await getZipsForCity(normalizedCity);
+
+                if (cachedGroups) {
+                    // Flatten all zips from all states found in cache
+                    const allCachedZips = Object.values(cachedGroups).flat();
+                    if (allCachedZips.length > 0) {
+                        // Iterate entries to log states
+                        const statesFound = Object.keys(cachedGroups).join(', ');
+                        log(`Cloud Cache Hit for City: ${normalizedCity}. Found ${allCachedZips.length} zips across [${statesFound}].`);
+                        targetZips = allCachedZips;
                     }
                 }
 
@@ -139,30 +142,31 @@ const CityDataTab: React.FC = () => {
                             log('Rate Limit Hit (429) on Zip Resolution.');
                         } else {
                             const zipResult = await zipResp.json();
-                            // US Zip Codes API returns array of zip strings or objects? 
-                            // Usually it returns an array of objects or simple strings depending on endpoint. 
-                            // The user didn't specify format, but usually for ?q= it returns a list.
-                            // Let's assume response is array of objects { zip_code: "..." } or simple array.
-                            // We'll log it to be safe and try to parse.
-                            // If the response is { [key]: "value" ... } or [ ... ]
 
-                            // Trying robust parse assuming it returns something like [{zip_code: "94566"}, ...] or ["94566", ...]
-                            let foundZips: string[] = [];
+                            // Trying robust parse assuming it returns something like [{zip_code: "94566", state: "CA"}, ...]
+                            let foundEntries: { zip: string, city: string, state: string }[] = [];
 
                             if (Array.isArray(zipResult)) {
-                                foundZips = zipResult.map((x: any) => typeof x === 'string' ? x : x.zip_code || x.zipCode);
+                                foundEntries = zipResult.map((x: any) => ({
+                                    zip: typeof x === 'string' ? x : x.zip_code || x.zipCode,
+                                    city: x.city || normalizedCity, // Fallback to search term if missing
+                                    state: x.state || x.state_code || 'Unknown'
+                                }));
                             } else if (zipResult.zip_codes) {
-                                foundZips = zipResult.zip_codes;
+                                // Some endpoints return { zip_codes: [...Strings] }
+                                foundEntries = zipResult.zip_codes.map((z: any) => ({ zip: z, city: normalizedCity, state: 'Unknown' }));
                             }
 
-                            // Clean up
-                            targetZips = foundZips.filter(z => z && typeof z === 'string');
+                            // Filter valid zips
+                            foundEntries = foundEntries.filter(z => z.zip && typeof z.zip === 'string');
+                            targetZips = foundEntries.map(z => z.zip);
 
-                            log(`Resolved ${targetZips.length} Zip Codes from new API`);
+                            const uniqueStates = [...new Set(foundEntries.map(z => z.state).filter(s => s !== 'Unknown'))];
+                            log(`Resolved ${targetZips.length} Zip Codes from API. States: ${uniqueStates.join(', ') || 'N/A'}`);
 
-                            // Save resolved mapping to Cloud
-                            if (targetZips.length > 0) {
-                                saveCityZipMapping(normalizedCity, '', targetZips).catch(console.error);
+                            // Save to Cloud Cache (Batch)
+                            if (foundEntries.length > 0) {
+                                saveZipMetadataBatch(foundEntries).catch(console.error);
                             }
                         }
                     } catch (e) {

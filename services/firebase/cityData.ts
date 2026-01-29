@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDocs, collection, query, where, writeBatch, serverTimestamp } from "firebase/firestore";
 import {
     db,
     sanitizeForFirestore,
@@ -7,12 +7,14 @@ import {
 } from "./config";
 
 /**
- * Interface for City to Zip Mapping Cache
+ * Interface for Individual Zip Metadata
+ * Key is the Zip Code itself.
  */
-export interface CityZipMapping {
+export interface ZipCodeMetadata {
+    zipCode: string;
     city: string;
-    state?: string;
-    zipCodes: string[];
+    state: string;
+    city_str_normalized: string; // for case-insensitive querying
     timestamp?: any;
 }
 
@@ -26,48 +28,65 @@ export interface ZipListingsCache {
 }
 
 /**
- * Saves a city to zip code mapping in Firestore
+ * Saves a batch of zip code metadata to Firestore.
+ * This effectively caches the "City -> Zip" breakup by storing each Zip as an individual node.
  */
-export const saveCityZipMapping = async (city: string, state: string, zipCodes: string[]) => {
+export const saveZipMetadataBatch = async (data: { zip: string, city: string, state: string }[]) => {
     if (!db) return { success: false, error: "Database not initialized" };
     try {
-        const docId = `${city.toLowerCase().replace(/\s+/g, '_')}_${state.toLowerCase()}`;
-        const docRef = doc(db, "city_zip_mappings", docId);
+        const batch = writeBatch(db);
 
-        logFirestoreQuery('setDoc', 'city_zip_mappings', { docId });
-        await setDoc(docRef, {
-            city,
-            state,
-            zipCodes,
-            timestamp: serverTimestamp()
+        data.forEach(item => {
+            const docRef = doc(db, "city_zip_cache", item.zip);
+            batch.set(docRef, {
+                zipCode: item.zip,
+                city: item.city,
+                state: item.state,
+                city_str_normalized: item.city.toLowerCase().trim(),
+                timestamp: serverTimestamp()
+            }, { merge: true }); // Merge to update timestamp or add missing fields if exists
         });
+
+        logFirestoreQuery('writeBatch', 'city_zip_cache', { count: data.length });
+        await batch.commit();
+
         return { success: true };
     } catch (error: any) {
-        return { success: false, error: handleFirestoreError(error, "saveCityZipMapping") };
+        return { success: false, error: handleFirestoreError(error, "saveZipMetadataBatch") };
     }
 };
 
 /**
- * Retrieves a city to zip code mapping from Firestore
+ * Retrieves all zip codes for a given city name.
+ * Returns them grouped by State for easier UI handling.
  */
-export const getCityZipMapping = async (city: string, state: string): Promise<CityZipMapping | null> => {
+export const getZipsForCity = async (city: string): Promise<Record<string, string[]> | null> => {
     if (!db) return null;
     try {
-        const docId = `${city.toLowerCase().replace(/\s+/g, '_')}_${state.toLowerCase()}`;
-        const docRef = doc(db, "city_zip_mappings", docId);
+        const cityNormalized = city.toLowerCase().trim();
+        const q = query(
+            collection(db, "city_zip_cache"),
+            where("city_str_normalized", "==", cityNormalized)
+        );
 
-        logFirestoreQuery('getDoc', 'city_zip_mappings', { docId });
-        const docSnap = await getDoc(docRef);
+        logFirestoreQuery('getDocs', 'city_zip_cache', { cityNormalized });
+        const querySnapshot = await getDocs(q);
 
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            // Optional: Add TTL check here (e.g. 7 days)
-            return data as CityZipMapping;
-        }
-        return null;
+        if (querySnapshot.empty) return null;
+
+        const results: Record<string, string[]> = {};
+
+        querySnapshot.forEach(doc => {
+            const data = doc.data() as ZipCodeMetadata;
+            const state = data.state || 'Unknown';
+            if (!results[state]) results[state] = [];
+            results[state].push(data.zipCode);
+        });
+
+        return results;
     } catch (error: any) {
-        handleFirestoreError(error, "getCityZipMapping");
-        return null;
+        handleFirestoreError(error, "getZipsForCity");
+        return null; // Return null on error to trigger fallback to API
     }
 };
 
@@ -104,7 +123,6 @@ export const getZipListings = async (zipCode: string): Promise<ZipListingsCache 
 
         if (docSnap.exists()) {
             const data = docSnap.data();
-            // Optional: Add TTL check here (e.g. 24 hours)
             return data as ZipListingsCache;
         }
         return null;
