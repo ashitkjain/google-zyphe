@@ -15,19 +15,32 @@ const CityDataTab: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [statusLog, setStatusLog] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [stateFilter, setStateFilter] = useState<string>('ALL');
+
+    const availableStates = useMemo(() => {
+        const states = new Set<string>();
+        listings.forEach(item => {
+            if (item.location?.address?.state_code) {
+                states.add(item.location?.address?.state_code);
+            }
+        });
+        return Array.from(states).sort();
+    }, [listings]);
 
     const groupedListings = useMemo(() => {
         const groups: Record<string, any[]> = {};
         listings.forEach(item => {
             const city = item.location?.address?.city || 'Unknown City';
             const state = item.location?.address?.state_code || 'Unknown State';
+
+            if (stateFilter !== 'ALL' && state !== stateFilter) return;
+
             const key = `${city}, ${state}`;
             if (!groups[key]) groups[key] = [];
             groups[key].push(item);
         });
-        // Sort keys if needed, but for now object iteration order is loosely insertion order or alphabetical
         return groups;
-    }, [listings]);
+    }, [listings, stateFilter]);
 
     const log = (message: string) => {
         console.log(message);
@@ -289,15 +302,6 @@ const CityDataTab: React.FC = () => {
             <td className="p-4 text-right font-medium text-slate-900">
                 ${item.list_price?.toLocaleString() || '--'}
             </td>
-            <td className="p-4 text-center text-slate-600 text-sm">
-                {item.description?.beds} <span className="text-xs text-slate-400">bd</span>
-            </td>
-            <td className="p-4 text-center text-slate-600 text-sm">
-                {item.description?.baths} <span className="text-xs text-slate-400">ba</span>
-            </td>
-            <td className="p-4 text-center text-slate-600 text-sm">
-                {item.description?.sqft?.toLocaleString()} <span className="text-xs text-slate-400">sqft</span>
-            </td>
             <td className="p-4 text-right">
                 <button
                     onClick={() => copyToClipboard(item.location?.address?.line)}
@@ -370,6 +374,28 @@ const CityDataTab: React.FC = () => {
             {/* Grouped Results */}
             {listings.length > 0 ? (
                 <div className="space-y-12">
+                    {/* Filter Controls */}
+                    {availableStates.length > 1 && (
+                        <div className="flex items-center gap-2 mb-8 bg-white/50 p-2 rounded-xl w-fit">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-3">Filter State:</span>
+                            <button
+                                onClick={() => setStateFilter('ALL')}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${stateFilter === 'ALL' ? 'bg-slate-900 text-white shadow-md' : 'bg-transparent text-slate-500 hover:bg-white hover:text-slate-800'}`}
+                            >
+                                All
+                            </button>
+                            {availableStates.map(st => (
+                                <button
+                                    key={st}
+                                    onClick={() => setStateFilter(st)}
+                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${stateFilter === st ? 'bg-slate-900 text-white shadow-md' : 'bg-transparent text-slate-500 hover:bg-white hover:text-slate-800'}`}
+                                >
+                                    {st}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
                     {Object.entries(groupedListings).map(([groupKey, groupItems]) => (
                         <div key={groupKey} className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
                             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -399,9 +425,6 @@ const CityDataTab: React.FC = () => {
                                         <tr>
                                             <th className="p-4">Property</th>
                                             <th className="p-4 text-right">Price</th>
-                                            <th className="p-4 text-center">Beds</th>
-                                            <th className="p-4 text-center">Baths</th>
-                                            <th className="p-4 text-center">Sqft</th>
                                             <th className="p-4 text-right">Action</th>
                                         </tr>
                                     </thead>
