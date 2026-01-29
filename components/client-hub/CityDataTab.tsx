@@ -81,222 +81,99 @@ const CityDataTab: React.FC = () => {
 
         setLoading(true);
         setError(null);
-        log(`Starting Bulk Ingest for ${selectedIds.size} properties...`);
-
-        const targets = listings.filter(l => selectedIds.has(l.property_id));
-        let successCount = 0;
-
-        for (let i = 0; i < targets.length; i++) {
-            const item = targets[i];
-            const currentIndex = i + 1;
-            const zpid = item.property_id;
-
-            try {
-                log(`[${currentIndex}/${targets.length}] Ingesting ${item.location?.address?.line || zpid}...`);
-
-                // Map to PropertyData
-                const propertyData: Partial<PropertyData> = {
-                    zpid: zpid,
-                    address: item.location?.address?.line,
-                    city: item.location?.address?.city,
-                    homeStatus: item.status, // might be 'for_sale' etc
-                    price: item.list_price,
-                    bedrooms: item.description?.beds,
-                    bathrooms: item.description?.baths,
-                    livingAreaValue: item.description?.sqft,
-                    lotSize: item.description?.lot_sqft?.toString(),
-                    description: item.description?.text, // description might be object or string? In search results it's usually just beds/baths/sqft. Text might be missing.
-                    homeType: item.description?.type,
-                    images: item.primary_photo?.href ? [item.primary_photo.href] : [],
-                    listedDate: item.list_date
-                };
-
-                const result = await savePropertyToCloud(zpid, propertyData);
-                if (result.success) {
-                    successCount++;
-                } else {
-                    log(`Failed to ingest ${zpid}: ${result.error}`);
-                }
-            } catch (e: any) {
-                log(`Error processing ${zpid}: ${e.message}`);
+        const handleBulkIngest = async () => {
+            if (selectedIds.size === 0) return;
+            if (selectedIds.size > 10) {
+                setError(`You can only ingest up to 10 properties at once. You selected ${selectedIds.size}.`);
+                return;
             }
 
-            // Small delay for UI updates
-            await new Promise(r => setTimeout(r, 100));
-        }
+            setLoading(true);
+            setError(null);
+            log(`Starting Parallel Bulk Ingest for ${selectedIds.size} properties...`);
 
-        log(`Bulk Ingest Complete. Successfully ingested ${successCount} / ${targets.length} properties.`);
-        setLoading(false);
-        // Optional: Clear selection on success?
-        if (successCount === targets.length) {
-            setSelectedIds(new Set());
-        }
-    };
+            const targets = listings.filter(l => selectedIds.has(l.property_id));
+            let successCount = 0;
 
-    const fetchListings = async (zip: string) => {
-        const config = APP_CONFIG.rapidapi;
+            // Create an array of Promises to run in parallel
+            const ingestPromises = targets.map(async (item) => {
+                const zpid = item.property_id;
+                const address = item.location?.address?.line || zpid;
 
-        // 1. Check Cloud Cache first (Database)
-        try {
-            const cloudCached = await getZipListings(zip);
-            if (cloudCached && cloudCached.timestamp) {
-                const timestamp = cloudCached.timestamp.toDate?.()?.getTime() || cloudCached.timestamp;
-                // 24 hour TTL for listings
-                if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
-                    log(`Cloud Cache Hit for Zip: ${zip} (${cloudCached.listings?.length || 0} items)`);
-                    return cloudCached.listings || [];
+                try {
+                    log(`[Started] Ingesting ${address}...`);
+
+                    // Map to PropertyData
+                    const propertyData: Partial<PropertyData> = {
+                        zpid: zpid,
+                        address: item.location?.address?.line,
+                        city: item.location?.address?.city,
+                        homeStatus: item.status,
+                        price: item.list_price,
+                        bedrooms: item.description?.beds,
+                        bathrooms: item.description?.baths,
+                        livingAreaValue: item.description?.sqft,
+                        lotSize: item.description?.lot_sqft?.toString(),
+                        description: item.description?.text,
+                        homeType: item.description?.type,
+                        images: item.primary_photo?.href ? [item.primary_photo.href] : [],
+                        listedDate: item.list_date
+                    };
+
+                    const result = await savePropertyToCloud(zpid, propertyData);
+
+                    if (result.success) {
+                        log(`[Success] Ingested ${address}`);
+                        return true;
+                    } else {
+                        log(`[Failed] Ingest ${address}: ${result.error}`);
+                        return false;
+                    }
+                } catch (e: any) {
+                    log(`[Error] Processing ${address}: ${e.message}`);
+                    return false;
                 }
-            }
-        } catch (e) {
-            console.warn('Cloud cache check failed', e);
-        }
-
-        // 2. Network Request
-        log(`Fetching live data for Zip: ${zip}...`);
-        const url = `https://${config.host}${config.endpoints.list}`;
-        const body = {
-            ...config.defaults,
-            postal_code: zip
-        };
-
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'X-RapidAPI-Key': config.key,
-                    'X-RapidAPI-Host': config.host,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(body)
             });
 
-            if (!response.ok) {
-                const txt = await response.text();
-                log(`API Error for ${zip}: ${response.status} - ${txt}`);
-                return [];
+            // Wait for all to complete
+            const results = await Promise.all(ingestPromises);
+            successCount = results.filter(r => r === true).length;
+
+            log(`Bulk Ingest Complete. Successfully ingested ${successCount} / ${targets.length} properties.`);
+            setLoading(false);
+
+            if (successCount === targets.length) {
+                setSelectedIds(new Set());
             }
+        };
 
-            const result = await response.json();
-            // Robust parsing for different API response structures
-            const data = result.data?.home_search?.results || result.results || [];
+        const fetchListings = async (zip: string) => {
+            const config = APP_CONFIG.rapidapi;
 
-            log(`Live API returned ${data.length} listings for ${zip}`);
-
-            // 3. Save to Cloud Cache
-            if (data.length > 0) {
-                saveZipListings(zip, data).catch(console.error);
-            }
-
-            return data;
-        } catch (e: any) {
-            log(`Fetch failed for ${zip}: ${e.message}`);
-            return [];
-        }
-    };
-
-    const handleSearch = async () => {
-        if (!city) {
-            setError('Please provide a City or Postal Code.');
-            return;
-        }
-
-        const config = APP_CONFIG.rapidapi;
-        if (!config.key) {
-            setError('RapidAPI Key not configured in system.');
-            return;
-        }
-
-        setLoading(true);
-        setError(null);
-        setStatusLog([]);
-        setListings([]);
-
-        log(`Starting ingestion for: ${city}`);
-
-        try {
-            const isPostalCodeInput = /^\d{5}(-\d{4})?$/.test(city.trim());
-            let targetZips: string[] = [];
-
-            if (isPostalCodeInput) {
-                targetZips = [city.trim()];
-                log(`Identified direct Zip Code: ${targetZips[0]}`);
-            } else {
-                const normalizedCity = city.trim();
-
-                // Step 1: Check Cloud Cache for Zip Metadata (Grouped by State)
-                const cachedGroups = await getZipsForCity(normalizedCity);
-
-                if (cachedGroups) {
-                    // Flatten all zips from all states found in cache
-                    const allCachedZips = Object.values(cachedGroups).flat();
-                    if (allCachedZips.length > 0) {
-                        // Iterate entries to log states
-                        const statesFound = Object.keys(cachedGroups).join(', ');
-                        log(`Cloud Cache Hit for City: ${normalizedCity}. Found ${allCachedZips.length} zips across [${statesFound}].`);
-                        targetZips = allCachedZips;
+            // 1. Check Cloud Cache first (Database)
+            try {
+                const cloudCached = await getZipListings(zip);
+                if (cloudCached && cloudCached.timestamp) {
+                    const timestamp = cloudCached.timestamp.toDate?.()?.getTime() || cloudCached.timestamp;
+                    // 24 hour TTL for listings
+                    if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+                        log(`Cloud Cache Hit for Zip: ${zip} (${cloudCached.listings?.length || 0} items)`);
+                        return cloudCached.listings || [];
                     }
                 }
-
-                if (targetZips.length === 0) {
-                    log(`Resolving Zip Codes for ${normalizedCity}...`);
-                    // Step 2: Resolve Zip Codes for the City (Network) using US Zip Codes API
-                    try {
-                        const zipApiUrl = `https://${config.zipCodesApi.host}${config.zipCodesApi.path}?q=${encodeURIComponent(normalizedCity)}`;
-                        const zipResp = await fetch(zipApiUrl, {
-                            method: 'GET',
-                            headers: {
-                                'X-RapidAPI-Key': config.key,
-                                'X-RapidAPI-Host': config.zipCodesApi.host
-                            }
-                        });
-
-                        if (zipResp.status === 429) {
-                            log('Rate Limit Hit (429) on Zip Resolution.');
-                        } else {
-                            const zipResult = await zipResp.json();
-
-                            // Trying robust parse assuming it returns something like [{zip_code: "94566", state: "CA"}, ...]
-                            let foundEntries: { zip: string, city: string, state: string }[] = [];
-
-                            if (Array.isArray(zipResult)) {
-                                foundEntries = zipResult.map((x: any) => ({
-                                    zip: typeof x === 'string' ? x : x.zip_code || x.zipCode,
-                                    city: x.city || normalizedCity, // Fallback to search term if missing
-                                    state: x.state || x.state_code || 'Unknown'
-                                }));
-                            } else if (zipResult.zip_codes) {
-                                // Some endpoints return { zip_codes: [...Strings] }
-                                foundEntries = zipResult.zip_codes.map((z: any) => ({ zip: z, city: normalizedCity, state: 'Unknown' }));
-                            }
-
-                            // Filter valid zips
-                            foundEntries = foundEntries.filter(z => z.zip && typeof z.zip === 'string');
-                            targetZips = foundEntries.map(z => z.zip);
-
-                            const uniqueStates = [...new Set(foundEntries.map(z => z.state).filter(s => s !== 'Unknown'))];
-                            log(`Resolved ${targetZips.length} Zip Codes from API. States: ${uniqueStates.join(', ') || 'N/A'}`);
-
-                            // Save to Cloud Cache (Batch)
-                            if (foundEntries.length > 0) {
-                                saveZipMetadataBatch(foundEntries).catch(console.error);
-                            }
-                        }
-                    } catch (e) {
-                        log(`Zip resolution failed: ${e}`);
-                    }
-                }
+            } catch (e) {
+                console.warn('Cloud cache check failed', e);
             }
 
-            // Fallback: If Multi-Zip scan is impossible (rate limit or no zips), try direct City Search
-            if (targetZips.length === 0) {
-                log('Zip-based scan failed. Attempting direct City listing search...');
+            // 2. Network Request
+            log(`Fetching live data for Zip: ${zip}...`);
+            const url = `https://${config.host}${config.endpoints.list}`;
+            const body = {
+                ...config.defaults,
+                postal_code: zip
+            };
 
-                const url = `https://${config.host}${config.endpoints.list}`;
-                const body = {
-                    ...config.defaults,
-                    location: `${city.trim()}`
-                };
-
+            try {
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: {
@@ -309,260 +186,397 @@ const CityDataTab: React.FC = () => {
 
                 if (!response.ok) {
                     const txt = await response.text();
-                    throw new Error(`Fallback Search Failed: ${response.status} - ${txt}`);
+                    log(`API Error for ${zip}: ${response.status} - ${txt}`);
+                    return [];
                 }
 
                 const result = await response.json();
+                // Robust parsing for different API response structures
                 const data = result.data?.home_search?.results || result.results || [];
 
-                log(`Direct City Search returned ${data.length} listings.`);
-                setListings(data);
-                setLoading(false);
+                log(`Live API returned ${data.length} listings for ${zip}`);
+
+                // 3. Save to Cloud Cache
+                if (data.length > 0) {
+                    saveZipListings(zip, data).catch(console.error);
+                }
+
+                return data;
+            } catch (e: any) {
+                log(`Fetch failed for ${zip}: ${e.message}`);
+                return [];
+            }
+        };
+
+        const handleSearch = async () => {
+            if (!city) {
+                setError('Please provide a City or Postal Code.');
                 return;
             }
 
-            // Step 2: Fetch listings for each Zip (with cache)
-            const allResults: any[] = [];
-            const uniqueZips = [...new Set(targetZips)];
-
-            // Safety limit
-            const zipsToScan = uniqueZips.slice(0, 10);
-            log(`Scanning ${zipsToScan.length} unique Zip Codes...`);
-
-            for (const zip of zipsToScan) {
-                const zipListings = await fetchListings(zip);
-                allResults.push(...zipListings);
-                // Tiny delay to be nice to the API
-                await new Promise(r => setTimeout(r, 200));
+            const config = APP_CONFIG.rapidapi;
+            if (!config.key) {
+                setError('RapidAPI Key not configured in system.');
+                return;
             }
 
-            // Step 3: De-duplicate and Set
-            const seenIds = new Set();
-            const deDuplicated = allResults.filter(item => {
-                const id = item.property_id || item.listing_id || (item.location?.address?.line + item.list_price);
-                if (seenIds.has(id)) return false;
-                seenIds.add(id);
-                return true;
-            });
+            setLoading(true);
+            setError(null);
+            setStatusLog([]);
+            setListings([]);
 
-            log(`Ingestion Complete. ${deDuplicated.length} unique properties found.`);
-            setListings(deDuplicated);
+            log(`Starting ingestion for: ${city}`);
 
-            if (deDuplicated.length === 0) {
-                setError('No listings found in the resolved areas.');
+            try {
+                const isPostalCodeInput = /^\d{5}(-\d{4})?$/.test(city.trim());
+                let targetZips: string[] = [];
+
+                if (isPostalCodeInput) {
+                    targetZips = [city.trim()];
+                    log(`Identified direct Zip Code: ${targetZips[0]}`);
+                } else {
+                    const normalizedCity = city.trim();
+
+                    // Step 1: Check Cloud Cache for Zip Metadata (Grouped by State)
+                    const cachedGroups = await getZipsForCity(normalizedCity);
+
+                    if (cachedGroups) {
+                        // Flatten all zips from all states found in cache
+                        const allCachedZips = Object.values(cachedGroups).flat();
+                        if (allCachedZips.length > 0) {
+                            // Iterate entries to log states
+                            const statesFound = Object.keys(cachedGroups).join(', ');
+                            log(`Cloud Cache Hit for City: ${normalizedCity}. Found ${allCachedZips.length} zips across [${statesFound}].`);
+                            targetZips = allCachedZips;
+                        }
+                    }
+
+                    if (targetZips.length === 0) {
+                        log(`Resolving Zip Codes for ${normalizedCity}...`);
+                        // Step 2: Resolve Zip Codes for the City (Network) using US Zip Codes API
+                        try {
+                            const zipApiUrl = `https://${config.zipCodesApi.host}${config.zipCodesApi.path}?q=${encodeURIComponent(normalizedCity)}`;
+                            const zipResp = await fetch(zipApiUrl, {
+                                method: 'GET',
+                                headers: {
+                                    'X-RapidAPI-Key': config.key,
+                                    'X-RapidAPI-Host': config.zipCodesApi.host
+                                }
+                            });
+
+                            if (zipResp.status === 429) {
+                                log('Rate Limit Hit (429) on Zip Resolution.');
+                            } else {
+                                const zipResult = await zipResp.json();
+
+                                // Trying robust parse assuming it returns something like [{zip_code: "94566", state: "CA"}, ...]
+                                let foundEntries: { zip: string, city: string, state: string }[] = [];
+
+                                if (Array.isArray(zipResult)) {
+                                    foundEntries = zipResult.map((x: any) => ({
+                                        zip: typeof x === 'string' ? x : x.zip_code || x.zipCode,
+                                        city: x.city || normalizedCity, // Fallback to search term if missing
+                                        state: x.state || x.state_code || 'Unknown'
+                                    }));
+                                } else if (zipResult.zip_codes) {
+                                    // Some endpoints return { zip_codes: [...Strings] }
+                                    foundEntries = zipResult.zip_codes.map((z: any) => ({ zip: z, city: normalizedCity, state: 'Unknown' }));
+                                }
+
+                                // Filter valid zips
+                                foundEntries = foundEntries.filter(z => z.zip && typeof z.zip === 'string');
+                                targetZips = foundEntries.map(z => z.zip);
+
+                                const uniqueStates = [...new Set(foundEntries.map(z => z.state).filter(s => s !== 'Unknown'))];
+                                log(`Resolved ${targetZips.length} Zip Codes from API. States: ${uniqueStates.join(', ') || 'N/A'}`);
+
+                                // Save to Cloud Cache (Batch)
+                                if (foundEntries.length > 0) {
+                                    saveZipMetadataBatch(foundEntries).catch(console.error);
+                                }
+                            }
+                        } catch (e) {
+                            log(`Zip resolution failed: ${e}`);
+                        }
+                    }
+                }
+
+                // Fallback: If Multi-Zip scan is impossible (rate limit or no zips), try direct City Search
+                if (targetZips.length === 0) {
+                    log('Zip-based scan failed. Attempting direct City listing search...');
+
+                    const url = `https://${config.host}${config.endpoints.list}`;
+                    const body = {
+                        ...config.defaults,
+                        location: `${city.trim()}`
+                    };
+
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'X-RapidAPI-Key': config.key,
+                            'X-RapidAPI-Host': config.host,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(body)
+                    });
+
+                    if (!response.ok) {
+                        const txt = await response.text();
+                        throw new Error(`Fallback Search Failed: ${response.status} - ${txt}`);
+                    }
+
+                    const result = await response.json();
+                    const data = result.data?.home_search?.results || result.results || [];
+
+                    log(`Direct City Search returned ${data.length} listings.`);
+                    setListings(data);
+                    setLoading(false);
+                    return;
+                }
+
+                // Step 2: Fetch listings for each Zip (with cache)
+                const allResults: any[] = [];
+                const uniqueZips = [...new Set(targetZips)];
+
+                // Safety limit
+                const zipsToScan = uniqueZips.slice(0, 10);
+                log(`Scanning ${zipsToScan.length} unique Zip Codes...`);
+
+                for (const zip of zipsToScan) {
+                    const zipListings = await fetchListings(zip);
+                    allResults.push(...zipListings);
+                    // Tiny delay to be nice to the API
+                    await new Promise(r => setTimeout(r, 200));
+                }
+
+                // Step 3: De-duplicate and Set
+                const seenIds = new Set();
+                const deDuplicated = allResults.filter(item => {
+                    const id = item.property_id || item.listing_id || (item.location?.address?.line + item.list_price);
+                    if (seenIds.has(id)) return false;
+                    seenIds.add(id);
+                    return true;
+                });
+
+                log(`Ingestion Complete. ${deDuplicated.length} unique properties found.`);
+                setListings(deDuplicated);
+
+                if (deDuplicated.length === 0) {
+                    setError('No listings found in the resolved areas.');
+                }
+
+            } catch (err: any) {
+                console.error(err);
+                log(`Critical Error: ${err.message}`);
+                setError(err.message || 'Workflow failed. See log.');
+            } finally {
+                setLoading(false);
             }
+        };
 
-        } catch (err: any) {
-            console.error(err);
-            log(`Critical Error: ${err.message}`);
-            setError(err.message || 'Workflow failed. See log.');
-        } finally {
-            setLoading(false);
-        }
-    };
+        const copyToClipboard = (text: string) => {
+            navigator.clipboard.writeText(text);
+        };
 
-    const copyToClipboard = (text: string) => {
-        navigator.clipboard.writeText(text);
-    };
-
-    // Table Row Component
-    const ListingRow = ({ item }: { item: any }) => {
-        const isSelected = selectedIds.has(item.property_id);
-        return (
-            <tr
-                className={`hover:bg-slate-50 transition-colors group border-b border-slate-100 last:border-0 ${isSelected ? 'bg-indigo-50/30 hover:bg-indigo-50/50' : ''}`}
-                onClick={() => toggleSelection(item.property_id)}
-            >
-                <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                    <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleSelection(item.property_id)}
-                        className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                    />
-                </td>
-                <td className="p-4 cursor-pointer">
-                    <div className="flex items-center gap-4">
-                        <div className="w-16 h-12 bg-slate-200 rounded-lg overflow-hidden flex-shrink-0">
-                            {item.primary_photo?.href ? (
-                                <img src={item.primary_photo.href} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-slate-400">
-                                    <i className="fa-solid fa-image"></i>
-                                </div>
-                            )}
+        // Table Row Component
+        const ListingRow = ({ item }: { item: any }) => {
+            const isSelected = selectedIds.has(item.property_id);
+            return (
+                <tr
+                    className={`hover:bg-slate-50 transition-colors group border-b border-slate-100 last:border-0 ${isSelected ? 'bg-indigo-50/30 hover:bg-indigo-50/50' : ''}`}
+                    onClick={() => toggleSelection(item.property_id)}
+                >
+                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                        <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelection(item.property_id)}
+                            className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        />
+                    </td>
+                    <td className="p-4 cursor-pointer">
+                        <div className="flex items-center gap-4">
+                            <div className="w-16 h-12 bg-slate-200 rounded-lg overflow-hidden flex-shrink-0">
+                                {item.primary_photo?.href ? (
+                                    <img src={item.primary_photo.href} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-slate-400">
+                                        <i className="fa-solid fa-image"></i>
+                                    </div>
+                                )}
+                            </div>
+                            <div>
+                                <div className="font-bold text-slate-900 text-sm">{item.location?.address?.line || 'Unknown Address'}</div>
+                                <div className="text-xs text-slate-500">{item.location?.address?.city}, {item.location?.address?.state_code} {item.location?.address?.postal_code}</div>
+                            </div>
                         </div>
-                        <div>
-                            <div className="font-bold text-slate-900 text-sm">{item.location?.address?.line || 'Unknown Address'}</div>
-                            <div className="text-xs text-slate-500">{item.location?.address?.city}, {item.location?.address?.state_code} {item.location?.address?.postal_code}</div>
+                    </td>
+                    <td className="p-4 text-right font-medium text-slate-900">
+                        ${item.list_price?.toLocaleString() || '--'}
+                    </td>
+                    <td className="p-4 text-right">
+                        <button
+                            onClick={() => copyToClipboard(item.location?.address?.line)}
+                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                            title="Copy Address"
+                        >
+                            <i className="fa-solid fa-copy"></i>
+                        </button>
+                    </td>
+                </tr>
+            );
+        };
+
+        return (
+            <div className="max-w-7xl mx-auto py-10 px-6 animate-in fade-in duration-700">
+                <div className="mb-8 items-center justify-between flex">
+                    <div>
+                        <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">City Data Engine</h1>
+                        <p className="text-slate-500 font-medium">Global MLS Ingestion & Caching</p>
+                    </div>
+                    {selectedIds.size > 0 && (
+                        <button
+                            onClick={handleBulkIngest}
+                            disabled={loading}
+                            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-200 transition-all flex items-center gap-2 animate-in fade-in slide-in-from-right-4"
+                        >
+                            {loading ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>}
+                            Ingest Selected ({selectedIds.size})
+                        </button>
+                    )}
+                </div>
+
+                {/* API Config & Search */}
+                <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/40 mb-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end">
+                        <div className="lg:col-span-7 relative">
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">Location or Zip</label>
+                            <input
+                                type="text"
+                                value={city}
+                                onChange={(e) => setCity(e.target.value)}
+                                placeholder="Type a city (e.g. New York)..."
+                                className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:bg-white focus:border-indigo-500 transition-all font-medium text-sm shadow-inner"
+                            />
+                        </div>
+
+                        <div className="lg:col-span-5">
+                            <button
+                                onClick={handleSearch}
+                                disabled={loading}
+                                className="w-full px-8 py-3 bg-slate-900 hover:bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {loading ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-solid fa-search"></i>}
+                                {loading ? 'Ingesting Data...' : 'Start Ingestion'}
+                            </button>
                         </div>
                     </div>
-                </td>
-                <td className="p-4 text-right font-medium text-slate-900">
-                    ${item.list_price?.toLocaleString() || '--'}
-                </td>
-                <td className="p-4 text-right">
-                    <button
-                        onClick={() => copyToClipboard(item.location?.address?.line)}
-                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                        title="Copy Address"
-                    >
-                        <i className="fa-solid fa-copy"></i>
-                    </button>
-                </td>
-            </tr>
+
+                    {/* Status Log */}
+                    {error && (
+                        <div className="mt-6 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-3 text-rose-600 text-sm font-bold animate-in slide-in-from-top-2">
+                            <i className="fa-solid fa-triangle-exclamation"></i>
+                            {error}
+                        </div>
+                    )}
+                </div>
+
+                {/* Grouped Results */}
+                {listings.length > 0 ? (
+                    <div className="space-y-12">
+                        {/* Filter Controls */}
+                        {availableStates.length > 1 && (
+                            <div className="flex items-center gap-2 mb-8 bg-white/50 p-2 rounded-xl w-fit">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-3">Filter State:</span>
+                                <button
+                                    onClick={() => setStateFilter('ALL')}
+                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${stateFilter === 'ALL' ? 'bg-slate-900 text-white shadow-md' : 'bg-transparent text-slate-500 hover:bg-white hover:text-slate-800'}`}
+                                >
+                                    All
+                                </button>
+                                {availableStates.map(st => (
+                                    <button
+                                        key={st}
+                                        onClick={() => setStateFilter(st)}
+                                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${stateFilter === st ? 'bg-slate-900 text-white shadow-md' : 'bg-transparent text-slate-500 hover:bg-white hover:text-slate-800'}`}
+                                    >
+                                        {st}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {Object.entries(groupedListings).map(([groupKey, groupItems]) => (
+                            <div key={groupKey} className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+                                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                                            <i className="fa-solid fa-map-location-dot"></i>
+                                        </div>
+                                        <div>
+                                            <h2 className="text-xl font-black text-slate-900">{groupKey}</h2>
+                                            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                                                <span>{groupItems.length} Properties</span>
+                                                <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                                <span className="text-emerald-600">Active</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => copyToClipboard(groupItems.map(l => l.location?.address?.line).join('\n'))}
+                                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm flex items-center gap-2"
+                                    >
+                                        <i className="fa-solid fa-copy"></i> Copy Addresses
+                                    </button>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <tr>
+                                                <th className="p-4 w-12">
+                                                    {/* Select All could go here if needed, but per-group is tricky. Keeping blank or 'Select' label. */}
+                                                </th>
+                                                <th className="p-4">Property</th>
+                                                <th className="p-4 text-right">Price</th>
+                                                <th className="p-4 text-right">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {groupItems.map((item, idx) => (
+                                                <ListingRow key={idx} item={item} />
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    !loading && !error && (
+                        <div className="text-center py-24 opacity-40">
+                            <i className="fa-solid fa-table-cells text-6xl mb-4 text-slate-300"></i>
+                            <p className="font-medium text-slate-400">Data table is empty. Start a search above.</p>
+                        </div>
+                    )
+                )}
+
+                {/* Status Log - Moved to Bottom */}
+                {statusLog.length > 0 && (
+                    <div className="mt-12 p-6 bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl shadow-slate-900/20">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                            Ingestion Log
+                        </div>
+                        <div className="max-h-48 overflow-y-auto font-mono text-[11px] text-slate-300 space-y-1.5">
+                            {statusLog.map((log, i) => (
+                                <div key={i} className="border-l-2 border-slate-800 pl-3 py-0.5">{log}</div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
         );
     };
 
-    return (
-        <div className="max-w-7xl mx-auto py-10 px-6 animate-in fade-in duration-700">
-            <div className="mb-8 items-center justify-between flex">
-                <div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">City Data Engine</h1>
-                    <p className="text-slate-500 font-medium">Global MLS Ingestion & Caching</p>
-                </div>
-                {selectedIds.size > 0 && (
-                    <button
-                        onClick={handleBulkIngest}
-                        disabled={loading}
-                        className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-200 transition-all flex items-center gap-2 animate-in fade-in slide-in-from-right-4"
-                    >
-                        {loading ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>}
-                        Ingest Selected ({selectedIds.size})
-                    </button>
-                )}
-            </div>
-
-            {/* API Config & Search */}
-            <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/40 mb-8">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end">
-                    <div className="lg:col-span-7 relative">
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">Location or Zip</label>
-                        <input
-                            type="text"
-                            value={city}
-                            onChange={(e) => setCity(e.target.value)}
-                            placeholder="Type a city (e.g. New York)..."
-                            className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:bg-white focus:border-indigo-500 transition-all font-medium text-sm shadow-inner"
-                        />
-                    </div>
-
-                    <div className="lg:col-span-5">
-                        <button
-                            onClick={handleSearch}
-                            disabled={loading}
-                            className="w-full px-8 py-3 bg-slate-900 hover:bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {loading ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-solid fa-search"></i>}
-                            {loading ? 'Ingesting Data...' : 'Start Ingestion'}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Status Log */}
-                {error && (
-                    <div className="mt-6 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-3 text-rose-600 text-sm font-bold animate-in slide-in-from-top-2">
-                        <i className="fa-solid fa-triangle-exclamation"></i>
-                        {error}
-                    </div>
-                )}
-            </div>
-
-            {/* Grouped Results */}
-            {listings.length > 0 ? (
-                <div className="space-y-12">
-                    {/* Filter Controls */}
-                    {availableStates.length > 1 && (
-                        <div className="flex items-center gap-2 mb-8 bg-white/50 p-2 rounded-xl w-fit">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-3">Filter State:</span>
-                            <button
-                                onClick={() => setStateFilter('ALL')}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${stateFilter === 'ALL' ? 'bg-slate-900 text-white shadow-md' : 'bg-transparent text-slate-500 hover:bg-white hover:text-slate-800'}`}
-                            >
-                                All
-                            </button>
-                            {availableStates.map(st => (
-                                <button
-                                    key={st}
-                                    onClick={() => setStateFilter(st)}
-                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${stateFilter === st ? 'bg-slate-900 text-white shadow-md' : 'bg-transparent text-slate-500 hover:bg-white hover:text-slate-800'}`}
-                                >
-                                    {st}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    {Object.entries(groupedListings).map(([groupKey, groupItems]) => (
-                        <div key={groupKey} className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
-                            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
-                                        <i className="fa-solid fa-map-location-dot"></i>
-                                    </div>
-                                    <div>
-                                        <h2 className="text-xl font-black text-slate-900">{groupKey}</h2>
-                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-widest">
-                                            <span>{groupItems.length} Properties</span>
-                                            <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                                            <span className="text-emerald-600">Active</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => copyToClipboard(groupItems.map(l => l.location?.address?.line).join('\n'))}
-                                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm flex items-center gap-2"
-                                >
-                                    <i className="fa-solid fa-copy"></i> Copy Addresses
-                                </button>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left">
-                                    <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                        <tr>
-                                            <th className="p-4 w-12">
-                                                {/* Select All could go here if needed, but per-group is tricky. Keeping blank or 'Select' label. */}
-                                            </th>
-                                            <th className="p-4">Property</th>
-                                            <th className="p-4 text-right">Price</th>
-                                            <th className="p-4 text-right">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {groupItems.map((item, idx) => (
-                                            <ListingRow key={idx} item={item} />
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                !loading && !error && (
-                    <div className="text-center py-24 opacity-40">
-                        <i className="fa-solid fa-table-cells text-6xl mb-4 text-slate-300"></i>
-                        <p className="font-medium text-slate-400">Data table is empty. Start a search above.</p>
-                    </div>
-                )
-            )}
-
-            {/* Status Log - Moved to Bottom */}
-            {statusLog.length > 0 && (
-                <div className="mt-12 p-6 bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl shadow-slate-900/20">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                        Ingestion Log
-                    </div>
-                    <div className="max-h-48 overflow-y-auto font-mono text-[11px] text-slate-300 space-y-1.5">
-                        {statusLog.map((log, i) => (
-                            <div key={i} className="border-l-2 border-slate-800 pl-3 py-0.5">{log}</div>
-                        ))}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
-export default CityDataTab;
+    export default CityDataTab;
