@@ -587,7 +587,19 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
                         {!loading && (
                             <button
-                                onClick={() => setViewMode('table')}
+                                onClick={() => {
+                                    // Update local cache state with successfully ingested properties so they appear grayed out
+                                    setCachedPropertyIds(prev => {
+                                        const next = new Set(prev);
+                                        ingestionQueue.forEach(job => {
+                                            if (job.status === 'completed') {
+                                                next.add(job.zpid);
+                                            }
+                                        });
+                                        return next;
+                                    });
+                                    setViewMode('table');
+                                }}
                                 className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-[1.2rem] text-sm font-black shadow-lg shadow-slate-200 transition-all animate-in zoom-in"
                             >
                                 Done & Return to Listings

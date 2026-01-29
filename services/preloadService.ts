@@ -1,15 +1,18 @@
 
 import { normalizeAddress, fetchPropertyDataFull, fetchPropertyImages } from './apiService.ts';
-import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, analyzeImageQuality, AiResponseError } from './geminiService.ts';
+import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, analyzeImageQuality, analyzeInvestmentResearch, AiResponseError } from './geminiService.ts';
 import {
   savePropertyToCloud,
   saveVisualAnalysisToCloud,
   getVisualAnalysisFromCloud,
   saveComprehensiveAnalysisToCloud,
   saveImageQualityAnalysisToCloud,
-  getImageQualityAnalysisFromCloud
+  getImageQualityAnalysisFromCloud,
+  saveInvestmentResearchToCloud,
+  getInvestmentResearchFromCloud
 } from './firebaseService.ts';
-import { PropertyData, CustomAIAnalysisResult } from '../types';
+import { PropertyData, CustomAIAnalysisResult, InvestmentResearchResult } from '../types';
+import { uploadRemoteImageToStorage } from './firebase/storage.ts';
 
 export interface PipelineProgress {
   step: string;
@@ -46,20 +49,70 @@ export const runFullIntelligencePipeline = async (
 
     if (!zpid) throw new Error("Could not resolve ZPID for property.");
 
+    // --- ASSET PERSISTENCE ---
+    onProgress({ step: 'Property Data', status: 'running', message: 'Persisting images to secure storage...' });
+
+    // 1. Persist Map Image
+    let persistentMapUrl = radar.mapZoomOut;
+    if (radar.mapZoomOut) {
+      try {
+        persistentMapUrl = await uploadRemoteImageToStorage(
+          radar.mapZoomOut,
+          `properties/${zpid}/maps/location_context.png`
+        );
+        onLog?.(`[Assets] Map image saved to storage.`);
+      } catch (e) {
+        console.error("Failed to save map image:", e);
+      }
+    }
+
+    // 2. Persist Gallery Images (Parallel)
+    const rawImages = propData.images || [];
+    const imagesToProcess = rawImages.slice(0, 15); // Limit to 15 for performance
+
+    const imageUploadPromises = imagesToProcess.map(async (url, index) => {
+      try {
+        // Check if it's already a firebase URL (unlikely but safe)
+        if (url.includes('firebasestorage')) return url;
+
+        return await uploadRemoteImageToStorage(
+          url,
+          `properties/${zpid}/gallery/img_${index + 1}.jpg`
+        );
+      } catch (e) {
+        console.warn(`Failed to upload image ${index}:`, e);
+        return url; // Fallback to original
+      }
+    });
+
+    const persistentImages = await Promise.all(imageUploadPromises);
+    onLog?.(`[Assets] ${persistentImages.length} images persisted to storage.`);
+
+    // Check if we have a mismatch
+    const isMismatch = providedZpid && providedZpid !== zpid;
+    const alternateIds = new Set<string>();
+    if (zpid) alternateIds.add(zpid);
+    if (providedZpid) alternateIds.add(providedZpid);
+
     const enrichedData: PropertyData = {
       ...propData,
+      zpid: zpid, // Canonical ID
+      feed_property_id: providedZpid, // Track what initiated this (e.g. 2056...)
+      alternate_ids: Array.from(alternateIds),
+      images: persistentImages, // Use the new persistent URLs
       coordinates: radar.coordinates,
       mapZoomIn: radar.mapZoomIn,
-      mapZoomOut: radar.mapZoomOut,
+      mapZoomOut: persistentMapUrl,
       address: address
     };
     await savePropertyToCloud(zpid, enrichedData);
-    onProgress({ step: 'Property Data', status: 'completed', message: 'Fresh specs and market data retrieved.' });
+    onProgress({ step: 'Property Data', status: 'completed', message: 'Assets persisted & specs saved.' });
 
-    // 4. Gallery (Handled by Step 3)
-    onProgress({ step: 'Gallery', status: 'running', message: 'Processing property images...' });
+    // 4. Gallery (Handled above)
+    onProgress({ step: 'Gallery', status: 'completed', message: `${persistentImages.length} images secured in cloud storage.` });
+
+    // Restore locally for downstream steps
     const images = enrichedData.images || [];
-    onProgress({ step: 'Gallery', status: 'completed', message: images.length > 0 ? `${images.length} fresh images indexed.` : 'No images available.' });
 
     // 5. Visual Intelligence
     onProgress({ step: 'Visual AI', status: 'running', message: 'Analyzing interior and style...' });
@@ -112,7 +165,21 @@ export const runFullIntelligencePipeline = async (
 
     await saveVisualAnalysisToCloud(zpid, visualResult);
 
-    // 9. Narrative AI
+    // 9. Investment Research (New Pipeline Step)
+    onProgress({ step: 'Investment AI', status: 'running', message: 'Analyzing investment potential...' });
+    const cachedInvestment = await getInvestmentResearchFromCloud(zpid);
+    let investmentResult: InvestmentResearchResult;
+
+    if (cachedInvestment) {
+      investmentResult = cachedInvestment;
+      onProgress({ step: 'Investment AI', status: 'completed', message: 'Investment research restored from cache.' });
+    } else {
+      investmentResult = await analyzeInvestmentResearch(enrichedData);
+      await saveInvestmentResearchToCloud(zpid, investmentResult);
+      onProgress({ step: 'Investment AI', status: 'completed', message: 'Investment analysis complete.' });
+    }
+
+    // 10. Narrative AI
     onProgress({ step: 'Narrative AI', status: 'running', message: 'Synthesizing professional report...' });
     const compResult = await analyzeComprehensive(enrichedData, visualResult);
     await saveComprehensiveAnalysisToCloud(zpid, compResult);

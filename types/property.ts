@@ -90,6 +90,8 @@ import { AIAnalysisResult, CustomAIAnalysisResult, ComprehensiveAnalysisResult }
 
 export interface PropertyData {
     zpid?: string;
+    feed_property_id?: string; // The ID provided by the search/list feed (which may differ from canonical ZPID)
+    alternate_ids?: string[]; // Array of known aliases for this property ID
     address: string;
     city?: string;
     homeStatus?: string;

@@ -22,6 +22,12 @@ service firebase.storage {
       allow read, write: if isAuthenticated() && (request.auth.uid == userId);
     }
 
+    // Property Assets (Maps & Gallery) - Public Read, Auth Write
+    match /properties/{zpid}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
     // Default deny
     match /{allPaths=**} {
       allow read, write: if false;

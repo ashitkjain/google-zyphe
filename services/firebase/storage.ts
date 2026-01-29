@@ -82,3 +82,34 @@ export const uploadProfileImage = async (userId: string, file: File): Promise<st
         throw new Error(error.message || "Failed to upload image");
     }
 };
+
+/**
+ * Fetches an image from a remote URL and uploads it to Firebase Storage.
+ * @param url - The remote URL of the image.
+ * @param path - The target path in Firebase Storage.
+ * @returns The download URL of the uploaded image.
+ */
+export const uploadRemoteImageToStorage = async (url: string, path: string): Promise<string> => {
+    if (!storage) throw new Error("Firebase Storage not initialized");
+
+    try {
+        // Fetch the image
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Failed to fetch remote image: ${response.statusText}`);
+
+        const blob = await response.blob();
+
+        const storageRef = ref(storage, path);
+
+        // Upload
+        const snapshot = await uploadBytes(storageRef, blob);
+
+        // Get URL
+        const downloadURL = await getDownloadURL(snapshot.ref);
+        return downloadURL;
+    } catch (error: any) {
+        console.error(`[Storage] Failed to upload remote image from ${url}:`, error);
+        // Fallback: return the original URL if upload fails so we don't break the app
+        return url;
+    }
+};

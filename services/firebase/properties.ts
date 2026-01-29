@@ -212,17 +212,46 @@ export const checkExistingPropertiesBatch = async (zpids: string[]): Promise<Set
     }
 
     try {
-        // Run all chunk lookups in parallel for maximum speed
-        const results = await Promise.all(chunks.map(async (chunk) => {
-            const q = query(
+        // Run lookups in parallel
+        await Promise.all(chunks.map(async (chunk) => {
+            // Check 1: Direct ID Match
+            const qPrimary = query(
                 collection(db, "properties"),
                 where(documentId(), "in", chunk)
             );
-            const snapshot = await getDocs(q);
-            return snapshot.docs.map(doc => doc.id);
+
+            // Check 2: Alternate/Feed ID Match
+            const qAlt = query(
+                collection(db, "properties"),
+                where("alternate_ids", "array-contains-any", chunk)
+            );
+
+            const [snapPrimary, snapAlt] = await Promise.all([
+                getDocs(qPrimary),
+                getDocs(qAlt)
+            ]);
+
+            // Combine findings
+            const allDocs = [...snapPrimary.docs, ...snapAlt.docs];
+
+            allDocs.forEach(doc => {
+                const data = doc.data();
+
+                // If the doc ID itself was requested, mark it found
+                if (zpids.includes(doc.id)) existing.add(doc.id);
+
+                // If any of its aliases were requested, mark them found
+                // (e.g. requested '2056', doc is '2508' but alternate_ids has '2056')
+                if (data.alternate_ids && Array.isArray(data.alternate_ids)) {
+                    data.alternate_ids.forEach((alias: string) => {
+                        if (chunk.includes(alias)) {
+                            existing.add(alias);
+                        }
+                    });
+                }
+            });
         }));
 
-        results.flat().forEach(id => existing.add(id));
     } catch (e) {
         console.warn("Failed to check existence for batch", e);
     }
