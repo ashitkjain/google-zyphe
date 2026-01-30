@@ -258,3 +258,34 @@ export const checkExistingPropertiesBatch = async (zpids: string[]): Promise<Set
 
     return existing;
 };
+
+export const deletePropertyAnalysis = async (zpid: string) => {
+    if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
+
+    try {
+        const collections = [
+            "properties",
+            "property_analyses_comprehensive",
+            "property_analyses_visual",
+            "market_research",
+            "image_quality_analysis" // Including this as it's part of the suite even if not explicitly listed
+        ];
+
+        console.log(`[Firestore] Deleting all data for ZPID: "${zpid}"...`);
+
+        await Promise.all(collections.map(coll => {
+            const docRef = doc(db, coll, String(zpid));
+            logFirestoreQuery('deleteDoc', coll, { zpid });
+            return setDoc(docRef, {}); // We could use deleteDoc(docRef), but some systems prefer empty objects for tombstoning. Standard deleteDoc is cleaner:
+        }));
+
+        // Use proper deleteDoc for clean removal
+        const { deleteDoc } = await import("firebase/firestore");
+        await Promise.all(collections.map(coll => deleteDoc(doc(db, coll, String(zpid)))));
+
+        console.log(`[Firestore] SUCCESS: Fully removed ZPID "${zpid}" from cache.`);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: handleFirestoreError(error, "deletePropertyAnalysis") as string };
+    }
+};

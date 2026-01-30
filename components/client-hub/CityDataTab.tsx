@@ -7,7 +7,7 @@ import {
     saveZipListings,
     getZipListings
 } from '../../services/firebase/cityData';
-import { savePropertyToCloud, checkExistingPropertiesBatch } from '../../services/firebase/properties';
+import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis } from '../../services/firebase/properties';
 import { PropertyData } from '../../types';
 import { runFullIntelligencePipeline, PipelineProgress } from '../../services/preloadService';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
@@ -446,15 +446,16 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
     // Table Row Component
     const ListingRow = ({ item }: { item: any, key?: any }) => {
-        const isSelected = selectedIds.has(item.property_id);
-        const isCached = cachedPropertyIds.has(item.property_id);
+        const itemId = String(item.property_id || item.listing_id);
+        const isSelected = selectedIds.has(itemId);
+        const isCached = cachedPropertyIds.has(itemId);
 
         return (
             <tr
-                className={`hover:bg-slate-50 transition-colors group border-b border-slate-100 last:border-0 
-                    ${isSelected ? 'bg-indigo-50/30 hover:bg-indigo-50/50' : ''} 
-                    ${isCached ? 'bg-slate-50 opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
-                onClick={() => !isCached && toggleSelection(item.property_id)}
+                className={`transition-all duration-300 border-b border-slate-100 last:border-0 
+                    ${isSelected ? 'bg-indigo-50/40' : 'hover:bg-slate-50'} 
+                    ${isCached ? 'bg-slate-50/50' : 'cursor-pointer'}`}
+                onClick={() => !isCached && toggleSelection(itemId)}
             >
                 <td className="p-4" onClick={(e) => e.stopPropagation()}>
                     {isCheckingCache ? (
@@ -464,17 +465,18 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     ) : (
                         <input
                             type="checkbox"
-                            checked={isSelected}
+                            checked={isSelected || isCached}
                             disabled={isCached}
-                            onChange={() => !isCached && toggleSelection(item.property_id)}
-                            className={`w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 
-                                ${isCached ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'cursor-pointer'}`}
+                            readOnly={isCached}
+                            onChange={() => !isCached && toggleSelection(itemId)}
+                            className={`w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 transition-all
+                                ${isCached ? 'opacity-20 cursor-not-allowed bg-slate-200' : 'cursor-pointer hover:border-indigo-400'}`}
                         />
                     )}
                 </td>
-                <td className="p-4 cursor-pointer">
+                <td className="p-4">
                     <div className="flex items-center gap-4">
-                        <div className="w-16 h-12 bg-slate-200 rounded-lg overflow-hidden flex-shrink-0">
+                        <div className={`w-16 h-12 bg-slate-200 rounded-lg overflow-hidden flex-shrink-0 relative ${isCached ? 'grayscale opacity-50' : ''}`}>
                             {item.primary_photo?.href ? (
                                 <img src={item.primary_photo.href} alt="" className="w-full h-full object-cover" />
                             ) : (
@@ -482,33 +484,78 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     <i className="fa-solid fa-image"></i>
                                 </div>
                             )}
+                            {isCached && (
+                                <div className="absolute inset-0 bg-slate-900/10 flex items-center justify-center">
+                                    <i className="fa-solid fa-database text-white text-[10px] drop-shadow"></i>
+                                </div>
+                            )}
                         </div>
-                        <div>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    const fullAddress = `${item.location?.address?.line}, ${item.location?.address?.city}, ${item.location?.address?.state_code} ${item.location?.address?.postal_code}`;
-                                    if (onNavigate) onNavigate('explore', fullAddress);
-                                }}
-                                className="font-bold text-slate-900 text-sm hover:text-indigo-600 hover:underline text-left transition-colors"
-                            >
-                                {item.location?.address?.line || 'Unknown Address'}
-                            </button>
-                            <div className="text-xs text-slate-500">{item.location?.address?.city}, {item.location?.address?.state_code} {item.location?.address?.postal_code}</div>
+                        <div className={isCached ? 'opacity-40' : ''}>
+                            <div className="flex items-center gap-2 mb-0.5">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const addrObj = item.location?.address;
+                                        const fullAddress = addrObj
+                                            ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
+                                            : (item.location?.address?.line || itemId);
+                                        if (onNavigate) onNavigate('explore', fullAddress);
+                                    }}
+                                    className="font-bold text-slate-900 text-sm hover:text-indigo-600 hover:underline text-left transition-colors"
+                                >
+                                    {item.location?.address?.line || 'Unknown Address'}
+                                </button>
+                                {isCached && (
+                                    <span className="px-1.5 py-0.5 bg-slate-100 text-[8px] font-black text-slate-400 uppercase tracking-tighter rounded-md border border-slate-200 flex items-center gap-1">
+                                        <i className="fa-solid fa-cloud-check text-[7px]"></i>
+                                        In Cache
+                                    </span>
+                                )}
+                            </div>
+                            <div className="text-xs text-slate-500 font-medium">
+                                {item.location?.address?.city}, {item.location?.address?.state_code} {item.location?.address?.postal_code}
+                            </div>
                         </div>
                     </div>
                 </td>
-                <td className="p-4 text-right font-medium text-slate-900">
+                <td className={`p-4 text-right font-medium text-slate-900 ${isCached ? 'opacity-40' : ''}`}>
                     ${item.list_price?.toLocaleString() || '--'}
                 </td>
                 <td className="p-4 text-right">
-                    <button
-                        onClick={() => copyToClipboard(item.location?.address?.line)}
-                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                        title="Copy Address"
-                    >
-                        <i className="fa-solid fa-copy"></i>
-                    </button>
+                    <div className="flex justify-end items-center gap-1">
+                        {isCached && (
+                            <button
+                                onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm(`Are you sure you want to delete ${item.location?.address?.line} from cache? This will remove all AI analysis.`)) {
+                                        const res = await deletePropertyAnalysis(itemId);
+                                        if (res.success) {
+                                            setCachedPropertyIds(prev => {
+                                                const next = new Set(prev);
+                                                next.delete(itemId);
+                                                return next;
+                                            });
+                                        }
+                                    }
+                                }}
+                                className="p-2 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                title="Clear from Cache"
+                            >
+                                <i className="fa-solid fa-trash-can"></i>
+                            </button>
+                        )}
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                copyToClipboard(item.location?.address?.line);
+                            }}
+                            className={`p-2 rounded-lg transition-all ${isCached ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
+                            disabled={isCached}
+                            title={isCached ? "Already in database" : "Copy Address"}
+                        >
+                            <i className="fa-solid fa-copy"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
         );
@@ -717,7 +764,16 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                             'fa-hourglass-start'
                                                     }`}></i>
                                             </div>
-                                            <span className="text-sm font-black text-slate-900 truncate">{item.address}</span>
+                                            {item.status === 'completed' ? (
+                                                <button
+                                                    onClick={() => onNavigate && onNavigate('explore', item.address)}
+                                                    className="text-sm font-black text-slate-900 truncate hover:text-indigo-600 hover:underline transition-colors text-left"
+                                                >
+                                                    {item.address}
+                                                </button>
+                                            ) : (
+                                                <span className="text-sm font-black text-slate-900 truncate">{item.address}</span>
+                                            )}
                                         </div>
                                         <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
                                             item.status === 'error' ? 'bg-rose-50 text-rose-600' :
@@ -761,10 +817,14 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
                                     {item.status === 'completed' && (
                                         <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest bg-emerald-50 py-2 px-4 rounded-xl w-fit">
+                                            <button
+                                                onClick={() => onNavigate && onNavigate('explore', item.address)}
+                                                className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest bg-emerald-50 py-2 px-4 rounded-xl hover:bg-emerald-100 transition-colors w-fit group"
+                                            >
                                                 <i className="fa-solid fa-check"></i>
                                                 Intelligence Suite Ready
-                                            </div>
+                                                <i className="fa-solid fa-arrow-right ml-1 group-hover:translate-x-1 transition-transform"></i>
+                                            </button>
                                             {item.startTime && item.endTime && (
                                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                                     Total: <span className="text-slate-900 font-mono">{Math.floor((item.endTime - item.startTime) / 1000)}s</span>
