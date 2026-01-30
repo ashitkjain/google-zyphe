@@ -25,6 +25,7 @@ import ReactivateTab from './client-hub/ReactivateTab';
 import CreativeStudioWidget from './client-hub/reactivate/components/CreativeStudioWidget';
 import BulkPrefetchTab from './client-hub/BulkPrefetchTab';
 import CityDataTab from './client-hub/CityDataTab';
+import StorageScannerTab from './client-hub/StorageScannerTab';
 import Footer from './Footer';
 
 interface Props {
@@ -42,7 +43,7 @@ const generateClientID = () => {
     return 'C-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 };
 
-type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio' | 'guides' | 'profile' | 'bulk_prefetch' | 'city_data';
+type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio' | 'guides' | 'profile' | 'bulk_prefetch' | 'city_data' | 'storage_registry';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab, onNavigate, onUpdateProfile }) => {
     // Default to 'explore' if content is provided, otherwise 'leads'
@@ -500,6 +501,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     const adminTabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'city_data', label: 'City Data', icon: 'fa-city' },
         { id: 'bulk_prefetch', label: 'Bulk Ingestion', icon: 'fa-layer-group' },
+        { id: 'storage_registry', label: 'Storage Registry', icon: 'fa-server' },
     ];
 
 
@@ -1158,6 +1160,10 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
                         {activeTab === 'city_data' && (
                             <CityDataTab onNavigate={onNavigate} />
+                        )}
+
+                        {activeTab === 'storage_registry' && (
+                            <StorageScannerTab />
                         )}
 
                     </div>

@@ -1,4 +1,4 @@
-import { ref, uploadString, getDownloadURL, uploadBytes } from 'firebase/storage';
+import { ref, uploadString, getDownloadURL, uploadBytes, listAll } from 'firebase/storage';
 import { storage } from './config';
 
 /**
@@ -122,5 +122,21 @@ export const uploadRemoteImageToStorage = async (url: string, path: string): Pro
         console.error(`[Storage] Failed to upload remote image from ${url}:`, error);
         // Fallback: return the original URL if upload fails so we don't break the app
         return url;
+    }
+};
+/**
+ * Lists all unique ZPIDs that have data in the properties/ folder in Storage
+ */
+export const listPropertiesInStorage = async (): Promise<string[]> => {
+    if (!storage) throw new Error("Firebase Storage not initialized");
+    try {
+        const rootRef = ref(storage, 'properties');
+        const listResult = await listAll(rootRef);
+
+        // ZPIDs are the prefixes (folders) under 'properties/'
+        return listResult.prefixes.map(prefix => prefix.name);
+    } catch (error: any) {
+        console.error("[Storage] Failed to list properties:", error);
+        return [];
     }
 };
