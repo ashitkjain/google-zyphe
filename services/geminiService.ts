@@ -333,7 +333,7 @@ export const analyzeCommunityPulse = async (property: PropertyData, userId: stri
 };
 
 export const analyzePropertyImages = async (imageUrls: string[], property: PropertyData, userId: string = "unknown"): Promise<CustomAIAnalysisResult> => {
-  const selectedImages = imageUrls.slice(0, 15);
+  const selectedImages = imageUrls; // Sending all images to Gemini
   const ai = getAi();
   let logId: string | null = null;
 
@@ -460,7 +460,7 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
 
 export const analyzeImageQuality = async (imageUrls: string[], userId: string = "unknown"): Promise<ImageQualityAnalysisResult> => {
   const ai = getAi();
-  const selectedImages = imageUrls.slice(0, 15);
+  const selectedImages = imageUrls; // Sending all images for quality analysis
   let logId: string | null = null;
 
   const imageResults = await Promise.allSettled(selectedImages.map(async (url) => {

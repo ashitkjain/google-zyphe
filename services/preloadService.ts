@@ -49,6 +49,18 @@ export const runFullIntelligencePipeline = async (
 
     if (!zpid) throw new Error("Could not resolve ZPID for property.");
 
+    // 4. Fetch Full Image Gallery (RapidAPI /property endpoint sometimes returns truncated images)
+    onProgress({ step: 'Gallery', status: 'running', message: 'Fetching complete photo gallery...' });
+    try {
+      const fullImages = await fetchPropertyImages(zpid);
+      if (fullImages && fullImages.length > (propData.images?.length || 0)) {
+        onLog?.(`[Gallery] Discovered ${fullImages.length} images (found ${propData.images?.length || 0} in summary).`);
+        propData.images = fullImages;
+      }
+    } catch (e) {
+      console.warn("[Gallery] Failed to fetch extended gallery, falling back to summary images:", e);
+    }
+
     // --- ASSET PERSISTENCE ---
     onProgress({ step: 'Property Data', status: 'running', message: 'Persisting images to secure storage...' });
 
@@ -66,27 +78,36 @@ export const runFullIntelligencePipeline = async (
       }
     }
 
-    // 2. Persist Gallery Images (Parallel)
+    // 2. Persist Gallery Images (Chunked processing to avoid network congestion)
     const rawImages = propData.images || [];
-    const imagesToProcess = rawImages.slice(0, 15); // Limit to 15 for performance
+    const imagesToProcess = rawImages; // Now processing all available photos
+    const persistentImages: string[] = [];
+    const CHUNK_SIZE = 5;
 
-    const imageUploadPromises = imagesToProcess.map(async (url, index) => {
-      try {
-        // Check if it's already a firebase URL (unlikely but safe)
-        if (url.includes('firebasestorage')) return url;
+    onLog?.(`[Assets] Processing ${imagesToProcess.length} images in batches of ${CHUNK_SIZE}...`);
 
-        return await uploadRemoteImageToStorage(
-          url,
-          `properties/${zpid}/gallery/img_${index + 1}.jpg`
-        );
-      } catch (e) {
-        console.warn(`Failed to upload image ${index}:`, e);
-        return url; // Fallback to original
-      }
-    });
+    for (let i = 0; i < imagesToProcess.length; i += CHUNK_SIZE) {
+      const chunk = imagesToProcess.slice(i, i + CHUNK_SIZE);
+      const chunkPromises = chunk.map(async (url, chunkIndex) => {
+        const index = i + chunkIndex;
+        try {
+          if (url.includes('firebasestorage')) return url;
+          return await uploadRemoteImageToStorage(
+            url,
+            `properties/${zpid}/gallery/img_${index + 1}.jpg`
+          );
+        } catch (e) {
+          console.warn(`Failed to upload image ${index}:`, e);
+          return url;
+        }
+      });
 
-    const persistentImages = await Promise.all(imageUploadPromises);
-    onLog?.(`[Assets] ${persistentImages.length} images persisted to storage.`);
+      const chunkResults = await Promise.all(chunkPromises);
+      persistentImages.push(...chunkResults);
+      onLog?.(`[Assets] Progress: ${persistentImages.length}/${imagesToProcess.length} images secured.`);
+    }
+
+    onLog?.(`[Assets] Total ${persistentImages.length} images persisted to storage.`);
 
     // Check if we have a mismatch
     const isMismatch = providedZpid && providedZpid !== zpid;
