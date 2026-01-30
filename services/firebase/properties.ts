@@ -11,8 +11,38 @@ import {
     CustomAIAnalysisResult,
     ComprehensiveAnalysisResult,
     ImageQualityAnalysisResult,
-    InvestmentResearchResult
+    InvestmentResearchResult,
+    PropertyAssets
 } from "../../types";
+
+export const savePropertyAssetsToCloud = async (zpid: string, assets: PropertyAssets) => {
+    if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
+    try {
+        const docRef = doc(db, "property_assets", String(zpid));
+        logFirestoreQuery('setDoc', 'property_assets', { zpid });
+        await setDoc(docRef, {
+            ...sanitizeForFirestore(assets),
+            zpid: String(zpid),
+            lastVerified: serverTimestamp()
+        }, { merge: true });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: handleFirestoreError(error, "savePropertyAssetsToCloud") as string };
+    }
+};
+
+export const getPropertyAssetsFromCloud = async (zpid: string): Promise<PropertyAssets | null> => {
+    if (!db) return null;
+    try {
+        const docRef = doc(db, "property_assets", zpid);
+        logFirestoreQuery('getDoc', 'property_assets', { zpid });
+        const docSnap = await getDoc(docRef);
+        return docSnap.exists() ? (docSnap.data() as PropertyAssets) : null;
+    } catch (error) {
+        handleFirestoreError(error, "getPropertyAssetsFromCloud");
+        return null;
+    }
+};
 
 export const savePropertyToCloud = async (zpid: string, data: Partial<PropertyData>) => {
     if (!db) return { success: false, error: "Database not initialized" };

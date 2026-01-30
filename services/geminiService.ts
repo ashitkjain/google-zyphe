@@ -6,7 +6,6 @@ import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../pr
 import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/property/communityPulse";
 import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/property/propertyImages";
 import { getComprehensiveAnalysisPrompt, comprehensiveAnalysisSchema } from "../prompts/property/comprehensiveAnalysis";
-import { getImageQualityAnalysisPrompt, imageQualityAnalysisSchema } from "../prompts/property/imageQualityAnalysis";
 import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompts/property/investmentResearch";
 import { biddingStrategyPrompt } from "../prompts/property/biddingStrategy";
 import { getLeadReactivationPrompt, leadReactivationSchema } from "../prompts/client/leadReactivation";
@@ -457,84 +456,6 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
   }
 };
 
-export const analyzeImageQuality = async (imageUrls: string[], userId: string = "unknown"): Promise<ImageQualityAnalysisResult> => {
-  const ai = getAi();
-  const selectedImages = imageUrls; // Sending all images for quality analysis
-  let logId: string | null = null;
-
-  const imageResults = await Promise.allSettled(selectedImages.map(async (url) => {
-    const { data, mimeType } = await urlToBase64(url);
-    return { inlineData: { data, mimeType } };
-  }));
-
-  const imageParts = imageResults
-    .filter((result): result is PromiseFulfilledResult<{ inlineData: { data: string; mimeType: string } }> => result.status === 'fulfilled')
-    .map(result => result.value);
-
-  if (imageParts.length === 0) {
-    throw new AiResponseError("Could not load any images for quality analysis (likely CORS)", "");
-  }
-
-  const prompt = getImageQualityAnalysisPrompt();
-  const requestPayload = { text: prompt, image_count: imageParts.length };
-
-  try {
-    logId = await logLLMCall({
-      user_id: userId,
-      prompt_filename: "imageQualityAnalysis.ts",
-      llm_name: GEMINI_MODEL,
-      raw_payload: requestPayload,
-      raw_response: null,
-      status: 'pending',
-      request_sent_at: serverTimestamp()
-    });
-
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: {
-        parts: [
-          { text: prompt },
-          ...imageParts
-        ]
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: imageQualityAnalysisSchema
-      }
-    });
-
-    const responseText = response.text;
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: responseText,
-        status: 'completed',
-        response_received_at: serverTimestamp(),
-        ...extractMetadata(response)
-      }).catch(err => console.error("Failed to update LLM log:", err));
-    }
-
-    return extractJson<ImageQualityAnalysisResult>(responseText);
-  } catch (error: any) {
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: error.message,
-        status: 'failed',
-        error: error.stack || error.message,
-        response_received_at: serverTimestamp()
-      }).catch(err => console.error("Failed to update LLM error log:", err));
-    }
-
-    const sanitizedPrompt = {
-      text: prompt,
-      images: `${imageParts.length} images (data omitted)`
-    };
-    if (error instanceof AiResponseError) {
-      error.prompt = sanitizedPrompt;
-      throw error;
-    }
-    throw new AiResponseError(error.message, "Raw API Error", sanitizedPrompt);
-  }
-};
 
 export const analyzeInvestmentResearch = async (property: PropertyData, userId: string = "unknown"): Promise<InvestmentResearchResult> => {
   const prompt = getInvestmentResearchPrompt(optimizePropertyForAi(property) as PropertyData);

@@ -93,13 +93,24 @@ export const uploadRemoteImageToStorage = async (url: string, path: string): Pro
     if (!storage) throw new Error("Firebase Storage not initialized");
 
     try {
+        const storageRef = ref(storage, path);
+
+        // Optimization: Check if the file already exists in storage
+        try {
+            const existingURL = await getDownloadURL(storageRef);
+            if (existingURL) {
+                console.log(`[Storage] Skipping download; file already exists at: ${path}`);
+                return existingURL;
+            }
+        } catch (e) {
+            // File doesn't exist, proceed with download/upload
+        }
+
         // Fetch the image
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Failed to fetch remote image: ${response.statusText}`);
 
         const blob = await response.blob();
-
-        const storageRef = ref(storage, path);
 
         // Upload
         const snapshot = await uploadBytes(storageRef, blob);

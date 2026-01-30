@@ -176,3 +176,10 @@ export interface Tour {
     comment?: string;
     status?: 'Scheduled' | 'Completed' | 'Cancelled' | 'No Show';
 }
+export interface PropertyAssets {
+    zpid: string;
+    images: string[];
+    mapZoomIn?: string;
+    mapZoomOut?: string;
+    lastVerified: any; // serverTimestamp
+}

@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { CustomAIAnalysisResult, CommunityPulseSection, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, ImageQualityPoint, ImageQualityCategory, InvestmentResearchResult, BiddingStrategyResult, PropertyComp, PriceHistoryItem } from '../types';
-import { analyzeImageQuality, analyzeInvestmentResearch, analyzeBiddingStrategy, AiResponseError } from '../services/geminiService';
-import { saveImageQualityAnalysisToCloud, getImageQualityAnalysisFromCloud, saveInvestmentResearchToCloud, getInvestmentResearchFromCloud } from '../services/firebaseService';
+import { analyzePropertyImages, analyzeInvestmentResearch, analyzeBiddingStrategy, AiResponseError } from '../services/geminiService';
+import { saveVisualAnalysisToCloud, saveImageQualityAnalysisToCloud, getImageQualityAnalysisFromCloud, saveInvestmentResearchToCloud, getInvestmentResearchFromCloud } from '../services/firebaseService';
 import { APP_CONFIG } from '../config';
 
 interface Props {
@@ -112,22 +112,19 @@ const CustomAIAnalysis: React.FC<Props> = ({
         addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'image_quality_analysis', zpid });
       }
 
-      addLog('Gemini AI', { type: 'request' }, { task: 'image_quality_analysis', zpid });
-      const result = await analyzeImageQuality(propertyImages);
+      addLog('Gemini AI', { type: 'request' }, { task: 'visual_analysis_consolidated', zpid });
+      const result = await analyzePropertyImages(propertyImages, propertyData);
 
-      onUpdateAnalysis({
-        ...analysis,
-        image_quality_analysis: result
-      });
-      addLog('Gemini AI', { type: 'response' }, { task: 'image_quality_analysis', zpid, data: result });
+      onUpdateAnalysis(result);
+      addLog('Gemini AI', { type: 'response' }, { task: 'visual_analysis_consolidated', zpid, data: result });
 
       if (zpid) {
-        addLog('Cloud Cache', { type: 'info' }, { task: 'saving_image_quality', zpid });
-        const result_save = await saveImageQualityAnalysisToCloud(zpid, result);
-        if (result_save.success) {
-          addLog('Cloud Cache', { type: 'info' }, { status: 'Saved Successfully', task: 'image_quality_analysis', zpid });
-        } else {
-          addLog('System', { type: 'error' }, { message: "Cloud Cache Save Failed", task: 'image_quality_analysis', error: result_save.error });
+        addLog('Cloud Cache', { type: 'info' }, { task: 'saving_visual_results', zpid });
+        await saveVisualAnalysisToCloud(zpid, result);
+
+        // Also save to specialized quality collection for legacy lookups
+        if (result.image_quality_analysis) {
+          await saveImageQualityAnalysisToCloud(zpid, result.image_quality_analysis);
         }
       }
     } catch (err: any) {
@@ -182,7 +179,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
 
     try {
       // NOTE: Cloud Cache for Bidding Strategy is permanently disabled via APP_CONFIG
-      addLog('Gemini AI', { type: 'request' }, { task: 'bidding_strategy', zpid, model: APP_CONFIG.models.bidding_strategy });
+      addLog('Gemini AI', { type: 'request' }, { task: 'bidding_strategy', zpid, model: APP_CONFIG.models.default });
 
       // Use actual property data if available, otherwise fallback to basic context
       const result = await analyzeBiddingStrategy(propertyData);

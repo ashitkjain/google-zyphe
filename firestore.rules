@@ -38,6 +38,11 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
+    match /property_assets/{zpid} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
     match /system_test/{docId} {
       allow read, write: if true; 
     }

@@ -1,6 +1,6 @@
 
 import { normalizeAddress, fetchPropertyDataFull, fetchPropertyImages } from './apiService.ts';
-import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, analyzeImageQuality, analyzeInvestmentResearch, AiResponseError } from './geminiService.ts';
+import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, analyzeInvestmentResearch, AiResponseError } from './geminiService.ts';
 import {
   savePropertyToCloud,
   saveVisualAnalysisToCloud,
@@ -9,7 +9,9 @@ import {
   saveImageQualityAnalysisToCloud,
   getImageQualityAnalysisFromCloud,
   saveInvestmentResearchToCloud,
-  getInvestmentResearchFromCloud
+  getInvestmentResearchFromCloud,
+  savePropertyAssetsToCloud,
+  getPropertyAssetsFromCloud
 } from './firebaseService.ts';
 import { PropertyData, CustomAIAnalysisResult, InvestmentResearchResult } from '../types';
 import { uploadRemoteImageToStorage } from './firebase/storage.ts';
@@ -62,52 +64,73 @@ export const runFullIntelligencePipeline = async (
     }
 
     // --- ASSET PERSISTENCE ---
-    onProgress({ step: 'Property Data', status: 'running', message: 'Persisting images to secure storage...' });
+    onProgress({ step: 'Property Data', status: 'running', message: 'Checking asset registry...' });
 
-    // 1. Persist Map Image
+    // Try to restore from Asset Manifest first (Performance & Integrity check)
+    const cachedAssets = await getPropertyAssetsFromCloud(zpid);
+    let persistentImages: string[] = [];
     let persistentMapUrl = radar.mapZoomOut;
-    if (radar.mapZoomOut) {
-      try {
-        persistentMapUrl = await uploadRemoteImageToStorage(
-          radar.mapZoomOut,
-          `properties/${zpid}/maps/location_context.png`
-        );
-        onLog?.(`[Assets] Map image saved to storage.`);
-      } catch (e) {
-        console.error("Failed to save map image:", e);
-      }
-    }
+    let persistentMapZoomIn = radar.mapZoomIn;
 
-    // 2. Persist Gallery Images (Chunked processing to avoid network congestion)
-    const rawImages = propData.images || [];
-    const imagesToProcess = rawImages; // Now processing all available photos
-    const persistentImages: string[] = [];
-    const CHUNK_SIZE = 5;
+    if (cachedAssets && cachedAssets.images?.length > 0) {
+      onLog?.(`[Assets] Manifest found! Restoring ${cachedAssets.images.length} persistent image references.`);
+      persistentImages = cachedAssets.images;
+      persistentMapUrl = cachedAssets.mapZoomOut || radar.mapZoomOut;
+      persistentMapZoomIn = cachedAssets.mapZoomIn || radar.mapZoomIn;
+    } else {
+      onProgress({ step: 'Property Data', status: 'running', message: 'Persisting images to secure storage...' });
 
-    onLog?.(`[Assets] Processing ${imagesToProcess.length} images in batches of ${CHUNK_SIZE}...`);
-
-    for (let i = 0; i < imagesToProcess.length; i += CHUNK_SIZE) {
-      const chunk = imagesToProcess.slice(i, i + CHUNK_SIZE);
-      const chunkPromises = chunk.map(async (url, chunkIndex) => {
-        const index = i + chunkIndex;
+      // 1. Persist Map Image
+      if (radar.mapZoomOut) {
         try {
-          if (url.includes('firebasestorage')) return url;
-          return await uploadRemoteImageToStorage(
-            url,
-            `properties/${zpid}/gallery/img_${index + 1}.jpg`
+          persistentMapUrl = await uploadRemoteImageToStorage(
+            radar.mapZoomOut,
+            `properties/${zpid}/maps/location_context.png`
           );
+          onLog?.(`[Assets] Map image saved to storage.`);
         } catch (e) {
-          console.warn(`Failed to upload image ${index}:`, e);
-          return url;
+          console.error("Failed to save map image:", e);
         }
+      }
+
+      // 2. Persist Gallery Images
+      const rawImages = propData.images || [];
+      const imagesToProcess = rawImages;
+      const CHUNK_SIZE = 5;
+
+      onLog?.(`[Assets] Processing ${imagesToProcess.length} images in batches of ${CHUNK_SIZE}...`);
+
+      for (let i = 0; i < imagesToProcess.length; i += CHUNK_SIZE) {
+        const chunk = imagesToProcess.slice(i, i + CHUNK_SIZE);
+        const chunkPromises = chunk.map(async (url, chunkIndex) => {
+          const index = i + chunkIndex;
+          try {
+            if (url.includes('firebasestorage')) return url;
+            return await uploadRemoteImageToStorage(
+              url,
+              `properties/${zpid}/gallery/img_${index + 1}.jpg`
+            );
+          } catch (e) {
+            console.warn(`Failed to upload image ${index}:`, e);
+            return url;
+          }
+        });
+
+        const chunkResults = await Promise.all(chunkPromises);
+        persistentImages.push(...chunkResults);
+        onLog?.(`[Assets] Progress: ${persistentImages.length}/${imagesToProcess.length} images secured.`);
+      }
+
+      // Save new manifest
+      await savePropertyAssetsToCloud(zpid, {
+        zpid,
+        images: persistentImages,
+        mapZoomIn: persistentMapZoomIn,
+        mapZoomOut: persistentMapUrl,
+        lastVerified: null // Handled by serverTimestamp in service
       });
-
-      const chunkResults = await Promise.all(chunkPromises);
-      persistentImages.push(...chunkResults);
-      onLog?.(`[Assets] Progress: ${persistentImages.length}/${imagesToProcess.length} images secured.`);
+      onLog?.(`[Assets] Total ${persistentImages.length} images persisted and registered.`);
     }
-
-    onLog?.(`[Assets] Total ${persistentImages.length} images persisted to storage.`);
 
     // Check if we have a mismatch
     const isMismatch = providedZpid && providedZpid !== zpid;
@@ -122,12 +145,12 @@ export const runFullIntelligencePipeline = async (
       alternate_ids: Array.from(alternateIds),
       images: persistentImages, // Use the new persistent URLs
       coordinates: radar.coordinates,
-      mapZoomIn: radar.mapZoomIn,
+      mapZoomIn: persistentMapZoomIn,
       mapZoomOut: persistentMapUrl,
       address: address
     };
     await savePropertyToCloud(zpid, enrichedData);
-    onProgress({ step: 'Property Data', status: 'completed', message: 'Assets persisted & specs saved.' });
+    onProgress({ step: 'Property Data', status: 'completed', message: 'Assets restored & specs saved.' });
 
     // 4. Gallery (Handled above)
     onProgress({ step: 'Gallery', status: 'completed', message: `${persistentImages.length} images secured in cloud storage.` });
@@ -175,23 +198,14 @@ export const runFullIntelligencePipeline = async (
     visualResult.community_pulse = pulse;
     onProgress({ step: 'Market AI', status: 'completed', message: 'Fresh market pulse analysis complete.' });
 
-    // 8. Quality Audit (New Pipeline Step)
-    onProgress({ step: 'Quality Audit', status: 'running', message: 'Performing deep picture quality scan...' });
-    if (images.length > 0) {
-      // Check for cached analysis first
-      const cachedQuality = await getImageQualityAnalysisFromCloud(zpid);
-      if (cachedQuality) {
-        visualResult.image_quality_analysis = cachedQuality;
-        onProgress({ step: 'Quality Audit', status: 'completed', message: 'Picture quality audit restored from cache.' });
-      } else {
-        const qualityResult = await analyzeImageQuality(images);
-        visualResult.image_quality_analysis = qualityResult;
-        // Save specifically to the new collection
-        await saveImageQualityAnalysisToCloud(zpid, qualityResult);
-        onProgress({ step: 'Quality Audit', status: 'completed', message: 'Picture quality intelligence generated.' });
-      }
+    // 8. Quality Audit (Consolidated into Visual AI)
+    onProgress({ step: 'Quality Audit', status: 'running', message: 'Finalizing picture quality scan...' });
+    if (visualResult.image_quality_analysis) {
+      // Save specifically to the new collection for legacy support/indexing
+      await saveImageQualityAnalysisToCloud(zpid, visualResult.image_quality_analysis);
+      onProgress({ step: 'Quality Audit', status: 'completed', message: 'Picture quality intelligence finalized.' });
     } else {
-      onProgress({ step: 'Quality Audit', status: 'completed', message: 'Skipped (no images).' });
+      onProgress({ step: 'Quality Audit', status: 'completed', message: 'Skipped (no quality data found).' });
     }
 
     await saveVisualAnalysisToCloud(zpid, visualResult);
