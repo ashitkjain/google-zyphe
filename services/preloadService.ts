@@ -142,9 +142,19 @@ export const runFullIntelligencePipeline = async (
     const cachedVisual = await getVisualAnalysisFromCloud(zpid);
 
     if (cachedVisual) {
-      visualResult = cachedVisual;
-      onLog?.(`[Visual] Restored analysis from cache for ${zpid}`);
-      onProgress({ step: 'Visual AI', status: 'completed', message: 'Visual analysis restored from cache.' });
+      // BUST CACHE if the cached analysis was truncated (e.g. from the old 15-image limit)
+      const cachedCount = cachedVisual.image_by_image_analysis?.length || 0;
+      const currentCount = images.length;
+
+      if (cachedCount < currentCount && currentCount > 15) {
+        onLog?.(`[Visual] Cache found but truncated (${cachedCount} vs ${currentCount} images). Bypassing cache for full analysis...`);
+        visualResult = await analyzePropertyImages(images, enrichedData);
+        onProgress({ step: 'Visual AI', status: 'completed', message: 'Full gallery analysis complete (Cache Bypassed).' });
+      } else {
+        visualResult = cachedVisual;
+        onLog?.(`[Visual] Restored analysis from cache for ${zpid} (${cachedCount} images analyzed)`);
+        onProgress({ step: 'Visual AI', status: 'completed', message: 'Visual analysis restored from cache.' });
+      }
     } else {
       onLog?.(`[Visual] Running fresh AI analysis for ${zpid}...`);
       visualResult = await analyzePropertyImages(images, enrichedData);
