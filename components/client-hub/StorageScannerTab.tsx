@@ -2,14 +2,22 @@
 import React, { useState, useEffect } from 'react';
 import { listPropertiesInStorage } from '../../services/firebase/storage';
 import { checkExistingPropertiesBatch, deletePropertyAnalysis, getPropertyFromCloud } from '../../services/firebase/properties';
-import { runFullIntelligencePipeline } from '../../services/preloadService';
+import { runFullIntelligencePipeline, PipelineProgress } from '../../services/preloadService';
 import { auth } from '../../services/firebase/config';
+import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
+import { getAPILogsForTimeRange, APICallEvent } from '../../services/firebase/api_logs';
+import { LLMCallEvent } from '../../types/ai';
 
 interface StorageProperty {
     zpid: string;
     existsInFirestore: boolean;
     address?: string;
     loading: boolean;
+    progress?: PipelineProgress | null;
+    status: 'pending' | 'running' | 'completed' | 'error';
+    startTime?: number;
+    endTime?: number;
+    error?: string;
 }
 
 const StorageScannerTab: React.FC = () => {
@@ -18,6 +26,10 @@ const StorageScannerTab: React.FC = () => {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [processing, setProcessing] = useState(false);
     const [statusLog, setStatusLog] = useState<string[]>([]);
+    const [ingestionReport, setIngestionReport] = useState<{
+        llmLogs: LLMCallEvent[];
+        apiLogs: APICallEvent[];
+    } | null>(null);
 
     useEffect(() => {
         scanStorage();
@@ -40,7 +52,8 @@ const StorageScannerTab: React.FC = () => {
                     zpid,
                     existsInFirestore: existingSet.has(zpid),
                     address,
-                    loading: false
+                    loading: false,
+                    status: 'pending'
                 };
             }));
 
@@ -68,12 +81,20 @@ const StorageScannerTab: React.FC = () => {
     const handleRunPipeline = async () => {
         if (selectedIds.size === 0) return;
         setProcessing(true);
+        setIngestionReport(null);
+        const batchStartTime = Date.now();
         addLog(`Starting fresh pipeline for ${selectedIds.size} properties...`);
 
         const targets = properties.filter(p => selectedIds.has(p.zpid));
 
+        // Reset process state for selected
+        setProperties(prev => prev.map(p => selectedIds.has(p.zpid) ? { ...p, status: 'pending', progress: null, error: undefined } : p));
+
         for (const item of targets) {
             try {
+                const startTime = Date.now();
+                setProperties(prev => prev.map(p => p.zpid === item.zpid ? { ...p, status: 'running', startTime } : p));
+
                 if (item.existsInFirestore) {
                     addLog(`[${item.zpid}] Deleting existing database record for fresh start...`);
                     const delRes = await deletePropertyAnalysis(item.zpid);
@@ -82,44 +103,58 @@ const StorageScannerTab: React.FC = () => {
                     }
                 }
 
-                addLog(`[${item.zpid}] Launching intelligence pipeline...`);
-                // We use the address from the storage if we have it, otherwise we might need a way to find it.
-                // If it's in storage but not firestore, we don't have the address yet unless we look it up.
-                // Wait, runFullIntelligencePipeline takes address OR zpid? 
-                // Let's check preloadService.ts signature.
-
-                if (item.address === 'Unknown Address') {
+                let currentAddress = item.address;
+                if (!currentAddress || currentAddress === 'Unknown Address') {
                     addLog(`[${item.zpid}] Address missing. Fetching specs by ZPID...`);
                     const freshData = await getPropertyFromCloud(item.zpid) || await (async () => {
                         const { fetchPropertyDataFull } = await import('../../services/apiService');
                         return await fetchPropertyDataFull(item.zpid, true);
                     })();
                     if (freshData?.address) {
-                        item.address = freshData.address;
-                        addLog(`[${item.zpid}] Resolved: ${item.address}`);
+                        currentAddress = freshData.address;
+                        addLog(`[${item.zpid}] Resolved: ${currentAddress}`);
                     }
                 }
 
-                if (item.address && item.address !== 'Unknown Address') {
+                if (currentAddress && currentAddress !== 'Unknown Address') {
                     addLog(`[${item.zpid}] Launching intelligence pipeline...`);
                     await runFullIntelligencePipeline(
-                        item.address,
-                        (p) => addLog(`[${item.zpid}] ${p.step}: ${p.message}`),
+                        currentAddress,
+                        (p) => {
+                            addLog(`[${item.zpid}] ${p.step}: ${p.message}`);
+                            setProperties(prev => prev.map(itemProp => itemProp.zpid === item.zpid ? { ...itemProp, progress: p } : itemProp));
+                        },
                         item.zpid
                     );
                     addLog(`[${item.zpid}] Pipeline COMPLETED.`);
+                    setProperties(prev => prev.map(p => p.zpid === item.zpid ? { ...p, status: 'completed', endTime: Date.now() } : p));
                 } else {
                     addLog(`[${item.zpid}] SKIPPING: Proper address missing for pipeline trigger.`);
+                    setProperties(prev => prev.map(p => p.zpid === item.zpid ? { ...p, status: 'error', error: 'Missing address' } : p));
                 }
 
             } catch (err: any) {
                 addLog(`[${item.zpid}] ERROR: ${err.message}`);
+                setProperties(prev => prev.map(p => p.zpid === item.zpid ? { ...p, status: 'error', error: err.message, endTime: Date.now() } : p));
             }
+        }
+
+        // Generate Report
+        try {
+            const maxEnd = Date.now();
+            const userId = auth?.currentUser?.uid || 'unknown';
+            const [llmLogs, apiLogs] = await Promise.all([
+                getLLMLogsForTimeRange(userId, batchStartTime, maxEnd),
+                getAPILogsForTimeRange(userId, batchStartTime, maxEnd)
+            ]);
+            setIngestionReport({ llmLogs, apiLogs });
+            addLog(`Usage Report Generated: ${llmLogs.length} AI calls, ${apiLogs.length} API calls.`);
+        } catch (reportErr) {
+            console.error("Failed to generate report:", reportErr);
         }
 
         setProcessing(false);
         setSelectedIds(new Set());
-        scanStorage(); // Refresh list
     };
 
     return (
@@ -215,6 +250,173 @@ const StorageScannerTab: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Ingestion Summary Report */}
+            {ingestionReport && (
+                <div className="mt-16 bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl p-10 animate-in fade-in zoom-in duration-500">
+                    <div className="flex items-center gap-6 mb-10 pb-8 border-b border-slate-100">
+                        <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
+                            <i className="fa-solid fa-chart-line text-2xl"></i>
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-black text-slate-900">Ingestion Usage Report</h2>
+                            <p className="text-sm font-bold text-slate-500 uppercase tracking-[0.2em] mt-1">Audit of intelligence pipeline execution</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        {/* Gemini Summary */}
+                        <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-indigo-600 shadow-sm">
+                                    <i className="fa-solid fa-brain text-sm"></i>
+                                </div>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Gemini AI</span>
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-xs font-bold text-slate-600">Total Calls</span>
+                                    <span className="text-lg font-black text-slate-900">{ingestionReport.llmLogs.length}</span>
+                                </div>
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-xs font-bold text-slate-600">Total Cost</span>
+                                    <span className="text-lg font-black text-emerald-600">
+                                        ${(ingestionReport.llmLogs.reduce((acc, log) => acc + (log.estimated_cost || 0), 0)).toFixed(4)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Performance Summary */}
+                        <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 md:col-span-2">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-amber-600 shadow-sm">
+                                    <i className="fa-solid fa-bolt text-sm"></i>
+                                </div>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Performance</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-baseline">
+                                        <span className="text-xs font-bold text-slate-600">Avg AI Response</span>
+                                        <span className="text-lg font-black text-slate-900">
+                                            {Math.round(ingestionReport.llmLogs.length > 0 ? (ingestionReport.llmLogs.reduce((acc, log) => {
+                                                if (log.response_received_at && log.request_sent_at) {
+                                                    const start = (log.request_sent_at as any).toMillis?.() || 0;
+                                                    const end = (log.response_received_at as any).toMillis?.() || 0;
+                                                    return acc + (end - start);
+                                                }
+                                                return acc;
+                                            }, 0) / ingestionReport.llmLogs.length) / 1000 : 0)}s
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-baseline">
+                                        <span className="text-xs font-bold text-slate-600">Peak Pipeline</span>
+                                        <span className="text-lg font-black text-slate-900">
+                                            {Math.max(...properties.filter(p => p.status === 'completed').map(j => (j.endTime && j.startTime) ? (j.endTime - j.startTime) / 1000 : 0), 0).toFixed(0)}s
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-baseline">
+                                        <span className="text-xs font-bold text-slate-600">API Requests</span>
+                                        <span className="text-lg font-black text-slate-900">{ingestionReport.apiLogs.length}</span>
+                                    </div>
+                                    <div className="flex justify-between items-baseline">
+                                        <span className="text-xs font-bold text-slate-600">Data Points Sync</span>
+                                        <span className="text-lg font-black text-slate-900">{properties.filter(p => p.status === 'completed').length * 12}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Credits / Rate etc */}
+                        <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-emerald-600 shadow-sm">
+                                    <i className="fa-solid fa-microchip text-sm"></i>
+                                </div>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Throughput</span>
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-xs font-bold text-slate-600">Token Volume</span>
+                                    <span className="text-lg font-black text-slate-900">
+                                        {(ingestionReport.llmLogs.reduce((acc, log) => acc + (log.usage_metadata?.totalTokenCount || 0), 0) / 1000).toFixed(1)}k
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-xs font-bold text-slate-600">Success Rate</span>
+                                    <span className="text-lg font-black text-emerald-600">
+                                        {Math.round((properties.filter(p => p.status === 'completed').length / (properties.filter(p => p.status === 'completed' || p.status === 'error').length || 1)) * 100)}%
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-12 overflow-x-auto rounded-3xl border border-slate-100">
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                <tr>
+                                    <th className="p-5">Call Type</th>
+                                    <th className="p-5">Endpoint / Agent</th>
+                                    <th className="p-5 text-right">Tokens / Time</th>
+                                    <th className="p-5 text-right">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {ingestionReport.llmLogs.sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0)).map(log => (
+                                    <tr key={log.id} className="text-sm transition-colors hover:bg-slate-50/50">
+                                        <td className="p-5">
+                                            <div className="flex items-center gap-2">
+                                                <i className="fa-solid fa-robot text-indigo-500 w-4"></i>
+                                                <span className="font-bold text-slate-900">Gemini</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-5 font-medium text-slate-600">{log.prompt_filename || 'Unknown Agent'}</td>
+                                        <td className="p-5 text-right font-mono">
+                                            <div className="text-indigo-600 font-bold">
+                                                {log.usage_metadata?.totalTokenCount?.toLocaleString() || 0} tkn
+                                            </div>
+                                            <div className="text-[10px] text-slate-400 font-medium">
+                                                {log.usage_metadata?.promptTokenCount?.toLocaleString() || 0} in / {log.usage_metadata?.candidatesTokenCount?.toLocaleString() || 0} out
+                                            </div>
+                                            <div className="text-[11px] text-emerald-600 font-black mt-1">
+                                                ${(log.estimated_cost || 0).toFixed(4)}
+                                            </div>
+                                        </td>
+                                        <td className="p-5 text-right">
+                                            <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${log.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                {log.status}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {ingestionReport.apiLogs.sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0)).map(log => (
+                                    <tr key={log.id} className="text-sm transition-colors hover:bg-slate-50/50">
+                                        <td className="p-5">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`fa-solid ${log.api_name === 'Radar' ? 'fa-location-crosshairs text-emerald-500' : 'fa-server text-blue-500'} w-4`}></i>
+                                                <span className="font-bold text-slate-900">{log.api_name}</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-5 font-medium text-slate-600">{log.endpoint}</td>
+                                        <td className="p-5 text-right font-mono text-slate-500">
+                                            {log.response_time_ms ? `${log.response_time_ms}ms` : '--'}
+                                        </td>
+                                        <td className="p-5 text-right">
+                                            <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${log.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                {log.status}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
