@@ -29,7 +29,7 @@ const PreloadManager: React.FC<Props> = ({ onClose, initialAddress }) => {
     setLoading(true);
     setSuccess(false);
     setProgress([]);
-    
+
     try {
       await runFullIntelligencePipeline(address, (p) => {
         setProgress(prev => {
@@ -53,7 +53,7 @@ const PreloadManager: React.FC<Props> = ({ onClose, initialAddress }) => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
       <div className="absolute inset-0 bg-gray-900/90 backdrop-blur-md" onClick={onClose}></div>
-      
+
       <div className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-gray-100 animate-in zoom-in-95 duration-300">
         <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -74,15 +74,15 @@ const PreloadManager: React.FC<Props> = ({ onClose, initialAddress }) => {
           <div className="space-y-4">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Target Property</label>
             <div className="relative">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 disabled={loading}
                 className="w-full pl-5 pr-32 py-4 bg-gray-50 border-2 border-transparent focus:border-indigo-500 focus:bg-white rounded-2xl transition-all outline-none font-medium text-gray-800"
                 placeholder="Enter address..."
               />
-              <button 
+              <button
                 onClick={handleStartPipeline}
                 disabled={loading || !address}
                 className="absolute right-2 top-2 bottom-2 bg-gradient-to-r from-indigo-700 to-gray-900 text-white px-6 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-[1.05] active:scale-95 transition-all disabled:opacity-50"
@@ -105,7 +105,7 @@ const PreloadManager: React.FC<Props> = ({ onClose, initialAddress }) => {
                 {loading && <span className="flex h-2 w-2 rounded-full bg-indigo-600 animate-ping"></span>}
               </div>
             </div>
-            
+
             <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 space-y-4">
               {progress.length === 0 && !loading && (
                 <div className="text-center py-8">
@@ -115,29 +115,45 @@ const PreloadManager: React.FC<Props> = ({ onClose, initialAddress }) => {
               )}
               {progress.map((p, i) => (
                 <div key={i} className="flex items-start gap-4 group">
-                  <div className={`mt-1 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
-                    p.status === 'completed' ? 'bg-indigo-100 text-indigo-600' : 
-                    p.status === 'running' ? 'bg-indigo-100 text-indigo-600' : 
-                    p.status === 'error' ? 'bg-rose-100 text-rose-600' : 'bg-gray-200 text-gray-400'
-                  }`}>
-                    <i className={`fa-solid ${
-                      p.status === 'completed' ? 'fa-check text-[10px]' : 
-                      p.status === 'running' ? 'fa-spinner animate-spin text-[10px]' : 
-                      p.status === 'error' ? 'fa-xmark text-[10px]' : 'fa-circle text-[6px]'
-                    }`}></i>
+                  <div className={`mt-1 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${p.status === 'completed' ? 'bg-indigo-100 text-indigo-600' :
+                      p.status === 'running' ? 'bg-indigo-100 text-indigo-600' :
+                        p.status === 'error' ? 'bg-rose-100 text-rose-600' : 'bg-gray-200 text-gray-400'
+                    }`}>
+                    <i className={`fa-solid ${p.status === 'completed' ? 'fa-check text-[10px]' :
+                        p.status === 'running' ? 'fa-spinner animate-spin text-[10px]' :
+                          p.status === 'error' ? 'fa-xmark text-[10px]' : 'fa-circle text-[6px]'
+                      }`}></i>
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-black text-gray-900 uppercase tracking-tight">{p.step}</span>
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${
-                        p.status === 'completed' ? 'text-indigo-600' : 
-                        p.status === 'running' ? 'text-indigo-500' : 
-                        p.status === 'error' ? 'text-rose-500' : 'text-gray-400'
-                      }`}>
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${p.status === 'completed' ? 'text-indigo-600' :
+                          p.status === 'running' ? 'text-indigo-500' :
+                            p.status === 'error' ? 'text-rose-500' : 'text-gray-400'
+                        }`}>
                         {p.status}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500 leading-relaxed">{p.message}</p>
+                    <p className="text-xs text-gray-500 leading-relaxed mb-1">{p.message}</p>
+
+                    {p.usage && (
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 p-3 bg-white rounded-xl border border-gray-100 shadow-sm animate-in fade-in slide-in-from-left-2 transition-all">
+                        <div className="flex items-center gap-1.5">
+                          <i className="fa-solid fa-microchip text-[10px] text-indigo-400"></i>
+                          <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Tokens:</span>
+                          <span className="text-[10px] font-black text-gray-900">
+                            {p.usage.promptTokens.toLocaleString()}
+                            <span className="text-gray-300 mx-1">/</span>
+                            {p.usage.candidatesTokens.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 ml-auto">
+                          <i className="fa-solid fa-dollar-sign text-[10px] text-emerald-500"></i>
+                          <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Est. Cost:</span>
+                          <span className="text-[10px] font-black text-emerald-600">${p.usage.cost.toFixed(4)}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

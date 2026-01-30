@@ -250,7 +250,12 @@ export interface LLMCallEvent {
     raw_response: any;
     status: 'pending' | 'completed' | 'failed';
     error?: string;
-    usage_metadata?: any;
+    estimated_cost?: number;
+    usage_metadata?: {
+        promptTokenCount: number;
+        candidatesTokenCount: number;
+        totalTokenCount: number;
+    };
     safety_ratings?: any;
     finish_reason?: string;
     citation_metadata?: any;
@@ -323,4 +328,68 @@ export interface LeadPlanRecord {
     };
     reactivation_status?: 'suggested' | 'pursuing' | 'responded' | 'archived' | 'not_pursuing';
     statusUpdatedOn?: any;
+}
+export interface AIUsage {
+    promptTokens: number;
+    candidatesTokens: number;
+    totalTokens: number;
+    cost: number;
+    model: string;
+}
+
+export interface AIResponseWithUsage<T> {
+    data: T;
+    usage: AIUsage;
+}
+
+export interface StrategyMetric {
+    risk_profile: 'Low' | 'Medium' | 'High' | string;
+    capital_intensity: string;
+    management_complexity: string;
+    regulatory_risk: string;
+    typical_investor: string;
+}
+
+export interface MarketLevelInvestmentResult {
+    market_overview: {
+        median_home_price: string;
+        yoy_trend: string;
+        inventory_levels: string;
+        months_of_supply: string;
+        days_on_market: string;
+        leverage_status: string;
+    };
+    rental_fundamentals: {
+        average_ltr_rent: string;
+        str_nightly_rates: string;
+        vacancy_trends: string;
+        rent_growth_trends: string;
+    };
+    regulatory_legal: {
+        str_legality: string;
+        rent_control_status: string;
+        zoning_hoas: string;
+    };
+    demand_drivers: {
+        employment_hubs: string;
+        population_trends: string;
+        tourism_relevance: string;
+        schools_impact: string;
+    };
+    strategy_fit: {
+        ltr: StrategyMetric;
+        str: StrategyMetric;
+        medium_term: StrategyMetric;
+        hybrid?: StrategyMetric;
+    };
+    forward_signals: {
+        rate_sensitivity: string;
+        supply_pipeline: string;
+        economic_infrastructure: string;
+    };
+    citations: Array<{
+        title: string;
+        source: string;
+        url?: string;
+    }>;
 }

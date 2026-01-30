@@ -1,6 +1,6 @@
 import { serverTimestamp } from "firebase/firestore";
 import { GoogleGenAI } from "@google/genai";
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, InvestmentResearchResult, BiddingStrategyResult, LeadReactivationResult } from "../types";
+import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, InvestmentResearchResult, BiddingStrategyResult, MarketLevelInvestmentResult, LeadReactivationResult, AIResponseWithUsage, AIUsage } from "../types";
 import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/property/propertyAnalysis";
 import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/property/neighborhoodAnalysis";
 import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/property/communityPulse";
@@ -12,6 +12,7 @@ import { getLeadReactivationPrompt, leadReactivationSchema } from "../prompts/cl
 import { getLeadTransformationPrompt } from "../prompts/client/leadTransformation";
 import { getGuideGenerationPrompt, guideGenerationSchema, GuideResult } from "../prompts/client/guideGeneration";
 import { getGuideImagePrompt } from "../prompts/client/guideImageGeneration";
+import { getMarketLevelInvestmentPrompt } from "../prompts/market/marketInvestmentResearch";
 import { APP_CONFIG } from "../config";
 import { logLLMCall, updateLLMCall } from "./firebase/llm_logs";
 import { optimizePropertyForAi } from "../utils/aiOptimization";
@@ -127,11 +128,39 @@ function extractJson<T>(text: string | undefined): T {
 
 function extractMetadata(response: any) {
   const candidate = response.candidates?.[0];
+  const usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 };
+
   return {
-    usage_metadata: response.usageMetadata || null,
+    usage_metadata: usage,
     safety_ratings: candidate?.safetyRatings || null,
     finish_reason: candidate?.finishReason || null,
     citation_metadata: candidate?.citationMetadata || null,
+  };
+}
+
+const MODEL_PRICING: Record<string, { input: number, output: number }> = {
+  // Paid Tier (Standard) Pricing per 1M tokens (for prompts <= 128k)
+  'gemini-1.5-flash': { input: 0.10 / 1000000, output: 0.40 / 1000000 },
+  'gemini-1.5-pro': { input: 1.25 / 1000000, output: 5.00 / 1000000 },
+  'gemini-2.0-flash': { input: 0.10 / 1000000, output: 0.40 / 1000000 },
+  'gemini-2.0-flash-lite': { input: 0.075 / 1000000, output: 0.30 / 1000000 },
+  'gemini-2.0-pro-exp': { input: 1.25 / 1000000, output: 5.00 / 1000000 },
+};
+
+function calculateUsage(response: any, modelName: string): AIUsage {
+  const usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 };
+  const pricing = MODEL_PRICING[modelName] || MODEL_PRICING['gemini-1.5-flash'];
+
+  // Basic calculation. Note: Pro pricing doubles for prompts > 128k, 
+  // but for real estate snippets we are almost always < 128k.
+  const cost = (usage.promptTokenCount * pricing.input) + (usage.candidatesTokenCount * pricing.output);
+
+  return {
+    promptTokens: usage.promptTokenCount,
+    candidatesTokens: usage.candidatesTokenCount,
+    totalTokens: usage.totalTokenCount,
+    cost: Number(cost.toFixed(6)),
+    model: modelName
   };
 }
 
@@ -163,7 +192,7 @@ async function urlToBase64(url: string): Promise<{ data: string, mimeType: strin
   }
 }
 
-export const analyzeProperty = async (property: PropertyData, userId: string = "unknown"): Promise<AIAnalysisResult> => {
+export const analyzeProperty = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<AIAnalysisResult>> => {
   const prompt = getPropertyAnalysisPrompt(optimizePropertyForAi(property) as PropertyData);
   let logId: string | null = null;
   try {
@@ -188,16 +217,23 @@ export const analyzeProperty = async (property: PropertyData, userId: string = "
     });
 
     const responseText = response.text;
+    const usage = calculateUsage(response, GEMINI_MODEL);
+
     if (logId) {
       updateLLMCall(logId, {
         raw_response: responseText,
         status: 'completed',
         response_received_at: serverTimestamp(),
+        usage_metadata: response.usageMetadata,
+        estimated_cost: usage.cost,
         ...extractMetadata(response)
       }).catch(err => console.error("Failed to update LLM log:", err));
     }
 
-    return extractJson<AIAnalysisResult>(responseText);
+    return {
+      data: extractJson<AIAnalysisResult>(responseText),
+      usage
+    };
   } catch (error: any) {
     if (logId) {
       updateLLMCall(logId, {
@@ -215,7 +251,7 @@ export const analyzeProperty = async (property: PropertyData, userId: string = "
   }
 };
 
-export const analyzeNeighborhood = async (mapImageUrl: string, property: PropertyData, userId: string = "unknown"): Promise<NeighborhoodAnalysis> => {
+export const analyzeNeighborhood = async (mapImageUrl: string, property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<NeighborhoodAnalysis>> => {
   const { data, mimeType } = await urlToBase64(mapImageUrl);
   const prompt = getNeighborhoodAnalysisPrompt(optimizePropertyForAi(property) as PropertyData);
   let logId: string | null = null;
@@ -251,16 +287,23 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
     });
 
     const responseText = response.text;
+    const usage = calculateUsage(response, GEMINI_MODEL);
+
     if (logId) {
       updateLLMCall(logId, {
         raw_response: responseText,
         status: 'completed',
         response_received_at: serverTimestamp(),
+        usage_metadata: response.usageMetadata,
+        estimated_cost: usage.cost,
         ...extractMetadata(response)
       }).catch(err => console.error("Failed to update LLM log:", err));
     }
 
-    return extractJson<NeighborhoodAnalysis>(responseText);
+    return {
+      data: extractJson<NeighborhoodAnalysis>(responseText),
+      usage
+    };
   } catch (error: any) {
     if (logId) {
       updateLLMCall(logId, {
@@ -278,7 +321,7 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
   }
 };
 
-export const analyzeCommunityPulse = async (property: PropertyData, userId: string = "unknown"): Promise<CommunityPulseResult> => {
+export const analyzeCommunityPulse = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<CommunityPulseResult>> => {
   const prompt = getCommunityPulsePrompt(optimizePropertyForAi(property) as PropertyData);
   let logId: string | null = null;
   try {
@@ -303,16 +346,23 @@ export const analyzeCommunityPulse = async (property: PropertyData, userId: stri
     });
 
     const responseText = response.text;
+    const usage = calculateUsage(response, GEMINI_MODEL);
+
     if (logId) {
       updateLLMCall(logId, {
         raw_response: responseText,
         status: 'completed',
         response_received_at: serverTimestamp(),
+        usage_metadata: response.usageMetadata,
+        estimated_cost: usage.cost,
         ...extractMetadata(response)
       }).catch(err => console.error("Failed to update LLM log:", err));
     }
 
-    return extractJson<CommunityPulseResult>(responseText);
+    return {
+      data: extractJson<CommunityPulseResult>(responseText),
+      usage
+    };
   } catch (error: any) {
     if (logId) {
       updateLLMCall(logId, {
@@ -330,7 +380,7 @@ export const analyzeCommunityPulse = async (property: PropertyData, userId: stri
   }
 };
 
-export const analyzePropertyImages = async (imageUrls: string[], property: PropertyData, userId: string = "unknown"): Promise<CustomAIAnalysisResult> => {
+export const analyzePropertyImages = async (imageUrls: string[], property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<CustomAIAnalysisResult>> => {
   const selectedImages = imageUrls; // Sending all images to Gemini
   const ai = getAi();
   let logId: string | null = null;
@@ -372,16 +422,23 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
     });
 
     const responseText = response.text;
+    const usage = calculateUsage(response, GEMINI_MODEL);
+
     if (logId) {
       updateLLMCall(logId, {
         raw_response: responseText,
         status: 'completed',
         response_received_at: serverTimestamp(),
+        usage_metadata: response.usageMetadata,
+        estimated_cost: usage.cost,
         ...extractMetadata(response)
       }).catch(err => console.error("Failed to update LLM log:", err));
     }
 
-    return extractJson<CustomAIAnalysisResult>(responseText);
+    return {
+      data: extractJson<CustomAIAnalysisResult>(responseText),
+      usage
+    };
   } catch (error: any) {
     if (logId) {
       updateLLMCall(logId, {
@@ -404,7 +461,7 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
   }
 };
 
-export const analyzeComprehensive = async (property: PropertyData, visual: CustomAIAnalysisResult, userId: string = "unknown"): Promise<ComprehensiveAnalysisResult> => {
+export const analyzeComprehensive = async (property: PropertyData, visual: CustomAIAnalysisResult, userId: string = "unknown"): Promise<AIResponseWithUsage<ComprehensiveAnalysisResult>> => {
   const prompt = getComprehensiveAnalysisPrompt(optimizePropertyForAi(property) as PropertyData, visual);
   let logId: string | null = null;
   try {
@@ -429,16 +486,23 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
       }
     });
     const responseText = response.text;
+    const usage = calculateUsage(response, GEMINI_MODEL);
+
     if (logId) {
       updateLLMCall(logId, {
         raw_response: responseText,
         status: 'completed',
         response_received_at: serverTimestamp(),
+        usage_metadata: response.usageMetadata,
+        estimated_cost: usage.cost,
         ...extractMetadata(response)
       }).catch(err => console.error("Failed to update LLM log:", err));
     }
 
-    return extractJson<ComprehensiveAnalysisResult>(responseText);
+    return {
+      data: extractJson<ComprehensiveAnalysisResult>(responseText),
+      usage
+    };
   } catch (error: any) {
     if (logId) {
       updateLLMCall(logId, {
@@ -456,8 +520,7 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
   }
 };
 
-
-export const analyzeInvestmentResearch = async (property: PropertyData, userId: string = "unknown"): Promise<InvestmentResearchResult> => {
+export const analyzeInvestmentResearch = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<InvestmentResearchResult>> => {
   const prompt = getInvestmentResearchPrompt(optimizePropertyForAi(property) as PropertyData);
   let logId: string | null = null;
   try {
@@ -482,16 +545,23 @@ export const analyzeInvestmentResearch = async (property: PropertyData, userId: 
     });
 
     const responseText = response.text;
+    const usage = calculateUsage(response, GEMINI_MODEL);
+
     if (logId) {
       updateLLMCall(logId, {
         raw_response: responseText,
         status: 'completed',
         response_received_at: serverTimestamp(),
+        usage_metadata: response.usageMetadata,
+        estimated_cost: usage.cost,
         ...extractMetadata(response)
       }).catch(err => console.error("Failed to update LLM log:", err));
     }
 
-    return extractJson<InvestmentResearchResult>(responseText);
+    return {
+      data: extractJson<InvestmentResearchResult>(responseText),
+      usage
+    };
   } catch (error: any) {
     if (logId) {
       updateLLMCall(logId, {
@@ -509,7 +579,7 @@ export const analyzeInvestmentResearch = async (property: PropertyData, userId: 
   }
 };
 
-export const analyzeBiddingStrategy = async (property: PropertyData, userId: string = "unknown"): Promise<BiddingStrategyResult> => {
+export const analyzeBiddingStrategy = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<BiddingStrategyResult>> => {
   const prompt = biddingStrategyPrompt(optimizePropertyForAi(property) as PropertyData);
   let logId: string | null = null;
   try {
@@ -534,16 +604,23 @@ export const analyzeBiddingStrategy = async (property: PropertyData, userId: str
     });
 
     const responseText = response.text;
+    const usage = calculateUsage(response, GEMINI_MODEL);
+
     if (logId) {
       updateLLMCall(logId, {
         raw_response: responseText,
         status: 'completed',
         response_received_at: serverTimestamp(),
+        usage_metadata: response.usageMetadata,
+        estimated_cost: usage.cost,
         ...extractMetadata(response)
       }).catch(err => console.error("Failed to update LLM log:", err));
     }
 
-    return extractJson<BiddingStrategyResult>(responseText);
+    return {
+      data: extractJson<BiddingStrategyResult>(responseText),
+      usage
+    };
   } catch (error: any) {
     if (logId) {
       updateLLMCall(logId, {
@@ -764,3 +841,64 @@ export const generateGuideImage = async (category: string, title: string, topicS
   return null;
 };
 
+export const analyzeMarketInvestment = async (
+  location: { city: string, state: string, zips: string[], neighborhood?: string },
+  userId: string = "unknown"
+): Promise<AIResponseWithUsage<MarketLevelInvestmentResult>> => {
+  const prompt = getMarketLevelInvestmentPrompt(location);
+  let logId: string | null = null;
+  try {
+    logId = await logLLMCall({
+      user_id: userId,
+      prompt_filename: "marketInvestmentResearch.ts",
+      llm_name: GEMINI_MODEL,
+      raw_payload: prompt,
+      raw_response: null,
+      status: 'pending',
+      request_sent_at: serverTimestamp()
+    });
+
+    const ai = getAi();
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+      config: {
+        tools: [groundingTool],
+        temperature: 0.7 // Slightly lower for research grounding
+      }
+    });
+
+    const responseText = response.text;
+    const usage = calculateUsage(response, GEMINI_MODEL);
+
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: responseText,
+        status: 'completed',
+        response_received_at: serverTimestamp(),
+        usage_metadata: response.usageMetadata,
+        estimated_cost: usage.cost,
+        ...extractMetadata(response)
+      }).catch(err => console.error("Failed to update LLM log:", err));
+    }
+
+    return {
+      data: extractJson<MarketLevelInvestmentResult>(responseText),
+      usage
+    };
+  } catch (error: any) {
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: error.message,
+        status: 'failed',
+        error: error.stack || error.message,
+        response_received_at: serverTimestamp()
+      }).catch(err => console.error("Failed to update LLM error log:", err));
+    }
+    if (error instanceof AiResponseError) {
+      error.prompt = prompt;
+      throw error;
+    }
+    throw new AiResponseError(error.message, "Raw API Error", prompt);
+  }
+};

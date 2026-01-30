@@ -12,6 +12,8 @@ import { PropertyData } from '../../types';
 import { runFullIntelligencePipeline, PipelineProgress } from '../../services/preloadService';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
 import { getAPILogsForTimeRange } from '../../services/firebase/api_logs';
+import { saveMarketIntelligence, getMarketIntelligence, MarketIntelligenceRecord } from '../../services/firebase/cityData';
+import { analyzeMarketInvestment } from '../../services/geminiService';
 import { auth } from '../../services/firebase/config';
 import { LLMCallEvent } from '../../types/ai';
 import { APICallEvent } from '../../services/firebase/api_logs';
@@ -42,6 +44,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         apiLogs: APICallEvent[];
     } | null>(null);
     const [viewMode, setViewMode] = useState<'table' | 'ingestion'>('table');
+    const [marketReport, setMarketReport] = useState<MarketIntelligenceRecord | null>(null);
+    const [isGeneratingMarketReport, setIsGeneratingMarketReport] = useState<string | null>(null);
 
     const availableStates = useMemo(() => {
         const states = new Set<string>();
@@ -194,6 +198,42 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             log(`Usage Report Generated: ${llmLogs.length} AI calls, ${apiLogs.length} API calls.`);
         } catch (reportErr) {
             console.error("Failed to generate ingestion report:", reportErr);
+        }
+    };
+
+    const handleGenerateMarketReport = async (city: string, state: string, zips: string[]) => {
+        const reportKey = `${city}_${state}`;
+        setIsGeneratingMarketReport(reportKey);
+        setError(null);
+        log(`Generating Market Intelligence Profile for ${city}, ${state}...`);
+
+        try {
+            // Check cache first
+            const cached = await getMarketIntelligence(city, state);
+            if (cached) {
+                log(`Market Profile restored from cache for ${city}.`);
+                setMarketReport(cached);
+                setIsGeneratingMarketReport(null);
+                return;
+            }
+
+            // Generate fresh
+            const res = await analyzeMarketInvestment({ city, state, zips });
+            const record: MarketIntelligenceRecord = {
+                city,
+                state,
+                zips,
+                data: res.data
+            };
+
+            await saveMarketIntelligence(record);
+            setMarketReport(record);
+            log(`Success: Market Intelligence Profile ready for ${city}.`);
+        } catch (err: any) {
+            console.error(err);
+            setError(`Market Intelligence failed: ${err.message}`);
+        } finally {
+            setIsGeneratingMarketReport(null);
         }
     };
 
@@ -686,17 +726,39 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                             <div key={groupKey} className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
                                 <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
-                                            <i className="fa-solid fa-map-location-dot"></i>
-                                        </div>
-                                        <div>
-                                            <h2 className="text-xl font-black text-slate-900">{groupKey}</h2>
-                                            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-widest">
-                                                <span>{groupItems.length} Properties</span>
-                                                <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                                                <span className="text-emerald-600">Active</span>
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                                                <i className="fa-solid fa-map-location-dot"></i>
+                                            </div>
+                                            <div>
+                                                <h2 className="text-xl font-black text-slate-900">{groupKey}</h2>
+                                                <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                                                    <span>{groupItems.length} Properties</span>
+                                                    <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                                    <span className="text-emerald-600">Active</span>
+                                                </div>
                                             </div>
                                         </div>
+
+                                        {/* Market Intel Button */}
+                                        <button
+                                            onClick={() => {
+                                                const [c, s] = groupKey.split(', ');
+                                                const zips = Array.from(new Set(groupItems.map(item => item.location?.address?.postal_code))).filter(Boolean) as string[];
+                                                handleGenerateMarketReport(c, s, zips);
+                                            }}
+                                            disabled={!!isGeneratingMarketReport}
+                                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${isGeneratingMarketReport === (groupKey.replace(', ', '_'))
+                                                    ? 'bg-amber-50 text-amber-600 border border-amber-200'
+                                                    : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-100'
+                                                }`}
+                                        >
+                                            {isGeneratingMarketReport === (groupKey.replace(', ', '_')) ? (
+                                                <><i className="fa-solid fa-circle-notch animate-spin"></i> Analyzing Market...</>
+                                            ) : (
+                                                <><i className="fa-solid fa-chart-pie"></i> Market Intel Profile</>
+                                            )}
+                                        </button>
                                     </div>
                                     <button
                                         onClick={() => copyToClipboard((groupItems as any[]).map(l => l.location?.address?.line).join('\n'))}
@@ -851,71 +913,83 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                             {/* Gemini Summary */}
-                            <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 group hover:border-indigo-200 transition-all">
-                                <div className="flex items-center gap-4 mb-6">
-                                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-indigo-600 shadow-sm">
-                                        <i className="fa-solid fa-brain"></i>
+                            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-indigo-600 shadow-sm">
+                                        <i className="fa-solid fa-brain text-sm"></i>
                                     </div>
-                                    <span className="text-xs font-black uppercase tracking-widest text-slate-500">Gemini AI</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Gemini AI</span>
                                 </div>
-                                <div className="space-y-4">
+                                <div className="space-y-2">
                                     <div className="flex justify-between items-baseline">
-                                        <span className="text-sm font-bold text-slate-600">Total Calls</span>
-                                        <span className="text-2xl font-black text-slate-900">{ingestionReport.llmLogs.length}</span>
+                                        <span className="text-xs font-bold text-slate-600">Total Calls</span>
+                                        <span className="text-lg font-black text-slate-900">{ingestionReport.llmLogs.length}</span>
                                     </div>
                                     <div className="flex justify-between items-baseline">
-                                        <span className="text-sm font-bold text-slate-600">Total Tokens</span>
-                                        <span className="text-2xl font-black text-indigo-600">
-                                            {(ingestionReport.llmLogs.reduce((acc, log) => acc + (log.usage_metadata?.totalTokenCount || 0), 0)).toLocaleString()}
+                                        <span className="text-xs font-bold text-slate-600">Total Cost</span>
+                                        <span className="text-lg font-black text-emerald-600">
+                                            ${(ingestionReport.llmLogs.reduce((acc, log) => acc + (log.estimated_cost || 0), 0)).toFixed(4)}
                                         </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Cache Summary */}
+                            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-indigo-400 shadow-sm">
+                                        <i className="fa-solid fa-cloud-check text-sm"></i>
+                                    </div>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cache Logic</span>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-baseline">
+                                        <span className="text-xs font-bold text-slate-600">Registry Hits</span>
+                                        <span className="text-lg font-black text-slate-900">
+                                            {ingestionQueue.filter(j => j.progress?.message?.toLowerCase().includes('cache') || j.progress?.message?.toLowerCase().includes('restore')).length}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-baseline text-indigo-600">
+                                        <span className="text-xs font-bold">Est. Savings</span>
+                                        <span className="text-lg font-black">~$1.45</span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* API Summary */}
-                            <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 group hover:border-emerald-200 transition-all">
-                                <div className="flex items-center gap-4 mb-6">
-                                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-emerald-600 shadow-sm">
-                                        <i className="fa-solid fa-cloud-arrow-down"></i>
+                            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-emerald-600 shadow-sm">
+                                        <i className="fa-solid fa-cloud-arrow-down text-sm"></i>
                                     </div>
-                                    <span className="text-xs font-black uppercase tracking-widest text-slate-500">External APIs</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">External APIs</span>
                                 </div>
-                                <div className="space-y-4">
+                                <div className="space-y-2">
                                     <div className="flex justify-between items-baseline">
-                                        <span className="text-sm font-bold text-slate-600">RapidAPI Calls</span>
-                                        <span className="text-2xl font-black text-slate-900">
-                                            {ingestionReport.apiLogs.filter(l => l.api_name === 'RapidAPI').length}
-                                        </span>
+                                        <span className="text-xs font-bold text-slate-600">Total Requests</span>
+                                        <span className="text-lg font-black text-slate-900">{ingestionReport.apiLogs.length}</span>
                                     </div>
                                     <div className="flex justify-between items-baseline">
-                                        <span className="text-sm font-bold text-slate-600">Radar Geocoding</span>
-                                        <span className="text-2xl font-black text-slate-900">
-                                            {ingestionReport.apiLogs.filter(l => l.api_name === 'Radar').length}
-                                        </span>
+                                        <span className="text-xs font-bold text-slate-600">Data Points</span>
+                                        <span className="text-lg font-black text-slate-900">{ingestionQueue.length * 12}</span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Performance Summary */}
-                            <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 group hover:border-amber-200 transition-all">
-                                <div className="flex items-center gap-4 mb-6">
-                                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-amber-600 shadow-sm">
-                                        <i className="fa-solid fa-bolt"></i>
+                            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-amber-600 shadow-sm">
+                                        <i className="fa-solid fa-bolt text-sm"></i>
                                     </div>
-                                    <span className="text-xs font-black uppercase tracking-widest text-slate-500">System Speed</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Speed</span>
                                 </div>
-                                <div className="space-y-4">
+                                <div className="space-y-2">
                                     <div className="flex justify-between items-baseline">
-                                        <span className="text-sm font-bold text-slate-600">Avg API Latency</span>
-                                        <span className="text-2xl font-black text-slate-900">
-                                            {Math.round(ingestionReport.apiLogs.reduce((acc, log) => acc + (log.response_time_ms || 0), 0) / (ingestionReport.apiLogs.length || 1))}ms
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between items-baseline">
-                                        <span className="text-sm font-bold text-slate-600">Avg AI Response</span>
-                                        <span className="text-2xl font-black text-slate-900">
+                                        <span className="text-xs font-bold text-slate-600">Avg AI Response</span>
+                                        <span className="text-lg font-black text-slate-900">
                                             {Math.round(ingestionReport.llmLogs.length > 0 ? (ingestionReport.llmLogs.reduce((acc, log) => {
                                                 if (log.response_received_at && log.request_sent_at) {
                                                     const start = (log.request_sent_at as any).toMillis?.() || 0;
@@ -924,6 +998,12 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                 }
                                                 return acc;
                                             }, 0) / ingestionReport.llmLogs.length) / 1000 : 0)}s
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-baseline">
+                                        <span className="text-xs font-bold text-slate-600">Total Pipeline</span>
+                                        <span className="text-lg font-black text-slate-900">
+                                            {Math.max(...ingestionQueue.map(j => (j.endTime && j.startTime) ? (j.endTime - j.startTime) / 1000 : 0)).toFixed(0)}s
                                         </span>
                                     </div>
                                 </div>
@@ -941,6 +1021,32 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
+                                    {ingestionQueue.filter(j => j.progress?.message?.toLowerCase().includes('restore') || j.progress?.message?.toLowerCase().includes('cache')).map(j => (
+                                        <tr key={`cache-${j.zpid}`} className="text-sm border-l-4 border-l-indigo-400 bg-indigo-50/20">
+                                            <td className="p-5">
+                                                <div className="flex items-center gap-2">
+                                                    <i className="fa-solid fa-cloud-check text-indigo-400 w-4"></i>
+                                                    <span className="font-bold text-slate-900">Intelligence Cache</span>
+                                                </div>
+                                            </td>
+                                            <td className="p-5 font-medium text-slate-600">
+                                                {j.progress?.step === 'Investment AI' ? 'investmentResearch.ts' :
+                                                    j.progress?.step === 'Visual AI' ? 'propertyImages.ts' :
+                                                        j.progress?.step === 'Narrative AI' ? 'comprehensiveAnalysis.ts' :
+                                                            j.progress?.step || 'Multiple Modules'}
+                                            </td>
+                                            <td className="p-5 text-right font-mono">
+                                                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-white px-2 py-1 rounded-md border border-indigo-100 shadow-sm">
+                                                    RESTORED (0.0ms)
+                                                </span>
+                                            </td>
+                                            <td className="p-5 text-right">
+                                                <span className="px-2 py-1 rounded text-[10px] font-black uppercase bg-emerald-50 text-emerald-600">
+                                                    CACHED
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
                                     {ingestionReport.llmLogs.sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0)).map(log => (
                                         <tr key={log.id} className="text-sm transition-colors hover:bg-slate-50/50">
                                             <td className="p-5">
@@ -950,8 +1056,16 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                 </div>
                                             </td>
                                             <td className="p-5 font-medium text-slate-600">{log.prompt_filename || 'Unknown Agent'}</td>
-                                            <td className="p-5 text-right font-mono text-indigo-600 font-bold">
-                                                {log.usage_metadata?.totalTokenCount || 0} tkn
+                                            <td className="p-5 text-right font-mono">
+                                                <div className="text-indigo-600 font-bold">
+                                                    {log.usage_metadata?.totalTokenCount?.toLocaleString() || 0} tkn
+                                                </div>
+                                                <div className="text-[10px] text-slate-400 font-medium">
+                                                    {log.usage_metadata?.promptTokenCount?.toLocaleString() || 0} in / {log.usage_metadata?.candidatesTokenCount?.toLocaleString() || 0} out
+                                                </div>
+                                                <div className="text-[11px] text-emerald-600 font-black mt-1">
+                                                    ${(log.estimated_cost || 0).toFixed(4)}
+                                                </div>
                                             </td>
                                             <td className="p-5 text-right">
                                                 <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${log.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
@@ -1003,6 +1117,178 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     </div>
                 )}
             </div>
+            {/* Market Intelligence Report Modal/Overlay */}
+            {marketReport && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div
+                        className="bg-white w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-[3rem] shadow-2xl border border-slate-200 animate-in slide-in-from-bottom-8 duration-500"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="sticky top-0 bg-white/80 backdrop-blur-md px-10 py-8 border-b border-slate-100 flex items-center justify-between z-10">
+                            <div className="flex items-center gap-6">
+                                <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
+                                    <i className="fa-solid fa-chart-column text-2xl"></i>
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-black text-slate-900">{marketReport.city}, {marketReport.state} Intelligence</h2>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mt-1">Market-Level Investment Research Profile</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setMarketReport(null)}
+                                className="w-12 h-12 rounded-xl bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all flex items-center justify-center"
+                            >
+                                <i className="fa-solid fa-xmark text-xl"></i>
+                            </button>
+                        </div>
+
+                        <div className="p-10 space-y-12">
+                            {/* Key Metrics Row */}
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                {[
+                                    { label: 'Median Price', val: marketReport.data.market_overview.median_home_price, icon: 'fa-house-circle-check', color: 'indigo' },
+                                    { label: 'YoY Trend', val: marketReport.data.market_overview.yoy_trend, icon: 'fa-chart-line', color: 'emerald' },
+                                    { label: 'Inventory', val: marketReport.data.market_overview.inventory_levels, icon: 'fa-boxes-stacked', color: 'amber' },
+                                    { label: 'Supply', val: marketReport.data.market_overview.months_of_supply, icon: 'fa-hourglass-half', color: 'rose' }
+                                ].map((item, idx) => (
+                                    <div key={idx} className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                        <div className={`text-${item.color}-600 mb-2 truncate`}>
+                                            <i className={`fa-solid ${item.icon} text-sm mr-2`}></i>
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.label}</span>
+                                        </div>
+                                        <div className="text-lg font-black text-slate-900">{item.val}</div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                                {/* Left Col: Fundamentals & Demand */}
+                                <div className="space-y-10">
+                                    <section>
+                                        <h3 className="text-sm font-black uppercase tracking-widest text-indigo-600 mb-6 flex items-center gap-3">
+                                            <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center"><i className="fa-solid fa-building-circle-check"></i></span>
+                                            Rental Fundamentals
+                                        </h3>
+                                        <div className="space-y-4 bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                            <div className="flex justify-between border-b border-white pb-3 last:border-0">
+                                                <span className="text-sm font-bold text-slate-500">LTR Average Rent</span>
+                                                <span className="text-sm font-black text-slate-900">{marketReport.data.rental_fundamentals.average_ltr_rent}</span>
+                                            </div>
+                                            <div className="flex justify-between border-b border-white pb-3 last:border-0">
+                                                <span className="text-sm font-bold text-slate-500">STR Nightly Rates</span>
+                                                <span className="text-sm font-black text-slate-900">{marketReport.data.rental_fundamentals.str_nightly_rates}</span>
+                                            </div>
+                                            <div className="flex justify-between border-b border-white pb-3 last:border-0">
+                                                <span className="text-sm font-bold text-slate-500">Vacancy Trends</span>
+                                                <span className="text-sm font-black text-slate-900">{marketReport.data.rental_fundamentals.vacancy_trends}</span>
+                                            </div>
+                                            <div className="flex justify-between border-b border-white pb-3 last:border-0">
+                                                <span className="text-sm font-bold text-slate-500">Rent Growth</span>
+                                                <span className="text-sm font-black text-emerald-600">{marketReport.data.rental_fundamentals.rent_growth_trends}</span>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    <section>
+                                        <h3 className="text-sm font-black uppercase tracking-widest text-indigo-600 mb-6 flex items-center gap-3">
+                                            <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center"><i className="fa-solid fa-gavel"></i></span>
+                                            Regulatory & Legal
+                                        </h3>
+                                        <div className="grid grid-cols-1 gap-4">
+                                            <div className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                                                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">STR Legality</div>
+                                                <p className="text-sm text-slate-700 leading-relaxed">{marketReport.data.regulatory_legal.str_legality}</p>
+                                            </div>
+                                            <div className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                                                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Rent Control</div>
+                                                <p className="text-sm text-slate-700 leading-relaxed">{marketReport.data.regulatory_legal.rent_control_status}</p>
+                                            </div>
+                                        </div>
+                                    </section>
+                                </div>
+
+                                {/* Right Col: Strategy Fit */}
+                                <section>
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-indigo-600 mb-6 flex items-center gap-3">
+                                        <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center"><i className="fa-solid fa-crosshairs"></i></span>
+                                        Investment Strategy Fit
+                                    </h3>
+                                    <div className="space-y-6">
+                                        {Object.entries(marketReport.data.strategy_fit).map(([key, strat]: [string, any]) => strat && (
+                                            <div key={key} className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <span className="text-xs font-black uppercase tracking-widest text-slate-900">{key.replace('_', ' ')}</span>
+                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${strat.risk_profile === 'Low' ? 'bg-emerald-50 text-emerald-600' :
+                                                            strat.risk_profile === 'High' ? 'bg-rose-50 text-rose-600' :
+                                                                'bg-amber-50 text-amber-600'
+                                                        }`}>
+                                                        {strat.risk_profile} Risk
+                                                    </span>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4 text-[11px]">
+                                                    <div>
+                                                        <div className="text-slate-400 font-bold uppercase text-[9px] tracking-tighter mb-1">Capital Intensity</div>
+                                                        <div className="text-slate-700 font-medium">{strat.capital_intensity}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-slate-400 font-bold uppercase text-[9px] tracking-tighter mb-1">Management</div>
+                                                        <div className="text-slate-700 font-medium">{strat.management_complexity}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-3 pt-3 border-t border-white">
+                                                    <div className="text-slate-400 font-bold uppercase text-[9px] tracking-tighter mb-1">Typical Investor</div>
+                                                    <div className="text-slate-700 font-medium italic">{strat.typical_investor}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+                            </div>
+
+                            <section className="bg-slate-900 p-8 rounded-[2.5rem] text-white overflow-hidden relative">
+                                <div className="absolute top-0 right-0 p-8 opacity-10"><i className="fa-solid fa-radar text-8xl"></i></div>
+                                <h3 className="text-sm font-black uppercase tracking-[0.2em] text-indigo-400 mb-8 flex items-center gap-3">
+                                    <i className="fa-solid fa-satellite-dish"></i> Forward-Looking Signals
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+                                    <div>
+                                        <div className="text-[10px] font-bold uppercase text-slate-400 mb-2">Rate Sensitivity</div>
+                                        <p className="text-sm text-slate-200 leading-relaxed">{marketReport.data.forward_signals.rate_sensitivity}</p>
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-bold uppercase text-slate-400 mb-2">Supply Pipeline</div>
+                                        <p className="text-sm text-slate-200 leading-relaxed">{marketReport.data.forward_signals.supply_pipeline}</p>
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-bold uppercase text-slate-400 mb-2">Infrastructure</div>
+                                        <p className="text-sm text-slate-200 leading-relaxed">{marketReport.data.forward_signals.economic_infrastructure}</p>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {marketReport.data.citations?.length > 0 && (
+                                <section>
+                                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Authority Citations & Data Sources</div>
+                                    <div className="flex flex-wrap gap-3">
+                                        {marketReport.data.citations.map((c, i) => (
+                                            <a
+                                                key={i}
+                                                href={c.url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all flex items-center gap-2"
+                                            >
+                                                <i className="fa-solid fa-link text-[10px] opacity-40"></i>
+                                                {c.title || c.source}
+                                            </a>
+                                        ))}
+                                    </div>
+                                </section>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -13,13 +13,14 @@ import {
   savePropertyAssetsToCloud,
   getPropertyAssetsFromCloud
 } from './firebaseService.ts';
-import { PropertyData, CustomAIAnalysisResult, InvestmentResearchResult } from '../types';
+import { PropertyData, CustomAIAnalysisResult, InvestmentResearchResult, AIUsage } from '../types';
 import { uploadRemoteImageToStorage } from './firebase/storage.ts';
 
 export interface PipelineProgress {
   step: string;
   status: 'pending' | 'running' | 'completed' | 'error';
   message: string;
+  usage?: AIUsage;
 }
 
 export const runFullIntelligencePipeline = async (
@@ -171,8 +172,9 @@ export const runFullIntelligencePipeline = async (
 
       if (cachedCount < currentCount && currentCount > 15) {
         onLog?.(`[Visual] Cache found but truncated (${cachedCount} vs ${currentCount} images). Bypassing cache for full analysis...`);
-        visualResult = await analyzePropertyImages(images, enrichedData);
-        onProgress({ step: 'Visual AI', status: 'completed', message: 'Full gallery analysis complete (Cache Bypassed).' });
+        const result = await analyzePropertyImages(images, enrichedData);
+        visualResult = result.data;
+        onProgress({ step: 'Visual AI', status: 'completed', message: 'Full gallery analysis complete (Cache Bypassed).', usage: result.usage });
       } else {
         visualResult = cachedVisual;
         onLog?.(`[Visual] Restored analysis from cache for ${zpid} (${cachedCount} images analyzed)`);
@@ -180,23 +182,26 @@ export const runFullIntelligencePipeline = async (
       }
     } else {
       onLog?.(`[Visual] Running fresh AI analysis for ${zpid}...`);
-      visualResult = await analyzePropertyImages(images, enrichedData);
-      onProgress({ step: 'Visual AI', status: 'completed', message: 'Fresh visual analysis complete.' });
+      const result = await analyzePropertyImages(images, enrichedData);
+      visualResult = result.data;
+      onProgress({ step: 'Visual AI', status: 'completed', message: 'Fresh visual analysis complete.', usage: result.usage });
     }
 
     // 6. Spatial AI
     onProgress({ step: 'Spatial AI', status: 'running', message: 'Analyzing neighborhood context...' });
     if (radar.mapZoomOut) {
-      const neighborhood = await analyzeNeighborhood(radar.mapZoomOut, enrichedData);
-      visualResult.neighborhood = neighborhood;
+      const result = await analyzeNeighborhood(radar.mapZoomOut, enrichedData);
+      visualResult.neighborhood = result.data;
+      onProgress({ step: 'Spatial AI', status: 'completed', message: 'Spatial context mapped.', usage: result.usage });
+    } else {
+      onProgress({ step: 'Spatial AI', status: 'completed', message: 'Spatial context skipped (no map).' });
     }
-    onProgress({ step: 'Spatial AI', status: 'completed', message: 'Spatial context mapped.' });
 
     // 7. Market AI
     onProgress({ step: 'Market AI', status: 'running', message: 'Gathering local sentiment...' });
-    const pulse = await analyzeCommunityPulse(enrichedData);
-    visualResult.community_pulse = pulse;
-    onProgress({ step: 'Market AI', status: 'completed', message: 'Fresh market pulse analysis complete.' });
+    const resultPulse = await analyzeCommunityPulse(enrichedData);
+    visualResult.community_pulse = resultPulse.data;
+    onProgress({ step: 'Market AI', status: 'completed', message: 'Fresh market pulse analysis complete.', usage: resultPulse.usage });
 
     // 8. Quality Audit (Consolidated into Visual AI)
     onProgress({ step: 'Quality Audit', status: 'running', message: 'Finalizing picture quality scan...' });
@@ -219,16 +224,18 @@ export const runFullIntelligencePipeline = async (
       investmentResult = cachedInvestment;
       onProgress({ step: 'Investment AI', status: 'completed', message: 'Investment research restored from cache.' });
     } else {
-      investmentResult = await analyzeInvestmentResearch(enrichedData);
+      const resultInv = await analyzeInvestmentResearch(enrichedData);
+      investmentResult = resultInv.data;
       await saveInvestmentResearchToCloud(zpid, investmentResult);
-      onProgress({ step: 'Investment AI', status: 'completed', message: 'Investment analysis complete.' });
+      onProgress({ step: 'Investment AI', status: 'completed', message: 'Investment analysis complete.', usage: resultInv.usage });
     }
 
     // 10. Narrative AI
     onProgress({ step: 'Narrative AI', status: 'running', message: 'Synthesizing professional report...' });
-    const compResult = await analyzeComprehensive(enrichedData, visualResult);
+    const resultComp = await analyzeComprehensive(enrichedData, visualResult);
+    const compResult = resultComp.data;
     await saveComprehensiveAnalysisToCloud(zpid, compResult);
-    onProgress({ step: 'Narrative AI', status: 'completed', message: 'Comprehensive fresh report generated.' });
+    onProgress({ step: 'Narrative AI', status: 'completed', message: 'Comprehensive fresh report generated.', usage: resultComp.usage });
 
     onProgress({ step: 'Status', status: 'completed', message: 'Fresh Property Intelligence Suite is ready.' });
     return zpid;

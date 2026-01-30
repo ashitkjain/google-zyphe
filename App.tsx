@@ -327,8 +327,8 @@ const App: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const addLog = (service: string, { type }: any, content: any) => {
-    setLogs(prev => [...prev, { timestamp: new Date().toLocaleTimeString(), service, type, content }]);
+  const addLog = (service: string, { type }: any, content: any, usage?: any) => {
+    setLogs(prev => [...prev, { timestamp: new Date().toLocaleTimeString(), service, type, content, usage }]);
   };
 
   const addToHistory = (newAddress: string) => {
@@ -462,18 +462,21 @@ const App: React.FC = () => {
       }
 
       addLog('Gemini AI', { type: 'request' }, { task: 'visual_analysis', forced: force });
-      const result = await analyzePropertyImages(propertyData.images || [], propertyData);
+      const res = await analyzePropertyImages(propertyData.images || [], propertyData);
+      const result = res.data;
 
       if (propertyData.mapZoomOut) {
-        const neighborhood = await analyzeNeighborhood(propertyData.mapZoomOut, propertyData);
-        result.neighborhood = neighborhood;
+        const neighborRes = await analyzeNeighborhood(propertyData.mapZoomOut, propertyData);
+        result.neighborhood = neighborRes.data;
+        addLog('Gemini AI', { type: 'response' }, neighborRes.data, neighborRes.usage);
       }
 
-      const pulse = await analyzeCommunityPulse(propertyData);
-      result.community_pulse = pulse;
+      const pulseRes = await analyzeCommunityPulse(propertyData);
+      result.community_pulse = pulseRes.data;
+      addLog('Gemini AI', { type: 'response' }, pulseRes.data, pulseRes.usage);
 
       setCustomAnalysis(result);
-      addLog('Gemini AI', { type: 'response' }, result);
+      addLog('Gemini AI', { type: 'response' }, result, res.usage);
       if (propertyData.zpid) {
         const saveResult = await saveVisualAnalysisToCloud(propertyData.zpid, result);
         if (!saveResult.success) {
@@ -516,9 +519,10 @@ const App: React.FC = () => {
       }
 
       addLog('Gemini AI', { type: 'request' }, { task: 'comprehensive_analysis', forced: force });
-      const result = await analyzeComprehensive(propertyData, customAnalysis);
+      const res = await analyzeComprehensive(propertyData, customAnalysis);
+      const result = res.data;
       setComprehensiveAnalysis(result);
-      addLog('Gemini AI', { type: 'response' }, result);
+      addLog('Gemini AI', { type: 'response' }, result, res.usage);
       if (propertyData.zpid) await saveComprehensiveAnalysisToCloud(propertyData.zpid, result);
     } catch (err: any) {
       const logContent = err instanceof AiResponseError

@@ -113,10 +113,11 @@ const CustomAIAnalysis: React.FC<Props> = ({
       }
 
       addLog('Gemini AI', { type: 'request' }, { task: 'visual_analysis_consolidated', zpid });
-      const result = await analyzePropertyImages(propertyImages, propertyData);
+      const res = await analyzePropertyImages(propertyImages, propertyData);
+      const result = res.data;
 
       onUpdateAnalysis(result);
-      addLog('Gemini AI', { type: 'response' }, { task: 'visual_analysis_consolidated', zpid, data: result });
+      addLog('Gemini AI', { type: 'response' }, { task: 'visual_analysis_consolidated', zpid, data: result }, res.usage);
 
       if (zpid) {
         addLog('Cloud Cache', { type: 'info' }, { task: 'saving_visual_results', zpid });
@@ -154,10 +155,11 @@ const CustomAIAnalysis: React.FC<Props> = ({
 
       addLog('Gemini AI', { type: 'request' }, { task: 'investment_research', zpid });
 
-      const result = await analyzeInvestmentResearch(propertyData);
+      const res = await analyzeInvestmentResearch(propertyData);
+      const result = res.data;
 
       onUpdateAnalysis({ ...analysis, investment_research: result });
-      addLog('Gemini AI', { type: 'response' }, { task: 'investment_research', zpid, data: result });
+      addLog('Gemini AI', { type: 'response' }, { task: 'investment_research', zpid, data: result }, res.usage);
 
       const saveRes = await saveInvestmentResearchToCloud(zpid, result);
       if (!saveRes.success) {
@@ -182,10 +184,11 @@ const CustomAIAnalysis: React.FC<Props> = ({
       addLog('Gemini AI', { type: 'request' }, { task: 'bidding_strategy', zpid, model: APP_CONFIG.models.default });
 
       // Use actual property data if available, otherwise fallback to basic context
-      const result = await analyzeBiddingStrategy(propertyData);
+      const res = await analyzeBiddingStrategy(propertyData);
+      const result = res.data;
 
       onUpdateAnalysis({ ...analysis, bidding_strategy: result });
-      addLog('Gemini AI', { type: 'response' }, { task: 'bidding_strategy', zpid, data: result });
+      addLog('Gemini AI', { type: 'response' }, { task: 'bidding_strategy', zpid, data: result }, res.usage);
     } catch (err: any) {
       console.error("Bidding Strategy Failed:", err);
       addLog('System', { type: 'error' }, { message: "Bidding Strategy Failed", error: err.message || err });
