@@ -82,7 +82,7 @@ const StorageScannerTab: React.FC = () => {
         if (selectedIds.size === 0) return;
         setProcessing(true);
         setIngestionReport(null);
-        const batchStartTime = Date.now() - 5000; // Add 5s buffer for clock drift
+        const batchStartTime = Date.now() - 2000; // Add 2s buffer for clock drift
         addLog(`Starting fresh pipeline for ${selectedIds.size} properties...`);
 
         const targets = properties.filter(p => selectedIds.has(p.zpid));
