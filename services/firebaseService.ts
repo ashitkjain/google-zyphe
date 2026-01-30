@@ -17,4 +17,5 @@ export * from './firebase/transactions';
 export * from './firebase/seed';
 export * from './firebase/storage';
 export * from './firebase/guides';
+export * from './firebase/cityData';
 

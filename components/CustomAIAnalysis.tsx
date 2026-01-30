@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { CustomAIAnalysisResult, CommunityPulseSection, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, ImageQualityPoint, ImageQualityCategory, InvestmentResearchResult, BiddingStrategyResult, PropertyComp, PriceHistoryItem } from '../types';
-import { analyzePropertyImages, analyzeInvestmentResearch, analyzeBiddingStrategy, AiResponseError } from '../services/geminiService';
-import { saveVisualAnalysisToCloud, saveImageQualityAnalysisToCloud, getImageQualityAnalysisFromCloud, saveInvestmentResearchToCloud, getInvestmentResearchFromCloud } from '../services/firebaseService';
+import { CustomAIAnalysisResult, CommunityPulseSection, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, ImageQualityPoint, ImageQualityCategory, InvestmentResearchResult, MarketLevelInvestmentResult, BiddingStrategyResult, PropertyComp, PriceHistoryItem } from '../types';
+import { analyzePropertyImages, analyzeInvestmentResearch, analyzeBiddingStrategy, analyzeMarketInvestment, AiResponseError } from '../services/geminiService';
+import { saveVisualAnalysisToCloud, saveImageQualityAnalysisToCloud, getImageQualityAnalysisFromCloud, saveInvestmentResearchToCloud, getInvestmentResearchFromCloud, getMarketIntelligence, saveMarketIntelligence } from '../services/firebaseService';
 import { APP_CONFIG } from '../config';
 
 interface Props {
@@ -24,7 +24,7 @@ interface Props {
   onToggleFavorite?: () => void;
 }
 
-type TabType = 'interior' | 'rooms' | 'exterior' | 'neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding' | 'image_analysis';
+type TabType = 'interior' | 'rooms' | 'exterior' | 'neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding' | 'image_analysis' | 'market_intel';
 
 const CustomAIAnalysis: React.FC<Props> = ({
   analysis,
@@ -52,6 +52,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
   const [qualityLoading, setQualityLoading] = useState(false);
   const [investmentLoading, setInvestmentLoading] = useState(false);
   const [biddingLoading, setBiddingLoading] = useState(false);
+  const [marketLoading, setMarketLoading] = useState(false);
 
   // Hover preview state
   const [hoveredImage, setHoveredImage] = useState<string | null>(null);
@@ -60,7 +61,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
 
   useEffect(() => {
     let interval: number;
-    if (loading || qualityLoading || investmentLoading || biddingLoading) {
+    if (loading || qualityLoading || investmentLoading || biddingLoading || marketLoading) {
       interval = window.setInterval(() => {
         setTimer(t => t + 1);
       }, 1000);
@@ -88,6 +89,13 @@ const CustomAIAnalysis: React.FC<Props> = ({
       handleRunBiddingStrategy();
     }
   }, [activeTab, analysis?.bidding_strategy, biddingLoading]);
+
+  // Auto-trigger Market Intel when tab is selected
+  useEffect(() => {
+    if (activeTab === 'market_intel' && !analysis?.market_intel && !marketLoading) {
+      handleRunMarketIntelligence();
+    }
+  }, [activeTab, analysis?.market_intel, marketLoading]);
 
   const handleRunQualityAnalysis = async () => {
     if (!analysis || analysis.image_quality_analysis || !propertyImages.length || qualityLoading) {
@@ -197,6 +205,57 @@ const CustomAIAnalysis: React.FC<Props> = ({
     }
   };
 
+  const handleRunMarketIntelligence = async () => {
+    if (!analysis || !zpid || !propertyData || marketLoading) return;
+
+    const city = propertyData.location?.address?.city;
+    const state = propertyData.location?.address?.state;
+    const zip = propertyData.location?.address?.postal_code;
+
+    if (!city || !state) {
+      addLog('System', { type: 'error' }, { message: "Market Intelligence requires city and state." });
+      return;
+    }
+
+    setTimer(0);
+    setMarketLoading(true);
+    addLog('Cloud Cache', { type: 'request' }, { city, state, task: 'market_intel' });
+
+    try {
+      const cached = await getMarketIntelligence(city, state);
+      if (cached) {
+        addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'market_intel', city });
+        onUpdateAnalysis({ ...analysis, market_intel: cached.data });
+        setMarketLoading(false);
+        return;
+      }
+      addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'market_intel', city });
+
+      addLog('Gemini AI', { type: 'request' }, { task: 'market_intel', city, state });
+
+      const res = await analyzeMarketInvestment({ city, state, zips: [zip].filter(Boolean) as string[] });
+      const result = res.data;
+
+      onUpdateAnalysis({ ...analysis, market_intel: result });
+      addLog('Gemini AI', { type: 'response' }, { task: 'market_intel', city, data: result }, res.usage);
+
+      const saveRes = await saveMarketIntelligence({
+        city,
+        state,
+        zips: [zip].filter(Boolean) as string[],
+        data: result
+      });
+      if (!saveRes.success) {
+        addLog('System', { type: 'error' }, { message: "Market Intelligence Cache Save Failed", error: saveRes.error });
+      }
+    } catch (err: any) {
+      console.error("Market Intelligence Failed:", err);
+      addLog('System', { type: 'error' }, { message: "Market Intelligence Failed", error: err.message || err });
+    } finally {
+      setMarketLoading(false);
+    }
+  };
+
   const clearPreviewTimer = () => {
     if (previewTimerRef.current) {
       window.clearTimeout(previewTimerRef.current);
@@ -242,6 +301,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
     image_quality_analysis,
     investment_research,
     bidding_strategy,
+    market_intel,
     image_by_image_analysis
   } = analysis;
 
@@ -252,6 +312,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
     { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
     { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
     { id: 'investment', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
+    { id: 'market_intel', label: 'Market Intelligence', icon: 'fa-chart-column' },
     { id: 'bidding', label: 'Bidding Strategy', icon: 'fa-gavel' },
     { id: 'image_analysis', label: 'Image by Image analysis', icon: 'fa-images' },
     { id: 'quality', label: 'Picture Quality Audit', icon: 'fa-camera-rotate' },
@@ -703,6 +764,138 @@ const CustomAIAnalysis: React.FC<Props> = ({
     </div>
   );
 
+  const MarketIntelView = ({ data }: { data: MarketLevelInvestmentResult }) => (
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 max-w-5xl mx-auto space-y-10 pb-12 font-sans">
+      {/* 1. Market Pulse Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {[
+          { label: 'Median Price', val: data.market_overview.median_home_price, icon: 'fa-house-circle-check', color: 'indigo' },
+          { label: 'YoY Trend', val: data.market_overview.yoy_trend, icon: 'fa-chart-line', color: 'emerald' },
+          { label: 'Inventory', val: data.market_overview.inventory_levels, icon: 'fa-boxes-stacked', color: 'amber' },
+          { label: 'Months Supply', val: data.market_overview.months_of_supply, icon: 'fa-hourglass-half', color: 'rose' }
+        ].map((item, idx) => (
+          <div key={idx} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <div className={`text-${item.color}-600 mb-3 flex items-center gap-2`}>
+              <i className={`fa-solid ${item.icon} text-sm opacity-50`}></i>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.label}</span>
+            </div>
+            <div className="text-lg font-black text-slate-900">{item.val}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        <div className="space-y-10">
+          {/* Rental Fundamentals */}
+          <section className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-8">
+            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-indigo-600 flex items-center gap-3">
+              <i className="fa-solid fa-building-circle-check"></i> Rental Fundamentals
+            </h3>
+            <div className="space-y-4">
+              <div className="flex justify-between items-baseline py-3 border-b border-gray-50">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">LTR Average Rent</span>
+                <span className="text-sm font-black text-slate-900">{data.rental_fundamentals.average_ltr_rent}</span>
+              </div>
+              <div className="flex justify-between items-baseline py-3 border-b border-gray-50">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">STR Nightly Rates</span>
+                <span className="text-sm font-black text-slate-900">{data.rental_fundamentals.str_nightly_rates}</span>
+              </div>
+              <div className="flex justify-between items-baseline py-3 border-b border-gray-50">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Vacancy Trends</span>
+                <span className="text-sm font-black text-slate-900">{data.rental_fundamentals.vacancy_trends}</span>
+              </div>
+              <div className="flex justify-between items-baseline py-3">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Rent Growth</span>
+                <span className="text-sm font-black text-emerald-600">{data.rental_fundamentals.rent_growth_trends}</span>
+              </div>
+            </div>
+          </section>
+
+          {/* Legal Environment */}
+          <section className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-8">
+            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-indigo-600 flex items-center gap-3">
+              <i className="fa-solid fa-gavel"></i> Regulatory & Legal
+            </h3>
+            <div className="grid grid-cols-1 gap-6">
+              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Short-Term Rentals</div>
+                <p className="text-[13px] text-slate-700 leading-relaxed font-medium">{data.regulatory_legal.str_legality}</p>
+              </div>
+              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Rent Control & Zoning</div>
+                <p className="text-[13px] text-slate-700 leading-relaxed font-medium">{data.regulatory_legal.rent_control_status}</p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* Strategy Fit */}
+        <div className="space-y-10">
+          <section className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-8">
+            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-indigo-600 flex items-center gap-3">
+              <i className="fa-solid fa-crosshairs"></i> Strategy Suitability
+            </h3>
+            <div className="space-y-4">
+              {Object.entries(data.strategy_fit).map(([key, strat]: [string, any]) => strat && (
+                <div key={key} className="p-5 bg-slate-50 rounded-2xl border border-slate-100 group transition-all hover:bg-white hover:shadow-md hover:border-indigo-100">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900">{key.replace('_', ' ')}</span>
+                    <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${strat.risk_profile === 'Low' ? 'bg-emerald-50 text-emerald-600' :
+                      strat.risk_profile === 'High' ? 'bg-rose-50 text-rose-600' :
+                        'bg-amber-50 text-amber-600'
+                      }`}>
+                      {strat.risk_profile} Risk
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-medium mb-3 italic">"Best for {strat.typical_investor}"</p>
+                  <div className="grid grid-cols-2 gap-4 text-[10px]">
+                    <div>
+                      <div className="text-slate-400 font-bold uppercase tracking-tighter mb-1">Complexity</div>
+                      <div className="text-slate-700 font-black">{strat.management_complexity}</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 font-bold uppercase tracking-tighter mb-1">Capital</div>
+                      <div className="text-slate-700 font-black">{strat.capital_intensity}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Forward Signals */}
+          <section className="bg-[#1a2333] p-8 rounded-[2.5rem] text-white shadow-xl space-y-8">
+            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-indigo-400 flex items-center gap-3">
+              <i className="fa-solid fa-radar"></i> Forward Signals
+            </h3>
+            <div className="space-y-6">
+              <div>
+                <div className="text-[9px] font-black uppercase tracking-widest text-indigo-300/50 mb-2">Supply Pipeline</div>
+                <p className="text-[12px] text-slate-200 leading-relaxed">{data.forward_signals.supply_pipeline}</p>
+              </div>
+              <div className="pt-6 border-t border-white/10">
+                <div className="text-[9px] font-black uppercase tracking-widest text-indigo-300/50 mb-2">Interest Rate Sensitivity</div>
+                <p className="text-[12px] text-slate-200 leading-relaxed">{data.forward_signals.rate_sensitivity}</p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {/* Citations */}
+      {data.citations?.length > 0 && (
+        <div className="flex flex-wrap gap-3 justify-center">
+          {data.citations.map((c, i) => (
+            <a key={i} href={c.url} target="_blank" rel="noreferrer" className="px-4 py-2 bg-white border border-slate-100 rounded-full text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-indigo-600 hover:border-indigo-200 transition-all flex items-center gap-2 group">
+              <i className="fa-solid fa-link text-[10px] opacity-40 group-hover:opacity-100"></i>
+              {c.source}
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   const BiddingView = ({ data, comps, priceHistory }: { data: BiddingStrategyResult; comps?: PropertyComp[]; priceHistory?: PriceHistoryItem[] }) => (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 max-w-5xl mx-auto space-y-8">
       <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
@@ -1132,6 +1325,23 @@ const CustomAIAnalysis: React.FC<Props> = ({
                 {propertyData?.address && <p className="text-indigo-900/40 font-black uppercase tracking-widest text-[10px] mt-4 bg-white/50 px-4 py-1 rounded-lg inline-block">{propertyData.address}</p>}
               </div>
             ) : !investment_research ? <EmptyState section="Investment Research" /> : <InvestmentView data={investment_research} />}
+          </section>
+        )}
+        {activeTab === 'market_intel' && (
+          <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {marketLoading ? (
+              <div className="bg-indigo-50 border border-indigo-100 rounded-[3rem] p-12 text-center my-10 shadow-sm flex flex-col items-center justify-center min-h-[50vh]">
+                <div className="w-20 h-20 mb-8 relative">
+                  <div className="absolute inset-0 border-4 border-indigo-200 rounded-full"></div>
+                  <div className="absolute inset-0 border-t-4 border-indigo-600 rounded-full animate-spin"></div>
+                  <div className="absolute inset-0 flex items-center justify-center"><i className="fa-solid fa-chart-column text-indigo-600 text-2xl animate-pulse"></i></div>
+                </div>
+                <h3 className="text-3xl font-black text-indigo-900 mb-4 tracking-tight">Market Intelligence...</h3>
+                <div className="mb-4"><span className="px-5 py-2 bg-white border border-indigo-100 rounded-full text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] shadow-sm flex items-center gap-2"><i className="fa-solid fa-clock animate-pulse"></i> Time: <span className="font-mono text-xs">{timer}s</span></span></div>
+                <p className="text-indigo-700/70 text-lg font-medium">Analyzing city-wide trends and regulatory environment for 2026.</p>
+                {propertyData?.location?.address?.city && <p className="text-indigo-900/40 font-black uppercase tracking-widest text-[10px] mt-4 bg-white/50 px-4 py-1 rounded-lg inline-block">{propertyData.location.address.city}, {propertyData.location.address.state}</p>}
+              </div>
+            ) : !market_intel ? <EmptyState section="Market Intelligence" /> : <MarketIntelView data={market_intel} />}
           </section>
         )}
         {activeTab === 'bidding' && (

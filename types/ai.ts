@@ -178,6 +178,7 @@ export interface CustomAIAnalysisResult {
     image_quality_analysis?: ImageQualityAnalysisResult;
     investment_research?: InvestmentResearchResult;
     bidding_strategy?: BiddingStrategyResult;
+    market_intel?: MarketLevelInvestmentResult;
 }
 
 export interface ComprehensiveAnalysisResult {
