@@ -82,7 +82,7 @@ const StorageScannerTab: React.FC = () => {
         if (selectedIds.size === 0) return;
         setProcessing(true);
         setIngestionReport(null);
-        const batchStartTime = Date.now();
+        const batchStartTime = Date.now() - 5000; // Add 5s buffer for clock drift
         addLog(`Starting fresh pipeline for ${selectedIds.size} properties...`);
 
         const targets = properties.filter(p => selectedIds.has(p.zpid));
@@ -192,62 +192,144 @@ const StorageScannerTab: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Table */}
-                <div className="lg:col-span-2">
-                    <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden">
-                        <table className="w-full text-left">
-                            <thead className="bg-slate-50 border-b border-slate-100">
-                                <tr>
-                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Select</th>
-                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">ZPID / Address</th>
-                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
-                                {loading ? (
-                                    <tr>
-                                        <td colSpan={3} className="px-8 py-20 text-center">
-                                            <i className="fa-solid fa-circle-notch animate-spin text-indigo-600 text-2xl"></i>
-                                            <div className="mt-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Scanning Storage Layers...</div>
-                                        </td>
-                                    </tr>
-                                ) : properties.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={3} className="px-8 py-20 text-center text-slate-400 italic">No storage assets found.</td>
-                                    </tr>
-                                ) : (
-                                    properties.map((prop) => (
-                                        <tr
-                                            key={prop.zpid}
-                                            className={`transition-all ${selectedIds.has(prop.zpid) ? 'bg-indigo-50/50' : 'hover:bg-slate-50'} cursor-pointer`}
-                                            onClick={() => toggleSelection(prop.zpid)}
-                                        >
-                                            <td className="px-8 py-6">
-                                                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${selectedIds.has(prop.zpid) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 bg-white'}`}>
-                                                    {selectedIds.has(prop.zpid) && <i className="fa-solid fa-check text-[10px]"></i>}
+                {/* Table or Ingestion Progress */}
+                <div className="lg:col-span-2 space-y-6">
+                    {processing || properties.some(p => p.status === 'running' || p.status === 'completed' && selectedIds.has(p.zpid)) ? (
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest px-4">Active Ingestion Jobs</h3>
+                            {properties.filter(p => p.status !== 'pending' || selectedIds.has(p.zpid)).map((item) => (
+                                <div key={item.zpid} className={`bg-white p-6 rounded-[2rem] border transition-all ${item.status === 'completed' ? 'border-emerald-100 shadow-emerald-50' : item.status === 'error' ? 'border-rose-100 shadow-rose-50' : 'border-slate-100 shadow-lg shadow-slate-200/50'}`}>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
+                                                item.status === 'error' ? 'bg-rose-50 text-rose-600' :
+                                                    item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
+                                                        'bg-slate-50 text-slate-400'
+                                                }`}>
+                                                <i className={`fa-solid ${item.status === 'completed' ? 'fa-circle-check' :
+                                                    item.status === 'error' ? 'fa-circle-xmark' :
+                                                        item.status === 'running' ? 'fa-spinner animate-spin' :
+                                                            'fa-hourglass-start'
+                                                    }`}></i>
+                                            </div>
+                                            <span className="text-sm font-black text-slate-900 truncate">{item.address || item.zpid}</span>
+                                        </div>
+                                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
+                                            item.status === 'error' ? 'bg-rose-50 text-rose-600' :
+                                                item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
+                                                    'bg-slate-100 text-slate-400'
+                                            }`}>
+                                            {item.status}
+                                        </span>
+                                    </div>
+
+                                    {item.status === 'running' && item.progress && (
+                                        <div className="space-y-3 animate-in fade-in">
+                                            <div className="flex justify-between text-[10px] font-black uppercase tracking-tighter text-slate-400">
+                                                <div className="flex items-center gap-2">
+                                                    <span>{item.progress.step}</span>
+                                                    <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                                    <span className="font-mono text-indigo-500">
+                                                        {item.startTime ? Math.floor((Date.now() - item.startTime) / 1000) : 0}s
+                                                    </span>
                                                 </div>
-                                            </td>
-                                            <td className="px-8 py-6">
-                                                <div className="font-bold text-slate-900">{prop.zpid}</div>
-                                                <div className="text-xs text-slate-500 font-medium">{prop.address}</div>
-                                            </td>
-                                            <td className="px-8 py-6">
-                                                {prop.existsInFirestore ? (
-                                                    <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase tracking-widest rounded-full border border-emerald-100 flex items-center gap-2 w-fit">
-                                                        <i className="fa-solid fa-database"></i> Document Active
-                                                    </span>
-                                                ) : (
-                                                    <span className="px-3 py-1 bg-amber-50 text-amber-600 text-[9px] font-black uppercase tracking-widest rounded-full border border-amber-100 flex items-center gap-2 w-fit">
-                                                        <i className="fa-solid fa-cloud"></i> Storage Only
-                                                    </span>
-                                                )}
+                                                <span className="text-indigo-600">Active</span>
+                                            </div>
+                                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-indigo-600 transition-all duration-500 ease-out"
+                                                    style={{ width: `${(100 / 9) * (['Geocoding', 'Status Check', 'Property Data', 'Gallery', 'Visual AI', 'Spatial AI', 'Market AI', 'Quality Audit', 'Narrative AI'].indexOf(item.progress.step) + 1)}%` }}
+                                                ></div>
+                                            </div>
+                                            <p className="text-[11px] text-slate-500 font-medium italic">
+                                                {item.progress.message}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {item.status === 'completed' && (
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest bg-emerald-50 py-2 px-4 rounded-xl w-fit">
+                                                <i className="fa-solid fa-check"></i>
+                                                Intelligence Suite Ready
+                                            </div>
+                                            {item.startTime && item.endTime && (
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    Total: <span className="text-slate-900 font-mono">{Math.floor((item.endTime - item.startTime) / 1000)}s</span>
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                            {properties.some(p => p.status === 'completed') && !processing && (
+                                <button
+                                    onClick={() => {
+                                        setProperties(prev => prev.map(p => ({ ...p, status: 'pending', progress: null })));
+                                        setIngestionReport(null);
+                                    }}
+                                    className="w-full py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors"
+                                >
+                                    Clear Results & Return to List
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden">
+                            <table className="w-full text-left">
+                                <thead className="bg-slate-50 border-b border-slate-100">
+                                    <tr>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Select</th>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">ZPID / Address</th>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {loading ? (
+                                        <tr>
+                                            <td colSpan={3} className="px-8 py-20 text-center">
+                                                <i className="fa-solid fa-circle-notch animate-spin text-indigo-600 text-2xl"></i>
+                                                <div className="mt-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Scanning Storage Layers...</div>
                                             </td>
                                         </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                    ) : properties.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={3} className="px-8 py-20 text-center text-slate-400 italic">No storage assets found.</td>
+                                        </tr>
+                                    ) : (
+                                        properties.map((prop) => (
+                                            <tr
+                                                key={prop.zpid}
+                                                className={`transition-all ${selectedIds.has(prop.zpid) ? 'bg-indigo-50/50' : 'hover:bg-slate-50'} cursor-pointer`}
+                                                onClick={() => toggleSelection(prop.zpid)}
+                                            >
+                                                <td className="px-8 py-6">
+                                                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${selectedIds.has(prop.zpid) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 bg-white'}`}>
+                                                        {selectedIds.has(prop.zpid) && <i className="fa-solid fa-check text-[10px]"></i>}
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <div className="font-bold text-slate-900">{prop.zpid}</div>
+                                                    <div className="text-xs text-slate-500 font-medium">{prop.address}</div>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    {prop.existsInFirestore ? (
+                                                        <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase tracking-widest rounded-full border border-emerald-100 flex items-center gap-2 w-fit">
+                                                            <i className="fa-solid fa-database"></i> Document Active
+                                                        </span>
+                                                    ) : (
+                                                        <span className="px-3 py-1 bg-amber-50 text-amber-600 text-[9px] font-black uppercase tracking-widest rounded-full border border-amber-100 flex items-center gap-2 w-fit">
+                                                            <i className="fa-solid fa-cloud"></i> Storage Only
+                                                        </span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             </div>
 
