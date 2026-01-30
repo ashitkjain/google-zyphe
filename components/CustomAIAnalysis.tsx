@@ -565,17 +565,17 @@ const CustomAIAnalysis: React.FC<Props> = ({
           <div className="grid grid-cols-2 gap-6">
             <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100/50">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">TARGET ADR</span>
-              <p className="text-[13px] font-normal leading-[1.625] text-gray-700">{data.str_performance.adr}</p>
+              <p className="text-[13px] font-normal leading-[1.625] text-gray-700">{data.property_specific.str_performance.adr}</p>
             </div>
             <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100/50">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">OCC. RATE</span>
-              <p className="text-[13px] font-normal leading-[1.625] text-gray-700">{data.str_performance.occupancy_rate}</p>
+              <p className="text-[13px] font-normal leading-[1.625] text-gray-700">{data.property_specific.str_performance.occupancy_rate}</p>
             </div>
           </div>
 
           <div className="p-8 bg-[#1a2333] rounded-2xl shadow-xl shadow-indigo-900/10">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">ANNUAL REVENUE PROJECTION</span>
-            <p className="text-[18px] font-bold text-white leading-relaxed">{data.str_performance.annual_revenue_projection}</p>
+            <p className="text-[18px] font-bold text-white leading-relaxed">{data.property_specific.str_performance.annual_revenue_projection}</p>
           </div>
         </div>
 
@@ -590,62 +590,23 @@ const CustomAIAnalysis: React.FC<Props> = ({
           <div className="grid grid-cols-2 gap-6">
             <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100/50">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">MONTHLY RENT</span>
-              <p className="text-[13px] font-normal leading-[1.625] text-gray-700">{data.ltr_analysis.monthly_rent}</p>
+              <p className="text-[13px] font-normal leading-[1.625] text-gray-700">{data.property_specific.ltr_analysis.monthly_rent}</p>
             </div>
             <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100/50">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">VACANCY RATE</span>
-              <p className="text-[13px] font-normal leading-[1.625] text-gray-700">{data.ltr_analysis.vacancy_rate}</p>
+              <p className="text-[13px] font-normal leading-[1.625] text-gray-700">{data.property_specific.ltr_analysis.vacancy_rate}</p>
             </div>
           </div>
 
           <div className="p-8 bg-teal-50 rounded-2xl border border-teal-100/50">
             <span className="text-[10px] font-bold text-teal-600 uppercase tracking-widest block mb-3">STABILITY ANALYSIS</span>
-            <p className="text-[13px] font-normal leading-[1.625] text-teal-900/80">{data.ltr_analysis.comparison_summary}</p>
+            <p className="text-[13px] font-normal leading-[1.625] text-teal-900/80">{data.property_specific.ltr_analysis.comparison_summary}</p>
           </div>
         </div>
       </div>
 
-      {/* 2. Financial Metrics & Market Dynamics */}
+      {/* 2. Market Dynamics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Cap Rate Card */}
-        <div className="bg-white rounded-[2rem] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-100 flex flex-col h-full">
-          <div className="flex justify-between items-center mb-4">
-            <h5 className="text-[15px] font-bold text-[#1a2333] tracking-tight">Cap Rate Analysis</h5>
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500">
-              <i className="fa-solid fa-chart-line text-xs"></i>
-            </div>
-          </div>
-          <p className="text-gray-500 text-[12px] leading-relaxed font-normal">
-            {data.investment_metrics.cap_rate}
-          </p>
-        </div>
-
-        {/* CoC Card */}
-        <div className="bg-white rounded-[2rem] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-100 flex flex-col h-full">
-          <div className="flex justify-between items-center mb-4">
-            <h5 className="text-[15px] font-bold text-[#1a2333] tracking-tight">Cash-on-Cash Return</h5>
-            <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center text-teal-600">
-              <i className="fa-solid fa-coins text-xs"></i>
-            </div>
-          </div>
-          <p className="text-gray-500 text-[12px] leading-relaxed font-normal">
-            {data.investment_metrics.cash_on_cash_return}
-          </p>
-        </div>
-
-        {/* Rent-to-Price Card */}
-        <div className="bg-white rounded-[2rem] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-100 flex flex-col h-full">
-          <div className="flex justify-between items-center mb-4">
-            <h5 className="text-[15px] font-bold text-[#1a2333] tracking-tight">Yield Efficiency</h5>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
-              <i className="fa-solid fa-percent text-xs"></i>
-            </div>
-          </div>
-          <p className="text-gray-500 text-[12px] leading-relaxed font-normal">
-            {data.investment_metrics.rent_to_price_ratio}
-          </p>
-        </div>
-
         {/* Historical Appreciation Card */}
         <div className="bg-white rounded-[2rem] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-100 flex flex-col h-full">
           <div className="flex justify-between items-center mb-4">
@@ -655,7 +616,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
             </div>
           </div>
           <p className="text-gray-500 text-[12px] leading-relaxed font-normal">
-            {data.market_dynamics.historical_appreciation}
+            {data.general.market_dynamics.historical_appreciation}
           </p>
         </div>
 
@@ -668,7 +629,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
             </div>
           </div>
           <p className="text-gray-500 text-[12px] leading-relaxed font-normal">
-            {data.market_dynamics.projected_growth}
+            {data.general.market_dynamics.projected_growth}
           </p>
         </div>
 
@@ -681,7 +642,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
             </div>
           </div>
           <p className="text-gray-500 text-[12px] leading-relaxed font-normal">
-            {data.market_dynamics.days_on_market}
+            {data.general.market_dynamics.days_on_market}
           </p>
         </div>
       </div>
@@ -691,27 +652,27 @@ const CustomAIAnalysis: React.FC<Props> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
           <div className="space-y-4">
             <h4 className="text-lg font-bold text-[#1a2333] tracking-tight">Regulatory & Growth</h4>
-            <p className="text-gray-600 text-[14px] leading-relaxed">{data.regulatory_and_growth.summary}</p>
+            <p className="text-gray-600 text-[14px] leading-relaxed">{data.general.regulatory_and_growth.summary}</p>
             <div className="space-y-3">
               <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                 <span className="text-[10px] font-bold text-[#1a2333]/50 uppercase tracking-widest block mb-1">Laws & Zoning</span>
-                <p className="text-[13px] leading-relaxed text-[#1a2333]/70">{data.regulatory_and_growth.laws_and_zoning}</p>
+                <p className="text-[13px] leading-relaxed text-[#1a2333]/70">{data.general.regulatory_and_growth.laws_and_zoning}</p>
               </div>
               <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                 <span className="text-[10px] font-bold text-[#1a2333]/50 uppercase tracking-widest block mb-1">Infrastructure</span>
-                <p className="text-[13px] leading-relaxed text-[#1a2333]/70">{data.regulatory_and_growth.upcoming_developments}</p>
+                <p className="text-[13px] leading-relaxed text-[#1a2333]/70">{data.general.regulatory_and_growth.upcoming_developments}</p>
               </div>
             </div>
           </div>
 
           <div className="space-y-4">
             <h4 className="text-lg font-bold text-[#1a2333] tracking-tight">Competitive Edge</h4>
-            <p className="text-gray-600 text-[14px] leading-relaxed">{data.competitor_gaps.recommendations}</p>
+            <p className="text-gray-600 text-[14px] leading-relaxed">{data.general.competitor_gaps.recommendations}</p>
             <div className="mt-4 space-y-4">
               <div>
                 <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block mb-2">Highly Praised Amenities</span>
                 <div className="flex flex-wrap gap-2">
-                  {data.competitor_gaps.praised_amenities.map((a, i) => (
+                  {data.general.competitor_gaps.praised_amenities.map((a, i) => (
                     <span key={i} className="px-3 py-1 bg-indigo-50 text-indigo-700 text-[11px] font-bold rounded-lg border border-indigo-100">{a}</span>
                   ))}
                 </div>
@@ -719,7 +680,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
               <div>
                 <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest block mb-2">Friction Points</span>
                 <ul className="space-y-1.5">
-                  {data.competitor_gaps.friction_points.map((p, i) => (
+                  {data.general.competitor_gaps.friction_points.map((p, i) => (
                     <li key={i} className="text-[13px] text-gray-500 flex gap-2">
                       <span className="text-rose-400">•</span> {p}
                     </li>
@@ -732,7 +693,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
           <div className="space-y-4">
             <h4 className="text-lg font-bold text-[#1a2333] tracking-tight">Peak Demand Drivers</h4>
             <div className="space-y-4">
-              {data.demand_drivers.map((d, i) => (
+              {data.general.demand_drivers.map((d, i) => (
                 <div key={i} className="flex flex-col border-l-2 border-indigo-100 pl-4 py-0.5 group hover:border-[#1a2333] transition-colors">
                   <div className="text-[14px] font-bold text-[#1a2333] mb-0.5">{d.event}</div>
                   <div className="flex justify-between items-center text-[11px]">
@@ -748,7 +709,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
 
       {/* 4. External Sources */}
       <div className="flex flex-wrap gap-3 justify-center">
-        {data.web_sources?.map((source, i) => (
+        {data.general.web_sources?.map((source, i) => (
           <a
             key={i}
             href={source.url}

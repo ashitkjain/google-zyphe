@@ -74,45 +74,44 @@ export interface ImageQualityAnalysisResult {
 }
 
 export interface InvestmentResearchResult {
-    str_performance: {
-        occupancy_rate: string;
-        adr: string;
-        annual_revenue_projection: string;
+    property_specific: {
+        str_performance: {
+            occupancy_rate: string;
+            adr: string;
+            annual_revenue_projection: string;
+        };
+        ltr_analysis: {
+            monthly_rent: string;
+            vacancy_rate: string;
+            comparison_summary: string;
+        };
     };
-    ltr_analysis: {
-        monthly_rent: string;
-        vacancy_rate: string;
-        comparison_summary: string;
+    general: {
+        market_dynamics: {
+            historical_appreciation: string;
+            projected_growth: string;
+            days_on_market: string;
+        };
+        competitor_gaps: {
+            friction_points: string[];
+            praised_amenities: string[];
+            recommendations: string;
+        };
+        regulatory_and_growth: {
+            laws_and_zoning: string;
+            upcoming_developments: string;
+            summary: string;
+        };
+        demand_drivers: Array<{
+            event: string;
+            date: string;
+            impact: string;
+        }>;
+        web_sources: Array<{
+            title: string;
+            url: string;
+        }>;
     };
-    investment_metrics: {
-        cap_rate: string;
-        rent_to_price_ratio: string;
-        cash_on_cash_return: string;
-    };
-    market_dynamics: {
-        historical_appreciation: string;
-        projected_growth: string;
-        days_on_market: string;
-    };
-    competitor_gaps: {
-        friction_points: string[];
-        praised_amenities: string[];
-        recommendations: string;
-    };
-    regulatory_and_growth: {
-        laws_and_zoning: string;
-        upcoming_developments: string;
-        summary: string;
-    };
-    demand_drivers: Array<{
-        event: string;
-        date: string;
-        impact: string;
-    }>;
-    web_sources: Array<{
-        title: string;
-        url: string;
-    }>;
 }
 
 export interface BiddingStrategyResult {
