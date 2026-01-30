@@ -8,12 +8,15 @@ import {
   saveComprehensiveAnalysisToCloud,
   saveImageQualityAnalysisToCloud,
   getImageQualityAnalysisFromCloud,
-  saveInvestmentResearchToCloud,
-  getInvestmentResearchFromCloud,
+  savePropertyInvestmentToCloud,
+  getPropertyInvestmentFromCloud,
+  saveGeneralMarketIntelligenceToCloud,
+  getGeneralMarketIntelligenceFromCloud,
   savePropertyAssetsToCloud,
   getPropertyAssetsFromCloud
 } from './firebaseService.ts';
-import { PropertyData, CustomAIAnalysisResult, InvestmentResearchResult, AIUsage } from '../types';
+import { PropertyData, CustomAIAnalysisResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult, InvestmentResearchResult, AIUsage } from '../types';
+import { analyzeGeneralMarketIntelligence } from './geminiService';
 import { uploadRemoteImageToStorage } from './firebase/storage.ts';
 
 export interface PipelineProgress {
@@ -215,20 +218,38 @@ export const runFullIntelligencePipeline = async (
 
     await saveVisualAnalysisToCloud(zpid, visualResult);
 
-    // 9. Investment Research (New Pipeline Step)
+    // 9. Investment Research (Property Specific & General Market)
     onProgress({ step: 'Investment AI', status: 'running', message: 'Analyzing investment potential...' });
-    const cachedInvestment = await getInvestmentResearchFromCloud(zpid);
-    let investmentResult: InvestmentResearchResult;
 
-    if (cachedInvestment) {
-      investmentResult = cachedInvestment;
-      onProgress({ step: 'Investment AI', status: 'completed', message: 'Investment research restored from cache.' });
+    // Property Specific
+    let propInvestment: PropertySpecificInvestmentResult;
+    const cachedPropInv = await getPropertyInvestmentFromCloud(zpid);
+    if (cachedPropInv) {
+      propInvestment = cachedPropInv;
     } else {
-      const resultInv = await analyzeInvestmentResearch(enrichedData);
-      investmentResult = resultInv.data;
-      await saveInvestmentResearchToCloud(zpid, investmentResult);
-      onProgress({ step: 'Investment AI', status: 'completed', message: 'Investment analysis complete.', usage: resultInv.usage });
+      const res = await analyzeInvestmentResearch(enrichedData);
+      propInvestment = res.data;
+      await savePropertyInvestmentToCloud(zpid, propInvestment);
     }
+
+    // General Market
+    let generalMarket: GeneralMarketIntelligenceResult;
+    const cachedGeneralMarket = await getGeneralMarketIntelligenceFromCloud(zpid);
+    if (cachedGeneralMarket) {
+      generalMarket = cachedGeneralMarket;
+    } else {
+      const res = await analyzeGeneralMarketIntelligence(enrichedData);
+      generalMarket = res.data;
+      await saveGeneralMarketIntelligenceToCloud(zpid, generalMarket);
+    }
+
+    // Aggregated for compatibility (UI expects 'investment_research' to be populated for some initial views or legacy flow)
+    const investmentResult: InvestmentResearchResult = {
+      property_specific: propInvestment,
+      general: generalMarket
+    };
+
+    onProgress({ step: 'Investment AI', status: 'completed', message: 'Investment analysis complete.' });
 
     // 10. Narrative AI
     onProgress({ step: 'Narrative AI', status: 'running', message: 'Synthesizing professional report...' });

@@ -1,46 +1,27 @@
-/**
- * FIRESTORE SECURITY RULES - COPY THIS TO FIREBASE CONSOLE
- * 
- * Location: Firebase Console > Firestore Database > Rules tab
- * 
- * These rules allow:
- * 1. Realtors to manage their own reminder rules
- * 2. All existing permissions for users, leads, tasks, etc.
- */
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // 1. PUBLIC READ, AUTHENTICATED WRITE
-    match /properties/{zpid} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-    
-    match /property_analyses_visual/{zpid} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-
-    match /property_analyses_comprehensive/{zpid} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-
-    match /image_quality_analysis/{zpid} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-
-    match /market_research/{zpid} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-
-    match /property_assets/{zpid} {
-      allow read: if true;
-      allow write: if request.auth != null;
+    // 1. PUBLIC READ, AUTHENTICATED WRITE (Property Intelligence)
+    match /{collectionName}/{zpid} {
+      allow read: if collectionName in [
+        'properties', 
+        'property_analyses_visual', 
+        'property_analyses_comprehensive', 
+        'image_quality_analysis', 
+        'property_assets',
+        'property_investment_research',
+        'general_market_intelligence'
+      ];
+      allow write: if request.auth != null && collectionName in [
+        'properties', 
+        'property_analyses_visual', 
+        'property_analyses_comprehensive', 
+        'image_quality_analysis', 
+        'property_assets',
+        'property_investment_research',
+        'general_market_intelligence'
+      ];
     }
 
     match /system_test/{docId} {
@@ -165,7 +146,7 @@ service cloud.firestore {
                                              
       // Allow access to subcollections like parties
       match /parties/{partyId} {
-         allow read, write: if request.auth != null; // Refine this later if needed, but inheriting parent access is tricky in rules, so explicitly checking auth for now or repeating checking parent
+         allow read, write: if request.auth != null;
       }
     }
 
@@ -183,7 +164,6 @@ service cloud.firestore {
 
     match /documents/{documentId} {
       allow read, write: if request.auth != null; 
-      // isTransactionOwner check was technically correct but strict. Relaxing for development ease.
     }
 
     match /document_versions/{versionId} {
@@ -207,23 +187,15 @@ service cloud.firestore {
                              (resource != null && resource.data.agent_id == request.auth.uid) );
     }
 
+    match /audit_events/{auditId} {
+      allow read: if request.auth != null &&
+                    resource.data.transaction_id is string &&
+                    isTransactionOwner(resource.data.transaction_id);
 
-
-match /audit_events/{auditId} {
-  // Allow read access only if the user is authenticated,
-  // the 'transaction_id' field exists and is a string,
-  // AND the user is the owner of that transaction.
-  allow read: if request.auth != null &&
-                resource.data.transaction_id is string &&
-                isTransactionOwner(resource.data.transaction_id);
-
-  // Allow write access (create/update) only if the user is authenticated,
-  // the 'transaction_id' field exists and is a string in the proposed document,
-  // AND the user is the owner of that transaction.
-  allow write: if request.auth != null &&
-                 request.resource.data.transaction_id is string &&
-                 isTransactionOwner(request.resource.data.transaction_id);
-                 
+      allow write: if request.auth != null &&
+                     request.resource.data.transaction_id is string &&
+                     isTransactionOwner(request.resource.data.transaction_id);
+                     
       allow update, delete: if false;
     }
 
@@ -273,11 +245,5 @@ match /audit_events/{auditId} {
       allow read: if true;
       allow write: if request.auth != null;
     }
-
-    match /market_intelligence/{id} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-
   }
 }

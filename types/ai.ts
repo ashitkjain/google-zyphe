@@ -73,45 +73,49 @@ export interface ImageQualityAnalysisResult {
     };
 }
 
+export interface PropertySpecificInvestmentResult {
+    str_performance: {
+        occupancy_rate: string;
+        adr: string;
+        annual_revenue_projection: string;
+    };
+    ltr_analysis: {
+        monthly_rent: string;
+        vacancy_rate: string;
+        comparison_summary: string;
+    };
+}
+
+export interface GeneralMarketIntelligenceResult {
+    market_dynamics: {
+        historical_appreciation: string;
+        projected_growth: string;
+        days_on_market: string;
+    };
+    competitor_gaps: {
+        friction_points: string[];
+        praised_amenities: string[];
+        recommendations: string;
+    };
+    regulatory_and_growth: {
+        laws_and_zoning: string;
+        upcoming_developments: string;
+        summary: string;
+    };
+    demand_drivers: Array<{
+        event: string;
+        date: string;
+        impact: string;
+    }>;
+    web_sources: Array<{
+        title: string;
+        url: string;
+    }>;
+}
+
 export interface InvestmentResearchResult {
-    property_specific: {
-        str_performance: {
-            occupancy_rate: string;
-            adr: string;
-            annual_revenue_projection: string;
-        };
-        ltr_analysis: {
-            monthly_rent: string;
-            vacancy_rate: string;
-            comparison_summary: string;
-        };
-    };
-    general: {
-        market_dynamics: {
-            historical_appreciation: string;
-            projected_growth: string;
-            days_on_market: string;
-        };
-        competitor_gaps: {
-            friction_points: string[];
-            praised_amenities: string[];
-            recommendations: string;
-        };
-        regulatory_and_growth: {
-            laws_and_zoning: string;
-            upcoming_developments: string;
-            summary: string;
-        };
-        demand_drivers: Array<{
-            event: string;
-            date: string;
-            impact: string;
-        }>;
-        web_sources: Array<{
-            title: string;
-            url: string;
-        }>;
-    };
+    property_specific: PropertySpecificInvestmentResult;
+    general: GeneralMarketIntelligenceResult;
 }
 
 export interface BiddingStrategyResult {
@@ -175,9 +179,10 @@ export interface CustomAIAnalysisResult {
     neighborhood?: NeighborhoodAnalysis;
     community_pulse?: CommunityPulseResult;
     image_quality_analysis?: ImageQualityAnalysisResult;
+    property_investment?: PropertySpecificInvestmentResult;
+    general_market_intelligence?: GeneralMarketIntelligenceResult;
     investment_research?: InvestmentResearchResult;
     bidding_strategy?: BiddingStrategyResult;
-    market_intel?: MarketLevelInvestmentResult;
 }
 
 export interface ComprehensiveAnalysisResult {
@@ -342,54 +347,3 @@ export interface AIResponseWithUsage<T> {
     usage: AIUsage;
 }
 
-export interface StrategyMetric {
-    risk_profile: 'Low' | 'Medium' | 'High' | string;
-    capital_intensity: string;
-    management_complexity: string;
-    regulatory_risk: string;
-    typical_investor: string;
-}
-
-export interface MarketLevelInvestmentResult {
-    market_overview: {
-        median_home_price: string;
-        yoy_trend: string;
-        inventory_levels: string;
-        months_of_supply: string;
-        days_on_market: string;
-        leverage_status: string;
-    };
-    rental_fundamentals: {
-        average_ltr_rent: string;
-        str_nightly_rates: string;
-        vacancy_trends: string;
-        rent_growth_trends: string;
-    };
-    regulatory_legal: {
-        str_legality: string;
-        rent_control_status: string;
-        zoning_hoas: string;
-    };
-    demand_drivers: {
-        employment_hubs: string;
-        population_trends: string;
-        tourism_relevance: string;
-        schools_impact: string;
-    };
-    strategy_fit: {
-        ltr: StrategyMetric;
-        str: StrategyMetric;
-        medium_term: StrategyMetric;
-        hybrid?: StrategyMetric;
-    };
-    forward_signals: {
-        rate_sensitivity: string;
-        supply_pipeline: string;
-        economic_infrastructure: string;
-    };
-    citations: Array<{
-        title: string;
-        source: string;
-        url?: string;
-    }>;
-}

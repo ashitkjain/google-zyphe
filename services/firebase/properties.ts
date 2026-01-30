@@ -12,6 +12,8 @@ import {
     ComprehensiveAnalysisResult,
     ImageQualityAnalysisResult,
     InvestmentResearchResult,
+    PropertySpecificInvestmentResult,
+    GeneralMarketIntelligenceResult,
     PropertyAssets
 } from "../../types";
 
@@ -179,13 +181,11 @@ export const getImageQualityAnalysisFromCloud = async (zpid: string): Promise<Im
     }
 };
 
-export const saveInvestmentResearchToCloud = async (zpid: string, research: InvestmentResearchResult) => {
+export const savePropertyInvestmentToCloud = async (zpid: string, research: PropertySpecificInvestmentResult) => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
     try {
-        const user = auth?.currentUser;
-        console.log(`[Firestore] Saving investment research for ZPID: "${zpid}". Auth: ${user ? user.email : 'GUEST'}`);
-        const docRef = doc(db, "market_research", String(zpid));
-        logFirestoreQuery('setDoc', 'market_research', { zpid });
+        const docRef = doc(db, "property_investment_research", String(zpid));
+        logFirestoreQuery('setDoc', 'property_investment_research', { zpid });
         await setDoc(docRef, {
             ...sanitizeForFirestore(research),
             zpid: String(zpid),
@@ -193,19 +193,48 @@ export const saveInvestmentResearchToCloud = async (zpid: string, research: Inve
         });
         return { success: true };
     } catch (error) {
-        return { success: false, error: handleFirestoreError(error, "saveInvestmentResearchToCloud") as string };
+        return { success: false, error: handleFirestoreError(error, "savePropertyInvestmentToCloud") as string };
     }
 };
 
-export const getInvestmentResearchFromCloud = async (zpid: string): Promise<InvestmentResearchResult | null> => {
+export const getPropertyInvestmentFromCloud = async (zpid: string): Promise<PropertySpecificInvestmentResult | null> => {
     if (!db) return null;
     try {
-        const docRef = doc(db, "market_research", zpid);
-        logFirestoreQuery('getDoc', 'market_research', { zpid });
+        const docRef = doc(db, "property_investment_research", zpid);
+        logFirestoreQuery('getDoc', 'property_investment_research', { zpid });
         const docSnap = await getDoc(docRef);
-        return docSnap.exists() ? (docSnap.data() as InvestmentResearchResult) : null;
+        return docSnap.exists() ? (docSnap.data() as PropertySpecificInvestmentResult) : null;
     } catch (error) {
-        handleFirestoreError(error, "getInvestmentResearchFromCloud");
+        handleFirestoreError(error, "getPropertyInvestmentFromCloud");
+        return null;
+    }
+};
+
+export const saveGeneralMarketIntelligenceToCloud = async (zpid: string, research: GeneralMarketIntelligenceResult) => {
+    if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
+    try {
+        const docRef = doc(db, "general_market_intelligence", String(zpid));
+        logFirestoreQuery('setDoc', 'general_market_intelligence', { zpid });
+        await setDoc(docRef, {
+            ...sanitizeForFirestore(research),
+            zpid: String(zpid),
+            timestamp: serverTimestamp()
+        });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: handleFirestoreError(error, "saveGeneralMarketIntelligenceToCloud") as string };
+    }
+};
+
+export const getGeneralMarketIntelligenceFromCloud = async (zpid: string): Promise<GeneralMarketIntelligenceResult | null> => {
+    if (!db) return null;
+    try {
+        const docRef = doc(db, "general_market_intelligence", zpid);
+        logFirestoreQuery('getDoc', 'general_market_intelligence', { zpid });
+        const docSnap = await getDoc(docRef);
+        return docSnap.exists() ? (docSnap.data() as GeneralMarketIntelligenceResult) : null;
+    } catch (error) {
+        handleFirestoreError(error, "getGeneralMarketIntelligenceFromCloud");
         return null;
     }
 };
@@ -290,32 +319,35 @@ export const checkExistingPropertiesBatch = async (zpids: string[]): Promise<Set
 };
 
 export const deletePropertyAnalysis = async (zpid: string) => {
-    if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
+    if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID", tables: [] };
+
+    const collections = [
+        "properties",
+        "property_analyses_comprehensive",
+        "property_analyses_visual",
+        "image_quality_analysis",
+        "property_assets",
+        "property_investment_research",
+        "general_market_intelligence"
+    ];
 
     try {
-        const collections = [
-            "properties",
-            "property_analyses_comprehensive",
-            "property_analyses_visual",
-            "market_research",
-            "image_quality_analysis" // Including this as it's part of the suite even if not explicitly listed
-        ];
-
         console.log(`[Firestore] Deleting all data for ZPID: "${zpid}"...`);
-
-        await Promise.all(collections.map(coll => {
-            const docRef = doc(db, coll, String(zpid));
-            logFirestoreQuery('deleteDoc', coll, { zpid });
-            return setDoc(docRef, {}); // We could use deleteDoc(docRef), but some systems prefer empty objects for tombstoning. Standard deleteDoc is cleaner:
-        }));
 
         // Use proper deleteDoc for clean removal
         const { deleteDoc } = await import("firebase/firestore");
-        await Promise.all(collections.map(coll => deleteDoc(doc(db, coll, String(zpid)))));
+        await Promise.all(collections.map(coll => {
+            logFirestoreQuery('deleteDoc', coll, { zpid });
+            return deleteDoc(doc(db, coll, String(zpid)));
+        }));
 
         console.log(`[Firestore] SUCCESS: Fully removed ZPID "${zpid}" from cache.`);
-        return { success: true };
+        return { success: true, tables: collections };
     } catch (error) {
-        return { success: false, error: handleFirestoreError(error, "deletePropertyAnalysis") as string };
+        return {
+            success: false,
+            error: handleFirestoreError(error, "deletePropertyAnalysis") as string,
+            tables: collections
+        };
     }
 };

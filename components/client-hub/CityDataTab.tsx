@@ -12,8 +12,6 @@ import { PropertyData } from '../../types';
 import { runFullIntelligencePipeline, PipelineProgress } from '../../services/preloadService';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
 import { getAPILogsForTimeRange } from '../../services/firebase/api_logs';
-import { saveMarketIntelligence, getMarketIntelligence, MarketIntelligenceRecord } from '../../services/firebase/cityData';
-import { analyzeMarketInvestment } from '../../services/geminiService';
 import { auth } from '../../services/firebase/config';
 import { LLMCallEvent } from '../../types/ai';
 import { APICallEvent } from '../../services/firebase/api_logs';
@@ -44,8 +42,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         apiLogs: APICallEvent[];
     } | null>(null);
     const [viewMode, setViewMode] = useState<'table' | 'ingestion'>('table');
-    const [marketReport, setMarketReport] = useState<MarketIntelligenceRecord | null>(null);
-    const [isGeneratingMarketReport, setIsGeneratingMarketReport] = useState<string | null>(null);
+    const [deletionStatus, setDeletionStatus] = useState<{ address: string, tables: string[] } | null>(null);
 
     const availableStates = useMemo(() => {
         const states = new Set<string>();
@@ -201,41 +198,6 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         }
     };
 
-    const handleGenerateMarketReport = async (city: string, state: string, zips: string[]) => {
-        const reportKey = `${city}_${state}`;
-        setIsGeneratingMarketReport(reportKey);
-        setError(null);
-        log(`Generating Market Intelligence Profile for ${city}, ${state}...`);
-
-        try {
-            // Check cache first
-            const cached = await getMarketIntelligence(city, state);
-            if (cached) {
-                log(`Market Profile restored from cache for ${city}.`);
-                setMarketReport(cached);
-                setIsGeneratingMarketReport(null);
-                return;
-            }
-
-            // Generate fresh
-            const res = await analyzeMarketInvestment({ city, state, zips });
-            const record: MarketIntelligenceRecord = {
-                city,
-                state,
-                zips,
-                data: res.data
-            };
-
-            await saveMarketIntelligence(record);
-            setMarketReport(record);
-            log(`Success: Market Intelligence Profile ready for ${city}.`);
-        } catch (err: any) {
-            console.error(err);
-            setError(`Market Intelligence failed: ${err.message}`);
-        } finally {
-            setIsGeneratingMarketReport(null);
-        }
-    };
 
     const fetchListings = async (zip: string) => {
         const config = APP_CONFIG.rapidapi.realtyInUsApi;
@@ -570,11 +532,14 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     if (window.confirm(`Are you sure you want to delete ${item.location?.address?.line} from cache? This will remove all AI analysis.`)) {
                                         const res = await deletePropertyAnalysis(itemId);
                                         if (res.success) {
+                                            setDeletionStatus({ address: item.location?.address?.line || itemId, tables: res.tables });
                                             setCachedPropertyIds(prev => {
                                                 const next = new Set(prev);
                                                 next.delete(itemId);
                                                 return next;
                                             });
+                                            // Clear notification after 5 seconds
+                                            setTimeout(() => setDeletionStatus(null), 5000);
                                         }
                                     }
                                 }}
@@ -652,6 +617,33 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                             <div className="mt-6 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-3 text-rose-600 text-sm font-bold animate-in slide-in-from-top-2">
                                 <i className="fa-solid fa-triangle-exclamation"></i>
                                 {error}
+                            </div>
+                        )}
+
+                        {deletionStatus && (
+                            <div className="mt-6 p-6 bg-emerald-50 border border-emerald-100 rounded-2xl animate-in slide-in-from-top-4 duration-500">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
+                                        <i className="fa-solid fa-check-double"></i>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-black text-emerald-900 mb-1">Cache Purged Successfully</h4>
+                                        <p className="text-xs text-emerald-700 font-medium mb-3">All analytical data for <span className="font-bold underline">{deletionStatus.address}</span> has been wiped from:</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {deletionStatus.tables.map(table => (
+                                                <span key={table} className="px-2 py-1 bg-white/50 border border-emerald-200 rounded-md text-[9px] font-black text-emerald-600 uppercase tracking-tighter">
+                                                    {table.replace(/_/g, ' ')}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setDeletionStatus(null)}
+                                        className="ml-auto text-emerald-400 hover:text-emerald-600 transition-colors"
+                                    >
+                                        <i className="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -740,25 +732,6 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                             </div>
                                         </div>
 
-                                        {/* Market Intel Button */}
-                                        <button
-                                            onClick={() => {
-                                                const [c, s] = groupKey.split(', ');
-                                                const zips = Array.from(new Set(groupItems.map(item => item.location?.address?.postal_code))).filter(Boolean) as string[];
-                                                handleGenerateMarketReport(c, s, zips);
-                                            }}
-                                            disabled={!!isGeneratingMarketReport}
-                                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${isGeneratingMarketReport === (groupKey.replace(', ', '_'))
-                                                    ? 'bg-amber-50 text-amber-600 border border-amber-200'
-                                                    : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-100'
-                                                }`}
-                                        >
-                                            {isGeneratingMarketReport === (groupKey.replace(', ', '_')) ? (
-                                                <><i className="fa-solid fa-circle-notch animate-spin"></i> Analyzing Market...</>
-                                            ) : (
-                                                <><i className="fa-solid fa-chart-pie"></i> Market Intel Profile</>
-                                            )}
-                                        </button>
                                     </div>
                                     <button
                                         onClick={() => copyToClipboard((groupItems as any[]).map(l => l.location?.address?.line).join('\n'))}
@@ -1117,178 +1090,6 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     </div>
                 )}
             </div>
-            {/* Market Intelligence Report Modal/Overlay */}
-            {marketReport && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div
-                        className="bg-white w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-[3rem] shadow-2xl border border-slate-200 animate-in slide-in-from-bottom-8 duration-500"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="sticky top-0 bg-white/80 backdrop-blur-md px-10 py-8 border-b border-slate-100 flex items-center justify-between z-10">
-                            <div className="flex items-center gap-6">
-                                <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
-                                    <i className="fa-solid fa-chart-column text-2xl"></i>
-                                </div>
-                                <div>
-                                    <h2 className="text-2xl font-black text-slate-900">{marketReport.city}, {marketReport.state} Intelligence</h2>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mt-1">Market-Level Investment Research Profile</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setMarketReport(null)}
-                                className="w-12 h-12 rounded-xl bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all flex items-center justify-center"
-                            >
-                                <i className="fa-solid fa-xmark text-xl"></i>
-                            </button>
-                        </div>
-
-                        <div className="p-10 space-y-12">
-                            {/* Key Metrics Row */}
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                                {[
-                                    { label: 'Median Price', val: marketReport.data.market_overview.median_home_price, icon: 'fa-house-circle-check', color: 'indigo' },
-                                    { label: 'YoY Trend', val: marketReport.data.market_overview.yoy_trend, icon: 'fa-chart-line', color: 'emerald' },
-                                    { label: 'Inventory', val: marketReport.data.market_overview.inventory_levels, icon: 'fa-boxes-stacked', color: 'amber' },
-                                    { label: 'Supply', val: marketReport.data.market_overview.months_of_supply, icon: 'fa-hourglass-half', color: 'rose' }
-                                ].map((item, idx) => (
-                                    <div key={idx} className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                                        <div className={`text-${item.color}-600 mb-2 truncate`}>
-                                            <i className={`fa-solid ${item.icon} text-sm mr-2`}></i>
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.label}</span>
-                                        </div>
-                                        <div className="text-lg font-black text-slate-900">{item.val}</div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                                {/* Left Col: Fundamentals & Demand */}
-                                <div className="space-y-10">
-                                    <section>
-                                        <h3 className="text-sm font-black uppercase tracking-widest text-indigo-600 mb-6 flex items-center gap-3">
-                                            <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center"><i className="fa-solid fa-building-circle-check"></i></span>
-                                            Rental Fundamentals
-                                        </h3>
-                                        <div className="space-y-4 bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                                            <div className="flex justify-between border-b border-white pb-3 last:border-0">
-                                                <span className="text-sm font-bold text-slate-500">LTR Average Rent</span>
-                                                <span className="text-sm font-black text-slate-900">{marketReport.data.rental_fundamentals.average_ltr_rent}</span>
-                                            </div>
-                                            <div className="flex justify-between border-b border-white pb-3 last:border-0">
-                                                <span className="text-sm font-bold text-slate-500">STR Nightly Rates</span>
-                                                <span className="text-sm font-black text-slate-900">{marketReport.data.rental_fundamentals.str_nightly_rates}</span>
-                                            </div>
-                                            <div className="flex justify-between border-b border-white pb-3 last:border-0">
-                                                <span className="text-sm font-bold text-slate-500">Vacancy Trends</span>
-                                                <span className="text-sm font-black text-slate-900">{marketReport.data.rental_fundamentals.vacancy_trends}</span>
-                                            </div>
-                                            <div className="flex justify-between border-b border-white pb-3 last:border-0">
-                                                <span className="text-sm font-bold text-slate-500">Rent Growth</span>
-                                                <span className="text-sm font-black text-emerald-600">{marketReport.data.rental_fundamentals.rent_growth_trends}</span>
-                                            </div>
-                                        </div>
-                                    </section>
-
-                                    <section>
-                                        <h3 className="text-sm font-black uppercase tracking-widest text-indigo-600 mb-6 flex items-center gap-3">
-                                            <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center"><i className="fa-solid fa-gavel"></i></span>
-                                            Regulatory & Legal
-                                        </h3>
-                                        <div className="grid grid-cols-1 gap-4">
-                                            <div className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                                                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">STR Legality</div>
-                                                <p className="text-sm text-slate-700 leading-relaxed">{marketReport.data.regulatory_legal.str_legality}</p>
-                                            </div>
-                                            <div className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                                                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Rent Control</div>
-                                                <p className="text-sm text-slate-700 leading-relaxed">{marketReport.data.regulatory_legal.rent_control_status}</p>
-                                            </div>
-                                        </div>
-                                    </section>
-                                </div>
-
-                                {/* Right Col: Strategy Fit */}
-                                <section>
-                                    <h3 className="text-sm font-black uppercase tracking-widest text-indigo-600 mb-6 flex items-center gap-3">
-                                        <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center"><i className="fa-solid fa-crosshairs"></i></span>
-                                        Investment Strategy Fit
-                                    </h3>
-                                    <div className="space-y-6">
-                                        {Object.entries(marketReport.data.strategy_fit).map(([key, strat]: [string, any]) => strat && (
-                                            <div key={key} className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                                                <div className="flex items-center justify-between mb-4">
-                                                    <span className="text-xs font-black uppercase tracking-widest text-slate-900">{key.replace('_', ' ')}</span>
-                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${strat.risk_profile === 'Low' ? 'bg-emerald-50 text-emerald-600' :
-                                                            strat.risk_profile === 'High' ? 'bg-rose-50 text-rose-600' :
-                                                                'bg-amber-50 text-amber-600'
-                                                        }`}>
-                                                        {strat.risk_profile} Risk
-                                                    </span>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4 text-[11px]">
-                                                    <div>
-                                                        <div className="text-slate-400 font-bold uppercase text-[9px] tracking-tighter mb-1">Capital Intensity</div>
-                                                        <div className="text-slate-700 font-medium">{strat.capital_intensity}</div>
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-slate-400 font-bold uppercase text-[9px] tracking-tighter mb-1">Management</div>
-                                                        <div className="text-slate-700 font-medium">{strat.management_complexity}</div>
-                                                    </div>
-                                                </div>
-                                                <div className="mt-3 pt-3 border-t border-white">
-                                                    <div className="text-slate-400 font-bold uppercase text-[9px] tracking-tighter mb-1">Typical Investor</div>
-                                                    <div className="text-slate-700 font-medium italic">{strat.typical_investor}</div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </section>
-                            </div>
-
-                            <section className="bg-slate-900 p-8 rounded-[2.5rem] text-white overflow-hidden relative">
-                                <div className="absolute top-0 right-0 p-8 opacity-10"><i className="fa-solid fa-radar text-8xl"></i></div>
-                                <h3 className="text-sm font-black uppercase tracking-[0.2em] text-indigo-400 mb-8 flex items-center gap-3">
-                                    <i className="fa-solid fa-satellite-dish"></i> Forward-Looking Signals
-                                </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-                                    <div>
-                                        <div className="text-[10px] font-bold uppercase text-slate-400 mb-2">Rate Sensitivity</div>
-                                        <p className="text-sm text-slate-200 leading-relaxed">{marketReport.data.forward_signals.rate_sensitivity}</p>
-                                    </div>
-                                    <div>
-                                        <div className="text-[10px] font-bold uppercase text-slate-400 mb-2">Supply Pipeline</div>
-                                        <p className="text-sm text-slate-200 leading-relaxed">{marketReport.data.forward_signals.supply_pipeline}</p>
-                                    </div>
-                                    <div>
-                                        <div className="text-[10px] font-bold uppercase text-slate-400 mb-2">Infrastructure</div>
-                                        <p className="text-sm text-slate-200 leading-relaxed">{marketReport.data.forward_signals.economic_infrastructure}</p>
-                                    </div>
-                                </div>
-                            </section>
-
-                            {marketReport.data.citations?.length > 0 && (
-                                <section>
-                                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Authority Citations & Data Sources</div>
-                                    <div className="flex flex-wrap gap-3">
-                                        {marketReport.data.citations.map((c, i) => (
-                                            <a
-                                                key={i}
-                                                href={c.url}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all flex items-center gap-2"
-                                            >
-                                                <i className="fa-solid fa-link text-[10px] opacity-40"></i>
-                                                {c.title || c.source}
-                                            </a>
-                                        ))}
-                                    </div>
-                                </section>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

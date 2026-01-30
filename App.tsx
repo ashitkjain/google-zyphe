@@ -4,6 +4,7 @@ import {
   PropertyData,
   CustomAIAnalysisResult,
   ComprehensiveAnalysisResult,
+  InvestmentResearchResult,
   LogEntry,
   UserProfile
 } from './types';
@@ -22,7 +23,8 @@ import {
 
   verifyFirestoreConnection,
   getImageQualityAnalysisFromCloud,
-  getInvestmentResearchFromCloud,
+  getPropertyInvestmentFromCloud,
+  getGeneralMarketIntelligenceFromCloud,
   deleteUserAccount,
   toggleFavorite,
   getUserFavorites
@@ -447,8 +449,17 @@ const App: React.FC = () => {
           }
 
           if (APP_CONFIG.caching.investment_research) {
-            const investmentCached = await getInvestmentResearchFromCloud(propertyData.zpid);
-            if (investmentCached) cached.investment_research = investmentCached;
+            const [propInv, genMarket] = await Promise.all([
+              getPropertyInvestmentFromCloud(propertyData.zpid),
+              getGeneralMarketIntelligenceFromCloud(propertyData.zpid)
+            ]);
+
+            if (propInv && genMarket) {
+              cached.investment_research = {
+                property_specific: propInv,
+                general: genMarket
+              };
+            }
           }
 
 

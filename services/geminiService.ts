@@ -1,18 +1,18 @@
 import { serverTimestamp } from "firebase/firestore";
 import { GoogleGenAI } from "@google/genai";
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, InvestmentResearchResult, BiddingStrategyResult, MarketLevelInvestmentResult, LeadReactivationResult, AIResponseWithUsage, AIUsage } from "../types";
+import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, InvestmentResearchResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult, BiddingStrategyResult, LeadReactivationResult, AIResponseWithUsage, AIUsage } from "../types";
 import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/property/propertyAnalysis";
 import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/property/neighborhoodAnalysis";
 import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/property/communityPulse";
 import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/property/propertyImages";
 import { getComprehensiveAnalysisPrompt, comprehensiveAnalysisSchema } from "../prompts/property/comprehensiveAnalysis";
 import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompts/property/investmentResearch";
+import { getGeneralMarketIntelligencePrompt, generalMarketIntelligenceSchema } from "../prompts/property/generalMarketIntelligence";
 import { biddingStrategyPrompt } from "../prompts/property/biddingStrategy";
 import { getLeadReactivationPrompt, leadReactivationSchema } from "../prompts/client/leadReactivation";
 import { getLeadTransformationPrompt } from "../prompts/client/leadTransformation";
 import { getGuideGenerationPrompt, guideGenerationSchema, GuideResult } from "../prompts/client/guideGeneration";
 import { getGuideImagePrompt } from "../prompts/client/guideImageGeneration";
-import { getMarketLevelInvestmentPrompt } from "../prompts/market/marketInvestmentResearch";
 import { APP_CONFIG } from "../config";
 import { logLLMCall, updateLLMCall } from "./firebase/llm_logs";
 import { optimizePropertyForAi } from "../utils/aiOptimization";
@@ -520,7 +520,7 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
   }
 };
 
-export const analyzeInvestmentResearch = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<InvestmentResearchResult>> => {
+export const analyzeInvestmentResearch = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<PropertySpecificInvestmentResult>> => {
   const prompt = getInvestmentResearchPrompt(optimizePropertyForAi(property) as PropertyData);
   let logId: string | null = null;
   try {
@@ -559,7 +559,66 @@ export const analyzeInvestmentResearch = async (property: PropertyData, userId: 
     }
 
     return {
-      data: extractJson<InvestmentResearchResult>(responseText),
+      data: extractJson<PropertySpecificInvestmentResult>(responseText),
+      usage
+    };
+  } catch (error: any) {
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: error.message,
+        status: 'failed',
+        error: error.stack || error.message,
+        response_received_at: serverTimestamp()
+      }).catch(err => console.error("Failed to update LLM error log:", err));
+    }
+    if (error instanceof AiResponseError) {
+      error.prompt = prompt;
+      throw error;
+    }
+    throw new AiResponseError(error.message, "Raw API Error", prompt);
+  }
+};
+
+export const analyzeGeneralMarketIntelligence = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<GeneralMarketIntelligenceResult>> => {
+  const prompt = getGeneralMarketIntelligencePrompt(optimizePropertyForAi(property) as PropertyData);
+  let logId: string | null = null;
+  try {
+    logId = await logLLMCall({
+      user_id: userId,
+      prompt_filename: "generalMarketIntelligence.ts",
+      llm_name: GEMINI_MODEL,
+      raw_payload: prompt,
+      raw_response: null,
+      status: 'pending',
+      request_sent_at: serverTimestamp()
+    });
+
+    const ai = getAi();
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+      config: {
+        tools: [groundingTool],
+        temperature: 1.0
+      }
+    });
+
+    const responseText = response.text;
+    const usage = calculateUsage(response, GEMINI_MODEL);
+
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: responseText,
+        status: 'completed',
+        response_received_at: serverTimestamp(),
+        usage_metadata: response.usageMetadata,
+        estimated_cost: usage.cost,
+        ...extractMetadata(response)
+      }).catch(err => console.error("Failed to update LLM log:", err));
+    }
+
+    return {
+      data: extractJson<GeneralMarketIntelligenceResult>(responseText),
       usage
     };
   } catch (error: any) {
@@ -839,66 +898,4 @@ export const generateGuideImage = async (category: string, title: string, topicS
 
   console.log(`[Image] No image found for: ${topicSlug}/${guideSlug}`);
   return null;
-};
-
-export const analyzeMarketInvestment = async (
-  location: { city: string, state: string, zips: string[], neighborhood?: string },
-  userId: string = "unknown"
-): Promise<AIResponseWithUsage<MarketLevelInvestmentResult>> => {
-  const prompt = getMarketLevelInvestmentPrompt(location);
-  let logId: string | null = null;
-  try {
-    logId = await logLLMCall({
-      user_id: userId,
-      prompt_filename: "marketInvestmentResearch.ts",
-      llm_name: GEMINI_MODEL,
-      raw_payload: prompt,
-      raw_response: null,
-      status: 'pending',
-      request_sent_at: serverTimestamp()
-    });
-
-    const ai = getAi();
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-      config: {
-        tools: [groundingTool],
-        temperature: 0.7 // Slightly lower for research grounding
-      }
-    });
-
-    const responseText = response.text;
-    const usage = calculateUsage(response, GEMINI_MODEL);
-
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: responseText,
-        status: 'completed',
-        response_received_at: serverTimestamp(),
-        usage_metadata: response.usageMetadata,
-        estimated_cost: usage.cost,
-        ...extractMetadata(response)
-      }).catch(err => console.error("Failed to update LLM log:", err));
-    }
-
-    return {
-      data: extractJson<MarketLevelInvestmentResult>(responseText),
-      usage
-    };
-  } catch (error: any) {
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: error.message,
-        status: 'failed',
-        error: error.stack || error.message,
-        response_received_at: serverTimestamp()
-      }).catch(err => console.error("Failed to update LLM error log:", err));
-    }
-    if (error instanceof AiResponseError) {
-      error.prompt = prompt;
-      throw error;
-    }
-    throw new AiResponseError(error.message, "Raw API Error", prompt);
-  }
 };

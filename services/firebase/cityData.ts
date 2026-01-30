@@ -5,17 +5,6 @@ import {
     logFirestoreQuery,
     handleFirestoreError
 } from "./config";
-import { MarketLevelInvestmentResult } from "../../types";
-
-export interface MarketIntelligenceRecord {
-    id?: string;
-    city: string;
-    state: string;
-    zips: string[];
-    neighborhood?: string;
-    data: MarketLevelInvestmentResult;
-    timestamp?: any;
-}
 
 /**
  * Interface for Individual Zip Metadata
@@ -148,51 +137,6 @@ export const getZipListings = async (zipCode: string): Promise<ZipListingsCache 
         return null;
     } catch (error: any) {
         handleFirestoreError(error, "getZipListings");
-        return null;
-    }
-};
-
-/**
- * Saves a Market Intelligence report to Firestore
- */
-export const saveMarketIntelligence = async (record: MarketIntelligenceRecord) => {
-    if (!db) return { success: false, error: "Database not initialized" };
-    try {
-        // Use a composite ID or let Firestore generate one. 
-        // For research, city_state_neighborhood might be a good key.
-        const id = `${record.city}_${record.state}_${record.neighborhood || 'all'}`.toLowerCase().replace(/\s+/g, '_');
-        const docRef = doc(db, "market_intelligence", id);
-
-        logFirestoreQuery('setDoc', 'market_intelligence', { id });
-        await setDoc(docRef, {
-            ...sanitizeForFirestore(record),
-            timestamp: serverTimestamp()
-        }, { merge: true });
-
-        return { success: true, id };
-    } catch (error: any) {
-        return { success: false, error: handleFirestoreError(error, "saveMarketIntelligence") };
-    }
-};
-
-/**
- * Retrieves a Market Intelligence report from Firestore
- */
-export const getMarketIntelligence = async (city: string, state: string, neighborhood?: string): Promise<MarketIntelligenceRecord | null> => {
-    if (!db) return null;
-    try {
-        const id = `${city}_${state}_${neighborhood || 'all'}`.toLowerCase().replace(/\s+/g, '_');
-        const docRef = doc(db, "market_intelligence", id);
-
-        logFirestoreQuery('getDoc', 'market_intelligence', { id });
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-            return { id: docSnap.id, ...docSnap.data() } as MarketIntelligenceRecord;
-        }
-        return null;
-    } catch (error: any) {
-        handleFirestoreError(error, "getMarketIntelligence");
         return null;
     }
 };

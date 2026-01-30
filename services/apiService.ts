@@ -314,11 +314,14 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
         else if (data.images && Array.isArray(data.images)) images = data.images;
         else if (data.props?.images && Array.isArray(data.props.images)) images = data.props.images;
         else if (data.property?.images && Array.isArray(data.property.images)) images = data.property.images;
+        else if (data.photos && Array.isArray(data.photos)) images = data.photos;
+        else if (data.props?.photos && Array.isArray(data.props.photos)) images = data.props.photos;
+        else if (data.property?.photos && Array.isArray(data.property.photos)) images = data.property.photos;
 
         return images.map((img: any) => {
           if (typeof img === 'string') return img;
           if (typeof img === 'object' && img !== null) {
-            return img.url || img.uri || img.src || JSON.stringify(img);
+            return img.url || img.uri || img.src || img.href || JSON.stringify(img);
           }
           return String(img);
         }).filter(img => typeof img === 'string' && img.startsWith('http'));
