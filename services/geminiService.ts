@@ -19,7 +19,6 @@ import { optimizePropertyForAi } from "../utils/aiOptimization";
 
 // Use config for model selection
 export const GEMINI_MODEL = APP_CONFIG.models.default;
-export const BIDDING_MODEL = APP_CONFIG.models.bidding_strategy;
 
 const groundingTool = { googleSearch: {} };
 
@@ -596,7 +595,7 @@ export const analyzeBiddingStrategy = async (property: PropertyData, userId: str
     logId = await logLLMCall({
       user_id: userId,
       prompt_filename: "biddingStrategy.ts",
-      llm_name: BIDDING_MODEL,
+      llm_name: GEMINI_MODEL,
       raw_payload: prompt,
       raw_response: null,
       status: 'pending',
@@ -605,7 +604,7 @@ export const analyzeBiddingStrategy = async (property: PropertyData, userId: str
 
     const ai = getAi();
     const response = await ai.models.generateContent({
-      model: BIDDING_MODEL,
+      model: GEMINI_MODEL,
       contents: prompt,
       config: {
         tools: [groundingTool],

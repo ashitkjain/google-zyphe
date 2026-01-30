@@ -74,30 +74,40 @@ export interface ImageQualityAnalysisResult {
 }
 
 export interface InvestmentResearchResult {
-    market_performance: {
+    str_performance: {
         occupancy_rate: string;
         adr: string;
-        summary: string;
+        annual_revenue_projection: string;
+    };
+    ltr_analysis: {
+        monthly_rent: string;
+        vacancy_rate: string;
+        comparison_summary: string;
+    };
+    investment_metrics: {
+        cap_rate: string;
+        rent_to_price_ratio: string;
+        cash_on_cash_return: string;
+    };
+    market_dynamics: {
+        historical_appreciation: string;
+        projected_growth: string;
+        days_on_market: string;
     };
     competitor_gaps: {
         friction_points: string[];
         praised_amenities: string[];
-        standout_recommendations: string;
+        recommendations: string;
     };
-    regulatory_updates: {
+    regulatory_and_growth: {
         laws_and_zoning: string;
-        permit_caps: string;
+        upcoming_developments: string;
         summary: string;
     };
     demand_drivers: Array<{
         event: string;
         date: string;
-        pricing_impact: string;
-    }>;
-    revenue_projection_2026: Array<{
-        period: string;
-        projected_revenue: string;
-        occupancy_estimate: string;
+        impact: string;
     }>;
     web_sources: Array<{
         title: string;
