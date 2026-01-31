@@ -131,8 +131,8 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
         }));
     };
 
-    const handleSendEmail = (strategyId: string, content: string) => {
-        console.log(`[Email Sent] Strategy: ${strategyId}, Content Length: ${content.length}`);
+    const handleSendEmail = (strategyId: string, content: string, subject: string) => {
+        console.log(`[Email Sent] Strategy: ${strategyId}, Subject: ${subject}, Content Length: ${content.length}`);
         // In a real app, this would call an API to send the email
         alert(`Email sent successfully using ${strategyId} strategy!`);
         setSelectedLeadForEmail(null);

@@ -19,7 +19,7 @@ const STRATEGIES: EmailStrategy[] = [
 
 Are you still looking for a home in ${lead.searchCriteria?.locations?.split(',')[0] || 'this area'}?
 
-— ${agentName}`
+— ${agentName.split(' ')[0]}`
     },
     {
         id: 'pattern_interrupt',
@@ -33,7 +33,7 @@ I just saw a listing in ${lead.searchCriteria?.locations?.split(',')[0] || 'your
 Are you still in the market, or did you find something already?
 
 Best,
-${agentName}`
+${agentName.split(' ')[0]}`
     },
     {
         id: 'value_over_pitch',
@@ -46,7 +46,7 @@ Most people think prices in ${lead.searchCriteria?.locations?.split(',')[0] || '
 
 I thought you might want to see the new numbers since we last talked. Should I send the PDF over?
 
-— ${agentName}`
+— ${agentName.split(' ')[0]}`
     },
     {
         id: 'low_pressure',
@@ -60,7 +60,7 @@ I know life gets incredibly busy, so I wanted to reach out one last time to see 
 If you've moved in a different direction, just let me know and I'll take you off my list!
 
 Cheers,
-${agentName}`
+${agentName.split(' ')[0]}`
     },
     {
         id: 'off_market',
@@ -73,7 +73,7 @@ I have a couple of "coming soon" properties in ${lead.searchCriteria?.locations?
 
 Would you like the addresses, or are you no longer looking in that area?
 
-— ${agentName}`
+— ${agentName.split(' ')[0]}`
     }
 ];
 
@@ -81,26 +81,31 @@ interface EmailStrategyModalProps {
     lead: Lead;
     agentName?: string;
     onClose: () => void;
-    onSend: (strategyId: string, content: string) => void;
+    onSend: (strategyId: string, content: string, subject: string) => void;
 }
 
 const EmailStrategyModal: React.FC<EmailStrategyModalProps> = ({ lead, agentName = 'Your Realtor', onClose, onSend }) => {
     const [selectedStrategyId, setSelectedStrategyId] = useState<string>(STRATEGIES[0].id);
     const [isSending, setIsSending] = useState(false);
+    const [editableSubject, setEditableSubject] = useState('');
+    const [editableBody, setEditableBody] = useState('');
 
-    const selectedStrategy = STRATEGIES.find(s => s.id === selectedStrategyId) || STRATEGIES[0];
-    const emailContent = selectedStrategy.bodyTemplate(lead, agentName);
+    // Update editable content when strategy changes
+    React.useEffect(() => {
+        const selectedStrategy = STRATEGIES.find(s => s.id === selectedStrategyId) || STRATEGIES[0];
+        let subject = selectedStrategy.subject;
+        subject = subject.replace('{{location}}', lead.searchCriteria?.locations?.split(',')[0] || 'your area');
+        subject = subject.replace('{{Lead Name}}', lead.firstName || 'there');
 
-    // Process subject line replacements
-    let emailSubject = selectedStrategy.subject;
-    emailSubject = emailSubject.replace('{{location}}', lead.searchCriteria?.locations?.split(',')[0] || 'your area');
-    emailSubject = emailSubject.replace('{{Lead Name}}', lead.firstName || 'there');
+        setEditableSubject(subject);
+        setEditableBody(selectedStrategy.bodyTemplate(lead, agentName));
+    }, [selectedStrategyId, lead, agentName]);
 
     const handleSend = () => {
         setIsSending(true);
         // Simulate network delay
         setTimeout(() => {
-            onSend(selectedStrategyId, emailContent);
+            onSend(selectedStrategyId, editableBody, editableSubject);
             setIsSending(false);
             onClose();
         }, 800);
@@ -152,22 +157,27 @@ const EmailStrategyModal: React.FC<EmailStrategyModalProps> = ({ lead, agentName
                         ))}
                     </div>
 
-                    {/* Main Content: Preview */}
+                    {/* Main Content: Edit */}
                     <div className="w-2/3 bg-white flex flex-col">
                         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
                             <div className="max-w-2xl mx-auto space-y-6">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block ml-1">Subject Line</label>
-                                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-slate-900 font-medium text-sm">
-                                        {emailSubject}
-                                    </div>
+                                    <input
+                                        type="text"
+                                        value={editableSubject}
+                                        onChange={(e) => setEditableSubject(e.target.value)}
+                                        className="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 text-slate-900 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                                    />
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block ml-1">Message Preview</label>
-                                    <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm min-h-[300px] text-slate-600 leading-relaxed text-sm whitespace-pre-wrap font-sans">
-                                        {emailContent}
-                                    </div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block ml-1">Message Body</label>
+                                    <textarea
+                                        value={editableBody}
+                                        onChange={(e) => setEditableBody(e.target.value)}
+                                        className="w-full p-6 bg-white rounded-2xl border border-slate-200 shadow-sm min-h-[300px] text-slate-600 leading-relaxed text-sm font-sans focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all resize-none"
+                                    />
                                 </div>
                             </div>
                         </div>
