@@ -903,7 +903,7 @@ const App: React.FC = () => {
                   <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] border border-indigo-500/30">PRO</span>
                   <span className="hidden sm:inline opacity-20">|</span>
                   <span className="hidden sm:inline opacity-40">
-                    {realtorName ? `Client of ${realtorName}` : `${currentUser.role} Account`}
+                    {realtorName ? `Client of ${realtorName}` : (currentUser.role === 'realtor' && currentUser.email === 'ashu.jain.iitk@gmail.com' ? 'System Admin Account' : `${currentUser.role} Account`)}
                   </span>
                 </>
               ) : (
