@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { analyzeLeadDatabase, transformLeadCsv } from '../../../services/geminiService';
 import { uploadLeadCSV, getLeadDocuments, getLeadDocumentContent } from '../../../services/firebase/leads_documents';
+import EmailStrategyModal from './components/EmailStrategyModal';
 import {
     saveReactivationAnalysis,
     getExistingReactivationAnalysis,
@@ -24,6 +25,7 @@ interface AutomatedModuleProps {
 }
 
 const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = [], onOpenLeadDetails, onUpdateLead, forcedSubTab }) => {
+    const [selectedLeadForEmail, setSelectedLeadForEmail] = useState<Lead | null>(null);
     // const [isDragging, setIsDragging] = useState(false); // Removed
     // const [file, setFile] = useState<File | null>(null); // Removed
     const [fileContent, setFileContent] = useState<string | null>(null);
@@ -125,6 +127,13 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
             key,
             direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc'
         }));
+    };
+
+    const handleSendEmail = (strategyId: string, content: string) => {
+        console.log(`[Email Sent] Strategy: ${strategyId}, Content Length: ${content.length}`);
+        // In a real app, this would call an API to send the email
+        alert(`Email sent successfully using ${strategyId} strategy!`);
+        setSelectedLeadForEmail(null);
     };
 
     const handleOpenActionMenu = (e: React.MouseEvent, leadId: string) => {
@@ -610,6 +619,10 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                                                                         const text = name ? `Hi ${name}` : 'Hi';
                                                                                         const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
                                                                                         window.open(url, '_blank');
+                                                                                    } else if (action.id === 'email') {
+                                                                                        setSelectedLeadForEmail(lead);
+                                                                                        setOpenActionMenuId(null);
+                                                                                        return;
                                                                                     }
 
                                                                                     // Handle action - for now just close menu
@@ -737,6 +750,16 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                 </div>
                             </div>
                         </div>,
+                        document.body
+                    )}
+
+                    {/* Email Strategy Modal */}
+                    {selectedLeadForEmail && typeof document !== 'undefined' && createPortal(
+                        <EmailStrategyModal
+                            lead={selectedLeadForEmail}
+                            onClose={() => setSelectedLeadForEmail(null)}
+                            onSend={handleSendEmail}
+                        />,
                         document.body
                     )}
                 </>

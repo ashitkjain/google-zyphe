@@ -7,7 +7,7 @@ export const getGeneralMarketIntelligencePrompt = (property: PropertyData) => `
   Task: Conduct a general market and neighborhood intelligence report for the city of ${property.city}, ${property.state} for the year 2026.
   
   Research Objectives:
-  1. Market Dynamics & Appreciation: Analyze 3-year historical appreciation and projected 2026 growth for this zip code (${property.zipCode || 'the area'}). Include average "Days on Market" (DOM) for recent sales.
+  1. Market Dynamics & Appreciation: Analyze 3-year historical appreciation and projected 2026 growth for this city. Include average "Days on Market" (DOM) for recent sales.
   2. Competitor Gaps & Amenities: Identify "friction points" in local STRs/LTRs and highly-praised amenities (e.g., EV charging, home office) that increase value in this local market.
   3. Regulatory & Neighborhood Growth: Check for new 2026 rental laws (STR and LTR), zoning shifts, and major upcoming infrastructure or commercial developments (e.g., new tech hubs, transit).
   
