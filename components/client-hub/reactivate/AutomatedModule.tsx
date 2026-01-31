@@ -4,6 +4,7 @@ import { analyzeLeadDatabase, transformLeadCsv } from '../../../services/geminiS
 import { uploadLeadCSV, getLeadDocuments, getLeadDocumentContent } from '../../../services/firebase/leads_documents';
 import EmailStrategyModal from './components/EmailStrategyModal';
 import SmsStrategyModal from './components/SmsStrategyModal';
+import CallScriptModal from './components/CallScriptModal';
 import {
     saveReactivationAnalysis,
     getExistingReactivationAnalysis,
@@ -17,6 +18,7 @@ import ReactivationVisualizer from './ReactivationVisualizer';
 import ClientDetailsView from '../ClientDetailsView';
 import { LeadReactivationList } from './components/LeadReactivationList';
 
+
 interface AutomatedModuleProps {
     realtorId: string;
     realtorName?: string;
@@ -29,6 +31,7 @@ interface AutomatedModuleProps {
 const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, realtorName, leads = [], onOpenLeadDetails, onUpdateLead, forcedSubTab }) => {
     const [selectedLeadForEmail, setSelectedLeadForEmail] = useState<Lead | null>(null);
     const [selectedLeadForSms, setSelectedLeadForSms] = useState<Lead | null>(null);
+    const [selectedLeadForCall, setSelectedLeadForCall] = useState<Lead | null>(null);
     // const [isDragging, setIsDragging] = useState(false); // Removed
     // const [file, setFile] = useState<File | null>(null); // Removed
     const [fileContent, setFileContent] = useState<string | null>(null);
@@ -144,6 +147,13 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, realtorNam
         // In a real app, this would call Twilio/etc
         alert(`SMS sent successfully using ${strategyId} strategy!`);
         setSelectedLeadForSms(null);
+    };
+
+    const handleLogCall = (scriptId: string, notes: string) => {
+        console.log(`[Call Logged] Script: ${scriptId}, Notes Length: ${notes.length}`);
+        // In a real app, this would save the call log to history
+        alert(`Call logged successfully!`);
+        setSelectedLeadForCall(null);
     };
 
     const handleOpenActionMenu = (e: React.MouseEvent, leadId: string) => {
@@ -633,6 +643,10 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, realtorNam
                                                                                         setSelectedLeadForEmail(lead);
                                                                                         setOpenActionMenuId(null);
                                                                                         return;
+                                                                                    } else if (action.id === 'call') {
+                                                                                        setSelectedLeadForCall(lead);
+                                                                                        setOpenActionMenuId(null);
+                                                                                        return;
                                                                                     } else if (action.id === 'sms') {
                                                                                         setSelectedLeadForSms(lead);
                                                                                         setOpenActionMenuId(null);
@@ -785,6 +799,17 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, realtorNam
                             agentName={realtorName}
                             onClose={() => setSelectedLeadForSms(null)}
                             onSend={handleSendSms}
+                        />,
+                        document.body
+                    )}
+
+                    {/* Call Script Modal */}
+                    {selectedLeadForCall && typeof document !== 'undefined' && createPortal(
+                        <CallScriptModal
+                            lead={selectedLeadForCall}
+                            agentName={realtorName}
+                            onClose={() => setSelectedLeadForCall(null)}
+                            onLogCall={handleLogCall}
                         />,
                         document.body
                     )}
