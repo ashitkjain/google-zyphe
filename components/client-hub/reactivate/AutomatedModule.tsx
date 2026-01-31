@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { analyzeLeadDatabase, transformLeadCsv } from '../../../services/geminiService';
 import { uploadLeadCSV, getLeadDocuments, getLeadDocumentContent } from '../../../services/firebase/leads_documents';
 import EmailStrategyModal from './components/EmailStrategyModal';
+import SmsStrategyModal from './components/SmsStrategyModal';
 import {
     saveReactivationAnalysis,
     getExistingReactivationAnalysis,
@@ -26,6 +27,7 @@ interface AutomatedModuleProps {
 
 const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = [], onOpenLeadDetails, onUpdateLead, forcedSubTab }) => {
     const [selectedLeadForEmail, setSelectedLeadForEmail] = useState<Lead | null>(null);
+    const [selectedLeadForSms, setSelectedLeadForSms] = useState<Lead | null>(null);
     // const [isDragging, setIsDragging] = useState(false); // Removed
     // const [file, setFile] = useState<File | null>(null); // Removed
     const [fileContent, setFileContent] = useState<string | null>(null);
@@ -134,6 +136,13 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
         // In a real app, this would call an API to send the email
         alert(`Email sent successfully using ${strategyId} strategy!`);
         setSelectedLeadForEmail(null);
+    };
+
+    const handleSendSms = (strategyId: string, content: string) => {
+        console.log(`[SMS Sent] Strategy: ${strategyId}, Content Length: ${content.length}`);
+        // In a real app, this would call Twilio/etc
+        alert(`SMS sent successfully using ${strategyId} strategy!`);
+        setSelectedLeadForSms(null);
     };
 
     const handleOpenActionMenu = (e: React.MouseEvent, leadId: string) => {
@@ -623,6 +632,10 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                                                                                         setSelectedLeadForEmail(lead);
                                                                                         setOpenActionMenuId(null);
                                                                                         return;
+                                                                                    } else if (action.id === 'sms') {
+                                                                                        setSelectedLeadForSms(lead);
+                                                                                        setOpenActionMenuId(null);
+                                                                                        return;
                                                                                     }
 
                                                                                     // Handle action - for now just close menu
@@ -759,6 +772,16 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                             lead={selectedLeadForEmail}
                             onClose={() => setSelectedLeadForEmail(null)}
                             onSend={handleSendEmail}
+                        />,
+                        document.body
+                    )}
+
+                    {/* SMS Strategy Modal */}
+                    {selectedLeadForSms && typeof document !== 'undefined' && createPortal(
+                        <SmsStrategyModal
+                            lead={selectedLeadForSms}
+                            onClose={() => setSelectedLeadForSms(null)}
+                            onSend={handleSendSms}
                         />,
                         document.body
                     )}
