@@ -10,11 +10,12 @@ import ClientDetailsView from './ClientDetailsView';
 
 interface ReactivateTabProps {
     realtorId: string;
+    realtorName?: string;
     leads: Lead[];
     onUpdateLead?: (leadId: string, updates: Partial<Lead>) => void;
 }
 
-const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdateLead }) => {
+const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, realtorName, leads, onUpdateLead }) => {
     const [selectedModule, setSelectedModule] = useState<'OLD_LEADS' | 'AI_PLAN' | 'DASHBOARD' | 'TRAIL' | 'TRIGGERS' | 'REPORT'>('OLD_LEADS');
     const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
@@ -79,6 +80,7 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
                     {selectedModule === 'OLD_LEADS' && (
                         <AutomatedModule
                             realtorId={realtorId}
+                            realtorName={realtorName}
                             leads={leads}
                             onOpenLeadDetails={(leadId) => setSelectedClientId(leadId)}
                             onUpdateLead={onUpdateLead}
@@ -89,6 +91,7 @@ const ReactivateTab: React.FC<ReactivateTabProps> = ({ realtorId, leads, onUpdat
                     {selectedModule === 'AI_PLAN' && (
                         <AutomatedModule
                             realtorId={realtorId}
+                            realtorName={realtorName}
                             leads={leads}
                             onOpenLeadDetails={(leadId) => setSelectedClientId(leadId)}
                             onUpdateLead={onUpdateLead}

@@ -19,13 +19,14 @@ import { LeadReactivationList } from './components/LeadReactivationList';
 
 interface AutomatedModuleProps {
     realtorId: string;
+    realtorName?: string;
     leads?: Lead[];
     onOpenLeadDetails?: (leadId: string) => void;
     onUpdateLead?: (leadId: string, updates: Partial<Lead>) => void;
     forcedSubTab?: 'GENERATE' | 'PLANS';
 }
 
-const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = [], onOpenLeadDetails, onUpdateLead, forcedSubTab }) => {
+const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, realtorName, leads = [], onOpenLeadDetails, onUpdateLead, forcedSubTab }) => {
     const [selectedLeadForEmail, setSelectedLeadForEmail] = useState<Lead | null>(null);
     const [selectedLeadForSms, setSelectedLeadForSms] = useState<Lead | null>(null);
     // const [isDragging, setIsDragging] = useState(false); // Removed
@@ -770,6 +771,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                     {selectedLeadForEmail && typeof document !== 'undefined' && createPortal(
                         <EmailStrategyModal
                             lead={selectedLeadForEmail}
+                            agentName={realtorName}
                             onClose={() => setSelectedLeadForEmail(null)}
                             onSend={handleSendEmail}
                         />,
@@ -780,6 +782,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, leads = []
                     {selectedLeadForSms && typeof document !== 'undefined' && createPortal(
                         <SmsStrategyModal
                             lead={selectedLeadForSms}
+                            agentName={realtorName}
                             onClose={() => setSelectedLeadForSms(null)}
                             onSend={handleSendSms}
                         />,
