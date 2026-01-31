@@ -53,5 +53,8 @@ export const APP_CONFIG = {
     },
     gemini: {
         key: "AIzaSyBEPZ14POfqhB2wgfqAsgXkzuVPy2w-l90"
+    },
+    groq: {
+        key: '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'
     }
 };
