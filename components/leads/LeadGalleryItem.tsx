@@ -518,8 +518,30 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                             </div>
 
                             <div className="flex flex-col flex-1 min-w-0 pt-0.5">
-                                <div className="font-bold text-black text-sm group-hover:text-indigo-600 transition-colors tracking-tight truncate leading-tight mb-2">
+                                <div className="font-bold text-black text-sm group-hover:text-indigo-600 transition-colors tracking-tight truncate leading-tight mb-2 flex items-center gap-2">
                                     {lead.fullName || (lead.firstName || lead.lastName ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim() : 'Unknown Client')}
+                                    {['Zillow', 'Realtor', 'Facebook'].includes(lead.source || '') && (
+                                        <div className="flex items-center gap-1.5">
+                                            <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest ${lead.source === 'Zillow' ? 'bg-blue-100 text-blue-600 border border-blue-200' :
+                                                lead.source === 'Realtor' ? 'bg-rose-100 text-rose-600 border border-rose-200' :
+                                                    'bg-indigo-100 text-indigo-600 border border-indigo-200'
+                                                }`}>
+                                                {lead.source}
+                                            </span>
+                                            {lead.source === 'Facebook' && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onTabChange?.('reactivate');
+                                                    }}
+                                                    className="text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest bg-slate-900 text-white hover:bg-black transition-all shadow-sm flex items-center gap-1"
+                                                >
+                                                    <i className="fa-solid fa-bolt text-[7px]"></i>
+                                                    Reactivate
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="flex flex-col gap-0.5 text-[12px] text-slate-400 font-bold whitespace-nowrap overflow-hidden">
                                     {lead.email && (

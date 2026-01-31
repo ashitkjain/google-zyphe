@@ -27,6 +27,18 @@
         ],
         "rewrites": [
             {
+                "source": "/api/webhooks/zillow",
+                "function": "zillowWebhook"
+            },
+            {
+                "source": "/api/webhooks/realtor",
+                "function": "realtorWebhook"
+            },
+            {
+                "source": "/api/webhooks/facebook",
+                "function": "facebookWebhook"
+            },
+            {
                 "source": "**",
                 "destination": "/index.html"
             }

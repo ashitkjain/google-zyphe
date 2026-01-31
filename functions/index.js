@@ -374,3 +374,136 @@ exports.telnyxWebhookTest = functions.https.onRequest((req, res) => {
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 });
+
+/**
+ * Lead Ingestion Webhooks
+ * Supports Zillow Tech Connect, Realtor.com Direct Lead API, and Facebook Lead Ads.
+ */
+
+// Universal lead handler
+// Universal lead handler
+async function handleLeadIngestion(source, realtorId, payload, req) {
+    const db = admin.firestore();
+
+    console.log(`[Ingestion] Received lead from ${source} for Realtor ${realtorId}`);
+
+    // Log raw data for debugging and future parsing refinement
+    await db.collection('raw_leads').add({
+        source,
+        realtorId,
+        payload: payload || {},
+        headers: req.headers || {},
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Basic extraction (to be refined per source)
+    let leadData = {
+        realtorId,
+        source: source,
+        receivedAt: admin.firestore.FieldValue.serverTimestamp(),
+        funnelStage: 'Leads',
+        status: 'New',
+        leadType: 'Buyer', // Default
+        slaUrgency: 'high',
+        isMock: false,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (source === 'Zillow') {
+        const p = payload || {};
+        leadData.firstName = p.First_Name || p.FirstName || p.firstName || '';
+        leadData.lastName = p.Last_Name || p.LastName || p.lastName || '';
+        leadData.email = p.Email || p.email || '';
+        leadData.phone = p.Phone || p.phone || p.phoneNumber || '';
+        leadData.propertyAddress = p.Property_Address || p.Address || p.address || '';
+        leadData.message = p.Message || p.Comments || '';
+    } else if (source === 'Realtor') {
+        const p = payload || {};
+        leadData.firstName = p.first_name || p.firstName || '';
+        leadData.lastName = p.last_name || p.lastName || '';
+        leadData.email = p.email || '';
+        leadData.phone = p.phone || p.phoneNumber || '';
+        leadData.propertyAddress = p.address || '';
+    } else if (source === 'Facebook') {
+        // Facebook notification
+        const p = payload || {};
+        leadData.status = 'New (Cold)';
+        leadData.notes = 'Lead from Facebook Ad. Run 9-Word Reactivation.';
+    }
+
+    if (!leadData.email && !leadData.phone && !leadData.lastName) {
+        console.log(`[Ingestion] Insufficient data to create lead.`);
+        return;
+    }
+
+    // Deduplication check
+    const leadsRef = db.collection('leads');
+    let existingQuery = null;
+
+    if (leadData.email) {
+        existingQuery = await leadsRef.where('realtorId', '==', realtorId).where('email', '==', leadData.email).limit(1).get();
+    } else if (leadData.phone) {
+        existingQuery = await leadsRef.where('realtorId', '==', realtorId).where('phone', '==', leadData.phone).limit(1).get();
+    }
+
+    if (existingQuery && !existingQuery.empty) {
+        const existingDoc = existingQuery.docs[0];
+        console.log(`[Ingestion] Updating existing lead: ${existingDoc.id}`);
+        await existingDoc.ref.update({
+            ...leadData,
+            receivedAt: existingDoc.data().receivedAt, // Keep original creation date
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+        });
+    } else {
+        // Create new lead
+        if (!leadData.firstName && !leadData.lastName && leadData.email) {
+            leadData.firstName = leadData.email.split('@')[0];
+        }
+        await leadsRef.add(leadData);
+        console.log(`[Ingestion] Created new lead: ${leadData.firstName} ${leadData.lastName}`);
+    }
+}
+
+exports.zillowWebhook = functions.https.onRequest(async (req, res) => {
+    const realtorId = req.query.realtorId;
+    if (!realtorId) {
+        console.error('[Zillow] Missing realtorId in query');
+        return res.status(400).send('Missing realtorId');
+    }
+    await handleLeadIngestion('Zillow', realtorId, req.body, req);
+    res.status(200).send('Success');
+});
+
+exports.realtorWebhook = functions.https.onRequest(async (req, res) => {
+    const realtorId = req.query.realtorId;
+    if (!realtorId) {
+        console.error('[Realtor] Missing realtorId in query');
+        return res.status(400).send('Missing realtorId');
+    }
+    await handleLeadIngestion('Realtor', realtorId, req.body, req);
+    res.status(200).send('Success');
+});
+
+exports.facebookWebhook = functions.https.onRequest(async (req, res) => {
+    if (req.method === 'GET') {
+        const mode = req.query['hub.mode'];
+        const token = req.query['hub.verify_token'];
+        const challenge = req.query['hub.challenge'];
+        if (mode === 'subscribe' && token === 'ZYPHE_FB_VERIFY') {
+            return res.status(200).send(challenge);
+        }
+        return res.status(403).send('Forbidden');
+    }
+
+    const realtorId = req.query.realtorId;
+    if (!realtorId) {
+        console.error('[Facebook] Missing realtorId in query');
+        return res.status(400).send('Missing realtorId');
+    }
+
+    // Facebook Lead Ads send a notification that a lead was created.
+    // We log it and optionally fetch more details.
+    await handleLeadIngestion('Facebook', realtorId, req.body, req);
+    res.status(200).send('Success');
+});

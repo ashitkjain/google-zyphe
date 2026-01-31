@@ -26,6 +26,7 @@ import CreativeStudioWidget from './client-hub/reactivate/components/CreativeStu
 import BulkPrefetchTab from './client-hub/BulkPrefetchTab';
 import CityDataTab from './client-hub/CityDataTab';
 import StorageScannerTab from './client-hub/StorageScannerTab';
+import LeadIngestionTab from './client-hub/LeadIngestionTab';
 import Footer from './Footer';
 
 interface Props {
@@ -43,7 +44,7 @@ const generateClientID = () => {
     return 'C-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 };
 
-type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio' | 'guides' | 'profile' | 'bulk_prefetch' | 'city_data' | 'storage_registry';
+type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio' | 'guides' | 'profile' | 'bulk_prefetch' | 'city_data' | 'storage_registry' | 'lead_ingestion';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab, onNavigate, onUpdateProfile }) => {
     // Default to 'explore' if content is provided, otherwise 'leads'
@@ -492,6 +493,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
     const toolTabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
+        { id: 'lead_ingestion', label: 'Lead Ingestion', icon: 'fa-link' },
         { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
         { id: 'creative_studio', label: 'Creative Studio', icon: 'fa-paintbrush' },
         { id: 'settings', label: 'Data Fields', icon: 'fa-sliders' },
@@ -1151,6 +1153,12 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
                         {activeTab === 'guides' && (
                             <GuidesTab onNavigate={onNavigate} />
+                        )}
+
+                        {activeTab === 'lead_ingestion' && (
+                            <LeadIngestionTab
+                                realtorId={realtorId}
+                            />
                         )}
 
                         {activeTab === 'bulk_prefetch' && (
