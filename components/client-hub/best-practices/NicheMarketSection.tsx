@@ -1,12 +1,16 @@
 import React from 'react';
+import PremiumLegacyBridge from './PremiumLegacyBridge';
+import { BEST_PRACTICES_DATA } from '../MagazineBestPracticesData';
 
 const NicheMarketSection: React.FC = () => {
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <div>
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Niche Market Positioning</h2>
-                <p className="text-lg text-slate-500 font-medium">Best Practices for Realtors: Eco, Senior & Investment.</p>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Niche Market Expertise</h2>
+                <p className="text-lg text-slate-500 font-medium">Developing specialized authority in high-value segments.</p>
             </div>
+
+            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.niche_market} mode="top" />
 
             <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 mb-8">
                 <p className="text-indigo-800 leading-relaxed font-medium">
@@ -179,6 +183,8 @@ const NicheMarketSection: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.niche_market} mode="bottom" />
         </div>
     );
 };

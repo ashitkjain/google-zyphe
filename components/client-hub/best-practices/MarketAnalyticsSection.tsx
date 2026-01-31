@@ -1,12 +1,16 @@
 import React from 'react';
+import PremiumLegacyBridge from './PremiumLegacyBridge';
+import { BEST_PRACTICES_DATA } from '../MagazineBestPracticesData';
 
 const MarketAnalyticsSection: React.FC = () => {
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <div>
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Market Knowledge & Analytics</h2>
-                <p className="text-lg text-slate-500 font-medium">Data-Driven Insights, CMAs, and Investment Strategy.</p>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Market Analytics & Timing</h2>
+                <p className="text-lg text-slate-500 font-medium">Using data to predict trends and guide client investments.</p>
             </div>
+
+            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.market_analytics} mode="top" />
 
             <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 mb-8">
                 <p className="text-indigo-800 leading-relaxed font-medium">
@@ -160,6 +164,8 @@ const MarketAnalyticsSection: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.market_analytics} mode="bottom" />
         </div>
     );
 };

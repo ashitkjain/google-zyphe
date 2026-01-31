@@ -13,7 +13,8 @@ export type BestPracticesSection =
     | 'education_positioning'
     | 'branding_development'
     | 'market_analytics'
-    | 'niche_market';
+    | 'niche_market'
+    | 'reactivation';
 
 interface BestPracticesSidebarProps {
     activeSection: BestPracticesSection;
@@ -179,6 +180,18 @@ const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSecti
                         <i className="fa-solid fa-bullseye"></i>
                     </div>
                     Niche Positioning
+                </button>
+
+                <div className="h-px bg-slate-100 my-2 mx-4"></div>
+
+                <button
+                    onClick={() => setActiveSection('reactivation')}
+                    className={`nav-item flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeSection === 'reactivation' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
+                >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${activeSection === 'reactivation' ? 'bg-white/20' : 'bg-slate-100 group-hover:bg-slate-200'}`}>
+                        <i className="fa-solid fa-bolt"></i>
+                    </div>
+                    Reactivation Playbook
                 </button>
             </nav>
         </div>

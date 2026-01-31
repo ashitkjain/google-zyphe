@@ -1,12 +1,16 @@
 import React from 'react';
+import PremiumLegacyBridge from './PremiumLegacyBridge';
+import { BEST_PRACTICES_DATA } from '../MagazineBestPracticesData';
 
 const EducationPositioningSection: React.FC = () => {
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <div>
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Education & High Authority Positioning</h2>
-                <p className="text-lg text-slate-500 font-medium">Elevate Your Brand: First-Time Buyers, Luxury & Investors.</p>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Professional Education & Positioning</h2>
+                <p className="text-lg text-slate-500 font-medium">Elevating your market value through continuous learning and authority.</p>
             </div>
+
+            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.education_positioning} mode="top" />
 
             <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 mb-8">
                 <p className="text-indigo-800 leading-relaxed font-medium">
@@ -181,6 +185,8 @@ const EducationPositioningSection: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.education_positioning} mode="bottom" />
         </div>
     );
 };

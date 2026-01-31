@@ -1,4 +1,6 @@
 import React from 'react';
+import PremiumLegacyBridge from './PremiumLegacyBridge';
+import { BEST_PRACTICES_DATA } from '../MagazineBestPracticesData';
 
 const TimingsSection: React.FC = () => {
     return (
@@ -7,6 +9,8 @@ const TimingsSection: React.FC = () => {
                 <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Real Estate Communication Protocols</h2>
                 <p className="text-lg text-slate-500 font-medium">Standard operating procedures for timely and effective client interactions.</p>
             </div>
+
+            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.timings} mode="top" />
 
             <div className="grid gap-6">
                 {/* Card 1 */}
@@ -205,6 +209,7 @@ const TimingsSection: React.FC = () => {
                     </p>
                 </div>
             </div>
+            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.timings} mode="bottom" />
         </div>
     );
 };

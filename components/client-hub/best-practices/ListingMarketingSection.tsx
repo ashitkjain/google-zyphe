@@ -1,12 +1,16 @@
 import React from 'react';
+import PremiumLegacyBridge from './PremiumLegacyBridge';
+import { BEST_PRACTICES_DATA } from '../MagazineBestPracticesData';
 
 const ListingMarketingSection: React.FC = () => {
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <div>
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Listing & Marketing Best Practices</h2>
-                <p className="text-lg text-slate-500 font-medium">From MLS Prep to Closing: Maximizing Exposure and Impact.</p>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Listing Marketing Standards</h2>
+                <p className="text-lg text-slate-500 font-medium">High-impact strategies for property presentation and exposure.</p>
             </div>
+
+            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.listing_marketing} mode="top" />
 
             <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 mb-8">
                 <p className="text-indigo-800 leading-relaxed font-medium">
@@ -219,6 +223,8 @@ const ListingMarketingSection: React.FC = () => {
                     ))}
                 </div>
             </div>
+
+            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.listing_marketing} mode="bottom" />
         </div>
     );
 };

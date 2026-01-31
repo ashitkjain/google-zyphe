@@ -1,4 +1,6 @@
 import React from 'react';
+import PremiumLegacyBridge from './PremiumLegacyBridge';
+import { BEST_PRACTICES_DATA } from '../MagazineBestPracticesData';
 
 const BuyerAgentSection: React.FC = () => {
     return (
@@ -8,11 +10,7 @@ const BuyerAgentSection: React.FC = () => {
                 <p className="text-lg text-slate-500 font-medium">A professional, client-first approach to guiding homebuyers from first showing to closing day.</p>
             </div>
 
-            <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 mb-8">
-                <p className="text-indigo-800 leading-relaxed font-medium">
-                    Buying a home is both a financial milestone and an emotional journey. A skilled buyer’s agent does far more than unlock doors and submit offers — they act as a strategist, educator, negotiator, and advocate, ensuring their client’s interests are protected at every stage.
-                </p>
-            </div>
+            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.buyer_agent} mode="top" />
 
             <div className="grid gap-6">
                 {[
@@ -94,6 +92,8 @@ const BuyerAgentSection: React.FC = () => {
                     </div>
                 ))}
             </div>
+
+            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.buyer_agent} mode="bottom" />
 
             {/* Checklist */}
             <div className="bg-slate-900 text-white p-8 rounded-3xl mt-12 shadow-2xl">

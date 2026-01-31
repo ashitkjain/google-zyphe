@@ -1,12 +1,16 @@
 import React from 'react';
+import PremiumLegacyBridge from './PremiumLegacyBridge';
+import { BEST_PRACTICES_DATA } from '../MagazineBestPracticesData';
 
 const TransactionComplianceSection: React.FC = () => {
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <div>
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Transaction Management & Compliance</h2>
-                <p className="text-lg text-slate-500 font-medium">Protecting Your Client and Your License.</p>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Transaction & Compliance Standards</h2>
+                <p className="text-lg text-slate-500 font-medium">Ensuring risk mitigation and operational excellence in every deal.</p>
             </div>
+
+            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.transaction_compliance} mode="top" />
 
             <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 mb-8">
                 <p className="text-indigo-800 leading-relaxed font-medium">
@@ -144,6 +148,8 @@ const TransactionComplianceSection: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.transaction_compliance} mode="bottom" />
         </div>
     );
 };

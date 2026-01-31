@@ -1,12 +1,16 @@
 import React from 'react';
+import PremiumLegacyBridge from './PremiumLegacyBridge';
+import { BEST_PRACTICES_DATA } from '../MagazineBestPracticesData';
 
 const PricingNegotiationSection: React.FC = () => {
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <div>
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Pricing, Negotiation & Market Expertise</h2>
-                <p className="text-lg text-slate-500 font-medium">Advanced Best Practices for Exceptional Outcomes.</p>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Pricing & Negotiation Standards</h2>
+                <p className="text-lg text-slate-500 font-medium">Strategic guidance for valuation and deal-making excellence.</p>
             </div>
+
+            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.pricing_negotiation} mode="top" />
 
             <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 mb-8">
                 <p className="text-indigo-800 leading-relaxed font-medium">
@@ -156,6 +160,8 @@ const PricingNegotiationSection: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.pricing_negotiation} mode="bottom" />
         </div>
     );
 };

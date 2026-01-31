@@ -7,6 +7,7 @@ export interface CalendarEvent {
     type: 'appointment' | 'open-house' | 'task';
     client?: string;
     clientId?: string;
+    transactionId?: string;
     description?: string;
     isMock?: boolean;
 }

@@ -1,11 +1,11 @@
-import { collection, doc, query, where, getDocs, addDoc, serverTimestamp, setDoc, writeBatch, orderBy } from "firebase/firestore";
+import { collection, doc, query, where, getDocs, addDoc, serverTimestamp, setDoc, writeBatch, orderBy, WriteBatch } from "firebase/firestore";
 import {
     db,
     sanitizeForFirestore,
     logFirestoreQuery,
     handleFirestoreError
 } from "./config";
-import { Transaction, ChecklistCategory, CRMTask } from "../../types";
+import { Transaction, ChecklistCategory, CRMTask, CalendarEvent } from "../../types";
 import { calculateChecklistSchedule, getInitialCategories } from "../transactionService";
 import { seedPartiesForTransaction } from "./parties";
 import { seedDocumentsForTransaction } from "./documents";
@@ -74,6 +74,73 @@ export const updateTransaction = async (transactionId: string, updates: Partial<
 
 // Transaction Tasks Logic
 
+/**
+ * Syncs key transaction milestones and high-priority tasks to the calendar.
+ */
+export const syncTransactionToCalendar = (batch: WriteBatch, transaction: Transaction, checklist: ChecklistCategory[]) => {
+    if (!db) return;
+    const transactionId = transaction.id;
+    const realtorId = transaction.realtorId;
+    const propertyAddress = transaction.property?.address || 'TBD';
+
+    // 1. Sync Milestones
+    const milestones = [
+        { type: 'Acceptance', date: transaction.important_dates?.acceptance_date },
+        { type: 'Contingency Removal', date: transaction.important_dates?.contingency_removal_date },
+        { type: 'Close of Escrow', date: transaction.close_of_escrow_date }
+    ];
+
+    milestones.forEach(m => {
+        if (m.date) {
+            const eventId = `milestone_${transactionId}_${m.type.replace(/\s+/g, '_')}`;
+            const eventRef = doc(db, "calendar_events", eventId);
+
+            // Convert possible JS Date/Timestamp to Firestore compatible
+            const startTime = m.date;
+
+            const eventData: CalendarEvent = {
+                id: eventId,
+                realtorId,
+                transactionId,
+                clientId: transaction.clientId,
+                title: `${m.type}: ${propertyAddress}`,
+                start: startTime,
+                end: startTime, // Single day event
+                type: 'appointment',
+                description: `Transaction milestone for ${propertyAddress}`,
+                isMock: transaction.isMock
+            };
+            batch.set(eventRef, sanitizeForFirestore(eventData), { merge: true });
+        }
+    });
+
+    // 2. Sync Key Tasks
+    checklist.forEach(cat => {
+        cat.tasks?.forEach(t => {
+            const keyKeywords = ['Appraisal', 'Inspection', 'Signing', 'Walk-through', 'Closing'];
+            const isKeyTask = keyKeywords.some(k => t.name?.toLowerCase().includes(k.toLowerCase()));
+
+            if (isKeyTask && t.dueDate) {
+                const eventId = `task_${t.id}`;
+                const eventRef = doc(db, "calendar_events", eventId);
+                const eventData: CalendarEvent = {
+                    id: eventId,
+                    realtorId,
+                    transactionId,
+                    clientId: transaction.clientId,
+                    title: `TASK: ${t.name}`,
+                    start: t.dueDate,
+                    end: t.dueDate,
+                    type: 'task',
+                    description: `Transaction task for ${propertyAddress}`,
+                    isMock: transaction.isMock
+                };
+                batch.set(eventRef, sanitizeForFirestore(eventData), { merge: true });
+            }
+        });
+    });
+};
+
 export const getTransactionTasks = async (transactionId: string, realtorId: string) => {
     if (!db || !transactionId || !realtorId) return [];
     try {
@@ -135,11 +202,7 @@ export const seedTasksForTransaction = (batch: any, transaction: Transaction, in
         });
     });
 
-    // Return a lean structural checklist (only IDs for tasks) to be saved in the Transaction doc
-    return finalChecklist.map(cat => ({
-        ...cat,
-        tasks: cat.tasks.map(t => ({ id: t.id }))
-    }));
+    return finalChecklist;
 };
 
 export const createTransaction = async (transaction: Transaction, initialCategories?: ChecklistCategory[]) => {
@@ -151,17 +214,26 @@ export const createTransaction = async (transaction: Transaction, initialCategor
         const finalTransactionObj = { ...transaction, id: transactionId };
 
         let finalChecklist: ChecklistCategory[] = [];
+        let fullChecklistForCalendar: ChecklistCategory[] = [];
 
         if (initialCategories) {
-            finalChecklist = seedTasksForTransaction(batch, finalTransactionObj, initialCategories);
+            fullChecklistForCalendar = seedTasksForTransaction(batch, finalTransactionObj, initialCategories);
+            finalChecklist = fullChecklistForCalendar.map(cat => ({
+                ...cat,
+                tasks: cat.tasks.map(t => ({ id: t.id }))
+            }));
         } else {
             finalChecklist = transaction.checklist as any || [];
+            fullChecklistForCalendar = finalChecklist;
         }
 
         const finalTransaction = {
             ...finalTransactionObj,
             checklist: finalChecklist
         };
+
+        // Sync to calendar
+        syncTransactionToCalendar(batch, finalTransaction, fullChecklistForCalendar);
 
         logFirestoreQuery('setDoc (batch)', 'transactions', { id: transactionId });
         batch.set(docRef, sanitizeForFirestore({
@@ -210,7 +282,14 @@ export const deleteTransaction = async (transactionId: string) => {
             batch.delete(doc.ref);
         });
 
-        // 2. Delete the transaction document
+        // 2. Delete associated calendar events
+        const calendarQuery = query(collection(db, "calendar_events"), where("transactionId", "==", transactionId));
+        const calendarSnap = await getDocs(calendarQuery);
+        calendarSnap.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+
+        // 3. Delete the transaction document
         const transactionRef = doc(db, "transactions", transactionId);
         batch.delete(transactionRef);
 
