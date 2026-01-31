@@ -198,6 +198,7 @@ export const analyzeProperty = async (property: PropertyData, userId: string = "
   try {
     logId = await logLLMCall({
       user_id: userId,
+      zpid: property.zpid,
       prompt_filename: "propertyAnalysis.ts",
       llm_name: GEMINI_MODEL,
       raw_payload: prompt,
@@ -263,6 +264,7 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
   try {
     logId = await logLLMCall({
       user_id: userId,
+      zpid: property.zpid,
       prompt_filename: "neighborhoodAnalysis.ts",
       llm_name: GEMINI_MODEL,
       raw_payload: sanitizedPrompt,
@@ -327,6 +329,7 @@ export const analyzeCommunityPulse = async (property: PropertyData, userId: stri
   try {
     logId = await logLLMCall({
       user_id: userId,
+      zpid: property.zpid,
       prompt_filename: "communityPulse.ts",
       llm_name: GEMINI_MODEL,
       raw_payload: prompt,
@@ -404,6 +407,7 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
   try {
     logId = await logLLMCall({
       user_id: userId,
+      zpid: property.zpid,
       prompt_filename: "propertyImages.ts",
       llm_name: GEMINI_MODEL,
       raw_payload: requestPayload,
@@ -467,6 +471,7 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
   try {
     logId = await logLLMCall({
       user_id: userId,
+      zpid: property.zpid,
       prompt_filename: "comprehensiveAnalysis.ts",
       llm_name: GEMINI_MODEL,
       raw_payload: prompt,
@@ -526,6 +531,7 @@ export const analyzeInvestmentResearch = async (property: PropertyData, userId: 
   try {
     logId = await logLLMCall({
       user_id: userId,
+      zpid: property.zpid,
       prompt_filename: "investmentResearch.ts",
       llm_name: GEMINI_MODEL,
       raw_payload: prompt,
@@ -585,6 +591,7 @@ export const analyzeGeneralMarketIntelligence = async (property: PropertyData, u
   try {
     logId = await logLLMCall({
       user_id: userId,
+      zpid: property.zpid,
       prompt_filename: "generalMarketIntelligence.ts",
       llm_name: GEMINI_MODEL,
       raw_payload: prompt,
@@ -644,6 +651,7 @@ export const analyzeBiddingStrategy = async (property: PropertyData, userId: str
   try {
     logId = await logLLMCall({
       user_id: userId,
+      zpid: property.zpid,
       prompt_filename: "biddingStrategy.ts",
       llm_name: GEMINI_MODEL,
       raw_payload: prompt,

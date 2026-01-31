@@ -38,7 +38,7 @@ export const runFullIntelligencePipeline = async (
   try {
     // 1. Geocoding
     onProgress({ step: 'Geocoding', status: 'running', message: 'Normalizing address and generating maps...' });
-    const radar = await normalizeAddress(rawAddress);
+    const radar = await normalizeAddress(rawAddress, providedZpid);
     const address = radar.formattedAddress;
     onLog?.(`[Geocode] Address normalized: ${address}`);
     onProgress({ step: 'Geocoding', status: 'completed', message: `Address normalized: ${address}` });

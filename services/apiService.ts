@@ -63,10 +63,11 @@ const safeStringify = (val: any): string | null => {
   return String(val);
 };
 
-export const normalizeAddress = async (address: string): Promise<RadarGeocodeResponse> => {
+export const normalizeAddress = async (address: string, zpid?: string): Promise<RadarGeocodeResponse> => {
   const url = `https://api.radar.io/v1/geocode/forward?query=${encodeURIComponent(address)}`;
   const geocodeLogId = await logAPICall({
     user_id: auth?.currentUser?.uid || 'unknown',
+    zpid: zpid,
     api_name: 'Radar',
     endpoint: 'geocode/forward',
     params: { address },
@@ -132,6 +133,7 @@ export const fetchScores = async (zpid: string): Promise<{
     try {
       const logId = await logAPICall({
         user_id: auth?.currentUser?.uid || 'unknown',
+        zpid: zpid,
         api_name: 'RapidAPI',
         endpoint: 'walkAndTransitScore',
         params: { zpid },
@@ -190,6 +192,7 @@ export const fetchPropertyComps = async (zpid: string): Promise<PropertyComp[]> 
     try {
       const logId = await logAPICall({
         user_id: auth?.currentUser?.uid || 'unknown',
+        zpid: zpid,
         api_name: 'RapidAPI',
         endpoint: 'propertyComps',
         params: { zpid },
@@ -275,6 +278,7 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
       try {
         const logId = await logAPICall({
           user_id: auth?.currentUser?.uid || 'unknown',
+          zpid: zpid,
           api_name: 'RapidAPI',
           endpoint: 'images',
           params: { zpid, attempt },
@@ -366,6 +370,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
 
       const logId = await logAPICall({
         user_id: auth?.currentUser?.uid || 'unknown',
+        zpid: isZpid ? addressOrZpid : undefined,
         api_name: 'RapidAPI',
         endpoint: 'property',
         params: { addressOrZpid, isZpid, attempt },

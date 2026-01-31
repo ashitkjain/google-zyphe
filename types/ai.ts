@@ -249,6 +249,7 @@ export interface LeadReactivationResult {
 export interface LLMCallEvent {
     id?: string;
     user_id: string;
+    zpid?: string;
     prompt_filename: string;
     llm_name: string;
     raw_payload: any;

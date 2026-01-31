@@ -4,6 +4,7 @@ import { db, auth, sanitizeForFirestore } from "./config";
 export interface APICallEvent {
     id?: string;
     user_id: string;
+    zpid?: string;
     api_name: string;
     endpoint: string;
     params: any;
