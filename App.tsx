@@ -54,7 +54,7 @@ import LegalDisclaimer from './components/LegalDisclaimer';
 import TermsView from './components/TermsView';
 import PrivacyPolicy from './components/PrivacyPolicy';
 
-type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio' | 'realtor-landing';
+type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -116,8 +116,8 @@ const App: React.FC = () => {
           return;
         }
 
-        if (path === '/guides' || path === '/') {
-          setViewMode(path === '/guides' ? 'guides' : 'main');
+        if (path === '/guides' || path === '/knowledge' || path === '/') {
+          setViewMode((path === '/guides' || path === '/knowledge') ? 'knowledge_center' : 'main');
           return;
         }
       }
@@ -126,8 +126,8 @@ const App: React.FC = () => {
       if (isRealtorPath) {
         if (subPath.length === 0) {
           setViewMode('main'); // Dashboard
-        } else if (subPath[0] === 'guides' || subPath.length === 2 || ['hoa', 'insurance', 'escrow', 'property-taxes', 'repairs-liability'].includes(subPath[0])) {
-          setViewMode('guides');
+        } else if (subPath[0] === 'guides' || subPath[0] === 'knowledge' || subPath.length === 2 || ['hoa', 'insurance', 'escrow', 'property-taxes', 'repairs-liability'].includes(subPath[0])) {
+          setViewMode('knowledge_center');
         } else {
           // Dynamic tab matching
           setViewMode(subPath[0] as ViewMode);
@@ -161,13 +161,15 @@ const App: React.FC = () => {
       performSearch(customPath);
     }
 
+    const isKnowledgeMode = newMode === 'knowledge_center' || newMode === 'guides' || newMode === 'best_practices';
+
     setViewMode(newMode);
     let path = '/';
 
     if (customPath && !isAddress) {
       path = customPath;
-    } else if (newMode === 'guides') {
-      path = '/guides';
+    } else if (isKnowledgeMode) {
+      path = customPath || '/realtor/knowledge';
     } else if (newMode === 'legal-disclaimer' || newMode === 'terms' || newMode === 'privacy') {
       path = newMode === 'legal-disclaimer' ? '/legal-disclaimer' : newMode === 'terms' ? '/terms' : '/privacy';
     } else if (newMode === 'main' || newMode === 'explore') {
@@ -314,9 +316,6 @@ const App: React.FC = () => {
     checkConnection();
   }, []);
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [viewMode]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -888,12 +887,12 @@ const App: React.FC = () => {
 
   // STANDARD LAYOUT (Non-Realtor / Guest)
   return (
-    <div className={`${viewMode === 'guides' ? 'h-screen' : 'min-h-screen'} bg-slate-50 flex flex-col`}>
+    <div className={`${(viewMode === 'knowledge_center' || viewMode === 'guides') ? 'h-screen' : 'min-h-screen'} bg-slate-50 flex flex-col`}>
       {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
       <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} inviteData={inviteData} />
 
-      {/* Top Bar (Visible if not in guides mode OR if user is signed in) */}
-      {((viewMode !== 'guides' && window.location.pathname !== '/') || currentUser) && (
+      {/* Top Bar (Visible if not in knowledge mode OR if user is signed in) */}
+      {((viewMode !== 'knowledge_center' && viewMode !== 'guides' && window.location.pathname !== '/') || currentUser) && (
         <div className="py-4 px-4 bg-slate-900 text-white border-b border-white/5 relative z-[60]">
           <div className="max-w-7xl mx-auto flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em]">
             <div className="flex items-center gap-3">
@@ -913,11 +912,11 @@ const App: React.FC = () => {
 
             <div className="flex items-center gap-6">
               <button
-                onClick={() => transitionToView(viewMode === 'guides' ? 'main' : 'guides')}
+                onClick={() => transitionToView(viewMode === 'knowledge_center' ? 'main' : 'knowledge_center')}
                 className="text-white/60 hover:text-white transition-colors flex items-center gap-2"
               >
-                <i className={`fa-solid ${viewMode === 'guides' ? 'fa-house' : 'fa-book-open'} text-[10px]`}></i>
-                {viewMode === 'guides' ? 'BACK TO EXPLORE' : 'LEARN'}
+                <i className={`fa-solid ${viewMode === 'knowledge_center' ? 'fa-house' : 'fa-book-open'} text-[10px]`}></i>
+                {viewMode === 'knowledge_center' ? 'BACK TO EXPLORE' : 'LEARN'}
               </button>
               {currentUser && (
                 <>
@@ -945,7 +944,7 @@ const App: React.FC = () => {
         </header>
       )}
 
-      <main className={`flex-1 w-full ${viewMode === 'guides' ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 overflow-y-auto'}`}>
+      <main className={`flex-1 w-full ${(viewMode === 'knowledge_center' || viewMode === 'guides') ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 overflow-y-auto'}`}>
         {error && <div className="bg-rose-50 border border-rose-100 text-rose-700 p-4 rounded-2xl mb-8">{error}</div>}
 
         {viewMode === 'realtor-landing' ? (
@@ -992,7 +991,7 @@ const App: React.FC = () => {
               </div>
             </div>
           </div>
-        ) : (viewMode === 'guides' || !currentUser ? (
+        ) : (viewMode === 'knowledge_center' || viewMode === 'guides' || !currentUser ? (
           <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500">
 
             <GuidesTab onNavigate={transitionToView} />

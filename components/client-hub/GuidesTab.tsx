@@ -34,13 +34,12 @@ const GUIDE_DATA: GuideCategory[] = [
             { id: 'h4', title: 'Can HOA increase dues without homeowner approval?', slug: 'can-hoa-increase-dues-without-homeowner-approval', description: 'HOA boards generally possess the authority to increase regular assessments by up to 20% annually without a member vote. Larger increases or special assessments typically require homeowner approval.' },
             { id: 'h5', title: 'What is an HOA special assessment?', slug: 'what-is-an-hoa-special-assessment', description: 'A special assessment is a one-time fee levied for major repairs or unexpected community expenses. These charges are often necessary when reserve funds are insufficient for critical infrastructure updates.' },
             { id: 'h6', title: 'Can HOA deny exterior changes?', slug: 'can-hoa-deny-exterior-changes', description: 'Architectural control allows HOAs to regulate the aesthetic harmony of the community. Proposed modifications must generally comply with the specific guidelines outlined in the community governing documents.' },
-            { id: 'h7', title: 'Can HOA restrict rentals in California?', slug: 'can-hoa-restrict-rentals-in-california', description: 'California law significantly limits the ability of HOAs to prohibit rentals. While some restrictions on short-term stays may exist, associations generally cannot ban long-term leasing of properties.' },
-            { id: 'h8', title: 'What happens if you ignore HOA violation notices?', slug: 'what-happens-if-you-ignore-hoa-violation-notices', description: 'Ignoring architectural or conduct violations can lead to escalating fines and legal actions. Prompt communication and dispute resolution are essential to avoiding costly enforcement proceedings.' },
-            { id: 'h9', title: 'Can HOA tow your car from your driveway?', slug: 'can-hoa-tow-your-car-from-your-driveway', description: 'Towing authority depends on whether the driveway is considered private or community property. California law requires specific signage and notification before an association can authorize vehicle removal.' },
-            { id: 'h10', title: 'HOA dispute process explained', slug: 'hoa-dispute-process-explained', description: 'Internal Dispute Resolution (IDR) and Meet-and-Confer procedures offer non-judicial ways to settle conflicts. These steps are often required before either party can proceed to formal litigation or arbitration.' },
-
-            { id: 'h11', title: 'Can HOA fine without notice?', slug: 'can-hoa-fine-without-notice' },
-            { id: 'h12', title: 'What rights do homeowners have against HOA?', slug: 'what-rights-do-homeowners-have-against-hoa' },
+            { id: 'h7', title: 'Can HOA restrict rentals in California?', slug: 'can-hoa-restrict-rentals-in-california', description: 'California law significantly limits the ability of HOAs to prohibit rentals. While some restrictions on short-term stays may exist, associations generally cannot ban long-term leasing.' },
+            { id: 'h8', title: 'What happens if you ignore HOA violation notices?', slug: 'what-happens-if-you-ignore-hoa-violation-notices', description: 'Ignoring a violation notice can lead to escalating fines, suspension of privileges, and potential legal action. Understanding the HOA dispute process is crucial for timely resolution.' },
+            { id: 'h9', title: 'Can HOA tow your car from your driveway?', slug: 'can-hoa-tow-your-car-from-your-driveway', description: 'In California, HOAs have the authority to enforce parking rules, including towing from driveways under specific procedural requirements and notice periods.' },
+            { id: 'h10', title: 'HOA dispute process explained', slug: 'hoa-dispute-process-explained', description: 'The HOA dispute process in California involves informal communication, Internal Dispute Resolution (IDR), and potentially formal mediation before legal action.' },
+            { id: 'h11', title: 'Can HOA fine without notice?', slug: 'can-hoa-fine-without-notice', description: 'HOAs must generally provide notice and an opportunity for a hearing before levying fines. This guide explores the procedural protections afforded to homeowners.' },
+            { id: 'h12', title: 'What rights do homeowners have against HOA?', slug: 'what-rights-do-homeowners-have-against-hoa', description: 'Homeowners possess significant rights under the Davis-Stirling Act, including rights to fair elections, record inspection, and due process in enforcement.' },
             { id: 'h13', title: 'How HOA collections work', slug: 'how-hoa-collections-work' },
             { id: 'h14', title: 'What happens after HOA sends a demand letter?', slug: 'what-happens-after-hoa-sends-a-demand-letter' },
             { id: 'h15', title: 'Can HOA charge late fees?', slug: 'can-hoa-charge-late-fees' },
@@ -62,12 +61,12 @@ const GUIDE_DATA: GuideCategory[] = [
             { id: 'i2', title: 'What happens after filing a homeowners claim?', slug: 'what-happens-after-filing-a-homeowners-claim', description: 'Once a claim is submitted, the insurer initiates an investigation to assess the damage. This process involves adjuster inspections, evidence gathering, and coverage determination.' },
             { id: 'i3', title: 'How long does an insurance investigation take?', slug: 'insurance-adjuster-investigation-timeline', description: 'California law sets specific timeframes for insurers to acknowledge, investigate, and decide on claims. Most standard investigations are completed within 40 to 60 days of submission.' },
             { id: 'i4', title: 'What does an insurance adjuster do?', slug: 'what-does-an-insurance-adjuster-do', description: 'Adjusters are responsible for evaluating the cause and extent of property damage. They act as the primary liaison between the homeowner and the insurance company during the claim lifecycle.' },
-            { id: 'i5', title: 'Replacement cost vs actual cash value', slug: 'replacement-cost-vs-actual-cash-value', description: 'Replacement cost covers the full price of new items, while actual cash value factors in depreciation. Choosing the right coverage type significantly impacts your final settlement amount.' },
-            { id: 'i6', title: 'Does filing a claim raise premiums?', slug: 'does-filing-a-claim-raise-premiums' },
-            { id: 'i7', title: 'What damages are excluded from homeowners insurance?', slug: 'what-damages-are-excluded-from-homeowners-insurance' },
-            { id: 'i8', title: 'Can insurance cancel coverage after a claim?', slug: 'can-insurance-cancel-coverage-after-a-claim' },
-            { id: 'i9', title: 'What is subrogation in homeowners insurance?', slug: 'what-is-subrogation-in-homeowners-insurance' },
-            { id: 'i10', title: 'What if insurance payout is less than repair cost?', slug: 'what-if-insurance-payout-is-less-than-repair-cost' },
+            { id: 'i5', title: 'Replacement cost vs actual cash value', slug: 'replacement-cost-vs-actual-cash-value', description: 'Replacement cost covers the full price of new items, while actual cash value factors in depreciation. Choosing the right coverage impacts your final settlement.' },
+            { id: 'i6', title: 'Does filing a claim raise premiums?', slug: 'does-filing-a-claim-raise-premiums', description: 'While filing a claim can lead to premium increases, California law offers certain protections. Understanding how insurers assess risk after a loss is vital.' },
+            { id: 'i7', title: 'What damages are excluded from homeowners insurance?', slug: 'what-damages-are-excluded-from-homeowners-insurance', description: 'Standard policies often exclude earth movement, flood, and neglect. This guide clarifies common "peril" exclusions and how to fill coverage gaps.' },
+            { id: 'i8', title: 'Can insurance cancel coverage after a claim?', slug: 'can-insurance-cancel-coverage-after-a-claim', description: 'Non-renewal or cancellation after a claim is regulated in California. Learn about the notice requirements and your rights as a policyholder.' },
+            { id: 'i9', title: 'What is subrogation in homeowners insurance?', slug: 'what-is-subrogation-in-homeowners-insurance', description: 'Subrogation is the process where your insurer pursues a third party for damages they paid on your behalf. It affects your deductible and final settlement.' },
+            { id: 'i10', title: 'What if insurance payout is less than repair cost?', slug: 'what-if-insurance-payout-is-less-than-repair-cost', description: 'Discrepancies between payouts and repair costs are common. This brief explores supplemental claims, contractor estimates, and the appraisal process.' },
             { id: 'i11', title: 'Water damage vs flood damage explained', slug: 'water-damage-vs-flood-damage-explained' },
             { id: 'i12', title: 'Mold coverage explained', slug: 'mold-coverage-explained' },
             { id: 'i13', title: 'Fire damage claim process', slug: 'fire-damage-claim-process' },
@@ -91,12 +90,12 @@ const GUIDE_DATA: GuideCategory[] = [
             { id: 'e2', title: 'What happens after escrow opens?', slug: 'what-happens-after-escrow-opens', description: 'After opening, the escrow officer collects deposits, orders title reports, and coordinates between all parties. This stage initiates the formal due diligence and closing sequence.' },
             { id: 'e3', title: 'What delays escrow closing?', slug: 'what-delays-escrow-closing', description: 'Common delays include financing issues, unexpected title clouds, or unresolved repair requests. Proactive communication and timely document submission are key to staying on schedule.' },
             { id: 'e4', title: 'What does “clear to close” mean?', slug: 'what-does-clear-to-close-mean', description: 'Receiving a "clear to close" status means the lender has finalized all underwriting requirements. This is the final milestone before signing closing documents and transferring funds.' },
-            { id: 'e5', title: 'What is a preliminary title report?', slug: 'what-is-a-preliminary-title-report', description: 'This report details the property ownership history and any existing liens or encumbrances. It is a vital document for identifying potential legal hurdles before the sale is finalized.' },
-            { id: 'e6', title: 'Common title defects explained', slug: 'common-title-defects-explained' },
-            { id: 'e7', title: 'Can escrow close without repairs?', slug: 'can-escrow-close-without-repairs' },
-            { id: 'e8', title: 'What happens if escrow doesn’t close on time?', slug: 'what-happens-if-escrow-doesnt-close-on-time' },
-            { id: 'e9', title: 'Who chooses the title company?', slug: 'who-chooses-the-title-company' },
-            { id: 'e10', title: 'What happens if buyer backs out during escrow?', slug: 'what-happens-if-buyer-backs-out-during-escrow' },
+            { id: 'e5', title: 'What is a preliminary title report?', slug: 'what-is-a-preliminary-title-report', description: 'This report details property ownership history and any existing liens. It is vital for identifying potential legal hurdles before the sale is finalized.' },
+            { id: 'e6', title: 'Common title defects explained', slug: 'common-title-defects-explained', description: 'From forged documents to undisclosed heirs, title defects can derail a closing. Learn how title insurance protects your ownership rights.' },
+            { id: 'e7', title: 'Can escrow close without repairs?', slug: 'can-escrow-close-without-repairs', description: 'Closing "as-is" or with repair credits is a common negotiation. This guide explores the legal and financial implications of deferred maintenance.' },
+            { id: 'e8', title: 'What happens if escrow doesn’t close on time?', slug: 'what-happens-if-escrow-doesnt-close-on-time', description: 'Missed closing dates can lead to per-diem fees or contract cancellation. Understanding "time of the essence" clauses is critical for both parties.' },
+            { id: 'e9', title: 'Who chooses the title company?', slug: 'who-chooses-the-title-company', description: 'While negotiable, local customs often dictate who pays for and selects the title insurer. Learn about the RESPA regulations governing this choice.' },
+            { id: 'e10', title: 'What happens if buyer backs out during escrow?', slug: 'what-happens-if-buyer-backs-out-during-escrow', description: 'Buyer cancellation triggers discussions about earnest money deposits and liquidated damages. This brief outlines the contingency removal process.' },
             { id: 'e11', title: 'What is a final walkthrough?', slug: 'what-is-a-final-walkthrough' },
             { id: 'e12', title: 'Can seller cancel escrow?', slug: 'can-seller-cancel-escrow' },
             { id: 'e13', title: 'What happens if appraisal comes in low?', slug: 'what-happens-if-appraisal-comes-in-low' },
@@ -116,11 +115,11 @@ const GUIDE_DATA: GuideCategory[] = [
         icon: 'fa-receipt',
         count: '15 pages',
         items: [
-            { id: 't1', title: 'What happens if property taxes go unpaid?', slug: 'what-happens-if-property-taxes-go-unpaid' },
-            { id: 't2', title: 'How long before a tax lien is placed?', slug: 'how-long-before-a-tax-lien-is-placed' },
-            { id: 't3', title: 'What is a supplemental tax bill in California?', slug: 'supplemental-tax-bill-california' },
-            { id: 't4', title: 'Why did my property taxes increase suddenly?', slug: 'why-did-my-property-taxes-increase-suddenly' },
-            { id: 't5', title: 'What triggers reassessment?', slug: 'what-triggers-reassessment' },
+            { id: 't1', title: 'What happens if property taxes go unpaid?', slug: 'what-happens-if-property-taxes-go-unpaid', description: 'Unpaid property taxes can lead to significant penalties, tax liens, and eventually, a tax sale. Understanding the five-year redemption period is key.' },
+            { id: 't2', title: 'How long before a tax lien is placed?', slug: 'how-long-before-a-tax-lien-is-placed', description: 'In California, property taxes become delinquent after April 10. This guide explains the timeline from initial delinquency to formal lien recording.' },
+            { id: 't3', title: 'What is a supplemental tax bill in California?', slug: 'supplemental-tax-bill-california', description: 'A supplemental tax bill captures the difference in property value after a change in ownership. It is a one-time adjustment separate from annual bills.' },
+            { id: 't4', title: 'Why did my property taxes increase suddenly?', slug: 'why-did-my-property-taxes-increase-suddenly', description: 'Sudden increases often result from reassessments, special assessments (Mello-Roos), or the expiration of exemptions like the homeowners exemption.' },
+            { id: 't5', title: 'What triggers reassessment?', slug: 'what-triggers-reassessment', description: 'New construction or changes in ownership are the primary triggers for reassessment under Proposition 13. Learn about the few common exceptions.' },
             { id: 't6', title: 'What happens after filing a tax appeal?', slug: 'what-happens-after-filing-a-tax-appeal' },
             { id: 't7', title: 'Can property taxes be deferred?', slug: 'can-property-taxes-be-deferred' },
             { id: 't8', title: 'What is a tax-defaulted property?', slug: 'what-is-a-tax-defaulted-property' },
@@ -140,11 +139,11 @@ const GUIDE_DATA: GuideCategory[] = [
         icon: 'fa-screwdriver-wrench',
         count: '15 pages',
         items: [
-            { id: 'm1', title: 'Who pays for fence repairs between neighbors?', slug: 'who-pays-for-fence-repairs' },
-            { id: 'm2', title: 'Who is responsible for sidewalk injuries?', slug: 'homeowner-liability-sidewalk-injuries' },
-            { id: 'm3', title: 'Does homeowners insurance cover water leaks?', slug: 'does-homeowners-insurance-cover-water-leaks' },
-            { id: 'm4', title: 'Who pays for sewer line repairs?', slug: 'who-pays-for-sewer-line-repairs' },
-            { id: 'm5', title: 'What happens if unpermitted work is discovered?', slug: 'what-happens-if-unpermitted-work-is-discovered' },
+            { id: 'm1', title: 'Who pays for fence repairs between neighbors?', slug: 'who-pays-for-fence-repairs', description: 'California’s Good Neighbor Fence Act generally requires adjoining owners to share responsibility for maintaining boundaries. Learn how it affects your costs.' },
+            { id: 'm2', title: 'Who is responsible for sidewalk injuries?', slug: 'homeowner-liability-sidewalk-injuries', description: 'Liability for sidewalk injuries depends on local ordinances and whether the damage was caused by private trees or public infrastructure.' },
+            { id: 'm3', title: 'Does homeowners insurance cover water leaks?', slug: 'does-homeowners-insurance-cover-water-leaks', description: 'Sudden and accidental leaks are typically covered, while gradual seepage is often excluded. Understanding the "ensuing loss" clause is essential.' },
+            { id: 'm4', title: 'Who pays for sewer line repairs?', slug: 'who-pays-for-sewer-line-repairs', description: 'Homeowners are typically responsible for the lateral line from the house to the public main. This guide explores insurance riders and city responsibility.' },
+            { id: 'm5', title: 'What happens if unpermitted work is discovered?', slug: 'what-happens-if-unpermitted-work-is-discovered', description: 'Unpermitted work can lead to retroactive permits, fines, or required demolition. It is a critical disclosure item during a California home sale.' },
             { id: 'm6', title: 'Who is liable for tree damage?', slug: 'who-is-liable-for-tree-damage' },
             { id: 'm7', title: 'Shared driveway maintenance rules', slug: 'shared-driveway-maintenance-rules' },
             { id: 'm8', title: 'What is normal wear and tear?', slug: 'what-is-normal-wear-and-tear' },
@@ -182,9 +181,9 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
         // Update URL
         const newPath = `/${category.topicSlug}/${guide.slug}`;
         if (onNavigate) {
-            onNavigate('guides', newPath);
+            onNavigate('knowledge_center', newPath);
         } else if (window.location.pathname !== newPath) {
-            window.history.pushState({ mode: 'guides' }, '', newPath);
+            window.history.pushState({ mode: 'knowledge_center' }, '', newPath);
         }
 
         try {
@@ -288,9 +287,9 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
         if (category) {
             const newPath = `/${category.topicSlug}`;
             if (onNavigate) {
-                onNavigate('guides', newPath);
+                onNavigate('knowledge_center', newPath);
             } else if (window.location.pathname !== newPath) {
-                window.history.pushState({ mode: 'guides' }, '', newPath);
+                window.history.pushState({ mode: 'knowledge_center' }, '', newPath);
             }
         }
     };
@@ -301,9 +300,9 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
         const newPath = category ? `/${category.topicSlug}` : '/guides';
 
         if (onNavigate) {
-            onNavigate('guides', newPath);
+            onNavigate('knowledge_center', newPath);
         } else if (window.location.pathname !== newPath) {
-            window.history.pushState({ mode: 'guides' }, '', newPath);
+            window.history.pushState({ mode: 'knowledge_center' }, '', newPath);
         }
     };
 
@@ -728,12 +727,6 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
         <div className="flex flex-col-reverse lg:flex-row h-full bg-[#F8FAFC] animate-in fade-in duration-500">
             {/* Sidebar / Bottom Nav */}
             <div className="w-full lg:w-80 h-auto lg:h-full border-t lg:border-t-0 lg:border-r border-slate-200 bg-white flex flex-row lg:flex-col shadow-lg lg:shadow-sm z-20 shrink-0">
-                <div className="hidden lg:block p-6 border-b border-slate-100 bg-slate-50/50">
-                    <h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800">
-                        Knowledge Center
-                    </h2>
-                </div>
-
                 <div className="flex-1 w-full overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto flex flex-row lg:flex-col p-2 lg:p-0 gap-2 lg:gap-1 no-scrollbar">
                     {GUIDE_DATA.map((category) => (
                         <button
@@ -791,9 +784,20 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                         <h3 className="text-base font-black text-slate-900 mb-2 leading-snug group-hover:text-indigo-600 transition-colors duration-300 truncate">
                                             {item.title}
                                         </h3>
-                                        <p className="text-sm text-slate-500 font-medium leading-relaxed line-clamp-2 selection:bg-indigo-100">
-                                            {item.description || "Detailed professional educational guide covering the legal and regulatory framework in California. This content provides neutral, factual information to help homeowners navigate common property operations."}
+                                        <p className="text-sm text-slate-500 font-medium leading-relaxed line-clamp-2 selection:bg-indigo-100 mb-3">
+                                            {item.description || `Professional analysis of ${item.title.toLowerCase()} within the California regulatory framework, exploring common requirements and typical timelines for property owners.`}
                                         </p>
+                                        <div className="flex items-center gap-2 text-indigo-600 font-black text-[10px] uppercase tracking-widest transition-all transform group-hover:translate-x-1">
+                                            <span className="bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-lg group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-600 transition-all">
+                                                Read Professional Brief
+                                            </span>
+                                            <i className="fa-solid fa-arrow-right text-[8px] opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                                        </div>
+                                    </div>
+
+                                    {/* Link Icon Indicator */}
+                                    <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-indigo-50 text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-all self-start border border-indigo-100/50">
+                                        <i className="fa-solid fa-chevron-right text-[10px]"></i>
                                     </div>
                                 </button>
                             ))}

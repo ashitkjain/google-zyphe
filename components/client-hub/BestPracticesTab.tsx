@@ -86,7 +86,7 @@ const BestPracticesTab: React.FC = () => {
         <div className="flex flex-col h-full bg-slate-50">
             {/* Mobile Header */}
             <div className="lg:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between sticky top-0 z-20 shadow-sm">
-                <span className="font-bold text-slate-800">Best Practices Guide</span>
+                <span className="font-bold text-slate-800">Best Practices</span>
                 <button
                     onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                     className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"

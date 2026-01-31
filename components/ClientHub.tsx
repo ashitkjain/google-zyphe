@@ -20,6 +20,7 @@ import { getDeviceType } from '../utils/deviceDetection';
 import WhiteboardTab from './client-hub/WhiteboardTab';
 import ClosingDashboard from './client-hub/ClosingDashboard';
 import BestPracticesTab from './client-hub/BestPracticesTab';
+import KnowledgeCenterTab from './client-hub/KnowledgeCenterTab';
 import GuidesTab from './client-hub/GuidesTab';
 import ReactivateTab from './client-hub/ReactivateTab';
 import CreativeStudioWidget from './client-hub/reactivate/components/CreativeStudioWidget';
@@ -44,7 +45,7 @@ const generateClientID = () => {
     return 'C-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 };
 
-type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'clients' | 'creative_studio' | 'guides' | 'profile' | 'bulk_prefetch' | 'city_data' | 'storage_registry' | 'lead_ingestion';
+type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'knowledge_center' | 'clients' | 'creative_studio' | 'profile' | 'bulk_prefetch' | 'city_data' | 'storage_registry' | 'lead_ingestion';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab, onNavigate, onUpdateProfile }) => {
     // Default to 'explore' if content is provided, otherwise 'leads'
@@ -487,6 +488,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         { id: 'explore', label: 'Explore', icon: 'fa-globe' },
         { id: 'leads', label: 'Funnel', icon: 'fa-bullseye' },
         { id: 'closing', label: 'Closing', icon: 'fa-file-invoice-dollar' },
+        { id: 'knowledge_center', label: 'Knowledge', icon: 'fa-book-bookmark' },
         { id: 'reactivate', label: 'Reactivate', icon: 'fa-bolt' },
         { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
     ];
@@ -497,7 +499,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
         { id: 'creative_studio', label: 'Creative Studio', icon: 'fa-paintbrush' },
         { id: 'settings', label: 'Data Fields', icon: 'fa-sliders' },
-        { id: 'best_practices', label: 'Best Practices', icon: 'fa-book-open' },
     ];
 
     const adminTabs: { id: HubTab; label: string; icon: string }[] = [
@@ -632,20 +633,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                 </div>
                             )}
                         </div>
-                        {/* Guides Tab */}
-                        <button
-                            onClick={() => {
-                                setActiveTab('guides');
-                                if (onNavigate) onNavigate('guides', '');
-                            }}
-                            className={`relative h-full flex items-center gap-3 px-4 text-[10px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${activeTab === 'guides' ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
-                        >
-                            <i className={`fa-solid fa-book transition-transform group-hover:scale-110 ${activeTab === 'guides' ? 'text-indigo-500' : 'text-slate-500'}`}></i>
-                            Guides
-                            {activeTab === 'guides' && (
-                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500 animate-in slide-in-from-bottom border-t border-indigo-400/50"></div>
-                            )}
-                        </button>
                     </nav>
                 </div>
 
@@ -771,7 +758,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                 <div className="fixed inset-0 z-[105] bg-slate-900 pt-[72px] animate-in slide-in-from-top duration-300">
                     <div className="flex flex-col p-4 space-y-1.5 max-h-screen overflow-y-auto pb-24">
                         {/* Main Navigation Sections */}
-                        {[...mainTabs, { id: 'guides', label: 'Guides', icon: 'fa-book' }].map((tab: any) => (
+                        {mainTabs.map((tab: any) => (
                             <button
                                 key={tab.id}
                                 onClick={() => {
@@ -1147,12 +1134,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                             </div>
                         )}
 
-                        {activeTab === 'best_practices' && (
-                            <BestPracticesTab />
-                        )}
-
-                        {activeTab === 'guides' && (
-                            <GuidesTab onNavigate={onNavigate} />
+                        {activeTab === 'knowledge_center' && (
+                            <KnowledgeCenterTab onNavigate={onNavigate} />
                         )}
 
                         {activeTab === 'lead_ingestion' && (

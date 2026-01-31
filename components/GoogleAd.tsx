@@ -11,10 +11,16 @@ interface GoogleAdProps {
 
 const GoogleAd: React.FC<GoogleAdProps> = ({ slotId, format = 'auto', layout, style, className, label }) => {
     useEffect(() => {
+        // Placeholder for development
+        if (isDev) return;
+
         try {
-            // This casts window to any to avoid TS errors with adsbygoogle
-            (window as any).adsbygoogle = (window as any).adsbygoogle || [];
-            (window as any).adsbygoogle.push({});
+            // Check if there's an available 'ins' tag that doesn't have an ad yet
+            const ads = document.querySelectorAll('ins.adsbygoogle:not([data-ad-status="filled"])');
+            if (ads.length > 0) {
+                (window as any).adsbygoogle = (window as any).adsbygoogle || [];
+                (window as any).adsbygoogle.push({});
+            }
         } catch (e) {
             console.error('AdSense error:', e);
         }
