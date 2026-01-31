@@ -447,7 +447,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
 
                                                 <div className="relative">
                                                     {/* Desktop Serpentine Timeline */}
-                                                    <div className="hidden lg:block relative">
+                                                    <div className="hidden md:block relative">
                                                         <div className="flex flex-wrap items-start justify-center gap-y-12 text-slate-800">
                                                             {guideContent.timelines.events.map((item, i) => {
                                                                 const timeframe = typeof item === 'string' ? "Timeline" : item.timeframe;
@@ -512,7 +512,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                                     </div>
 
                                                     {/* Mobile/Vertical View (Kept for better UX on small screens) */}
-                                                    <div className="lg:hidden relative pl-8 border-l-[6px] border-indigo-50 space-y-12 ml-4">
+                                                    <div className="md:hidden relative pl-8 border-l-[6px] border-indigo-50 space-y-12 ml-4">
                                                         {guideContent.timelines.events.map((item, i) => {
                                                             const timeframe = typeof item === 'string' ? "Timeline" : item.timeframe;
                                                             const event = typeof item === 'string' ? item.split(':')[0] || "Stage" : item.event;
