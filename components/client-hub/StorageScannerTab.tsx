@@ -20,7 +20,11 @@ interface StorageProperty {
     error?: string;
 }
 
-const StorageScannerTab: React.FC = () => {
+interface Props {
+    onNavigate?: (view: any, path: string) => void;
+}
+
+const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
     const [properties, setProperties] = useState<StorageProperty[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -75,7 +79,7 @@ const StorageScannerTab: React.FC = () => {
         setSelectedIds(prev => {
             const next = new Set(prev);
             if (next.has(zpid)) next.delete(zpid);
-            else if (next.size < 5) next.add(zpid);
+            else next.add(zpid);
             return next;
         });
     };
@@ -119,6 +123,7 @@ const StorageScannerTab: React.FC = () => {
                     if (freshData?.address) {
                         currentAddress = freshData.address;
                         addLog(`[${item.zpid}] Resolved: ${currentAddress}`);
+                        setProperties(prev => prev.map(p => p.zpid === item.zpid ? { ...p, address: freshData.address } : p));
                     }
                 }
 
@@ -176,7 +181,7 @@ const StorageScannerTab: React.FC = () => {
                     className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-xl shadow-indigo-100 transition-all flex items-center gap-3 disabled:opacity-50 disabled:grayscale"
                 >
                     {processing ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-bolt-lightning"></i>}
-                    Run Pipeline ({selectedIds.size}/5)
+                    Run Pipeline ({selectedIds.size})
                 </button>
             </div>
 
@@ -285,8 +290,26 @@ const StorageScannerTab: React.FC = () => {
                             <table className="w-full text-left">
                                 <thead className="bg-slate-50 border-b border-slate-100">
                                     <tr>
-                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Select</th>
-                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">ZPID / Address</th>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => setSelectedIds(new Set(properties.map(p => p.zpid)))}
+                                                    className="hover:text-indigo-600 transition-colors"
+                                                    title="Select All"
+                                                >
+                                                    All
+                                                </button>
+                                                <span className="text-slate-300">/</span>
+                                                <button
+                                                    onClick={() => setSelectedIds(new Set())}
+                                                    className="hover:text-indigo-600 transition-colors"
+                                                    title="Deselect All"
+                                                >
+                                                    None
+                                                </button>
+                                            </div>
+                                        </th>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Property Address</th>
                                         <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
                                     </tr>
                                 </thead>
@@ -315,8 +338,19 @@ const StorageScannerTab: React.FC = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-8 py-6">
-                                                    <div className="font-bold text-slate-900">{prop.zpid}</div>
-                                                    <div className="text-xs text-slate-500 font-medium">{prop.address}</div>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation(); // Prevent row selection
+                                                            if (prop.address && onNavigate) onNavigate('explore', prop.address);
+                                                        }}
+                                                        disabled={!prop.address || prop.address === 'Unknown Address'}
+                                                        className="text-left font-bold text-slate-900 hover:text-indigo-600 transition-colors flex items-center gap-2 group/link disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        {prop.address || 'Unknown Address'}
+                                                        {prop.address && prop.address !== 'Unknown Address' && (
+                                                            <i className="fa-solid fa-arrow-up-right-from-square text-[10px] opacity-0 group-hover/link:opacity-100 transition-all text-indigo-400"></i>
+                                                        )}
+                                                    </button>
                                                 </td>
                                                 <td className="px-8 py-6">
                                                     {prop.existsInFirestore ? (

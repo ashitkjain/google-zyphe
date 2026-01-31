@@ -1163,7 +1163,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         )}
 
                         {activeTab === 'storage_registry' && (
-                            <StorageScannerTab />
+                            <StorageScannerTab onNavigate={onNavigate} />
                         )}
 
                     </div>
