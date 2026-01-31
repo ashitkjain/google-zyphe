@@ -484,13 +484,16 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         console.log("Skipping modal open for new lead");
     };
 
-    const mainTabs: { id: HubTab; label: string; icon: string }[] = [
+    const earlyTabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'explore', label: 'Explore', icon: 'fa-globe' },
         { id: 'leads', label: 'Funnel', icon: 'fa-bullseye' },
         { id: 'closing', label: 'Closing', icon: 'fa-file-invoice-dollar' },
-        { id: 'knowledge_center', label: 'Knowledge', icon: 'fa-book-bookmark' },
         { id: 'reactivate', label: 'Reactivate', icon: 'fa-bolt' },
         { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
+    ];
+
+    const lateTabs: { id: HubTab; label: string; icon: string }[] = [
+        { id: 'knowledge_center', label: 'Knowledge', icon: 'fa-book-bookmark' },
     ];
 
     const toolTabs: { id: HubTab; label: string; icon: string }[] = [
@@ -525,7 +528,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                     </button>
 
                     <nav className={`${showHamburger ? 'hidden' : 'flex'} items-center h-[72px]`}>
-                        {mainTabs.map((tab) => (
+                        {earlyTabs.map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => {
@@ -633,6 +636,23 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                 </div>
                             )}
                         </div>
+
+                        {lateTabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => {
+                                    setActiveTab(tab.id);
+                                    if (onNavigate) onNavigate(tab.id as any, '');
+                                }}
+                                className={`relative h-full flex items-center gap-3 px-4 text-[10px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${activeTab === tab.id ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                            >
+                                <i className={`fa-solid ${tab.icon} transition-transform group-hover:scale-110 ${activeTab === tab.id ? 'text-indigo-500' : 'text-slate-500'}`}></i>
+                                {tab.label}
+                                {activeTab === tab.id && (
+                                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500 animate-in slide-in-from-bottom border-t border-indigo-400/50"></div>
+                                )}
+                            </button>
+                        ))}
                     </nav>
                 </div>
 
@@ -758,7 +778,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                 <div className="fixed inset-0 z-[105] bg-slate-900 pt-[72px] animate-in slide-in-from-top duration-300">
                     <div className="flex flex-col p-4 space-y-1.5 max-h-screen overflow-y-auto pb-24">
                         {/* Main Navigation Sections */}
-                        {mainTabs.map((tab: any) => (
+                        {earlyTabs.map((tab: any) => (
                             <button
                                 key={tab.id}
                                 onClick={() => {
@@ -766,9 +786,25 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                     setIsMobileMenuOpen(false);
                                     if (onNavigate) onNavigate(tab.id as any, '');
                                 }}
-                                className={`flex items-center gap-4 w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-xl' : 'bg-slate-800/50 text-slate-400 hover:text-white border border-white/5'}`}
+                                className={`flex items-center gap-4 w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === tab.id ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-white bg-slate-800/50 border border-white/5'}`}
                             >
-                                <i className={`fa-solid ${tab.icon} w-5 text-center ${activeTab === tab.id ? 'text-white' : 'text-slate-500'} text-xs`}></i>
+                                <i className={`fa-solid ${tab.icon} w-5 text-center text-xs`}></i>
+                                {tab.label}
+                            </button>
+                        ))}
+
+                        {/* Late Tabs (Knowledge) */}
+                        {lateTabs.map((tab: any) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => {
+                                    setActiveTab(tab.id as HubTab);
+                                    setIsMobileMenuOpen(false);
+                                    if (onNavigate) onNavigate(tab.id as any, '');
+                                }}
+                                className={`flex items-center gap-4 w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === tab.id ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-white bg-slate-800/50 border border-white/5'}`}
+                            >
+                                <i className={`fa-solid ${tab.icon} w-5 text-center text-xs`}></i>
                                 {tab.label}
                             </button>
                         ))}
