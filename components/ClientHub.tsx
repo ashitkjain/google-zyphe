@@ -499,9 +499,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     ];
 
     const adminTabs: { id: HubTab; label: string; icon: string }[] = [
-        { id: 'city_data', label: 'City Data', icon: 'fa-city' },
-        { id: 'bulk_prefetch', label: 'Bulk Ingestion', icon: 'fa-layer-group' },
-        { id: 'storage_registry', label: 'Storage Registry', icon: 'fa-server' },
+        { id: 'storage_registry', label: 'Bulk Prefetch', icon: 'fa-server' },
     ];
 
 

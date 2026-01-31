@@ -172,7 +172,7 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
         <div className="max-w-6xl mx-auto py-12 px-6 animate-in fade-in duration-700">
             <div className="flex justify-between items-end mb-10">
                 <div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-3">Storage Registry</h1>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-3">Bulk Prefetch</h1>
                     <p className="text-slate-500 font-medium">Scan local asset storage and re-trigger intelligence pipelines for existing ZPIDs.</p>
                 </div>
                 <button
