@@ -11,60 +11,69 @@ interface EmailStrategy {
 
 const STRATEGIES: EmailStrategy[] = [
     {
-        id: 'market_update',
-        title: 'Market Pulse Update',
-        description: 'Position yourself as an expert with latest neighborhood stats.',
-        subject: 'Real Estate Update for {{location}}',
+        id: 'nine_word',
+        title: 'The "9-Word" Strategy',
+        description: 'Best for: The highest response rate on very old leads.',
+        subject: '{{Lead Name}}?',
         bodyTemplate: (lead, agentName) => `Hi ${lead.firstName || 'there'},
 
-I was reviewing market activity in ${lead.searchCriteria?.locations?.split(',')[0] || 'your area'} and noticed some interesting trends that might impact your plans.
+Are you still looking for a home in ${lead.searchCriteria?.locations?.split(',')[0] || 'this area'}?
 
-Home values have shifted slightly this month. Are you still thinking about making a move in 2026?
+— ${agentName}`
+    },
+    {
+        id: 'pattern_interrupt',
+        title: 'The Pattern Interrupt',
+        description: 'Best for: Breaking the "salesperson" image.',
+        subject: 'thinking of you',
+        bodyTemplate: (lead, agentName) => `Hi ${lead.firstName || 'there'},
+
+I just saw a listing in ${lead.searchCriteria?.locations?.split(',')[0] || 'your target neighborhood'} and it immediately reminded me of our conversation.
+
+Are you still in the market, or did you find something already?
 
 Best,
 ${agentName}`
     },
     {
-        id: 'just_sold',
-        title: 'Just Sold in Your Area',
-        description: 'Showcase success to reignite interest.',
-        subject: 'Just sold nearby!',
+        id: 'value_over_pitch',
+        title: 'The Value-Over-Pitch',
+        description: 'Best for: Offering specific data without asking for a commitment.',
+        subject: '{{location}} market report',
         bodyTemplate: (lead, agentName) => `Hi ${lead.firstName || 'there'},
 
-A property just sold near ${lead.searchCriteria?.locations?.split(',')[0] || 'you'} for a great price. Inventory is moving fast.
+Most people think prices in ${lead.searchCriteria?.locations?.split(',')[0] || 'the city'} are still rising, but the latest data actually shows a slight dip this month.
 
-If you've been on the fence, now might be the right time to revisit your search.
+I thought you might want to see the new numbers since we last talked. Should I send the PDF over?
+
+— ${agentName}`
+    },
+    {
+        id: 'low_pressure',
+        title: 'The Low-Pressure Follow-up',
+        description: 'Best for: Acknowledging the silence without making the lead feel guilty.',
+        subject: 'checking in / no pressure',
+        bodyTemplate: (lead, agentName) => `Hi ${lead.firstName || 'there'},
+
+I know life gets incredibly busy, so I wanted to reach out one last time to see if I can still be a resource for your home search.
+
+If you've moved in a different direction, just let me know and I'll take you off my list!
 
 Cheers,
 ${agentName}`
     },
     {
-        id: 'vip_buyer',
-        title: 'VIP Off-Market Opportunity',
-        description: 'Create exclusivity and urgency.',
-        subject: 'Off-market opportunity?',
+        id: 'off_market',
+        title: 'The "Off-Market" Hook',
+        description: 'Best for: High-intent buyers who are frustrated by low inventory.',
+        subject: 'off-market in {{location}}?',
         bodyTemplate: (lead, agentName) => `Hi ${lead.firstName || 'there'},
 
-I have access to a property coming up in ${lead.searchCriteria?.locations?.split(',')[0] || 'your target area'} that isn't on the MLS yet.
+I have a couple of "coming soon" properties in ${lead.searchCriteria?.locations?.split(',')[0] || 'your area'} that aren't on Zillow or the MLS yet.
 
-Wanted to give you a heads up before it goes public. Interested in taking a look?
+Would you like the addresses, or are you no longer looking in that area?
 
-Best,
-${agentName}`
-    },
-    {
-        id: 'check_in',
-        title: 'Simple Check-in',
-        description: 'Low pressure friendly follow-up.',
-        subject: 'Thinking of you',
-        bodyTemplate: (lead, agentName) => `Hi ${lead.firstName || 'there'},
-
-It's been a while! Just wanted to check in and see how things are going with your home search.
-
-Still looking, or have you put things on pause?
-
-Best,
-${agentName}`
+— ${agentName}`
     }
 ];
 
@@ -81,7 +90,11 @@ const EmailStrategyModal: React.FC<EmailStrategyModalProps> = ({ lead, agentName
 
     const selectedStrategy = STRATEGIES.find(s => s.id === selectedStrategyId) || STRATEGIES[0];
     const emailContent = selectedStrategy.bodyTemplate(lead, agentName);
-    const emailSubject = selectedStrategy.subject.replace('{{location}}', lead.searchCriteria?.locations?.split(',')[0] || 'your area');
+
+    // Process subject line replacements
+    let emailSubject = selectedStrategy.subject;
+    emailSubject = emailSubject.replace('{{location}}', lead.searchCriteria?.locations?.split(',')[0] || 'your area');
+    emailSubject = emailSubject.replace('{{Lead Name}}', lead.firstName || 'there');
 
     const handleSend = () => {
         setIsSending(true);
@@ -120,8 +133,8 @@ const EmailStrategyModal: React.FC<EmailStrategyModalProps> = ({ lead, agentName
                                 key={strategy.id}
                                 onClick={() => setSelectedStrategyId(strategy.id)}
                                 className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-300 group ${selectedStrategyId === strategy.id
-                                        ? 'bg-white border-indigo-600 shadow-lg shadow-indigo-100 scale-[1.02]'
-                                        : 'bg-white border-transparent hover:border-slate-200 hover:shadow-md'
+                                    ? 'bg-white border-indigo-600 shadow-lg shadow-indigo-100 scale-[1.02]'
+                                    : 'bg-white border-transparent hover:border-slate-200 hover:shadow-md'
                                     }`}
                             >
                                 <div className="flex items-center justify-between mb-2">
