@@ -18,7 +18,10 @@ import { logLLMCall, updateLLMCall } from "./firebase/llm_logs";
 import { optimizePropertyForAi } from "../utils/aiOptimization";
 
 // Use config for model selection
-export const GEMINI_MODEL = APP_CONFIG.models.default;
+export const FLASH_MODEL = APP_CONFIG.models.flash;
+export const FLASH_LITE_MODEL = APP_CONFIG.models.flashLite;
+export const GEMINI_MODEL = FLASH_LITE_MODEL; // Legacy fallback
+export const CHAT_MODEL = FLASH_LITE_MODEL;
 
 const groundingTool = { googleSearch: {} };
 
@@ -144,6 +147,8 @@ const MODEL_PRICING: Record<string, { input: number, output: number }> = {
   'gemini-1.5-pro': { input: 1.25 / 1000000, output: 5.00 / 1000000 },
   'gemini-2.0-flash': { input: 0.10 / 1000000, output: 0.40 / 1000000 },
   'gemini-2.0-flash-lite': { input: 0.075 / 1000000, output: 0.30 / 1000000 },
+  'gemini-2.5-flash': { input: 0.10 / 1000000, output: 0.40 / 1000000 },
+  'gemini-2.5-flash-lite': { input: 0.075 / 1000000, output: 0.30 / 1000000 },
   'gemini-2.0-pro-exp': { input: 1.25 / 1000000, output: 5.00 / 1000000 },
 };
 
@@ -200,7 +205,7 @@ export const analyzeProperty = async (property: PropertyData, userId: string = "
       user_id: userId,
       zpid: property.zpid,
       prompt_filename: "propertyAnalysis.ts",
-      llm_name: GEMINI_MODEL,
+      llm_name: FLASH_LITE_MODEL,
       raw_payload: prompt,
       raw_response: null,
       status: 'pending',
@@ -209,7 +214,7 @@ export const analyzeProperty = async (property: PropertyData, userId: string = "
 
     const ai = getAi();
     const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
+      model: FLASH_LITE_MODEL,
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -218,7 +223,7 @@ export const analyzeProperty = async (property: PropertyData, userId: string = "
     });
 
     const responseText = response.text;
-    const usage = calculateUsage(response, GEMINI_MODEL);
+    const usage = calculateUsage(response, FLASH_LITE_MODEL);
 
     if (logId) {
       updateLLMCall(logId, {
@@ -266,7 +271,7 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
       user_id: userId,
       zpid: property.zpid,
       prompt_filename: "neighborhoodAnalysis.ts",
-      llm_name: GEMINI_MODEL,
+      llm_name: FLASH_MODEL,
       raw_payload: sanitizedPrompt,
       raw_response: null,
       status: 'pending',
@@ -275,7 +280,7 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
 
     const ai = getAi();
     const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
+      model: FLASH_MODEL,
       contents: {
         parts: [
           { text: prompt },
@@ -289,7 +294,7 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
     });
 
     const responseText = response.text;
-    const usage = calculateUsage(response, GEMINI_MODEL);
+    const usage = calculateUsage(response, FLASH_MODEL);
 
     if (logId) {
       updateLLMCall(logId, {
@@ -331,7 +336,7 @@ export const analyzeCommunityPulse = async (property: PropertyData, userId: stri
       user_id: userId,
       zpid: property.zpid,
       prompt_filename: "communityPulse.ts",
-      llm_name: GEMINI_MODEL,
+      llm_name: FLASH_MODEL,
       raw_payload: prompt,
       raw_response: null,
       status: 'pending',
@@ -340,7 +345,7 @@ export const analyzeCommunityPulse = async (property: PropertyData, userId: stri
 
     const ai = getAi();
     const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
+      model: FLASH_MODEL,
       contents: prompt,
       config: {
         tools: [groundingTool],
@@ -349,7 +354,7 @@ export const analyzeCommunityPulse = async (property: PropertyData, userId: stri
     });
 
     const responseText = response.text;
-    const usage = calculateUsage(response, GEMINI_MODEL);
+    const usage = calculateUsage(response, FLASH_MODEL);
 
     if (logId) {
       updateLLMCall(logId, {
@@ -409,7 +414,7 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
       user_id: userId,
       zpid: property.zpid,
       prompt_filename: "propertyImages.ts",
-      llm_name: GEMINI_MODEL,
+      llm_name: FLASH_LITE_MODEL,
       raw_payload: requestPayload,
       raw_response: null,
       status: 'pending',
@@ -417,7 +422,7 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
     });
 
     const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
+      model: FLASH_LITE_MODEL,
       contents: { parts: [{ text: textInstruction }, ...imageParts] },
       config: {
         responseMimeType: "application/json",
@@ -426,7 +431,7 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
     });
 
     const responseText = response.text;
-    const usage = calculateUsage(response, GEMINI_MODEL);
+    const usage = calculateUsage(response, FLASH_LITE_MODEL);
 
     if (logId) {
       updateLLMCall(logId, {
@@ -473,7 +478,7 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
       user_id: userId,
       zpid: property.zpid,
       prompt_filename: "comprehensiveAnalysis.ts",
-      llm_name: GEMINI_MODEL,
+      llm_name: FLASH_LITE_MODEL,
       raw_payload: prompt,
       raw_response: null,
       status: 'pending',
@@ -482,7 +487,7 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
 
     const ai = getAi();
     const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
+      model: FLASH_LITE_MODEL,
       contents: prompt,
       config: {
         temperature: 0.7,
@@ -491,7 +496,7 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
       }
     });
     const responseText = response.text;
-    const usage = calculateUsage(response, GEMINI_MODEL);
+    const usage = calculateUsage(response, FLASH_LITE_MODEL);
 
     if (logId) {
       updateLLMCall(logId, {
@@ -533,7 +538,7 @@ export const analyzeInvestmentResearch = async (property: PropertyData, userId: 
       user_id: userId,
       zpid: property.zpid,
       prompt_filename: "investmentResearch.ts",
-      llm_name: GEMINI_MODEL,
+      llm_name: FLASH_LITE_MODEL,
       raw_payload: prompt,
       raw_response: null,
       status: 'pending',
@@ -542,7 +547,7 @@ export const analyzeInvestmentResearch = async (property: PropertyData, userId: 
 
     const ai = getAi();
     const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
+      model: FLASH_LITE_MODEL,
       contents: prompt,
       config: {
         tools: [groundingTool],
@@ -551,7 +556,7 @@ export const analyzeInvestmentResearch = async (property: PropertyData, userId: 
     });
 
     const responseText = response.text;
-    const usage = calculateUsage(response, GEMINI_MODEL);
+    const usage = calculateUsage(response, FLASH_LITE_MODEL);
 
     if (logId) {
       updateLLMCall(logId, {
@@ -593,7 +598,7 @@ export const analyzeGeneralMarketIntelligence = async (property: PropertyData, u
       user_id: userId,
       zpid: property.zpid,
       prompt_filename: "generalMarketIntelligence.ts",
-      llm_name: GEMINI_MODEL,
+      llm_name: FLASH_MODEL,
       raw_payload: prompt,
       raw_response: null,
       status: 'pending',
@@ -602,7 +607,7 @@ export const analyzeGeneralMarketIntelligence = async (property: PropertyData, u
 
     const ai = getAi();
     const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
+      model: FLASH_MODEL,
       contents: prompt,
       config: {
         tools: [groundingTool],
@@ -611,7 +616,7 @@ export const analyzeGeneralMarketIntelligence = async (property: PropertyData, u
     });
 
     const responseText = response.text;
-    const usage = calculateUsage(response, GEMINI_MODEL);
+    const usage = calculateUsage(response, FLASH_MODEL);
 
     if (logId) {
       updateLLMCall(logId, {
@@ -653,7 +658,7 @@ export const analyzeBiddingStrategy = async (property: PropertyData, userId: str
       user_id: userId,
       zpid: property.zpid,
       prompt_filename: "biddingStrategy.ts",
-      llm_name: GEMINI_MODEL,
+      llm_name: FLASH_MODEL,
       raw_payload: prompt,
       raw_response: null,
       status: 'pending',
@@ -662,7 +667,7 @@ export const analyzeBiddingStrategy = async (property: PropertyData, userId: str
 
     const ai = getAi();
     const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
+      model: FLASH_MODEL,
       contents: prompt,
       config: {
         tools: [groundingTool],
@@ -671,7 +676,7 @@ export const analyzeBiddingStrategy = async (property: PropertyData, userId: str
     });
 
     const responseText = response.text;
-    const usage = calculateUsage(response, GEMINI_MODEL);
+    const usage = calculateUsage(response, FLASH_MODEL);
 
     if (logId) {
       updateLLMCall(logId, {

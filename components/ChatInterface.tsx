@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from '../types';
-import { GEMINI_MODEL } from '../services/geminiService';
+import { CHAT_MODEL } from '../services/geminiService';
 
 interface Props {
   property: PropertyData;
@@ -95,7 +95,7 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
       // Perform a stateless content generation request
       // We do not use ai.chats.create() here to avoid sending the entire history
       const response = await ai.models.generateContent({
-        model: GEMINI_MODEL,
+        model: CHAT_MODEL,
         contents: text,
         config: {
           systemInstruction: `You are Zyphe AI, an elite property concierge. You have absolute, deep-link access to the following property intelligence data.

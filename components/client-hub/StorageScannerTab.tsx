@@ -35,6 +35,12 @@ const StorageScannerTab: React.FC = () => {
         scanStorage();
     }, []);
 
+    const formatLogTime = (ts: any) => {
+        if (!ts) return '--:--:--';
+        const date = ts.toDate ? ts.toDate() : (ts instanceof Date ? ts : new Date(ts));
+        return date.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    };
+
     const scanStorage = async () => {
         setLoading(true);
         try {
@@ -82,7 +88,7 @@ const StorageScannerTab: React.FC = () => {
         if (selectedIds.size === 0) return;
         setProcessing(true);
         setIngestionReport(null);
-        const batchStartTime = Date.now() - 2000; // Add 2s buffer for clock drift
+        const batchStartTime = Date.now() - (10 * 60 * 1000); // Look back 10 mins to be safe with server clock drift
         addLog(`Starting fresh pipeline for ${selectedIds.size} properties...`);
 
         const targets = properties.filter(p => selectedIds.has(p.zpid));
@@ -335,7 +341,7 @@ const StorageScannerTab: React.FC = () => {
 
             {/* Ingestion Summary Report */}
             {ingestionReport && (
-                <div className="mt-16 bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl p-10 animate-in fade-in zoom-in duration-500">
+                <div className="mt-16 bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl p-10">
                     <div className="flex items-center gap-6 mb-10 pb-8 border-b border-slate-100">
                         <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
                             <i className="fa-solid fa-chart-line text-2xl"></i>
@@ -383,10 +389,12 @@ const StorageScannerTab: React.FC = () => {
                                         <span className="text-xs font-bold text-slate-600">Avg AI Latency</span>
                                         <span className="text-lg font-black text-slate-900">
                                             {Math.round(ingestionReport.llmLogs.length > 0 ? (ingestionReport.llmLogs.reduce((acc, log) => {
-                                                if (log.response_received_at && log.request_sent_at) {
-                                                    const start = (log.request_sent_at as any).toMillis?.() || 0;
-                                                    const end = (log.response_received_at as any).toMillis?.() || 0;
-                                                    return acc + (end - start);
+                                                const startTs = log.request_sent_at;
+                                                const endTs = log.response_received_at;
+                                                if (startTs && endTs) {
+                                                    const start = (startTs as any).toMillis?.() || (new Date(startTs)).getTime() || 0;
+                                                    const end = (endTs as any).toMillis?.() || (new Date(endTs)).getTime() || 0;
+                                                    if (start > 0 && end > 0) return acc + (end - start);
                                                 }
                                                 return acc;
                                             }, 0) / ingestionReport.llmLogs.length) / 1000 : 0)}s
@@ -420,9 +428,15 @@ const StorageScannerTab: React.FC = () => {
                             </div>
                             <div className="space-y-2">
                                 <div className="flex justify-between items-baseline">
-                                    <span className="text-xs font-bold text-slate-600">Tokens Ingested</span>
+                                    <span className="text-xs font-bold text-slate-600">Total Tokens</span>
                                     <span className="text-lg font-black text-slate-900">
                                         {(ingestionReport.llmLogs.reduce((acc, log) => acc + (log.usage_metadata?.totalTokenCount || 0), 0) / 1000).toFixed(1)}k
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-xs font-bold text-slate-600">Input / Output</span>
+                                    <span className="text-[11px] font-black text-slate-400">
+                                        {(ingestionReport.llmLogs.reduce((acc, log) => acc + (log.usage_metadata?.promptTokenCount || 0), 0) / 1000).toFixed(1)}k / {(ingestionReport.llmLogs.reduce((acc, log) => acc + (log.usage_metadata?.candidatesTokenCount || 0), 0) / 1000).toFixed(1)}k
                                     </span>
                                 </div>
                                 <div className="flex justify-between items-baseline">
@@ -440,8 +454,12 @@ const StorageScannerTab: React.FC = () => {
                         {[...new Set([
                             ...ingestionReport.llmLogs.map(l => l.zpid),
                             ...ingestionReport.apiLogs.map(l => l.zpid)
-                        ])].map(zpid => {
-                            const prop = properties.find(p => p.zpid === zpid);
+                        ])].sort((a, b) => {
+                            if (!a) return 1;
+                            if (!b) return -1;
+                            return 0;
+                        }).map(zpid => {
+                            const prop = zpid ? properties.find(p => p.zpid === zpid) : null;
                             const propLLM = ingestionReport.llmLogs.filter(l => l.zpid === zpid);
                             const propAPI = ingestionReport.apiLogs.filter(l => l.zpid === zpid);
                             const propCost = propLLM.reduce((acc, l) => acc + (l.estimated_cost || 0), 0);
@@ -494,12 +512,20 @@ const StorageScannerTab: React.FC = () => {
                                                                 <span className="font-bold text-slate-900">Gemini</span>
                                                             </div>
                                                         </td>
-                                                        <td className="px-8 py-4 font-medium text-slate-600 underline decoration-slate-200 underline-offset-4 decoration-dotted">{log.prompt_filename || 'Unknown Agent'}</td>
+                                                        <td className="px-8 py-4">
+                                                            <div className="font-medium text-slate-600 underline decoration-slate-200 underline-offset-4 decoration-dotted">{log.prompt_filename || 'Unknown Agent'}</div>
+                                                            <div className="text-[8px] text-slate-400 font-black uppercase tracking-widest mt-1">
+                                                                {formatLogTime(log.request_sent_at)} → {formatLogTime(log.response_received_at)}
+                                                            </div>
+                                                        </td>
                                                         <td className="px-8 py-4 text-right font-mono">
                                                             <div className="text-indigo-600 font-bold text-[11px]">
                                                                 {log.usage_metadata?.totalTokenCount?.toLocaleString() || 0} tkn
                                                             </div>
-                                                            <div className="text-[10px] text-emerald-600 font-black">
+                                                            <div className="text-[9px] text-slate-400 font-bold">
+                                                                {log.usage_metadata?.promptTokenCount?.toLocaleString() || 0} in / {log.usage_metadata?.candidatesTokenCount?.toLocaleString() || 0} out
+                                                            </div>
+                                                            <div className="text-[10px] text-emerald-600 font-black mt-1">
                                                                 ${(log.estimated_cost || 0).toFixed(4)}
                                                             </div>
                                                         </td>
