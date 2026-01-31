@@ -4,6 +4,8 @@ import { analyzeLeadDatabase, transformLeadCsv } from '../../../services/geminiS
 import { uploadLeadCSV, getLeadDocuments, getLeadDocumentContent } from '../../../services/firebase/leads_documents';
 import EmailStrategyModal from './components/EmailStrategyModal';
 import SmsStrategyModal from './components/SmsStrategyModal';
+import WhatsAppStrategyModal from './components/WhatsAppStrategyModal';
+
 import CallScriptModal from './components/CallScriptModal';
 import {
     saveReactivationAnalysis,
@@ -32,6 +34,7 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, realtorNam
     const [selectedLeadForEmail, setSelectedLeadForEmail] = useState<Lead | null>(null);
     const [selectedLeadForSms, setSelectedLeadForSms] = useState<Lead | null>(null);
     const [selectedLeadForCall, setSelectedLeadForCall] = useState<Lead | null>(null);
+    const [selectedLeadForWhatsApp, setSelectedLeadForWhatsApp] = useState<Lead | null>(null);
     // const [isDragging, setIsDragging] = useState(false); // Removed
     // const [file, setFile] = useState<File | null>(null); // Removed
     const [fileContent, setFileContent] = useState<string | null>(null);
@@ -635,10 +638,9 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, realtorNam
                                                                                     e.stopPropagation();
 
                                                                                     if (action.id === 'whatsapp') {
-                                                                                        const name = lead.fullName || lead.firstName || '';
-                                                                                        const text = name ? `Hi ${name}` : 'Hi';
-                                                                                        const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-                                                                                        window.open(url, '_blank');
+                                                                                        setSelectedLeadForWhatsApp(lead);
+                                                                                        setOpenActionMenuId(null);
+                                                                                        return;
                                                                                     } else if (action.id === 'email') {
                                                                                         setSelectedLeadForEmail(lead);
                                                                                         setOpenActionMenuId(null);
@@ -810,6 +812,16 @@ const AutomatedModule: React.FC<AutomatedModuleProps> = ({ realtorId, realtorNam
                             agentName={realtorName}
                             onClose={() => setSelectedLeadForCall(null)}
                             onLogCall={handleLogCall}
+                        />,
+                        document.body
+                    )}
+
+                    {/* WhatsApp Strategy Modal */}
+                    {selectedLeadForWhatsApp && typeof document !== 'undefined' && createPortal(
+                        <WhatsAppStrategyModal
+                            lead={selectedLeadForWhatsApp}
+                            agentName={realtorName}
+                            onClose={() => setSelectedLeadForWhatsApp(null)}
                         />,
                         document.body
                     )}
