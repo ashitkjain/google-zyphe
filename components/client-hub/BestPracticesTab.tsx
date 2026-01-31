@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import BestPracticesSidebar from './best-practices/BestPracticesSidebar';
 import TimingsSection from './best-practices/TimingsSection';
 import BuyerAgentSection from './best-practices/BuyerAgentSection';
@@ -15,10 +15,20 @@ import MarketAnalyticsSection from './best-practices/MarketAnalyticsSection';
 import NicheMarketSection from './best-practices/NicheMarketSection';
 import MagazineBestPracticesTab from './MagazineBestPracticesTab';
 
-const BestPracticesTab: React.FC = () => {
-    const [activeSection, setActiveSection] = useState('timings');
+interface BestPracticesTabProps {
+    initialSection?: string;
+}
+
+const BestPracticesTab: React.FC<BestPracticesTabProps> = ({ initialSection }) => {
+    const [activeSection, setActiveSection] = useState(initialSection || 'timings');
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [viewMode, setViewMode] = useState<'classic' | 'magazine'>('classic');
+
+    useEffect(() => {
+        if (initialSection) {
+            setActiveSection(initialSection);
+        }
+    }, [initialSection]);
 
     const renderContent = () => {
         switch (activeSection) {

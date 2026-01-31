@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import BestPracticesTab from './BestPracticesTab';
 import GuidesTab from './GuidesTab';
-import { searchKnowledge, SearchResult } from '../../services/firebaseService';
+import { searchKnowledge, SearchResult, syncBestPractices } from '../../services/firebaseService';
 
 interface KnowledgeCenterTabProps {
     onNavigate?: (view: any, path: string) => void;
@@ -9,11 +9,27 @@ interface KnowledgeCenterTabProps {
 
 const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) => {
     const [activeSubTab, setActiveSubTab] = useState<'playbooks' | 'resources'>('playbooks');
+    const [activeSection, setActiveSection] = useState('timings');
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [showResults, setShowResults] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        // One-time sync of static best practices to Firestore for semantic search
+        const sync = async () => {
+            const lastSync = localStorage.getItem('zyphe_bp_sync_v2');
+            const now = Date.now();
+            // Sync once every 24 hours in dev/demo or first time
+            if (!lastSync || now - parseInt(lastSync) > 86400000) {
+                console.log('[KnowledgeCenter] Auto-syncing Intelligence Hub...');
+                await syncBestPractices();
+                localStorage.setItem('zyphe_bp_sync_v2', now.toString());
+            }
+        };
+        sync();
+    }, []);
 
     useEffect(() => {
         const handler = setTimeout(async () => {
@@ -102,6 +118,12 @@ const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) =
                                             <button
                                                 key={result.id}
                                                 onClick={() => {
+                                                    if (result.topicSlug === 'best_practices') {
+                                                        setActiveSubTab('playbooks');
+                                                        setActiveSection(result.slug);
+                                                    } else {
+                                                        setActiveSubTab('resources');
+                                                    }
                                                     if (onNavigate) onNavigate('knowledge_center', `/${result.topicSlug}/${result.slug}`);
                                                     setShowResults(false);
                                                     setSearchQuery('');
@@ -144,7 +166,7 @@ const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) =
             {/* Content Area */}
             <div className="flex-1 overflow-hidden">
                 {activeSubTab === 'playbooks' ? (
-                    <BestPracticesTab />
+                    <BestPracticesTab initialSection={activeSection} />
                 ) : (
                     <GuidesTab onNavigate={onNavigate} />
                 )}

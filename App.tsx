@@ -126,7 +126,7 @@ const App: React.FC = () => {
       if (isRealtorPath) {
         if (subPath.length === 0) {
           setViewMode('main'); // Dashboard
-        } else if (subPath[0] === 'guides' || subPath[0] === 'knowledge' || subPath.length === 2 || ['hoa', 'insurance', 'escrow', 'property-taxes', 'repairs-liability'].includes(subPath[0])) {
+        } else if (subPath[0] === 'guides' || subPath[0] === 'knowledge' || subPath[0] === 'best_practices' || subPath.length === 2 || ['hoa', 'insurance', 'escrow', 'property-taxes', 'repairs-liability'].includes(subPath[0])) {
           setViewMode('knowledge_center');
         } else {
           // Dynamic tab matching

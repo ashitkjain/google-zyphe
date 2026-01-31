@@ -129,6 +129,32 @@
                     "order": "DESCENDING"
                 }
             ]
+        },
+        {
+            "collectionGroup": "guides",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "embedding",
+                    "vectorConfig": {
+                        "dimension": 768,
+                        "flat": {}
+                    }
+                }
+            ]
+        },
+        {
+            "collectionGroup": "best_practices",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "embedding",
+                    "vectorConfig": {
+                        "dimension": 768,
+                        "flat": {}
+                    }
+                }
+            ]
         }
     ],
     "fieldOverrides": []

@@ -7,7 +7,7 @@ admin.initializeApp();
 
 // Initialize Gemini with the API Key
 const genAI = new GoogleGenerativeAI('AIzaSyBEPZ14POfqhB2wgfqAsgXkzuVPy2w-l90');
-const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
+const embeddingModel = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
 
 // TODO: Replace with your actual Telnyx Phone Number or Messaging Profile ID
 const TELNYX_FROM_NUMBER = '+19252363260';
@@ -511,4 +511,100 @@ exports.facebookWebhook = functions.https.onRequest(async (req, res) => {
     // We log it and optionally fetch more details.
     await handleLeadIngestion('Facebook', realtorId, req.body, req);
     res.status(200).send('Success');
+});
+
+/**
+ * Automatically generate semantic embeddings for Knowledge Center content.
+ * Triggers on any change to the 'guides' OR 'best_practices' collection.
+ */
+const generateEmbedding = async (change, context, type) => {
+    const after = change.after.exists ? change.after.data() : null;
+    const before = change.before.exists ? change.before.data() : null;
+
+    if (!after) return null;
+
+    const contentAfter = typeof after.content === 'object' ? JSON.stringify(after.content) : (after.content || after.subtitle || '');
+    const contentBefore = before ? (typeof before.content === 'object' ? JSON.stringify(before.content) : (before.content || before.subtitle || '')) : null;
+
+    if (contentAfter === contentBefore && after.embedding) {
+        console.log(`[Embeddings] ${type} content unchanged, skipping.`);
+        return null;
+    }
+
+    console.log(`[Embeddings] Generating for ${type}: ${after.title}`);
+
+    try {
+        const textToEmbed = `Type: ${type}\nTitle: ${after.title}\n\nContent: ${contentAfter}`;
+        const result = await embeddingModel.embedContent(textToEmbed);
+        const embedding = result.embedding.values;
+
+        await change.after.ref.update({
+            embedding: admin.firestore.FieldValue.vector(embedding),
+            embeddingVersion: 'gemini-embedding-001',
+            indexedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        console.log(`[Embeddings] Successfully updated ${type}: ${after.title}`);
+    } catch (error) {
+        console.error(`[Embeddings] Failure for ${type}:`, error);
+    }
+    return null;
+};
+
+exports.generateGuideEmbedding = functions.firestore
+    .document('guides/{id}')
+    .onWrite((change, context) => generateEmbedding(change, context, 'Guide'));
+
+exports.generateBestPracticeEmbedding = functions.firestore
+    .document('best_practices/{id}')
+    .onWrite((change, context) => generateEmbedding(change, context, 'BestPractice'));
+
+/**
+ * Perform a semantic search across Knowledge Center content.
+ * This is handled on the server to avoid client SDK version issues and keep API keys secure.
+ */
+exports.searchKnowledgeBase = functions.https.onCall(async (data, context) => {
+    const queryText = data.query;
+    if (!queryText || typeof queryText !== 'string') {
+        return { results: [] };
+    }
+
+    console.log(`[Search] Query: ${queryText}`);
+
+    try {
+        const embeddingResult = await embeddingModel.embedContent(queryText);
+        const queryVector = embeddingResult.embedding.values;
+
+        const collections = ['guides', 'best_practices'];
+        let allResults = [];
+
+        for (const colName of collections) {
+            const snapshot = await admin.firestore().collection(colName)
+                .findNearest('embedding', admin.firestore.FieldValue.vector(queryVector), {
+                    limit: 5,
+                    distanceMeasure: 'COSINE'
+                })
+                .get();
+
+            snapshot.docs.forEach(doc => {
+                const docData = doc.data();
+                allResults.push({
+                    id: doc.id,
+                    title: docData.title,
+                    slug: docData.slug || doc.id,
+                    topicSlug: docData.topicSlug || colName,
+                    score: doc.distance || 0
+                });
+            });
+        }
+
+        // Sort by similarity distance (smaller is better for COSINE distance)
+        const sortedResults = allResults.sort((a, b) => a.score - b.score).slice(0, 10);
+        console.log(`[Search] Found ${sortedResults.length} matches.`);
+
+        return { results: sortedResults };
+    } catch (error) {
+        console.error('[Search] Error:', error);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
 });
