@@ -10,28 +10,22 @@ interface SmsStrategy {
 
 const STRATEGIES: SmsStrategy[] = [
     {
-        id: 'quick_check_in',
-        title: 'Quick Check-in',
-        description: 'Casual, low-pressure text to gauge interest.',
-        bodyTemplate: (lead, agentName) => `Hi ${lead.firstName || 'there'}, just checking in on your home search. Are you still actively looking or taking a break? - ${agentName}`
+        id: 'thinking_of_you',
+        title: 'The "Thinking of You" (Hyper-Personal)',
+        description: 'Reference their specific past interest briefly.',
+        bodyTemplate: (lead, agentName) => `Hey ${lead.firstName || 'there'}, it's ${agentName.split(' ')[0]}. I just saw a listing in ${lead.searchCriteria?.locations?.split(',')[0] || 'your area'} that reminded me of our search last year. Are you still interested in that area? Stop to opt out.`
     },
     {
-        id: 'market_alert',
-        title: 'New Listing Alert',
-        description: 'Create curiosity about a specific property.',
-        bodyTemplate: (lead, agentName) => `Hi ${lead.firstName || 'there'}, saw a new listing in ${lead.searchCriteria?.locations?.split(',')[0] || 'your area'} that matches your criteria perfectly. Want me to send the link? - ${agentName}`
+        id: 'market_shocker',
+        title: 'The "Market Shocker" (Value-Add)',
+        description: 'Mention a specific change to pique curiosity.',
+        bodyTemplate: (lead, agentName) => `Hi ${lead.firstName || 'there'}, ${agentName.split(' ')[0]} here. Interest rates just dipped slightly for ${lead.searchCriteria?.locations?.split(',')[0] || 'your area'} buyers today. Want me to send over a quick market update? Stop to opt out.`
     },
     {
-        id: 'value_update',
-        title: 'Market Shift Update',
-        description: 'Highlight recent market changes.',
-        bodyTemplate: (lead, agentName) => `Hi ${lead.firstName || 'there'}, noticed some interesting price shifts in ${lead.searchCriteria?.locations?.split(',')[0] || 'your target area'} recently. Curious how this affects your buying power? - ${agentName}`
-    },
-    {
-        id: 'coffee_chat',
-        title: 'Coffee Catch-up',
-        description: 'Personal invitation to reconnect.',
-        bodyTemplate: (lead, agentName) => `Hi ${lead.firstName || 'there'}, I'll be in ${lead.searchCriteria?.locations?.split(',')[0] || 'your neighborhood'} this Thursday. Free for a quick coffee to catch up? - ${agentName}`
+        id: 'quick_cleanup',
+        title: 'The "Quick Clean-up" (Low Pressure)',
+        description: 'Polite way to ask if they are still in market.',
+        bodyTemplate: (lead, agentName) => `Quick check-in ${lead.firstName || ''}—are you still looking for a home or have your plans changed? Just want to make sure I'm not over-emailing you! Stop to opt out.`
     }
 ];
 
@@ -86,8 +80,8 @@ const SmsStrategyModal: React.FC<SmsStrategyModalProps> = ({ lead, agentName = '
                                 key={strategy.id}
                                 onClick={() => setSelectedStrategyId(strategy.id)}
                                 className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-300 group ${selectedStrategyId === strategy.id
-                                        ? 'bg-white border-blue-500 shadow-lg shadow-blue-100 scale-[1.02]'
-                                        : 'bg-white border-transparent hover:border-slate-200 hover:shadow-md'
+                                    ? 'bg-white border-blue-500 shadow-lg shadow-blue-100 scale-[1.02]'
+                                    : 'bg-white border-transparent hover:border-slate-200 hover:shadow-md'
                                     }`}
                             >
                                 <div className="flex items-center justify-between mb-2">
