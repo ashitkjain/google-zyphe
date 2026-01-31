@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { CustomAIAnalysisResult, CommunityPulseSection, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, ImageQualityPoint, ImageQualityCategory, InvestmentResearchResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult, BiddingStrategyResult, PropertyComp, PriceHistoryItem } from '../types';
-import { analyzePropertyImages, analyzeInvestmentResearch, analyzeGeneralMarketIntelligence, analyzeBiddingStrategy, AiResponseError } from '../services/geminiService';
-import { saveVisualAnalysisToCloud, saveImageQualityAnalysisToCloud, getImageQualityAnalysisFromCloud, savePropertyInvestmentToCloud, getPropertyInvestmentFromCloud, saveGeneralMarketIntelligenceToCloud, getGeneralMarketIntelligenceFromCloud } from '../services/firebaseService';
+import { saveVisualAnalysisToCloud, saveImageQualityAnalysisToCloud, getImageQualityAnalysisFromCloud, savePropertyInvestmentToCloud, getPropertyInvestmentFromCloud, saveGeneralMarketIntelligenceToCloud, getGeneralMarketIntelligenceFromCloud, generateCityStateKey, getCommunityPulseFromCloud, saveCommunityPulseToCloud } from '../services/firebaseService';
+import { analyzePropertyImages, analyzeInvestmentResearch, analyzeGeneralMarketIntelligence, analyzeBiddingStrategy, analyzeCommunityPulse, AiResponseError } from '../services/geminiService';
 import { APP_CONFIG } from '../config';
 
 interface Props {
@@ -52,6 +52,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
   const [qualityLoading, setQualityLoading] = useState(false);
   const [investmentLoading, setInvestmentLoading] = useState(false);
   const [biddingLoading, setBiddingLoading] = useState(false);
+  const [pulseLoading, setPulseLoading] = useState(false);
 
   // Hover preview state
   const [hoveredImage, setHoveredImage] = useState<string | null>(null);
@@ -60,7 +61,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
 
   useEffect(() => {
     let interval: number;
-    if (loading || qualityLoading || investmentLoading || biddingLoading) {
+    if (loading || qualityLoading || investmentLoading || biddingLoading || pulseLoading) {
       interval = window.setInterval(() => {
         setTimer(t => t + 1);
       }, 1000);
@@ -81,6 +82,13 @@ const CustomAIAnalysis: React.FC<Props> = ({
       handleRunInvestmentResearch();
     }
   }, [activeTab, analysis?.investment_research, investmentLoading]);
+
+  // Auto-trigger Community Pulse when tab is selected
+  useEffect(() => {
+    if (activeTab === 'pulse' && !analysis?.community_pulse && !pulseLoading) {
+      handleRunCommunityPulse();
+    }
+  }, [activeTab, analysis?.community_pulse, pulseLoading]);
 
   // Auto-trigger Bidding Strategy when tab is selected (respect session cache)
   useEffect(() => {
@@ -136,6 +144,48 @@ const CustomAIAnalysis: React.FC<Props> = ({
     }
   };
 
+  const handleRunCommunityPulse = async () => {
+    if (!analysis || !propertyData || pulseLoading) return;
+
+    setTimer(0);
+    setPulseLoading(true);
+    addLog('System', { type: 'info' }, { task: 'community_pulse_init', zpid });
+
+    try {
+      const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
+      const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
+      const cityStateKey = generateCityStateKey(city, state);
+
+      let pulseData = null;
+      if (cityStateKey) {
+        pulseData = await getCommunityPulseFromCloud(cityStateKey);
+      }
+
+      if (pulseData) {
+        addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'community_pulse', location: cityStateKey || zpid });
+      } else {
+        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'community_pulse', location: cityStateKey || zpid });
+        const res = await analyzeCommunityPulse(propertyData);
+        pulseData = res.data;
+        if (cityStateKey) {
+          await saveCommunityPulseToCloud(cityStateKey, pulseData);
+        }
+        addLog('Gemini AI', { type: 'response' }, { task: 'community_pulse', location: cityStateKey || zpid }, res.usage);
+      }
+
+      onUpdateAnalysis({
+        ...analysis,
+        community_pulse: pulseData
+      });
+
+    } catch (err: any) {
+      console.error("Community Pulse Failed:", err);
+      addLog('System', { type: 'error' }, { message: "Community Pulse Failed", error: err.message || err });
+    } finally {
+      setPulseLoading(false);
+    }
+  };
+
   const handleRunInvestmentResearch = async () => {
     if (!analysis || !zpid || !propertyData || investmentLoading) return;
 
@@ -156,16 +206,28 @@ const CustomAIAnalysis: React.FC<Props> = ({
         addLog('Gemini AI', { type: 'response' }, { task: 'property_investment', zpid }, res.usage);
       }
 
-      // 2. Check General market cache
-      let generalMarket: GeneralMarketIntelligenceResult | null = await getGeneralMarketIntelligenceFromCloud(zpid);
+      // 2. Check General market cache (City Level)
+      const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
+      const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
+      const cityStateKey = generateCityStateKey(city, state);
+
+      let generalMarket: GeneralMarketIntelligenceResult | null = null;
+      if (cityStateKey) {
+        generalMarket = await getGeneralMarketIntelligenceFromCloud(cityStateKey);
+      }
+
       if (generalMarket) {
-        addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'general_market_intelligence', zpid });
+        addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'general_market_intelligence', location: cityStateKey || zpid });
       } else {
-        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'general_market_intelligence', zpid });
+        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'general_market_intelligence', location: cityStateKey || zpid });
         const res = await analyzeGeneralMarketIntelligence(propertyData);
         generalMarket = res.data;
-        await saveGeneralMarketIntelligenceToCloud(zpid, generalMarket);
-        addLog('Gemini AI', { type: 'response' }, { task: 'general_market_intelligence', zpid }, res.usage);
+        if (cityStateKey) {
+          await saveGeneralMarketIntelligenceToCloud(cityStateKey, generalMarket);
+        } else {
+          await saveGeneralMarketIntelligenceToCloud(zpid, generalMarket);
+        }
+        addLog('Gemini AI', { type: 'response' }, { task: 'general_market_intelligence', location: cityStateKey || zpid }, res.usage);
       }
 
       // 3. Aggregate for UI

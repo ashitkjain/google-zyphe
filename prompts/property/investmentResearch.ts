@@ -1,6 +1,6 @@
 
 import { Type } from "@google/genai";
-import { PropertyData } from "../types";
+import { PropertyData } from "../../types";
 
 export const getInvestmentResearchPrompt = (property: PropertyData) => `
   Persona: Act as a veteran Real Estate Investment Strategist and Short-Term Rental (STR) Specialist.

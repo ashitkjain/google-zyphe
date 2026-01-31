@@ -1,5 +1,5 @@
 import { Type } from "@google/genai";
-import { PropertyData } from "../types";
+import { PropertyData } from "../../types";
 
 export const getPropertyImagesPrompt = (property: PropertyData) => `
   You are an expert real estate agent and interior design critic. Your task is to provide a comprehensive, detailed, and actionable report on the property based on visual evidence and provided data.

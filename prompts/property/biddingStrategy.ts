@@ -1,72 +1,72 @@
 
-import { PropertyData } from "../types";
+import { PropertyData } from "../../types";
 
 export const biddingStrategyPrompt = (property: PropertyData) => {
-    const address = property.address;
-    const price = property.price ? `$${property.price.toLocaleString()}` : "Not listed";
-    const zestimate = property.zestimate ? `$${property.zestimate.toLocaleString()}` : "N/A";
-    const homeType = property.homeType || "Property";
-    const beds = property.bedrooms || "?";
-    const baths = property.bathrooms || "?";
-    // Dynamic DOM Calculation
-    let dom = "Unknown";
-    const listedDate = property.listedDate;
-    if (listedDate) {
-        if (typeof listedDate === 'number' && listedDate < 10000) {
-            // Likely already days
-            dom = String(listedDate);
-        } else {
-            const listedTimestamp = typeof listedDate === 'string' ? Date.parse(listedDate) : listedDate;
-            if (!isNaN(listedTimestamp)) {
-                const diffDays = Math.floor((Date.now() - listedTimestamp) / (1000 * 60 * 60 * 24));
-                dom = String(Math.max(0, diffDays));
-            }
-        }
+  const address = property.address;
+  const price = property.price ? `$${property.price.toLocaleString()}` : "Not listed";
+  const zestimate = property.zestimate ? `$${property.zestimate.toLocaleString()}` : "N/A";
+  const homeType = property.homeType || "Property";
+  const beds = property.bedrooms || "?";
+  const baths = property.bathrooms || "?";
+  // Dynamic DOM Calculation
+  let dom = "Unknown";
+  const listedDate = property.listedDate;
+  if (listedDate) {
+    if (typeof listedDate === 'number' && listedDate < 10000) {
+      // Likely already days
+      dom = String(listedDate);
+    } else {
+      const listedTimestamp = typeof listedDate === 'string' ? Date.parse(listedDate) : listedDate;
+      if (!isNaN(listedTimestamp)) {
+        const diffDays = Math.floor((Date.now() - listedTimestamp) / (1000 * 60 * 60 * 24));
+        dom = String(Math.max(0, diffDays));
+      }
     }
+  }
 
-    if (dom === "Unknown") {
-        dom = String(property.timeOnZillow || property.resoFacts?.daysOnZillow || "Unknown");
+  if (dom === "Unknown") {
+    dom = String(property.timeOnZillow || property.resoFacts?.daysOnZillow || "Unknown");
+  }
+
+  // Extended DOM Calculation (True Market Age)
+  let extendedDom = dom;
+  if (property.priceHistory && property.priceHistory.length > 0) {
+    // Find the earliest listing event
+    const listingEvents = property.priceHistory
+      .filter(item => item.event?.toLowerCase().includes('listed'))
+      .sort((a, b) => {
+        const dateA = Date.parse(a.date);
+        const dateB = Date.parse(b.date);
+        return dateA - dateB;
+      });
+
+    if (listingEvents.length > 0) {
+      const earliestListing = listingEvents[0];
+      const earliestTimestamp = Date.parse(earliestListing.date);
+      if (!isNaN(earliestTimestamp)) {
+        const totalDiffDays = Math.floor((Date.now() - earliestTimestamp) / (1000 * 60 * 60 * 24));
+        extendedDom = String(Math.max(0, totalDiffDays));
+      }
     }
+  }
 
-    // Extended DOM Calculation (True Market Age)
-    let extendedDom = dom;
-    if (property.priceHistory && property.priceHistory.length > 0) {
-        // Find the earliest listing event
-        const listingEvents = property.priceHistory
-            .filter(item => item.event?.toLowerCase().includes('listed'))
-            .sort((a, b) => {
-                const dateA = Date.parse(a.date);
-                const dateB = Date.parse(b.date);
-                return dateA - dateB;
-            });
+  // Dynamic Context
+  const city = property.city || property.address.split(',')[1]?.trim() || "the local city";
+  const currentDate = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 
-        if (listingEvents.length > 0) {
-            const earliestListing = listingEvents[0];
-            const earliestTimestamp = Date.parse(earliestListing.date);
-            if (!isNaN(earliestTimestamp)) {
-                const totalDiffDays = Math.floor((Date.now() - earliestTimestamp) / (1000 * 60 * 60 * 24));
-                extendedDom = String(Math.max(0, totalDiffDays));
-            }
-        }
-    }
+  // Comps Context
+  const compsContext = (property.comps && property.comps.length > 0)
+    ? `\n\n### [RECENT COMPARABLE SALES] (Grounded Data)\n${property.comps.map(c => `- ${c.address}: Sold $${c.price?.toLocaleString()} ${c.listPrice ? `(List: $${c.listPrice?.toLocaleString()})` : ''} on ${c.lastSoldDate}. DOM: ${c.daysOnMarket || 'N/A'}. PPSF: $${c.pricePerSqFt || 'N/A'}. Specs: ${c.bedrooms}bd/${c.bathrooms}ba, ${c.livingAreaValue}sf, ${c.lotSize || 'N/A'} lot, ${c.garageSpaces || 0} car garage. Status: ${c.status || 'Sold'}. Notes: ${c.description || 'None'}`).join('\n')}`
+    : "No comparable sales data available for this specific property.";
 
-    // Dynamic Context
-    const city = property.city || property.address.split(',')[1]?.trim() || "the local city";
-    const currentDate = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+  const description = property.description ? `\n\nListing Description Summary: ${property.description.substring(0, 1000)}...` : "";
 
-    // Comps Context
-    const compsContext = (property.comps && property.comps.length > 0)
-        ? `\n\n### [RECENT COMPARABLE SALES] (Grounded Data)\n${property.comps.map(c => `- ${c.address}: Sold $${c.price?.toLocaleString()} ${c.listPrice ? `(List: $${c.listPrice?.toLocaleString()})` : ''} on ${c.lastSoldDate}. DOM: ${c.daysOnMarket || 'N/A'}. PPSF: $${c.pricePerSqFt || 'N/A'}. Specs: ${c.bedrooms}bd/${c.bathrooms}ba, ${c.livingAreaValue}sf, ${c.lotSize || 'N/A'} lot, ${c.garageSpaces || 0} car garage. Status: ${c.status || 'Sold'}. Notes: ${c.description || 'None'}`).join('\n')}`
-        : "No comparable sales data available for this specific property.";
+  // Price History Context
+  const priceHistoryContext = (property.priceHistory && property.priceHistory.length > 0)
+    ? `\n\n### [TRANSACTIONAL PRICE HISTORY] (Grounded Data)\n${property.priceHistory.map(item => `- ${item.date}: ${item.event} at $${item.price?.toLocaleString() || 'N/A'}`).join('\n')}`
+    : "";
 
-    const description = property.description ? `\n\nListing Description Summary: ${property.description.substring(0, 1000)}...` : "";
-
-    // Price History Context
-    const priceHistoryContext = (property.priceHistory && property.priceHistory.length > 0)
-        ? `\n\n### [TRANSACTIONAL PRICE HISTORY] (Grounded Data)\n${property.priceHistory.map(item => `- ${item.date}: ${item.event} at $${item.price?.toLocaleString() || 'N/A'}`).join('\n')}`
-        : "";
-
-    return `[SYSTEM INSTRUCTION] Act as a Real Estate Quantitative Analyst. Your objective is to perform a deep-dive "Grounded Market Analysis" using your integrated Google Search tool, the provided Comparable Sales, and the raw Transactional Price History to access real-time ${currentDate} data.
+  return `[SYSTEM INSTRUCTION] Act as a Real Estate Quantitative Analyst. Your objective is to perform a deep-dive "Grounded Market Analysis" using your integrated Google Search tool, the provided Comparable Sales, and the raw Transactional Price History to access real-time ${currentDate} data.
 
 [USER INPUT] Analyze the property at: **${address}**
 

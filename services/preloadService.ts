@@ -13,7 +13,10 @@ import {
   saveGeneralMarketIntelligenceToCloud,
   getGeneralMarketIntelligenceFromCloud,
   savePropertyAssetsToCloud,
-  getPropertyAssetsFromCloud
+  getPropertyAssetsFromCloud,
+  saveCommunityPulseToCloud,
+  getCommunityPulseFromCloud,
+  generateCityStateKey
 } from './firebaseService.ts';
 import { PropertyData, CustomAIAnalysisResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult, InvestmentResearchResult, AIUsage } from '../types';
 import { analyzeGeneralMarketIntelligence } from './geminiService';
@@ -200,11 +203,32 @@ export const runFullIntelligencePipeline = async (
       onProgress({ step: 'Spatial AI', status: 'completed', message: 'Spatial context skipped (no map).' });
     }
 
-    // 7. Market AI
+    // 7. Market AI (City Level Caching)
     onProgress({ step: 'Market AI', status: 'running', message: 'Gathering local sentiment...' });
-    const resultPulse = await analyzeCommunityPulse(enrichedData);
-    visualResult.community_pulse = resultPulse.data;
-    onProgress({ step: 'Market AI', status: 'completed', message: 'Fresh market pulse analysis complete.', usage: resultPulse.usage });
+
+    // Determine City/State for localized caching
+    const city = radar.components?.city || enrichedData.city;
+    const state = radar.components?.state || enrichedData.state;
+    const cityStateKey = generateCityStateKey(city, state);
+
+    if (cityStateKey) {
+      const cachedPulse = await getCommunityPulseFromCloud(cityStateKey);
+      if (cachedPulse) {
+        visualResult.community_pulse = cachedPulse;
+        onLog?.(`[Market] Community Pulse restored from city cache: ${cityStateKey}`);
+        onProgress({ step: 'Market AI', status: 'completed', message: 'Market pulse restored from city cache.' });
+      } else {
+        const resultPulse = await analyzeCommunityPulse(enrichedData);
+        visualResult.community_pulse = resultPulse.data;
+        await saveCommunityPulseToCloud(cityStateKey, resultPulse.data);
+        onLog?.(`[Market] Fresh pulse generated and cached for city: ${cityStateKey}`);
+        onProgress({ step: 'Market AI', status: 'completed', message: 'Fresh market pulse analysis complete.', usage: resultPulse.usage });
+      }
+    } else {
+      const resultPulse = await analyzeCommunityPulse(enrichedData);
+      visualResult.community_pulse = resultPulse.data;
+      onProgress({ step: 'Market AI', status: 'completed', message: 'Fresh market pulse analysis complete (Uncached).', usage: resultPulse.usage });
+    }
 
     // 8. Quality Audit (Consolidated into Visual AI)
     onProgress({ step: 'Quality Audit', status: 'running', message: 'Finalizing picture quality scan...' });
@@ -232,14 +256,23 @@ export const runFullIntelligencePipeline = async (
       await savePropertyInvestmentToCloud(zpid, propInvestment);
     }
 
-    // General Market
+    // General Market (City Level Caching)
     let generalMarket: GeneralMarketIntelligenceResult;
-    const cachedGeneralMarket = await getGeneralMarketIntelligenceFromCloud(zpid);
-    if (cachedGeneralMarket) {
-      generalMarket = cachedGeneralMarket;
+    if (cityStateKey) {
+      const cachedGeneralMarket = await getGeneralMarketIntelligenceFromCloud(cityStateKey);
+      if (cachedGeneralMarket) {
+        generalMarket = cachedGeneralMarket;
+        onLog?.(`[Investment] General Market Intelligence restored from city cache: ${cityStateKey}`);
+      } else {
+        const res = await analyzeGeneralMarketIntelligence(enrichedData);
+        generalMarket = res.data;
+        await saveGeneralMarketIntelligenceToCloud(cityStateKey, generalMarket);
+        onLog?.(`[Investment] Fresh Market Intelligence generated and cached for city: ${cityStateKey}`);
+      }
     } else {
       const res = await analyzeGeneralMarketIntelligence(enrichedData);
       generalMarket = res.data;
+      // zpid fallback if city-state key generation fails (legacy/unreliable data)
       await saveGeneralMarketIntelligenceToCloud(zpid, generalMarket);
     }
 

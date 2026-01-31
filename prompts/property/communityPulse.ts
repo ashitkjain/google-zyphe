@@ -1,9 +1,8 @@
 import { Type } from "@google/genai";
-import { PropertyData } from "../types";
+import { PropertyData } from "../../types";
 
 export const getCommunityPulsePrompt = (property: PropertyData) => `
-    Task: Act as a specialized neighborhood research assistant for the following property:
-  ${JSON.stringify(property, null, 2)}
+    Task: Act as a specialized neighborhood research assistant for the city of ${property.city}, ${property.state}.
 
   Your mission is to provide an authentic "Community Pulse" report by synthesizing real resident perspectives, local forum sentiment, news, and area-specific reviews.
   

@@ -1,10 +1,10 @@
 
 import { Type } from "@google/genai";
-import { PropertyData } from "../types";
+import { PropertyData } from "../../types";
 
 export const getGeneralMarketIntelligencePrompt = (property: PropertyData) => `
   Persona: Act as a veteran Real Estate Investment Strategist.
-  Task: Conduct a general market and neighborhood intelligence report for the area around ${property.address} for the year 2026.
+  Task: Conduct a general market and neighborhood intelligence report for the city of ${property.city}, ${property.state} for the year 2026.
   
   Research Objectives:
   1. Market Dynamics & Appreciation: Analyze 3-year historical appreciation and projected 2026 growth for this zip code (${property.zipCode || 'the area'}). Include average "Days on Market" (DOM) for recent sales.

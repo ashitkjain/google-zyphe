@@ -1,5 +1,5 @@
 import { Type } from "@google/genai";
-import { PropertyData } from "../types";
+import { PropertyData } from "../../types";
 
 export const getNeighborhoodAnalysisPrompt = (property: PropertyData) => `
  You are an expert Spatial Analyst and Urban Planning Consultant. 
@@ -26,9 +26,9 @@ export const getNeighborhoodAnalysisPrompt = (property: PropertyData) => `
 export const neighborhoodAnalysisSchema = {
   type: Type.OBJECT,
   properties: {
-    overview: { 
-      type: Type.STRING, 
-      description: "A professional summary of the neighborhood's character and location value based on the map visuals." 
+    overview: {
+      type: Type.STRING,
+      description: "A professional summary of the neighborhood's character and location value based on the map visuals."
     },
     neighborhood_features: {
       type: Type.OBJECT,
@@ -46,7 +46,7 @@ export const neighborhoodAnalysisSchema = {
       },
       required: [
         "street_layout_and_traffic",
-        "neighborhood_density", 
+        "neighborhood_density",
         "transportation_access",
         "proximity_to_greenery_and_water",
         "general"

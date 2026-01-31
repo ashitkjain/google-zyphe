@@ -423,6 +423,8 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
     const mappedData: PropertyData = {
       address: formatAddress(data.address || data.props?.address || addressOrZpid),
       city: (data.address && typeof data.address === 'object') ? data.address.city : (data.props?.address?.city || undefined),
+      state: (data.address && typeof data.address === 'object') ? data.address.state : (data.props?.address?.state || undefined),
+      zipCode: (data.address && typeof data.address === 'object') ? (data.address.zipcode || data.address.zipCode) : (data.props?.address?.zipCode || data.props?.address?.zipcode || undefined),
       zpid: rawZpid ? String(rawZpid) : undefined,
       homeStatus: data.homeStatus || data.props?.homeStatus || "OFF_MARKET",
       homeType: data.homeType || data.props?.homeType || "SINGLE_FAMILY",

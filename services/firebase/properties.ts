@@ -14,7 +14,8 @@ import {
     InvestmentResearchResult,
     PropertySpecificInvestmentResult,
     GeneralMarketIntelligenceResult,
-    PropertyAssets
+    PropertyAssets,
+    CommunityPulseResult
 } from "../../types";
 
 export const savePropertyAssetsToCloud = async (zpid: string, assets: PropertyAssets) => {
@@ -210,31 +211,52 @@ export const getPropertyInvestmentFromCloud = async (zpid: string): Promise<Prop
     }
 };
 
-export const saveGeneralMarketIntelligenceToCloud = async (zpid: string, research: GeneralMarketIntelligenceResult) => {
-    if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
+export const saveGeneralMarketIntelligenceToCloud = async (cityStateKey: string, research: GeneralMarketIntelligenceResult) => {
+    if (!db || !cityStateKey) return { success: false, error: "Database not initialized or missing City-State Key" };
     try {
-        const docRef = doc(db, "general_market_intelligence", String(zpid));
-        logFirestoreQuery('setDoc', 'general_market_intelligence', { zpid });
-        await setDoc(docRef, {
-            ...sanitizeForFirestore(research),
-            zpid: String(zpid),
-            timestamp: serverTimestamp()
-        });
+        const docRef = doc(db, "general_market_intelligence", cityStateKey);
+        logFirestoreQuery('setDoc', 'general_market_intelligence', { cityStateKey });
+        await setDoc(docRef, research, { merge: true });
         return { success: true };
     } catch (error) {
         return { success: false, error: handleFirestoreError(error, "saveGeneralMarketIntelligenceToCloud") as string };
     }
 };
 
-export const getGeneralMarketIntelligenceFromCloud = async (zpid: string): Promise<GeneralMarketIntelligenceResult | null> => {
-    if (!db) return null;
+export const getGeneralMarketIntelligenceFromCloud = async (cityStateKey: string): Promise<GeneralMarketIntelligenceResult | null> => {
+    if (!db || !cityStateKey) return null;
     try {
-        const docRef = doc(db, "general_market_intelligence", zpid);
-        logFirestoreQuery('getDoc', 'general_market_intelligence', { zpid });
+        const docRef = doc(db, "general_market_intelligence", cityStateKey);
+        logFirestoreQuery('getDoc', 'general_market_intelligence', { cityStateKey });
         const docSnap = await getDoc(docRef);
         return docSnap.exists() ? (docSnap.data() as GeneralMarketIntelligenceResult) : null;
     } catch (error) {
         handleFirestoreError(error, "getGeneralMarketIntelligenceFromCloud");
+        return null;
+    }
+};
+
+export const saveCommunityPulseToCloud = async (cityStateKey: string, pulse: CommunityPulseResult) => {
+    if (!db || !cityStateKey) return { success: false, error: "Database not initialized or missing City-State Key" };
+    try {
+        const docRef = doc(db, "community_pulse", cityStateKey);
+        logFirestoreQuery('setDoc', 'community_pulse', { cityStateKey });
+        await setDoc(docRef, pulse, { merge: true });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: handleFirestoreError(error, "saveCommunityPulseToCloud") as string };
+    }
+};
+
+export const getCommunityPulseFromCloud = async (cityStateKey: string): Promise<CommunityPulseResult | null> => {
+    if (!db || !cityStateKey) return null;
+    try {
+        const docRef = doc(db, "community_pulse", cityStateKey);
+        logFirestoreQuery('getDoc', 'community_pulse', { cityStateKey });
+        const docSnap = await getDoc(docRef);
+        return docSnap.exists() ? (docSnap.data() as CommunityPulseResult) : null;
+    } catch (error) {
+        handleFirestoreError(error, "getCommunityPulseFromCloud");
         return null;
     }
 };
@@ -327,8 +349,7 @@ export const deletePropertyAnalysis = async (zpid: string) => {
         "property_analyses_visual",
         "image_quality_analysis",
         "property_assets",
-        "property_investment_research",
-        "general_market_intelligence"
+        "property_investment_research"
     ];
 
     try {

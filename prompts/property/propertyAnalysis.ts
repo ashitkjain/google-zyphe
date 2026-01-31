@@ -1,6 +1,6 @@
 
 import { Type } from "@google/genai";
-import { PropertyData } from "../types";
+import { PropertyData } from "../../types";
 
 export const getPropertyAnalysisPrompt = (property: PropertyData) => `
   Perform a deep, intelligent real estate analysis for the following property:

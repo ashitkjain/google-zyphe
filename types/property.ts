@@ -94,6 +94,8 @@ export interface PropertyData {
     alternate_ids?: string[]; // Array of known aliases for this property ID
     address: string;
     city?: string;
+    state?: string;
+    zipCode?: string;
     homeStatus?: string;
     homeType?: string;
     livingAreaValue?: number | null;

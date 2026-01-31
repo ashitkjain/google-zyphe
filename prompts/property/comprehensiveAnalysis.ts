@@ -1,5 +1,5 @@
 import { Type } from "@google/genai";
-import { PropertyData, CustomAIAnalysisResult } from "../types";
+import { PropertyData, CustomAIAnalysisResult } from "../../types";
 
 export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: CustomAIAnalysisResult) => {
   const PROPERTY_DETAILS = JSON.stringify(property, null, 2);

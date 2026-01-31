@@ -92,3 +92,19 @@ export const handleFirestoreError = (error: any, context: string) => {
     console.error(genericError);
     return genericError;
 };
+
+/**
+ * Generates a standardized, duplicate-proof key for city-state data.
+ * Format: "LosAngeles-CA" (Case insensitive, spaces removed)
+ */
+export const generateCityStateKey = (city: string | undefined, state: string | undefined): string | null => {
+    if (!city || !state) return null;
+
+    // Standardize: Remove spaces, capitalization to TitleCase or just remove spaces and uppercase state
+    const cleanCity = city.replace(/\s+/g, '').replace(/[^a-zA-Z]/g, '');
+    const cleanState = state.replace(/\s+/g, '').replace(/[^a-zA-Z]/g, '').toUpperCase();
+
+    if (!cleanCity || !cleanState) return null;
+
+    return `${cleanCity}-${cleanState}`;
+};
