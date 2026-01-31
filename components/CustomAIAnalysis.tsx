@@ -958,35 +958,26 @@ const CustomAIAnalysis: React.FC<Props> = ({
     </div>
   );
 
-  const ImageAnalysisView = ({ data, images }: { data: string[]; images: string[] }) => (
-    <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 max-w-5xl mx-auto space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+  const ImageAnalysisView = ({ data }: { data: string[] }) => (
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 max-w-5xl mx-auto py-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {data.map((text, idx) => {
-          // Extract "Image X" to get the correct image index (1-based -> 0-based)
-          const match = text.match(/^Image\s+(\d+)/i);
-          const imageIndex = match ? parseInt(match[1], 10) - 1 : idx;
-          const imgUrl = images[imageIndex];
-
+          const cleanText = text.replace(/^Image \d+[\s:]*/i, '');
           return (
-            <div key={idx} className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden flex flex-col hover:shadow-xl transition-all group">
-              {imgUrl && (
-                <div className="relative h-64 overflow-hidden">
-                  <img
-                    src={imgUrl}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                    alt={`Image ${imageIndex + 1}`}
-                  />
-                  <div className="absolute top-4 left-4">
-                    <span className="px-4 py-2 bg-black/50 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-widest rounded-xl">
-                      Image {imageIndex + 1}
-                    </span>
-                  </div>
+            <div key={idx} className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-xl hover:shadow-indigo-500/5 transition-all group flex flex-col gap-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50/50 rounded-bl-[3rem] -z-10 group-hover:bg-indigo-50/50 transition-colors"></div>
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center text-[10px] font-black shadow-lg">
+                  {(idx + 1).toString().padStart(3, '0')}
                 </div>
-              )}
-              <div className="p-8 space-y-4">
-                <p className="text-gray-800 font-sans font-normal text-[14px] leading-[1.7]">
-                  {text.replace(/^Image \d+[\s:]*/i, '')}
-                </p>
+                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Vision Inference</span>
+              </div>
+              <p className="text-slate-700 font-sans font-normal text-[14px] leading-relaxed relative z-10">
+                {cleanText}
+              </p>
+              <div className="flex items-center gap-2 pt-4 border-t border-slate-50 mt-auto">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Confidence High</span>
               </div>
             </div>
           );
@@ -1017,8 +1008,15 @@ const CustomAIAnalysis: React.FC<Props> = ({
             Back
           </button>
           <div className="h-10 w-px bg-gray-200 hidden sm:block"></div>
-          <div>
-            <h2 className="text-xl font-black text-gray-900 tracking-tight leading-none">{analysis.report_title || 'Visual AI Report'}</h2>
+          <div className="flex flex-col gap-2">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-none">
+              {propertyData?.address || 'Visual AI Report'}
+            </h2>
+            {analysis.report_title && (
+              <p className="text-[9px] font-black text-indigo-600 uppercase tracking-[0.2em]">
+                {analysis.report_title}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -1215,7 +1213,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
             {!image_by_image_analysis || image_by_image_analysis.length === 0 ? (
               <EmptyState section="Image by Image Analysis" />
             ) : (
-              <ImageAnalysisView data={image_by_image_analysis} images={propertyImages} />
+              <ImageAnalysisView data={image_by_image_analysis} />
             )}
           </section>
         )}
