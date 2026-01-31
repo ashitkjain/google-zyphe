@@ -175,14 +175,17 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
                     <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-3">Bulk Prefetch</h1>
                     <p className="text-slate-500 font-medium">Scan local asset storage and re-trigger intelligence pipelines for existing ZPIDs.</p>
                 </div>
-                <button
-                    onClick={handleRunPipeline}
-                    disabled={processing || selectedIds.size === 0}
-                    className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-xl shadow-indigo-100 transition-all flex items-center gap-3 disabled:opacity-50 disabled:grayscale"
-                >
-                    {processing ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-bolt-lightning"></i>}
-                    Run Pipeline ({selectedIds.size})
-                </button>
+                {/* Admin Only: Run Pipeline Control */}
+                {false && (
+                    <button
+                        onClick={handleRunPipeline}
+                        disabled={processing || selectedIds.size === 0}
+                        className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-xl shadow-indigo-100 transition-all flex items-center gap-3 disabled:opacity-50 disabled:grayscale"
+                    >
+                        {processing ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-bolt-lightning"></i>}
+                        Run Pipeline ({selectedIds.size})
+                    </button>
+                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
