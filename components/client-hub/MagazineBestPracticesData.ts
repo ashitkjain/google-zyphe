@@ -509,27 +509,53 @@ export const BEST_PRACTICES_DATA: Record<string, PlaybookProps> = {
         footerTagline: 'The riches are in the niches. Own your segment.'
     },
     reactivation: {
-        badge: 'Zyphe Intelligence',
-        title: 'The Lead Reactivation Playbook',
-        subtitle: 'Move beyond "checking in." Master the art of value-driven database reactivation in the modern market.',
-        heroImage: '/assets/playbook/cover.png',
-        heroTitle: 'Philosophy: The Value Injection',
-        heroDescription: 'A dormant lead isn\'t dead; they\'re just overwhelmed. Reactivate by reminding them you are their most valuable resource.',
-        strategyTitle: 'The 2026 Strategy Stack',
-        strategyDescription: 'Traditional follow-up is dead. Use psychological triggers and timing precision to cut through the noise.',
+        badge: 'Reactivation Playbook',
+        title: 'The 2025 Resurrection Protocol',
+        subtitle: 'The gold mine is already in your database. Unlock 70% of your business not by selling, but by reconnecting with empathy.',
+        heroImage: '/assets/playbook/reactivation_hero.png',
+        heroTitle: 'The "Empathy-First" Shift',
+        heroDescription: 'In 2025, leads are overwhelmed by automation. The "Just Checking In" text is dead. To reactivate a dormant lead, you must offer low-friction value and genuine empathy. Acknowledge the gap, remove the guilt, and invite them back.',
+        strategyTitle: 'Key 2025 Strategies',
+        strategyDescription: 'Modern reactivation relies on psychology, speed, and leveraging technology to find the signal in the noise.',
         strategies: [
-            { title: 'AI-Augmented Personalization', description: 'Use Zyphe\'s AI analysis to reference specific neighborhood changes that occurred while the lead was dormant.', icon: 'fa-brain' },
-            { title: 'The Curiosity Hook', description: 'Ask open-ended questions about neighborhood activity without asking for a commitment. Focus on velocity.', icon: 'fa-bolt' },
-            { title: 'The Equity Reminder', description: 'Provide unsolicited value by sharing recent record-breaking sales in their immediate area.', icon: 'fa-house-circle-check' }
+            { title: 'Empathy-First Approach', description: 'Recognize that "ghosting" usually means life got crazy, not that they hate you. Your scripts should explicitly absolve them of guilt to lower the barrier for a reply.', icon: 'fa-hand-holding-heart' },
+            { title: 'AI-Powered Precision', description: 'Stop guessing. Use AI tools to predict when a contact is ready to move based on behavioral signals, ensuring your "random" check-in feels like serendipity.', icon: 'fa-brain' },
+            { title: 'The Multi-Channel Loop', description: 'Speed matters. Start with a personal text (90% open rate). If no reply, pivot to an email with data. No reply? Drop a voicemail. Be everywhere, but be valuable.', icon: 'fa-layer-group' }
         ],
-        sideImage: '/assets/playbook/strategy.png',
-        templatesTitle: 'Interactive Templates',
+        sideImage: '/assets/playbook/connection.png',
+        checklists: [
+            {
+                title: 'Reactivation Pulse Check',
+                items: [
+                    'Filter CRM for leads >6 months dormant',
+                    'Check for "Life Event" posts on social media',
+                    'Draft "No Pressure" text (Template #1)',
+                    'Prepare localized market data for value-add',
+                    'Schedule 3-day multi-channel sequence'
+                ]
+            }
+        ],
+        insights: [
+            {
+                title: 'The Response Hierarchy',
+                type: 'table',
+                content: [
+                    { Channel: 'Text Message', 'Avg Response': '90 Seconds', 'Tone': 'Casual/Direct' },
+                    { Channel: 'Email', 'Avg Response': '2-4 Hours', 'Tone': 'Value/Data' },
+                    { Channel: 'Voicemail', 'Avg Response': 'Low', 'Tone': 'Trust/Warmth' },
+                    { Channel: 'Social DM', 'Avg Response': 'High/Variable', 'Tone': 'Relational' }
+                ]
+            }
+        ],
+        templatesTitle: '2025 Reactivation Scripts',
         templates: [
-            { tag: 'Investment', title: 'The "Yield Surprise"', subtitle: 'STR Focus', body: 'Hi [Name], I was just looking at the 2026 STR yields for [Neighborhood] and thought of you. Some properties here are seeing a 15% jump. Want the breakdown?' },
-            { tag: 'Inventory', title: 'The "Inventory Alert"', subtitle: 'Market Momentum', body: 'Hi [Name], sudden influx of off-market listings in [Zip Code] $this week. First major shift in months. Still keeping an eye there?' },
-            { tag: 'Sellers', title: 'The "Equity Update"', subtitle: 'Wealth Tracking', body: 'Hey [Name], property on [Street] just closed for a record price. This impacts your home\'s valuation. Want a 1-page updated equity report?' }
+            { tag: 'Nurture', title: 'The Long-Term Nuture', subtitle: 'Dormant > 6 Months', body: '"Hi [Name], I was cleaning up my database and came across our chat from last year. I know life gets crazy! Just curious—did you end up finding a place, or is that move still in the back of your mind for 2025? No pressure either way!"' },
+            { tag: 'Value', title: 'The Market Update', subtitle: 'New Data Hook', body: 'Subject: Have you seen what\'s happening in [Neighborhood]?\n\n"I have some surprising new data on [Neighborhood] inventory levels. I\'d love to send you a quick no-cost update on your home\'s potential value based on these changes. Interested?"' },
+            { tag: 'Referral', title: ' The Past Client', subtitle: 'Gratitude & Ask', body: '"Hi [Name], honestly I was just thinking about how much I enjoyed helping you with your home. I\'m building my 2025 calendar—do you know anyone who might be considering a move this year that I should talk to?"' },
+            { tag: 'Expired', title: 'The Expired Listing', subtitle: 'Empathy & Data', body: '"Hi [Name], I saw the listing for [Address] came off the market. I know how frustrating that process can be. I have some specific ideas on why it might not have moved, based on what I\'m seeing in the neighborhood. Open to a 5-min chat?"' },
+            { tag: 'Seller', title: 'The Ghosted CMA', subtitle: 'Re-Engagement', body: '"Hi [Name], I was reviewing that market analysis we discussed. There are some surprising numbers coming out of [Neighborhood] for 2025 strategies. Do you still want to see the updated report?"' }
         ],
-        footerTagline: 'Mastering the art of the comeback. Your database is your greatest asset.',
-        footerActionLabel: 'Go to Reactivation Hub'
+        footerTagline: 'They don\'t need another salesperson. They need a reason to trust you again.',
+        footerActionLabel: 'Launch Campaigns'
     }
 };

@@ -7,7 +7,7 @@ admin.initializeApp();
 
 // Initialize Gemini with the API Key
 const genAI = new GoogleGenerativeAI('AIzaSyBEPZ14POfqhB2wgfqAsgXkzuVPy2w-l90');
-const embeddingModel = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
+const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
 
 // TODO: Replace with your actual Telnyx Phone Number or Messaging Profile ID
 const TELNYX_FROM_NUMBER = '+19252363260';

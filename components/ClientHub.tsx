@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import ProfileTab from './client-hub/ProfileTab';
 import AddClientModal from './AddClientModal';
 import RemoveClientModal from './RemoveClientModal';
-import { getLeads, getTasks, getTemplates, seedMockData, saveUserProfile, getUserProfile, updateLead, getReminderRules, updateReminderRule, deleteAllMockData, getRealtorClients, deleteLead, deleteUserAccount, auth } from '../services/firebaseService';
+import { getLeads, getTasks, getTemplates, seedMockData, saveUserProfile, getUserProfile, updateLead, getReminderRules, updateReminderRule, deleteAllMockData, getRealtorClients, deleteLead, deleteUserAccount, auth, syncBestPractices } from '../services/firebaseService';
 import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates, getInitialMockTransactions } from '../services/mockDataService';
 import { getDefaultReminderRules } from '../services/reminderRulesService';
 import { UserProfile, Lead, CRMTask, CommTemplate, FunnelStage, ReminderRule, LeadNote, RealtorNode } from '../types';
@@ -606,6 +606,28 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                                 </button>
                                             ))}
 
+                                            <button
+                                                onClick={async () => {
+                                                    if (!confirm('This will rebuild the search index for all Best Practices and Guides. It may take a moment. Continue?')) return;
+
+                                                    setIsToolsOpen(false); // Close menu immediately
+
+                                                    try {
+                                                        // Force re-sync of static content to trigger embeddings
+                                                        await syncBestPractices();
+                                                        localStorage.removeItem('zyphe_bp_sync_v2'); // Clear local cache flag
+                                                        alert('Search Index Repair Initiated. Please wait 1-2 minutes before searching.');
+                                                    } catch (err: any) {
+                                                        console.error('Index repair failed:', err);
+                                                        alert('Failed to repair index. Check console for details.');
+                                                    }
+                                                }}
+                                                className="w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 text-slate-500 hover:text-indigo-600"
+                                            >
+                                                <i className="fa-solid fa-wrench w-4 text-center text-slate-400"></i>
+                                                Repair Search Index
+                                            </button>
+
                                             <div className="h-px bg-slate-100 my-1.5 mx-3"></div>
                                             <button
                                                 onClick={async () => {
@@ -771,200 +793,202 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         )}
                     </div>
                 </div>
-            </header>
+            </header >
 
             {/* Mobile Dropdown Menu */}
-            {showHamburger && isMobileMenuOpen && (
-                <div className="fixed inset-0 z-[105] bg-slate-900 pt-[72px] animate-in slide-in-from-top duration-300">
-                    <div className="flex flex-col p-4 space-y-1.5 max-h-screen overflow-y-auto pb-24">
-                        {/* Main Navigation Sections */}
-                        {earlyTabs.map((tab: any) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => {
-                                    setActiveTab(tab.id as HubTab);
-                                    setIsMobileMenuOpen(false);
-                                    if (onNavigate) onNavigate(tab.id as any, '');
-                                }}
-                                className={`flex items-center gap-4 w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === tab.id ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-white bg-slate-800/50 border border-white/5'}`}
-                            >
-                                <i className={`fa-solid ${tab.icon} w-5 text-center text-xs`}></i>
-                                {tab.label}
-                            </button>
-                        ))}
+            {
+                showHamburger && isMobileMenuOpen && (
+                    <div className="fixed inset-0 z-[105] bg-slate-900 pt-[72px] animate-in slide-in-from-top duration-300">
+                        <div className="flex flex-col p-4 space-y-1.5 max-h-screen overflow-y-auto pb-24">
+                            {/* Main Navigation Sections */}
+                            {earlyTabs.map((tab: any) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => {
+                                        setActiveTab(tab.id as HubTab);
+                                        setIsMobileMenuOpen(false);
+                                        if (onNavigate) onNavigate(tab.id as any, '');
+                                    }}
+                                    className={`flex items-center gap-4 w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === tab.id ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-white bg-slate-800/50 border border-white/5'}`}
+                                >
+                                    <i className={`fa-solid ${tab.icon} w-5 text-center text-xs`}></i>
+                                    {tab.label}
+                                </button>
+                            ))}
 
-                        {/* Late Tabs (Knowledge) */}
-                        {lateTabs.map((tab: any) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => {
-                                    setActiveTab(tab.id as HubTab);
-                                    setIsMobileMenuOpen(false);
-                                    if (onNavigate) onNavigate(tab.id as any, '');
-                                }}
-                                className={`flex items-center gap-4 w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === tab.id ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-white bg-slate-800/50 border border-white/5'}`}
-                            >
-                                <i className={`fa-solid ${tab.icon} w-5 text-center text-xs`}></i>
-                                {tab.label}
-                            </button>
-                        ))}
+                            {/* Late Tabs (Knowledge) */}
+                            {lateTabs.map((tab: any) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => {
+                                        setActiveTab(tab.id as HubTab);
+                                        setIsMobileMenuOpen(false);
+                                        if (onNavigate) onNavigate(tab.id as any, '');
+                                    }}
+                                    className={`flex items-center gap-4 w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === tab.id ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-white bg-slate-800/50 border border-white/5'}`}
+                                >
+                                    <i className={`fa-solid ${tab.icon} w-5 text-center text-xs`}></i>
+                                    {tab.label}
+                                </button>
+                            ))}
 
-                        {/* Realtor Tools Group (Data Fields moved here) */}
-                        <div className="space-y-1.5 pt-2">
-                            <button
-                                onClick={() => setIsMobileToolsExpanded(!isMobileToolsExpanded)}
-                                className={`flex items-center justify-between w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab) || isMobileToolsExpanded) ? 'text-indigo-400' : 'text-slate-400 hover:text-white bg-slate-800/50 border border-white/5'}`}
-                            >
-                                <div className="flex items-center gap-4">
-                                    <i className="fa-solid fa-toolbox w-5 text-center text-xs"></i>
-                                    Realtor Tools
-                                </div>
-                                <i className={`fa-solid fa-chevron-down text-[10px] transition-transform duration-300 ${isMobileToolsExpanded ? 'rotate-180' : ''}`}></i>
-                            </button>
+                            {/* Realtor Tools Group (Data Fields moved here) */}
+                            <div className="space-y-1.5 pt-2">
+                                <button
+                                    onClick={() => setIsMobileToolsExpanded(!isMobileToolsExpanded)}
+                                    className={`flex items-center justify-between w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab) || isMobileToolsExpanded) ? 'text-indigo-400' : 'text-slate-400 hover:text-white bg-slate-800/50 border border-white/5'}`}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <i className="fa-solid fa-toolbox w-5 text-center text-xs"></i>
+                                        Realtor Tools
+                                    </div>
+                                    <i className={`fa-solid fa-chevron-down text-[10px] transition-transform duration-300 ${isMobileToolsExpanded ? 'rotate-180' : ''}`}></i>
+                                </button>
 
-                            {isMobileToolsExpanded && (
-                                <div className="pl-4 space-y-1.5 animate-in slide-in-from-top-2 duration-200">
-                                    {toolTabs.map((tab) => (
+                                {isMobileToolsExpanded && (
+                                    <div className="pl-4 space-y-1.5 animate-in slide-in-from-top-2 duration-200">
+                                        {toolTabs.map((tab) => (
+                                            <button
+                                                key={tab.id}
+                                                onClick={() => {
+                                                    setActiveTab(tab.id as HubTab);
+                                                    setIsMobileMenuOpen(false);
+                                                    if (onNavigate) onNavigate(tab.id as any, '');
+                                                }}
+                                                className={`flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] transition-all ${activeTab === tab.id ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300'}`}
+                                            >
+                                                <i className={`fa-solid ${tab.icon} w-5 text-center text-[10px]`}></i>
+                                                {tab.label === 'Data Fields' ? 'Data Fields' : tab.label}
+                                            </button>
+                                        ))}
+
+                                        <div className="h-px bg-white/5 my-2 mx-4"></div>
+                                        <div className="px-4 py-2 text-[8px] font-black uppercase tracking-[0.2em] text-slate-500">Admin</div>
+
+                                        {adminTabs.map((tab) => (
+                                            <button
+                                                key={tab.id}
+                                                onClick={() => {
+                                                    setActiveTab(tab.id as HubTab);
+                                                    setIsMobileMenuOpen(false);
+                                                    if (onNavigate) onNavigate(tab.id as any, '');
+                                                }}
+                                                className={`flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] transition-all ${activeTab === tab.id ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300'}`}
+                                            >
+                                                <i className={`fa-solid ${tab.icon} w-5 text-center text-[10px]`}></i>
+                                                {tab.label}
+                                            </button>
+                                        ))}
+
+                                        <div className="h-px bg-white/5 my-2 mx-4"></div>
                                         <button
-                                            key={tab.id}
-                                            onClick={() => {
-                                                setActiveTab(tab.id as HubTab);
-                                                setIsMobileMenuOpen(false);
-                                                if (onNavigate) onNavigate(tab.id as any, '');
-                                            }}
-                                            className={`flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] transition-all ${activeTab === tab.id ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300'}`}
-                                        >
-                                            <i className={`fa-solid ${tab.icon} w-5 text-center text-[10px]`}></i>
-                                            {tab.label === 'Data Fields' ? 'Data Fields' : tab.label}
-                                        </button>
-                                    ))}
-
-                                    <div className="h-px bg-white/5 my-2 mx-4"></div>
-                                    <div className="px-4 py-2 text-[8px] font-black uppercase tracking-[0.2em] text-slate-500">Admin</div>
-
-                                    {adminTabs.map((tab) => (
-                                        <button
-                                            key={tab.id}
-                                            onClick={() => {
-                                                setActiveTab(tab.id as HubTab);
-                                                setIsMobileMenuOpen(false);
-                                                if (onNavigate) onNavigate(tab.id as any, '');
-                                            }}
-                                            className={`flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] transition-all ${activeTab === tab.id ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300'}`}
-                                        >
-                                            <i className={`fa-solid ${tab.icon} w-5 text-center text-[10px]`}></i>
-                                            {tab.label}
-                                        </button>
-                                    ))}
-
-                                    <div className="h-px bg-white/5 my-2 mx-4"></div>
-                                    <button
-                                        onClick={async () => {
-                                            if (window.confirm("Are you sure you want to RESET all data? This will delete all mock leads, tasks, and templates.")) {
-                                                await handleResetAllData();
-                                                setIsMobileMenuOpen(false);
-                                                alert("Data reset successfully.");
-                                            }
-                                        }}
-                                        className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-rose-400 transition-all"
-                                    >
-                                        <i className="fa-solid fa-trash-can w-5 text-center text-[10px]"></i>
-                                        Reset Data
-                                    </button>
-                                    <button
-                                        onClick={async () => {
-                                            await handleSeedManualMockData();
-                                            setIsMobileMenuOpen(false);
-                                            alert("Mock data seeded successfully.");
-                                        }}
-                                        className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-indigo-400 transition-all"
-                                    >
-                                        <i className="fa-solid fa-database w-5 text-center text-[10px]"></i>
-                                        Seed Mock Data
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Settings Group (Account and Profile) */}
-                        <div className="space-y-1.5 pt-2">
-                            <button
-                                onClick={() => setIsMobileSettingsExpanded(!isMobileSettingsExpanded)}
-                                className={`flex items-center justify-between w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === 'profile' ? 'text-indigo-400' : 'text-slate-400 hover:text-white bg-slate-800/50 border border-white/5'}`}
-                            >
-                                <div className="flex items-center gap-4">
-                                    <i className="fa-solid fa-gear w-5 text-center text-xs"></i>
-                                    Settings
-                                </div>
-                                <i className={`fa-solid fa-chevron-down text-[10px] transition-transform duration-300 ${isMobileSettingsExpanded ? 'rotate-180' : ''}`}></i>
-                            </button>
-
-                            {isMobileSettingsExpanded && (
-                                <div className="pl-4 space-y-1.5 animate-in slide-in-from-top-2 duration-200">
-                                    <button
-                                        onClick={() => {
-                                            setActiveTab('profile');
-                                            setIsMobileMenuOpen(false);
-                                        }}
-                                        className={`flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] transition-all ${activeTab === 'profile' ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300'}`}
-                                    >
-                                        <i className="fa-solid fa-id-badge w-5 text-center text-[10px]"></i>
-                                        My Profile
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setIsAddClientModalOpen(true);
-                                            setIsMobileMenuOpen(false);
-                                        }}
-                                        className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-slate-300 transition-all"
-                                    >
-                                        <i className="fa-solid fa-user-plus w-5 text-center text-[10px]"></i>
-                                        Add a client
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setIsRemoveClientModalOpen(true);
-                                            setIsMobileMenuOpen(false);
-                                        }}
-                                        className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-slate-300 transition-all"
-                                    >
-                                        <i className="fa-solid fa-user-minus w-5 text-center text-[10px]"></i>
-                                        Remove a client
-                                    </button>
-                                    <button
-                                        onClick={async () => {
-                                            if (window.confirm("CRITICAL: Are you sure you want to delete your account? This will permanently remove your profile and all associated data. This cannot be undone.")) {
-                                                try {
-                                                    const success = await deleteUserAccount(realtorId);
-                                                    if (success) {
-                                                        onSignOut();
-                                                    }
-                                                } catch (err: any) {
-                                                    alert(err.message || "Failed to delete account");
+                                            onClick={async () => {
+                                                if (window.confirm("Are you sure you want to RESET all data? This will delete all mock leads, tasks, and templates.")) {
+                                                    await handleResetAllData();
+                                                    setIsMobileMenuOpen(false);
+                                                    alert("Data reset successfully.");
                                                 }
-                                            }
-                                        }}
-                                        className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-rose-500/80 hover:text-rose-400 transition-all"
-                                    >
-                                        <i className="fa-solid fa-triangle-exclamation w-5 text-center text-[10px]"></i>
-                                        Delete Account
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                                            }}
+                                            className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-rose-400 transition-all"
+                                        >
+                                            <i className="fa-solid fa-trash-can w-5 text-center text-[10px]"></i>
+                                            Reset Data
+                                        </button>
+                                        <button
+                                            onClick={async () => {
+                                                await handleSeedManualMockData();
+                                                setIsMobileMenuOpen(false);
+                                                alert("Mock data seeded successfully.");
+                                            }}
+                                            className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-indigo-400 transition-all"
+                                        >
+                                            <i className="fa-solid fa-database w-5 text-center text-[10px]"></i>
+                                            Seed Mock Data
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
 
-                        <div className="pt-2 mt-4 border-t border-white/5">
-                            <button
-                                onClick={onSignOut}
-                                className="flex items-center gap-4 w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] text-rose-400 bg-rose-500/5 border border-rose-500/10"
-                            >
-                                <i className="fa-solid fa-right-from-bracket w-5 text-center text-xs"></i>
-                                Sign Out
-                            </button>
+                            {/* Settings Group (Account and Profile) */}
+                            <div className="space-y-1.5 pt-2">
+                                <button
+                                    onClick={() => setIsMobileSettingsExpanded(!isMobileSettingsExpanded)}
+                                    className={`flex items-center justify-between w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === 'profile' ? 'text-indigo-400' : 'text-slate-400 hover:text-white bg-slate-800/50 border border-white/5'}`}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <i className="fa-solid fa-gear w-5 text-center text-xs"></i>
+                                        Settings
+                                    </div>
+                                    <i className={`fa-solid fa-chevron-down text-[10px] transition-transform duration-300 ${isMobileSettingsExpanded ? 'rotate-180' : ''}`}></i>
+                                </button>
+
+                                {isMobileSettingsExpanded && (
+                                    <div className="pl-4 space-y-1.5 animate-in slide-in-from-top-2 duration-200">
+                                        <button
+                                            onClick={() => {
+                                                setActiveTab('profile');
+                                                setIsMobileMenuOpen(false);
+                                            }}
+                                            className={`flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] transition-all ${activeTab === 'profile' ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300'}`}
+                                        >
+                                            <i className="fa-solid fa-id-badge w-5 text-center text-[10px]"></i>
+                                            My Profile
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setIsAddClientModalOpen(true);
+                                                setIsMobileMenuOpen(false);
+                                            }}
+                                            className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-slate-300 transition-all"
+                                        >
+                                            <i className="fa-solid fa-user-plus w-5 text-center text-[10px]"></i>
+                                            Add a client
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setIsRemoveClientModalOpen(true);
+                                                setIsMobileMenuOpen(false);
+                                            }}
+                                            className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-slate-300 transition-all"
+                                        >
+                                            <i className="fa-solid fa-user-minus w-5 text-center text-[10px]"></i>
+                                            Remove a client
+                                        </button>
+                                        <button
+                                            onClick={async () => {
+                                                if (window.confirm("CRITICAL: Are you sure you want to delete your account? This will permanently remove your profile and all associated data. This cannot be undone.")) {
+                                                    try {
+                                                        const success = await deleteUserAccount(realtorId);
+                                                        if (success) {
+                                                            onSignOut();
+                                                        }
+                                                    } catch (err: any) {
+                                                        alert(err.message || "Failed to delete account");
+                                                    }
+                                                }
+                                            }}
+                                            className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-rose-500/80 hover:text-rose-400 transition-all"
+                                        >
+                                            <i className="fa-solid fa-triangle-exclamation w-5 text-center text-[10px]"></i>
+                                            Delete Account
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="pt-2 mt-4 border-t border-white/5">
+                                <button
+                                    onClick={onSignOut}
+                                    className="flex items-center gap-4 w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] text-rose-400 bg-rose-500/5 border border-rose-500/10"
+                                >
+                                    <i className="fa-solid fa-right-from-bracket w-5 text-center text-xs"></i>
+                                    Sign Out
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50">
                 <div className="flex flex-col min-h-full">
@@ -1258,7 +1282,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                     getRealtorClients(realtorId).then(setClients);
                 }}
             />
-        </div>
+        </div >
     );
 };
 

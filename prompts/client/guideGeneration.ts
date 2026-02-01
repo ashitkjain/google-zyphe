@@ -209,7 +209,7 @@ export const guideGenerationSchema = {
 
 export const getGuideGenerationPrompt = (category: string, title: string) => {
    return `
-You are writing an educational guide about California homeownership and property operations.
+You are writing an educational guide about homeownership and property operations in the United States.
 You are NOT acting as an attorney, broker, tax advisor, or financial advisor, and you must NOT provide legal, tax, or financial advice.
 
 OUTPUT REQUIREMENTS (STRICT):
@@ -267,10 +267,10 @@ FIELD-SPECIFIC INSTRUCTIONS (KEEP JSON SHAPE UNCHANGED):
 - statutes: include 2–6 items. Each item MUST be an object with MUST have keys: "code" (string) and "relevance" (string).
 - Each "code" should be a high-level reference label, not legal advice.
   Examples of acceptable "code" values:
-  - "Davis–Stirling Common Interest Development Act (overview)"
-  - "California Civil Code (selected sections; varies by topic)"
-  - "California Revenue & Taxation Code (property tax concepts; overview)"
-  - "Proposition 13 / Proposition 19 (high-level concepts)"
+  - "Uniform Common Interest Ownership Act (or state-specific equivalent)"
+  - "State Civil Codes (general principles)"
+  - "Internal Revenue Code (federal tax concepts)"
+  - "Local Zoning & Property Assessment Standards"
   In "relevance", describe what the framework commonly governs, using qualifying language.
 - Do NOT cite precise subsections, do NOT quote statutes, and do NOT state legal conclusions.
 
@@ -329,7 +329,7 @@ Category: ${category}
 Guide Title: ${title}
 
 QUALITY BAR:
-- Be specific to California process patterns, but always state variability.
+- Be specific to general United States process patterns, but always state variability.
 - Prefer clarity and practical explanation over legalistic detail.
 - No generic filler; keep it useful.
 - Ensure the total word count is between 1,300 and 1,700 words.
