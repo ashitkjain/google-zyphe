@@ -28,6 +28,7 @@ import BulkPrefetchTab from './client-hub/BulkPrefetchTab';
 import CityDataTab from './client-hub/CityDataTab';
 import StorageScannerTab from './client-hub/StorageScannerTab';
 import LeadIngestionTab from './client-hub/LeadIngestionTab';
+import PdfToCsvTab from './client-hub/PdfToCsvTab';
 import ZypheCalendar from './client-hub/ZypheCalendar';
 import ReminderRulesManager from './client-hub/ReminderRulesManager';
 import Footer from './Footer';
@@ -47,7 +48,7 @@ const generateClientID = () => {
     return 'C-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 };
 
-type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'knowledge_center' | 'clients' | 'creative_studio' | 'profile' | 'bulk_prefetch' | 'city_data' | 'storage_registry' | 'lead_ingestion' | 'calendar' | 'reminder_rules';
+type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'knowledge_center' | 'clients' | 'creative_studio' | 'profile' | 'bulk_prefetch' | 'city_data' | 'storage_registry' | 'lead_ingestion' | 'calendar' | 'reminder_rules' | 'documents' | 'gantt' | 'transactions' | 'timeline' | 'audit_trail' | 'parties' | 'storage_scanner' | 'pdf_csv';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab, onNavigate, onUpdateProfile }) => {
     // Default to 'explore' if content is provided, otherwise 'leads'
@@ -505,6 +506,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
         { id: 'creative_studio', label: 'Creative Studio', icon: 'fa-paintbrush' },
         { id: 'settings', label: 'Data Fields', icon: 'fa-sliders' },
+        { id: 'pdf_csv', label: 'PDF to CSV', icon: 'fa-file-csv' },
     ];
 
     const adminTabs: { id: HubTab; label: string; icon: string }[] = [
@@ -1219,6 +1221,10 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                             <LeadIngestionTab
                                 realtorId={realtorId}
                             />
+                        )}
+
+                        {activeTab === 'pdf_csv' && (
+                            <PdfToCsvTab />
                         )}
 
                         {activeTab === 'bulk_prefetch' && (

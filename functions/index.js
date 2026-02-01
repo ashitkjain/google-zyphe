@@ -1,9 +1,128 @@
 const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { DocumentProcessorServiceClient } = require('@google-cloud/documentai').v1;
 const telnyx = require('telnyx')('KEY019BFFFEE99769B3985278C839A4C1AA_11aDo6xzW4pdHMr6LOFnth');
 
 admin.initializeApp();
+
+// Initialize Document AI Client
+const documentAiClient = new DocumentProcessorServiceClient();
+
+/**
+ * Process a document using Google Cloud Document AI
+ * Returns parsed CSV data from tables.
+ */
+exports.processDocumentWithDocumentAI = functions.https.onCall(async (data, context) => {
+    // 1. Validation
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
+    }
+
+    const { fileBase64, mimeType } = data;
+    if (!fileBase64 || !mimeType) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing file data or mime type.');
+    }
+
+    // TODO: User must replace these with their actual values
+    // Location can be 'us' or 'eu'
+    const projectId = process.env.GCLOUD_PROJECT || 'zyphe-af0bf';
+    const location = 'us';
+    const processorId = 'ed0aabde2713d146';
+
+    const name = `projects/${projectId}/locations/${location}/processors/${processorId}`;
+
+    // 2. Prepare Request
+    const request = {
+        name,
+        rawDocument: {
+            content: fileBase64,
+            mimeType: mimeType,
+        },
+    };
+
+    console.log(`[DocumentAI] Processing document for user ${context.auth.uid}`);
+
+    try {
+        // 3. Call Document AI
+        const [result] = await documentAiClient.processDocument(request);
+        const { document } = result;
+
+        if (!document) {
+            console.warn('[DocumentAI] No document returned.');
+            return { csv: '' };
+        }
+
+        const { text } = document;
+
+        // 4. Extract Tables to CSV
+        // Simple heuristic: Join entity mentions or use page structure if available.
+        // For Form processors, we often use entities. For Splitter/Parser, we use pages.
+        // Assuming Form Parser or General Processor which returns entities or pages with blocks.
+
+        // Let's try to reconstruct tables from the 'pages' tables field if available
+        let csvOutput = '';
+
+        if (document.pages && document.pages.length > 0) {
+            for (const page of document.pages) {
+                if (page.tables && page.tables.length > 0) {
+                    for (const table of page.tables) {
+                        const rows = [];
+                        if (table.headerRows) {
+                            for (const params of table.headerRows) {
+                                const rowCells = params.cells.map(cell => {
+                                    return getTextAnchorContent(text, cell.layout.textAnchor).replace(/\n/g, ' ').trim();
+                                });
+                                rows.push(rowCells.join(','));
+                            }
+                        }
+                        if (table.bodyRows) {
+                            for (const params of table.bodyRows) {
+                                const rowCells = params.cells.map(cell => {
+                                    return getTextAnchorContent(text, cell.layout.textAnchor).replace(/\n/g, ' ').trim();
+                                });
+                                rows.push(rowCells.join(','));
+                            }
+                        }
+                        csvOutput += rows.join('\n') + '\n\n';
+                    }
+                }
+            }
+        }
+
+        // Fallback: If no structured tables found, just correct the text layout? 
+        // Or if form entities are found.
+        if (!csvOutput.trim()) {
+            console.log('[DocumentAI] No native tables found. Returning raw text.');
+            // This is a naive fallback, likely won't be valid CSV but better than nothing or we can return specific error.
+            return { csv: "NO_DATA_FOUND" };
+        }
+
+        return { csv: csvOutput.trim() };
+
+    } catch (error) {
+        console.error('[DocumentAI] Error:', error);
+        throw new functions.https.HttpsError('internal', error.message || 'Document AI processing failed.');
+    }
+});
+
+/**
+ * Helper to extract text from text anchors
+ */
+function getTextAnchorContent(text, textAnchor) {
+    if (!textAnchor || !textAnchor.textSegments || textAnchor.textSegments.length === 0) {
+        return '';
+    }
+
+    // Sort segments by start index just in case
+    // textAnchor.textSegments.sort((a, b) => (a.startIndex || 0) - (b.startIndex || 0));
+
+    return textAnchor.textSegments.map(segment => {
+        const start = parseInt(segment.startIndex || 0);
+        const end = parseInt(segment.endIndex || 0);
+        return text.substring(start, end);
+    }).join('');
+}
 
 // Initialize Gemini with the API Key
 const genAI = new GoogleGenerativeAI('AIzaSyBEPZ14POfqhB2wgfqAsgXkzuVPy2w-l90');

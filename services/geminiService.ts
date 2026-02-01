@@ -798,17 +798,11 @@ export const transformLeadCsv = async (csvData: string, userId: string = "unknow
       contents: prompt,
       config: {
         temperature: 0.1, // Low temperature for consistent CSV formatting
+        responseMimeType: "text/plain"
       }
     });
 
     const responseText = response.text;
-
-    // Clean up the response to extract just the CSV block
-    let csvContent = responseText;
-    const csvMatch = responseText.match(/```(?:csv)?\n([\s\S]*?)\n```/) || responseText.match(/```([\s\S]*?)```/);
-    if (csvMatch) {
-      csvContent = csvMatch[1].trim();
-    }
 
     if (logId) {
       updateLLMCall(logId, {
@@ -819,7 +813,7 @@ export const transformLeadCsv = async (csvData: string, userId: string = "unknow
       }).catch(err => console.error("Failed to update AI log:", err));
     }
 
-    return csvContent;
+    return responseText;
   } catch (error: any) {
     if (logId) {
       updateLLMCall(logId, {
@@ -835,6 +829,29 @@ export const transformLeadCsv = async (csvData: string, userId: string = "unknow
       throw error;
     }
     throw new AiResponseError(error.message, "Raw API Error", prompt);
+  }
+};
+
+import { functions } from './firebase/config';
+import { httpsCallable } from 'firebase/functions';
+
+export const convertDocumentToCsv = async (fileBase64: string, mimeType: string, userId: string = "unknown"): Promise<{ csv: string; usage: any }> => {
+  try {
+    if (!functions) {
+      throw new Error("Firebase Functions not initialized. Check your config.");
+    }
+
+    const processDoc = httpsCallable(functions, 'processDocumentWithDocumentAI');
+    const result: any = await processDoc({ fileBase64, mimeType });
+
+    return {
+      csv: result.data.csv,
+      usage: { totalTokens: 0, cost: 0.05 } // Document AI fixed cost approx logic, or just 0
+    };
+
+  } catch (error: any) {
+    console.error("Document AI Error:", error);
+    throw new Error(error.message || "Failed to process document with Document AI.");
   }
 };
 

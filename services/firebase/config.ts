@@ -52,6 +52,16 @@ export const storage = _storage;
 export const storage_instance = _storage;
 export const googleProvider = new GoogleAuthProvider();
 
+// Initialize Functions
+import { getFunctions } from "firebase/functions";
+let _functions: any = null;
+try {
+    if (app) _functions = getFunctions(app);
+} catch (e) {
+    console.error("Functions initialization failed:", e);
+}
+export const functions = _functions;
+
 export const sanitizeForFirestore = (data: any): any => {
     if (data === undefined || data === null) return null;
     if (Array.isArray(data)) return data.map(sanitizeForFirestore);
