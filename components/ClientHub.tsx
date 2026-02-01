@@ -28,6 +28,8 @@ import BulkPrefetchTab from './client-hub/BulkPrefetchTab';
 import CityDataTab from './client-hub/CityDataTab';
 import StorageScannerTab from './client-hub/StorageScannerTab';
 import LeadIngestionTab from './client-hub/LeadIngestionTab';
+import ZypheCalendar from './client-hub/ZypheCalendar';
+import ReminderRulesManager from './client-hub/ReminderRulesManager';
 import Footer from './Footer';
 
 interface Props {
@@ -45,7 +47,7 @@ const generateClientID = () => {
     return 'C-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 };
 
-type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'knowledge_center' | 'clients' | 'creative_studio' | 'profile' | 'bulk_prefetch' | 'city_data' | 'storage_registry' | 'lead_ingestion';
+type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'knowledge_center' | 'clients' | 'creative_studio' | 'profile' | 'bulk_prefetch' | 'city_data' | 'storage_registry' | 'lead_ingestion' | 'calendar' | 'reminder_rules';
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab, onNavigate, onUpdateProfile }) => {
     // Default to 'explore' if content is provided, otherwise 'leads'
@@ -498,6 +500,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
     const toolTabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
+        { id: 'calendar', label: 'Calendar', icon: 'fa-calendar-days' },
         { id: 'lead_ingestion', label: 'Lead Ingestion', icon: 'fa-link' },
         { id: 'whiteboard', label: 'Whiteboard', icon: 'fa-pen-to-square' },
         { id: 'creative_studio', label: 'Creative Studio', icon: 'fa-paintbrush' },
@@ -505,6 +508,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     ];
 
     const adminTabs: { id: HubTab; label: string; icon: string }[] = [
+        { id: 'reminder_rules', label: 'Reminder Rules', icon: 'fa-bell-concierge' },
         { id: 'storage_registry', label: 'Bulk Prefetch', icon: 'fa-server' },
     ];
 
@@ -1081,13 +1085,9 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                             />
                         )}
 
-                        {activeTab === 'tasks' && (
-                            <TaskBoard
-                                realtorId={realtorId}
-                                tasks={tasks}
-                                leads={leads}
-                                reminderRules={reminderRules}
-                                onTasksUpdated={handleRefreshTasks}
+                        {activeTab === 'reminder_rules' && (
+                            <ReminderRulesManager
+                                rules={reminderRules}
                                 onUpdateRule={(ruleId, updates) => {
                                     // Local-only update to allow "Discard" to work
                                     setReminderRules(prev => prev.map(r => r.id === ruleId ? { ...r, ...updates } : r));
@@ -1133,6 +1133,15 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
                                     console.log(`[ClientHub] ✅ Successfully saved all ${successCount} rules!`);
                                 }}
+                            />
+                        )}
+
+                        {activeTab === 'tasks' && (
+                            <TaskBoard
+                                realtorId={realtorId}
+                                tasks={tasks}
+                                leads={leads}
+                                onTasksUpdated={handleRefreshTasks}
                             />
                         )}
 
@@ -1186,6 +1195,13 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
                         {activeTab === 'whiteboard' && (
                             <WhiteboardTab userId={realtorId} />
+                        )}
+
+                        {activeTab === 'calendar' && (
+                            <ZypheCalendar
+                                realtorId={realtorId}
+                                leads={leads}
+                            />
                         )}
 
                         {activeTab === 'creative_studio' && (
