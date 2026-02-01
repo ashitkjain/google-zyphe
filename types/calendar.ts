@@ -5,6 +5,7 @@ export interface CalendarEvent {
     start: any; // Date or Firestore Timestamp
     end: any;   // Date or Firestore Timestamp
     type: 'appointment' | 'open-house' | 'task';
+    priority?: 'Urgent' | 'High' | 'Normal' | 'Low';
     client?: string;
     clientId?: string;
     transactionId?: string;

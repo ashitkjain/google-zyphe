@@ -50,6 +50,7 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, lead
                 start: dueDate,
                 end: new Date(dueDate.getTime() + 30 * 60 * 1000), // 30 mins duration
                 type: 'task',
+                priority: task.priority,
                 clientId: task.clientId,
                 client: lead?.fullName || '',
                 description: task.comment
@@ -329,13 +330,17 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, lead
                                 key={event.id}
                                 onClick={() => { setSelectedEvent(event); setIsEditing(true); }}
                                 className={`p-1.5 text-[10px] font-bold rounded-lg border break-words whitespace-normal shadow-sm cursor-pointer hover:scale-[1.02] transition-transform ${event.type === 'open-house' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                    event.type === 'task' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                    event.type === 'task' ? (
+                                        event.priority === 'Urgent' ? 'bg-slate-800 text-white border-slate-700 shadow-indigo-100' :
+                                            event.priority === 'High' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                                'bg-orange-50 text-orange-700 border-orange-100'
+                                    ) :
                                         'bg-indigo-50 text-indigo-700 border-indigo-100'
                                     }`}
                             >
                                 <i className={`fa-solid ${event.type === 'open-house' ? 'fa-house-chimney' : event.type === 'task' ? 'fa-list-check' : 'fa-handshake'} mr-1.5 opacity-60`}></i>
                                 {event.client && (
-                                    <span className="text-indigo-600 font-black mr-1">
+                                    <span className={`${event.type === 'task' && event.priority === 'Urgent' ? 'text-indigo-300' : 'text-indigo-600'} font-black mr-1`}>
                                         [{event.client}]
                                     </span>
                                 )}
@@ -458,13 +463,17 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, lead
                                                     height: `${duration * 80}px`
                                                 }}
                                                 className={`absolute left-2 right-2 p-2 rounded-lg shadow-sm z-10 hover:scale-[1.02] transition-transform cursor-pointer overflow-hidden border ${event.type === 'open-house' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                                    event.type === 'task' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                                    event.type === 'task' ? (
+                                                        event.priority === 'Urgent' ? 'bg-slate-800 text-white border-slate-700' :
+                                                            event.priority === 'High' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                                                'bg-orange-50 text-orange-700 border-orange-100'
+                                                    ) :
                                                         'bg-indigo-50 text-indigo-700 border-indigo-100'
                                                     }`}
                                             >
                                                 <div className="font-bold text-[11px] leading-tight break-words whitespace-normal">
                                                     {event.client && (
-                                                        <span className="text-indigo-600 font-black mr-1">
+                                                        <span className={`${event.type === 'task' && event.priority === 'Urgent' ? 'text-indigo-300' : 'text-indigo-600'} font-black mr-1`}>
                                                             [{event.client}]
                                                         </span>
                                                     )}
@@ -522,7 +531,7 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, lead
                 </div>
 
                 <div className="mt-12 flex items-center justify-between text-slate-400 text-[10px] font-bold uppercase tracking-widest bg-white/50 backdrop-blur-md p-6 rounded-3xl border border-white">
-                    <div className="flex gap-8">
+                    <div className="flex gap-8 flex-wrap">
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-indigo-600"></div> Appointments
                         </div>
@@ -530,7 +539,13 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, lead
                             <div className="w-2 h-2 rounded-full bg-emerald-500"></div> Open Houses
                         </div>
                         <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-amber-500"></div> Tasks
+                            <div className="w-2 h-2 rounded-full bg-slate-800"></div> Tasks (Urgent)
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500/50"></div> Tasks (High)
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-orange-500"></div> Tasks (Closing)
                         </div>
                     </div>
                 </div>
