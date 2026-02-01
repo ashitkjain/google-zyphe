@@ -7,6 +7,7 @@ import LeadGalleryItem from './leads/LeadGalleryItem';
 import LeadsHeader from './leads/LeadsHeader';
 import LeadsViewControls from './leads/LeadsViewControls';
 import LeadsKanbanBoard from './leads/LeadsKanbanBoard';
+import LeadsListView from './leads/LeadsListView';
 
 const LeadsList: React.FC<InternalProps> = ({
     leads,
@@ -160,7 +161,7 @@ const LeadsList: React.FC<InternalProps> = ({
             />
 
             {/* Kanban View */}
-            {currentDisplayMode === 'kanban' ? (
+            {currentDisplayMode === 'kanban' && (
                 <LeadsKanbanBoard
                     leads={activeTab === 'Buyer' ? buyerLeads : (activeTab === 'Buyer2' ? sellerLeads : sellerLeads)}
                     leadType={activeTab === 'Buyer2' ? 'Seller' : activeTab}
@@ -176,7 +177,19 @@ const LeadsList: React.FC<InternalProps> = ({
                     realtorId={realtorId}
                     boardSettings={boardSettings}
                 />
-            ) : (
+            )}
+
+            {/* List View */}
+            {currentDisplayMode === 'list' && (
+                <LeadsListView
+                    leads={activeTab === 'Buyer' ? sortedBuyerLeads : (activeTab === 'Buyer2' ? sortedBuyer2Leads : sortedSellerLeads)}
+                    onUpdateLead={onUpdateLead}
+                    onActivateLead={onActivateLead}
+                />
+            )}
+
+            {/* Gallery View */}
+            {currentDisplayMode === 'gallery' && (
                 <DragDropContext onDragEnd={handleDragEnd}>
                     {/* Content Area */}
                     <div className="flex-1 bg-white mb-0 space-y-4 py-4 overflow-y-auto custom-scrollbar h-full">

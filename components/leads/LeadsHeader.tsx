@@ -4,8 +4,8 @@ interface LeadsHeaderProps {
     activeTab: 'Buyer' | 'Buyer2' | 'Seller';
     setActiveTab: (tab: 'Buyer' | 'Buyer2' | 'Seller') => void;
     onCreateLead: (initialUpdates?: any) => void;
-    displayMode: 'gallery' | 'kanban';
-    setDisplayMode: (mode: 'gallery' | 'kanban') => void;
+    displayMode: 'gallery' | 'kanban' | 'list';
+    setDisplayMode: (mode: 'gallery' | 'kanban' | 'list') => void;
     boardSettings: {
         search: string;
         sort: 'newest' | 'oldest' | 'name' | 'temp';
@@ -202,6 +202,13 @@ const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCr
                         >
                             <i className="fa-solid fa-table-cells-large"></i>
                             Gallery
+                        </button>
+                        <button
+                            onClick={() => setDisplayMode('list')}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${displayMode === 'list' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            <i className="fa-solid fa-list"></i>
+                            List
                         </button>
                     </div>
                 )}
