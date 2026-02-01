@@ -6,7 +6,6 @@ interface PremiumLegacyBridgeProps {
     mode: 'top' | 'bottom';
 }
 
-const PremiumLegacyBridge: React.FC<PremiumLegacyBridgeProps> = ({ data, mode }) => {
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
         alert('Template copied to clipboard!');

@@ -1,6 +1,6 @@
 import { db } from './config';
 import { doc, setDoc, getDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
-import { GuideResult } from '../../prompts/guideGeneration';
+import { GuideResult } from '../../prompts/client/guideGeneration';
 import { BEST_PRACTICES_DATA } from '../../components/client-hub/MagazineBestPracticesData';
 
 export interface GuideContent {

@@ -1,6 +1,4 @@
 import React from 'react';
-import PremiumLegacyBridge from './PremiumLegacyBridge';
-import { BEST_PRACTICES_DATA } from '../MagazineBestPracticesData';
 
 const CommunicationSection: React.FC = () => {
     return (
@@ -10,7 +8,6 @@ const CommunicationSection: React.FC = () => {
                 <p className="text-lg text-slate-500 font-medium">Mastering the art of client engagement across all channels.</p>
             </div>
 
-            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.communication} mode="top" />
 
             <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 mb-8">
                 <p className="text-indigo-800 leading-relaxed font-medium">
@@ -207,7 +204,6 @@ const CommunicationSection: React.FC = () => {
                 </div>
             </div>
 
-            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.communication} mode="bottom" />
         </div>
     );
 };

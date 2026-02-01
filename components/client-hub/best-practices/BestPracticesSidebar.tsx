@@ -191,7 +191,7 @@ const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSecti
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${activeSection === 'reactivation' ? 'bg-white/20' : 'bg-slate-100 group-hover:bg-slate-200'}`}>
                         <i className="fa-solid fa-bolt"></i>
                     </div>
-                    Reactivation Playbook
+                    Lead Reactivation
                 </button>
             </nav>
         </div>

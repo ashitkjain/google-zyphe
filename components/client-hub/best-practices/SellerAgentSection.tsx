@@ -1,6 +1,4 @@
 import React from 'react';
-import PremiumLegacyBridge from './PremiumLegacyBridge';
-import { BEST_PRACTICES_DATA } from '../MagazineBestPracticesData';
 
 const SellerAgentSection: React.FC = () => {
     return (
@@ -10,7 +8,6 @@ const SellerAgentSection: React.FC = () => {
                 <p className="text-lg text-slate-500 font-medium">Providing high-end representation for listings to maximize results.</p>
             </div>
 
-            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.seller_agent} mode="top" />
 
             <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 mb-8">
                 <p className="text-indigo-800 leading-relaxed font-medium">
@@ -121,7 +118,6 @@ const SellerAgentSection: React.FC = () => {
                 </div>
             </div>
 
-            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.seller_agent} mode="bottom" />
         </div>
     );
 };

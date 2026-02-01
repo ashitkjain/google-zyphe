@@ -1,6 +1,4 @@
 import React from 'react';
-import PremiumLegacyBridge from './PremiumLegacyBridge';
-import { BEST_PRACTICES_DATA } from '../MagazineBestPracticesData';
 
 const SystemsProductivitySection: React.FC = () => {
     return (
@@ -10,7 +8,6 @@ const SystemsProductivitySection: React.FC = () => {
                 <p className="text-lg text-slate-500 font-medium">Optimizing operations and daily rituals for peak performance.</p>
             </div>
 
-            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.systems_productivity} mode="top" />
 
             <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 mb-8">
                 <p className="text-indigo-800 leading-relaxed font-medium">
@@ -167,7 +164,6 @@ const SystemsProductivitySection: React.FC = () => {
                 </div>
             </div>
 
-            <PremiumLegacyBridge data={BEST_PRACTICES_DATA.systems_productivity} mode="bottom" />
         </div>
     );
 };

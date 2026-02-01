@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import GoogleAd from '../GoogleAd';
 import { getGuideBySlug, saveGuideContent } from '../../services/firebaseService';
 import { generateGuide, generateGuideImage } from '../../services/geminiService';
-import { GuideResult } from '../../prompts/guideGeneration';
+import { GuideResult } from '../../prompts/client/guideGeneration';
 
 interface GuideItem {
     id: string;
@@ -787,12 +787,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                         <p className="text-sm text-slate-500 font-medium leading-relaxed line-clamp-2 selection:bg-indigo-100 mb-3">
                                             {item.description || `Professional analysis of ${item.title.toLowerCase()} within the California regulatory framework, exploring common requirements and typical timelines for property owners.`}
                                         </p>
-                                        <div className="flex items-center gap-2 text-indigo-600 font-black text-[10px] uppercase tracking-widest transition-all transform group-hover:translate-x-1">
-                                            <span className="bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-lg group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-600 transition-all">
-                                                Read Professional Brief
-                                            </span>
-                                            <i className="fa-solid fa-arrow-right text-[8px] opacity-0 group-hover:opacity-100 transition-opacity"></i>
-                                        </div>
+
                                     </div>
 
                                     {/* Link Icon Indicator */}
