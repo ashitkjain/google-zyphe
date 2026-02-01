@@ -345,7 +345,7 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, onUpdateL
                 <div className={`relative transition-all duration-300 ease-out flex items-center justify-center ${lead.engagementScore === 'Hot' ? 'w-10 h-10 -mt-2 -mr-2 drop-shadow-[0_4px_4px_rgba(255,100,0,0.3)] z-50 animate-flame' : 'w-6 h-6'}`}>
                     {(!lead.engagementScore || lead.engagementScore === 'Cold') && <i className="fa-solid fa-snowflake text-sky-300 text-lg filter drop-shadow-sm"></i>}
                     {lead.engagementScore === 'Warm' && <i className="fa-solid fa-mug-hot text-amber-500 text-lg filter drop-shadow-sm"></i>}
-                    {lead.engagementScore === 'Stale' && <img src="/assets/stale-icon.png" alt="Stale" className="w-5 h-5 object-contain opacity-60 grayscale filter drop-shadow-sm" />}
+                    {lead.engagementScore === 'Stale' && <img src="/stale-bread.png" alt="Stale" className="w-6 h-6 object-contain filter drop-shadow-sm -mt-1" />}
                     {lead.engagementScore === 'Hot' && (
                         <>
                             <svg viewBox="0 0 100 100" className="w-full h-full filter drop-shadow-sm">

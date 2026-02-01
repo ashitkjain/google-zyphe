@@ -470,7 +470,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                 >
                                     {(!lead.engagementScore || lead.engagementScore === 'Cold') && <i className="fa-solid fa-snowflake text-sky-300 text-xl filter drop-shadow-sm"></i>}
                                     {lead.engagementScore === 'Warm' && <i className="fa-solid fa-mug-hot text-amber-500 text-xl filter drop-shadow-sm"></i>}
-                                    {lead.engagementScore === 'Stale' && <img src="/assets/stale-icon.png" alt="Stale" className="w-6 h-6 object-contain opacity-60 grayscale filter drop-shadow-sm" />}
+                                    {lead.engagementScore === 'Stale' && <img src="/stale-bread.png" alt="Stale" className="w-6 h-6 object-contain filter drop-shadow-sm" />}
                                     {lead.engagementScore === 'Hot' && (
                                         <>
                                             <svg viewBox="0 0 100 100" className="w-full h-full filter drop-shadow-sm">

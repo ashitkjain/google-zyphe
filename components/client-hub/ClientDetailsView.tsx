@@ -458,7 +458,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                                     )}
                                                     {selectedClient.engagementScore === 'Warm' && <i className="fa-solid fa-mug-hot text-amber-500 text-xl filter drop-shadow-sm"></i>}
                                                     {selectedClient.engagementScore === 'Cold' && <i className="fa-solid fa-snowflake text-sky-400 text-xl filter drop-shadow-sm"></i>}
-                                                    {selectedClient.engagementScore === 'Stale' && <img src="/assets/stale-icon.png" alt="Stale" className="w-6 h-6 object-contain opacity-60 grayscale filter drop-shadow-sm" />}
+                                                    {selectedClient.engagementScore === 'Stale' && <img src="/stale-bread.png" alt="Stale" className="w-6 h-6 object-contain filter drop-shadow-sm" />}
                                                 </div>
 
                                                 {/* Post-it Stack */}

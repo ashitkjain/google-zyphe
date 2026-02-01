@@ -8,6 +8,7 @@ import LeadsHeader from './leads/LeadsHeader';
 import LeadsViewControls from './leads/LeadsViewControls';
 import LeadsKanbanBoard from './leads/LeadsKanbanBoard';
 import LeadsListView from './leads/LeadsListView';
+import ClientDetailsView from './client-hub/ClientDetailsView';
 
 const LeadsList: React.FC<InternalProps> = ({
     leads,
@@ -32,6 +33,7 @@ const LeadsList: React.FC<InternalProps> = ({
     const [buyer2FunnelCategory, setBuyer2FunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
     const [sellerFunnelCategory, setSellerFunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
     const [currentDisplayMode, setCurrentDisplayMode] = useState<DisplayMode>(isMobile ? 'gallery' : 'kanban');
+    const [selectedLeadForOverlay, setSelectedLeadForOverlay] = useState<Lead | null>(null);
 
     // Sync display mode with mobile status
     React.useEffect(() => {
@@ -242,7 +244,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 visibleColumns={new Set()}
                                                 onUpdateLead={onUpdateLead}
                                                 onArchive={() => onUpdateLead(lead.id, { funnelStage: 'Archived' })}
-                                                onActivate={onActivateLead}
+                                                onActivate={() => setSelectedLeadForOverlay(lead)}
                                             />
                                         ))}
                                     </div>
@@ -302,7 +304,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                                 visibleColumns={new Set()}
                                                 onUpdateLead={onUpdateLead}
                                                 onArchive={() => onUpdateLead(lead.id, { funnelStage: 'Archived' })}
-                                                onActivate={onActivateLead}
+                                                onActivate={() => setSelectedLeadForOverlay(lead)}
                                             />
                                         ))}
                                     </div>
@@ -317,6 +319,36 @@ const LeadsList: React.FC<InternalProps> = ({
 
                     </div>
                 </DragDropContext>
+            )}
+
+            {/* Client Details Overlay */}
+            {selectedLeadForOverlay && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 pt-[80px] pb-4 px-4 overflow-hidden">
+                    <div className="bg-white w-[1000px] h-full max-h-full rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 relative">
+                        <button
+                            onClick={() => setSelectedLeadForOverlay(null)}
+                            className="absolute top-4 right-4 z-50 w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-full text-slate-500 hover:text-slate-700 transition-colors"
+                        >
+                            <i className="fa-solid fa-times"></i>
+                        </button>
+                        <ClientDetailsView
+                            realtorId={realtorId}
+                            clients={[{
+                                ...selectedLeadForOverlay,
+                                uid: selectedLeadForOverlay.id,
+                                displayName: selectedLeadForOverlay.fullName || `${selectedLeadForOverlay.firstName || ''} ${selectedLeadForOverlay.lastName || ''}`.trim(),
+                                email: selectedLeadForOverlay.email || selectedLeadForOverlay.primaryContact?.email || ''
+                            } as any]}
+                            leads={[selectedLeadForOverlay]}
+                            onUpdateClient={async (id, updates) => {
+                                onUpdateLead(id, updates);
+                                return true;
+                            }}
+                            initialSelectedId={selectedLeadForOverlay.id}
+                            hideClientList={true}
+                        />
+                    </div>
+                </div>
             )}
         </div>
     );
