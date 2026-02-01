@@ -462,9 +462,6 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, lead
                                                         'bg-indigo-50 text-indigo-700 border-indigo-100'
                                                     }`}
                                             >
-                                                <div className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">
-                                                    {eStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </div>
                                                 <div className="font-bold text-[11px] leading-tight break-words whitespace-normal">
                                                     {event.client && (
                                                         <span className="text-indigo-600 font-black mr-1">
