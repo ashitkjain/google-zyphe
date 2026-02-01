@@ -33,6 +33,15 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       }
+    },
+    optimizeDeps: {
+      include: ['@google/genai']
+    },
+    build: {
+      rollupOptions: {
+        // Ensure @google/genai is not treated as external
+        external: []
+      }
     }
   };
 });
