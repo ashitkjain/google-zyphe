@@ -457,24 +457,24 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, lead
                                                     top: `${relativeStart * 80}px`,
                                                     height: `${duration * 80}px`
                                                 }}
-                                                className={`absolute left-2 right-2 p-3 rounded-2xl shadow-xl z-10 hover:scale-[1.02] transition-transform cursor-pointer overflow-hidden border ${event.type === 'open-house' ? 'bg-emerald-600/90 border-emerald-500' :
-                                                    event.type === 'task' ? 'bg-amber-600/90 border-amber-500' :
-                                                        'bg-indigo-600/90 border-indigo-500'
-                                                    } text-white`}
+                                                className={`absolute left-2 right-2 p-2 rounded-lg shadow-sm z-10 hover:scale-[1.02] transition-transform cursor-pointer overflow-hidden border ${event.type === 'open-house' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                                    event.type === 'task' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                                        'bg-indigo-50 text-indigo-700 border-indigo-100'
+                                                    }`}
                                             >
-                                                <div className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">
-                                                    {eStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {eEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                <div className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">
+                                                    {eStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </div>
-                                                <div className="font-bold text-xs break-words whitespace-normal">
+                                                <div className="font-bold text-[11px] leading-tight break-words whitespace-normal">
                                                     {event.client && (
-                                                        <span className="opacity-80 font-black mr-1 text-white/90">
+                                                        <span className="text-indigo-600 font-black mr-1">
                                                             [{event.client}]
                                                         </span>
                                                     )}
                                                     {event.title}
                                                 </div>
                                                 {event.type === 'task' && event.description && (
-                                                    <div className="text-[9px] mt-1 opacity-70 font-medium italic truncate">
+                                                    <div className="text-[9px] mt-1 opacity-70 font-medium italic break-words whitespace-normal">
                                                         {event.description}
                                                     </div>
                                                 )}
