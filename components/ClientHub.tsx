@@ -495,7 +495,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     ];
 
     const lateTabs: { id: HubTab; label: string; icon: string }[] = [
-        { id: 'knowledge_center', label: 'Knowledge', icon: 'fa-book-bookmark' },
+        { id: 'knowledge_center', label: 'Library', icon: 'fa-book-bookmark' },
     ];
 
     const toolTabs: { id: HubTab; label: string; icon: string }[] = [

@@ -23,7 +23,7 @@ const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) =
             const now = Date.now();
             // Sync once every 24 hours in dev/demo or first time
             if (!lastSync || now - parseInt(lastSync) > 86400000) {
-                console.log('[KnowledgeCenter] Auto-syncing Intelligence Hub...');
+                console.log('[Library] Auto-syncing Library Hub...');
                 await syncBestPractices();
                 localStorage.setItem('zyphe_bp_sync_v2', now.toString());
             }
@@ -109,7 +109,7 @@ const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) =
                         {showResults && (
                             <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[50]">
                                 <div className="p-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Intelligence Results</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Library Results</span>
                                     <span className="text-[9px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">AI Semantic Match</span>
                                 </div>
                                 <div className="max-h-[60vh] overflow-y-auto">
@@ -147,7 +147,7 @@ const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) =
                                             <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
                                                 <i className="fa-solid fa-face-sad-tear text-slate-400"></i>
                                             </div>
-                                            <div className="text-[11px] font-bold text-slate-900 mb-1">No relevant intelligence found</div>
+                                            <div className="text-[11px] font-bold text-slate-900 mb-1">No relevant library resources found</div>
                                             <div className="text-[10px] text-slate-500">Try rephrasing your search or using broader terms.</div>
                                         </div>
                                     )}
@@ -158,7 +158,7 @@ const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) =
 
                     <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-[9px] font-black text-slate-500 uppercase tracking-tight">
                         <i className="fa-solid fa-shield-halved text-indigo-400"></i>
-                        Professional Intelligence Hub
+                        Professional Library Hub
                     </div>
                 </div>
             </div>
