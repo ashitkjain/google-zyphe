@@ -184,7 +184,8 @@ const LeadsList: React.FC<InternalProps> = ({
                 <LeadsListView
                     leads={activeTab === 'Buyer' ? sortedBuyerLeads : (activeTab === 'Buyer2' ? sortedBuyer2Leads : sortedSellerLeads)}
                     onUpdateLead={onUpdateLead}
-                    onActivateLead={onActivateLead}
+                    realtorId={realtorId}
+                    activeTab={activeTab === 'Buyer2' ? 'Seller' : activeTab}
                 />
             )}
 
