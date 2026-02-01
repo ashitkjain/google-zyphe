@@ -63,11 +63,7 @@ Tools specifically built to turn cold data into active deals.
 ---
 
 ### Technology Advantage
-Zyphe is built on a modern, scalable, serverless architecture designed for speed and rapid iteration.
-*   **Frontend:** React 19 + Vite (High performance, responsive UI).
-*   **Backend:** Firebase Serverless (Cloud Functions, Firestore) for infinite scalability and zero maintenance.
-*   **AI Core:** Deep integration with advanced large language models for cost-effective, high-speed, and high-intelligence processing.
-*   **Data Pipeline:** Capabilities for **intelligent document processing** (converting PDFs into data) and Geocoding APIs.
+Zyphe is built on Google Cloud with modern, scalable, reliable and secure architecture designed for speed and rapid iteration.
 
 ### Conclusion
 Zyphe is not just another property search site; it is an intelligent layer on top of the real estate market. By providing **AI-native utility** tailored to every profile—Buyer, Seller, and Realtor—Zyphe is designed to grow organically through platform-led network effects. With superior unit economics that make professional-grade intelligence affordable for everyone, Zyphe is positioned to become the operating system of choice for the modern real estate era.
