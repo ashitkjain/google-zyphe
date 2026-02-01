@@ -68,6 +68,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
         const success = await deleteTask(taskId, taskToDelete?.transaction_id);
         if (success) {
             setTasks(prev => prev.filter(t => t.id !== taskId));
+            if (onTasksUpdated) await onTasksUpdated();
         } else {
             alert("❌ Failed to delete task.");
         }
@@ -141,7 +142,11 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
             <div>
                 <div className="flex-1 bg-white px-12 pt-3 pb-12 overflow-y-auto font-sans leading-normal text-slate-900">
                     <div className="max-w-6xl mx-auto">
-                        <div className="flex justify-end mb-3">
+                        <div className="flex justify-between items-center mb-6">
+                            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-4 py-2 rounded-lg border border-slate-100">
+                                <i className="fa-solid fa-calendar-check text-indigo-500"></i>
+                                Tasks with due dates are automatically synced to your calendar
+                            </div>
                             <button
                                 onClick={handleSaveTasks}
                                 disabled={isSaving}
