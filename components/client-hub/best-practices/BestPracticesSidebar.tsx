@@ -110,6 +110,18 @@ const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSecti
                     Lead Gen & Online
                 </button>
                 <button
+                    onClick={() => setActiveSection('reactivation')}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === 'reactivation'
+                        ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200'
+                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                        }`}
+                >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${activeSection === 'reactivation' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
+                        <i className="fa-solid fa-bolt"></i>
+                    </div>
+                    Lead Reactivation
+                </button>
+                <button
                     onClick={() => setActiveSection('systems_productivity')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === 'systems_productivity'
                         ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200'
@@ -182,17 +194,7 @@ const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSecti
                     Niche Positioning
                 </button>
 
-                <div className="h-px bg-slate-100 my-2 mx-4"></div>
 
-                <button
-                    onClick={() => setActiveSection('reactivation')}
-                    className={`nav-item flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeSection === 'reactivation' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
-                >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${activeSection === 'reactivation' ? 'bg-white/20' : 'bg-slate-100 group-hover:bg-slate-200'}`}>
-                        <i className="fa-solid fa-bolt"></i>
-                    </div>
-                    Lead Reactivation
-                </button>
             </nav>
         </div>
     );
