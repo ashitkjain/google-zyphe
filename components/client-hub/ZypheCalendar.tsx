@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ClientSelector from './ClientSelector';
 import { getCalendarEvents, saveCalendarEvent, deleteCalendarEvent } from '../../services/firebaseService';
-import { Lead, CalendarEvent } from '../../types';
+import { Lead, CalendarEvent, CRMTask } from '../../types';
 
 type ViewMode = 'month' | 'week' | 'day';
 
@@ -9,9 +9,10 @@ interface ZypheCalendarProps {
     realtorId: string;
     onSwitch?: () => void;
     leads?: Lead[];
+    tasks?: CRMTask[];
 }
 
-const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, leads = [] }) => {
+const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, leads = [], tasks = [] }) => {
     const [viewMode, setViewMode] = useState<ViewMode>('month');
     const [currentDate, setCurrentDate] = useState(new Date());
     const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -28,6 +29,36 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, lead
         };
         fetchEvents();
     }, [realtorId]);
+
+    // Helper to normalize dates from CRM tasks
+    const parseTaskDate = (val: any): Date => {
+        if (!val) return new Date();
+        if (typeof val.toDate === 'function') return val.toDate();
+        if (val.seconds !== undefined) return new Date(val.seconds * 1000);
+        return new Date(val);
+    };
+
+    // Combine fetched events with passed CRM tasks
+    const allEvents = React.useMemo(() => {
+        const taskEvents: CalendarEvent[] = tasks.map(task => {
+            const dueDate = parseTaskDate(task.dueDate);
+            const lead = leads.find(l => l.id === task.clientId || l.clientId === task.clientId);
+            return {
+                id: `task-${task.id}`,
+                realtorId: task.realtorId,
+                title: task.name,
+                start: dueDate,
+                end: new Date(dueDate.getTime() + 30 * 60 * 1000), // 30 mins duration
+                type: 'task',
+                clientId: task.clientId,
+                client: lead?.fullName || '',
+                description: task.comment
+            };
+        });
+
+        // Filter out any duplicate tasks if they somehow exist in events already
+        return [...events, ...taskEvents];
+    }, [events, tasks, leads]);
 
     const isPast = (date: Date) => {
         return date.getTime() < new Date().getTime();
@@ -271,11 +302,12 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, lead
             const isWeekend = dayOfWeek >= 5;
             const isToday = today.getDate() === i && today.getMonth() === month && today.getFullYear() === year;
 
-            const dayEvents = events.filter(e =>
-                e.start.getDate() === i &&
-                e.start.getMonth() === month &&
-                e.start.getFullYear() === year
-            );
+            const dayEvents = allEvents.filter(e => {
+                const eDate = e.start instanceof Date ? e.start : (typeof e.start.toDate === 'function' ? e.start.toDate() : new Date(e.start.seconds * 1000));
+                return eDate.getDate() === i &&
+                    eDate.getMonth() === month &&
+                    eDate.getFullYear() === year;
+            });
 
             cells.push(
                 <div
@@ -302,13 +334,12 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, lead
                                     }`}
                             >
                                 <i className={`fa-solid ${event.type === 'open-house' ? 'fa-house-chimney' : event.type === 'task' ? 'fa-list-check' : 'fa-handshake'} mr-1.5 opacity-60`}></i>
-                                {event.title}
                                 {event.client && (
-                                    <div className="mt-0.5 opacity-60 font-medium truncate">
-                                        <i className="fa-solid fa-user-tag text-[8px] mr-1"></i>
-                                        {event.client}
-                                    </div>
+                                    <span className="text-indigo-600 font-black mr-1">
+                                        [{event.client}]
+                                    </span>
                                 )}
+                                {event.title}
                             </div>
                         ))}
                     </div>
@@ -405,9 +436,15 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, lead
                                     ))}
 
                                     {/* Real Events */}
-                                    {events.filter(e => e.start.toDateString() === date.toDateString()).map(event => {
-                                        const startHour = event.start.getHours() + (event.start.getMinutes() / 60);
-                                        const endHour = event.end.getHours() + (event.end.getMinutes() / 60);
+                                    {allEvents.filter(e => {
+                                        const eDate = e.start instanceof Date ? e.start : (typeof e.start.toDate === 'function' ? e.start.toDate() : new Date(e.start.seconds * 1000));
+                                        return eDate.toDateString() === date.toDateString();
+                                    }).map(event => {
+                                        const eStart = event.start instanceof Date ? event.start : (typeof event.start.toDate === 'function' ? event.start.toDate() : new Date(event.start.seconds * 1000));
+                                        const eEnd = event.end instanceof Date ? event.end : (typeof event.end.toDate === 'function' ? event.end.toDate() : new Date(event.end.seconds * 1000));
+
+                                        const startHour = eStart.getHours() + (eStart.getMinutes() / 60);
+                                        const endHour = eEnd.getHours() + (eEnd.getMinutes() / 60);
                                         const duration = endHour - startHour;
 
                                         const relativeStart = startHour >= 6 ? startHour - 6 : startHour + 18;
@@ -426,12 +463,19 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, lead
                                                     } text-white`}
                                             >
                                                 <div className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">
-                                                    {event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {event.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    {eStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {eEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </div>
-                                                <div className="font-bold text-xs break-words whitespace-normal">{event.title}</div>
-                                                {event.client && (
-                                                    <div className="text-[10px] mt-2 flex items-center gap-1 opacity-90 font-medium">
-                                                        <i className="fa-solid fa-user-tag text-[8px]"></i> {event.client}
+                                                <div className="font-bold text-xs break-words whitespace-normal">
+                                                    {event.client && (
+                                                        <span className="opacity-80 font-black mr-1 text-white/90">
+                                                            [{event.client}]
+                                                        </span>
+                                                    )}
+                                                    {event.title}
+                                                </div>
+                                                {event.type === 'task' && event.description && (
+                                                    <div className="text-[9px] mt-1 opacity-70 font-medium italic truncate">
+                                                        {event.description}
                                                     </div>
                                                 )}
                                             </div>

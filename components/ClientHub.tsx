@@ -1201,6 +1201,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                             <ZypheCalendar
                                 realtorId={realtorId}
                                 leads={leads}
+                                tasks={tasks}
                             />
                         )}
 
