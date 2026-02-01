@@ -23,11 +23,11 @@ interface BestPracticesSidebarProps {
 
 const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSection, setActiveSection }) => {
     return (
-        <div className="w-64 bg-white border-r border-slate-200 flex flex-col items-center py-6 h-full overflow-y-auto custom-scrollbar">
+        <div className="w-64 bg-white border-r border-slate-200 flex flex-col items-stretch py-6 h-full overflow-y-auto custom-scrollbar">
             <nav className="w-full px-4 space-y-2 pb-6">
                 <button
                     onClick={() => setActiveSection('timings')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === 'timings'
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-left transition-all ${activeSection === 'timings'
                         ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200'
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                         }`}
@@ -39,7 +39,7 @@ const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSecti
                 </button>
                 <button
                     onClick={() => setActiveSection('buyer_agent')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === 'buyer_agent'
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-left transition-all ${activeSection === 'buyer_agent'
                         ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200'
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                         }`}
@@ -51,7 +51,7 @@ const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSecti
                 </button>
                 <button
                     onClick={() => setActiveSection('seller_agent')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === 'seller_agent'
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-left transition-all ${activeSection === 'seller_agent'
                         ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200'
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                         }`}
@@ -63,7 +63,7 @@ const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSecti
                 </button>
                 <button
                     onClick={() => setActiveSection('communication')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === 'communication'
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-left transition-all ${activeSection === 'communication'
                         ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200'
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                         }`}
@@ -75,7 +75,7 @@ const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSecti
                 </button>
                 <button
                     onClick={() => setActiveSection('listing_marketing')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === 'listing_marketing'
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-left transition-all ${activeSection === 'listing_marketing'
                         ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200'
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                         }`}
@@ -87,7 +87,7 @@ const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSecti
                 </button>
                 <button
                     onClick={() => setActiveSection('pricing_negotiation')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === 'pricing_negotiation'
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-left transition-all ${activeSection === 'pricing_negotiation'
                         ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200'
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                         }`}
@@ -99,7 +99,7 @@ const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSecti
                 </button>
                 <button
                     onClick={() => setActiveSection('lead_generation')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === 'lead_generation'
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-left transition-all ${activeSection === 'lead_generation'
                         ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200'
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                         }`}
@@ -111,7 +111,7 @@ const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSecti
                 </button>
                 <button
                     onClick={() => setActiveSection('reactivation')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === 'reactivation'
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-left transition-all ${activeSection === 'reactivation'
                         ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200'
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                         }`}
@@ -123,7 +123,7 @@ const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSecti
                 </button>
                 <button
                     onClick={() => setActiveSection('systems_productivity')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === 'systems_productivity'
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-left transition-all ${activeSection === 'systems_productivity'
                         ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200'
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                         }`}
@@ -135,7 +135,7 @@ const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSecti
                 </button>
                 <button
                     onClick={() => setActiveSection('transaction_compliance')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === 'transaction_compliance'
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-left transition-all ${activeSection === 'transaction_compliance'
                         ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200'
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                         }`}
@@ -147,7 +147,7 @@ const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSecti
                 </button>
                 <button
                     onClick={() => setActiveSection('education_positioning')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === 'education_positioning'
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-left transition-all ${activeSection === 'education_positioning'
                         ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200'
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                         }`}
@@ -159,7 +159,7 @@ const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSecti
                 </button>
                 <button
                     onClick={() => setActiveSection('branding_development')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === 'branding_development'
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-left transition-all ${activeSection === 'branding_development'
                         ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200'
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                         }`}
@@ -171,7 +171,7 @@ const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSecti
                 </button>
                 <button
                     onClick={() => setActiveSection('market_analytics')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === 'market_analytics'
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-left transition-all ${activeSection === 'market_analytics'
                         ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200'
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                         }`}
@@ -183,7 +183,7 @@ const BestPracticesSidebar: React.FC<BestPracticesSidebarProps> = ({ activeSecti
                 </button>
                 <button
                     onClick={() => setActiveSection('niche_market')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === 'niche_market'
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-left transition-all ${activeSection === 'niche_market'
                         ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200'
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                         }`}
