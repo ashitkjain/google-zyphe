@@ -39,8 +39,13 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       rollupOptions: {
-        // Ensure @google/genai is not treated as external
-        external: []
+        // Externalize @google/genai as requested to bypass resolution errors in cloud build
+        external: ['@google/genai'],
+        output: {
+          globals: {
+            '@google/genai': 'GoogleGenAI'
+          }
+        }
       }
     }
   };
