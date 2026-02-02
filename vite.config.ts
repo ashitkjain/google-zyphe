@@ -21,6 +21,11 @@ export default defineConfig(({ mode }) => {
           target: 'https://firebasestorage.googleapis.com',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/storage-proxy/, '')
+        },
+        '/api_proxy': {
+          target: 'https://generativelanguage.googleapis.com',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api_proxy/, '')
         }
       }
     },
