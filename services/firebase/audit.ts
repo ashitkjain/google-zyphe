@@ -1,4 +1,4 @@
-import { collection, addDoc, serverTimestamp, query, where, orderBy, getDocs } from "firebase/firestore";
+import { collection, addDoc, doc, serverTimestamp, query, where, orderBy, getDocs } from "firebase/firestore";
 import { db, auth, sanitizeForFirestore } from "./config";
 import { AuditEvent, AuditActionType, AuditEntityType } from "../../types";
 

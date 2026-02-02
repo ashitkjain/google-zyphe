@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from '../types';
 import { CHAT_MODEL } from '../services/geminiService';
+import { APP_CONFIG } from '../config';
 
 interface Props {
   property: PropertyData;
@@ -39,8 +40,8 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
     setLoading(true);
 
     try {
-      // Re-initialize for every request to ensure the freshest API key and no stale state
-      const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY) || "";
+      // Use centralized API key from APP_CONFIG
+      const apiKey = APP_CONFIG.gemini.key;
       const ai = new GoogleGenAI({ apiKey });
 
       // Construct intelligence context to be sent with the system instruction

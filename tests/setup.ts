@@ -29,5 +29,22 @@ vi.mock('../services/firebaseService', () => ({
 
 // Mock serverTimestamp
 vi.mock('firebase/firestore', () => ({
-    serverTimestamp: vi.fn(() => 'mock-timestamp')
+    collection: vi.fn((db, path) => ({ path, type: 'collection' })),
+    doc: vi.fn((db, path, id) => ({ path, id, type: 'doc' })),
+    setDoc: vi.fn(() => Promise.resolve()),
+    addDoc: vi.fn(() => Promise.resolve({ id: 'new-doc-id' })),
+    getDoc: vi.fn(),
+    getDocs: vi.fn(() => Promise.resolve({ docs: [] })),
+    query: vi.fn(),
+    where: vi.fn(),
+    orderBy: vi.fn(),
+    limit: vi.fn(),
+    serverTimestamp: vi.fn(() => 'mock-timestamp'),
+    updateDoc: vi.fn(() => Promise.resolve()),
+    deleteDoc: vi.fn(() => Promise.resolve()),
+    writeBatch: vi.fn(() => ({
+        set: vi.fn(),
+        commit: vi.fn(() => Promise.resolve()),
+        delete: vi.fn()
+    }))
 }));
