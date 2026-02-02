@@ -39,13 +39,6 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       rollupOptions: {
-        // Externalize @google/genai as requested to bypass resolution errors in cloud build
-        external: ['@google/genai'],
-        output: {
-          globals: {
-            '@google/genai': 'GoogleGenAI'
-          }
-        }
       }
     }
   };
