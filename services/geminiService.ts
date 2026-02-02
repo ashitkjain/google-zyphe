@@ -39,21 +39,17 @@ export class AiResponseError extends Error {
 
 // Lazy initialization of the Gemini API client
 let aiInstance: GoogleGenAI | null = null;
-const getAi = () => {
+export const getAi = () => {
   if (!aiInstance) {
-    // API key is correctly pulled from APP_CONFIG
     const apiKey = APP_CONFIG.gemini.key;
+    if (!apiKey) throw new Error("Gemini API Key missing");
 
-    if (!apiKey || apiKey.startsWith("AIzaSy...") && apiKey.length < 20) {
-      console.error("Missing Gemini API Key in APP_CONFIG.");
-      throw new AiResponseError(
-        "Gemini API Key is missing. Please ensure it is set in config.ts.",
-        "Missing Configuration"
-      );
-    }
+    // Explicitly hit Google directly to avoid routing/proxy issues on various hosts
     aiInstance = new GoogleGenAI({
       apiKey,
-      httpOptions: { baseUrl: "https://generativelanguage.googleapis.com" }
+      httpOptions: {
+        baseUrl: "https://generativelanguage.googleapis.com"
+      }
     });
   }
   return aiInstance;

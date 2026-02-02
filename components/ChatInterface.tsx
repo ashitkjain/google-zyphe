@@ -1,8 +1,6 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from '../types';
-import { CHAT_MODEL } from '../services/geminiService';
+import { CHAT_MODEL, getAi } from '../services/geminiService';
 import { APP_CONFIG } from '../config';
 import { logLLMCall, updateLLMCall } from '../services/firebase/llm_logs';
 import { serverTimestamp } from 'firebase/firestore';
@@ -43,12 +41,7 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
 
     let logId: string | null = null;
     try {
-      // Use centralized API key from APP_CONFIG
-      const apiKey = APP_CONFIG.gemini.key;
-      const ai = new GoogleGenAI({
-        apiKey,
-        httpOptions: { baseUrl: "https://generativelanguage.googleapis.com" }
-      });
+      const ai = getAi();
 
       // Construct intelligence context to be sent with the system instruction
       // This ensures the model is always aware of the property without needing the full chat history
