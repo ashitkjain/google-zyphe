@@ -113,7 +113,7 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
 
       // Log the outgoing request
       logId = await logLLMCall({
-        user_id: "concierge_user", // Fallback if no auth
+        user_id: "unknown", // Fallback to pick up real UID or 'unknown'
         zpid: property.zpid,
         prompt_filename: "ChatInterface.tsx",
         llm_name: CHAT_MODEL,
