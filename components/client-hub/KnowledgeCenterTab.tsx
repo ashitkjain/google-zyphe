@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import BestPracticesTab from './BestPracticesTab';
 import GuidesTab from './GuidesTab';
+import PlatformHelpTab from './PlatformHelpTab';
 import { searchKnowledge, SearchResult, syncBestPractices } from '../../services/firebaseService';
 
 interface KnowledgeCenterTabProps {
@@ -8,7 +9,7 @@ interface KnowledgeCenterTabProps {
 }
 
 const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) => {
-    const [activeSubTab, setActiveSubTab] = useState<'playbooks' | 'resources'>('playbooks');
+    const [activeSubTab, setActiveSubTab] = useState<'playbooks' | 'resources' | 'support'>('playbooks');
     const [activeSection, setActiveSection] = useState('timings');
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -90,6 +91,19 @@ const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) =
                                 <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-600 rounded-t-full"></div>
                             )}
                         </button>
+                        <button
+                            onClick={() => {
+                                setActiveSubTab('support');
+                                setShowResults(false);
+                            }}
+                            className={`h-full flex items-center gap-2 text-xs font-black uppercase tracking-widest transition-all relative ${activeSubTab === 'support' && !showResults ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            <i className="fa-solid fa-circle-question text-[10px]"></i>
+                            Platform Help
+                            {(activeSubTab === 'support' && !showResults) && (
+                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-600 rounded-t-full"></div>
+                            )}
+                        </button>
                     </div>
 
                     {/* Semantic Search Bar */}
@@ -167,8 +181,10 @@ const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) =
             <div className="flex-1 overflow-hidden">
                 {activeSubTab === 'playbooks' ? (
                     <BestPracticesTab initialSection={activeSection} />
-                ) : (
+                ) : activeSubTab === 'resources' ? (
                     <GuidesTab onNavigate={onNavigate} />
+                ) : (
+                    <PlatformHelpTab />
                 )}
             </div>
         </div>
