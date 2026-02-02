@@ -11,8 +11,8 @@ export const APP_CONFIG = {
         bidding_strategy: false, // Explicitly disabled as per user request
     },
     models: {
-        flash: 'gemini-2.5-flash',
-        flashLite: 'gemini-2.5-flash-lite',
+        flash: 'gemini-2.0-flash',
+        flashLite: 'gemini-2.0-flash-lite',
     },
     roleTabs: {
         buyer: ['interior', 'rooms', 'exterior', 'neighborhood', 'pulse', 'image_analysis', 'investment', 'bidding'],
