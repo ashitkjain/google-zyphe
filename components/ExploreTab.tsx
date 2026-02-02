@@ -2,11 +2,7 @@ import React from 'react';
 import PropertyHeader from './PropertyHeader';
 import PropertyImages from './PropertyImages';
 import PropertyFacts from './PropertyFacts';
-import MobilityScores from './MobilityScores';
-import SchoolScores from './SchoolScores';
-import ClimateRiskSection from './ClimateRiskSection';
 import PropertyMaps from './PropertyMaps';
-import PropertyDescription from './PropertyDescription';
 import Logo from './Logo';
 import CustomAIAnalysis from './CustomAIAnalysis';
 import ComprehensiveAnalysis from './ComprehensiveAnalysis';
@@ -87,11 +83,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 onRunAnalysis={() => onRunCustomAnalysis(false)}
                             />
                             <PropertyImages images={propertyData.images} loading={imagesLoading} />
-                            <PropertyDescription description={propertyData.description} />
                             <PropertyFacts facts={propertyData.resoFacts} />
-                            <MobilityScores data={propertyData} />
-                            <SchoolScores data={propertyData} />
-                            <ClimateRiskSection data={propertyData} />
                             <PropertyMaps mapZoomIn={propertyData.mapZoomIn} mapZoomOut={propertyData.mapZoomOut} />
                         </>
                     ) : (

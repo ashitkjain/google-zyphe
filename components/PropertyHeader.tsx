@@ -88,8 +88,8 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
         View Visual AI Analysis
       </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-16 gap-y-10">
-        {/* Physical Specs */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-16 gap-y-12">
+        {/* Row 1: Core Physical / Financial */}
         <div className="space-y-5">
           <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
             <span className="w-4 h-px bg-slate-200"></span>
@@ -100,7 +100,6 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
           </div>
         </div>
 
-        {/* Financial & Status */}
         <div className="space-y-5">
           <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
             <span className="w-4 h-px bg-slate-200"></span>
@@ -110,7 +109,89 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
             {financialSpecs.map((m, idx) => <MetricItem key={idx} m={m} />)}
           </div>
         </div>
+
+        {/* Row 2: Mobility / Schools */}
+        <div className="space-y-5">
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+            <span className="w-4 h-px bg-slate-200"></span>
+            Mobility & Connectivity
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+            {[
+              { icon: 'fa-person-walking', label: 'Walk Score', value: data.walkScore ? `${data.walkScore}/100 (${data.walkScoreDesc || 'N/A'})` : 'N/A' },
+              { icon: 'fa-bus', label: 'Transit Score', value: data.transitScore ? `${data.transitScore}/100 (${data.transitScoreDesc || 'N/A'})` : 'N/A' },
+              { icon: 'fa-bicycle', label: 'Bike Score', value: data.bikeScore ? `${data.bikeScore}/100 (${data.bikeScoreDesc || 'N/A'})` : 'N/A' },
+            ].map((m, idx) => <MetricItem key={idx} m={m} />)}
+          </div>
+        </div>
+
+        <div className="space-y-5">
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+            <span className="w-4 h-px bg-slate-200"></span>
+            Educational Institutions
+          </div>
+          <div className="grid grid-cols-1 gap-y-5">
+            {data.schools?.slice(0, 3).map((s, idx) => (
+              <MetricItem key={idx} m={{
+                icon: 'fa-graduation-cap',
+                label: s.name,
+                value: `Rating: ${s.rating}/10 • ${s.distance}`
+              }} />
+            ))}
+            {(!data.schools || data.schools.length === 0) && <p className="text-xs text-slate-400">No school data available for this area.</p>}
+          </div>
+        </div>
+
+        {/* Row 3: Climate Risk / Description (Full width Description below) */}
+        <div className="space-y-5 lg:col-span-1">
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+            <span className="w-4 h-px bg-slate-200"></span>
+            Climate Risk Assessment
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+            {[
+              { icon: 'fa-wind', label: 'Wind Risk', value: data.windRiskScore ? `${data.windRiskScore}/10` : 'N/A' },
+              { icon: 'fa-droplet', label: 'Flood Risk', value: data.floodRiskScore ? `${data.floodRiskScore}/10` : 'N/A' },
+              { icon: 'fa-fire', label: 'Fire Risk', value: data.fireRiskScore ? `${data.fireRiskScore}/10` : 'N/A' },
+              { icon: 'fa-temperature-high', label: 'Heat Risk', value: data.heatRiskScore ? `${data.heatRiskScore}/10` : 'N/A' },
+            ].map((m, idx) => <MetricItem key={idx} m={m} />)}
+          </div>
+        </div>
       </div>
+
+      {/* Description Section - Integrated at the bottom */}
+      {data.description && data.description !== "No description available." && (
+        <div className="pt-8 border-t border-slate-50">
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+            <span className="w-4 h-px bg-slate-200"></span>
+            Property Overview
+          </div>
+          <PropertyDescription description={data.description} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+const PropertyDescription: React.FC<{ description: string }> = ({ description }) => {
+  const [isExpanded, setIsExpanded] = React.useState(false);
+  const isLong = description.length > 500;
+  const displayDescription = isExpanded ? description : description.slice(0, 500) + (isLong ? '...' : '');
+
+  return (
+    <div className="relative">
+      <p className="text-slate-600 text-base leading-relaxed font-semibold whitespace-pre-wrap">
+        {displayDescription}
+      </p>
+      {isLong && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="mt-4 text-indigo-600 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:text-indigo-800 transition-colors"
+        >
+          <span>{isExpanded ? 'Show Less' : 'Read Full Description'}</span>
+          <i className={`fa-solid ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
+        </button>
+      )}
     </div>
   );
 };
