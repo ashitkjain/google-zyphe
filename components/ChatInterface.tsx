@@ -45,7 +45,10 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
     try {
       // Use centralized API key from APP_CONFIG
       const apiKey = APP_CONFIG.gemini.key;
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: { baseUrl: "https://generativelanguage.googleapis.com" }
+      });
 
       // Construct intelligence context to be sent with the system instruction
       // This ensures the model is always aware of the property without needing the full chat history

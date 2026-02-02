@@ -51,7 +51,10 @@ const getAi = () => {
         "Missing Configuration"
       );
     }
-    aiInstance = new GoogleGenAI({ apiKey });
+    aiInstance = new GoogleGenAI({
+      apiKey,
+      httpOptions: { baseUrl: "https://generativelanguage.googleapis.com" }
+    });
   }
   return aiInstance;
 };
