@@ -78,10 +78,10 @@ const CustomAIAnalysis: React.FC<Props> = ({
 
   // Auto-trigger Investment Research when tab is selected
   useEffect(() => {
-    if (activeTab === 'investment' && !analysis?.investment_research && !investmentLoading) {
+    if (activeTab === 'investment' && (!analysis?.property_investment || !analysis?.general_market_intelligence) && !investmentLoading) {
       handleRunInvestmentResearch();
     }
-  }, [activeTab, analysis?.investment_research, investmentLoading]);
+  }, [activeTab, analysis?.property_investment, analysis?.general_market_intelligence, investmentLoading]);
 
   // Auto-trigger Community Pulse when tab is selected
   useEffect(() => {
@@ -230,17 +230,10 @@ const CustomAIAnalysis: React.FC<Props> = ({
         addLog('Gemini AI', { type: 'response' }, { task: 'general_market_intelligence', location: cityStateKey || zpid }, res.usage);
       }
 
-      // 3. Aggregate for UI
-      const aggregated: InvestmentResearchResult = {
-        property_specific: propInvestment,
-        general: generalMarket
-      };
-
       onUpdateAnalysis({
         ...analysis,
         property_investment: propInvestment,
-        general_market_intelligence: generalMarket,
-        investment_research: aggregated
+        general_market_intelligence: generalMarket
       });
 
     } catch (err: any) {
@@ -319,7 +312,8 @@ const CustomAIAnalysis: React.FC<Props> = ({
     neighborhood,
     community_pulse,
     image_quality_analysis,
-    investment_research,
+    property_investment,
+    general_market_intelligence,
     bidding_strategy,
     image_by_image_analysis
   } = analysis;
@@ -568,7 +562,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
     </div>
   );
 
-  const InvestmentView = ({ data }: { data: InvestmentResearchResult }) => {
+  const InvestmentView = ({ specific, general }: { specific: PropertySpecificInvestmentResult; general: GeneralMarketIntelligenceResult }) => {
     const [showAllSources, setShowAllSources] = useState(false);
     return (
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 max-w-5xl mx-auto space-y-8 pb-12 font-sans" style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}>
@@ -585,17 +579,17 @@ const CustomAIAnalysis: React.FC<Props> = ({
             <div className="grid grid-cols-2 gap-6">
               <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100/50">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">TARGET ADR</span>
-                <p className="text-[13px] font-normal leading-[1.625] text-gray-700">{data.property_specific.str_performance.adr}</p>
+                <p className="text-[13px] font-normal leading-[1.625] text-gray-700">{specific.str_performance.adr}</p>
               </div>
               <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100/50">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">OCC. RATE</span>
-                <p className="text-[13px] font-normal leading-[1.625] text-gray-700">{data.property_specific.str_performance.occupancy_rate}</p>
+                <p className="text-[13px] font-normal leading-[1.625] text-gray-700">{specific.str_performance.occupancy_rate}</p>
               </div>
             </div>
 
             <div className="p-8 bg-[#1a2333] rounded-2xl shadow-xl shadow-indigo-900/10">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">ANNUAL REVENUE PROJECTION</span>
-              <p className="text-[18px] font-bold text-white leading-relaxed">{data.property_specific.str_performance.annual_revenue_projection}</p>
+              <p className="text-[18px] font-bold text-white leading-relaxed">{specific.str_performance.annual_revenue_projection}</p>
             </div>
           </div>
 
@@ -610,17 +604,17 @@ const CustomAIAnalysis: React.FC<Props> = ({
             <div className="grid grid-cols-2 gap-6">
               <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100/50">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">MONTHLY RENT</span>
-                <p className="text-[13px] font-normal leading-[1.625] text-gray-700">{data.property_specific.ltr_analysis.monthly_rent}</p>
+                <p className="text-[13px] font-normal leading-[1.625] text-gray-700">{specific.ltr_analysis.monthly_rent}</p>
               </div>
               <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100/50">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">VACANCY RATE</span>
-                <p className="text-[13px] font-normal leading-[1.625] text-gray-700">{data.property_specific.ltr_analysis.vacancy_rate}</p>
+                <p className="text-[13px] font-normal leading-[1.625] text-gray-700">{specific.ltr_analysis.vacancy_rate}</p>
               </div>
             </div>
 
             <div className="p-8 bg-teal-50 rounded-2xl border border-teal-100/50">
               <span className="text-[10px] font-bold text-teal-600 uppercase tracking-widest block mb-3">STABILITY ANALYSIS</span>
-              <p className="text-[13px] font-normal leading-[1.625] text-teal-900/80">{data.property_specific.ltr_analysis.comparison_summary}</p>
+              <p className="text-[13px] font-normal leading-[1.625] text-teal-900/80">{specific.ltr_analysis.comparison_summary}</p>
             </div>
           </div>
         </div>
@@ -636,7 +630,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
               </div>
             </div>
             <p className="text-gray-500 text-[12px] leading-relaxed font-normal">
-              {data.general.market_dynamics.historical_appreciation}
+              {general.market_dynamics.historical_appreciation}
             </p>
           </div>
 
@@ -649,7 +643,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
               </div>
             </div>
             <p className="text-gray-500 text-[12px] leading-relaxed font-normal">
-              {data.general.market_dynamics.projected_growth}
+              {general.market_dynamics.projected_growth}
             </p>
           </div>
 
@@ -662,7 +656,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
               </div>
             </div>
             <p className="text-gray-500 text-[12px] leading-relaxed font-normal">
-              {data.general.market_dynamics.days_on_market}
+              {general.market_dynamics.days_on_market}
             </p>
           </div>
         </div>
@@ -672,27 +666,27 @@ const CustomAIAnalysis: React.FC<Props> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
             <div className="space-y-4">
               <h4 className="text-lg font-bold text-[#1a2333] tracking-tight">Regulatory & Growth</h4>
-              <p className="text-gray-600 text-[14px] leading-relaxed">{data.general.regulatory_and_growth.summary}</p>
+              <p className="text-gray-600 text-[14px] leading-relaxed">{general.regulatory_and_growth.summary}</p>
               <div className="space-y-3">
                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                   <span className="text-[10px] font-bold text-[#1a2333]/50 uppercase tracking-widest block mb-1">Laws & Zoning</span>
-                  <p className="text-[13px] leading-relaxed text-[#1a2333]/70">{data.general.regulatory_and_growth.laws_and_zoning}</p>
+                  <p className="text-[13px] leading-relaxed text-[#1a2333]/70">{general.regulatory_and_growth.laws_and_zoning}</p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                   <span className="text-[10px] font-bold text-[#1a2333]/50 uppercase tracking-widest block mb-1">Infrastructure</span>
-                  <p className="text-[13px] leading-relaxed text-[#1a2333]/70">{data.general.regulatory_and_growth.upcoming_developments}</p>
+                  <p className="text-[13px] leading-relaxed text-[#1a2333]/70">{general.regulatory_and_growth.upcoming_developments}</p>
                 </div>
               </div>
             </div>
 
             <div className="space-y-4">
               <h4 className="text-lg font-bold text-[#1a2333] tracking-tight">Competitive Edge</h4>
-              <p className="text-gray-600 text-[14px] leading-relaxed">{data.general.competitor_gaps.recommendations}</p>
+              <p className="text-gray-600 text-[14px] leading-relaxed">{general.competitor_gaps.recommendations}</p>
               <div className="mt-4 space-y-4">
                 <div>
                   <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block mb-2">Highly Praised Amenities</span>
                   <div className="flex flex-wrap gap-2">
-                    {data.general.competitor_gaps.praised_amenities.map((a, i) => (
+                    {general.competitor_gaps.praised_amenities.map((a, i) => (
                       <span key={i} className="px-3 py-1 bg-indigo-50 text-indigo-700 text-[11px] font-bold rounded-lg border border-indigo-100">{a}</span>
                     ))}
                   </div>
@@ -700,7 +694,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
                 <div>
                   <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest block mb-2">Friction Points</span>
                   <ul className="space-y-1.5">
-                    {data.general.competitor_gaps.friction_points.map((p, i) => (
+                    {general.competitor_gaps.friction_points.map((p, i) => (
                       <li key={i} className="text-[13px] text-gray-500 flex gap-2">
                         <span className="text-rose-400">•</span> {p}
                       </li>
@@ -713,7 +707,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
             <div className="space-y-4">
               <h4 className="text-lg font-bold text-[#1a2333] tracking-tight">Peak Demand Drivers</h4>
               <div className="space-y-4">
-                {data.general.demand_drivers.map((d, i) => (
+                {general.demand_drivers.map((d, i) => (
                   <div key={i} className="flex flex-col border-l-2 border-indigo-100 pl-4 py-0.5 group hover:border-[#1a2333] transition-colors">
                     <div className="text-[14px] font-bold text-[#1a2333] mb-0.5">{d.event}</div>
                     <div className="flex justify-between items-center text-[11px]">
@@ -730,7 +724,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
         {/* 4. External Sources */}
         <div className="flex flex-col items-center gap-4">
           <div className="flex flex-wrap gap-2 justify-center max-w-3xl">
-            {data.general.web_sources?.slice(0, showAllSources ? undefined : 2).map((source, i) => (
+            {general.web_sources?.slice(0, showAllSources ? undefined : 2).map((source, i) => (
               <a
                 key={i}
                 href={source.url}
@@ -744,7 +738,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
             ))}
           </div>
 
-          {data.general.web_sources && data.general.web_sources.length > 2 && (
+          {general.web_sources && general.web_sources.length > 2 && (
             <button
               onClick={() => setShowAllSources(!showAllSources)}
               className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-700 transition-colors flex items-center gap-2"
@@ -752,7 +746,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
               {showAllSources ? (
                 <>Show Less <i className="fa-solid fa-chevron-up"></i></>
               ) : (
-                <>{data.general.web_sources.length - 2} more sources <i className="fa-solid fa-chevron-down"></i></>
+                <>{general.web_sources.length - 2} more sources <i className="fa-solid fa-chevron-down"></i></>
               )}
             </button>
           )}
@@ -1188,7 +1182,7 @@ const CustomAIAnalysis: React.FC<Props> = ({
                 <p className="text-indigo-700/70 text-lg font-medium">Scouring STR data and historicals for 2026.</p>
                 {propertyData?.address && <p className="text-indigo-900/40 font-black uppercase tracking-widest text-[10px] mt-4 bg-white/50 px-4 py-1 rounded-lg inline-block">{propertyData.address}</p>}
               </div>
-            ) : !investment_research ? <EmptyState section="Investment Research" /> : <InvestmentView data={investment_research} />}
+            ) : (!property_investment || !general_market_intelligence) ? <EmptyState section="Investment Research" /> : <InvestmentView specific={property_investment} general={general_market_intelligence} />}
           </section>
         )}
         {activeTab === 'bidding' && (

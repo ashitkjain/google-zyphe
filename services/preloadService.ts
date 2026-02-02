@@ -276,12 +276,6 @@ export const runFullIntelligencePipeline = async (
       await saveGeneralMarketIntelligenceToCloud(zpid, generalMarket);
     }
 
-    // Aggregated for compatibility (UI expects 'investment_research' to be populated for some initial views or legacy flow)
-    const investmentResult: InvestmentResearchResult = {
-      property_specific: propInvestment,
-      general: generalMarket
-    };
-
     onProgress({ step: 'Investment AI', status: 'completed', message: 'Investment analysis complete.' });
 
     // 10. Narrative AI

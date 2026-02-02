@@ -208,14 +208,16 @@ service cloud.firestore {
     match /llm_call_events/{eventId} {
       allow create: if (request.auth != null && request.resource.data.user_id == request.auth.uid) || 
                        (request.resource.data.user_id == 'unknown');
-      allow read, update: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow read, update: if (request.auth != null && resource.data.user_id == request.auth.uid) ||
+                             (resource.data.user_id == 'unknown');
       allow delete: if false;
     }
 
     match /api_call_events/{eventId} {
       allow create: if (request.auth != null && request.resource.data.user_id == request.auth.uid) || 
                        (request.resource.data.user_id == 'unknown');
-      allow read, update: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow read, update: if (request.auth != null && resource.data.user_id == request.auth.uid) ||
+                             (resource.data.user_id == 'unknown');
       allow delete: if false;
     }
 

@@ -113,10 +113,7 @@ export interface GeneralMarketIntelligenceResult {
     }>;
 }
 
-export interface InvestmentResearchResult {
-    property_specific: PropertySpecificInvestmentResult;
-    general: GeneralMarketIntelligenceResult;
-}
+// Removed InvestmentResearchResult aggregation to avoid redundancy
 
 export interface BiddingStrategyResult {
     property_specifics: {
@@ -145,7 +142,10 @@ export interface BiddingStrategyResult {
 
 export interface CustomAIAnalysisResult {
     report_title: string;
-    image_by_image_analysis?: string[];
+    image_by_image_analysis?: Array<{
+        image_id: string;
+        analysis: string;
+    }>;
     home_interior: {
         overall_description: string;
         design_style: {
@@ -181,7 +181,6 @@ export interface CustomAIAnalysisResult {
     image_quality_analysis?: ImageQualityAnalysisResult;
     property_investment?: PropertySpecificInvestmentResult;
     general_market_intelligence?: GeneralMarketIntelligenceResult;
-    investment_research?: InvestmentResearchResult;
     bidding_strategy?: BiddingStrategyResult;
 }
 

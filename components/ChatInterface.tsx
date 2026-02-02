@@ -5,6 +5,7 @@ import { APP_CONFIG } from '../config';
 import { getChatInstruction, getChatContext } from '../prompts/property/chatInterface';
 import { logLLMCall, updateLLMCall } from '../services/firebase/llm_logs';
 import { serverTimestamp } from 'firebase/firestore';
+import { urlToBase64 } from '../services/geminiService';
 
 interface Props {
   property: PropertyData;
@@ -63,7 +64,6 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
       });
 
       // Perform a stateless content generation request
-      // We do not use ai.chats.create() here to avoid sending the entire history
       const response = await ai.models.generateContent({
         model: CHAT_MODEL,
         contents: text,
@@ -72,25 +72,77 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
           temperature: 0.1,
           topP: 0.8,
           topK: 40,
-          // Disable thinking budget for the chat interface to maximize speed
           thinkingConfig: { thinkingBudget: 0 }
         },
       });
 
       const aiText = response.text || "I apologize, I'm having trouble processing that request right now.";
 
-      // Handle the data not found flag from the prompt
-      const finalContent = aiText.includes("FLAG_DATA_NOT_FOUND")
-        ? "I'm sorry, I don't have specific data for that request in my records yet. I can help with details on the property specifications, financials, or the neighborhood data I have available."
-        : aiText;
+      let finalContent = aiText;
 
-      // Update the log with the successful response
+      // Handle the routing JSON if data is missing
+      try {
+        const routingResult = JSON.parse(aiText);
+        if (routingResult.routing === "MISSING") {
+          if (routingResult.source === "images" && visual?.image_by_image_analysis) {
+            // Step 2: Resubmit with images found by token/id
+            // Map routingResult.image_indices (indices) back to the actual IDs in the cached analysis
+            const targetImageIds = routingResult.image_indices
+              .map((idx: number) => visual.image_by_image_analysis?.[idx]?.image_id)
+              .filter(Boolean);
+
+            if (targetImageIds.length > 0) {
+              const imageParts = await Promise.all(targetImageIds.map((url: string) => urlToBase64(url)));
+              const messageWithImages = {
+                role: 'user',
+                parts: [
+                  { text: `The following information was requested: "${text}". I have provided some relevant property photos. Please answer based on these photos.` },
+                  ...imageParts.map(img => ({ inlineData: img }))
+                ]
+              };
+
+              const imgResponse = await ai.models.generateContent({
+                model: CHAT_MODEL,
+                contents: messageWithImages as any,
+                config: {
+                  systemInstruction,
+                  temperature: 0.1
+                }
+              });
+              finalContent = imgResponse.text || "I've checked the photos but still couldn't find a definitive answer.";
+            } else {
+              finalContent = "I'm sorry, I don't have the specific details and there are no relevant photos to check.";
+            }
+          } else if (routingResult.source === "search") {
+            // Step 2: Resubmit with Search Grounding
+            const searchResponse = await ai.models.generateContent({
+              model: CHAT_MODEL,
+              contents: text,
+              config: {
+                systemInstruction,
+                tools: [{ googleSearch: {} }] as any,
+                temperature: 0.1
+              }
+            });
+            finalContent = searchResponse.text || "I searched for the information but couldn't find a reliable answer.";
+          } else {
+            finalContent = "I'm sorry, I don't have specific data for that request in my records yet. I can help with details on the property specifications, financials, or the neighborhood data I have available.";
+          }
+        } else {
+          // AI returned JSON that wasn't a "MISSING" route - likely a hallucination
+          finalContent = "I'm sorry, I'm having a bit of trouble retrieving that specific data right now. Could you try rephrasing your question about the property's features, neighborhood, or market data?";
+        }
+      } catch (e) {
+        // Not JSON, treat as normal response
+      }
+
+      // Update the log with the FINAL response and usage
       if (logId) {
         updateLLMCall(logId, {
-          raw_response: aiText,
+          raw_response: finalContent, // Log the final answer, not the routing JSON
           status: 'completed',
           response_received_at: serverTimestamp(),
-          usage_metadata: response.usageMetadata
+          usage_metadata: (response.usageMetadata as any) || { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 }
         }).catch(err => console.error("Failed to update chat log:", err));
       }
 

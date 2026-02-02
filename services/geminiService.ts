@@ -168,7 +168,7 @@ function calculateUsage(response: any, modelName: string): AIUsage {
   };
 }
 
-async function urlToBase64(url: string): Promise<{ data: string, mimeType: string }> {
+export async function urlToBase64(url: string): Promise<{ data: string, mimeType: string }> {
   try {
     // Attempt with explicit CORS mode to detect blocking
     const response = await fetch(url, { mode: 'cors' });
@@ -394,17 +394,21 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
 
   const imageResults = await Promise.allSettled(selectedImages.map(async (url) => {
     const { data, mimeType } = await urlToBase64(url);
-    return { inlineData: { data, mimeType } };
+    return { inlineData: { data, mimeType }, url };
   }));
 
-  const imageParts = imageResults
-    .filter((result): result is PromiseFulfilledResult<{ inlineData: { data: string; mimeType: string } }> => result.status === 'fulfilled')
+  const successfulResults = imageResults
+    .filter((result): result is PromiseFulfilledResult<{ inlineData: { data: string; mimeType: string }, url: string }> => result.status === 'fulfilled')
     .map(result => result.value);
 
+  const imageParts = successfulResults.map(r => ({ inlineData: r.inlineData }));
+  const imageTokens = successfulResults.map((r, i) => `Image ${i + 1} [TOKEN: ${r.url}]`).join('\n');
+
   const successfulImages = imageParts.length > 0;
+  const basePrompt = getPropertyImagesPrompt(optimizePropertyForAi(property) as PropertyData);
   const textInstruction = successfulImages
-    ? getPropertyImagesPrompt(optimizePropertyForAi(property) as PropertyData)
-    : `${getPropertyImagesPrompt(optimizePropertyForAi(property) as PropertyData)}\n\nNOTE: No photographs were provided for this property. Perform analysis based on detailed specifications.`;
+    ? `${basePrompt}\n\nIMAGE TOKENS FOR YOUR REFERENCE:\n${imageTokens}`
+    : `${basePrompt}\n\nNOTE: No photographs were provided for this property. Perform analysis based on detailed specifications.`;
 
   const requestPayload = { text: textInstruction, image_count: imageParts.length };
 

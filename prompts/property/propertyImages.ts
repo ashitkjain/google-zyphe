@@ -49,9 +49,10 @@ export const getPropertyImagesPrompt = (property: PropertyData) => `
 }
 
 INSTRUCTIONS:
-First analyze each image and describe what you see in each one, in this format -
-Image 1 : Is it a room ? What room is it ? What does it show ? Analyze lighting, composition, staging, and technical photo metrics
-Image 2 : Is it a room ? What room is it ? What does it show ? Analyze lighting, composition, staging, and technical photo metrics
+First analyze each image and describe what you see in each one. You MUST use the provided [TOKEN: url] for each image to identify it in the JSON.
+Format -
+Image 1 [TOKEN: url] : Is it a room ? What room is it ? What does it show ? Analyze lighting, composition, staging, and technical photo metrics
+Image 2 [TOKEN: url] : Is it a room ? What room is it ? What does it show ? Analyze lighting, composition, staging, and technical photo metrics
 And so on.
 
 After that collate this response and organize it into three sections:
@@ -122,8 +123,15 @@ export const propertyImagesSchema = {
     report_title: { type: Type.STRING, description: "Professional title for the analysis." },
     image_by_image_analysis: {
       type: Type.ARRAY,
-      items: { type: Type.STRING },
-      description: "A list describing what is seen in each image (e.g., 'Image 1: Master bedroom with floor-to-ceiling windows')."
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          image_id: { type: Type.STRING, description: "The full [TOKEN] URL provided for the image." },
+          analysis: { type: Type.STRING, description: "Description of what is seen in this specific image." }
+        },
+        required: ["image_id", "analysis"]
+      },
+      description: "A list describing what is seen in each image, indexed by its [TOKEN]."
     },
     home_interior: {
       type: Type.OBJECT,
