@@ -439,7 +439,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                         borderLeftColor: lead.leadType === 'Seller' ? '#10b981' : '#6366f1',
                         backgroundColor: rednessAlpha > 0 && rednessAlpha < 1 ? `rgba(255, 0, 0, ${rednessAlpha * 0.1})` : undefined
                     }}
-                    onClick={(e) => {
+                    onDoubleClick={(e) => {
                         e.stopPropagation();
                         onActivate(lead.id);
                     }}
