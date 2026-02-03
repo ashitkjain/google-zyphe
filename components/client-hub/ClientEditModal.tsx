@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Lead } from '../../types';
 
 interface ClientEditModalProps {
@@ -14,6 +14,7 @@ const ClientEditModal: React.FC<ClientEditModalProps> = ({ client, isOpen, onClo
     const [activeTab, setActiveTab] = useState<Tab>('Identity');
     const [formData, setFormData] = useState<any>({});
     const [saving, setSaving] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const safeDateToInput = (date: any): string => {
         if (!date) return '';
@@ -23,6 +24,21 @@ const ClientEditModal: React.FC<ClientEditModalProps> = ({ client, isOpen, onClo
             return d.toISOString().split('T')[0];
         } catch (e) {
             return '';
+        }
+    };
+
+    const handlePhotoClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setFormData({ ...formData, clientPhotoUrl: reader.result as string });
+            };
+            reader.readAsDataURL(file);
         }
     };
 
@@ -247,12 +263,29 @@ const ClientEditModal: React.FC<ClientEditModalProps> = ({ client, isOpen, onClo
                 {/* Header */}
                 <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 flex-shrink-0">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
-                            <i className="fa-solid fa-user-pen text-xl"></i>
+                        <div
+                            onClick={handlePhotoClick}
+                            className="w-16 h-16 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200 relative group cursor-pointer overflow-hidden border-2 border-white"
+                        >
+                            {formData.clientPhotoUrl ? (
+                                <img src={formData.clientPhotoUrl} alt="Preview" className="w-full h-full object-cover" />
+                            ) : (
+                                <i className="fa-solid fa-user text-2xl"></i>
+                            )}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <i className="fa-solid fa-camera text-white text-lg"></i>
+                            </div>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                accept="image/*"
+                                onChange={handlePhotoChange}
+                            />
                         </div>
                         <div>
-                            <h2 className="text-xl font-black text-slate-900 tracking-tight">Edit Client Details</h2>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Update information for {client.firstName}</p>
+                            <h2 className="text-xl font-black text-slate-900 tracking-tight">{client.id ? 'Edit Client Details' : 'Add New Lead'}</h2>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{client.id ? `Update information for ${client.firstName}` : 'Enter basic details to create a new lead'}</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors">
@@ -284,7 +317,6 @@ const ClientEditModal: React.FC<ClientEditModalProps> = ({ client, isOpen, onClo
                                 {renderInput('Email Address', 'email', 'email')}
                                 {renderInput('Phone Number', 'phone', 'tel')}
                                 {renderInput('Preferred Method', 'preferredMethod', 'select', '', ['Email', 'Phone', 'SMS', 'WhatsApp'])}
-                                {renderInput('Client Photo URL', 'clientPhotoUrl', 'url')}
                                 {renderInput('Home Address', 'homeAddress')}
                             </>
                         )}
@@ -307,7 +339,7 @@ const ClientEditModal: React.FC<ClientEditModalProps> = ({ client, isOpen, onClo
                                     {renderInput('Customer Message', 'customerMessage', 'textarea')}
                                 </div>
                                 {renderInput('Follow-up Deadline', 'staleWarningDate', 'date')}
-                                {renderInput('Zillow Property ID', 'zpid')}
+                                {renderInput('Inquiry Property', 'inquiryAddress')}
                             </>
                         )}
 

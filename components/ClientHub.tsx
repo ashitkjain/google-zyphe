@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import ProfileTab from './client-hub/ProfileTab';
 import AddClientModal from './AddClientModal';
 import RemoveClientModal from './RemoveClientModal';
+import ClientEditModal from './client-hub/ClientEditModal';
 import { getLeads, getTasks, getTemplates, getCalendarEvents, seedMockData, saveUserProfile, getUserProfile, updateLead, getReminderRules, updateReminderRule, deleteAllMockData, getRealtorClients, deleteLead, deleteUserAccount, auth, syncBestPractices } from '../services/firebaseService';
 import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates, getInitialMockTransactions } from '../services/mockDataService';
 import { getDefaultReminderRules } from '../services/reminderRulesService';
@@ -85,6 +86,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     const [isMobileSettingsExpanded, setIsMobileSettingsExpanded] = useState(false);
     const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
     const [isRemoveClientModalOpen, setIsRemoveClientModalOpen] = useState(false);
+    const [isCreateLeadModalOpen, setIsCreateLeadModalOpen] = useState(false);
+    const [newLeadSkeleton, setNewLeadSkeleton] = useState<any>(null);
     const toolsRef = useRef<HTMLDivElement>(null);
 
     const [clients, setClients] = useState<UserProfile[]>([]);
@@ -473,23 +476,22 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     };
 
     const handleCreateLead = (initialUpdates?: Partial<Lead>) => {
-        const newLead: Lead = {
-            id: `lead_${Date.now()}`,
-            clientId: generateClientID(),
+        let actualLeadType = initialUpdates?.leadType || 'Buyer';
+        if ((actualLeadType as string) === 'Buyer2') actualLeadType = 'Seller';
+
+        setNewLeadSkeleton({
             firstName: '',
             lastName: '',
             email: '',
             phone: '',
             status: 'New',
-            receivedAt: new Date(),
-            source: 'Manual',
-            leadType: 'Buyer',
-            slaUrgency: 'medium',
             funnelStage: 'Leads',
-            health: 'Active',
-            ...initialUpdates
-        };
-        console.log("Skipping modal open for new lead");
+            engagementScore: 'Cold',
+            source: 'Manual',
+            ...initialUpdates,
+            leadType: actualLeadType // Ensure it's the mapped one
+        });
+        setIsCreateLeadModalOpen(true);
     };
 
     const earlyTabs: { id: HubTab; label: string; icon: string }[] = [
@@ -1304,6 +1306,29 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                 realtorName={realtorProfile?.displayName || 'Your Realtor'}
                 realtorId={realtorId}
             />
+
+            {isCreateLeadModalOpen && (
+                <ClientEditModal
+                    isOpen={isCreateLeadModalOpen}
+                    onClose={() => setIsCreateLeadModalOpen(false)}
+                    client={newLeadSkeleton}
+                    onSave={async (updates) => {
+                        const newId = `lead_${Date.now()}`;
+                        await updateLead(newId, {
+                            ...updates,
+                            id: newId,
+                            realtorId,
+                            receivedAt: new Date(),
+                            lastUpdated: new Date()
+                        }, 'leads');
+
+                        // Refresh leads list
+                        const _leads = await getLeads(realtorId, ['leads']);
+                        setLeads(_leads);
+                        setIsCreateLeadModalOpen(false);
+                    }}
+                />
+            )}
 
             <RemoveClientModal
                 isOpen={isRemoveClientModalOpen}
