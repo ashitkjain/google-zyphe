@@ -84,7 +84,12 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                             />
                             <PropertyImages images={propertyData.images} loading={imagesLoading} />
                             <PropertyFacts facts={propertyData.resoFacts} />
-                            <PropertyMaps mapZoomIn={propertyData.mapZoomIn} mapZoomOut={propertyData.mapZoomOut} />
+                            <PropertyMaps
+                                mapZoomIn={propertyData.mapZoomIn}
+                                mapZoomOut={propertyData.mapZoomOut}
+                                coordinates={propertyData.coordinates}
+                                address={propertyData.address}
+                            />
                         </>
                     ) : (
                         <div className="max-w-4xl mx-auto py-6 text-center space-y-12">
