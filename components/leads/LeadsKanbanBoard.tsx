@@ -191,7 +191,7 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
                                         <div
                                             ref={provided.innerRef}
                                             {...provided.droppableProps}
-                                            className={`flex-1 overflow-y-auto p-4 space-y-4 transition-colors ${snapshot.isDraggingOver ? 'bg-slate-50' : ''}`}
+                                            className={`flex-1 overflow-y-auto p-4 space-y-8 transition-colors ${snapshot.isDraggingOver ? 'bg-slate-50' : ''}`}
                                         >
                                             {columns[column.id].map((lead, index) => {
                                                 const DraggableAny = Draggable as any;
@@ -203,7 +203,7 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
                                                                 provided={provided}
                                                                 snapshot={snapshot}
                                                                 onUpdateLead={onUpdateLead}
-                                                                onClick={() => setSelectedLeadForOverlay(lead)}
+                                                                onDoubleClick={() => setSelectedLeadForOverlay(lead)}
                                                             />
                                                         )}
                                                     </DraggableAny>
@@ -298,7 +298,7 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
     );
 };
 
-const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, onUpdateLead: (id: string, updates: Partial<Lead>) => void, onClick: () => void }> = ({ lead, provided, snapshot, onUpdateLead, onClick }) => {
+const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, onUpdateLead: (id: string, updates: Partial<Lead>) => void, onDoubleClick: () => void }> = ({ lead, provided, snapshot, onUpdateLead, onDoubleClick }) => {
     // Determine border color based on temperature/score
     let accentColor = 'border-l-indigo-500';
     if (lead.engagementScore === 'Hot') accentColor = 'border-l-orange-500';
@@ -336,8 +336,8 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, onUpdateL
             ref={provided.innerRef}
             {...provided.draggableProps}
             {...provided.dragHandleProps}
-            onClick={onClick}
-            className={`bg-white p-3 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-all group border-l-4 relative ${accentColor} ${snapshot.isDragging ? 'shadow-2xl rotate-2 scale-105 z-50' : ''} cursor-grab active:cursor-grabbing`}
+            onDoubleClick={onDoubleClick}
+            className={`bg-white p-3 rounded-xl shadow-sm border border-black hover:shadow-md transition-all group border-l-4 relative ${accentColor} ${snapshot.isDragging ? 'shadow-2xl rotate-2 scale-105 z-50' : ''} cursor-grab active:cursor-grabbing`}
             style={provided.draggableProps.style}
         >
             {/* Top Right Temperature Badge */}
@@ -380,12 +380,6 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, onUpdateL
                         <div className="font-bold text-slate-800 text-sm truncate leading-tight">
                             {lead.fullName || (lead.firstName || lead.lastName ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim() : 'Unknown Client')}
                         </div>
-                        <div
-                            onClick={(e) => { e.stopPropagation(); onClick(); }}
-                            className="text-[8px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1 bg-slate-50/50 px-2 py-0.5 rounded-md hover:bg-indigo-50 border border-transparent hover:border-indigo-100 cursor-pointer whitespace-nowrap"
-                        >
-                            DETAILS
-                        </div>
                     </div>
                     <div className="flex flex-col gap-1">
                         {email && (
@@ -407,32 +401,8 @@ const KanbanCard: React.FC<{ lead: Lead, provided: any, snapshot: any, onUpdateL
             </div>
 
             <div className="space-y-1.5">
-                {/* Fixed Fields Section: Message, Property, Motivation */}
+                {/* Fixed Fields Section: Motivation */}
                 <div className="flex flex-col gap-2.5 pb-2 pt-1 border-b border-slate-50">
-                    {/* Customer Message */}
-                    {(lead.message || lead.leadInfo?.customerMessage) && (
-                        <div className="flex items-start gap-2 group/message" title="Customer Message">
-                            <div className="mt-0.5 w-4 h-4 rounded bg-indigo-50 flex items-center justify-center flex-shrink-0 group-hover/message:bg-indigo-100 transition-colors">
-                                <i className="fa-solid fa-comment-dots text-[9px] text-indigo-500"></i>
-                            </div>
-                            <p className="text-[11px] text-slate-600 line-clamp-2 italic leading-tight">
-                                "{lead.message || lead.leadInfo?.customerMessage}"
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Inquiry Property */}
-                    {(lead.propertyAddress || lead.leadInfo?.inquiryProperty?.address || (lead as any).subjectProperty) && (
-                        <div className="flex items-start gap-2 group/property" title="Inquired Property">
-                            <div className="mt-0.5 w-4 h-4 rounded bg-indigo-50 flex items-center justify-center flex-shrink-0 group-hover/property:bg-indigo-100 transition-colors">
-                                <i className="fa-solid fa-arrow-pointer text-[9px] text-indigo-500"></i>
-                            </div>
-                            <span className="text-[11px] font-bold text-slate-700 truncate leading-tight">
-                                {lead.propertyAddress || lead.leadInfo?.inquiryProperty?.address || (lead as any).subjectProperty}
-                            </span>
-                        </div>
-                    )}
-
                     {/* Motivation */}
                     {lead.motivation && (
                         <div className="flex items-start gap-2 group/motivation" title="Motivation">

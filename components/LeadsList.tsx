@@ -51,52 +51,83 @@ const LeadsList: React.FC<InternalProps> = ({
     const buyerLeads = useMemo(() => leads.filter(l => l.leadType === 'Buyer'), [leads]);
     const sellerLeads = useMemo(() => leads.filter(l => l.leadType === 'Seller'), [leads]);
 
-    // Filter by funnel stage
+    // Base filtering for leads (Search + Temperature)
+    const getFilteredLeads = (baseLeads: Lead[]) => {
+        return baseLeads.filter(lead => {
+            // Global Search
+            if (boardSettings.search) {
+                const s = boardSettings.search.toLowerCase();
+                const matchesSearch = (lead.fullName || '').toLowerCase().includes(s) ||
+                    (lead.email || lead.primaryContact?.email || '').toLowerCase().includes(s) ||
+                    (lead.propertyAddress || lead.leadInfo?.inquiryProperty?.address || '').toLowerCase().includes(s);
+                if (!matchesSearch) return false;
+            }
+
+            // Temperature Filter
+            if (boardSettings.tempFilter.length > 0) {
+                if (!boardSettings.tempFilter.includes(lead.engagementScore || 'Cold')) return false;
+            }
+
+            return true;
+        });
+    };
+
+    // Filter by funnel stage + base filters
     const filteredBuyerLeads = useMemo(() => {
+        const base = getFilteredLeads(buyerLeads);
         if (buyerFunnelCategory === 'Closed & Archived') {
-            return buyerLeads.filter(l => l.funnelStage === 'Closed' || l.funnelStage === 'Archived');
+            return base.filter(l => l.funnelStage === 'Closed' || l.funnelStage === 'Archived');
         }
-        return buyerLeads.filter(l => l.funnelStage === buyerFunnelCategory);
-    }, [buyerLeads, buyerFunnelCategory]);
+        return base.filter(l => l.funnelStage === buyerFunnelCategory);
+    }, [buyerLeads, buyerFunnelCategory, boardSettings]);
 
     const filteredBuyer2Leads = useMemo(() => {
+        const base = getFilteredLeads(sellerLeads);
         if (buyer2FunnelCategory === 'Closed & Archived') {
-            return sellerLeads.filter(l => l.funnelStage === 'Closed' || l.funnelStage === 'Archived');
+            return base.filter(l => l.funnelStage === 'Closed' || l.funnelStage === 'Archived');
         }
-        return sellerLeads.filter(l => l.funnelStage === buyer2FunnelCategory);
-    }, [sellerLeads, buyer2FunnelCategory]);
+        return base.filter(l => l.funnelStage === buyer2FunnelCategory);
+    }, [sellerLeads, buyer2FunnelCategory, boardSettings]);
 
     const filteredSellerLeads = useMemo(() => {
+        const base = getFilteredLeads(sellerLeads);
         if (sellerFunnelCategory === 'Closed & Archived') {
-            return sellerLeads.filter(l => l.funnelStage === 'Closed' || l.funnelStage === 'Archived');
+            return base.filter(l => l.funnelStage === 'Closed' || l.funnelStage === 'Archived');
         }
-        return sellerLeads.filter(l => l.funnelStage === sellerFunnelCategory);
-    }, [sellerLeads, sellerFunnelCategory]);
+        return base.filter(l => l.funnelStage === sellerFunnelCategory);
+    }, [sellerLeads, sellerFunnelCategory, boardSettings]);
 
-    // Sorting
-    const sortedBuyerLeads = useMemo(() => {
-        return [...filteredBuyerLeads].sort((a, b) => {
-            const aVal = a.lastUpdated?.toDate ? a.lastUpdated.toDate().getTime() : new Date(a.lastUpdated || 0).getTime();
-            const bVal = b.lastUpdated?.toDate ? b.lastUpdated.toDate().getTime() : new Date(b.lastUpdated || 0).getTime();
-            return bVal - aVal;
-        });
-    }, [filteredBuyerLeads]);
+    // Global Sorting Logic
+    const sortLeads = (baseLeads: Lead[]) => {
+        return [...baseLeads].sort((a, b) => {
+            if (boardSettings.sort === 'name') {
+                return (a.fullName || '').localeCompare(b.fullName || '');
+            }
+            if (boardSettings.sort === 'temp') {
+                const order = { 'Hot': 0, 'Warm': 1, 'Cold': 2, 'Stale': 3 };
+                return (order[a.engagementScore || 'Cold'] || 99) - (order[b.engagementScore || 'Cold'] || 99);
+            }
 
-    const sortedBuyer2Leads = useMemo(() => {
-        return [...filteredBuyer2Leads].sort((a, b) => {
-            const aVal = a.lastUpdated?.toDate ? a.lastUpdated.toDate().getTime() : new Date(a.lastUpdated || 0).getTime();
-            const bVal = b.lastUpdated?.toDate ? b.lastUpdated.toDate().getTime() : new Date(b.lastUpdated || 0).getTime();
-            return bVal - aVal;
-        });
-    }, [filteredBuyer2Leads]);
+            const getDateVal = (lead: Lead) => {
+                const dateVal = lead.lastUpdated || lead.receivedAt || 0;
+                return (dateVal as any)?.toDate ? (dateVal as any).toDate() : new Date(dateVal);
+            };
 
-    const sortedSellerLeads = useMemo(() => {
-        return [...filteredSellerLeads].sort((a, b) => {
-            const aVal = a.lastUpdated?.toDate ? a.lastUpdated.toDate().getTime() : new Date(a.lastUpdated || 0).getTime();
-            const bVal = b.lastUpdated?.toDate ? b.lastUpdated.toDate().getTime() : new Date(b.lastUpdated || 0).getTime();
-            return bVal - aVal;
+            const da = getDateVal(a);
+            const db = getDateVal(b);
+
+            if (boardSettings.sort === 'oldest') {
+                return da.getTime() - db.getTime();
+            }
+            // default to newest
+            return db.getTime() - da.getTime();
         });
-    }, [filteredSellerLeads]);
+    };
+
+    // Sorting applied to filtered lists
+    const sortedBuyerLeads = useMemo(() => sortLeads(filteredBuyerLeads), [filteredBuyerLeads, boardSettings.sort]);
+    const sortedBuyer2Leads = useMemo(() => sortLeads(filteredBuyer2Leads), [filteredBuyer2Leads, boardSettings.sort]);
+    const sortedSellerLeads = useMemo(() => sortLeads(filteredSellerLeads), [filteredSellerLeads, boardSettings.sort]);
 
     // Handlers
 

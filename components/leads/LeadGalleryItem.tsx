@@ -597,6 +597,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                 </div>
                             )}
 
+                            {/* Motivation */}
                             {lead.motivation && (
                                 <div className="flex items-start gap-2.5 ml-0.5 group/motivation" title="Motivation">
                                     <div className="mt-0.5 w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0 group-hover/motivation:bg-indigo-100 transition-colors shadow-sm border border-indigo-100">

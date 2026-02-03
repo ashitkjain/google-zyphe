@@ -24,7 +24,6 @@ const LeadsViewControls: React.FC<LeadsViewControlsProps> = ({
     showFilters,
     setShowFilters,
     displayMode,
-    setDisplayMode,
     onTabChange
 }) => {
     return (
@@ -49,35 +48,8 @@ const LeadsViewControls: React.FC<LeadsViewControlsProps> = ({
                 <div className="flex items-center gap-4">
                     {/* Post-it Palette */}
                     {displayMode === 'gallery' && (
-                        <div className="border-r border-slate-100 pr-4">
+                        <div className="pr-4">
                             <PostItPalette type={activeTab.toLowerCase() as any} />
-                        </div>
-                    )}
-
-                    {/* Archive Button */}
-                    {displayMode !== 'gallery' && (
-                        <div className="flex items-center gap-3">
-                            <button
-                                className={`px-4 py-1.5 rounded-xl flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${selectedCount > 0 ? 'bg-red-50 text-red-600 hover:bg-red-100 shadow-sm border border-red-100' : 'bg-slate-50 text-slate-400 cursor-not-allowed border border-slate-100'}`}
-                                onClick={onArchive}
-                                disabled={selectedCount === 0}
-                            >
-                                <i className="fa-solid fa-box-archive"></i>
-                                Archive {selectedCount > 0 && `(${selectedCount})`}
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Filter Button */}
-                    {displayMode !== 'gallery' && (
-                        <div className="flex items-center gap-1 text-slate-400">
-                            <button
-                                className={`w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors ${showFilters ? 'bg-slate-100 text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-                                onClick={() => setShowFilters(!showFilters)}
-                                title="Filter Funnel"
-                            >
-                                <i className="fa-solid fa-filter text-lg"></i>
-                            </button>
                         </div>
                     )}
                 </div>

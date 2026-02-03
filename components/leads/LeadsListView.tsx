@@ -31,6 +31,7 @@ const LeadsListView: React.FC<LeadsListViewProps> = ({ leads, onUpdateLead, real
                             <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
                             <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Property</th>
                             <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Motivation</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Message</th>
                             <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Since</th>
                         </tr>
                     </thead>
@@ -111,9 +112,9 @@ const LeadsListView: React.FC<LeadsListViewProps> = ({ leads, onUpdateLead, real
                                     {/* Status */}
                                     <td className="px-6 py-4">
                                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors ${(lead.status || '').includes('New') ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                                                (lead.status || '').includes('Attempted') ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                                                    (lead.status || '').includes('Unresponsive') ? 'bg-red-50 text-red-600 border-red-100' :
-                                                        'bg-indigo-50 text-indigo-600 border-indigo-100'
+                                            (lead.status || '').includes('Attempted') ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                                                (lead.status || '').includes('Unresponsive') ? 'bg-red-50 text-red-600 border-red-100' :
+                                                    'bg-indigo-50 text-indigo-600 border-indigo-100'
                                             }`}>
                                             {lead.status || 'New'}
                                         </span>
@@ -130,6 +131,13 @@ const LeadsListView: React.FC<LeadsListViewProps> = ({ leads, onUpdateLead, real
                                     <td className="px-6 py-4">
                                         <div className="text-xs text-slate-600 truncate max-w-[150px]" title={lead.motivation}>
                                             {lead.motivation || <span className="text-slate-200 text-[10px] italic">Not specified</span>}
+                                        </div>
+                                    </td>
+
+                                    {/* Message */}
+                                    <td className="px-6 py-4">
+                                        <div className="text-xs text-slate-500 italic truncate max-w-[200px]" title={lead.message || lead.leadInfo?.customerMessage}>
+                                            {lead.message || lead.leadInfo?.customerMessage || <span className="text-slate-200 text-[10px] font-normal italic">No message</span>}
                                         </div>
                                     </td>
 
