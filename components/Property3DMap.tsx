@@ -16,36 +16,51 @@ const Property3DMap: React.FC<Property3DMapProps> = ({ latitude, longitude, addr
     const isLoadedRef = useRef(false);
     const [error, setError] = useState<string | null>(null);
     const [debugInfo, setDebugInfo] = useState<string>("");
+    const [loadingStep, setLoadingStep] = useState<string>("Initializing...");
 
     useEffect(() => {
         let timeoutId: any;
         isLoadedRef.current = false;
         setIsLoaded(false);
         setError(null);
+        setLoadingStep("Connecting to Google Neural Link...");
 
-        const initMap = async () => {
-            setDebugInfo(`Loc: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
-
-            if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
-                setError("Neural data missing: Latitude/Longitude not found.");
-                return;
-            }
-
-            // Start a safety timeout
+        const startTimeout = () => {
             timeoutId = setTimeout(() => {
                 if (!isLoadedRef.current) {
-                    console.error("[3D Map] Link Timeout reached.");
-                    setError("Neural Link Timed Out. Likely 'Map Tiles API' is not enabled for this key, or your project is not authorized.");
+                    console.error("[3D Map] Neural Link Timeout.");
+                    setError("Neural Link Timed Out. Please ensure the 'Map Tiles API' is enabled and your API Key '...qajRI' is correctly configured with no restrictions.");
                 }
-            }, 12000);
+            }, 15000);
+        };
 
+        const initMap = async () => {
             try {
-                // @ts-ignore
-                if (!window.google || !window.google.maps || !window.google.maps.importLibrary) {
-                    console.warn("[3D Map] Maps Runtime not found. Postponing...");
+                setDebugInfo(`LOC: ${latitude.toFixed(4)}, ${longitude.toFixed(5)}`);
+
+                if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
+                    setError("Neural data missing: Latitude/Longitude not found.");
                     return;
                 }
 
+                setLoadingStep("Fetching 3D Geometry Libraries...");
+
+                // Check for google object
+                // @ts-ignore
+                if (!window.google) {
+                    setLoadingStep("Waiting for Maps.js to arrive...");
+                    setTimeout(initMap, 1000);
+                    return;
+                }
+
+                // @ts-ignore
+                if (!google.maps || !google.maps.importLibrary) {
+                    setLoadingStep("Bootstrapping Maps Engine...");
+                    setTimeout(initMap, 500);
+                    return;
+                }
+
+                setLoadingStep("Rendering Cinematic 3D Scene...");
                 // @ts-ignore
                 const { Map3DElement } = await google.maps.importLibrary("maps3d");
 
@@ -53,33 +68,31 @@ const Property3DMap: React.FC<Property3DMapProps> = ({ latitude, longitude, addr
                 containerRef.current.innerHTML = '';
 
                 const map3d = new Map3DElement({
-                    center: { lat: latitude, lng: longitude, altitude: 300 },
+                    center: { lat: latitude, lng: longitude, altitude: 250 },
                     tilt: 65,
                     heading: 0,
-                    range: 600
+                    range: 550
                 });
 
                 containerRef.current.appendChild(map3d);
                 mapRef.current = map3d;
 
-                // Allow some time for tiles to start streaming
+                setLoadingStep("Finalizing Photorealistic Stream...");
                 setTimeout(() => {
                     isLoadedRef.current = true;
                     setIsLoaded(true);
-                    clearTimeout(timeoutId);
                 }, 2000);
             } catch (err) {
-                console.error("[3D Map] Fail:", err);
-                setError("Google Maps Library Error. Check console for details.");
-                clearTimeout(timeoutId);
+                console.error("[3D Map] Fatal Fail:", err);
+                setError(`API Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
             }
         };
 
-        // Delay start slightly to ensure DOM and Google script are ready
-        const timer = setTimeout(initMap, 500);
+        startTimeout();
+        const initTimer = setTimeout(initMap, 100);
 
         return () => {
-            clearTimeout(timer);
+            clearTimeout(initTimer);
             if (timeoutId) clearTimeout(timeoutId);
         };
     }, [latitude, longitude]);
@@ -89,10 +102,13 @@ const Property3DMap: React.FC<Property3DMapProps> = ({ latitude, longitude, addr
             {!isLoaded && !error && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-900/50 backdrop-blur-sm z-10">
                     <div className="animate-spin mb-4">
-                        <i className="fa-solid fa-circle-notch text-3xl text-indigo-500"></i>
+                        <i className="fa-solid fa-circle-notch text-3xl text-indigo-400"></i>
                     </div>
-                    <span className="font-black text-[10px] uppercase tracking-[0.2em]">Initializing 3D Neural Engine...</span>
-                    <span className="text-[9px] text-slate-600 mt-2 font-mono uppercase">{debugInfo}</span>
+                    <span className="font-black text-[10px] uppercase tracking-[0.25em] text-white/80">{loadingStep}</span>
+                    <div className="mt-4 flex flex-col items-center gap-1">
+                        <span className="text-[9px] text-slate-500 font-mono uppercase tracking-widest">{debugInfo}</span>
+                        <span className="text-[8px] text-slate-700 font-bold uppercase tracking-[0.2em]">BETA 3D READY</span>
+                    </div>
                 </div>
             )}
 
