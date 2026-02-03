@@ -347,3 +347,21 @@ export interface AIResponseWithUsage<T> {
     usage: AIUsage;
 }
 
+export interface DailyPulseResult {
+    activePipelineValue: number;
+    dailyFive: Array<{
+        name: string;
+        reason: string;
+        phone: string;
+        type: 'Buyer' | 'Seller';
+    }>;
+    redFlags: Array<{
+        name: string;
+        hook: string;
+    }>;
+    proTip: string;
+    summary: {
+        activePursuits: number;
+        neglectedLeads: number;
+    };
+}

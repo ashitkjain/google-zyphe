@@ -18,7 +18,7 @@ import {
   getCommunityPulseFromCloud,
   generateCityStateKey
 } from './firebaseService.ts';
-import { PropertyData, CustomAIAnalysisResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult, InvestmentResearchResult, AIUsage } from '../types';
+import { PropertyData, CustomAIAnalysisResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult, AIUsage } from '../types';
 import { analyzeGeneralMarketIntelligence } from './geminiService';
 import { uploadRemoteImageToStorage } from './firebase/storage.ts';
 

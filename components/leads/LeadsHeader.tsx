@@ -1,4 +1,5 @@
 import React from 'react';
+import { Lead } from '../../types';
 
 interface LeadsHeaderProps {
     activeTab: 'Buyer' | 'Buyer2' | 'Seller';
@@ -17,9 +18,12 @@ interface LeadsHeaderProps {
         tempFilter: string[];
     }>>;
     isMobile?: boolean;
+    leads: Lead[];
+    realtorId: string;
+    onOpenDailyPulse: () => void;
 }
 
-const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCreateLead, displayMode, setDisplayMode, boardSettings, setBoardSettings, isMobile }) => {
+const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCreateLead, displayMode, setDisplayMode, boardSettings, setBoardSettings, isMobile, leads, realtorId, onOpenDailyPulse }) => {
     const [activeDropdown, setActiveDropdown] = React.useState<'filter' | 'sort' | null>(null);
     const dropdownRef = React.useRef<HTMLDivElement>(null);
 
@@ -179,6 +183,16 @@ const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCr
                                 </button>
                             )}
                         </div>
+
+                        {/* Daily Pulse Button */}
+                        <button
+                            onClick={onOpenDailyPulse}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-sm hover:shadow-md hover:scale-105 active:scale-95 ml-2"
+                            title="Generate Daily Pulse AI Report"
+                        >
+                            <i className="fa-solid fa-bolt-lightning text-[10px]"></i>
+                            Daily Pulse
+                        </button>
                     </div>
                 </div>
 

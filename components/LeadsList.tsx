@@ -9,6 +9,7 @@ import LeadsViewControls from './leads/LeadsViewControls';
 import LeadsKanbanBoard from './leads/LeadsKanbanBoard';
 import LeadsListView from './leads/LeadsListView';
 import ClientDetailsView from './client-hub/ClientDetailsView';
+import DailyPulseModal from './leads/DailyPulseModal';
 
 const LeadsList: React.FC<InternalProps> = ({
     leads,
@@ -28,119 +29,82 @@ const LeadsList: React.FC<InternalProps> = ({
 }) => {
     // State
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [showDailyPulse, setShowDailyPulse] = useState(false);
     const [activeTab, setActiveTab] = useState<'Buyer' | 'Buyer2' | 'Seller'>('Buyer');
     const [buyerFunnelCategory, setBuyerFunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
     const [buyer2FunnelCategory, setBuyer2FunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
     const [sellerFunnelCategory, setSellerFunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
-    const [currentDisplayMode, setCurrentDisplayMode] = useState<DisplayMode>(isMobile ? 'gallery' : 'kanban');
-    const [selectedLeadForOverlay, setSelectedLeadForOverlay] = useState<Lead | null>(null);
+    const [currentDisplayMode, setCurrentDisplayMode] = useState<'gallery' | 'kanban' | 'list'>('kanban');
 
-    // Sync display mode with mobile status
-    React.useEffect(() => {
-        if (isMobile) {
-            setCurrentDisplayMode('gallery');
-        }
-    }, [isMobile]);
+    // Filter/Sort State (passed to header)
     const [boardSettings, setBoardSettings] = useState({
         search: '',
         sort: 'newest' as 'newest' | 'oldest' | 'name' | 'temp',
         tempFilter: [] as string[]
     });
 
-    // Filter leads by type
-    const buyerLeads = useMemo(() => leads.filter(l => l.leadType === 'Buyer'), [leads]);
-    const sellerLeads = useMemo(() => leads.filter(l => l.leadType === 'Seller'), [leads]);
+    const filteredLeads = useMemo(() => {
+        let result = [...leads];
 
-    // Base filtering for leads (Search + Temperature)
-    const getFilteredLeads = (baseLeads: Lead[]) => {
-        return baseLeads.filter(lead => {
-            // Global Search
-            if (boardSettings.search) {
-                const s = boardSettings.search.toLowerCase();
-                const matchesSearch = (lead.fullName || '').toLowerCase().includes(s) ||
-                    (lead.email || lead.primaryContact?.email || '').toLowerCase().includes(s) ||
-                    (lead.propertyAddress || lead.leadInfo?.inquiryProperty?.address || '').toLowerCase().includes(s);
-                if (!matchesSearch) return false;
-            }
-
-            // Temperature Filter
-            if (boardSettings.tempFilter.length > 0) {
-                if (!boardSettings.tempFilter.includes(lead.engagementScore || 'Cold')) return false;
-            }
-
+        // 1. Filter by Active Tab
+        result = result.filter(lead => {
+            if (activeTab === 'Buyer') return lead.leadType === 'Buyer';
+            if (activeTab === 'Buyer2') return lead.leadType === 'Seller';
+            if (activeTab === 'Seller') return lead.leadType === 'Seller';
             return true;
         });
-    };
 
-    // Filter by funnel stage + base filters
-    const filteredBuyerLeads = useMemo(() => {
-        const base = getFilteredLeads(buyerLeads);
-        if (buyerFunnelCategory === 'Closed & Archived') {
-            return base.filter(l => l.funnelStage === 'Closed' || l.funnelStage === 'Archived');
+        // 2. Search
+        if (boardSettings.search) {
+            const term = boardSettings.search.toLowerCase();
+            result = result.filter(l =>
+                (l.fullName || '').toLowerCase().includes(term) ||
+                (l.email || '').toLowerCase().includes(term) ||
+                (l.phone || '').toLowerCase().includes(term) ||
+                (l.propertyAddress || '').toLowerCase().includes(term) ||
+                (l.leadInfo?.inquiryProperty?.address || '').toLowerCase().includes(term)
+            );
         }
-        return base.filter(l => l.funnelStage === buyerFunnelCategory);
-    }, [buyerLeads, buyerFunnelCategory, boardSettings]);
 
-    const filteredBuyer2Leads = useMemo(() => {
-        const base = getFilteredLeads(sellerLeads);
-        if (buyer2FunnelCategory === 'Closed & Archived') {
-            return base.filter(l => l.funnelStage === 'Closed' || l.funnelStage === 'Archived');
+        // 3. Temp Filter
+        if (boardSettings.tempFilter.length > 0) {
+            result = result.filter(l => boardSettings.tempFilter.includes(l.engagementScore || 'Cold'));
         }
-        return base.filter(l => l.funnelStage === buyer2FunnelCategory);
-    }, [sellerLeads, buyer2FunnelCategory, boardSettings]);
 
-    const filteredSellerLeads = useMemo(() => {
-        const base = getFilteredLeads(sellerLeads);
-        if (sellerFunnelCategory === 'Closed & Archived') {
-            return base.filter(l => l.funnelStage === 'Closed' || l.funnelStage === 'Archived');
-        }
-        return base.filter(l => l.funnelStage === sellerFunnelCategory);
-    }, [sellerLeads, sellerFunnelCategory, boardSettings]);
-
-    // Global Sorting Logic
-    const sortLeads = (baseLeads: Lead[]) => {
-        return [...baseLeads].sort((a, b) => {
+        // 4. Sort
+        result.sort((a, b) => {
+            if (boardSettings.sort === 'newest') {
+                const da = a.receivedAt?.toDate ? a.receivedAt.toDate() : new Date(a.receivedAt || 0);
+                const db = b.receivedAt?.toDate ? b.receivedAt.toDate() : new Date(b.receivedAt || 0);
+                return db.getTime() - da.getTime();
+            }
+            if (boardSettings.sort === 'oldest') {
+                const da = a.receivedAt?.toDate ? a.receivedAt.toDate() : new Date(a.receivedAt || 0);
+                const db = b.receivedAt?.toDate ? b.receivedAt.toDate() : new Date(b.receivedAt || 0);
+                return da.getTime() - db.getTime();
+            }
             if (boardSettings.sort === 'name') {
                 return (a.fullName || '').localeCompare(b.fullName || '');
             }
             if (boardSettings.sort === 'temp') {
-                const order = { 'Hot': 0, 'Warm': 1, 'Cold': 2, 'Stale': 3 };
+                const order: Record<string, number> = { 'Hot': 0, 'Warm': 1, 'Cold': 2, 'Stale': 3 };
                 return (order[a.engagementScore || 'Cold'] || 99) - (order[b.engagementScore || 'Cold'] || 99);
             }
-
-            const getDateVal = (lead: Lead) => {
-                const dateVal = lead.lastUpdated || lead.receivedAt || 0;
-                return (dateVal as any)?.toDate ? (dateVal as any).toDate() : new Date(dateVal);
-            };
-
-            const da = getDateVal(a);
-            const db = getDateVal(b);
-
-            if (boardSettings.sort === 'oldest') {
-                return da.getTime() - db.getTime();
-            }
-            // default to newest
-            return db.getTime() - da.getTime();
+            return 0;
         });
-    };
 
-    // Sorting applied to filtered lists
-    const sortedBuyerLeads = useMemo(() => sortLeads(filteredBuyerLeads), [filteredBuyerLeads, boardSettings.sort]);
-    const sortedBuyer2Leads = useMemo(() => sortLeads(filteredBuyer2Leads), [filteredBuyer2Leads, boardSettings.sort]);
-    const sortedSellerLeads = useMemo(() => sortLeads(filteredSellerLeads), [filteredSellerLeads, boardSettings.sort]);
+        return result;
+    }, [leads, activeTab, boardSettings]);
 
-    // Handlers
+    const buyerLeads = useMemo(() => filteredLeads.filter(l => l.leadType === 'Buyer'), [filteredLeads]);
+    const sellerLeads = useMemo(() => filteredLeads.filter(l => l.leadType === 'Seller'), [filteredLeads]);
 
     const handleSelectOne = (id: string) => {
-        const newSet = new Set(selectedIds);
-        if (newSet.has(id)) {
-            newSet.delete(id);
-        } else {
-            newSet.add(id);
-        }
-        setSelectedIds(newSet);
+        const next = new Set(selectedIds);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        setSelectedIds(next);
     };
-
 
     const handleBulkArchive = () => {
         selectedIds.forEach(id => {
@@ -154,26 +118,6 @@ const LeadsList: React.FC<InternalProps> = ({
 
     const toggleDisplayMode = () => {
         setCurrentDisplayMode(currentDisplayMode === 'gallery' ? 'kanban' : 'gallery');
-    };
-
-    // Time stats (simplified)
-    const timeStats = {
-        Buyer: {
-            'Past 6 Months': buyerLeads.length,
-            'Older': 0
-        },
-        Buyer2: {
-            'Past 6 Months': sellerLeads.length,
-            'Older': 0
-        },
-        Seller: {
-            'Past 6 Months': sellerLeads.length,
-            'Older': 0
-        }
-    };
-
-    const dateRanges = {
-        labels: ['Past 6 Months', 'Older']
     };
 
     return (
@@ -191,6 +135,16 @@ const LeadsList: React.FC<InternalProps> = ({
                 boardSettings={boardSettings}
                 setBoardSettings={setBoardSettings}
                 isMobile={isMobile}
+                leads={leads}
+                realtorId={realtorId}
+                onOpenDailyPulse={() => setShowDailyPulse(true)}
+            />
+
+            <DailyPulseModal
+                isOpen={showDailyPulse}
+                onClose={() => setShowDailyPulse(false)}
+                leads={leads}
+                userId={realtorId}
             />
 
             {/* Kanban View */}
@@ -206,180 +160,64 @@ const LeadsList: React.FC<InternalProps> = ({
                     handleSaveNote={handleSaveNote}
                     handleUpdateNote={handleUpdateNote}
                     handleDeleteNote={handleDeleteNote}
+                    onActivateLead={onActivateLead}
                     onUpdateAvatar={onUpdateAvatar}
+                    boardSettings={boardSettings || { search: '', sort: 'newest', tempFilter: [] }}
                     realtorId={realtorId}
-                    boardSettings={boardSettings}
-                />
-            )}
-
-            {/* List View */}
-            {currentDisplayMode === 'list' && (
-                <LeadsListView
-                    leads={activeTab === 'Buyer' ? sortedBuyerLeads : (activeTab === 'Buyer2' ? sortedBuyer2Leads : sortedSellerLeads)}
-                    onUpdateLead={onUpdateLead}
-                    realtorId={realtorId}
-                    activeTab={activeTab === 'Buyer2' ? 'Seller' : activeTab}
                 />
             )}
 
             {/* Gallery View */}
             {currentDisplayMode === 'gallery' && (
-                <DragDropContext onDragEnd={handleDragEnd}>
-                    {/* Content Area */}
-                    <div className="flex-1 bg-white mb-0 space-y-4 py-4 overflow-y-auto custom-scrollbar h-full">
-                        {/* Buyer Section */}
-                        {activeTab === 'Buyer' && (
-                            <section className="px-4 animate-in fade-in slide-in-from-left-4 duration-300">
-                                <LeadsViewControls
-                                    activeTab="Buyer"
-                                    activeFunnelCategory={buyerFunnelCategory}
-                                    onFunnelCategoryChange={setBuyerFunnelCategory}
-                                    selectedCount={selectedIds.size}
-                                    onArchive={handleBulkArchive}
-                                    showFilters={false}
-                                    setShowFilters={() => { }}
-                                    displayMode={currentDisplayMode}
-                                    setDisplayMode={toggleDisplayMode}
-                                    onTabChange={onTabChange}
+                <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-50">
+                    <div className="max-w-[1600px] mx-auto">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                            {(activeTab === 'Buyer' ? buyerLeads : sellerLeads).map((lead, index) => (
+                                <LeadGalleryItem
+                                    key={lead.id}
+                                    lead={lead}
+                                    index={index}
+                                    selectedIds={selectedIds}
+                                    handleSelectOne={handleSelectOne}
+                                    onUpdateLead={onUpdateLead}
+                                    onActivate={() => onActivateLead(lead)}
+                                    onArchive={(id) => onUpdateLead(id, { funnelStage: 'Archived' })}
+                                    activeTab={activeTab === 'Buyer' ? 'Buyer' : 'Seller'}
+                                    onUpdateAvatar={onUpdateAvatar}
+                                    stage={lead.funnelStage || 'Leads'}
+                                    // Missing mandatory props for LeadGalleryItem
+                                    editNoteId={null}
+                                    setEditNoteId={() => { }}
+                                    editContent=""
+                                    setEditContent={() => { }}
+                                    handleUpdateNote={handleUpdateNote}
+                                    onDoneToggle={() => { }}
+                                    onDeleteClick={() => { }}
+                                    pendingNote={pendingNote}
+                                    draftContent=""
+                                    setDraftContent={() => { }}
+                                    handleSaveNote={handleSaveNote}
+                                    setPendingNote={setPendingNote}
+                                    deleteCoords={null}
+                                    deletingNoteId={null}
+                                    celebratingNoteId={null}
+                                    isFlyingUpId={null}
+                                    visibleColumns={new Set(['name', 'contact', 'temp', 'status'])}
                                 />
-
-                                {sortedBuyerLeads.length > 0 ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-24">
-                                        {sortedBuyerLeads.map((lead, index) => (
-                                            <LeadGalleryItem
-                                                onUpdateAvatar={onUpdateAvatar}
-                                                key={lead.id}
-                                                lead={lead}
-                                                stage={buyerFunnelCategory}
-                                                index={index}
-                                                selectedIds={selectedIds}
-                                                handleSelectOne={handleSelectOne}
-                                                editNoteId={null}
-                                                setEditNoteId={() => { }}
-                                                editContent=""
-                                                setEditContent={() => { }}
-                                                handleUpdateNote={handleUpdateNote}
-                                                onDoneToggle={() => { }}
-                                                onDeleteClick={() => { }}
-                                                pendingNote={pendingNote}
-                                                draftContent=""
-                                                setDraftContent={() => { }}
-                                                handleSaveNote={handleSaveNote}
-                                                setPendingNote={setPendingNote}
-                                                deleteCoords={null}
-                                                deletingNoteId={null}
-                                                celebratingNoteId={null}
-                                                isFlyingUpId={null}
-                                                onUpdateLeadFromGallery={onUpdateLead}
-                                                onUpdateLeadStatus={onUpdateLead}
-                                                visibleColumns={new Set()}
-                                                onUpdateLead={onUpdateLead}
-                                                onArchive={() => onUpdateLead(lead.id, { funnelStage: 'Archived' })}
-                                                onActivate={() => setSelectedLeadForOverlay(lead)}
-                                            />
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-12 text-slate-400">
-                                        No buyer leads in this stage
-                                    </div>
-                                )}
-                            </section>
-                        )}
-
-                        {/* Buyer2 Section */}
-                        {activeTab === 'Buyer2' && (
-                            <section className="px-4 animate-in fade-in slide-in-from-left-4 duration-300">
-                                <LeadsViewControls
-                                    activeTab="Seller"
-                                    activeFunnelCategory={buyer2FunnelCategory}
-                                    onFunnelCategoryChange={setBuyer2FunnelCategory}
-                                    selectedCount={selectedIds.size}
-                                    onArchive={handleBulkArchive}
-                                    showFilters={false}
-                                    setShowFilters={() => { }}
-                                    displayMode={currentDisplayMode}
-                                    setDisplayMode={toggleDisplayMode}
-                                    onTabChange={onTabChange}
-                                />
-
-                                {sortedBuyer2Leads.length > 0 ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-24">
-                                        {sortedBuyer2Leads.map((lead, index) => (
-                                            <LeadGalleryItem
-                                                onUpdateAvatar={onUpdateAvatar}
-                                                key={lead.id}
-                                                lead={lead}
-                                                stage={buyer2FunnelCategory}
-                                                index={index}
-                                                selectedIds={selectedIds}
-                                                handleSelectOne={handleSelectOne}
-                                                editNoteId={null}
-                                                setEditNoteId={() => { }}
-                                                editContent=""
-                                                setEditContent={() => { }}
-                                                handleUpdateNote={handleUpdateNote}
-                                                onDoneToggle={() => { }}
-                                                onDeleteClick={() => { }}
-                                                pendingNote={pendingNote}
-                                                draftContent=""
-                                                setDraftContent={() => { }}
-                                                handleSaveNote={handleSaveNote}
-                                                setPendingNote={setPendingNote}
-                                                deleteCoords={null}
-                                                deletingNoteId={null}
-                                                celebratingNoteId={null}
-                                                isFlyingUpId={null}
-                                                onUpdateLeadFromGallery={onUpdateLead}
-                                                onUpdateLeadStatus={onUpdateLead}
-                                                visibleColumns={new Set()}
-                                                onUpdateLead={onUpdateLead}
-                                                onArchive={() => onUpdateLead(lead.id, { funnelStage: 'Archived' })}
-                                                onActivate={() => setSelectedLeadForOverlay(lead)}
-                                            />
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-12 text-slate-400">
-                                        No seller leads in this stage
-                                    </div>
-                                )}
-                            </section>
-                        )}
-
-
-                    </div>
-                </DragDropContext>
-            )}
-
-            {/* Client Details Overlay */}
-            {selectedLeadForOverlay && (
-                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 pt-[80px] pb-4 px-4 overflow-hidden">
-                    <div className="bg-white w-[1000px] h-full max-h-full rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 relative">
-                        <button
-                            onClick={() => setSelectedLeadForOverlay(null)}
-                            className="absolute top-4 right-4 z-50 w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-full text-slate-500 hover:text-slate-700 transition-colors"
-                        >
-                            <i className="fa-solid fa-times"></i>
-                        </button>
-                        <ClientDetailsView
-                            realtorId={realtorId}
-                            clients={[{
-                                ...selectedLeadForOverlay,
-                                uid: selectedLeadForOverlay.id,
-                                displayName: selectedLeadForOverlay.fullName || `${selectedLeadForOverlay.firstName || ''} ${selectedLeadForOverlay.lastName || ''}`.trim(),
-                                email: selectedLeadForOverlay.email || selectedLeadForOverlay.primaryContact?.email || ''
-                            } as any]}
-                            leads={[selectedLeadForOverlay]}
-                            onUpdateClient={async (id, updates) => {
-                                onUpdateLead(id, updates);
-                                return true;
-                            }}
-                            initialSelectedId={selectedLeadForOverlay.id}
-                            hideClientList={true}
-                        />
+                            ))}
+                        </div>
                     </div>
                 </div>
+            )}
+
+            {/* List View */}
+            {currentDisplayMode === 'list' && (
+                <LeadsListView
+                    leads={activeTab === 'Buyer' ? buyerLeads : sellerLeads}
+                    onUpdateLead={onUpdateLead}
+                    realtorId={realtorId}
+                    activeTab={activeTab}
+                />
             )}
         </div>
     );

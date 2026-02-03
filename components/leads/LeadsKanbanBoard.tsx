@@ -29,8 +29,9 @@ const LeadsKanbanBoard: React.FC<LeadsKanbanBoardProps> = ({
     onUpdateLead,
     leadType,
     realtorId,
-    boardSettings
+    boardSettings = { search: '', sort: 'newest', tempFilter: [] }
 }) => {
+    console.log('[LeadsKanbanBoard] Render with boardSettings:', boardSettings);
     const [pendingMove, setPendingMove] = useState<{ lead: Lead, targetStage: string, options: any[] } | null>(null);
     const [selectedLeadForOverlay, setSelectedLeadForOverlay] = useState<Lead | null>(null);
 

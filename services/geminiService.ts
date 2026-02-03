@@ -1,6 +1,6 @@
 import { serverTimestamp } from "firebase/firestore";
 import { GoogleGenAI } from "@google/genai";
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, InvestmentResearchResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult, BiddingStrategyResult, LeadReactivationResult, AIResponseWithUsage, AIUsage } from "../types";
+import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult, BiddingStrategyResult, LeadReactivationResult, AIResponseWithUsage, AIUsage } from "../types";
 import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/property/propertyAnalysis";
 import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/property/neighborhoodAnalysis";
 import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/property/communityPulse";
@@ -12,7 +12,9 @@ import { biddingStrategyPrompt } from "../prompts/property/biddingStrategy";
 import { getLeadReactivationPrompt, leadReactivationSchema } from "../prompts/client/leadReactivation";
 import { getLeadTransformationPrompt } from "../prompts/client/leadTransformation";
 import { getGuideGenerationPrompt, guideGenerationSchema, GuideResult } from "../prompts/client/guideGeneration";
-import { getGuideImagePrompt } from "../prompts/client/guideImageGeneration";
+import { getDailyPulsePrompt, dailyPulseSchema } from "../prompts/leads/dailyPulse";
+import { Lead } from "../types";
+import { DailyPulseResult } from "../types/ai";
 import { APP_CONFIG } from "../config";
 import { logLLMCall, updateLLMCall } from "./firebase/llm_logs";
 import { optimizePropertyForAi } from "../utils/aiOptimization";
@@ -931,4 +933,68 @@ export const generateGuideImage = async (category: string, title: string, topicS
 
   console.log(`[Image] No image found for: ${topicSlug}/${guideSlug}`);
   return null;
+};
+
+export const generateDailyPulse = async (leads: Lead[], userId: string = "unknown"): Promise<AIResponseWithUsage<DailyPulseResult>> => {
+  const { systemInstruction, prompt: userPrompt } = getDailyPulsePrompt(leads);
+  const combinedPrompt = `${systemInstruction}\n\n${userPrompt}`;
+  let logId: string | null = null;
+  const modelToUse = FLASH_MODEL;
+
+  try {
+    logId = await logLLMCall({
+      user_id: userId,
+      prompt_filename: "dailyPulse.ts",
+      llm_name: modelToUse,
+      raw_payload: combinedPrompt,
+      raw_response: null,
+      status: 'pending',
+      request_sent_at: serverTimestamp()
+    });
+
+    const ai = getAi();
+    const response = await ai.models.generateContent({
+      model: modelToUse,
+      contents: [{ role: 'user', parts: [{ text: combinedPrompt }] }],
+      config: {
+        temperature: 1.0,
+        responseMimeType: "application/json",
+        responseSchema: dailyPulseSchema as any
+      }
+    });
+
+    const responseText = response.text;
+    const usage = calculateUsage(response, modelToUse);
+
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: responseText,
+        status: 'completed',
+        response_received_at: serverTimestamp(),
+        usage_metadata: response.usageMetadata,
+        estimated_cost: usage.cost,
+        ...extractMetadata(response)
+      }).catch(err => console.error("Failed to update AI log:", err));
+    }
+
+    return {
+      data: extractJson<DailyPulseResult>(responseText),
+      usage
+    };
+  } catch (error: any) {
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: error.message,
+        status: 'failed',
+        error: error.stack || error.message,
+        response_received_at: serverTimestamp()
+      }).catch(err => console.error("Failed to update AI error log:", err));
+    }
+
+    if (error instanceof AiResponseError) {
+      error.prompt = combinedPrompt;
+      throw error;
+    }
+    throw new AiResponseError(error.message, "Raw API Error", combinedPrompt);
+  }
 };
