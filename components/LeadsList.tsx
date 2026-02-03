@@ -57,7 +57,19 @@ const LeadsList: React.FC<InternalProps> = ({
             return true;
         });
 
-        // 2. Search
+        // 2. Filter by Funnel Stage (only for Gallery/List view)
+        if (currentDisplayMode !== 'kanban') {
+            const currentCat = activeTab === 'Buyer' ? buyerFunnelCategory : (activeTab === 'Buyer2' ? buyer2FunnelCategory : sellerFunnelCategory);
+            result = result.filter(l => {
+                if (currentCat === 'Closed & Archived') {
+                    return l.funnelStage === 'Closed' || l.funnelStage === 'Archived';
+                }
+                const stage = l.funnelStage || 'Leads';
+                return stage === currentCat;
+            });
+        }
+
+        // 3. Search
         if (boardSettings.search) {
             const term = boardSettings.search.toLowerCase();
             result = result.filter(l =>
@@ -177,6 +189,21 @@ const LeadsList: React.FC<InternalProps> = ({
                 <DragDropContext onDragEnd={handleDragEnd}>
                     <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-50">
                         <div className="max-w-[1600px] mx-auto">
+                            <LeadsViewControls
+                                activeTab={activeTab === 'Buyer' ? 'Buyer' : 'Seller'}
+                                activeFunnelCategory={activeTab === 'Buyer' ? buyerFunnelCategory : (activeTab === 'Buyer2' ? buyer2FunnelCategory : sellerFunnelCategory)}
+                                onFunnelCategoryChange={(cat) => {
+                                    if (activeTab === 'Buyer') setBuyerFunnelCategory(cat);
+                                    else if (activeTab === 'Buyer2') setBuyer2FunnelCategory(cat);
+                                    else setSellerFunnelCategory(cat);
+                                }}
+                                selectedCount={selectedIds.size}
+                                onArchive={handleBulkArchive}
+                                showFilters={false}
+                                setShowFilters={() => { }}
+                                displayMode="gallery"
+                                setDisplayMode={setCurrentDisplayMode}
+                            />
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                 {(activeTab === 'Buyer' ? buyerLeads : sellerLeads).map((lead, index) => (
                                     <LeadGalleryItem
@@ -219,13 +246,32 @@ const LeadsList: React.FC<InternalProps> = ({
 
             {/* List View */}
             {currentDisplayMode === 'list' && (
-                <LeadsListView
-                    leads={activeTab === 'Buyer' ? buyerLeads : sellerLeads}
-                    onUpdateLead={onUpdateLead}
-                    realtorId={realtorId}
-                    activeTab={activeTab}
-                    onActivateLead={(lead) => setSelectedLeadForOverlay(lead)}
-                />
+                <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
+                    <div className="px-8 pt-6">
+                        <LeadsViewControls
+                            activeTab={activeTab === 'Buyer' ? 'Buyer' : 'Seller'}
+                            activeFunnelCategory={activeTab === 'Buyer' ? buyerFunnelCategory : (activeTab === 'Buyer2' ? buyer2FunnelCategory : sellerFunnelCategory)}
+                            onFunnelCategoryChange={(cat) => {
+                                if (activeTab === 'Buyer') setBuyerFunnelCategory(cat);
+                                else if (activeTab === 'Buyer2') setBuyer2FunnelCategory(cat);
+                                else setSellerFunnelCategory(cat);
+                            }}
+                            selectedCount={selectedIds.size}
+                            onArchive={handleBulkArchive}
+                            showFilters={false}
+                            setShowFilters={() => { }}
+                            displayMode="gallery" // Use gallery style controls
+                            setDisplayMode={setCurrentDisplayMode}
+                        />
+                    </div>
+                    <LeadsListView
+                        leads={activeTab === 'Buyer' ? buyerLeads : sellerLeads}
+                        onUpdateLead={onUpdateLead}
+                        realtorId={realtorId}
+                        activeTab={activeTab}
+                        onActivateLead={(lead) => setSelectedLeadForOverlay(lead)}
+                    />
+                </div>
             )}
 
             {selectedLeadForOverlay && (
