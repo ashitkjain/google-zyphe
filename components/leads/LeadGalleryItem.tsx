@@ -518,7 +518,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                             </div>
 
                             <div className="flex flex-col flex-1 min-w-0 pt-0.5">
-                                <div className="font-bold text-black text-sm group-hover:text-indigo-600 transition-colors tracking-tight truncate leading-tight mb-2 flex items-center gap-2">
+                                <div className="font-bold text-black text-sm group-hover:text-indigo-600 transition-colors tracking-tight truncate leading-tight mb-2 flex items-center gap-2 pr-16">
                                     {lead.fullName || (lead.firstName || lead.lastName ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim() : 'Unknown Client')}
                                     {['Zillow', 'Realtor', 'Facebook'].includes(lead.source || '') && (
                                         <div className="flex items-center gap-1.5">
@@ -565,8 +565,6 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                     );
                                 })()}
                                 <div className="flex items-center gap-1.5 text-xs text-slate-400 font-bold mt-2 flex-wrap leading-tight">
-                                    <span className="">Source: <span className="text-slate-600">{lead.source || 'Unknown'}</span></span>
-                                    <span className="text-slate-300">•</span>
                                     <span className="">Lead Since: <span className="text-slate-600">{receivedDate ? receivedDate.toLocaleDateString() : 'N/A'}</span></span>
                                     <span className="text-slate-300">•</span>
                                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${(lead.status || '').includes('New') ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
