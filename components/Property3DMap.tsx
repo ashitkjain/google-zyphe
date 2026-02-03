@@ -22,20 +22,27 @@ const Property3DMap: React.FC<Property3DMapProps> = ({ latitude, longitude, addr
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        let timeoutId: any;
+
         const initMap = async () => {
-            console.log("[3D Map] Initializing with:", { latitude, longitude });
+            console.log("[3D Map] Attempting to link with coordinates:", { latitude, longitude });
 
             if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
-                console.warn("[3D Map] Invalid coordinates provided. Standing by.");
+                setError("Incomplete spatial data. Coordinates missing.");
                 return;
             }
+
+            // Start a safety timeout
+            timeoutId = setTimeout(() => {
+                if (!isLoaded) {
+                    setError("Neural Link timed out. This usually means the API key is invalid or Map Tiles API is not enabled in your Google Console.");
+                }
+            }, 10000);
 
             try {
                 // @ts-ignore
                 if (!window.google || !window.google.maps) {
-                    console.log("[3D Map] Google Maps JS not ready yet. Retrying in 500ms...");
-                    setTimeout(initMap, 500);
-                    return;
+                    return; // Will be retried or caught by timeout
                 }
 
                 // @ts-ignore
@@ -43,34 +50,35 @@ const Property3DMap: React.FC<Property3DMapProps> = ({ latitude, longitude, addr
 
                 if (!containerRef.current) return;
 
-                // Clean up previous instance if any
                 containerRef.current.innerHTML = '';
 
-                const map3d = new Map3DElement({
-                    center: { lat: latitude, lng: longitude, altitude: 200 },
-                    tilt: 65,
-                    heading: 0,
-                    range: 500
-                });
+                const map3d = document.createElement("gmp-map-3d") as any;
+                map3d.setAttribute("center", `${latitude},${longitude},200`);
+                map3d.setAttribute("tilt", "65");
+                map3d.setAttribute("heading", "0");
+                map3d.setAttribute("range", "500");
+                map3d.style.width = "100%";
+                map3d.style.height = "100%";
 
                 containerRef.current.appendChild(map3d);
                 mapRef.current = map3d;
 
-                // Give it a tiny bit of time to attach before hiding spinner
-                setTimeout(() => setIsLoaded(true), 1000);
+                // Set loaded after a moment
+                setTimeout(() => {
+                    setIsLoaded(true);
+                    clearTimeout(timeoutId);
+                }, 1500);
             } catch (err) {
-                console.error("[3D Map] Initialization error:", err);
-                setError("Neural Link Interrupted. Please ensure 3D Map Tiles are enabled in your Google Cloud Console.");
+                console.error("[3D Map] Fatal error:", err);
+                setError("API Initialization Failed. Ensure 'Map Tiles API' is enabled.");
+                clearTimeout(timeoutId);
             }
         };
 
         initMap();
 
         return () => {
-            // Cleanup
-            if (mapRef.current && containerRef.current) {
-                // containerRef.current.removeChild(mapRef.current);
-            }
+            if (timeoutId) clearTimeout(timeoutId);
         };
     }, [latitude, longitude]);
 
