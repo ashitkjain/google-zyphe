@@ -433,7 +433,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                         ? (lead.leadType === 'Seller'
                             ? 'ring-4 ring-emerald-500/50 border-emerald-200 bg-emerald-50/30 shadow-2xl z-10'
                             : 'ring-4 ring-indigo-500/50 border-indigo-200 bg-indigo-50/30 shadow-2xl z-10')
-                        : 'border-slate-200/60 shadow-sm hover:shadow-xl'
+                        : 'border-black shadow-sm hover:shadow-xl'
                         } ${isFlashing ? 'animate-urgent-flash' : ''} ${rednessAlpha >= 1 ? 'bg-red-50 border-red-200' : 'bg-white'} ${noteSnapshot.isDraggingOver ? 'ring-2 ring-indigo-400 bg-indigo-50/30' : ''}`}
                     style={{
                         borderLeftColor: lead.leadType === 'Seller' ? '#10b981' : '#6366f1',
