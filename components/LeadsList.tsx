@@ -187,7 +187,7 @@ const LeadsList: React.FC<InternalProps> = ({
             {/* Gallery View */}
             {currentDisplayMode === 'gallery' && (
                 <DragDropContext onDragEnd={handleDragEnd}>
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-50">
+                    <div className="flex-1 overflow-y-auto p-4 sm:px-8 sm:py-5 bg-slate-50">
                         <div className="max-w-[1600px] mx-auto">
                             <LeadsViewControls
                                 activeTab={activeTab === 'Buyer' ? 'Buyer' : 'Seller'}
@@ -247,7 +247,7 @@ const LeadsList: React.FC<InternalProps> = ({
             {/* List View */}
             {currentDisplayMode === 'list' && (
                 <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
-                    <div className="px-8 pt-6">
+                    <div className="px-8 pt-4">
                         <LeadsViewControls
                             activeTab={activeTab === 'Buyer' ? 'Buyer' : 'Seller'}
                             activeFunnelCategory={activeTab === 'Buyer' ? buyerFunnelCategory : (activeTab === 'Buyer2' ? buyer2FunnelCategory : sellerFunnelCategory)}
