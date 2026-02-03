@@ -23,36 +23,48 @@ const Property3DMap: React.FC<Property3DMapProps> = ({ latitude, longitude, addr
 
     useEffect(() => {
         const initMap = async () => {
+            console.log("[3D Map] Initializing with:", { latitude, longitude });
+
+            if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
+                console.warn("[3D Map] Invalid coordinates provided. Standing by.");
+                return;
+            }
+
             try {
+                // @ts-ignore
+                if (!window.google || !window.google.maps) {
+                    console.log("[3D Map] Google Maps JS not ready yet. Retrying in 500ms...");
+                    setTimeout(initMap, 500);
+                    return;
+                }
+
                 // @ts-ignore
                 const { Map3DElement } = await google.maps.importLibrary("maps3d");
 
                 if (!containerRef.current) return;
 
                 // Clean up previous instance if any
-                if (mapRef.current) {
-                    containerRef.current.removeChild(mapRef.current);
-                }
+                containerRef.current.innerHTML = '';
 
                 const map3d = new Map3DElement({
-                    center: { lat: latitude, lng: longitude, altitude: 400 },
+                    center: { lat: latitude, lng: longitude, altitude: 200 },
                     tilt: 65,
                     heading: 0,
-                    range: 800
+                    range: 500
                 });
 
                 containerRef.current.appendChild(map3d);
                 mapRef.current = map3d;
-                setIsLoaded(true);
+
+                // Give it a tiny bit of time to attach before hiding spinner
+                setTimeout(() => setIsLoaded(true), 1000);
             } catch (err) {
-                console.error("Error loading Google Maps 3D:", err);
-                setError("Could not initialize 3D view. Ensure you have a valid Google Maps API key with 3D Map Tiles enabled.");
+                console.error("[3D Map] Initialization error:", err);
+                setError("Neural Link Interrupted. Please ensure 3D Map Tiles are enabled in your Google Cloud Console.");
             }
         };
 
-        if (latitude && longitude) {
-            initMap();
-        }
+        initMap();
 
         return () => {
             // Cleanup
@@ -90,6 +102,15 @@ const Property3DMap: React.FC<Property3DMapProps> = ({ latitude, longitude, addr
                 </div>
 
                 <div className="flex gap-2 pointer-events-auto">
+                    <button
+                        onClick={() => {
+                            window.location.reload();
+                        }}
+                        className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 text-white flex items-center justify-center transition-all active:scale-95"
+                        title="Hard Refresh"
+                    >
+                        <i className="fa-solid fa-sync"></i>
+                    </button>
                     <button
                         onClick={() => {
                             if (mapRef.current) {
