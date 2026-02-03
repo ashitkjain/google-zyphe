@@ -89,6 +89,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 mapZoomOut={propertyData.mapZoomOut}
                                 coordinates={propertyData.coordinates}
                                 address={propertyData.address}
+                                solarData={propertyData.solarData}
                             />
                         </>
                     ) : (

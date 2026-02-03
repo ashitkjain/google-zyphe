@@ -138,6 +138,20 @@ export interface PropertyData {
     analysis?: AIAnalysisResult;
     visual_analysis?: CustomAIAnalysisResult;
     comprehensive_analysis?: ComprehensiveAnalysisResult;
+    solarData?: {
+        maxSunshineHoursPerYear?: number;
+        carbonOffsetFactorKgPerMwh?: number;
+        wholeRoofStats?: {
+            areaMeters2?: number;
+            sunshineQuantiles?: number[];
+            groundAreaMeters2?: number;
+        };
+        solarPanels?: {
+            totalCount?: number;
+            maxPowerWatts?: number;
+            yearlyEnergyDcKwh?: number;
+        }[];
+    };
 }
 
 export interface PropertyDetails {
