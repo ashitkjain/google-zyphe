@@ -543,20 +543,27 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex flex-col gap-0.5 text-[12px] text-slate-400 font-bold whitespace-nowrap overflow-hidden">
-                                    {lead.email && (
-                                        <div className="flex items-center gap-1.5 pr-2 min-w-0 pb-1">
-                                            <i className="fa-solid fa-envelope opacity-30 text-[8px] flex-shrink-0"></i>
-                                            <span className="truncate">{lead.email}</span>
-                                        </div>
-                                    )}
-                                    {lead.phone && (
-                                        <div className="flex items-center gap-1.5 pr-2 min-w-0">
-                                            <i className="fa-solid fa-phone opacity-30 text-[8px] flex-shrink-0"></i>
-                                            <span className="truncate">{lead.phone}</span>
-                                        </div>
-                                    )}
-                                </div>
+                                {(() => {
+                                    const preferredMethod = lead.preferredContactMethod || lead.primaryContact?.preferredMethod || 'Email';
+                                    return (
+                                        <>
+                                            {lead.email && (
+                                                <div className="flex items-center gap-1.5 pr-2 min-w-0 pb-1">
+                                                    <i className="fa-solid fa-envelope opacity-30 text-[8px] flex-shrink-0"></i>
+                                                    <span className="truncate">{lead.email}</span>
+                                                    {preferredMethod === 'Email' && <i className="fa-solid fa-star text-[7px] text-amber-400" title="Preferred"></i>}
+                                                </div>
+                                            )}
+                                            {lead.phone && (
+                                                <div className="flex items-center gap-1.5 pr-2 min-w-0">
+                                                    <i className="fa-solid fa-phone opacity-30 text-[8px] flex-shrink-0"></i>
+                                                    <span className="truncate">{lead.phone}</span>
+                                                    {(preferredMethod === 'Phone' || preferredMethod === 'SMS' || preferredMethod === 'WhatsApp') && <i className="fa-solid fa-star text-[7px] text-amber-400" title="Preferred"></i>}
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
                                 <div className="flex items-center gap-1.5 text-xs text-slate-400 font-bold mt-2 flex-wrap leading-tight">
                                     <span className="">Source: <span className="text-slate-600">{lead.source || 'Unknown'}</span></span>
                                     <span className="text-slate-300">•</span>

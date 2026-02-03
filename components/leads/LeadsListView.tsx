@@ -72,20 +72,27 @@ const LeadsListView: React.FC<LeadsListViewProps> = ({ leads, onUpdateLead, real
 
                                     {/* Contact */}
                                     <td className="px-6 py-4">
-                                        <div className="flex flex-col gap-0.5 text-xs">
-                                            {lead.email && (
-                                                <div className="flex items-center gap-1.5 text-slate-600">
-                                                    <i className="fa-solid fa-envelope opacity-30 text-[9px]"></i>
-                                                    <span className="truncate max-w-[180px]">{lead.email}</span>
-                                                </div>
-                                            )}
-                                            {lead.phone && (
-                                                <div className="flex items-center gap-1.5 text-slate-600">
-                                                    <i className="fa-solid fa-phone opacity-30 text-[9px]"></i>
-                                                    <span>{lead.phone}</span>
-                                                </div>
-                                            )}
-                                        </div>
+                                        {(() => {
+                                            const preferredMethod = lead.preferredContactMethod || lead.primaryContact?.preferredMethod || 'Email';
+                                            return (
+                                                <>
+                                                    {lead.email && (
+                                                        <div className="flex items-center gap-1.5 text-slate-600">
+                                                            <i className="fa-solid fa-envelope opacity-30 text-[9px]"></i>
+                                                            <span className="truncate max-w-[180px]">{lead.email}</span>
+                                                            {preferredMethod === 'Email' && <i className="fa-solid fa-star text-[8px] text-amber-400" title="Preferred"></i>}
+                                                        </div>
+                                                    )}
+                                                    {lead.phone && (
+                                                        <div className="flex items-center gap-1.5 text-slate-600">
+                                                            <i className="fa-solid fa-phone opacity-30 text-[9px]"></i>
+                                                            <span>{lead.phone}</span>
+                                                            {(preferredMethod === 'Phone' || preferredMethod === 'SMS' || preferredMethod === 'WhatsApp') && <i className="fa-solid fa-star text-[8px] text-amber-400" title="Preferred"></i>}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
                                     </td>
 
                                     {/* Temperature */}
