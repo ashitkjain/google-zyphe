@@ -355,6 +355,9 @@ export interface DailyPulseResult {
         phone: string;
         type: 'Buyer' | 'Seller';
     }>;
+    todayTasks: Array<{ name: string; priority: string }>;
+    upcomingTasks: Array<{ name: string; dueDate: string }>;
+    todayMeetings: Array<{ title: string; time: string; client: string }>;
     redFlags: Array<{
         name: string;
         hook: string;

@@ -1,8 +1,10 @@
-import { Lead, LeadNote, UserProfile, FunnelStage } from '../../../types';
+import { Lead, LeadNote, UserProfile, FunnelStage, CRMTask, CalendarEvent } from '../../../types';
 import { DropResult } from '@hello-pangea/dnd';
 
 export interface InternalProps {
     leads: Lead[];
+    tasks?: CRMTask[];
+    calendarEvents?: CalendarEvent[];
     realtorId: string;
     onUpdateLead: (id: string, updates: Partial<Lead>) => void;
     onViewLead: (lead: Lead) => void;

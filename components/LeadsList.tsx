@@ -25,7 +25,9 @@ const LeadsList: React.FC<InternalProps> = ({
     handleDragEnd,
     onUpdateAvatar,
     onTabChange,
-    isMobile
+    isMobile,
+    tasks = [],
+    calendarEvents = []
 }) => {
     // State
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -145,6 +147,8 @@ const LeadsList: React.FC<InternalProps> = ({
                 onClose={() => setShowDailyPulse(false)}
                 leads={leads}
                 userId={realtorId}
+                tasks={tasks}
+                calendarEvents={calendarEvents}
             />
 
             {/* Kanban View */}

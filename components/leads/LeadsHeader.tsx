@@ -184,14 +184,14 @@ const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCr
                             )}
                         </div>
 
-                        {/* Daily Pulse Button */}
+                        {/* Morning Briefing Button */}
                         <button
                             onClick={onOpenDailyPulse}
                             className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-sm hover:shadow-md hover:scale-105 active:scale-95 ml-2"
-                            title="Generate Daily Pulse AI Report"
+                            title="Generate Morning Briefing AI Report"
                         >
                             <i className="fa-solid fa-bolt-lightning text-[10px]"></i>
-                            Daily Pulse
+                            Morning Briefing
                         </button>
                     </div>
                 </div>

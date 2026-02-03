@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Lead } from '../../types';
+import { Lead, CRMTask, CalendarEvent } from '../../types';
 import { DailyPulseResult } from '../../types/ai';
 import { generateDailyPulse } from '../../services/geminiService';
 
 interface DailyPulseModalProps {
     leads: Lead[];
+    tasks?: CRMTask[];
+    calendarEvents?: CalendarEvent[];
     isOpen: boolean;
     onClose: () => void;
     userId: string;
 }
 
-const DailyPulseModal: React.FC<DailyPulseModalProps> = ({ leads, isOpen, onClose, userId }) => {
+const DailyPulseModal: React.FC<DailyPulseModalProps> = ({ leads, tasks = [], calendarEvents = [], isOpen, onClose, userId }) => {
     const [report, setReport] = useState<DailyPulseResult | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -34,7 +36,7 @@ const DailyPulseModal: React.FC<DailyPulseModalProps> = ({ leads, isOpen, onClos
                 return date >= fourteenDaysAgo;
             });
 
-            const result = await generateDailyPulse(recentLeads, userId);
+            const result = await generateDailyPulse(recentLeads, userId, tasks, calendarEvents);
             setReport(result.data);
         } catch (err: any) {
             console.error('Failed to generate Daily Pulse:', err);
@@ -56,7 +58,7 @@ const DailyPulseModal: React.FC<DailyPulseModalProps> = ({ leads, isOpen, onClos
                             <i className="fa-solid fa-bolt-lightning text-xl"></i>
                         </div>
                         <div>
-                            <h2 className="text-xl font-black text-slate-800 tracking-tight">Zyphe Daily Pulse</h2>
+                            <h2 className="text-xl font-black text-slate-800 tracking-tight">Today's Briefing</h2>
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Your AI-Powered Command Center</p>
                         </div>
                     </div>
@@ -141,8 +143,52 @@ const DailyPulseModal: React.FC<DailyPulseModalProps> = ({ leads, isOpen, onClos
                                     </div>
                                 </div>
 
-                                {/* 3. Market Whisper / Red Flags */}
+                                {/* 3. Schedule/Agenda */}
                                 <div className="space-y-6">
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2 px-2">
+                                            <i className="fa-solid fa-calendar-check text-indigo-500"></i>
+                                            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Today's Agenda</h3>
+                                        </div>
+                                        <div className="bg-white rounded-[2rem] border border-slate-100 p-6 space-y-6">
+                                            {/* Meetings */}
+                                            <div className="space-y-3">
+                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Meetings</div>
+                                                {report.todayMeetings.length > 0 ? report.todayMeetings.map((m, i) => (
+                                                    <div key={i} className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border-l-2 border-emerald-400">
+                                                        <div className="text-[10px] font-black text-indigo-600 w-12">{m.time}</div>
+                                                        <div className="text-[11px] font-bold text-slate-800 line-clamp-1">{m.title}</div>
+                                                    </div>
+                                                )) : <div className="text-[10px] text-slate-400 italic px-2">No meetings today</div>}
+                                            </div>
+
+                                            {/* Today's Tasks */}
+                                            <div className="space-y-3">
+                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tasks Due Today</div>
+                                                {report.todayTasks.length > 0 ? report.todayTasks.map((t, i) => (
+                                                    <div key={i} className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border-l-2 border-indigo-400">
+                                                        <div className="flex-1 text-[11px] font-bold text-slate-800 line-clamp-1">{t.name}</div>
+                                                        <div className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${t.priority === 'Urgent' ? 'bg-rose-100 text-rose-600' : 'bg-slate-200 text-slate-600'}`}>
+                                                            {t.priority}
+                                                        </div>
+                                                    </div>
+                                                )) : <div className="text-[10px] text-slate-400 italic px-2">No tasks due today</div>}
+                                            </div>
+
+                                            {/* Upcoming Tasks */}
+                                            <div className="space-y-3">
+                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Next 3 Days</div>
+                                                {report.upcomingTasks.length > 0 ? report.upcomingTasks.map((t, i) => (
+                                                    <div key={i} className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border-l-2 border-slate-300">
+                                                        <div className="flex-1 text-[11px] font-bold text-slate-800 line-clamp-1">{t.name}</div>
+                                                        <div className="text-[9px] font-black text-slate-400 whitespace-nowrap">{t.dueDate}</div>
+                                                    </div>
+                                                )) : <div className="text-[10px] text-slate-400 italic px-2">No upcoming tasks</div>}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 4. Market Whisper / Red Flags */}
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2 px-2">
                                             <i className="fa-solid fa-circle-exclamation text-red-500"></i>
@@ -183,7 +229,7 @@ const DailyPulseModal: React.FC<DailyPulseModalProps> = ({ leads, isOpen, onClos
                 <div className="bg-slate-100/50 px-8 py-4 border-t border-slate-100 flex items-center justify-between">
                     <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
                         <i className="fa-solid fa-wand-magic-sparkles text-indigo-400"></i>
-                        Powered by Gemini 2.5 Flash
+                        Powered by Gemini 2.5 Flash Lite
                     </div>
                     <button onClick={onClose} className="text-xs font-black text-slate-500 hover:text-slate-800 uppercase tracking-widest transition-colors">
                         Dismiss Report

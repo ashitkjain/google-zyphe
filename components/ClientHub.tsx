@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import ProfileTab from './client-hub/ProfileTab';
 import AddClientModal from './AddClientModal';
 import RemoveClientModal from './RemoveClientModal';
-import { getLeads, getTasks, getTemplates, seedMockData, saveUserProfile, getUserProfile, updateLead, getReminderRules, updateReminderRule, deleteAllMockData, getRealtorClients, deleteLead, deleteUserAccount, auth, syncBestPractices } from '../services/firebaseService';
+import { getLeads, getTasks, getTemplates, getCalendarEvents, seedMockData, saveUserProfile, getUserProfile, updateLead, getReminderRules, updateReminderRule, deleteAllMockData, getRealtorClients, deleteLead, deleteUserAccount, auth, syncBestPractices } from '../services/firebaseService';
 import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates, getInitialMockTransactions } from '../services/mockDataService';
 import { getDefaultReminderRules } from '../services/reminderRulesService';
-import { UserProfile, Lead, CRMTask, CommTemplate, FunnelStage, ReminderRule, LeadNote, RealtorNode } from '../types';
+import { UserProfile, Lead, CRMTask, CommTemplate, FunnelStage, ReminderRule, LeadNote, RealtorNode, CalendarEvent } from '../types';
 import { DropResult } from '@hello-pangea/dnd';
 import Logo from './Logo';
 import LeadsList from './LeadsList';
@@ -97,6 +97,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     const [tasks, setTasks] = useState<CRMTask[]>([]);
     const [templates, setTemplates] = useState<CommTemplate[]>([]);
     const [reminderRules, setReminderRules] = useState<ReminderRule[]>([]);
+    const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
     const [loadingData, setLoadingData] = useState(true);
 
 
@@ -112,6 +113,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             let _leads = await getLeads(realtorId, ['leads']);
             let _tasks = await getTasks(realtorId);
             let _templates = await getTemplates(realtorId);
+            let _events = await getCalendarEvents(realtorId);
 
             // 2. Load reminder rules from APP (not database)
             const appRules = getDefaultReminderRules().map(rule => ({
@@ -157,6 +159,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                 console.log(`[ClientHub] Re-fetched leads count: ${_leads.length}`);
                 _tasks = await getTasks(realtorId);
                 _templates = await getTemplates(realtorId);
+                _events = await getCalendarEvents(realtorId);
             }
 
             // Forced Merge: Ensure local state has mock data even if Firestore is slightly behind 
@@ -176,6 +179,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             setLeads(finalLeads);
             setTasks(_tasks);
             setTemplates(_templates);
+            setCalendarEvents(_events);
             setLoadingData(false);
 
 
@@ -1031,6 +1035,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                                 handleUpdateNote={handleUpdateLeadNote}
                                 handleDeleteNote={handleDeleteLeadNote}
                                 handleDragEnd={handleDragEnd}
+                                tasks={tasks}
+                                calendarEvents={calendarEvents}
                                 onUpdateAvatar={async (leadId, file) => {
                                     // Mock upload simulation as requested
                                     console.log('Simulating upload for file:', file.name);

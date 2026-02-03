@@ -13,7 +13,7 @@ import { getLeadReactivationPrompt, leadReactivationSchema } from "../prompts/cl
 import { getLeadTransformationPrompt } from "../prompts/client/leadTransformation";
 import { getGuideGenerationPrompt, guideGenerationSchema, GuideResult } from "../prompts/client/guideGeneration";
 import { getDailyPulsePrompt, dailyPulseSchema } from "../prompts/leads/dailyPulse";
-import { Lead } from "../types";
+import { Lead, CRMTask, CalendarEvent } from "../types";
 import { DailyPulseResult } from "../types/ai";
 import { APP_CONFIG } from "../config";
 import { logLLMCall, updateLLMCall } from "./firebase/llm_logs";
@@ -935,11 +935,11 @@ export const generateGuideImage = async (category: string, title: string, topicS
   return null;
 };
 
-export const generateDailyPulse = async (leads: Lead[], userId: string = "unknown"): Promise<AIResponseWithUsage<DailyPulseResult>> => {
-  const { systemInstruction, prompt: userPrompt } = getDailyPulsePrompt(leads);
+export const generateDailyPulse = async (leads: Lead[], userId: string = "unknown", tasks: CRMTask[] = [], calendarEvents: CalendarEvent[] = []): Promise<AIResponseWithUsage<DailyPulseResult>> => {
+  const { systemInstruction, prompt: userPrompt } = getDailyPulsePrompt(leads, tasks, calendarEvents);
   const combinedPrompt = `${systemInstruction}\n\n${userPrompt}`;
   let logId: string | null = null;
-  const modelToUse = FLASH_MODEL;
+  const modelToUse = FLASH_LITE_MODEL;
 
   try {
     logId = await logLLMCall({
