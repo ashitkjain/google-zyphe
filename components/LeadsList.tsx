@@ -109,7 +109,7 @@ const LeadsList: React.FC<InternalProps> = ({
         });
 
         return result;
-    }, [leads, activeTab, boardSettings]);
+    }, [leads, activeTab, boardSettings, currentDisplayMode, buyerFunnelCategory, buyer2FunnelCategory, sellerFunnelCategory]);
 
     const buyerLeads = useMemo(() => filteredLeads.filter(l => l.leadType === 'Buyer'), [filteredLeads]);
     const sellerLeads = useMemo(() => filteredLeads.filter(l => l.leadType === 'Seller'), [filteredLeads]);
