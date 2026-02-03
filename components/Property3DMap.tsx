@@ -7,77 +7,79 @@ interface Property3DMapProps {
     address: string;
 }
 
-declare global {
-    namespace JSX {
-        interface IntrinsicElements {
-            'gmp-map-3d': any;
-        }
-    }
-}
+// Google Maps 3D Custom Element types are handled via any casting in the component
 
 const Property3DMap: React.FC<Property3DMapProps> = ({ latitude, longitude, address }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<any>(null);
     const [isLoaded, setIsLoaded] = useState(false);
+    const isLoadedRef = useRef(false);
     const [error, setError] = useState<string | null>(null);
+    const [debugInfo, setDebugInfo] = useState<string>("");
 
     useEffect(() => {
         let timeoutId: any;
+        isLoadedRef.current = false;
+        setIsLoaded(false);
+        setError(null);
 
         const initMap = async () => {
-            console.log("[3D Map] Attempting to link with coordinates:", { latitude, longitude });
+            setDebugInfo(`Loc: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
 
             if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
-                setError("Incomplete spatial data. Coordinates missing.");
+                setError("Neural data missing: Latitude/Longitude not found.");
                 return;
             }
 
             // Start a safety timeout
             timeoutId = setTimeout(() => {
-                if (!isLoaded) {
-                    setError("Neural Link timed out. This usually means the API key is invalid or Map Tiles API is not enabled in your Google Console.");
+                if (!isLoadedRef.current) {
+                    console.error("[3D Map] Link Timeout reached.");
+                    setError("Neural Link Timed Out. Likely 'Map Tiles API' is not enabled for this key, or your project is not authorized.");
                 }
-            }, 10000);
+            }, 12000);
 
             try {
                 // @ts-ignore
-                if (!window.google || !window.google.maps) {
-                    return; // Will be retried or caught by timeout
+                if (!window.google || !window.google.maps || !window.google.maps.importLibrary) {
+                    console.warn("[3D Map] Maps Runtime not found. Postponing...");
+                    return;
                 }
 
                 // @ts-ignore
                 const { Map3DElement } = await google.maps.importLibrary("maps3d");
 
                 if (!containerRef.current) return;
-
                 containerRef.current.innerHTML = '';
 
-                const map3d = document.createElement("gmp-map-3d") as any;
-                map3d.setAttribute("center", `${latitude},${longitude},200`);
-                map3d.setAttribute("tilt", "65");
-                map3d.setAttribute("heading", "0");
-                map3d.setAttribute("range", "500");
-                map3d.style.width = "100%";
-                map3d.style.height = "100%";
+                const map3d = new Map3DElement({
+                    center: { lat: latitude, lng: longitude, altitude: 300 },
+                    tilt: 65,
+                    heading: 0,
+                    range: 600
+                });
 
                 containerRef.current.appendChild(map3d);
                 mapRef.current = map3d;
 
-                // Set loaded after a moment
+                // Allow some time for tiles to start streaming
                 setTimeout(() => {
+                    isLoadedRef.current = true;
                     setIsLoaded(true);
                     clearTimeout(timeoutId);
-                }, 1500);
+                }, 2000);
             } catch (err) {
-                console.error("[3D Map] Fatal error:", err);
-                setError("API Initialization Failed. Ensure 'Map Tiles API' is enabled.");
+                console.error("[3D Map] Fail:", err);
+                setError("Google Maps Library Error. Check console for details.");
                 clearTimeout(timeoutId);
             }
         };
 
-        initMap();
+        // Delay start slightly to ensure DOM and Google script are ready
+        const timer = setTimeout(initMap, 500);
 
         return () => {
+            clearTimeout(timer);
             if (timeoutId) clearTimeout(timeoutId);
         };
     }, [latitude, longitude]);
@@ -90,6 +92,7 @@ const Property3DMap: React.FC<Property3DMapProps> = ({ latitude, longitude, addr
                         <i className="fa-solid fa-circle-notch text-3xl text-indigo-500"></i>
                     </div>
                     <span className="font-black text-[10px] uppercase tracking-[0.2em]">Initializing 3D Neural Engine...</span>
+                    <span className="text-[9px] text-slate-600 mt-2 font-mono uppercase">{debugInfo}</span>
                 </div>
             )}
 
