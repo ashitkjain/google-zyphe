@@ -116,7 +116,10 @@ const Property3DMap: React.FC<Property3DMapProps> = ({ latitude, longitude, addr
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-rose-400 p-8 text-center bg-slate-900 z-10">
                     <i className="fa-solid fa-triangle-exclamation text-4xl mb-4"></i>
                     <p className="font-bold text-sm tracking-tight mb-2">Neural Link Failed</p>
-                    <p className="text-xs text-slate-500 max-w-xs">{error}</p>
+                    <p className="text-xs text-slate-500 max-w-xs mb-4">{error}</p>
+                    <div className="bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
+                        <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">{debugInfo}</span>
+                    </div>
                 </div>
             )}
 
