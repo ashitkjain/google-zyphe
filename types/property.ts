@@ -86,7 +86,7 @@ export interface ResoFacts {
 
 // Circular imports managed by index.ts or separate files. Importing AI types if needed, but PropertyData uses AI.
 // PropertyData is large, let's keep it here.
-import { AIAnalysisResult, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from './ai';
+import { AIAnalysisResult, CustomAIAnalysisResult, ComprehensiveAnalysisResult, StreetViewAnalysisResult } from './ai';
 
 export interface PropertyData {
     zpid?: string;
@@ -166,6 +166,13 @@ export interface PropertyData {
             concentration: number;
             unit: string;
         }[];
+    };
+    streetViewAnalysis?: StreetViewAnalysisResult;
+    pollen?: {
+        score: number;
+        category: string;
+        description: string;
+        dominantPollenType: string;
     };
 }
 

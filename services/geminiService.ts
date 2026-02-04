@@ -798,17 +798,18 @@ export const transformLeadCsv = async (csvData: string, userId: string = "unknow
     });
 
     const ai = getAi();
+    console.log(`[${new Date().toISOString()}] AI REQUEST: transformLeadCsv`);
+
+    // 2. Execute the AI call
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
       contents: prompt,
-      config: {
-        temperature: 0.1, // Low temperature for consistent CSV formatting
-        responseMimeType: "text/plain"
-      }
-    });
+    }); // Free form text response for CSV
 
     const responseText = response.text;
+    console.log(`[${new Date().toISOString()}] AI RESPONSE RECEIVED: transformLeadCsv.`);
 
+    // 3. Update the log with the response
     if (logId) {
       updateLLMCall(logId, {
         raw_response: responseText,
@@ -818,8 +819,11 @@ export const transformLeadCsv = async (csvData: string, userId: string = "unknow
       }).catch(err => console.error("Failed to update AI log:", err));
     }
 
-    return responseText;
+    return responseText || "";
   } catch (error: any) {
+    console.error(`[${new Date().toISOString()}] AI ERROR: transformLeadCsv`, error);
+
+    // 4. Update the log with the error
     if (logId) {
       updateLLMCall(logId, {
         raw_response: error.message,
@@ -836,6 +840,85 @@ export const transformLeadCsv = async (csvData: string, userId: string = "unknow
     throw new AiResponseError(error.message, "Raw API Error", prompt);
   }
 };
+
+import { getStreetViewAnalysisPrompt, streetViewAnalysisSchema } from "../prompts/property/streetViewAnalysis";
+import { StreetViewAnalysisResult } from "../types";
+
+export const analyzeStreetView = async (imageUrl: string, property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<StreetViewAnalysisResult>> => {
+  console.log(`[Gemini] analyzeStreetView called for property: ${property.address}`);
+  const { data, mimeType } = await urlToBase64(imageUrl);
+  const prompt = getStreetViewAnalysisPrompt();
+
+  let logId: string | null = null;
+  const sanitizedPrompt = {
+    text: prompt,
+    image: { mimeType, data: "<BASE64_IMAGE_DATA_OMITTED>" }
+  };
+
+  try {
+    logId = await logLLMCall({
+      user_id: userId,
+      zpid: property.zpid,
+      prompt_filename: "streetViewAnalysis.ts",
+      llm_name: FLASH_MODEL,
+      raw_payload: sanitizedPrompt,
+      raw_response: null,
+      status: 'pending',
+      request_sent_at: serverTimestamp()
+    });
+
+    const ai = getAi();
+    const response = await ai.models.generateContent({
+      model: FLASH_MODEL,
+      contents: {
+        parts: [
+          { text: prompt },
+          { inlineData: { data, mimeType } }
+        ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: streetViewAnalysisSchema
+      }
+    });
+
+    const responseText = response.text;
+    console.log("[Gemini] PRODUCED RAW JSON:", responseText);
+    const usage = calculateUsage(response, FLASH_MODEL);
+
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: responseText,
+        status: 'completed',
+        response_received_at: serverTimestamp(),
+        usage_metadata: response.usageMetadata,
+        estimated_cost: usage.cost,
+        ...extractMetadata(response)
+      }).catch(err => console.error("Failed to update LLM log:", err));
+    }
+
+    return {
+      data: extractJson<StreetViewAnalysisResult>(responseText),
+      usage
+    };
+  } catch (error: any) {
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: error.message,
+        status: 'failed',
+        error: error.stack || error.message,
+        response_received_at: serverTimestamp()
+      }).catch(err => console.error("Failed to update LLM error log:", err));
+    }
+
+    if (error instanceof AiResponseError) {
+      error.prompt = sanitizedPrompt;
+      throw error;
+    }
+    throw new AiResponseError(error.message, "Raw API Error", sanitizedPrompt);
+  }
+};
+
 
 import { functions } from './firebase/config';
 import { httpsCallable } from 'firebase/functions';

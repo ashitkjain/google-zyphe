@@ -115,6 +115,15 @@ export interface GeneralMarketIntelligenceResult {
 
 // Removed InvestmentResearchResult aggregation to avoid redundancy
 
+export interface StreetViewAnalysisResult {
+    curbAppealScore: number;
+    architecturalStyle: string;
+    neighborhoodVibe: string;
+    visualClutter: boolean;
+    gardenDescription: string;
+    safetyAssessment: string;
+}
+
 export interface BiddingStrategyResult {
     property_specifics: {
         days_on_market: string;
