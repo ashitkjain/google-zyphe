@@ -20,6 +20,8 @@ const Property3DMap: React.FC<Property3DMapProps> = ({ latitude, longitude, addr
 
     useEffect(() => {
         let timeoutId: any;
+        let isCancelled = false; // Track if the effect is cleaned up
+
         isLoadedRef.current = false;
         setIsLoaded(false);
         setError(null);
@@ -27,43 +29,49 @@ const Property3DMap: React.FC<Property3DMapProps> = ({ latitude, longitude, addr
 
         const startTimeout = () => {
             timeoutId = setTimeout(() => {
-                if (!isLoadedRef.current) {
+                if (!isLoadedRef.current && !isCancelled) {
                     console.error("[3D Map] Neural Link Timeout.");
-                    setError("Neural Link Timed Out. Please ensure the 'Map Tiles API' is enabled and your API Key '...qajRI' is correctly configured with no restrictions.");
+                    setError("Neural Link Timed Out. Please ensure the 'Map Tiles API' is enabled and your API Key '...hqvk' is correctly configured with no restrictions.");
                 }
             }, 15000);
         };
 
         const initMap = async () => {
             try {
+                if (isCancelled) return;
                 setDebugInfo(`LOC: ${latitude.toFixed(4)}, ${longitude.toFixed(5)}`);
 
                 if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
-                    setError("Neural data missing: Latitude/Longitude not found.");
+                    if (!isCancelled) setError("Neural data missing: Latitude/Longitude not found.");
                     return;
                 }
 
+                if (isCancelled) return;
                 setLoadingStep("Fetching 3D Geometry Libraries...");
 
                 // Check for google object
                 // @ts-ignore
                 if (!window.google) {
+                    if (isCancelled) return;
                     setLoadingStep("Waiting for Maps.js to arrive...");
-                    setTimeout(initMap, 1000);
+                    setTimeout(() => { if (!isCancelled) initMap(); }, 1000);
                     return;
                 }
 
                 // @ts-ignore
                 if (!google.maps || !google.maps.importLibrary) {
+                    if (isCancelled) return;
                     setLoadingStep("Bootstrapping Maps Engine...");
-                    setTimeout(initMap, 500);
+                    setTimeout(() => { if (!isCancelled) initMap(); }, 500);
                     return;
                 }
 
+                if (isCancelled) return;
                 setLoadingStep("Rendering Cinematic 3D Scene...");
                 // @ts-ignore
                 const { Map3DElement } = await google.maps.importLibrary("maps3d");
 
+                if (isCancelled) return;
                 if (!containerRef.current) return;
                 containerRef.current.innerHTML = '';
 
@@ -74,15 +82,19 @@ const Property3DMap: React.FC<Property3DMapProps> = ({ latitude, longitude, addr
                     range: 550
                 });
 
+                if (isCancelled) return;
                 containerRef.current.appendChild(map3d);
                 mapRef.current = map3d;
 
                 setLoadingStep("Finalizing Photorealistic Stream...");
                 setTimeout(() => {
-                    isLoadedRef.current = true;
-                    setIsLoaded(true);
+                    if (!isCancelled) {
+                        isLoadedRef.current = true;
+                        setIsLoaded(true);
+                    }
                 }, 2000);
             } catch (err) {
+                if (isCancelled) return;
                 console.error("[3D Map] Fatal Fail:", err);
                 setError(`API Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
             }
@@ -92,6 +104,7 @@ const Property3DMap: React.FC<Property3DMapProps> = ({ latitude, longitude, addr
         const initTimer = setTimeout(initMap, 100);
 
         return () => {
+            isCancelled = true;
             clearTimeout(initTimer);
             if (timeoutId) clearTimeout(timeoutId);
         };

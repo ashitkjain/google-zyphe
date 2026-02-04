@@ -8,7 +8,7 @@ import { auth } from "./firebase/config";
 const RAPID_API_KEY = APP_CONFIG.usHousingApi.key;
 const RAPID_API_HOST = APP_CONFIG.usHousingApi.host;
 const RADAR_API_KEY = APP_CONFIG.radar.key;
-const MAPS_API_KEY = "AIzaSyCQ-OcGRDMK8nGmCMzpuxHT0Y9vJgqajRI"; // Hardcoded for testing as requested
+const MAPS_API_KEY = "AIzaSyDvf074vL_VYXXD-y_3Gl3KYsKqPLOhqvk"; // Hardcoded for testing as requested
 
 // In-memory deduplication for concurrent requests
 const ongoingRequests = new Map<string, Promise<any>>();
@@ -348,203 +348,280 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
   } finally {
     ongoingRequests.delete(cacheKey);
   }
-  export const fetchSolarData = async (lat: number, lng: number): Promise<any> => {
-    const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${lat}&location.longitude=${lng}&requiredQuality=HIGH&key=${MAPS_API_KEY}`;
+};
 
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        console.warn(`[Solar API] Error or no data for this location: ${response.status}`);
-        return null;
-      }
-      const data = await response.json();
-      return {
-        maxSunshineHoursPerYear: data.solarPotential?.maxSunshineHoursPerYear,
-        carbonOffsetFactorKgPerMwh: data.solarPotential?.carbonOffsetFactorKgPerMwh,
-        wholeRoofStats: data.solarPotential?.wholeRoofStats,
-        solarPanels: data.solarPotential?.solarPanels
-      };
-    } catch (e) {
-      console.error("Failed to fetch solar data", e);
+export const fetchSolarData = async (lat: number, lng: number): Promise<any> => {
+  const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${lat}&location.longitude=${lng}&requiredQuality=HIGH&key=${MAPS_API_KEY}`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.warn(`[Solar API] Error or no data for this location: ${response.status}`);
       return null;
     }
-  };
+    const data = await response.json();
+    console.log("[Solar API] Successful response:", data);
+    return {
+      maxSunshineHoursPerYear: data.solarPotential?.maxSunshineHoursPerYear,
+      carbonOffsetFactorKgPerMwh: data.solarPotential?.carbonOffsetFactorKgPerMwh,
+      wholeRoofStats: data.solarPotential?.wholeRoofStats,
+      solarPanels: data.solarPotential?.solarPanels
+    };
+  } catch (e) {
+    console.error("Failed to fetch solar data", e);
+    return null;
+  }
+};
 
-  export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boolean = false, onStep?: (step: string) => void): Promise<PropertyData> => {
-    const cacheKey = `data-full-${addressOrZpid}`;
-    if (ongoingRequests.has(cacheKey)) return ongoingRequests.get(cacheKey)!;
+export const fetchAirQuality = async (lat: number, lng: number): Promise<any> => {
+  const url = `https://airquality.googleapis.com/v1/currentConditions:lookup?key=${MAPS_API_KEY}`;
 
-    const promise = (async () => {
-      if (isZpid) {
-        const cached = await getPropertyFromCloud(addressOrZpid);
-        if (cached) return cached;
-      }
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        location: {
+          latitude: lat,
+          longitude: lng
+        },
+        extraComputations: [
+          "HEALTH_RECOMMENDATIONS",
+          "DOMINANT_POLLUTANT_CONCENTRATION",
+          "POLLUTANT_CONCENTRATION"
+        ],
+        languageCode: "en"
+      })
+    });
 
-      const url = isZpid
-        ? `https://${RAPID_API_HOST}/property?zpid=${addressOrZpid}`
-        : `https://${RAPID_API_HOST}/property?address=${encodeURIComponent(addressOrZpid)}`;
-
-      let response;
-      let retries = 3;
-      for (let attempt = 1; attempt <= retries; attempt++) {
-        onStep?.(`Fetching property facts... ${attempt > 1 ? `(Retry ${attempt - 1})` : ''}`);
-
-        const logId = await logAPICall({
-          user_id: auth?.currentUser?.uid || 'unknown',
-          zpid: isZpid ? addressOrZpid : undefined,
-          api_name: 'RapidAPI',
-          endpoint: 'property',
-          params: { addressOrZpid, isZpid, attempt },
-          status: 'pending'
-        });
-        const start = Date.now();
-
-        response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'x-rapidapi-host': RAPID_API_HOST,
-            'x-rapidapi-key': RAPID_API_KEY,
-          },
-          cache: 'no-store'
-        });
-
-        if (logId) {
-          updateAPICall(logId, {
-            status: response.ok ? 'completed' : 'failed',
-            response_time_ms: Date.now() - start,
-            error: response.ok ? undefined : `Status ${response.status}`
-          });
-        }
-
-        if (response.ok) break;
-
-        if (response.status === 429 && attempt < retries) {
-          const delay = Math.pow(2, attempt) * 1000;
-          console.warn(`[API] Rate limit (429) hit on attempt ${attempt}. Retrying in ${delay / 1000}s...`);
-          onStep?.(`Rate limit hit. Retrying in ${delay / 1000}s...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          continue;
-        }
-
-        throw new Error(`Property API error: ${response.status}`);
-      }
-
-      if (!response || !response.ok) throw new Error(`Property API error: ${response?.status || 'Unknown'}`);
-      const data = await response.json();
-
-      // STRICT ZPID CHECK: User requires ZPID to be at root 'zpid'.
-      // If we can't find it there, we treat it as a failure to ensure we aren't picking up garbage IDs.
-      if (!data.zpid) {
-        console.error("CRITICAL: Missing 'zpid' in API response root. Full payload:", JSON.stringify(data, null, 2));
-        throw new Error("API Error: Response missing 'zpid' at root. See console for full JSON debug.");
-      }
-
-      const rawZpid = String(data.zpid);
-
-      if (!isZpid && rawZpid) {
-        const cached = await getPropertyFromCloud(String(rawZpid));
-        if (cached) return cached;
-      }
-
-      const mappedData: PropertyData = {
-        address: formatAddress(data.address || data.props?.address || addressOrZpid),
-        city: (data.address && typeof data.address === 'object') ? data.address.city : (data.props?.address?.city || undefined),
-        state: (data.address && typeof data.address === 'object') ? data.address.state : (data.props?.address?.state || undefined),
-        zipCode: (data.address && typeof data.address === 'object') ? (data.address.zipcode || data.address.zipCode) : (data.props?.address?.zipCode || data.props?.address?.zipcode || undefined),
-        zpid: rawZpid ? String(rawZpid) : undefined,
-        homeStatus: data.homeStatus || data.props?.homeStatus || "OFF_MARKET",
-        homeType: data.homeType || data.props?.homeType || "SINGLE_FAMILY",
-        livingAreaValue: extractNumericValue(data.livingAreaValue || data.livingArea || data.props?.livingArea),
-        bedrooms: extractNumericValue(data.bedrooms || data.props?.bedrooms),
-        bathrooms: extractNumericValue(data.bathrooms || data.props?.bathrooms),
-        yearBuilt: extractNumericValue(data.yearBuilt || data.props?.yearBuilt),
-        lotSize: safeStringify(data.resoFacts?.lotSize || data.props?.resoFacts?.lotSize) || "N/A",
-        price: extractNumericValue(data.price || data.zestimate || data.props?.price),
-        zestimate: extractNumericValue(data.zestimate || data.props?.zestimate),
-        rentZestimate: extractNumericValue(data.rentZestimate || data.props?.rentZestimate),
-        annualHomeownersInsurance: extractNumericValue(data.annualHomeownersInsurance),
-        windRiskScore: extractNumericValue(data.climate?.windSources?.primary?.riskScore),
-        floodRiskScore: extractNumericValue(data.climate?.floodSources?.primary?.riskScore),
-        fireRiskScore: extractNumericValue(data.climate?.fireSources?.primary?.riskScore),
-        heatRiskScore: extractNumericValue(data.climate?.heatRiskScore),
-        description: data.description || data.props?.description || "No description available.",
-        images: Array.isArray(data.images) ? data.images : (data.props?.images || []),
-        schools: Array.isArray(data.schools) ? data.schools : (data.props?.schools || []),
-        listedDate: data.onMarketDate || data.listedDate || data.props?.onMarketDate || data.daysOnZillow || 0,
-        priceHistory: (Array.isArray(data.priceHistory) ? data.priceHistory : (data.props?.priceHistory || [])).map((item: any) => ({
-          date: item.date || "N/A",
-          price: extractNumericValue(item.price),
-          event: item.event || "Price Change"
-        })),
-        resoFacts: {
-          flooring: safeStringify(data.resoFacts?.flooring),
-          foundationDetails: safeStringify(data.resoFacts?.foundationDetails),
-          rooms: safeStringify(data.resoFacts?.rooms),
-          roomTypes: safeStringify(data.resoFacts?.roomTypes),
-          feesAndDues: safeStringify(data.resoFacts?.feesAndDues),
-          exteriorFeatures: safeStringify(data.resoFacts?.exteriorFeatures),
-          architecturalStyle: safeStringify(data.resoFacts?.architecturalStyle),
-          garageParkingCapacity: extractNumericValue(data.resoFacts?.garageParkingCapacity),
-          lotFeatures: safeStringify(data.resoFacts?.lotFeatures),
-          roofType: safeStringify(data.resoFacts?.roofType),
-          daysOnZillow: extractNumericValue(data.daysOnZillow || data.resoFacts?.daysOnZillow),
-          constructionMaterials: safeStringify(data.resoFacts?.constructionMaterials),
-          fireplaceFeatures: safeStringify(data.resoFacts?.fireplaceFeatures),
-          appliances: safeStringify(data.resoFacts?.appliances),
-          fencing: safeStringify(data.resoFacts?.fencing),
-          cooling: safeStringify(data.resoFacts?.cooling),
-          laundryFeatures: safeStringify(data.resoFacts?.laundryFeatures),
-          heating: safeStringify(data.resoFacts?.heating),
-          basement: safeStringify(data.resoFacts?.basement),
-          utilities: safeStringify(data.resoFacts?.utilities),
-          sewer: safeStringify(data.resoFacts?.sewer),
-          waterSource: safeStringify(data.resoFacts?.waterSource),
-          securityFeatures: safeStringify(data.resoFacts?.securityFeatures),
-          windowFeatures: safeStringify(data.resoFacts?.windowFeatures),
-          roomFeatures: safeStringify(data.resoFacts?.roomFeatures),
-        }
-      };
-
-      if (mappedData.zpid) {
-        onStep?.("Syncing mobility scores...");
-        const scores = await fetchScores(mappedData.zpid);
-        mappedData.walkScore = scores.walkScore;
-        mappedData.walkScoreDesc = scores.walkScoreDesc;
-        mappedData.transitScore = scores.transitScore;
-        mappedData.transitScoreDesc = scores.transitScoreDesc;
-        mappedData.bikeScore = scores.bikeScore;
-        mappedData.bikeScoreDesc = scores.bikeScoreDesc;
-
-        onStep?.("Fetching image gallery...");
-        if (!mappedData.images || mappedData.images.length === 0) {
-          const images = await fetchPropertyImages(mappedData.zpid);
-          mappedData.images = images;
-        }
-
-        onStep?.("Fetching comparable sales...");
-        const comps = await fetchPropertyComps(mappedData.zpid);
-        mappedData.comps = comps;
-
-        if (mappedData.coordinates) {
-          onStep?.("Analyzing solar potential...");
-          const solar = await fetchSolarData(mappedData.coordinates.latitude, mappedData.coordinates.longitude);
-          mappedData.solarData = solar;
-        }
-
-        await savePropertyToCloud(mappedData.zpid, mappedData);
-      }
-
-      return mappedData;
-    })();
-
-    ongoingRequests.set(cacheKey, promise);
-    try {
-      return await promise;
-    } finally {
-      ongoingRequests.delete(cacheKey);
+    if (!response.ok) {
+      console.warn(`[Air Quality API] Error: ${response.status}`);
+      return null;
     }
-  };
 
-  export const fetchPropertyData = async (address: string, forceRefresh: boolean = true): Promise<PropertyData> => {
-    return fetchPropertyDataFull(address, false);
-  };
+    const data = await response.json();
+    console.log("[Air Quality API] Successful response:", data);
+
+    const uaqi = data.indexes?.find((idx: any) => idx.code === "uaqi") || data.indexes?.[0];
+
+    return {
+      aqi: uaqi?.aqi,
+      category: uaqi?.category,
+      dominantPollutant: data.dominantPollutant,
+      recommendations: {
+        general: data.healthRecommendations?.generalPopulation,
+        sensitiveGroups: data.healthRecommendations?.sensitiveGroups
+      },
+      pollutants: data.pollutants?.map((p: any) => ({
+        name: p.code,
+        fullName: p.displayName,
+        concentration: p.concentration?.value,
+        unit: p.concentration?.units
+      }))
+    };
+  } catch (e) {
+    console.error("Failed to fetch air quality data", e);
+    return null;
+  }
+};
+
+export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boolean = false, onStep?: (step: string) => void): Promise<PropertyData> => {
+  const cacheKey = `data-full-${addressOrZpid}`;
+  // if (ongoingRequests.has(cacheKey)) return ongoingRequests.get(cacheKey)!;
+
+  const promise = (async () => {
+    if (isZpid) {
+      const cached = await getPropertyFromCloud(addressOrZpid);
+      if (cached) return cached;
+    }
+
+    const url = isZpid
+      ? `https://${RAPID_API_HOST}/property?zpid=${addressOrZpid}`
+      : `https://${RAPID_API_HOST}/property?address=${encodeURIComponent(addressOrZpid)}`;
+
+    let response;
+    let retries = 3;
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      onStep?.(`Fetching property facts... ${attempt > 1 ? `(Retry ${attempt - 1})` : ''}`);
+
+      const logId = await logAPICall({
+        user_id: auth?.currentUser?.uid || 'unknown',
+        zpid: isZpid ? addressOrZpid : undefined,
+        api_name: 'RapidAPI',
+        endpoint: 'property',
+        params: { addressOrZpid, isZpid, attempt },
+        status: 'pending'
+      });
+      const start = Date.now();
+
+      response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'x-rapidapi-host': RAPID_API_HOST,
+          'x-rapidapi-key': RAPID_API_KEY,
+        },
+        cache: 'no-store'
+      });
+
+      if (logId) {
+        updateAPICall(logId, {
+          status: response.ok ? 'completed' : 'failed',
+          response_time_ms: Date.now() - start,
+          error: response.ok ? undefined : `Status ${response.status}`
+        });
+      }
+
+      if (response.ok) break;
+
+      if (response.status === 429 && attempt < retries) {
+        const delay = Math.pow(2, attempt) * 1000;
+        console.warn(`[API] Rate limit (429) hit on attempt ${attempt}. Retrying in ${delay / 1000}s...`);
+        onStep?.(`Rate limit hit. Retrying in ${delay / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      throw new Error(`Property API error: ${response.status}`);
+    }
+
+    if (!response || !response.ok) throw new Error(`Property API error: ${response?.status || 'Unknown'}`);
+    const data = await response.json();
+
+    // STRICT ZPID CHECK: User requires ZPID to be at root 'zpid'.
+    // If we can't find it there, we treat it as a failure to ensure we aren't picking up garbage IDs.
+    if (!data.zpid) {
+      console.error("CRITICAL: Missing 'zpid' in API response root. Full payload:", JSON.stringify(data, null, 2));
+      throw new Error("API Error: Response missing 'zpid' at root. See console for full JSON debug.");
+    }
+
+    const rawZpid = String(data.zpid);
+
+    if (!isZpid && rawZpid) {
+      const cached = await getPropertyFromCloud(String(rawZpid));
+      if (cached) return cached;
+    }
+
+    const mappedData: PropertyData = {
+      address: formatAddress(data.address || data.props?.address || addressOrZpid),
+      city: (data.address && typeof data.address === 'object') ? data.address.city : (data.props?.address?.city || undefined),
+      state: (data.address && typeof data.address === 'object') ? data.address.state : (data.props?.address?.state || undefined),
+      zipCode: (data.address && typeof data.address === 'object') ? (data.address.zipcode || data.address.zipCode) : (data.props?.address?.zipCode || data.props?.address?.zipcode || undefined),
+      zpid: rawZpid ? String(rawZpid) : undefined,
+      homeStatus: data.homeStatus || data.props?.homeStatus || "OFF_MARKET",
+      homeType: data.homeType || data.props?.homeType || "SINGLE_FAMILY",
+      livingAreaValue: extractNumericValue(data.livingAreaValue || data.livingArea || data.props?.livingArea),
+      bedrooms: extractNumericValue(data.bedrooms || data.props?.bedrooms),
+      bathrooms: extractNumericValue(data.bathrooms || data.props?.bathrooms),
+      yearBuilt: extractNumericValue(data.yearBuilt || data.props?.yearBuilt),
+      lotSize: safeStringify(data.resoFacts?.lotSize || data.props?.resoFacts?.lotSize) || "N/A",
+      price: extractNumericValue(data.price || data.zestimate || data.props?.price),
+      zestimate: extractNumericValue(data.zestimate || data.props?.zestimate),
+      rentZestimate: extractNumericValue(data.rentZestimate || data.props?.rentZestimate),
+      annualHomeownersInsurance: extractNumericValue(data.annualHomeownersInsurance),
+      windRiskScore: extractNumericValue(data.climate?.windSources?.primary?.riskScore),
+      floodRiskScore: extractNumericValue(data.climate?.floodSources?.primary?.riskScore),
+      fireRiskScore: extractNumericValue(data.climate?.fireSources?.primary?.riskScore),
+      heatRiskScore: extractNumericValue(data.climate?.heatRiskScore),
+      description: data.description || data.props?.description || "No description available.",
+      images: Array.isArray(data.images) ? data.images : (data.props?.images || []),
+      schools: Array.isArray(data.schools) ? data.schools : (data.props?.schools || []),
+      listedDate: data.onMarketDate || data.listedDate || data.props?.onMarketDate || data.daysOnZillow || 0,
+      priceHistory: (Array.isArray(data.priceHistory) ? data.priceHistory : (data.props?.priceHistory || [])).map((item: any) => ({
+        date: item.date || "N/A",
+        price: extractNumericValue(item.price),
+        event: item.event || "Price Change"
+      })),
+      resoFacts: {
+        flooring: safeStringify(data.resoFacts?.flooring),
+        foundationDetails: safeStringify(data.resoFacts?.foundationDetails),
+        rooms: safeStringify(data.resoFacts?.rooms),
+        roomTypes: safeStringify(data.resoFacts?.roomTypes),
+        feesAndDues: safeStringify(data.resoFacts?.feesAndDues),
+        exteriorFeatures: safeStringify(data.resoFacts?.exteriorFeatures),
+        architecturalStyle: safeStringify(data.resoFacts?.architecturalStyle),
+        garageParkingCapacity: extractNumericValue(data.resoFacts?.garageParkingCapacity),
+        lotFeatures: safeStringify(data.resoFacts?.lotFeatures),
+        roofType: safeStringify(data.resoFacts?.roofType),
+        daysOnZillow: extractNumericValue(data.daysOnZillow || data.resoFacts?.daysOnZillow),
+        constructionMaterials: safeStringify(data.resoFacts?.constructionMaterials),
+        fireplaceFeatures: safeStringify(data.resoFacts?.fireplaceFeatures),
+        appliances: safeStringify(data.resoFacts?.appliances),
+        fencing: safeStringify(data.resoFacts?.fencing),
+        cooling: safeStringify(data.resoFacts?.cooling),
+        laundryFeatures: safeStringify(data.resoFacts?.laundryFeatures),
+        heating: safeStringify(data.resoFacts?.heating),
+        basement: safeStringify(data.resoFacts?.basement),
+        utilities: safeStringify(data.resoFacts?.utilities),
+        sewer: safeStringify(data.resoFacts?.sewer),
+        waterSource: safeStringify(data.resoFacts?.waterSource),
+        securityFeatures: safeStringify(data.resoFacts?.securityFeatures),
+        windowFeatures: safeStringify(data.resoFacts?.windowFeatures),
+        roomFeatures: safeStringify(data.resoFacts?.roomFeatures),
+      },
+      coordinates: data.longitude && data.latitude ? { latitude: data.latitude, longitude: data.longitude } : undefined
+    };
+
+    // FALLBACK: If Property API didn't provide coordinates, use Radar to geocode the address
+    if (!mappedData.coordinates && mappedData.address) {
+      try {
+        console.log("[Solar Fallback] Geocoding address for solar data...");
+        const geocoded = await normalizeAddress(mappedData.address, mappedData.zpid);
+        if (geocoded.coordinates) {
+          mappedData.coordinates = geocoded.coordinates;
+          mappedData.mapZoomIn = geocoded.mapZoomIn;
+          mappedData.mapZoomOut = geocoded.mapZoomOut;
+        }
+      } catch (e) {
+        console.warn("[Solar Fallback] Failed to geocode address:", e);
+      }
+    }
+
+    if (mappedData.zpid) {
+      onStep?.("Syncing mobility scores...");
+      const scores = await fetchScores(mappedData.zpid);
+      mappedData.walkScore = scores.walkScore;
+      mappedData.walkScoreDesc = scores.walkScoreDesc;
+      mappedData.transitScore = scores.transitScore;
+      mappedData.transitScoreDesc = scores.transitScoreDesc;
+      mappedData.bikeScore = scores.bikeScore;
+      mappedData.bikeScoreDesc = scores.bikeScoreDesc;
+
+      onStep?.("Fetching image gallery...");
+      if (!mappedData.images || mappedData.images.length === 0) {
+        const images = await fetchPropertyImages(mappedData.zpid);
+        mappedData.images = images;
+      }
+
+      onStep?.("Fetching comparable sales...");
+      const comps = await fetchPropertyComps(mappedData.zpid);
+      mappedData.comps = comps;
+
+      if (mappedData.coordinates) {
+        onStep?.("Analyzing solar potential...");
+        const solar = await fetchSolarData(mappedData.coordinates.latitude, mappedData.coordinates.longitude);
+        mappedData.solarData = solar;
+
+        onStep?.("Fetching air quality data...");
+        const aq = await fetchAirQuality(mappedData.coordinates.latitude, mappedData.coordinates.longitude);
+        mappedData.airQuality = aq;
+      }
+
+      await savePropertyToCloud(mappedData.zpid, mappedData);
+    }
+
+    return mappedData;
+  })();
+
+  ongoingRequests.set(cacheKey, promise);
+  try {
+    return await promise;
+  } finally {
+    ongoingRequests.delete(cacheKey);
+  }
+};
+
+export const fetchPropertyData = async (address: string, forceRefresh: boolean = true): Promise<PropertyData> => {
+  return fetchPropertyDataFull(address, false);
+};

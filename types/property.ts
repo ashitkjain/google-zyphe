@@ -152,6 +152,21 @@ export interface PropertyData {
             yearlyEnergyDcKwh?: number;
         }[];
     };
+    airQuality?: {
+        aqi: number;
+        category: string;
+        dominantPollutant: string;
+        recommendations?: {
+            general: string;
+            sensitiveGroups: string;
+        };
+        pollutants?: {
+            name: string;
+            fullName: string;
+            concentration: number;
+            unit: string;
+        }[];
+    };
 }
 
 export interface PropertyDetails {
