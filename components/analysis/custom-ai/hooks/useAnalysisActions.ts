@@ -1,0 +1,223 @@
+import { useState, useEffect } from 'react';
+import { CustomAIAnalysisResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult } from '../../../../types';
+import {
+    getImageQualityAnalysisFromCloud,
+    analyzePropertyImages,
+    analyzeCommunityPulse,
+    getCommunityPulseFromCloud,
+    saveCommunityPulseToCloud,
+    saveVisualAnalysisToCloud,
+    saveImageQualityAnalysisToCloud,
+    getPropertyInvestmentFromCloud,
+    analyzeInvestmentResearch,
+    savePropertyInvestmentToCloud,
+    generateCityStateKey,
+    getGeneralMarketIntelligenceFromCloud,
+    analyzeGeneralMarketIntelligence,
+    saveGeneralMarketIntelligenceToCloud,
+    analyzeBiddingStrategy
+} from '../../../../services/firebaseService';
+import { analyzePropertyImages as aiAnalyzeImages, analyzeInvestmentResearch as aiAnalyzeInvestment, analyzeGeneralMarketIntelligence as aiAnalyzeMarket, analyzeBiddingStrategy as aiAnalyzeBidding, analyzeCommunityPulse as aiAnalyzePulse } from '../../../../services/geminiService';
+import { APP_CONFIG } from '../../../../config';
+
+export const useAnalysisActions = (
+    analysis: CustomAIAnalysisResult | null,
+    zpid: string | undefined,
+    propertyData: any,
+    propertyImages: string[],
+    onUpdateAnalysis: (updated: CustomAIAnalysisResult) => void,
+    addLog: (service: string, meta: { type: 'request' | 'response' | 'error' | 'info' }, content: any) => void
+) => {
+    const [timer, setTimer] = useState(0);
+    const [qualityLoading, setQualityLoading] = useState(false);
+    const [investmentLoading, setInvestmentLoading] = useState(false);
+    const [biddingLoading, setBiddingLoading] = useState(false);
+    const [pulseLoading, setPulseLoading] = useState(false);
+
+    useEffect(() => {
+        let interval: number;
+        if (qualityLoading || investmentLoading || biddingLoading || pulseLoading) {
+            interval = window.setInterval(() => {
+                setTimer(t => t + 1);
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [qualityLoading, investmentLoading, biddingLoading, pulseLoading]);
+
+    const handleRunQualityAnalysis = async () => {
+        if (!analysis || analysis.image_quality_analysis || !propertyImages.length || qualityLoading) {
+            return;
+        }
+
+        setTimer(0);
+        setQualityLoading(true);
+        addLog('Cloud Cache', { type: 'request' }, { zpid, task: 'image_quality_analysis' });
+        try {
+            if (zpid) {
+                const cloudCached = await getImageQualityAnalysisFromCloud(zpid);
+                if (cloudCached) {
+                    addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'image_quality_analysis', zpid, data: cloudCached });
+                    onUpdateAnalysis({
+                        ...analysis,
+                        image_quality_analysis: cloudCached
+                    });
+                    setQualityLoading(false);
+                    return;
+                }
+                addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'image_quality_analysis', zpid });
+            }
+
+            addLog('Gemini AI', { type: 'request' }, { task: 'visual_analysis_consolidated', zpid });
+            const res = await aiAnalyzeImages(propertyImages, propertyData);
+            const result = res.data;
+
+            onUpdateAnalysis(result);
+            addLog('Gemini AI', { type: 'response' }, { task: 'visual_analysis_consolidated', zpid, data: result }, (res as any).usage);
+
+            if (zpid) {
+                addLog('Cloud Cache', { type: 'info' }, { task: 'saving_visual_results', zpid });
+                await saveVisualAnalysisToCloud(zpid, result);
+
+                if (result.image_quality_analysis) {
+                    await saveImageQualityAnalysisToCloud(zpid, result.image_quality_analysis);
+                }
+            }
+        } catch (err: any) {
+            console.error("Picture Quality Analysis Failed:", err);
+            addLog('System', { type: 'error' }, { message: "Picture Quality Analysis Failed", error: err.message || err });
+        } finally {
+            setQualityLoading(false);
+        }
+    };
+
+    const handleRunCommunityPulse = async () => {
+        if (!analysis || !propertyData || pulseLoading) return;
+
+        setTimer(0);
+        setPulseLoading(true);
+        addLog('System', { type: 'info' }, { task: 'community_pulse_init', zpid });
+
+        try {
+            const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
+            const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
+            const cityStateKey = generateCityStateKey(city, state);
+
+            let pulseData = null;
+            if (cityStateKey) {
+                pulseData = await getCommunityPulseFromCloud(cityStateKey);
+            }
+
+            if (pulseData) {
+                addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'community_pulse', location: cityStateKey || zpid });
+            } else {
+                addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'community_pulse', location: cityStateKey || zpid });
+                const res = await aiAnalyzePulse(propertyData);
+                pulseData = res.data;
+                if (cityStateKey) {
+                    await saveCommunityPulseToCloud(cityStateKey, pulseData);
+                }
+                addLog('Gemini AI', { type: 'response' }, { task: 'community_pulse', location: cityStateKey || zpid }, (res as any).usage);
+            }
+
+            onUpdateAnalysis({
+                ...analysis,
+                community_pulse: pulseData
+            });
+
+        } catch (err: any) {
+            console.error("Community Pulse Failed:", err);
+            addLog('System', { type: 'error' }, { message: "Community Pulse Failed", error: err.message || err });
+        } finally {
+            setPulseLoading(false);
+        }
+    };
+
+    const handleRunInvestmentResearch = async () => {
+        if (!analysis || !zpid || !propertyData || investmentLoading) return;
+
+        setTimer(0);
+        setInvestmentLoading(true);
+        addLog('System', { type: 'info' }, { task: 'investment_research_parallel_init', zpid });
+
+        try {
+            let propInvestment: PropertySpecificInvestmentResult | null = await getPropertyInvestmentFromCloud(zpid);
+            if (propInvestment) {
+                addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'property_investment', zpid });
+            } else {
+                addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'property_investment', zpid });
+                const res = await aiAnalyzeInvestment(propertyData);
+                propInvestment = res.data;
+                await savePropertyInvestmentToCloud(zpid, propInvestment);
+                addLog('Gemini AI', { type: 'response' }, { task: 'property_investment', zpid }, (res as any).usage);
+            }
+
+            const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
+            const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
+            const cityStateKey = generateCityStateKey(city, state);
+
+            let generalMarket: GeneralMarketIntelligenceResult | null = null;
+            if (cityStateKey) {
+                generalMarket = await getGeneralMarketIntelligenceFromCloud(cityStateKey);
+            }
+
+            if (generalMarket) {
+                addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'general_market_intelligence', location: cityStateKey || zpid });
+            } else {
+                addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'general_market_intelligence', location: cityStateKey || zpid });
+                const res = await aiAnalyzeMarket(propertyData);
+                generalMarket = res.data;
+                if (cityStateKey) {
+                    await saveGeneralMarketIntelligenceToCloud(cityStateKey, generalMarket);
+                } else {
+                    await saveGeneralMarketIntelligenceToCloud(zpid, generalMarket!);
+                }
+                addLog('Gemini AI', { type: 'response' }, { task: 'general_market_intelligence', location: cityStateKey || zpid }, (res as any).usage);
+            }
+
+            onUpdateAnalysis({
+                ...analysis,
+                property_investment: propInvestment,
+                general_market_intelligence: generalMarket
+            });
+
+        } catch (err: any) {
+            console.error("Investment Research Failed:", err);
+            addLog('System', { type: 'error' }, { message: "Investment Research Failed", error: err.message || err });
+        } finally {
+            setInvestmentLoading(false);
+        }
+    };
+
+    const handleRunBiddingStrategy = async () => {
+        if (!analysis || !zpid || !propertyData || biddingLoading) return;
+
+        setTimer(0);
+        setBiddingLoading(true);
+
+        try {
+            addLog('Gemini AI', { type: 'request' }, { task: 'bidding_strategy', zpid, model: APP_CONFIG.models.flash });
+            const res = await aiAnalyzeBidding(propertyData);
+            const result = res.data;
+
+            onUpdateAnalysis({ ...analysis, bidding_strategy: result });
+            addLog('Gemini AI', { type: 'response' }, { task: 'bidding_strategy', zpid, data: result }, (res as any).usage);
+        } catch (err: any) {
+            console.error("Bidding Strategy Failed:", err);
+            addLog('System', { type: 'error' }, { message: "Bidding Strategy Failed", error: err.message || err });
+        } finally {
+            setBiddingLoading(false);
+        }
+    };
+
+    return {
+        timer,
+        qualityLoading,
+        investmentLoading,
+        biddingLoading,
+        pulseLoading,
+        handleRunQualityAnalysis,
+        handleRunCommunityPulse,
+        handleRunInvestmentResearch,
+        handleRunBiddingStrategy
+    };
+};
