@@ -2,20 +2,15 @@ import { useState, useEffect } from 'react';
 import { CustomAIAnalysisResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult } from '../../../../types';
 import {
     getImageQualityAnalysisFromCloud,
-    analyzePropertyImages,
-    analyzeCommunityPulse,
     getCommunityPulseFromCloud,
     saveCommunityPulseToCloud,
     saveVisualAnalysisToCloud,
     saveImageQualityAnalysisToCloud,
     getPropertyInvestmentFromCloud,
-    analyzeInvestmentResearch,
     savePropertyInvestmentToCloud,
     generateCityStateKey,
     getGeneralMarketIntelligenceFromCloud,
-    analyzeGeneralMarketIntelligence,
-    saveGeneralMarketIntelligenceToCloud,
-    analyzeBiddingStrategy
+    saveGeneralMarketIntelligenceToCloud
 } from '../../../../services/firebaseService';
 import { analyzePropertyImages as aiAnalyzeImages, analyzeInvestmentResearch as aiAnalyzeInvestment, analyzeGeneralMarketIntelligence as aiAnalyzeMarket, analyzeBiddingStrategy as aiAnalyzeBidding, analyzeCommunityPulse as aiAnalyzePulse } from '../../../../services/geminiService';
 import { APP_CONFIG } from '../../../../config';

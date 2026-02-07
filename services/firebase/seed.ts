@@ -47,7 +47,6 @@ import { seedTasksForTransaction } from "./transactions";
 // No seedDocumentsForTransaction call in that loop.
 // So I will stick to the code I saw.
 
-import { seedTasksForTransaction } from "./transactions";
 
 export const seedMockData = async (realtorId: string, leads: Lead[], tasks: CRMTask[], templates: CommTemplate[], transactions: Transaction[], onLog?: (msg: string) => void) => {
     const log = (msg: string) => { console.log(msg); onLog?.(msg); };
