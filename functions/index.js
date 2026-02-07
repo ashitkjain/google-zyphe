@@ -724,3 +724,37 @@ exports.searchKnowledgeBase = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError("internal", error.message);
     }
 });
+/**
+ * Proxy function to fetch Google Street View images.
+ * This bypasses CORS restrictions and potential client-side API key restrictions.
+ */
+exports.proxyStreetViewImage = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "User must be logged in.");
+    }
+
+    const { url } = data;
+    if (!url || !url.includes("maps.googleapis.com")) {
+        throw new functions.https.HttpsError("invalid-argument", "Invalid or missing image URL.");
+    }
+
+    console.log(`[Proxy] Fetching image from: ${url.split("&key=")[0]}...`);
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            console.error(`[Proxy] Failed to fetch image: ${response.status} ${response.statusText}`);
+            throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const base64 = buffer.toString("base64");
+        const contentType = response.headers.get("content-type") || "image/jpeg";
+
+        return { base64, mimeType: contentType };
+    } catch (error) {
+        console.error("[Proxy] Error:", error);
+        throw new functions.https.HttpsError("internal", error.message || "Failed to proxy image fetch.");
+    }
+});

@@ -10,7 +10,7 @@ import { analyzeStreetView } from "./geminiService";
 const RAPID_API_KEY = APP_CONFIG.usHousingApi.key;
 const RAPID_API_HOST = APP_CONFIG.usHousingApi.host;
 const RADAR_API_KEY = APP_CONFIG.radar.key;
-const MAPS_API_KEY = "AIzaSyDvf074vL_VYXXD-y_3Gl3KYsKqPLOhqvk"; // Hardcoded for testing as requested
+const MAPS_API_KEY = APP_CONFIG.maps.key;
 
 // In-memory deduplication for concurrent requests
 const ongoingRequests = new Map<string, Promise<any>>();
@@ -718,18 +718,27 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
       }
 
       // 4. AI Street View Analysis (New Feature)
-      if (cachedEnvData?.streetViewAnalysis) {
+      if (cachedEnvData?.streetViewAnalysis?.imageUrl) {
+        console.log("[fetchPropertyDataFull] Using cached Street View analysis with image.");
         mappedData.streetViewAnalysis = cachedEnvData.streetViewAnalysis;
       } else {
         onStep?.("Analyzing curb appeal with AI...");
-        console.log("[fetchPropertyDataFull] Cache miss for Street View AI. Analyzing...");
-        const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${mappedData.coordinates.latitude},${mappedData.coordinates.longitude}&fov=90&heading=0&pitch=0&key=${MAPS_API_KEY}`;
+        // We use the address instead of coordinates because Google's geocoder is often 
+        // better at finding the frontage of the house than raw parcel coordinates.
+        // We use radius=100 to find the nearest panorama.
+        // We remove heading/pitch to let Google auto-center on the address.
+        const encodedAddress = encodeURIComponent(mappedData.address);
+        console.log(`[fetchPropertyDataFull] ${cachedEnvData?.streetViewAnalysis ? 'Re-analyzing' : 'Analyzing'} Street View for: ${mappedData.address}`);
+
+        const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${encodedAddress}&fov=90&radius=100&source=outdoor&return_error_code=true&key=${MAPS_API_KEY}`;
+
         try {
           const userId = auth?.currentUser?.uid || "unknown";
           const svAnalysis = await analyzeStreetView(streetViewUrl, mappedData, userId);
           mappedData.streetViewAnalysis = svAnalysis.data;
-        } catch (e) {
-          console.error("[fetchPropertyDataFull] Failed to analyze street view", e);
+          console.log("[fetchPropertyDataFull] Street View analysis complete. Image URL:", mappedData.streetViewAnalysis?.imageUrl);
+        } catch (e: any) {
+          console.warn("[fetchPropertyDataFull] Street View not available or analysis failed. Skipping.", e.message || e);
         }
       }
 

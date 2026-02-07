@@ -1,7 +1,7 @@
 
 import https from 'https';
 
-const API_KEY = "AIzaSyDvf074vL_VYXXD-y_3Gl3KYsKqPLOhqvk"; // Using the key from apiService.ts
+const API_KEY = process.env.API_KEY || "AIzaSyDvf074vL_VYXXD-y_3Gl3KYsKqPLOhqvk";
 
 // Helper function to make HTTPS requests
 const fetchJson = (url, method = 'GET', body = null) => {
@@ -66,6 +66,19 @@ const checkCoverage = async (lat, lng, label) => {
         }
     } catch (e) {
         console.log(`❌ Air Quality API: Failed to connect (${e.message})`);
+    }
+
+    // 3. Check Pollen API
+    const pollenUrl = `https://pollen.googleapis.com/v1/forecast:lookup?key=${API_KEY}&location.latitude=${lat}&location.longitude=${lng}&days=1`;
+    try {
+        const pollenRes = await fetchJson(pollenUrl);
+        if (pollenRes.status === 200) {
+            console.log(`✅ Pollen API: Available`);
+        } else {
+            console.log(`⚠️ Pollen API: Error (Status ${pollenRes.status}) - ${JSON.stringify(pollenRes.data.error?.message || pollenRes.data)}`);
+        }
+    } catch (e) {
+        console.log(`❌ Pollen API: Failed to connect (${e.message})`);
     }
 };
 

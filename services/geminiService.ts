@@ -159,7 +159,11 @@ export const executeGeminiRequest = async <T>(
   try {
     // 1. WATCHDOG: Token Limit Enforcement (Hard limit: 50K total)
     // Check input tokens first
-    const formattedContents = Array.isArray(contents) ? contents : [{ parts: [{ text: String(contents) }] }];
+    const formattedContents = Array.isArray(contents)
+      ? contents
+      : (contents && typeof contents === 'object' && 'parts' in contents)
+        ? [contents]
+        : [{ parts: [{ text: String(contents) }] }];
     const instructionPart = config?.systemInstruction ? { parts: [{ text: config.systemInstruction }] } : undefined;
 
     const tokenCountResponse = await (ai.models as any).countTokens({
@@ -273,9 +277,40 @@ function calculateUsage(response: any, modelName: string): AIUsage {
 
 export async function urlToBase64(url: string): Promise<{ data: string, mimeType: string }> {
   try {
-    // Attempt with explicit CORS mode to detect blocking
+    // 1. Check if it's a Google Maps URL - if so, use proxy immediately 
+    // because direct browser fetch will always fail due to CORS.
+    if (url.includes("maps.googleapis.com")) {
+      console.log("[urlToBase64] Google Maps URL detected. Using Firebase Function proxy to bypass CORS/restrictions...");
+      try {
+        const { functions } = await import('./firebase/config');
+        const { httpsCallable } = await import('firebase/functions');
+
+        if (functions) {
+          const proxyFunc = httpsCallable(functions, 'proxyStreetViewImage');
+          const result: any = await proxyFunc({ url });
+          return { data: result.data.base64, mimeType: result.data.mimeType };
+        }
+      } catch (proxyError: any) {
+        console.warn("[urlToBase64] Proxy fetch failed, falling back to direct fetch:", proxyError.message);
+      }
+    }
+
+    // 2. Standard direct fetch
     const response = await fetch(url, { mode: 'cors' });
     if (!response.ok) {
+      // If direct fetch fails with 403 and it wasn't handled by proxy yet, try proxy as last resort
+      if (response.status === 403) {
+        console.log("[urlToBase64] Direct fetch 403. Attempting proxy fallback...");
+        try {
+          const { functions } = await import('./firebase/config');
+          const { httpsCallable } = await import('firebase/functions');
+          if (functions) {
+            const proxyFunc = httpsCallable(functions, 'proxyStreetViewImage');
+            const result: any = await proxyFunc({ url });
+            return { data: result.data.base64, mimeType: result.data.mimeType };
+          }
+        } catch (e) { }
+      }
       throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
     }
     const blob = await response.blob();
@@ -515,12 +550,14 @@ export const transformLeadCsv = async (csvData: string, userId: string = "unknow
 
 import { getStreetViewAnalysisPrompt, streetViewAnalysisSchema } from "../prompts/property/streetViewAnalysis";
 import { StreetViewAnalysisResult } from "../types";
+import { uploadImageToStorage } from "../services/firebaseService";
 
 export const analyzeStreetView = async (imageUrl: string, property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<StreetViewAnalysisResult>> => {
   const { data, mimeType } = await urlToBase64(imageUrl);
   const prompt = getStreetViewAnalysisPrompt();
 
-  return executeGeminiRequest<StreetViewAnalysisResult>({
+  // 1. Run AI Analysis
+  const aiResponse = await executeGeminiRequest<StreetViewAnalysisResult>({
     model: FLASH_MODEL,
     contents: {
       parts: [
@@ -534,6 +571,25 @@ export const analyzeStreetView = async (imageUrl: string, property: PropertyData
     extractResultJson: true,
     schema: streetViewAnalysisSchema
   });
+
+  // 2. Permanently Store Image in Firebase Storage
+  try {
+    const storagePath = `properties/${property.zpid || 'unknown'}/streetview_${Date.now()}.jpg`;
+    console.log(`[analyzeStreetView] Attempting to store image to: ${storagePath}`);
+    const permanentImageUrl = await uploadImageToStorage(`data:${mimeType};base64,${data}`, storagePath);
+
+    console.log("[analyzeStreetView] Permanent image URL generated:", permanentImageUrl);
+
+    // Add the image URL to the result
+    if (aiResponse.data) {
+      aiResponse.data.imageUrl = permanentImageUrl;
+    }
+  } catch (storageError: any) {
+    console.warn("[analyzeStreetView] Failed to store image permanently:", storageError.message || storageError);
+    // Continue anyway so we don't block the analysis if storage fails
+  }
+
+  return aiResponse;
 };
 
 

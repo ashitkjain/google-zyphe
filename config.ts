@@ -54,6 +54,9 @@ export const APP_CONFIG = {
     gemini: {
         key: "AIzaSyCNXiqET26-cMRpoM9vttl13SfiA4ifQu4"
     },
+    maps: {
+        key: "AIzaSyCQ-OcGRDMK8nGmCMzpuxHT0Y9vJgqajRI"
+    },
     groq: {
         key: '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'
     }

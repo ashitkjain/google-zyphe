@@ -122,6 +122,7 @@ export interface StreetViewAnalysisResult {
     visualClutter: boolean;
     gardenDescription: string;
     safetyAssessment: string;
+    imageUrl?: string;
 }
 
 export interface BiddingStrategyResult {

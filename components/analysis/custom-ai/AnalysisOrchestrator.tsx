@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     CustomAIAnalysisResult,
-    ComprehensiveAnalysisResult,
-    TabType
+    ComprehensiveAnalysisResult
 } from '../../../types';
+
+export type TabType = 'interior' | 'rooms' | 'exterior_and_neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding' | 'image_analysis';
 import { APP_CONFIG } from '../../../config';
 import { useAnalysisActions } from './hooks/useAnalysisActions';
 import { EmptyState } from './components/CommonComponents';
@@ -197,7 +198,10 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                 {activeTab === 'rooms' && <RoomsView highlights={analysis.room_highlights} />}
                 {activeTab === 'exterior_and_neighborhood' && (
                     <div className="space-y-12">
-                        <ExteriorView data={analysis.exterior_and_neighborhood} />
+                        <ExteriorView
+                            data={analysis.exterior_and_neighborhood}
+                            streetViewAnalysis={propertyData?.streetViewAnalysis}
+                        />
                         {analysis.neighborhood && (
                             <div className="pt-12 border-t border-slate-100">
                                 <NeighborhoodView data={analysis.neighborhood} />

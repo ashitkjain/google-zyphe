@@ -81,14 +81,64 @@ export const RoomsView: React.FC<RoomsViewProps> = ({ highlights }) => {
 
 interface ExteriorViewProps {
     data: CustomAIAnalysisResult['exterior_and_neighborhood'];
+    streetViewAnalysis?: any;
 }
 
-export const ExteriorView: React.FC<ExteriorViewProps> = ({ data }) => {
+export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnalysis }) => {
     if (!data?.exterior_and_lot_appeal?.architecture_style) return <EmptyState section="Exterior" />;
     return (
         <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-5xl mx-auto space-y-8">
             <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
-                <div className="space-y-6">
+                {/* Visual Street View Integration */}
+                {(streetViewAnalysis?.imageUrl || streetViewAnalysis?.curbAppealScore) && (
+                    <div className="flex flex-col md:flex-row gap-8 items-stretch pt-4">
+                        {streetViewAnalysis?.imageUrl && (
+                            <div className="md:w-1/2 rounded-[2rem] overflow-hidden border border-gray-100 shadow-inner group relative">
+                                <img
+                                    src={streetViewAnalysis.imageUrl}
+                                    alt="Property Street View"
+                                    className="w-full h-full object-cover min-h-[300px] group-hover:scale-105 transition-transform duration-700"
+                                />
+                                <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20">
+                                    <i className="fa-solid fa-street-view mr-2"></i> Actual Street View
+                                </div>
+                            </div>
+                        )}
+                        <div className={`${streetViewAnalysis?.imageUrl ? 'md:w-1/2' : 'w-full'} bg-indigo-50/50 rounded-[2rem] p-8 flex flex-col justify-center gap-6 border border-indigo-100/50`}>
+                            <div className="space-y-2">
+                                <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">CURB APPEAL AI RATING</div>
+                                <div className="flex items-end gap-3">
+                                    <span className="text-6xl font-black text-gray-900 leading-none">
+                                        {streetViewAnalysis?.curbAppealScore ? (streetViewAnalysis.curbAppealScore <= 10 ? streetViewAnalysis.curbAppealScore * 10 : streetViewAnalysis.curbAppealScore) : 'N/A'}
+                                    </span>
+                                    <span className="text-xl font-black text-indigo-300 mb-1">/ 100</span>
+                                </div>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 flex-shrink-0">
+                                        <i className="fa-solid fa-chess-rook text-xs"></i>
+                                    </div>
+                                    <div>
+                                        <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Architectural Context</div>
+                                        <div className="text-gray-800 text-[13px] font-semibold">{streetViewAnalysis?.architecturalStyle || 'No data'}</div>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
+                                        <i className="fa-solid fa-leaf text-xs"></i>
+                                    </div>
+                                    <div>
+                                        <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Landscape Notes</div>
+                                        <div className="text-gray-800 text-[13px] font-semibold leading-[1.4] line-clamp-2">{streetViewAnalysis?.gardenDescription || 'No data'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <div className="space-y-6 pt-12 border-t border-gray-100">
                     <div className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">ARCHITECTURE & LOT</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
                         <div className="space-y-3">
