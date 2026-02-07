@@ -184,6 +184,7 @@ export interface CustomAIAnalysisResult {
             orientation: string;
             privacy: string;
         };
+        neighborhood_street_insights?: string;
     };
     neighborhood?: NeighborhoodAnalysis;
     community_pulse?: CommunityPulseResult;

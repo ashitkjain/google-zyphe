@@ -52,11 +52,13 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
         return new Date(dateB).getTime() - new Date(dateA).getTime();
     });
 
+    const nonArchivedClients = allClients.filter(c => (c as any).status !== 'Archived' && (c as any).funnelStage !== 'Archived');
+
     const [activeListTab, setActiveListTab] = useState<'Buyers' | 'Sellers'>('Buyers');
     const [searchTerm, setSearchTerm] = useState('');
     const [stageFilter, setStageFilter] = useState<string>('All Stages');
     const [sortOrder, setSortOrder] = useState<'newest' | 'name'>('newest');
-    const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId || (allClients.length > 0 ? allClients[0].id : null));
+    const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId || (nonArchivedClients.length > 0 ? nonArchivedClients[0].id : (allClients.length > 0 ? allClients[0].id : null)));
     const [showEditModal, setShowEditModal] = useState(false);
 
     useEffect(() => {
@@ -76,6 +78,9 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
 
             const stage = (c as any).funnelStage || 'Leads';
             const matchesStage = stageFilter === 'All Stages' || stage === stageFilter;
+
+            const isArchived = (c as any).status === 'Archived' || stage === 'Archived';
+            if (isArchived) return false;
 
             return matchesTab && matchesSearch && matchesStage;
         })

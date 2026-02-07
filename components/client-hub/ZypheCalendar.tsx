@@ -40,24 +40,34 @@ const ZypheCalendar: React.FC<ZypheCalendarProps> = ({ realtorId, onSwitch, lead
 
     // Combine fetched events with passed CRM tasks
     const allEvents = React.useMemo(() => {
-        const taskEvents: CalendarEvent[] = tasks.map(task => {
-            const dueDate = parseTaskDate(task.dueDate);
-            const lead = leads.find(l => l.id === task.clientId || l.clientId === task.clientId);
-            return {
-                id: `task-${task.id}`,
-                realtorId: task.realtorId,
-                title: task.name,
-                start: dueDate,
-                end: new Date(dueDate.getTime() + 30 * 60 * 1000), // 30 mins duration
-                type: 'task',
-                priority: task.priority,
-                clientId: task.clientId,
-                client: lead?.fullName || '',
-                description: task.comment
-            };
-        });
+        // Create a set of original task IDs that are already represented in 'events'
+        // Synced tasks in calendar_events usually have IDs like 'task_XYZ' 
+        // or sometimes 'task-XYZ' if they were edited/saved directly from the calendar.
+        const existingTaskIds = new Set(
+            events
+                .filter(e => e.id?.startsWith('task_') || e.id?.startsWith('task-'))
+                .map(e => e.id.replace(/^task[_|-]/, ''))
+        );
 
-        // Filter out any duplicate tasks if they somehow exist in events already
+        const taskEvents: CalendarEvent[] = tasks
+            .filter(task => !existingTaskIds.has(task.id)) // Skip if already in calendar_events
+            .map(task => {
+                const dueDate = parseTaskDate(task.dueDate);
+                const lead = leads.find(l => l.id === task.clientId || l.clientId === task.clientId);
+                return {
+                    id: `task-${task.id}`,
+                    realtorId: task.realtorId,
+                    title: task.name,
+                    start: dueDate,
+                    end: new Date(dueDate.getTime() + 30 * 60 * 1000), // 30 mins duration
+                    type: 'task',
+                    priority: task.priority,
+                    clientId: task.clientId,
+                    client: lead?.fullName || '',
+                    description: task.comment
+                };
+            });
+
         return [...events, ...taskEvents];
     }, [events, tasks, leads]);
 

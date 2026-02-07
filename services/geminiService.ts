@@ -159,10 +159,13 @@ export const executeGeminiRequest = async <T>(
   try {
     // 1. WATCHDOG: Token Limit Enforcement (Hard limit: 50K total)
     // Check input tokens first
-    const tokenCountResponse = await ai.models.countTokens({
+    const formattedContents = Array.isArray(contents) ? contents : [{ parts: [{ text: String(contents) }] }];
+    const instructionPart = config?.systemInstruction ? { parts: [{ text: config.systemInstruction }] } : undefined;
+
+    const tokenCountResponse = await (ai.models as any).countTokens({
       model,
-      contents,
-      config: { systemInstruction: config?.systemInstruction }
+      contents: formattedContents,
+      systemInstruction: instructionPart
     });
 
     const inputTokens = tokenCountResponse.totalTokens;
@@ -185,10 +188,12 @@ export const executeGeminiRequest = async <T>(
     }
 
     // 3. Perform Generation
-    const response = await ai.models.generateContent({
+    const { systemInstruction: rawInstruction, ...restConfig } = finalConfig;
+    const response = await (ai.models as any).generateContent({
       model,
-      contents,
-      config: finalConfig
+      contents: formattedContents,
+      config: restConfig,
+      systemInstruction: rawInstruction ? { parts: [{ text: rawInstruction }] } : undefined
     });
 
     const usage = calculateUsage(response, model);

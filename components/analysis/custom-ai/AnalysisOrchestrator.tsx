@@ -124,8 +124,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
     const tabs = [
         { id: 'interior', label: 'Interior', icon: 'fa-couch' },
         { id: 'rooms', label: 'Rooms', icon: 'fa-star' },
-        { id: 'exterior', label: 'Exterior', icon: 'fa-tree' },
-        { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
+        { id: 'exterior_and_neighborhood', label: 'Exterior and Neighborhood', icon: 'fa-tree' },
         { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
         { id: 'investment', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
         { id: 'bidding', label: 'Bidding Strategy', icon: 'fa-gavel' },
@@ -196,8 +195,16 @@ const AnalysisOrchestrator: React.FC<Props> = ({
             <div className="min-h-[500px]">
                 {activeTab === 'interior' && <InteriorView data={analysis.home_interior} />}
                 {activeTab === 'rooms' && <RoomsView highlights={analysis.room_highlights} />}
-                {activeTab === 'exterior' && <ExteriorView data={analysis.exterior_and_neighborhood} />}
-                {activeTab === 'neighborhood' && <NeighborhoodView data={analysis.neighborhood} />}
+                {activeTab === 'exterior_and_neighborhood' && (
+                    <div className="space-y-12">
+                        <ExteriorView data={analysis.exterior_and_neighborhood} />
+                        {analysis.neighborhood && (
+                            <div className="pt-12 border-t border-slate-100">
+                                <NeighborhoodView data={analysis.neighborhood} />
+                            </div>
+                        )}
+                    </div>
+                )}
                 {activeTab === 'pulse' && (
                     <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                         {pulseLoading ? (

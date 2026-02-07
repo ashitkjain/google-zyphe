@@ -96,15 +96,40 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data }) => {
                             <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.exterior_and_lot_appeal.architecture_style}</p>
                         </div>
                         <div className="space-y-3">
-                            <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Landscaping</div>
-                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.exterior_and_lot_appeal.landscaping_and_curb_appeal}</p>
+                            <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Curb Appeal</div>
+                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.exterior_and_lot_appeal.curb_appeal}</p>
                         </div>
                         <div className="space-y-3">
-                            <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Outdoor Living</div>
-                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.exterior_and_lot_appeal.outdoor_living_spaces}</p>
+                            <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Backyard & Patio</div>
+                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.exterior_and_lot_appeal.backyard_and_patio}</p>
                         </div>
                     </div>
                 </div>
+
+                <div className="pt-12 border-t border-gray-100 space-y-6">
+                    <div className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">VIEWS & PRIVACY</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+                        <div className="space-y-3">
+                            <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Views</div>
+                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.views_privacy_orientation?.views}</p>
+                        </div>
+                        <div className="space-y-3">
+                            <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Privacy</div>
+                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.views_privacy_orientation?.privacy}</p>
+                        </div>
+                        <div className="space-y-3">
+                            <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Orientation</div>
+                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.views_privacy_orientation?.orientation}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {data.neighborhood_street_insights && (
+                    <div className="pt-12 border-t border-gray-100 space-y-6">
+                        <div className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">STREET & NEIGHBORHOOD INSIGHTS</div>
+                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.neighborhood_street_insights}</p>
+                    </div>
+                )}
             </div>
         </section>
     );

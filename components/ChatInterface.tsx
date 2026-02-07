@@ -59,8 +59,7 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
           systemInstruction,
           temperature: 0.1,
           topP: 0.8,
-          topK: 40,
-          thinkingConfig: { thinkingBudget: 0 }
+          topK: 40
         },
         userId: "unknown",
         promptFilename: "ChatInterface.tsx",

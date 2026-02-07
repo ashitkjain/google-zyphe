@@ -219,8 +219,14 @@ const LeadsList: React.FC<InternalProps> = ({
                                         editContent=""
                                         setEditContent={() => { }}
                                         handleUpdateNote={handleUpdateNote}
-                                        onDoneToggle={() => { }}
-                                        onDeleteClick={() => { }}
+                                        onDoneToggle={(e, note) => {
+                                            e.stopPropagation();
+                                            handleUpdateNote(note.id, { isDone: !note.isDone });
+                                        }}
+                                        onDeleteClick={(e, id) => {
+                                            e.stopPropagation();
+                                            handleDeleteNote(id);
+                                        }}
                                         pendingNote={pendingNote}
                                         draftContent={draftContent}
                                         setDraftContent={setDraftContent}

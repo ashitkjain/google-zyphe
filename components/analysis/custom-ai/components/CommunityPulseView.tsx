@@ -9,15 +9,12 @@ interface CommunityPulseViewProps {
 export const CommunityPulseView: React.FC<CommunityPulseViewProps> = ({ data }) => {
     return (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <PulseCard title="Resident Sentiment" data={data.resident_sentiment} icon="fa-comment-dots" />
-            <PulseCard title="Safety & Crime" data={data.safety_and_crime} icon="fa-shield-halved" />
-            <PulseCard title="Neighborhood Character" data={data.character_and_character} icon="fa-building-columns" />
-            <PulseCard title="Market & Value" data={data.market_and_value} icon="fa-chart-line" />
-            <PulseCard title="Transit & Access" data={data.transit_and_walkability} icon="fa-bus" />
-            <PulseCard title="Dining & Social" data={data.dining_and_nightlife} icon="fa-utensils" />
-            <PulseCard title="Schools & Families" data={data.schools_and_families} icon="fa-graduation-cap" />
-            <PulseCard title="Green Space" data={data.parks_and_outdoors} icon="fa-leaf" />
-            <PulseCard title="Essentials" data={data.shopping_and_essentials} icon="fa-cart-shopping" />
+            <PulseCard title="What Residents Like" data={data.what_residents_like} icon="fa-thumbs-up" />
+            <PulseCard title="Common Complaints" data={data.common_complaints} icon="fa-circle-exclamation" />
+            <PulseCard title="Safety & Concerns" data={data.safety_and_concerns} icon="fa-shield-halved" />
+            <PulseCard title="Schools & Families" data={data.schools_family_friendliness} icon="fa-graduation-cap" />
+            <PulseCard title="Lifestyle & Convenience" data={data.lifestyle_convenience} icon="fa-bus" />
+            <PulseCard title="Investment Insights" data={data.investment_insights} icon="fa-chart-line" />
         </div>
     );
 };
