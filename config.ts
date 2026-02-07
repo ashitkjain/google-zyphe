@@ -52,7 +52,7 @@ export const APP_CONFIG = {
         key: 'prj_live_pk_eef2517d56b63939d892c06a7dac57af7f2278cb'
     },
     gemini: {
-        key: "AIzaSyCQ-OcGRDMK8nGmCMzpuxHT0Y9vJgqajRI"
+        key: "AIzaSyCNXiqET26-cMRpoM9vttl13SfiA4ifQu4"
     },
     groq: {
         key: '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'

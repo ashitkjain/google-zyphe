@@ -16,6 +16,8 @@ const DailyPulseModal: React.FC<DailyPulseModalProps> = ({ leads, tasks = [], ca
     const [report, setReport] = useState<DailyPulseResult | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showAllTodayTasks, setShowAllTodayTasks] = useState(false);
+    const [showAllUpcomingTasks, setShowAllUpcomingTasks] = useState(false);
 
     useEffect(() => {
         if (isOpen && !report && !loading) {
@@ -164,8 +166,18 @@ const DailyPulseModal: React.FC<DailyPulseModalProps> = ({ leads, tasks = [], ca
 
                                             {/* Today's Tasks */}
                                             <div className="space-y-3">
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tasks Due Today</div>
-                                                {report.todayTasks.length > 0 ? report.todayTasks.map((t, i) => (
+                                                <div className="flex items-center justify-between px-1">
+                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tasks Due Today</div>
+                                                    {report.todayTasks.length > 3 && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setShowAllTodayTasks(!showAllTodayTasks); }}
+                                                            className="text-[9px] font-bold text-indigo-500 hover:text-indigo-700 transition-colors uppercase tracking-wider"
+                                                        >
+                                                            {showAllTodayTasks ? 'Show Less' : 'See More'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {report.todayTasks.length > 0 ? (showAllTodayTasks ? report.todayTasks : report.todayTasks.slice(0, 3)).map((t, i) => (
                                                     <div key={i} className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border-l-2 border-indigo-400">
                                                         <div className="flex-1 text-[11px] font-bold text-slate-800 line-clamp-1">{t.name}</div>
                                                         <div className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${t.priority === 'Urgent' ? 'bg-rose-100 text-rose-600' : 'bg-slate-200 text-slate-600'}`}>
@@ -177,8 +189,18 @@ const DailyPulseModal: React.FC<DailyPulseModalProps> = ({ leads, tasks = [], ca
 
                                             {/* Upcoming Tasks */}
                                             <div className="space-y-3">
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Next 3 Days</div>
-                                                {report.upcomingTasks.length > 0 ? report.upcomingTasks.map((t, i) => (
+                                                <div className="flex items-center justify-between px-1">
+                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Next 3 Days</div>
+                                                    {report.upcomingTasks.length > 3 && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setShowAllUpcomingTasks(!showAllUpcomingTasks); }}
+                                                            className="text-[9px] font-bold text-indigo-500 hover:text-indigo-700 transition-colors uppercase tracking-wider"
+                                                        >
+                                                            {showAllUpcomingTasks ? 'Show Less' : 'See More'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {report.upcomingTasks.length > 0 ? (showAllUpcomingTasks ? report.upcomingTasks : report.upcomingTasks.slice(0, 3)).map((t, i) => (
                                                     <div key={i} className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border-l-2 border-slate-300">
                                                         <div className="flex-1 text-[11px] font-bold text-slate-800 line-clamp-1">{t.name}</div>
                                                         <div className="text-[9px] font-black text-slate-400 whitespace-nowrap">{t.dueDate}</div>
