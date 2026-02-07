@@ -139,3 +139,52 @@ export const biddingStrategyPrompt = (property: PropertyData) => {
 
 [EXECUTION] Ground all results in ${currentDate} data. Use the comps to perform a professional-grade CMA valuation.`;
 };
+
+export const biddingStrategySchema = {
+  type: "object" as const,
+  properties: {
+    property_specifics: {
+      type: "object" as const,
+      properties: {
+        days_on_market: { type: "string" as const },
+        listing_history: { type: "array" as const, items: { type: "string" as const } },
+        price_changes: { type: "string" as const }
+      },
+      required: ["days_on_market", "listing_history", "price_changes"]
+    },
+    zip_code_benchmarks: {
+      type: "object" as const,
+      properties: {
+        median_days_on_market: { type: "string" as const }
+      },
+      required: ["median_days_on_market"]
+    },
+    inventory_pressure: {
+      type: "object" as const,
+      properties: {
+        months_of_supply: { type: "string" as const },
+        market_category: { type: "string" as const },
+        pressure_analysis: { type: "string" as const }
+      },
+      required: ["months_of_supply", "market_category", "pressure_analysis"]
+    },
+    offer_velocity: {
+      type: "object" as const,
+      properties: {
+        velocity_status: { type: "string" as const },
+        recent_offer_trends: { type: "string" as const }
+      },
+      required: ["velocity_status", "recent_offer_trends"]
+    },
+    negotiation_strategy: {
+      type: "object" as const,
+      properties: {
+        leverage_analysis: { type: "string" as const },
+        suggested_offer_tactics: { type: "array" as const, items: { type: "string" as const } },
+        calculated_discount_strategy: { type: "string" as const }
+      },
+      required: ["leverage_analysis", "suggested_offer_tactics", "calculated_discount_strategy"]
+    }
+  },
+  required: ["property_specifics", "zip_code_benchmarks", "inventory_pressure", "offer_velocity", "negotiation_strategy"]
+};

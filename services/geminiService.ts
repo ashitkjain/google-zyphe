@@ -8,7 +8,7 @@ import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/proper
 import { getComprehensiveAnalysisPrompt, comprehensiveAnalysisSchema } from "../prompts/property/comprehensiveAnalysis";
 import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompts/property/investmentResearch";
 import { getGeneralMarketIntelligencePrompt, generalMarketIntelligenceSchema } from "../prompts/property/generalMarketIntelligence";
-import { biddingStrategyPrompt } from "../prompts/property/biddingStrategy";
+import { biddingStrategyPrompt, biddingStrategySchema } from "../prompts/property/biddingStrategy";
 import { getLeadReactivationPrompt, leadReactivationSchema } from "../prompts/client/leadReactivation";
 import { getLeadTransformationPrompt } from "../prompts/client/leadTransformation";
 import { getGuideGenerationPrompt, guideGenerationSchema, GuideResult } from "../prompts/client/guideGeneration";
@@ -130,6 +130,102 @@ function extractJson<T>(text: string | undefined): T {
   throw new AiResponseError("Could not parse AI response as JSON", text);
 }
 
+export const executeGeminiRequest = async <T>(
+  params: {
+    model: string;
+    contents: any;
+    config?: any;
+    userId?: string;
+    promptFilename: string;
+    zpid?: string;
+    extractResultJson?: boolean;
+    schema?: any;
+  }
+): Promise<{ data: T; usage: AIUsage; rawResponse: any }> => {
+  const { model, contents, config, userId, promptFilename, zpid, extractResultJson, schema } = params;
+  const ai = getAi();
+
+  const logId = await logLLMCall({
+    user_id: userId || "unknown",
+    zpid,
+    prompt_filename: promptFilename,
+    llm_name: model,
+    raw_payload: contents,
+    raw_response: null,
+    status: 'pending',
+    request_sent_at: serverTimestamp()
+  });
+
+  try {
+    // 1. WATCHDOG: Token Limit Enforcement (Hard limit: 50K total)
+    // Check input tokens first
+    const tokenCountResponse = await ai.models.countTokens({
+      model,
+      contents,
+      config: { systemInstruction: config?.systemInstruction }
+    });
+
+    const inputTokens = tokenCountResponse.totalTokens;
+    const MAX_TOTAL_TOKENS = 50000; // 50K hard limit
+
+    if (inputTokens > MAX_TOTAL_TOKENS) {
+      throw new Error(`Input token count (${inputTokens}) exceeds hard limit of ${MAX_TOTAL_TOKENS}`);
+    }
+
+    // 2. Adjust maxOutputTokens to ensure input + output <= 50K
+    const remainingTokens = Math.max(0, MAX_TOTAL_TOKENS - inputTokens);
+    const finalConfig = {
+      ...config,
+      maxOutputTokens: Math.min(config?.maxOutputTokens || 8192, remainingTokens)
+    };
+
+    if (schema) {
+      finalConfig.responseMimeType = "application/json";
+      finalConfig.responseSchema = schema;
+    }
+
+    // 3. Perform Generation
+    const response = await ai.models.generateContent({
+      model,
+      contents,
+      config: finalConfig
+    });
+
+    const usage = calculateUsage(response, model);
+    const responseText = response.text;
+
+    // 4. Update Log with success
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: responseText,
+        status: 'completed',
+        response_received_at: serverTimestamp(),
+        usage_metadata: (response.usageMetadata as any),
+        estimated_cost: usage.cost,
+        ...extractMetadata(response)
+      }).catch(err => console.error("Failed to update AI log:", err));
+    }
+
+    return {
+      data: extractResultJson ? extractJson<T>(responseText) : responseText as unknown as T,
+      usage,
+      rawResponse: response
+    };
+  } catch (error: any) {
+    if (logId) {
+      updateLLMCall(logId, {
+        raw_response: error.message,
+        status: 'failed',
+        error: error.stack || error.message,
+        response_received_at: serverTimestamp()
+      }).catch(err => console.error("Failed to update AI error log:", err));
+    }
+
+    if (error instanceof AiResponseError) throw error;
+    throw new AiResponseError(error.message, "AI Execution Error", contents);
+  }
+};
+
 function extractMetadata(response: any) {
   const candidate = response.candidates?.[0];
   const usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 };
@@ -200,193 +296,49 @@ export async function urlToBase64(url: string): Promise<{ data: string, mimeType
 
 export const analyzeProperty = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<AIAnalysisResult>> => {
   const prompt = getPropertyAnalysisPrompt(optimizePropertyForAi(property) as PropertyData);
-  let logId: string | null = null;
-  try {
-    logId = await logLLMCall({
-      user_id: userId,
-      zpid: property.zpid,
-      prompt_filename: "propertyAnalysis.ts",
-      llm_name: FLASH_LITE_MODEL,
-      raw_payload: prompt,
-      raw_response: null,
-      status: 'pending',
-      request_sent_at: serverTimestamp()
-    });
-
-    const ai = getAi();
-    const response = await ai.models.generateContent({
-      model: FLASH_LITE_MODEL,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: propertyAnalysisSchema
-      }
-    });
-
-    const responseText = response.text;
-    const usage = calculateUsage(response, FLASH_LITE_MODEL);
-
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: responseText,
-        status: 'completed',
-        response_received_at: serverTimestamp(),
-        usage_metadata: response.usageMetadata,
-        estimated_cost: usage.cost,
-        ...extractMetadata(response)
-      }).catch(err => console.error("Failed to update LLM log:", err));
-    }
-
-    return {
-      data: extractJson<AIAnalysisResult>(responseText),
-      usage
-    };
-  } catch (error: any) {
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: error.message,
-        status: 'failed',
-        error: error.stack || error.message,
-        response_received_at: serverTimestamp()
-      }).catch(err => console.error("Failed to update LLM error log:", err));
-    }
-    if (error instanceof AiResponseError) {
-      error.prompt = prompt;
-      throw error;
-    }
-    throw new AiResponseError(error.message, "Raw API Error", prompt);
-  }
+  return executeGeminiRequest<AIAnalysisResult>({
+    model: FLASH_LITE_MODEL,
+    contents: prompt,
+    userId,
+    zpid: property.zpid,
+    promptFilename: "propertyAnalysis.ts",
+    extractResultJson: true,
+    schema: propertyAnalysisSchema
+  });
 };
 
 export const analyzeNeighborhood = async (mapImageUrl: string, property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<NeighborhoodAnalysis>> => {
   const { data, mimeType } = await urlToBase64(mapImageUrl);
   const prompt = getNeighborhoodAnalysisPrompt(optimizePropertyForAi(property) as PropertyData);
-  let logId: string | null = null;
-  const sanitizedPrompt = {
-    text: prompt,
-    image: { mimeType, data: "<BASE64_IMAGE_DATA_OMITTED>" }
-  };
 
-  try {
-    logId = await logLLMCall({
-      user_id: userId,
-      zpid: property.zpid,
-      prompt_filename: "neighborhoodAnalysis.ts",
-      llm_name: FLASH_MODEL,
-      raw_payload: sanitizedPrompt,
-      raw_response: null,
-      status: 'pending',
-      request_sent_at: serverTimestamp()
-    });
-
-    const ai = getAi();
-    const response = await ai.models.generateContent({
-      model: FLASH_MODEL,
-      contents: {
-        parts: [
-          { text: prompt },
-          { inlineData: { data, mimeType } }
-        ]
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: neighborhoodAnalysisSchema
-      }
-    });
-
-    const responseText = response.text;
-    const usage = calculateUsage(response, FLASH_MODEL);
-
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: responseText,
-        status: 'completed',
-        response_received_at: serverTimestamp(),
-        usage_metadata: response.usageMetadata,
-        estimated_cost: usage.cost,
-        ...extractMetadata(response)
-      }).catch(err => console.error("Failed to update LLM log:", err));
-    }
-
-    return {
-      data: extractJson<NeighborhoodAnalysis>(responseText),
-      usage
-    };
-  } catch (error: any) {
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: error.message,
-        status: 'failed',
-        error: error.stack || error.message,
-        response_received_at: serverTimestamp()
-      }).catch(err => console.error("Failed to update LLM error log:", err));
-    }
-    if (error instanceof AiResponseError) {
-      error.prompt = sanitizedPrompt;
-      throw error;
-    }
-    throw new AiResponseError(error.message, "Raw API Error", sanitizedPrompt);
-  }
+  return executeGeminiRequest<NeighborhoodAnalysis>({
+    model: FLASH_MODEL,
+    contents: {
+      parts: [
+        { text: prompt },
+        { inlineData: { data, mimeType } }
+      ]
+    },
+    userId,
+    zpid: property.zpid,
+    promptFilename: "neighborhoodAnalysis.ts",
+    extractResultJson: true,
+    schema: neighborhoodAnalysisSchema
+  });
 };
 
 export const analyzeCommunityPulse = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<CommunityPulseResult>> => {
   const prompt = getCommunityPulsePrompt(optimizePropertyForAi(property) as PropertyData);
-  let logId: string | null = null;
-  try {
-    logId = await logLLMCall({
-      user_id: userId,
-      zpid: property.zpid,
-      prompt_filename: "communityPulse.ts",
-      llm_name: FLASH_MODEL,
-      raw_payload: prompt,
-      raw_response: null,
-      status: 'pending',
-      request_sent_at: serverTimestamp()
-    });
-
-    const ai = getAi();
-    const response = await ai.models.generateContent({
-      model: FLASH_MODEL,
-      contents: prompt,
-      config: {
-        tools: [groundingTool],
-        temperature: 1.0
-      }
-    });
-
-    const responseText = response.text;
-    const usage = calculateUsage(response, FLASH_MODEL);
-
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: responseText,
-        status: 'completed',
-        response_received_at: serverTimestamp(),
-        usage_metadata: response.usageMetadata,
-        estimated_cost: usage.cost,
-        ...extractMetadata(response)
-      }).catch(err => console.error("Failed to update LLM log:", err));
-    }
-
-    return {
-      data: extractJson<CommunityPulseResult>(responseText),
-      usage
-    };
-  } catch (error: any) {
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: error.message,
-        status: 'failed',
-        error: error.stack || error.message,
-        response_received_at: serverTimestamp()
-      }).catch(err => console.error("Failed to update LLM error log:", err));
-    }
-    if (error instanceof AiResponseError) {
-      error.prompt = prompt;
-      throw error;
-    }
-    throw new AiResponseError(error.message, "Raw API Error", prompt);
-  }
+  return executeGeminiRequest<CommunityPulseResult>({
+    model: FLASH_MODEL,
+    contents: prompt,
+    config: { tools: [groundingTool], temperature: 1.0 },
+    userId,
+    zpid: property.zpid,
+    promptFilename: "communityPulse.ts",
+    extractResultJson: true,
+    schema: communityPulseSchema
+  });
 };
 
 export const analyzePropertyImages = async (imageUrls: string[], property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<CustomAIAnalysisResult>> => {
@@ -477,446 +429,106 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
 
 export const analyzeComprehensive = async (property: PropertyData, visual: CustomAIAnalysisResult, userId: string = "unknown"): Promise<AIResponseWithUsage<ComprehensiveAnalysisResult>> => {
   const prompt = getComprehensiveAnalysisPrompt(optimizePropertyForAi(property) as PropertyData, visual);
-  let logId: string | null = null;
-  try {
-    logId = await logLLMCall({
-      user_id: userId,
-      zpid: property.zpid,
-      prompt_filename: "comprehensiveAnalysis.ts",
-      llm_name: FLASH_LITE_MODEL,
-      raw_payload: prompt,
-      raw_response: null,
-      status: 'pending',
-      request_sent_at: serverTimestamp()
-    });
-
-    const ai = getAi();
-    const response = await ai.models.generateContent({
-      model: FLASH_LITE_MODEL,
-      contents: prompt,
-      config: {
-        temperature: 0.7,
-        responseMimeType: "application/json",
-        responseSchema: comprehensiveAnalysisSchema
-      }
-    });
-    const responseText = response.text;
-    const usage = calculateUsage(response, FLASH_LITE_MODEL);
-
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: responseText,
-        status: 'completed',
-        response_received_at: serverTimestamp(),
-        usage_metadata: response.usageMetadata,
-        estimated_cost: usage.cost,
-        ...extractMetadata(response)
-      }).catch(err => console.error("Failed to update LLM log:", err));
-    }
-
-    return {
-      data: extractJson<ComprehensiveAnalysisResult>(responseText),
-      usage
-    };
-  } catch (error: any) {
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: error instanceof AiResponseError ? error.rawResponse : error.message,
-        status: 'failed',
-        error: error.stack || error.message,
-        response_received_at: serverTimestamp()
-      }).catch(err => console.error("Failed to update LLM error log:", err));
-    }
-    if (error instanceof AiResponseError) {
-      error.prompt = prompt;
-      throw error;
-    }
-    throw new AiResponseError(error.message, "Raw API Error", prompt);
-  }
+  return executeGeminiRequest<ComprehensiveAnalysisResult>({
+    model: FLASH_LITE_MODEL,
+    contents: prompt,
+    config: { temperature: 0.7 },
+    userId,
+    zpid: property.zpid,
+    promptFilename: "comprehensiveAnalysis.ts",
+    extractResultJson: true,
+    schema: comprehensiveAnalysisSchema
+  });
 };
 
 export const analyzeInvestmentResearch = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<PropertySpecificInvestmentResult>> => {
   const prompt = getInvestmentResearchPrompt(optimizePropertyForAi(property) as PropertyData);
-  let logId: string | null = null;
-  try {
-    logId = await logLLMCall({
-      user_id: userId,
-      zpid: property.zpid,
-      prompt_filename: "investmentResearch.ts",
-      llm_name: FLASH_LITE_MODEL,
-      raw_payload: prompt,
-      raw_response: null,
-      status: 'pending',
-      request_sent_at: serverTimestamp()
-    });
-
-    const ai = getAi();
-    const response = await ai.models.generateContent({
-      model: FLASH_LITE_MODEL,
-      contents: prompt,
-      config: {
-        tools: [groundingTool],
-        temperature: 1.0
-      }
-    });
-
-    const responseText = response.text;
-    const usage = calculateUsage(response, FLASH_LITE_MODEL);
-
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: responseText,
-        status: 'completed',
-        response_received_at: serverTimestamp(),
-        usage_metadata: response.usageMetadata,
-        estimated_cost: usage.cost,
-        ...extractMetadata(response)
-      }).catch(err => console.error("Failed to update LLM log:", err));
-    }
-
-    return {
-      data: extractJson<PropertySpecificInvestmentResult>(responseText),
-      usage
-    };
-  } catch (error: any) {
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: error.message,
-        status: 'failed',
-        error: error.stack || error.message,
-        response_received_at: serverTimestamp()
-      }).catch(err => console.error("Failed to update LLM error log:", err));
-    }
-    if (error instanceof AiResponseError) {
-      error.prompt = prompt;
-      throw error;
-    }
-    throw new AiResponseError(error.message, "Raw API Error", prompt);
-  }
+  return executeGeminiRequest<PropertySpecificInvestmentResult>({
+    model: FLASH_LITE_MODEL,
+    contents: prompt,
+    config: { tools: [groundingTool], temperature: 1.0 },
+    userId,
+    zpid: property.zpid,
+    promptFilename: "investmentResearch.ts",
+    extractResultJson: true,
+    schema: investmentResearchSchema
+  });
 };
 
 export const analyzeGeneralMarketIntelligence = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<GeneralMarketIntelligenceResult>> => {
   const prompt = getGeneralMarketIntelligencePrompt(optimizePropertyForAi(property) as PropertyData);
-  let logId: string | null = null;
-  try {
-    logId = await logLLMCall({
-      user_id: userId,
-      zpid: property.zpid,
-      prompt_filename: "generalMarketIntelligence.ts",
-      llm_name: FLASH_MODEL,
-      raw_payload: prompt,
-      raw_response: null,
-      status: 'pending',
-      request_sent_at: serverTimestamp()
-    });
-
-    const ai = getAi();
-    const response = await ai.models.generateContent({
-      model: FLASH_MODEL,
-      contents: prompt,
-      config: {
-        tools: [groundingTool],
-        temperature: 1.0
-      }
-    });
-
-    const responseText = response.text;
-    const usage = calculateUsage(response, FLASH_MODEL);
-
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: responseText,
-        status: 'completed',
-        response_received_at: serverTimestamp(),
-        usage_metadata: response.usageMetadata,
-        estimated_cost: usage.cost,
-        ...extractMetadata(response)
-      }).catch(err => console.error("Failed to update LLM log:", err));
-    }
-
-    return {
-      data: extractJson<GeneralMarketIntelligenceResult>(responseText),
-      usage
-    };
-  } catch (error: any) {
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: error.message,
-        status: 'failed',
-        error: error.stack || error.message,
-        response_received_at: serverTimestamp()
-      }).catch(err => console.error("Failed to update LLM error log:", err));
-    }
-    if (error instanceof AiResponseError) {
-      error.prompt = prompt;
-      throw error;
-    }
-    throw new AiResponseError(error.message, "Raw API Error", prompt);
-  }
+  return executeGeminiRequest<GeneralMarketIntelligenceResult>({
+    model: FLASH_MODEL,
+    contents: prompt,
+    config: { tools: [groundingTool], temperature: 1.0 },
+    userId,
+    zpid: property.zpid,
+    promptFilename: "generalMarketIntelligence.ts",
+    extractResultJson: true,
+    schema: generalMarketIntelligenceSchema
+  });
 };
 
 export const analyzeBiddingStrategy = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<BiddingStrategyResult>> => {
   const prompt = biddingStrategyPrompt(optimizePropertyForAi(property) as PropertyData);
-  let logId: string | null = null;
-  try {
-    logId = await logLLMCall({
-      user_id: userId,
-      zpid: property.zpid,
-      prompt_filename: "biddingStrategy.ts",
-      llm_name: FLASH_MODEL,
-      raw_payload: prompt,
-      raw_response: null,
-      status: 'pending',
-      request_sent_at: serverTimestamp()
-    });
-
-    const ai = getAi();
-    const response = await ai.models.generateContent({
-      model: FLASH_MODEL,
-      contents: prompt,
-      config: {
-        tools: [groundingTool],
-        temperature: 1.0
-      }
-    });
-
-    const responseText = response.text;
-    const usage = calculateUsage(response, FLASH_MODEL);
-
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: responseText,
-        status: 'completed',
-        response_received_at: serverTimestamp(),
-        usage_metadata: response.usageMetadata,
-        estimated_cost: usage.cost,
-        ...extractMetadata(response)
-      }).catch(err => console.error("Failed to update LLM log:", err));
-    }
-
-    return {
-      data: extractJson<BiddingStrategyResult>(responseText),
-      usage
-    };
-  } catch (error: any) {
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: error.message,
-        status: 'failed',
-        error: error.stack || error.message,
-        response_received_at: serverTimestamp()
-      }).catch(err => console.error("Failed to update LLM error log:", err));
-    }
-    if (error instanceof AiResponseError) {
-      error.prompt = prompt;
-      throw error;
-    }
-    throw new AiResponseError(error.message, "Raw API Error", prompt);
-  }
+  return executeGeminiRequest<BiddingStrategyResult>({
+    model: FLASH_MODEL,
+    contents: prompt,
+    config: { tools: [groundingTool], temperature: 1.0 },
+    userId,
+    zpid: property.zpid,
+    promptFilename: "biddingStrategy.ts",
+    extractResultJson: true,
+    schema: biddingStrategySchema
+  });
 };
 
 export const analyzeLeadDatabase = async (rawData: string, userId: string = "unknown"): Promise<{ result: LeadReactivationResult; llmCallId?: string }> => {
   const prompt = getLeadReactivationPrompt(rawData);
-  let logId: string | null = null;
+  const { data: result } = await executeGeminiRequest<LeadReactivationResult>({
+    model: GEMINI_MODEL,
+    contents: prompt,
+    userId,
+    promptFilename: "leadReactivation.ts",
+    extractResultJson: true,
+    schema: leadReactivationSchema
+  });
 
-  try {
-    // 1. Log the request immediately
-    logId = await logLLMCall({
-      user_id: userId,
-      prompt_filename: "leadReactivation.ts",
-      llm_name: GEMINI_MODEL,
-      raw_payload: prompt,
-      raw_response: null,
-      status: 'pending',
-      request_sent_at: serverTimestamp()
-    });
-
-    const ai = getAi();
-    console.log(`[${new Date().toISOString()}] AI REQUEST: analyzeLeadDatabase`);
-
-    // 2. Execute the AI call
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: leadReactivationSchema
-      }
-    });
-
-    const responseText = response.text;
-    console.log(`[${new Date().toISOString()}] AI RESPONSE RECEIVED: analyzeLeadDatabase. LogId present: ${!!logId}`);
-
-    // 3. Update the log with the response
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: responseText,
-        status: 'completed',
-        response_received_at: serverTimestamp(),
-        ...extractMetadata(response)
-      }).catch(err => console.error("Failed to update AI log:", err));
-    }
-
-    return {
-      result: extractJson<LeadReactivationResult>(responseText),
-      llmCallId: logId || undefined
-    };
-  } catch (error: any) {
-    console.error(`[${new Date().toISOString()}] AI ERROR: analyzeLeadDatabase`, error);
-
-    // 4. Update the log with the error
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: error.message,
-        status: 'failed',
-        error: error.stack || error.message,
-        response_received_at: serverTimestamp()
-      }).catch(err => console.error("Failed to update AI error log:", err));
-    }
-
-    if (error instanceof AiResponseError) {
-      error.prompt = prompt;
-      throw error;
-    }
-    throw new AiResponseError(error.message, "Raw API Error", prompt);
-  }
+  return { result };
 };
 
 export const transformLeadCsv = async (csvData: string, userId: string = "unknown"): Promise<string> => {
   const prompt = getLeadTransformationPrompt(csvData);
-  let logId: string | null = null;
-
-  try {
-    logId = await logLLMCall({
-      user_id: userId,
-      prompt_filename: "leadTransformation.ts",
-      llm_name: GEMINI_MODEL,
-      raw_payload: prompt,
-      raw_response: null,
-      status: 'pending',
-      request_sent_at: serverTimestamp()
-    });
-
-    const ai = getAi();
-    console.log(`[${new Date().toISOString()}] AI REQUEST: transformLeadCsv`);
-
-    // 2. Execute the AI call
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-    }); // Free form text response for CSV
-
-    const responseText = response.text;
-    console.log(`[${new Date().toISOString()}] AI RESPONSE RECEIVED: transformLeadCsv.`);
-
-    // 3. Update the log with the response
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: responseText,
-        status: 'completed',
-        response_received_at: serverTimestamp(),
-        ...extractMetadata(response)
-      }).catch(err => console.error("Failed to update AI log:", err));
-    }
-
-    return responseText || "";
-  } catch (error: any) {
-    console.error(`[${new Date().toISOString()}] AI ERROR: transformLeadCsv`, error);
-
-    // 4. Update the log with the error
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: error.message,
-        status: 'failed',
-        error: error.stack || error.message,
-        response_received_at: serverTimestamp()
-      }).catch(err => console.error("Failed to update AI error log:", err));
-    }
-
-    if (error instanceof AiResponseError) {
-      error.prompt = prompt;
-      throw error;
-    }
-    throw new AiResponseError(error.message, "Raw API Error", prompt);
-  }
+  const { data } = await executeGeminiRequest<string>({
+    model: FLASH_LITE_MODEL,
+    contents: prompt,
+    userId,
+    promptFilename: "leadTransformation.ts"
+  });
+  return data;
 };
 
 import { getStreetViewAnalysisPrompt, streetViewAnalysisSchema } from "../prompts/property/streetViewAnalysis";
 import { StreetViewAnalysisResult } from "../types";
 
 export const analyzeStreetView = async (imageUrl: string, property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<StreetViewAnalysisResult>> => {
-  console.log(`[Gemini] analyzeStreetView called for property: ${property.address}`);
   const { data, mimeType } = await urlToBase64(imageUrl);
   const prompt = getStreetViewAnalysisPrompt();
 
-  let logId: string | null = null;
-  const sanitizedPrompt = {
-    text: prompt,
-    image: { mimeType, data: "<BASE64_IMAGE_DATA_OMITTED>" }
-  };
-
-  try {
-    logId = await logLLMCall({
-      user_id: userId,
-      zpid: property.zpid,
-      prompt_filename: "streetViewAnalysis.ts",
-      llm_name: FLASH_MODEL,
-      raw_payload: sanitizedPrompt,
-      raw_response: null,
-      status: 'pending',
-      request_sent_at: serverTimestamp()
-    });
-
-    const ai = getAi();
-    const response = await ai.models.generateContent({
-      model: FLASH_MODEL,
-      contents: {
-        parts: [
-          { text: prompt },
-          { inlineData: { data, mimeType } }
-        ]
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: streetViewAnalysisSchema
-      }
-    });
-
-    const responseText = response.text;
-    console.log("[Gemini] PRODUCED RAW JSON:", responseText);
-    const usage = calculateUsage(response, FLASH_MODEL);
-
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: responseText,
-        status: 'completed',
-        response_received_at: serverTimestamp(),
-        usage_metadata: response.usageMetadata,
-        estimated_cost: usage.cost,
-        ...extractMetadata(response)
-      }).catch(err => console.error("Failed to update LLM log:", err));
-    }
-
-    return {
-      data: extractJson<StreetViewAnalysisResult>(responseText),
-      usage
-    };
-  } catch (error: any) {
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: error.message,
-        status: 'failed',
-        error: error.stack || error.message,
-        response_received_at: serverTimestamp()
-      }).catch(err => console.error("Failed to update LLM error log:", err));
-    }
-
-    if (error instanceof AiResponseError) {
-      error.prompt = sanitizedPrompt;
-      throw error;
-    }
-    throw new AiResponseError(error.message, "Raw API Error", sanitizedPrompt);
-  }
+  return executeGeminiRequest<StreetViewAnalysisResult>({
+    model: FLASH_MODEL,
+    contents: {
+      parts: [
+        { text: prompt },
+        { inlineData: { data, mimeType } }
+      ]
+    },
+    userId,
+    zpid: property.zpid,
+    promptFilename: "streetViewAnalysis.ts",
+    extractResultJson: true,
+    schema: streetViewAnalysisSchema
+  });
 };
 
 
@@ -945,57 +557,16 @@ export const convertDocumentToCsv = async (fileBase64: string, mimeType: string,
 
 export const generateGuide = async (category: string, title: string, userId: string = "unknown"): Promise<GuideResult> => {
   const prompt = getGuideGenerationPrompt(category, title);
-  let logId: string | null = null;
-
-  try {
-    logId = await logLLMCall({
-      user_id: userId,
-      prompt_filename: "guideGeneration.ts",
-      llm_name: GEMINI_MODEL,
-      raw_payload: prompt,
-      raw_response: null,
-      status: 'pending',
-      request_sent_at: serverTimestamp()
-    });
-
-    const ai = getAi();
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-      config: {
-        tools: [groundingTool],
-        temperature: 0.7,
-      }
-    });
-
-    const responseText = response.text;
-
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: responseText,
-        status: 'completed',
-        response_received_at: serverTimestamp(),
-        ...extractMetadata(response)
-      }).catch(err => console.error("Failed to update AI log:", err));
-    }
-
-    return extractJson<GuideResult>(responseText);
-  } catch (error: any) {
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: error.message,
-        status: 'failed',
-        error: error.stack || error.message,
-        response_received_at: serverTimestamp()
-      }).catch(err => console.error("Failed to update AI error log:", err));
-    }
-
-    if (error instanceof AiResponseError) {
-      error.prompt = prompt;
-      throw error;
-    }
-    throw new AiResponseError(error.message, "Raw API Error", prompt);
-  }
+  const { data } = await executeGeminiRequest<GuideResult>({
+    model: GEMINI_MODEL,
+    contents: prompt,
+    config: { tools: [groundingTool], temperature: 0.7 },
+    userId,
+    promptFilename: "guideGeneration.ts",
+    extractResultJson: true,
+    schema: guideGenerationSchema
+  });
+  return data;
 };
 
 export const generateGuideImage = async (category: string, title: string, topicSlug: string, guideSlug: string, userId: string = "unknown"): Promise<string | null> => {
@@ -1021,63 +592,65 @@ export const generateGuideImage = async (category: string, title: string, topicS
 export const generateDailyPulse = async (leads: Lead[], userId: string = "unknown", tasks: CRMTask[] = [], calendarEvents: CalendarEvent[] = []): Promise<AIResponseWithUsage<DailyPulseResult>> => {
   const { systemInstruction, prompt: userPrompt } = getDailyPulsePrompt(leads, tasks, calendarEvents);
   const combinedPrompt = `${systemInstruction}\n\n${userPrompt}`;
-  let logId: string | null = null;
   const modelToUse = FLASH_LITE_MODEL;
 
-  try {
-    logId = await logLLMCall({
-      user_id: userId,
-      prompt_filename: "dailyPulse.ts",
-      llm_name: modelToUse,
-      raw_payload: combinedPrompt,
-      raw_response: null,
-      status: 'pending',
-      request_sent_at: serverTimestamp()
-    });
+  const { data: aiResult, usage } = await executeGeminiRequest<DailyPulseResult>({
+    model: modelToUse,
+    contents: [{ role: 'user', parts: [{ text: combinedPrompt }] }],
+    userId,
+    promptFilename: "dailyPulse.ts",
+    extractResultJson: true,
+    schema: dailyPulseSchema
+  });
 
-    const ai = getAi();
-    const response = await ai.models.generateContent({
-      model: modelToUse,
-      contents: [{ role: 'user', parts: [{ text: combinedPrompt }] }],
-      config: {
-        temperature: 1.0,
-        responseMimeType: "application/json",
-        responseSchema: dailyPulseSchema as any
-      }
-    });
+  // Filter Tasks and Events locally as requested
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const threeDaysFromToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 3, 23, 59, 59, 999);
 
-    const responseText = response.text;
-    const usage = calculateUsage(response, modelToUse);
+  const parseDate = (val: any): Date => {
+    if (!val) return new Date(0);
+    if (typeof val.toDate === 'function') return val.toDate();
+    if (val.seconds !== undefined) return new Date(val.seconds * 1000);
+    return new Date(val);
+  };
 
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: responseText,
-        status: 'completed',
-        response_received_at: serverTimestamp(),
-        usage_metadata: response.usageMetadata,
-        estimated_cost: usage.cost,
-        ...extractMetadata(response)
-      }).catch(err => console.error("Failed to update AI log:", err));
-    }
+  const localTodayTasks = tasks
+    .filter(t => {
+      const d = parseDate(t.dueDate);
+      return d >= startOfToday && d <= endOfToday && t.status !== 'DONE' && t.status !== 'Completed';
+    })
+    .map(t => ({ name: t.name, priority: t.priority }));
 
-    return {
-      data: extractJson<DailyPulseResult>(responseText),
-      usage
-    };
-  } catch (error: any) {
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: error.message,
-        status: 'failed',
-        error: error.stack || error.message,
-        response_received_at: serverTimestamp()
-      }).catch(err => console.error("Failed to update AI error log:", err));
-    }
+  const localUpcomingTasks = tasks
+    .filter(t => {
+      const d = parseDate(t.dueDate);
+      return d > endOfToday && d <= threeDaysFromToday && t.status !== 'DONE' && t.status !== 'Completed';
+    })
+    .map(t => ({
+      name: t.name,
+      dueDate: parseDate(t.dueDate).toISOString().split('T')[0]
+    }));
 
-    if (error instanceof AiResponseError) {
-      error.prompt = combinedPrompt;
-      throw error;
-    }
-    throw new AiResponseError(error.message, "Raw API Error", combinedPrompt);
-  }
+  const localTodayMeetings = calendarEvents
+    .filter(e => {
+      const d = parseDate(e.start);
+      return d >= startOfToday && d <= endOfToday;
+    })
+    .map(e => ({
+      title: e.title,
+      time: parseDate(e.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      client: e.client || ''
+    }));
+
+  return {
+    data: {
+      ...aiResult,
+      todayTasks: localTodayTasks,
+      upcomingTasks: localUpcomingTasks,
+      todayMeetings: localTodayMeetings
+    },
+    usage
+  };
 };

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from '../types';
-import { CHAT_MODEL, getAi } from '../services/geminiService';
+import { CHAT_MODEL, getAi, executeGeminiRequest } from '../services/geminiService';
 import { APP_CONFIG } from '../config';
 import { getChatInstruction, getChatContext } from '../prompts/property/chatInterface';
 import { logLLMCall, updateLLMCall } from '../services/firebase/llm_logs';
@@ -51,20 +51,8 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
 
       const systemInstruction = getChatInstruction(intelligenceContext);
 
-      // Log the outgoing request
-      logId = await logLLMCall({
-        user_id: "unknown", // Fallback to pick up real UID or 'unknown'
-        zpid: property.zpid,
-        prompt_filename: "ChatInterface.tsx",
-        llm_name: CHAT_MODEL,
-        raw_payload: { prompt: text, context: intelligenceContext },
-        raw_response: null,
-        status: 'pending',
-        request_sent_at: serverTimestamp()
-      });
-
       // Perform a stateless content generation request
-      const response = await ai.models.generateContent({
+      const { data: aiText, rawResponse: response } = await executeGeminiRequest<string>({
         model: CHAT_MODEL,
         contents: text,
         config: {
@@ -74,19 +62,19 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
           topK: 40,
           thinkingConfig: { thinkingBudget: 0 }
         },
+        userId: "unknown",
+        promptFilename: "ChatInterface.tsx",
+        zpid: property.zpid
       });
 
-      const aiText = response.text || "I apologize, I'm having trouble processing that request right now.";
-
-      let finalContent = aiText;
+      let finalContent = aiText || "I apologize, I'm having trouble processing that request right now.";
 
       // Handle the routing JSON if data is missing
       try {
-        const routingResult = JSON.parse(aiText);
+        const routingResult = JSON.parse(finalContent);
         if (routingResult.routing === "MISSING") {
           if (routingResult.source === "images" && visual?.image_by_image_analysis) {
             // Step 2: Resubmit with images found by token/id
-            // Map routingResult.image_indices (indices) back to the actual IDs in the cached analysis
             const targetImageIds = routingResult.image_indices
               .map((idx: number) => visual.image_by_image_analysis?.[idx]?.image_id)
               .filter(Boolean);
@@ -101,30 +89,36 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
                 ]
               };
 
-              const imgResponse = await ai.models.generateContent({
+              const imgResult = await executeGeminiRequest<string>({
                 model: CHAT_MODEL,
                 contents: messageWithImages as any,
                 config: {
                   systemInstruction,
                   temperature: 0.1
-                }
+                },
+                userId: "unknown",
+                promptFilename: "ChatInterface.tsx (Images)",
+                zpid: property.zpid
               });
-              finalContent = imgResponse.text || "I've checked the photos but still couldn't find a definitive answer.";
+              finalContent = imgResult.data || "I've checked the photos but still couldn't find a definitive answer.";
             } else {
               finalContent = "I'm sorry, I don't have the specific details and there are no relevant photos to check.";
             }
           } else if (routingResult.source === "search") {
             // Step 2: Resubmit with Search Grounding
-            const searchResponse = await ai.models.generateContent({
+            const searchResult = await executeGeminiRequest<string>({
               model: CHAT_MODEL,
               contents: text,
               config: {
                 systemInstruction,
                 tools: [{ googleSearch: {} }] as any,
                 temperature: 0.1
-              }
+              },
+              userId: "unknown",
+              promptFilename: "ChatInterface.tsx (Search)",
+              zpid: property.zpid
             });
-            finalContent = searchResponse.text || "I searched for the information but couldn't find a reliable answer.";
+            finalContent = searchResult.data || "I searched for the information but couldn't find a reliable answer.";
           } else {
             finalContent = "I'm sorry, I don't have specific data for that request in my records yet. I can help with details on the property specifications, financials, or the neighborhood data I have available.";
           }
@@ -134,16 +128,6 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
         }
       } catch (e) {
         // Not JSON, treat as normal response
-      }
-
-      // Update the log with the FINAL response and usage
-      if (logId) {
-        updateLLMCall(logId, {
-          raw_response: finalContent, // Log the final answer, not the routing JSON
-          status: 'completed',
-          response_received_at: serverTimestamp(),
-          usage_metadata: (response.usageMetadata as any) || { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 }
-        }).catch(err => console.error("Failed to update chat log:", err));
       }
 
       setMessages(prev => [...prev, { role: 'assistant', content: finalContent }]);
