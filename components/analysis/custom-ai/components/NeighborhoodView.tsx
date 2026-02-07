@@ -23,8 +23,8 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data }) => {
                                 <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.neighborhood_features.street_layout_and_traffic}</p>
                             </div>
                             <div className="space-y-3">
-                                <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Walkability</div>
-                                <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.neighborhood_features.walkability_indicators || data.neighborhood_features.sidewalks_and_pedestrian_infra}</p>
+                                <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Pedestrian</div>
+                                <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.neighborhood_features.sidewalks_and_pedestrian_infra}</p>
                             </div>
                             <div className="space-y-3">
                                 <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Nature & Greenery</div>
@@ -41,6 +41,14 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data }) => {
                             <div className="space-y-3">
                                 <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Density</div>
                                 <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.neighborhood_features.neighborhood_density}</p>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Topography</div>
+                                <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.neighborhood_features.topography}</p>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="text-xl font-black text-gray-400 uppercase tracking-widest">General</div>
+                                <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.neighborhood_features.general}</p>
                             </div>
                         </>
                     )}

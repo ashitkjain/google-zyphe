@@ -12,11 +12,9 @@ export interface NeighborhoodAnalysis {
         sidewalks_and_pedestrian_infra: string;
         proximity_to_greenery_and_water: string;
         neighborhood_density: string;
-        walkability_indicators: string;
         topography: string;
         development_patterns: string;
         nearby_amenities: string;
-        transportation_access: string;
         general: string;
     }
 }

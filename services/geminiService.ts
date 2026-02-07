@@ -277,9 +277,9 @@ function calculateUsage(response: any, modelName: string): AIUsage {
 
 export async function urlToBase64(url: string): Promise<{ data: string, mimeType: string }> {
   try {
-    // 1. Check if it's a Google Maps URL - if so, use proxy immediately 
+    // 1. Check if it's a Google Maps or Radar URL - if so, use proxy immediately 
     // because direct browser fetch will always fail due to CORS.
-    if (url.includes("maps.googleapis.com")) {
+    if (url.includes("maps.googleapis.com") || url.includes("api.radar.io")) {
       console.log("[urlToBase64] Google Maps URL detected. Using Firebase Function proxy to bypass CORS/restrictions...");
       try {
         const { functions } = await import('./firebase/config');

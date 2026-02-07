@@ -626,7 +626,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
     }
 
     // Ensure fallback coordinate geocoding runs if needed (even for cached data if they are missing)
-    if (!mappedData.coordinates && mappedData.address) {
+    if ((!mappedData.coordinates || !mappedData.mapZoomOut) && mappedData.address) {
       try {
         console.log("[Solar Fallback] Geocoding address for solar data...");
         const geocoded = await normalizeAddress(mappedData.address, mappedData.zpid);

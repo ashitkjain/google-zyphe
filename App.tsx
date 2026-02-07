@@ -476,14 +476,24 @@ const App: React.FC = () => {
       const result = res.data;
 
       if (propertyData.mapZoomOut) {
-        const neighborRes = await analyzeNeighborhood(propertyData.mapZoomOut, propertyData);
-        result.neighborhood = neighborRes.data;
-        addLog('Gemini AI', { type: 'response' }, neighborRes.data, neighborRes.usage);
+        try {
+          const neighborRes = await analyzeNeighborhood(propertyData.mapZoomOut, propertyData);
+          result.neighborhood = neighborRes.data;
+          addLog('Gemini AI', { type: 'response' }, neighborRes.data, neighborRes.usage);
+        } catch (neighborErr) {
+          console.warn("Neighborhood analysis failed:", neighborErr);
+          addLog('System', { type: 'error' }, { message: "Neighborhood analysis skipped", error: neighborErr });
+        }
       }
 
-      const pulseRes = await analyzeCommunityPulse(propertyData);
-      result.community_pulse = pulseRes.data;
-      addLog('Gemini AI', { type: 'response' }, pulseRes.data, pulseRes.usage);
+      try {
+        const pulseRes = await analyzeCommunityPulse(propertyData);
+        result.community_pulse = pulseRes.data;
+        addLog('Gemini AI', { type: 'response' }, pulseRes.data, pulseRes.usage);
+      } catch (pulseErr) {
+        console.warn("Community pulse analysis failed:", pulseErr);
+        addLog('System', { type: 'error' }, { message: "Community Pulse skipped", error: pulseErr });
+      }
 
       setCustomAnalysis(result);
       addLog('Gemini AI', { type: 'response' }, result, res.usage);
