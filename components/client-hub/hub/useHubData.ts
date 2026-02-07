@@ -33,41 +33,28 @@ export const useHubData = (realtorId: string, activeTab?: string) => {
     };
 
     useEffect(() => {
-        const fetchCoreData = async () => {
-            if (!realtorId || loadedTabs.has('core')) return;
+        const fetchLeads = async () => {
+            if (!realtorId || loadedTabs.has('leads')) return;
             setLoadingData(true);
             try {
-                console.log(`[useHubData] Initializing Core Data (Leads, Tasks)...`);
-                const [_leads, _tasks] = await Promise.all([
-                    getLeads(realtorId, ['leads']),
-                    getTasks(realtorId)
-                ]);
+                console.log(`[useHubData] Fetching Leads...`);
+                let _leads = await getLeads(realtorId, ['leads']);
 
-                // Seed Check (only if leads is empty or forced)
+                // Seed Check (only if leads is empty)
                 const initialLeads: Lead[] = getInitialMockLeads(realtorId);
-                const shouldSeed = _leads.length < 5; // Simpler check for speed
-
-                let finalLeads = _leads;
-                let finalTasks = _tasks;
-
-                if (shouldSeed) {
-                    console.log("[useHubData] New user or empty leads suspected. Checking for seed...");
+                if (_leads.length < 5) {
                     const actualShouldSeed = initialLeads.some(l => !_leads.find(ex => ex.id === l.id));
                     if (actualShouldSeed) {
+                        console.log("[useHubData] Seeding mock leads...");
                         const initialTasks = getInitialMockTasks(realtorId);
                         const initialTemplates = getInitialMockTemplates(realtorId);
                         const initialTransactions = getInitialMockTransactions(realtorId);
                         await seedMockData(realtorId, initialLeads, initialTasks, initialTemplates, initialTransactions);
-                        const [reLeads, reTasks] = await Promise.all([
-                            getLeads(realtorId, ['leads']),
-                            getTasks(realtorId)
-                        ]);
-                        finalLeads = reLeads;
-                        finalTasks = reTasks;
+                        _leads = await getLeads(realtorId, ['leads']);
                     }
                 }
 
-                const mappedLeads = finalLeads.map(lead => {
+                const mappedLeads = _leads.map(lead => {
                     if (lead.isMock) {
                         const mockTemplate = initialLeads.find(l => l.id === lead.id);
                         if (mockTemplate) return { ...mockTemplate, ...lead };
@@ -76,8 +63,20 @@ export const useHubData = (realtorId: string, activeTab?: string) => {
                 });
 
                 setLeads(mappedLeads);
-                setTasks(finalTasks);
-                setLoadedTabs(prev => new Set(prev).add('core'));
+                setLoadedTabs(prev => new Set(prev).add('leads'));
+            } finally {
+                setLoadingData(false);
+            }
+        };
+
+        const fetchTasks = async () => {
+            if (!realtorId || loadedTabs.has('tasks')) return;
+            setLoadingData(true);
+            try {
+                console.log(`[useHubData] Fetching Tasks...`);
+                const _tasks = await getTasks(realtorId);
+                setTasks(_tasks);
+                setLoadedTabs(prev => new Set(prev).add('tasks'));
             } finally {
                 setLoadingData(false);
             }
@@ -104,7 +103,6 @@ export const useHubData = (realtorId: string, activeTab?: string) => {
 
             // Reminder Rules
             if ((activeTab === 'reminder_rules' || activeTab === 'reactivate') && !loadedTabs.has('rules')) {
-                // ... (merge rules logic) ...
                 getReminderRules(realtorId).then(dbRules => {
                     const appRules = getDefaultReminderRules().map(rule => ({ ...rule, realtorId }));
                     const merged = appRules.map(ar => {
@@ -122,9 +120,18 @@ export const useHubData = (realtorId: string, activeTab?: string) => {
             }
         };
 
-        if (activeTab !== 'explore') {
-            fetchCoreData();
+        // Lead fetching logic
+        const needsLeads = ['leads', 'clients', 'closing', 'reactivate', 'calendar'].includes(activeTab || '');
+        if (needsLeads) {
+            fetchLeads();
         }
+
+        // Task fetching logic
+        const needsTasks = ['tasks', 'calendar'].includes(activeTab || '');
+        if (needsTasks) {
+            fetchTasks();
+        }
+
         fetchExtendedData();
     }, [realtorId, activeTab]);
 
