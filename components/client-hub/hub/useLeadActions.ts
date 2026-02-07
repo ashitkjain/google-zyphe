@@ -136,12 +136,13 @@ export const useLeadActions = (
     };
 
     const handleSaveLeadNote = async (content: string) => {
-        if (!pendingNote || !content.trim()) {
-            setPendingNote(null);
-            return;
+        if (!pendingNote) return;
+        const ctx = pendingNote;
+        setPendingNote(null); // Clear immediately to avoid "double note" flicker
+
+        if (content.trim()) {
+            await handleAddNote(ctx.leadId, content, ctx.color, 'sticky');
         }
-        await handleAddNote(pendingNote.leadId, content, pendingNote.color, 'sticky');
-        setPendingNote(null);
     };
 
     const handleUpdateLeadNote = async (noteId: string, updates: Partial<LeadNote>) => {

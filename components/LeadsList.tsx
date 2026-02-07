@@ -231,6 +231,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                         celebratingNoteId={null}
                                         isFlyingUpId={null}
                                         visibleColumns={new Set(['name', 'contact', 'temp', 'status'])}
+                                        onTabChange={onTabChange}
                                     />
                                 ))}
                             </div>
@@ -266,6 +267,7 @@ const LeadsList: React.FC<InternalProps> = ({
                             realtorId={realtorId}
                             activeTab={activeTab}
                             onActivateLead={(lead) => setSelectedLeadForOverlay(lead)}
+                            onTabChange={onTabChange}
                         />
                     </div>
                 </DragDropContext>

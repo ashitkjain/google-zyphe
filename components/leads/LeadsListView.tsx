@@ -8,9 +8,10 @@ interface LeadsListViewProps {
     realtorId: string;
     activeTab: 'Buyer' | 'Buyer2' | 'Seller';
     onActivateLead: (lead: Lead) => void;
+    onTabChange?: (tab: any) => void;
 }
 
-const LeadsListView: React.FC<LeadsListViewProps> = ({ leads, onUpdateLead, realtorId, activeTab, onActivateLead }) => {
+const LeadsListView: React.FC<LeadsListViewProps> = ({ leads, onUpdateLead, realtorId, activeTab, onActivateLead, onTabChange }) => {
 
     const getDate = (val: any) => {
         if (!val) return null;

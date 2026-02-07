@@ -35,6 +35,7 @@ interface LeadGalleryItemProps {
     onUpdateAvatar: (leadId: string, file: File) => void;
     stage: string;
     onUpdateLead: (id: string, updates: Partial<Lead>) => void;
+    onTabChange?: (tab: any) => void;
 }
 
 const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
@@ -42,7 +43,7 @@ const LeadGalleryItem: React.FC<LeadGalleryItemProps> = ({
     editNoteId, setEditNoteId, editContent, setEditContent, handleUpdateNote,
     onDoneToggle, onDeleteClick, pendingNote, draftContent, setDraftContent,
     handleSaveNote, setPendingNote, deleteCoords, deletingNoteId, celebratingNoteId, isFlyingUpId,
-    onArchive, onActivate, visibleColumns, activeTab, onUpdateAvatar, stage, onUpdateLead
+    onArchive, onActivate, visibleColumns, activeTab, onUpdateAvatar, stage, onUpdateLead, onTabChange
 }) => {
     const [editingCell, setEditingCell] = React.useState<string | null>(null);
     const [editValue, setEditValue] = React.useState<string>('');
