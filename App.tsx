@@ -469,384 +469,384 @@ const App: React.FC = () => {
         }
         addLog('Cloud Cache', { type: 'info' }, { status: 'Miss' });
       }
-    }
+
 
       addLog('Gemini AI', { type: 'request' }, { task: 'visual_analysis', forced: force });
-    const res = await analyzePropertyImages(propertyData.images || [], propertyData);
-    const result = res.data;
+      const res = await analyzePropertyImages(propertyData.images || [], propertyData);
+      const result = res.data;
 
-    if (propertyData.mapZoomOut) {
-      const neighborRes = await analyzeNeighborhood(propertyData.mapZoomOut, propertyData);
-      result.neighborhood = neighborRes.data;
-      addLog('Gemini AI', { type: 'response' }, neighborRes.data, neighborRes.usage);
-    }
-
-    const pulseRes = await analyzeCommunityPulse(propertyData);
-    result.community_pulse = pulseRes.data;
-    addLog('Gemini AI', { type: 'response' }, pulseRes.data, pulseRes.usage);
-
-    setCustomAnalysis(result);
-    addLog('Gemini AI', { type: 'response' }, result, res.usage);
-    if (propertyData.zpid) {
-      const saveResult = await saveVisualAnalysisToCloud(propertyData.zpid, result);
-      if (!saveResult.success) {
-        addLog('System', { type: 'error' }, { message: "Cloud Cache Save Failed", task: 'visual_analysis', error: saveResult.error });
+      if (propertyData.mapZoomOut) {
+        const neighborRes = await analyzeNeighborhood(propertyData.mapZoomOut, propertyData);
+        result.neighborhood = neighborRes.data;
+        addLog('Gemini AI', { type: 'response' }, neighborRes.data, neighborRes.usage);
       }
+
+      const pulseRes = await analyzeCommunityPulse(propertyData);
+      result.community_pulse = pulseRes.data;
+      addLog('Gemini AI', { type: 'response' }, pulseRes.data, pulseRes.usage);
+
+      setCustomAnalysis(result);
+      addLog('Gemini AI', { type: 'response' }, result, res.usage);
+      if (propertyData.zpid) {
+        const saveResult = await saveVisualAnalysisToCloud(propertyData.zpid, result);
+        if (!saveResult.success) {
+          addLog('System', { type: 'error' }, { message: "Cloud Cache Save Failed", task: 'visual_analysis', error: saveResult.error });
+        }
+      }
+    } catch (err: any) {
+      const logContent = err instanceof AiResponseError
+        ? { message: err.message, raw: err.rawResponse, prompt: err.prompt }
+        : err;
+      addLog('Gemini AI', { type: 'error' }, logContent);
+      setError("AI analysis failed. Check logs for details.");
+    } finally {
+      setCustomAnalysisLoading(false);
     }
-  } catch (err: any) {
-    const logContent = err instanceof AiResponseError
-      ? { message: err.message, raw: err.rawResponse, prompt: err.prompt }
-      : err;
-    addLog('Gemini AI', { type: 'error' }, logContent);
-    setError("AI analysis failed. Check logs for details.");
-  } finally {
-    setCustomAnalysisLoading(false);
-  }
-};
+  };
 
-const handleRunComprehensive = async (force = false) => {
-  if (!propertyData || !customAnalysis) return;
+  const handleRunComprehensive = async (force = false) => {
+    if (!propertyData || !customAnalysis) return;
 
-  if (!force && comprehensiveAnalysis) {
+    if (!force && comprehensiveAnalysis) {
+      transitionToView('comprehensive-report' as ViewMode);
+      return;
+    }
+
+    setComprehensiveLoading(true);
     transitionToView('comprehensive-report' as ViewMode);
-    return;
-  }
 
-  setComprehensiveLoading(true);
-  transitionToView('comprehensive-report' as ViewMode);
-
-  try {
-    if (!force && propertyData.zpid) {
-      addLog('Cloud Cache', { type: 'request' }, { zpid: propertyData.zpid, task: 'comprehensive_analysis' });
-      const cached = await getComprehensiveAnalysisFromCloud(propertyData.zpid);
-      if (cached) {
-        addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', data: cached });
-        setComprehensiveAnalysis(cached);
-        setComprehensiveLoading(false);
-        return;
+    try {
+      if (!force && propertyData.zpid) {
+        addLog('Cloud Cache', { type: 'request' }, { zpid: propertyData.zpid, task: 'comprehensive_analysis' });
+        const cached = await getComprehensiveAnalysisFromCloud(propertyData.zpid);
+        if (cached) {
+          addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', data: cached });
+          setComprehensiveAnalysis(cached);
+          setComprehensiveLoading(false);
+          return;
+        }
+        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss' });
       }
-      addLog('Cloud Cache', { type: 'info' }, { status: 'Miss' });
+
+      addLog('Gemini AI', { type: 'request' }, { task: 'comprehensive_analysis', forced: force });
+      const res = await analyzeComprehensive(propertyData, customAnalysis);
+      const result = res.data;
+      setComprehensiveAnalysis(result);
+      addLog('Gemini AI', { type: 'response' }, result, res.usage);
+      if (propertyData.zpid) await saveComprehensiveAnalysisToCloud(propertyData.zpid, result);
+    } catch (err: any) {
+      const logContent = err instanceof AiResponseError
+        ? { message: err.message, raw: err.rawResponse, prompt: err.prompt }
+        : err;
+      addLog('Gemini AI', { type: 'error' }, logContent);
+      setError("Comprehensive report failed. Check logs for details.");
+    } finally {
+      setComprehensiveLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    if (auth) {
+      try {
+        await signOut(auth);
+        setCurrentUser(null);
+        setCloudHistory([]);
+        setError(null);
+      } catch (err) {
+        console.error("Sign out failed", err);
+      }
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!currentUser) {
+      console.warn("Delete account aborted: No current user in state.");
+      return;
     }
 
-    addLog('Gemini AI', { type: 'request' }, { task: 'comprehensive_analysis', forced: force });
-    const res = await analyzeComprehensive(propertyData, customAnalysis);
-    const result = res.data;
-    setComprehensiveAnalysis(result);
-    addLog('Gemini AI', { type: 'response' }, result, res.usage);
-    if (propertyData.zpid) await saveComprehensiveAnalysisToCloud(propertyData.zpid, result);
-  } catch (err: any) {
-    const logContent = err instanceof AiResponseError
-      ? { message: err.message, raw: err.rawResponse, prompt: err.prompt }
-      : err;
-    addLog('Gemini AI', { type: 'error' }, logContent);
-    setError("Comprehensive report failed. Check logs for details.");
-  } finally {
-    setComprehensiveLoading(false);
-  }
-};
+    const input = window.prompt("WARNING: All your data and saved analysis will be permanently deleted.\n\nType DELETE to confirm.");
+    if (input !== 'DELETE') {
+      if (input !== null) alert("Account deletion cancelled. You must type DELETE exactly.");
+      return;
+    }
 
-const handleSignOut = async () => {
-  if (auth) {
+    setLoading(true);
+    setError(null);
+    console.log("Starting account deletion for UID:", currentUser.uid);
+
     try {
-      await signOut(auth);
+      await deleteUserAccount(currentUser.uid);
+      console.log("Account deletion completed successfully.");
       setCurrentUser(null);
       setCloudHistory([]);
-      setError(null);
-    } catch (err) {
-      console.error("Sign out failed", err);
+    } catch (err: any) {
+      console.error("Account deletion failed:", err);
+      setError(err.message || "An unexpected error occurred during account deletion.");
+    } finally {
+      setLoading(false);
     }
-  }
-};
+  };
 
-const handleDeleteAccount = async () => {
-  if (!currentUser) {
-    console.warn("Delete account aborted: No current user in state.");
-    return;
-  }
+  const handleToggleFavorite = async () => {
+    if (!currentUser || !propertyData || !propertyData.zpid) return;
 
-  const input = window.prompt("WARNING: All your data and saved analysis will be permanently deleted.\n\nType DELETE to confirm.");
-  if (input !== 'DELETE') {
-    if (input !== null) alert("Account deletion cancelled. You must type DELETE exactly.");
-    return;
-  }
+    const currentZpid = String(propertyData.zpid);
+    const wasFavorited = favorites.some(f => String(f.zpid) === currentZpid);
 
-  setLoading(true);
-  setError(null);
-  console.log("Starting account deletion for UID:", currentUser.uid);
-
-  try {
-    await deleteUserAccount(currentUser.uid);
-    console.log("Account deletion completed successfully.");
-    setCurrentUser(null);
-    setCloudHistory([]);
-  } catch (err: any) {
-    console.error("Account deletion failed:", err);
-    setError(err.message || "An unexpected error occurred during account deletion.");
-  } finally {
-    setLoading(false);
-  }
-};
-
-const handleToggleFavorite = async () => {
-  if (!currentUser || !propertyData || !propertyData.zpid) return;
-
-  const currentZpid = String(propertyData.zpid);
-  const wasFavorited = favorites.some(f => String(f.zpid) === currentZpid);
-
-  // Optimistic Update
-  setFavorites(prev => {
-    if (wasFavorited) {
-      return prev.filter(f => String(f.zpid) !== currentZpid);
-    } else {
-      return [{
-        zpid: currentZpid,
-        address: propertyData.address,
-        price: propertyData.price || propertyData.zestimate || null,
-        images: propertyData.images || [],
-        timestamp: Date.now()
-      }, ...prev];
-    }
-  });
-
-  try {
-    const res = await toggleFavorite(currentUser.uid, propertyData);
-    if (!res.success) {
-      // Rollback on failure
-      const refreshed = await getUserFavorites(currentUser.uid);
-      setFavorites(refreshed);
-    }
-  } catch (err) {
-    const refreshed = await getUserFavorites(currentUser.uid);
-    setFavorites(refreshed);
-  }
-};
-const handleRemoveFavoriteItem = async (e: React.MouseEvent, item: any) => {
-  e.stopPropagation();
-  if (!currentUser || !item.zpid) return;
-
-  // Optimistic Update
-  setFavorites(prev => prev.filter(f => String(f.zpid) !== String(item.zpid)));
-
-  try {
-    const res = await toggleFavorite(currentUser.uid, item);
-    if (!res.success) {
-      const refreshed = await getUserFavorites(currentUser.uid);
-      setFavorites(refreshed);
-    }
-  } catch (err) {
-    const refreshed = await getUserFavorites(currentUser.uid);
-    setFavorites(refreshed);
-  }
-};
-
-const isFavorited = (propertyData?.zpid && favorites.length > 0)
-  ? favorites.some(f => String(f.zpid) === String(propertyData.zpid))
-  : false;
-
-/* ---------------------- Render Helpers ---------------------- */
-const searchBar = (
-  <form onSubmit={(e) => { e.preventDefault(); performSearch(address); }} className="flex-1 relative z-50 w-full">
-    <div className="relative group">
-      <input
-        type="text"
-        value={address}
-        onFocus={() => setShowHistory(true)}
-        onChange={(e) => setAddress(e.target.value)}
-        placeholder="Enter property address..."
-        className="w-full pl-12 pr-44 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all text-xs font-medium"
-      />
-      <i className="fa-solid fa-house-laptop absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-        {propertyData && (
-          <button
-            type="button"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleFavorite(); }}
-            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isFavorited ? 'bg-rose-50 text-rose-500 shadow-inner' : 'bg-slate-200/50 text-slate-400 hover:text-rose-400 hover:bg-rose-50'}`}
-            title={isFavorited ? "Remove from Favorites" : "Add to Favorites"}
-          >
-            <i className={`${isFavorited ? 'fa-solid' : 'fa-regular'} fa-heart text-sm`}></i>
-          </button>
-        )}
-        <button type="submit" disabled={loading} className="bg-indigo-700 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-200">Analyze</button>
-      </div>
-    </div>
-
-    {showHistory && (searchHistory.length > 0 || cloudHistory.length > 0 || favorites.length > 0) && (
-      <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[60]">
-        <div className="flex items-center justify-between px-4 py-2 bg-slate-50/50 border-b border-slate-100">
-          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Search History</span>
-          <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowHistory(false); }}
-            className="w-6 h-6 rounded-lg hover:bg-white hover:shadow-sm text-slate-400 hover:text-slate-600 transition-all flex items-center justify-center"
-          >
-            <i className="fa-solid fa-xmark text-xs"></i>
-          </button>
-        </div>
-        <div className="max-h-[300px] overflow-y-auto p-2">
-          {favorites.length > 0 && (
-            <div className="mb-2">
-              <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-rose-500 uppercase tracking-widest flex items-center gap-2">
-                <i className="fa-solid fa-heart"></i>
-                Favorites
-              </div>
-              {favorites.map((item: any, idx) => (
-                <div key={`fav-wrapper-${idx}`} className="group relative">
-                  <button
-                    onClick={() => handleHistoryItemClick(item.address)}
-                    className="w-full text-left px-4 py-3 rounded-xl hover:bg-rose-50/50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between"
-                  >
-                    <span className="truncate pr-8">{item.address}</span>
-                    <i className="fa-solid fa-heart text-rose-500 text-xs"></i>
-                  </button>
-                  <button
-                    onClick={(e) => handleRemoveFavoriteItem(e, item)}
-                    className="absolute right-10 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all"
-                    title="Remove from favorites"
-                  >
-                    <i className="fa-solid fa-trash-can text-xs"></i>
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {searchHistory.length > 0 && (
-            <div className="mb-2">
-              <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-indigo-400 uppercase tracking-widest flex items-center gap-2 border-t border-gray-100 mt-2 pt-4 first:border-t-0 first:mt-0 first:pt-2">
-                <i className="fa-solid fa-clock-rotate-left"></i>
-                Recent Searches
-              </div>
-              {searchHistory.map((item, idx) => (
-                <button
-                  key={`local-${idx}`}
-                  onClick={() => handleHistoryItemClick(item.address)}
-                  className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between group"
-                >
-                  <span className="truncate">{item.address}</span>
-                  <i className="fa-solid fa-arrow-right -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all text-indigo-500 text-xs"></i>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {cloudHistory.length > 0 && (
-            <div>
-              <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-indigo-400 uppercase tracking-widest flex items-center gap-2 border-t border-gray-100 mt-2 pt-4">
-                <i className="fa-solid fa-cloud"></i>
-                Saved History
-              </div>
-              {cloudHistory.map((item: any, idx) => (
-                <button
-                  key={`cloud-${idx}`}
-                  onClick={() => handleHistoryItemClick(item.address)}
-                  className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between group"
-                >
-                  <span className="truncate">{item.address}</span>
-                  <i className="fa-solid fa-cloud-arrow-down -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all text-indigo-500 text-xs"></i>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    )}
-  </form>
-);
-
-const exploreTab = (
-  <ExploreTab
-    propertyData={propertyData}
-    loading={loading}
-    loadingSublabel={loadingSublabel}
-    viewMode={(viewMode === 'dashboard' || viewMode === 'guides' || viewMode === 'explore') ? 'main' : viewMode} // Fallback just in case
-    setViewMode={transitionToView as any}
-    imagesLoading={imagesLoading}
-    isFavorited={isFavorited}
-    onToggleFavorite={handleToggleFavorite}
-    onRunCustomAnalysis={handleRunCustomAnalysis}
-    customAnalysis={customAnalysis}
-    customAnalysisLoading={customAnalysisLoading}
-    onRunComprehensive={handleRunComprehensive}
-    comprehensiveAnalysis={comprehensiveAnalysis}
-    comprehensiveLoading={comprehensiveLoading}
-    onUpdateAnalysis={async (updated) => {
-      setCustomAnalysis(updated);
-      if (propertyData?.zpid) {
-        await saveVisualAnalysisToCloud(propertyData.zpid, updated);
+    // Optimistic Update
+    setFavorites(prev => {
+      if (wasFavorited) {
+        return prev.filter(f => String(f.zpid) !== currentZpid);
+      } else {
+        return [{
+          zpid: currentZpid,
+          address: propertyData.address,
+          price: propertyData.price || propertyData.zestimate || null,
+          images: propertyData.images || [],
+          timestamp: Date.now()
+        }, ...prev];
       }
-    }}
-    addLog={addLog}
-    logs={logs}
-    userRole={currentUser?.role}
-    searchBar={searchBar}
-  />
-);
+    });
 
-/* ------------------- Render Logic ------------------- */
+    try {
+      const res = await toggleFavorite(currentUser.uid, propertyData);
+      if (!res.success) {
+        // Rollback on failure
+        const refreshed = await getUserFavorites(currentUser.uid);
+        setFavorites(refreshed);
+      }
+    } catch (err) {
+      const refreshed = await getUserFavorites(currentUser.uid);
+      setFavorites(refreshed);
+    }
+  };
+  const handleRemoveFavoriteItem = async (e: React.MouseEvent, item: any) => {
+    e.stopPropagation();
+    if (!currentUser || !item.zpid) return;
 
-if (viewMode === 'legal-disclaimer') {
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <div className="flex-1"><LegalDisclaimer /></div>
-      <Footer onNavigate={transitionToView} />
-    </div>
-  );
-}
+    // Optimistic Update
+    setFavorites(prev => prev.filter(f => String(f.zpid) !== String(item.zpid)));
 
-if (viewMode === 'terms') {
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <div className="flex-1"><TermsView /></div>
-      <Footer onNavigate={transitionToView} />
-    </div>
-  );
-}
+    try {
+      const res = await toggleFavorite(currentUser.uid, item);
+      if (!res.success) {
+        const refreshed = await getUserFavorites(currentUser.uid);
+        setFavorites(refreshed);
+      }
+    } catch (err) {
+      const refreshed = await getUserFavorites(currentUser.uid);
+      setFavorites(refreshed);
+    }
+  };
 
-if (viewMode === 'privacy') {
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <div className="flex-1"><PrivacyPolicy /></div>
-      <Footer onNavigate={transitionToView} />
-    </div>
-  );
-}
+  const isFavorited = (propertyData?.zpid && favorites.length > 0)
+    ? favorites.some(f => String(f.zpid) === String(propertyData.zpid))
+    : false;
 
-// REALTOR LAYOUT: Merged ClientHub + Homepage
-if (currentUser?.role === 'realtor') {
-  return (
-    <div className="min-h-screen bg-slate-50">
-      {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
-      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} inviteData={inviteData} />
-      {currentUser && (
-        <AddClientModal
-          isOpen={addClientModalOpen}
-          onClose={() => setAddClientModalOpen(false)}
-          realtorName={currentUser.displayName}
-          realtorId={currentUser.uid}
+  /* ---------------------- Render Helpers ---------------------- */
+  const searchBar = (
+    <form onSubmit={(e) => { e.preventDefault(); performSearch(address); }} className="flex-1 relative z-50 w-full">
+      <div className="relative group">
+        <input
+          type="text"
+          value={address}
+          onFocus={() => setShowHistory(true)}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="Enter property address..."
+          className="w-full pl-12 pr-44 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none shadow-inner focus:shadow-lg transition-all text-xs font-medium"
         />
+        <i className="fa-solid fa-house-laptop absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+          {propertyData && (
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleFavorite(); }}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isFavorited ? 'bg-rose-50 text-rose-500 shadow-inner' : 'bg-slate-200/50 text-slate-400 hover:text-rose-400 hover:bg-rose-50'}`}
+              title={isFavorited ? "Remove from Favorites" : "Add to Favorites"}
+            >
+              <i className={`${isFavorited ? 'fa-solid' : 'fa-regular'} fa-heart text-sm`}></i>
+            </button>
+          )}
+          <button type="submit" disabled={loading} className="bg-indigo-700 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-200">Analyze</button>
+        </div>
+      </div>
+
+      {showHistory && (searchHistory.length > 0 || cloudHistory.length > 0 || favorites.length > 0) && (
+        <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[60]">
+          <div className="flex items-center justify-between px-4 py-2 bg-slate-50/50 border-b border-slate-100">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Search History</span>
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowHistory(false); }}
+              className="w-6 h-6 rounded-lg hover:bg-white hover:shadow-sm text-slate-400 hover:text-slate-600 transition-all flex items-center justify-center"
+            >
+              <i className="fa-solid fa-xmark text-xs"></i>
+            </button>
+          </div>
+          <div className="max-h-[300px] overflow-y-auto p-2">
+            {favorites.length > 0 && (
+              <div className="mb-2">
+                <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-rose-500 uppercase tracking-widest flex items-center gap-2">
+                  <i className="fa-solid fa-heart"></i>
+                  Favorites
+                </div>
+                {favorites.map((item: any, idx) => (
+                  <div key={`fav-wrapper-${idx}`} className="group relative">
+                    <button
+                      onClick={() => handleHistoryItemClick(item.address)}
+                      className="w-full text-left px-4 py-3 rounded-xl hover:bg-rose-50/50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between"
+                    >
+                      <span className="truncate pr-8">{item.address}</span>
+                      <i className="fa-solid fa-heart text-rose-500 text-xs"></i>
+                    </button>
+                    <button
+                      onClick={(e) => handleRemoveFavoriteItem(e, item)}
+                      className="absolute right-10 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all"
+                      title="Remove from favorites"
+                    >
+                      <i className="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {searchHistory.length > 0 && (
+              <div className="mb-2">
+                <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-indigo-400 uppercase tracking-widest flex items-center gap-2 border-t border-gray-100 mt-2 pt-4 first:border-t-0 first:mt-0 first:pt-2">
+                  <i className="fa-solid fa-clock-rotate-left"></i>
+                  Recent Searches
+                </div>
+                {searchHistory.map((item, idx) => (
+                  <button
+                    key={`local-${idx}`}
+                    onClick={() => handleHistoryItemClick(item.address)}
+                    className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between group"
+                  >
+                    <span className="truncate">{item.address}</span>
+                    <i className="fa-solid fa-arrow-right -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all text-indigo-500 text-xs"></i>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {cloudHistory.length > 0 && (
+              <div>
+                <div className="px-3 py-2 text-[10px] font-black pointer-events-none select-none text-indigo-400 uppercase tracking-widest flex items-center gap-2 border-t border-gray-100 mt-2 pt-4">
+                  <i className="fa-solid fa-cloud"></i>
+                  Saved History
+                </div>
+                {cloudHistory.map((item: any, idx) => (
+                  <button
+                    key={`cloud-${idx}`}
+                    onClick={() => handleHistoryItemClick(item.address)}
+                    className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors flex items-center justify-between group"
+                  >
+                    <span className="truncate">{item.address}</span>
+                    <i className="fa-solid fa-cloud-arrow-down -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all text-indigo-500 text-xs"></i>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
+    </form>
+  );
 
-      <ClientHub
-        realtorId={currentUser.uid}
-        realtorName={currentUser.displayName}
-        onSignOut={handleSignOut}
-        onBack={() => transitionToView('main')} // This might be redundant now
-        exploreContent={exploreTab}
-        initialTab={(viewMode === 'main' || viewMode === 'visual-report' || viewMode === 'comprehensive-report' ? 'explore' : viewMode) as any}
-        onNavigate={transitionToView}
-        onUpdateProfile={(updates) => {
-          setCurrentUser(prev => {
-            if (!prev) return null;
-            const next = { ...prev, ...updates };
-            if (updates.realtor && prev.realtor) {
-              next.realtor = { ...prev.realtor, ...updates.realtor };
-            }
-            return next;
-          });
-        }}
-      />
+  const exploreTab = (
+    <ExploreTab
+      propertyData={propertyData}
+      loading={loading}
+      loadingSublabel={loadingSublabel}
+      viewMode={(viewMode === 'dashboard' || viewMode === 'guides' || viewMode === 'explore') ? 'main' : viewMode} // Fallback just in case
+      setViewMode={transitionToView as any}
+      imagesLoading={imagesLoading}
+      isFavorited={isFavorited}
+      onToggleFavorite={handleToggleFavorite}
+      onRunCustomAnalysis={handleRunCustomAnalysis}
+      customAnalysis={customAnalysis}
+      customAnalysisLoading={customAnalysisLoading}
+      onRunComprehensive={handleRunComprehensive}
+      comprehensiveAnalysis={comprehensiveAnalysis}
+      comprehensiveLoading={comprehensiveLoading}
+      onUpdateAnalysis={async (updated) => {
+        setCustomAnalysis(updated);
+        if (propertyData?.zpid) {
+          await saveVisualAnalysisToCloud(propertyData.zpid, updated);
+        }
+      }}
+      addLog={addLog}
+      logs={logs}
+      userRole={currentUser?.role}
+      searchBar={searchBar}
+    />
+  );
 
-      {/* Chat Interface needs to be rendered at top level if it's fixed? 
+  /* ------------------- Render Logic ------------------- */
+
+  if (viewMode === 'legal-disclaimer') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        <div className="flex-1"><LegalDisclaimer /></div>
+        <Footer onNavigate={transitionToView} />
+      </div>
+    );
+  }
+
+  if (viewMode === 'terms') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        <div className="flex-1"><TermsView /></div>
+        <Footer onNavigate={transitionToView} />
+      </div>
+    );
+  }
+
+  if (viewMode === 'privacy') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        <div className="flex-1"><PrivacyPolicy /></div>
+        <Footer onNavigate={transitionToView} />
+      </div>
+    );
+  }
+
+  // REALTOR LAYOUT: Merged ClientHub + Homepage
+  if (currentUser?.role === 'realtor') {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
+        <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} inviteData={inviteData} />
+        {currentUser && (
+          <AddClientModal
+            isOpen={addClientModalOpen}
+            onClose={() => setAddClientModalOpen(false)}
+            realtorName={currentUser.displayName}
+            realtorId={currentUser.uid}
+          />
+        )}
+
+        <ClientHub
+          realtorId={currentUser.uid}
+          realtorName={currentUser.displayName}
+          onSignOut={handleSignOut}
+          onBack={() => transitionToView('main')} // This might be redundant now
+          exploreContent={exploreTab}
+          initialTab={(viewMode === 'main' || viewMode === 'visual-report' || viewMode === 'comprehensive-report' ? 'explore' : viewMode) as any}
+          onNavigate={transitionToView}
+          onUpdateProfile={(updates) => {
+            setCurrentUser(prev => {
+              if (!prev) return null;
+              const next = { ...prev, ...updates };
+              if (updates.realtor && prev.realtor) {
+                next.realtor = { ...prev.realtor, ...updates.realtor };
+              }
+              return next;
+            });
+          }}
+        />
+
+        {/* Chat Interface needs to be rendered at top level if it's fixed? 
             Actually ClientHub is z-100. ChatInterface is usually z-50.
             Need to ensure ChatInterface works. It is fixed bottom right. 
             If ClientHub is fixed inset-0, ChatInterface might be hidden if z-index is lower. 
@@ -864,127 +864,127 @@ if (currentUser?.role === 'realtor') {
             it should appear on top of ClientHub's white background.
             We should double check z-index of ChatInterface in the file if possible, or just trust ExploreTab.
         */}
-    </div>
-  );
-}
-
-// STANDARD LAYOUT (Non-Realtor / Guest)
-return (
-  <div className={`${(viewMode === 'knowledge_center' || viewMode === 'guides') ? 'h-screen' : 'min-h-screen'} bg-slate-50 flex flex-col`}>
-    {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
-    <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} inviteData={inviteData} />
-
-    {/* Top Bar (Visible if not in knowledge mode OR if user is signed in) */}
-    {((viewMode !== 'knowledge_center' && viewMode !== 'guides' && window.location.pathname !== '/') || currentUser) && (
-      <div className="py-4 px-4 bg-slate-900 text-white border-b border-white/5 relative z-[60]">
-        <div className="max-w-7xl mx-auto flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em]">
-          <div className="flex items-center gap-3">
-            {currentUser ? (
-              <>
-                <span className="opacity-40">Intelligence Access:</span>
-                <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] border border-indigo-500/30">PRO</span>
-                <span className="hidden sm:inline opacity-20">|</span>
-                <span className="hidden sm:inline opacity-40">
-                  {realtorName ? `Client of ${realtorName}` : (currentUser.role === 'realtor' && currentUser.email === 'ashu.jain.iitk@gmail.com' ? 'System Admin Account' : `${currentUser.role} Account`)}
-                </span>
-              </>
-            ) : (
-              <span className="text-slate-500"></span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-6">
-            <button
-              onClick={() => transitionToView(viewMode === 'knowledge_center' ? 'main' : 'knowledge_center')}
-              className="text-white/60 hover:text-white transition-colors flex items-center gap-2"
-            >
-              <i className={`fa-solid ${viewMode === 'knowledge_center' ? 'fa-house' : 'fa-book-open'} text-[10px]`}></i>
-              {viewMode === 'knowledge_center' ? 'BACK TO EXPLORE' : 'LEARN'}
-            </button>
-            {currentUser && (
-              <>
-                <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
-                <div className="flex items-center gap-4">
-                  <span className="text-indigo-400 tracking-[0.3em] font-black uppercase text-[10px]">{currentUser.displayName}</span>
-                  <button onClick={handleSignOut} className="text-white hover:text-rose-400 transition-colors">SIGN OUT</button>
-                  <button onClick={() => handleDeleteAccount()} className="text-slate-500 hover:text-rose-500 transition-colors"><i className="fa-solid fa-trash-can"></i></button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
       </div>
-    )}
+    );
+  }
 
-    {viewMode !== 'guides' && (
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 py-3 shadow-sm backdrop-blur-md bg-white/90">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-4">
-            <Logo size={80} className="scale-75 md:scale-90 origin-left" onClick={() => transitionToView('main')} />
+  // STANDARD LAYOUT (Non-Realtor / Guest)
+  return (
+    <div className={`${(viewMode === 'knowledge_center' || viewMode === 'guides') ? 'h-screen' : 'min-h-screen'} bg-slate-50 flex flex-col`}>
+      {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} inviteData={inviteData} />
 
-          </div>
-        </div>
-      </header>
-    )}
+      {/* Top Bar (Visible if not in knowledge mode OR if user is signed in) */}
+      {((viewMode !== 'knowledge_center' && viewMode !== 'guides' && window.location.pathname !== '/') || currentUser) && (
+        <div className="py-4 px-4 bg-slate-900 text-white border-b border-white/5 relative z-[60]">
+          <div className="max-w-7xl mx-auto flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em]">
+            <div className="flex items-center gap-3">
+              {currentUser ? (
+                <>
+                  <span className="opacity-40">Intelligence Access:</span>
+                  <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] border border-indigo-500/30">PRO</span>
+                  <span className="hidden sm:inline opacity-20">|</span>
+                  <span className="hidden sm:inline opacity-40">
+                    {realtorName ? `Client of ${realtorName}` : (currentUser.role === 'realtor' && currentUser.email === 'ashu.jain.iitk@gmail.com' ? 'System Admin Account' : `${currentUser.role} Account`)}
+                  </span>
+                </>
+              ) : (
+                <span className="text-slate-500"></span>
+              )}
+            </div>
 
-    <main className={`flex-1 w-full ${(viewMode === 'knowledge_center' || viewMode === 'guides') ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 overflow-y-auto'}`}>
-      {error && <div className="bg-rose-50 border border-rose-100 text-rose-700 p-4 rounded-2xl mb-8">{error}</div>}
-
-      {viewMode === 'realtor-landing' ? (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8 animate-in fade-in zoom-in duration-500">
-          <div className="relative">
-            <div className="absolute -inset-4 bg-indigo-500/20 blur-xl rounded-full"></div>
-            <Logo size={96} className="relative drop-shadow-xl" />
-          </div>
-          <div className="max-w-md space-y-4">
-            <h1 className="text-4xl font-black text-slate-900 tracking-tight">Realtor Access</h1>
-            <p className="text-slate-500 font-medium leading-relaxed text-lg">
-              Sign in to access your professional dashboard, manage leads, and generate intelligent property reports.
-            </p>
-          </div>
-          <div className="flex flex-col items-center gap-6">
-            <button
-              onClick={() => setAuthModalOpen(true)}
-              className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 transition-all transform hover:scale-105 active:scale-95 flex items-center gap-3 text-lg"
-            >
-              <span>Sign In to Zyphe</span>
-              <i className="fa-solid fa-arrow-right"></i>
-            </button>
-
-            <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <div className="flex items-center gap-6">
               <button
-                onClick={() => {
-                  alert("Please sign in first to reset your specific account data. You can also find these options in 'Data Fields' once logged in.");
-                }}
-                className="hover:text-rose-500 transition-colors"
+                onClick={() => transitionToView(viewMode === 'knowledge_center' ? 'main' : 'knowledge_center')}
+                className="text-white/60 hover:text-white transition-colors flex items-center gap-2"
               >
-                <i className="fa-solid fa-trash-can mr-2"></i>
-                Reset Data
+                <i className={`fa-solid ${viewMode === 'knowledge_center' ? 'fa-house' : 'fa-book-open'} text-[10px]`}></i>
+                {viewMode === 'knowledge_center' ? 'BACK TO EXPLORE' : 'LEARN'}
               </button>
-              <span className="opacity-20 text-slate-300">|</span>
-              <button
-                onClick={() => {
-                  alert("Please sign in first to seed your specific account data. You can also find these options in 'Data Fields' once logged in.");
-                }}
-                className="hover:text-indigo-600 transition-colors"
-              >
-                <i className="fa-solid fa-database mr-2"></i>
-                Add Mock Data
-              </button>
+              {currentUser && (
+                <>
+                  <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-indigo-400 tracking-[0.3em] font-black uppercase text-[10px]">{currentUser.displayName}</span>
+                    <button onClick={handleSignOut} className="text-white hover:text-rose-400 transition-colors">SIGN OUT</button>
+                    <button onClick={() => handleDeleteAccount()} className="text-slate-500 hover:text-rose-500 transition-colors"><i className="fa-solid fa-trash-can"></i></button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
-      ) : (viewMode === 'knowledge_center' || viewMode === 'guides' || !currentUser ? (
-        <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500">
+      )}
 
-          <GuidesTab onNavigate={transitionToView} />
-        </div>
-      ) : exploreTab)}
+      {viewMode !== 'guides' && (
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-50 py-3 shadow-sm backdrop-blur-md bg-white/90">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between gap-4">
+              <Logo size={80} className="scale-75 md:scale-90 origin-left" onClick={() => transitionToView('main')} />
 
-      <Footer onNavigate={transitionToView} />
-    </main>
-  </div>
-);
+            </div>
+          </div>
+        </header>
+      )}
+
+      <main className={`flex-1 w-full ${(viewMode === 'knowledge_center' || viewMode === 'guides') ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 overflow-y-auto'}`}>
+        {error && <div className="bg-rose-50 border border-rose-100 text-rose-700 p-4 rounded-2xl mb-8">{error}</div>}
+
+        {viewMode === 'realtor-landing' ? (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8 animate-in fade-in zoom-in duration-500">
+            <div className="relative">
+              <div className="absolute -inset-4 bg-indigo-500/20 blur-xl rounded-full"></div>
+              <Logo size={96} className="relative drop-shadow-xl" />
+            </div>
+            <div className="max-w-md space-y-4">
+              <h1 className="text-4xl font-black text-slate-900 tracking-tight">Realtor Access</h1>
+              <p className="text-slate-500 font-medium leading-relaxed text-lg">
+                Sign in to access your professional dashboard, manage leads, and generate intelligent property reports.
+              </p>
+            </div>
+            <div className="flex flex-col items-center gap-6">
+              <button
+                onClick={() => setAuthModalOpen(true)}
+                className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 transition-all transform hover:scale-105 active:scale-95 flex items-center gap-3 text-lg"
+              >
+                <span>Sign In to Zyphe</span>
+                <i className="fa-solid fa-arrow-right"></i>
+              </button>
+
+              <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <button
+                  onClick={() => {
+                    alert("Please sign in first to reset your specific account data. You can also find these options in 'Data Fields' once logged in.");
+                  }}
+                  className="hover:text-rose-500 transition-colors"
+                >
+                  <i className="fa-solid fa-trash-can mr-2"></i>
+                  Reset Data
+                </button>
+                <span className="opacity-20 text-slate-300">|</span>
+                <button
+                  onClick={() => {
+                    alert("Please sign in first to seed your specific account data. You can also find these options in 'Data Fields' once logged in.");
+                  }}
+                  className="hover:text-indigo-600 transition-colors"
+                >
+                  <i className="fa-solid fa-database mr-2"></i>
+                  Add Mock Data
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (viewMode === 'knowledge_center' || viewMode === 'guides' || !currentUser ? (
+          <div className="bg-white shadow-2xl overflow-hidden flex-1 min-h-0 flex flex-col animate-in fade-in duration-500">
+
+            <GuidesTab onNavigate={transitionToView} />
+          </div>
+        ) : exploreTab)}
+
+        <Footer onNavigate={transitionToView} />
+      </main>
+    </div>
+  );
 };
 
 export default App;

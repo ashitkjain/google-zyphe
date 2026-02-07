@@ -246,32 +246,34 @@ const LeadsList: React.FC<InternalProps> = ({
 
             {/* List View */}
             {currentDisplayMode === 'list' && (
-                <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
-                    <div className="px-8 pt-4">
-                        <LeadsViewControls
-                            activeTab={activeTab === 'Buyer' ? 'Buyer' : 'Seller'}
-                            activeFunnelCategory={activeTab === 'Buyer' ? buyerFunnelCategory : (activeTab === 'Buyer2' ? buyer2FunnelCategory : sellerFunnelCategory)}
-                            onFunnelCategoryChange={(cat) => {
-                                if (activeTab === 'Buyer') setBuyerFunnelCategory(cat);
-                                else if (activeTab === 'Buyer2') setBuyer2FunnelCategory(cat);
-                                else setSellerFunnelCategory(cat);
-                            }}
-                            selectedCount={selectedIds.size}
-                            onArchive={handleBulkArchive}
-                            showFilters={false}
-                            setShowFilters={() => { }}
-                            displayMode="gallery" // Use gallery style controls
-                            setDisplayMode={setCurrentDisplayMode}
+                <DragDropContext onDragEnd={handleDragEnd}>
+                    <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
+                        <div className="px-8 pt-4">
+                            <LeadsViewControls
+                                activeTab={activeTab === 'Buyer' ? 'Buyer' : 'Seller'}
+                                activeFunnelCategory={activeTab === 'Buyer' ? buyerFunnelCategory : (activeTab === 'Buyer2' ? buyer2FunnelCategory : sellerFunnelCategory)}
+                                onFunnelCategoryChange={(cat) => {
+                                    if (activeTab === 'Buyer') setBuyerFunnelCategory(cat);
+                                    else if (activeTab === 'Buyer2') setBuyer2FunnelCategory(cat);
+                                    else setSellerFunnelCategory(cat);
+                                }}
+                                selectedCount={selectedIds.size}
+                                onArchive={handleBulkArchive}
+                                showFilters={false}
+                                setShowFilters={() => { }}
+                                displayMode="gallery" // Use gallery style controls
+                                setDisplayMode={setCurrentDisplayMode}
+                            />
+                        </div>
+                        <LeadsListView
+                            leads={activeTab === 'Buyer' ? buyerLeads : sellerLeads}
+                            onUpdateLead={onUpdateLead}
+                            realtorId={realtorId}
+                            activeTab={activeTab}
+                            onActivateLead={(lead) => setSelectedLeadForOverlay(lead)}
                         />
                     </div>
-                    <LeadsListView
-                        leads={activeTab === 'Buyer' ? buyerLeads : sellerLeads}
-                        onUpdateLead={onUpdateLead}
-                        realtorId={realtorId}
-                        activeTab={activeTab}
-                        onActivateLead={(lead) => setSelectedLeadForOverlay(lead)}
-                    />
-                </div>
+                </DragDropContext>
             )}
 
             {selectedLeadForOverlay && (
