@@ -99,144 +99,187 @@ const DailyPulseModal: React.FC<DailyPulseModalProps> = ({ leads, tasks = [], ca
                             </button>
                         </div>
                     ) : report ? (
-                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            {/* 1. Heat Map */}
-                            <div className="grid grid-cols-3 gap-6">
-                                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
-                                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 group-hover:text-amber-500 transition-colors">Active Pursuits</div>
-                                    <div className="text-3xl font-black text-slate-800">{report.summary.activePursuits}</div>
-                                    <div className="mt-2 text-[10px] text-slate-400 font-bold">Warm or Hot leads</div>
+                        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                            {/* 1. Heat Map - Top Metrics */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="bg-white p-7 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:scale-[1.02] transition-all group">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                                            <i className="fa-solid fa-fire-flame-curved"></i>
+                                        </div>
+                                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Active Pursuits</div>
+                                    </div>
+                                    <div className="text-4xl font-black text-slate-800 tracking-tight">{report.summary.activePursuits}</div>
+                                    <div className="mt-2 text-[10px] text-slate-400 font-bold">Warm or Hot leads in play</div>
                                 </div>
-                                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
-                                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 group-hover:text-red-500 transition-colors">Neglected Leads</div>
-                                    <div className="text-3xl font-black text-red-600">{report.summary.neglectedLeads}</div>
+                                <div className="bg-white p-7 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:scale-[1.02] transition-all group">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-8 h-8 rounded-xl bg-red-50 flex items-center justify-center text-red-500 group-hover:bg-red-500 group-hover:text-white transition-colors">
+                                            <i className="fa-solid fa-hourglass-start"></i>
+                                        </div>
+                                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Neglected Leads</div>
+                                    </div>
+                                    <div className="text-4xl font-black text-red-600 tracking-tight">{report.summary.neglectedLeads}</div>
                                     <div className="mt-2 text-[10px] text-slate-400 font-bold">No contact {'>'} 48 hours</div>
                                 </div>
-                                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
-                                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 group-hover:text-emerald-500 transition-colors">Pipeline Value</div>
-                                    <div className="text-3xl font-black text-emerald-600">${(report.activePipelineValue / 1000000).toFixed(1)}M</div>
-                                    <div className="mt-2 text-[10px] text-slate-400 font-bold">Active budget total</div>
+                                <div className="bg-white p-7 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:scale-[1.02] transition-all group">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                                            <i className="fa-solid fa-chart-line"></i>
+                                        </div>
+                                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Pipeline Value</div>
+                                    </div>
+                                    <div className="text-4xl font-black text-emerald-600 tracking-tight">${(report.activePipelineValue / 1000000).toFixed(1)}M</div>
+                                    <div className="mt-2 text-[10px] text-slate-400 font-bold">Active budget total volume</div>
                                 </div>
                             </div>
 
+                            {/* 2. Intelligence Layer: Must Call & Red Flags */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                {/* 2. The Daily 5 */}
-                                <div className="lg:col-span-2 space-y-4">
-                                    <div className="flex items-center gap-2 px-2">
-                                        <i className="fa-solid fa-star text-amber-400"></i>
-                                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">The Daily 5 (Must Call)</h3>
+                                {/* The Daily 5 */}
+                                <div className="lg:col-span-2 space-y-6">
+                                    <div className="flex items-center justify-between px-2">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-2xl bg-amber-400 flex items-center justify-center text-white shadow-lg shadow-amber-100">
+                                                <i className="fa-solid fa-star"></i>
+                                            </div>
+                                            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">The Daily 5 (Must Action)</h3>
+                                        </div>
+                                        <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-3 py-1 rounded-full uppercase tracking-widest">Top Focus</span>
                                     </div>
-                                    <div className="space-y-3">
+                                    <div className="grid grid-cols-1 gap-4">
                                         {report.dailyFive.map((item, idx) => (
-                                            <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:border-indigo-200 transition-colors flex items-center gap-4 group">
-                                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 font-black text-sm transition-colors">
+                                            <div key={idx} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:border-indigo-300 hover:shadow-lg transition-all flex items-start gap-5 group cursor-pointer">
+                                                <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-600 group-hover:text-white font-black text-lg transition-all shadow-inner">
                                                     {idx + 1}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="flex items-baseline gap-2 flex-wrap">
-                                                        <div className="text-sm font-black text-slate-800">{item.name}</div>
-                                                        {item.type && <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{item.type}</div>}
-                                                        {item.phone && <div className="text-[10px] font-bold text-indigo-400/80 font-mono tracking-tighter bg-indigo-50/30 px-1.5 py-0.5 rounded border border-indigo-100/50">{item.phone}</div>}
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="text-base font-black text-slate-800 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{item.name}</div>
+                                                            {item.type && <div className="text-[8px] font-black text-white bg-slate-900 px-2 py-0.5 rounded uppercase tracking-[0.15em]">{item.type}</div>}
+                                                        </div>
+                                                        {item.phone && <div className="text-[11px] font-black text-indigo-500 font-mono tracking-tighter hover:scale-105 transition-transform">{item.phone}</div>}
                                                     </div>
-                                                    <p className="text-xs text-slate-500 font-medium leading-relaxed mt-1 line-clamp-2">{item.reason}</p>
+                                                    <p className="text-xs text-slate-500 font-bold leading-relaxed">{item.reason}</p>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
 
-                                {/* 3. Schedule/Agenda */}
+                                {/* Red Flags */}
                                 <div className="space-y-6">
-                                    <div className="space-y-4">
-                                        <div className="flex items-center gap-2 px-2">
-                                            <i className="fa-solid fa-calendar-check text-indigo-500"></i>
-                                            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Today's Agenda</h3>
+                                    <div className="flex items-center gap-3 px-2">
+                                        <div className="w-10 h-10 rounded-2xl bg-rose-500 flex items-center justify-center text-white shadow-lg shadow-rose-100">
+                                            <i className="fa-solid fa-triangle-exclamation"></i>
                                         </div>
-                                        <div className="bg-white rounded-[2rem] border border-slate-100 p-6 space-y-6">
-                                            {/* Meetings */}
-                                            <div className="space-y-3">
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Meetings</div>
-                                                {report.todayMeetings.length > 0 ? report.todayMeetings.map((m, i) => (
-                                                    <div key={i} className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border-l-2 border-emerald-400">
-                                                        <div className="text-[10px] font-black text-indigo-600 w-12">{m.time}</div>
-                                                        <div className="text-[11px] font-bold text-slate-800 line-clamp-1">{m.title}</div>
-                                                    </div>
-                                                )) : <div className="text-[10px] text-slate-400 italic px-2">No meetings today</div>}
-                                            </div>
-
-                                            {/* Today's Tasks */}
-                                            <div className="space-y-3">
-                                                <div className="flex items-center justify-between px-1">
-                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tasks Due Today</div>
-                                                    {report.todayTasks.length > 3 && (
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); setShowAllTodayTasks(!showAllTodayTasks); }}
-                                                            className="text-[9px] font-bold text-indigo-500 hover:text-indigo-700 transition-colors uppercase tracking-wider"
-                                                        >
-                                                            {showAllTodayTasks ? 'Show Less' : 'See More'}
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                {report.todayTasks.length > 0 ? (showAllTodayTasks ? report.todayTasks : report.todayTasks.slice(0, 3)).map((t, i) => (
-                                                    <div key={i} className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border-l-2 border-indigo-400">
-                                                        <div className="flex-1 text-[11px] font-bold text-slate-800 line-clamp-1">{t.name}</div>
-                                                        <div className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${t.priority === 'Urgent' ? 'bg-rose-100 text-rose-600' : 'bg-slate-200 text-slate-600'}`}>
-                                                            {t.priority}
+                                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest text-rose-600">Red Flags</h3>
+                                    </div>
+                                    <div className="space-y-4">
+                                        {report.redFlags.map((item, idx) => (
+                                            <div key={idx} className="bg-white p-6 rounded-3xl border border-rose-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+                                                <div className="absolute top-0 right-0 w-16 h-16 -mr-8 -mt-8 bg-rose-50 rounded-full group-hover:scale-110 transition-transform"></div>
+                                                <div className="relative z-10">
+                                                    <div className="text-sm font-black text-slate-800 mb-2">{item.name}</div>
+                                                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                                                        <div className="text-[8px] font-black text-rose-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                            <span className="w-1 h-1 rounded-full bg-rose-500 animate-pulse"></span>
+                                                            Critical Hook
                                                         </div>
+                                                        <p className="text-[11px] text-slate-600 font-black leading-relaxed italic">"{item.hook}"</p>
                                                     </div>
-                                                )) : <div className="text-[10px] text-slate-400 italic px-2">No tasks due today</div>}
-                                            </div>
-
-                                            {/* Upcoming Tasks */}
-                                            <div className="space-y-3">
-                                                <div className="flex items-center justify-between px-1">
-                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Next 3 Days</div>
-                                                    {report.upcomingTasks.length > 3 && (
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); setShowAllUpcomingTasks(!showAllUpcomingTasks); }}
-                                                            className="text-[9px] font-bold text-indigo-500 hover:text-indigo-700 transition-colors uppercase tracking-wider"
-                                                        >
-                                                            {showAllUpcomingTasks ? 'Show Less' : 'See More'}
-                                                        </button>
-                                                    )}
                                                 </div>
-                                                {report.upcomingTasks.length > 0 ? (showAllUpcomingTasks ? report.upcomingTasks : report.upcomingTasks.slice(0, 3)).map((t, i) => (
-                                                    <div key={i} className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border-l-2 border-slate-300">
-                                                        <div className="flex-1 text-[11px] font-bold text-slate-800 line-clamp-1">{t.name}</div>
-                                                        <div className="text-[9px] font-black text-slate-400 whitespace-nowrap">{t.dueDate}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 3. Schedule & Agenda Layer */}
+                            <div className="space-y-6">
+                                <div className="flex items-center gap-3 px-2">
+                                    <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-100">
+                                        <i className="fa-solid fa-calendar-day"></i>
+                                    </div>
+                                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Operation Intelligence</h3>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    {/* Meetings Card */}
+                                    <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
+                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-5 pb-3 border-b border-slate-50">Today's Meetings</div>
+                                        <div className="space-y-4">
+                                            {report.todayMeetings.length > 0 ? report.todayMeetings.map((m, i) => (
+                                                <div key={i} className="flex items-start gap-4 p-3 rounded-2xl bg-emerald-50/50 border border-emerald-100/50 group hover:bg-emerald-50 transition-colors">
+                                                    <div className="text-[10px] font-black text-emerald-600 bg-white px-2 py-1 rounded shadow-sm self-start">{m.time}</div>
+                                                    <div className="text-[11px] font-black text-slate-800 leading-snug">{m.title}</div>
+                                                </div>
+                                            )) : <div className="text-[10px] text-slate-400 italic text-center py-4">No meetings scheduled</div>}
+                                        </div>
+                                    </div>
+
+                                    {/* Tasks Today Card */}
+                                    <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
+                                        <div className="flex items-center justify-between mb-5 pb-3 border-b border-slate-50">
+                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Today's Tasks</div>
+                                            {report.todayTasks.length > 3 && (
+                                                <button onClick={() => setShowAllTodayTasks(!showAllTodayTasks)} className="text-[9px] font-black text-indigo-500 hover:text-indigo-700 transition-colors tracking-widest">
+                                                    {showAllTodayTasks ? 'LESS' : 'MORE'}
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="space-y-4">
+                                            {report.todayTasks.length > 0 ? (showAllTodayTasks ? report.todayTasks : report.todayTasks.slice(0, 3)).map((t, i) => (
+                                                <div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-indigo-50/50 border border-indigo-100/50 group hover:bg-indigo-50 transition-colors">
+                                                    <div className="flex-1 text-[11px] font-black text-slate-800 line-clamp-1">{t.name}</div>
+                                                    <div className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md ${t.priority === 'Urgent' ? 'bg-rose-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500'}`}>
+                                                        {t.priority}
                                                     </div>
-                                                )) : <div className="text-[10px] text-slate-400 italic px-2">No upcoming tasks</div>}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* 4. Market Whisper / Red Flags */}
-                                    <div className="space-y-4">
-                                        <div className="flex items-center gap-2 px-2">
-                                            <i className="fa-solid fa-circle-exclamation text-red-500"></i>
-                                            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Red Flags</h3>
-                                        </div>
-                                        <div className="space-y-3">
-                                            {report.redFlags.map((item, idx) => (
-                                                <div key={idx} className="bg-white p-4 rounded-2xl border border-red-50 shadow-sm">
-                                                    <div className="text-[11px] font-black text-slate-800">{item.name}</div>
-                                                    <p className="text-[10px] text-slate-500 font-medium mt-1 leading-relaxed">
-                                                        <span className="text-red-600 font-bold uppercase text-[8px] mr-1">Hook:</span>
-                                                        "{item.hook}"
-                                                    </p>
                                                 </div>
-                                            ))}
+                                            )) : <div className="text-[10px] text-slate-400 italic text-center py-4">No pending tasks for today</div>}
                                         </div>
                                     </div>
 
-                                    {/* Agent Pro Tip */}
-                                    <div className="bg-indigo-600 p-6 rounded-[2rem] text-white shadow-xl shadow-indigo-200 relative overflow-hidden group">
-                                        <i className="fa-solid fa-lightbulb absolute -right-4 -bottom-4 text-8xl text-indigo-500/30 group-hover:scale-110 transition-transform"></i>
-                                        <div className="relative z-10">
-                                            <div className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Agent Pro Tip</div>
-                                            <p className="text-sm font-bold leading-relaxed">{report.proTip}</p>
+                                    {/* Next 3 Days Card */}
+                                    <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
+                                        <div className="flex items-center justify-between mb-5 pb-3 border-b border-slate-50">
+                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">The Next 72 Hours</div>
+                                            {report.upcomingTasks.length > 3 && (
+                                                <button onClick={() => setShowAllUpcomingTasks(!showAllUpcomingTasks)} className="text-[9px] font-black text-indigo-500 hover:text-indigo-700 transition-colors tracking-widest">
+                                                    {showAllUpcomingTasks ? 'LESS' : 'MORE'}
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="space-y-4">
+                                            {report.upcomingTasks.length > 0 ? (showAllUpcomingTasks ? report.upcomingTasks : report.upcomingTasks.slice(0, 3)).map((t, i) => (
+                                                <div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-100 group hover:border-slate-300 transition-all">
+                                                    <div className="flex-1 text-[11px] font-black text-slate-800 line-clamp-1">{t.name}</div>
+                                                    <div className="text-[8px] font-black text-slate-400 whitespace-nowrap bg-white px-2 py-1 rounded shadow-sm">{t.dueDate}</div>
+                                                </div>
+                                            )) : <div className="text-[10px] text-slate-400 italic text-center py-4">Clear schedule ahead</div>}
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* 4. Agent Pro Tip - Final Feature */}
+                            <div className="bg-gradient-to-r from-indigo-600 to-indigo-900 p-8 rounded-[3rem] text-white shadow-2xl relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 w-64 h-64 -mr-32 -mt-32 bg-white/5 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-1000"></div>
+                                <div className="absolute bottom-0 left-0 w-48 h-48 -ml-24 -mb-24 bg-indigo-400/10 rounded-full blur-2xl"></div>
+                                <div className="relative z-10 flex items-center gap-8">
+                                    <div className="hidden md:flex w-20 h-20 rounded-3xl bg-white/10 backdrop-blur-md items-center justify-center text-3xl shadow-2xl border border-white/20">
+                                        <i className="fa-solid fa-lightbulb text-amber-300 animate-pulse"></i>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                            <div className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-200">Intelligence Briefing Pro Tip</div>
+                                        </div>
+                                        <p className="text-lg font-black leading-relaxed tracking-tight opacity-95">
+                                            {report.proTip}
+                                        </p>
+                                    </div>
+                                    <i className="fa-solid fa-bolt-lightning absolute -right-4 -bottom-4 text-[10rem] text-white/5 rotate-12"></i>
                                 </div>
                             </div>
                         </div>
