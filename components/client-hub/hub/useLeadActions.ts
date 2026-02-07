@@ -111,7 +111,7 @@ export const useLeadActions = (
         await handleUpdateLead(leadId, updates);
     };
 
-    const handleAddNote = async (leadId: string, content: string, color: string) => {
+    const handleAddNote = async (leadId: string, content: string, color: string, type: LeadNote['type'] = 'general') => {
         if (!content.trim()) return;
         const lead = leads.find(l => l.id === leadId);
         if (!lead) return;
@@ -121,7 +121,7 @@ export const useLeadActions = (
             content: content,
             timestamp: new Date(),
             color: color,
-            type: 'general'
+            type: type
         };
 
         const updatedLeadNotes = [newNote, ...(lead.leadNotes || [])];
@@ -136,8 +136,11 @@ export const useLeadActions = (
     };
 
     const handleSaveLeadNote = async (content: string) => {
-        if (!pendingNote || !content.trim()) return;
-        await handleAddNote(pendingNote.leadId, content, pendingNote.color);
+        if (!pendingNote || !content.trim()) {
+            setPendingNote(null);
+            return;
+        }
+        await handleAddNote(pendingNote.leadId, content, pendingNote.color, 'sticky');
         setPendingNote(null);
     };
 

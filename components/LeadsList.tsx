@@ -33,11 +33,12 @@ const LeadsList: React.FC<InternalProps> = ({
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [showDailyPulse, setShowDailyPulse] = useState(false);
     const [activeTab, setActiveTab] = useState<'Buyer' | 'Buyer2' | 'Seller'>('Buyer');
-    const [buyerFunnelCategory, setBuyerFunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
-    const [buyer2FunnelCategory, setBuyer2FunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
-    const [sellerFunnelCategory, setSellerFunnelCategory] = useState<FunnelStage | 'Closed & Archived'>('Leads');
+    const [buyerFunnelCategory, setBuyerFunnelCategory] = useState<FunnelStage>('Leads');
+    const [buyer2FunnelCategory, setBuyer2FunnelCategory] = useState<FunnelStage>('Leads');
+    const [sellerFunnelCategory, setSellerFunnelCategory] = useState<FunnelStage>('Leads');
     const [currentDisplayMode, setCurrentDisplayMode] = useState<'gallery' | 'kanban' | 'list'>('kanban');
     const [selectedLeadForOverlay, setSelectedLeadForOverlay] = useState<Lead | null>(null);
+    const [draftContent, setDraftContent] = useState('');
 
     // Filter/Sort State (passed to header)
     const [boardSettings, setBoardSettings] = useState({
@@ -60,13 +61,7 @@ const LeadsList: React.FC<InternalProps> = ({
         // 2. Filter by Funnel Stage (only for Gallery/List view)
         if (currentDisplayMode !== 'kanban') {
             const currentCat = activeTab === 'Buyer' ? buyerFunnelCategory : (activeTab === 'Buyer2' ? buyer2FunnelCategory : sellerFunnelCategory);
-            result = result.filter(l => {
-                if (currentCat === 'Closed & Archived') {
-                    return l.funnelStage === 'Closed' || l.funnelStage === 'Archived';
-                }
-                const stage = l.funnelStage || 'Leads';
-                return stage === currentCat;
-            });
+            result = result.filter(l => (l.funnelStage || 'Leads') === currentCat);
         }
 
         // 3. Search
@@ -227,8 +222,8 @@ const LeadsList: React.FC<InternalProps> = ({
                                         onDoneToggle={() => { }}
                                         onDeleteClick={() => { }}
                                         pendingNote={pendingNote}
-                                        draftContent=""
-                                        setDraftContent={() => { }}
+                                        draftContent={draftContent}
+                                        setDraftContent={setDraftContent}
                                         handleSaveNote={handleSaveNote}
                                         setPendingNote={setPendingNote}
                                         deleteCoords={null}
@@ -261,7 +256,7 @@ const LeadsList: React.FC<InternalProps> = ({
                                 onArchive={handleBulkArchive}
                                 showFilters={false}
                                 setShowFilters={() => { }}
-                                displayMode="gallery" // Use gallery style controls
+                                displayMode="list" // Changed from gallery to list to hide Post-it stack
                                 setDisplayMode={setCurrentDisplayMode}
                             />
                         </div>

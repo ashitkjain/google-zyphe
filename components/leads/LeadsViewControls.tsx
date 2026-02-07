@@ -4,14 +4,14 @@ import PostItPalette from './PostItPalette';
 
 interface LeadsViewControlsProps {
     activeTab: 'Buyer' | 'Seller';
-    activeFunnelCategory: FunnelStage | 'Closed & Archived';
-    onFunnelCategoryChange: (cat: FunnelStage | 'Closed & Archived') => void;
+    activeFunnelCategory: FunnelStage;
+    onFunnelCategoryChange: (cat: FunnelStage) => void;
     selectedCount: number;
     onArchive: () => void;
     showFilters: boolean;
     setShowFilters: (show: boolean) => void;
-    displayMode: 'gallery' | 'kanban';
-    setDisplayMode: (mode: 'gallery' | 'kanban') => void;
+    displayMode: 'gallery' | 'kanban' | 'list';
+    setDisplayMode: (mode: 'gallery' | 'kanban' | 'list') => void;
     onTabChange?: (tab: any) => void;
 }
 
@@ -33,7 +33,7 @@ const LeadsViewControls: React.FC<LeadsViewControlsProps> = ({
                 <div className="flex items-center gap-4">
                     {/* Sub-Category Selector */}
                     <div className="flex bg-slate-100/50 p-1 rounded-xl border border-slate-200/60 shadow-sm">
-                        {['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract', 'Closed & Archived'].map((cat) => (
+                        {['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract'].map((cat) => (
                             <button
                                 key={cat}
                                 onClick={() => onFunnelCategoryChange(cat as any)}
