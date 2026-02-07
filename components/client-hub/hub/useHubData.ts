@@ -4,15 +4,16 @@ import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates, getI
 import { getDefaultReminderRules } from '../../../services/reminderRulesService';
 import { Lead, CRMTask, CommTemplate, ReminderRule, CalendarEvent, UserProfile } from '../../../types';
 
-export const useHubData = (realtorId: string) => {
+export const useHubData = (realtorId: string, activeTab?: string) => {
     const [leads, setLeads] = useState<Lead[]>([]);
     const [tasks, setTasks] = useState<CRMTask[]>([]);
     const [templates, setTemplates] = useState<CommTemplate[]>([]);
     const [reminderRules, setReminderRules] = useState<ReminderRule[]>([]);
     const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
     const [clients, setClients] = useState<UserProfile[]>([]);
-    const [loadingData, setLoadingData] = useState(true);
-    const [loadingClients, setLoadingClients] = useState(true);
+    const [loadingData, setLoadingData] = useState(false);
+    const [loadingClients, setLoadingClients] = useState(false);
+    const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set());
 
     const refreshLeads = async () => {
         const _leads = await getLeads(realtorId, ['leads']);
@@ -32,68 +33,100 @@ export const useHubData = (realtorId: string) => {
     };
 
     useEffect(() => {
-        const initializeHubData = async () => {
+        const fetchCoreData = async () => {
+            if (!realtorId || loadedTabs.has('core')) return;
             setLoadingData(true);
+            try {
+                console.log(`[useHubData] Initializing Core Data (Leads, Tasks)...`);
+                const [_leads, _tasks] = await Promise.all([
+                    getLeads(realtorId, ['leads']),
+                    getTasks(realtorId)
+                ]);
 
-            // 1. Fetch Existing Data
-            let _leads = await getLeads(realtorId, ['leads']);
-            let _tasks = await getTasks(realtorId);
-            let _templates = await getTemplates(realtorId);
-            let _events = await getCalendarEvents(realtorId);
+                // Seed Check (only if leads is empty or forced)
+                const initialLeads: Lead[] = getInitialMockLeads(realtorId);
+                const shouldSeed = _leads.length < 5; // Simpler check for speed
 
-            // 2. Load reminder rules
-            const appRules = getDefaultReminderRules().map(rule => ({
-                ...rule,
-                realtorId
-            }));
-            let dbRules = await getReminderRules(realtorId);
-            const mergedRules = appRules.map(appRule => {
-                const dbRule = dbRules.find(r => r.id === appRule.id);
-                return dbRule ? { ...appRule, ...dbRule } : appRule;
-            });
-            setReminderRules(mergedRules);
+                let finalLeads = _leads;
+                let finalTasks = _tasks;
 
-            // 3. Seed Mock Data if necessary
-            const initialLeads: Lead[] = getInitialMockLeads(realtorId);
-            const shouldSeed = initialLeads.some(l => {
-                const existing = _leads.find(ex => ex.id === l.id);
-                if (!existing) return true;
-                if (l.collectionName && existing.collectionName !== l.collectionName) return true;
-                return false;
-            });
-
-            if (shouldSeed) {
-                const initialTasks = getInitialMockTasks(realtorId);
-                const initialTemplates = getInitialMockTemplates(realtorId);
-                const initialTransactions = getInitialMockTransactions(realtorId);
-                await seedMockData(realtorId, initialLeads, initialTasks, initialTemplates, initialTransactions);
-
-                _leads = await getLeads(realtorId, ['leads']);
-                _tasks = await getTasks(realtorId);
-                _templates = await getTemplates(realtorId);
-                _events = await getCalendarEvents(realtorId);
-            }
-
-            const finalLeads = _leads.map(lead => {
-                if (lead.isMock) {
-                    const mockTemplate = initialLeads.find(l => l.id === lead.id);
-                    if (mockTemplate) return { ...mockTemplate, ...lead };
+                if (shouldSeed) {
+                    console.log("[useHubData] New user or empty leads suspected. Checking for seed...");
+                    const actualShouldSeed = initialLeads.some(l => !_leads.find(ex => ex.id === l.id));
+                    if (actualShouldSeed) {
+                        const initialTasks = getInitialMockTasks(realtorId);
+                        const initialTemplates = getInitialMockTemplates(realtorId);
+                        const initialTransactions = getInitialMockTransactions(realtorId);
+                        await seedMockData(realtorId, initialLeads, initialTasks, initialTemplates, initialTransactions);
+                        const [reLeads, reTasks] = await Promise.all([
+                            getLeads(realtorId, ['leads']),
+                            getTasks(realtorId)
+                        ]);
+                        finalLeads = reLeads;
+                        finalTasks = reTasks;
+                    }
                 }
-                return lead;
-            });
 
-            setLeads(finalLeads);
-            setTasks(_tasks);
-            setTemplates(_templates);
-            setCalendarEvents(_events);
-            setLoadingData(false);
+                const mappedLeads = finalLeads.map(lead => {
+                    if (lead.isMock) {
+                        const mockTemplate = initialLeads.find(l => l.id === lead.id);
+                        if (mockTemplate) return { ...mockTemplate, ...lead };
+                    }
+                    return lead;
+                });
+
+                setLeads(mappedLeads);
+                setTasks(finalTasks);
+                setLoadedTabs(prev => new Set(prev).add('core'));
+            } finally {
+                setLoadingData(false);
+            }
         };
 
-        if (realtorId) {
-            initializeHubData();
-            refreshClients();
+        const fetchExtendedData = async () => {
+            if (!realtorId) return;
+
+            // Calendar Events
+            if ((activeTab === 'calendar' || activeTab === 'leads') && !loadedTabs.has('calendar')) {
+                getCalendarEvents(realtorId).then(evs => {
+                    setCalendarEvents(evs);
+                    setLoadedTabs(prev => new Set(prev).add('calendar'));
+                });
+            }
+
+            // Templates
+            if ((activeTab === 'tasks' || activeTab === 'creative_studio') && !loadedTabs.has('templates')) {
+                getTemplates(realtorId).then(ts => {
+                    setTemplates(ts);
+                    setLoadedTabs(prev => new Set(prev).add('templates'));
+                });
+            }
+
+            // Reminder Rules
+            if ((activeTab === 'reminder_rules' || activeTab === 'reactivate') && !loadedTabs.has('rules')) {
+                // ... (merge rules logic) ...
+                getReminderRules(realtorId).then(dbRules => {
+                    const appRules = getDefaultReminderRules().map(rule => ({ ...rule, realtorId }));
+                    const merged = appRules.map(ar => {
+                        const dr = dbRules.find(r => r.id === ar.id);
+                        return dr ? { ...ar, ...dr } : ar;
+                    });
+                    setReminderRules(merged);
+                    setLoadedTabs(prev => new Set(prev).add('rules'));
+                });
+            }
+
+            // Clients
+            if (activeTab === 'clients' && !loadedTabs.has('clients')) {
+                refreshClients().then(() => setLoadedTabs(prev => new Set(prev).add('clients')));
+            }
+        };
+
+        if (activeTab !== 'explore') {
+            fetchCoreData();
         }
-    }, [realtorId]);
+        fetchExtendedData();
+    }, [realtorId, activeTab]);
 
     const saveReminderRules = async () => {
         console.log(`[useHubData] Starting to save ${reminderRules.length} rules...`);

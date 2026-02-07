@@ -50,7 +50,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     const toolsRef = useRef<HTMLDivElement>(null);
 
     // Hooks
-    const hubData = useHubData(realtorId);
+    const hubData = useHubData(realtorId, activeTab);
     const {
         leads, setLeads, refreshLeads,
         tasks, refreshTasks,
