@@ -4,7 +4,6 @@ import PropertyImages from './PropertyImages';
 import PropertyFacts from './PropertyFacts';
 import AirQualitySection from './AirQualitySection';
 import StreetViewAnalysisSection from './StreetViewAnalysisSection';
-import PollenSection from './PollenSection';
 import PropertyMaps from './PropertyMaps';
 import Logo from './Logo';
 import CustomAIAnalysis from './CustomAIAnalysis';
@@ -88,7 +87,6 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                             <PropertyImages images={propertyData.images} loading={imagesLoading} />
                             <PropertyFacts facts={propertyData.resoFacts} />
                             <AirQualitySection data={propertyData} />
-                            <PollenSection data={propertyData} />
                             <StreetViewAnalysisSection data={propertyData} />
                             <PropertyMaps
                                 mapZoomIn={propertyData.mapZoomIn}

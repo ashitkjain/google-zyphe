@@ -30,97 +30,98 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data }) => {
                     AI Visual Intelligence
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="text-black font-bold">Analysis via Gemini Vision</span>
+                    <span className="text-black font-bold">Google street view</span>
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
                 </div>
             </div>
 
-            {/* Visual Header with Image */}
-            {analysis.imageUrl && (
-                <div className="w-full h-[300px] rounded-[2.5rem] overflow-hidden border border-gray-100 shadow-inner group relative mb-8">
-                    <img
-                        src={analysis.imageUrl}
-                        alt="Property Street View"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[2s]"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60"></div>
-                    <div className="absolute bottom-6 left-8 flex items-center gap-4">
-                        <div className="px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-white text-[10px] font-black uppercase tracking-widest border border-white/30">
-                            <i className="fa-solid fa-street-view mr-2"></i> Actual Neighborhood View
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Curb Appeal Score */}
-                <div className={`p-6 rounded-[2rem] border border-gray-50 flex items-center gap-5 ${getScoreBg(analysis.curbAppealScore)}`}>
-                    <div className={`w-20 h-20 rounded-2xl bg-white flex flex-col items-center justify-center shadow-xl ${getScoreColor(analysis.curbAppealScore)}`}>
-                        <span className="text-3xl font-black leading-none">{analysis.curbAppealScore}</span>
-                        <span className="text-[9px] uppercase font-bold tracking-widest opacity-60">/10</span>
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Curb Appeal</span>
-                        <span className={`text-xl font-black tracking-tight ${getScoreColor(analysis.curbAppealScore)}`}>
-                            {analysis.curbAppealScore >= 8 ? 'Excellent' : analysis.curbAppealScore >= 5 ? 'Average' : 'Needs Work'}
-                        </span>
-                    </div>
-                </div>
-
-                {/* Style & Vibe */}
-                <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 flex flex-col justify-center">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
-                                <i className="fa-solid fa-home text-sm"></i>
+            {/* Compact Global Side-by-Side Layout */}
+            <div className="flex flex-col lg:flex-row gap-6">
+                {/* Visual Side */}
+                {analysis.imageUrl && (
+                    <div className="lg:w-2/5 h-[420px] rounded-[2rem] overflow-hidden border border-gray-100 shadow-inner group relative">
+                        <img
+                            src={analysis.imageUrl}
+                            alt="Property Street View"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[2s]"
+                        />
+                        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent"></div>
+                        <div className="absolute bottom-4 left-4">
+                            <div className="px-3 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-white text-[9px] font-black uppercase tracking-widest border border-white/30">
+                                <i className="fa-solid fa-street-view mr-1.5"></i> Actual Neighborhood View
                             </div>
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Architectural Style</span>
-                        </div>
-                        <div className="text-base font-black text-slate-800 leading-tight pl-11">
-                            {analysis.architecturalStyle}
                         </div>
                     </div>
+                )}
 
-                    <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 flex flex-col justify-center">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-600">
-                                <i className="fa-solid fa-tree text-sm"></i>
+                {/* Information Side */}
+                <div className="flex-1 flex flex-col gap-3">
+                    {/* Top Stats - More Flexible Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className={`p-4 rounded-[1.5rem] border border-gray-50 flex items-center gap-4 ${getScoreBg(analysis.curbAppealScore)} sm:col-span-2 md:col-span-1`}>
+                            <div className={`w-12 h-12 rounded-xl bg-white flex flex-col items-center justify-center shadow-md ${getScoreColor(analysis.curbAppealScore)} flex-shrink-0`}>
+                                <span className="text-lg font-black leading-none">{analysis.curbAppealScore}</span>
+                                <span className="text-[7px] uppercase font-bold tracking-widest opacity-60">/10</span>
                             </div>
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Neighborhood Vibe</span>
+                            <div className="flex flex-col">
+                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Curb Appeal</span>
+                                <span className={`text-[13px] font-black tracking-tight ${getScoreColor(analysis.curbAppealScore)}`}>
+                                    {analysis.curbAppealScore >= 8 ? 'Excellent' : analysis.curbAppealScore >= 5 ? 'Average' : 'Needs Work'}
+                                </span>
+                            </div>
                         </div>
-                        <div className="text-base font-black text-slate-800 leading-tight pl-11">
-                            {analysis.neighborhoodVibe}
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                {/* Garden Description */}
-                <div className="bg-white border border-gray-100 p-6 rounded-[2rem] shadow-sm">
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center">
-                        <i className="fa-solid fa-leaf text-emerald-500 mr-2"></i>
-                        Landscape & Garden
-                    </div>
-                    <p className="text-[13px] text-slate-700 font-normal leading-[1.625]">
-                        {analysis.gardenDescription}
-                    </p>
-                </div>
-
-                {/* Safety & Clutter */}
-                <div className="bg-white border border-gray-100 p-6 rounded-[2rem] shadow-sm relative overflow-hidden">
-                    {analysis.visualClutter && (
-                        <div className="absolute top-0 right-0 bg-amber-50 text-amber-600 px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-widest border-l border-b border-amber-100">
-                            <i className="fa-solid fa-triangle-exclamation mr-1"></i> Visual Clutter Detected
+                        <div className="bg-slate-50/50 p-4 rounded-[1.5rem] border border-slate-100 flex items-center gap-4">
+                            <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 flex-shrink-0">
+                                <i className="fa-solid fa-home text-[10px]"></i>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Architectural Style</span>
+                                <div className="text-[13px] font-black text-slate-800 leading-tight">
+                                    {analysis.architecturalStyle}
+                                </div>
+                            </div>
                         </div>
-                    )}
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center">
-                        <i className="fa-solid fa-shield-halved text-blue-500 mr-2"></i>
-                        Safety & Infrastructure Assessment
+
+                        <div className="bg-slate-50/50 p-4 rounded-[1.5rem] border border-slate-100 flex items-center gap-4 sm:col-span-2 md:col-span-1">
+                            <div className="w-8 h-8 rounded-xl bg-teal-100 flex items-center justify-center text-teal-600 flex-shrink-0">
+                                <i className="fa-solid fa-tree text-[10px]"></i>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Neighborhood Vibe</span>
+                                <div className="text-[13px] font-black text-slate-800 leading-tight">
+                                    {analysis.neighborhoodVibe}
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <p className="text-[13px] text-slate-700 font-normal leading-[1.625]">
-                        {analysis.safetyAssessment}
-                    </p>
+
+                    {/* Landscaping Assessment */}
+                    <div className="bg-white border border-gray-100 p-5 rounded-[1.8rem] shadow-sm flex-1">
+                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 flex items-center">
+                            <i className="fa-solid fa-leaf text-emerald-500 mr-2"></i>
+                            Landscape & Garden Analysis
+                        </div>
+                        <p className="text-[12.5px] text-slate-700 font-normal leading-[1.6]">
+                            {analysis.gardenDescription}
+                        </p>
+                    </div>
+
+                    {/* Safety & Infra Assessment */}
+                    <div className="bg-white border border-gray-100 p-5 rounded-[1.8rem] shadow-sm relative overflow-hidden flex-1">
+                        {analysis.visualClutter && (
+                            <div className="absolute top-0 right-0 bg-amber-50 text-amber-600 px-3 py-1 rounded-bl-xl text-[7px] font-black uppercase tracking-widest border-l border-b border-amber-100">
+                                <i className="fa-solid fa-triangle-exclamation mr-1"></i> Clutter Alert
+                            </div>
+                        )}
+                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 flex items-center">
+                            <i className="fa-solid fa-shield-halved text-blue-500 mr-2"></i>
+                            Safety & Infrastructure Assessment
+                        </div>
+                        <p className="text-[12.5px] text-slate-700 font-normal leading-[1.6]">
+                            {analysis.safetyAssessment}
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>

@@ -14,7 +14,8 @@ import { getLeadTransformationPrompt } from "../prompts/client/leadTransformatio
 import { getGuideGenerationPrompt, guideGenerationSchema, GuideResult } from "../prompts/client/guideGeneration";
 import { getDailyPulsePrompt, dailyPulseSchema } from "../prompts/leads/dailyPulse";
 import { Lead, CRMTask, CalendarEvent } from "../types";
-import { DailyPulseResult } from "../types/ai";
+import { DailyPulseResult, PollenAnalysisResult } from "../types/ai";
+import { getPollenAnalysisPrompt, pollenAnalysisSchema } from "../prompts/property/pollenAnalysis";
 import { APP_CONFIG } from "../config";
 import { logLLMCall, updateLLMCall } from "./firebase/llm_logs";
 import { optimizePropertyForAi } from "../utils/aiOptimization";
@@ -604,6 +605,19 @@ export const analyzeStreetView = async (imageUrl: string, property: PropertyData
   }
 
   return aiResponse;
+};
+
+export const analyzePollen = async (pollenRawData: any, property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<PollenAnalysisResult>> => {
+  const prompt = getPollenAnalysisPrompt(pollenRawData);
+  return executeGeminiRequest<PollenAnalysisResult>({
+    model: FLASH_LITE_MODEL,
+    contents: prompt,
+    userId,
+    zpid: property.zpid,
+    promptFilename: "pollenAnalysis.ts",
+    extractResultJson: true,
+    schema: pollenAnalysisSchema
+  });
 };
 
 

@@ -41,8 +41,6 @@ import ComprehensiveAnalysis from './components/ComprehensiveAnalysis';
 import PropertyImages from './components/PropertyImages';
 import PropertyMaps from './components/PropertyMaps';
 import ClimateRiskSection from './components/ClimateRiskSection';
-import MobilityScores from './components/MobilityScores';
-import SchoolScores from './components/SchoolScores';
 
 import PreloadManager from './components/PreloadManager';
 import ChatInterface from './components/ChatInterface';

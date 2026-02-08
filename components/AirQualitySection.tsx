@@ -8,101 +8,168 @@ interface Props {
 
 const AirQualitySection: React.FC<Props> = ({ data }) => {
     const aq = data.airQuality;
+    const pollen = data.pollen;
 
-    if (!aq) return null;
+    if (!aq && !pollen) return null;
 
     const getAQIColor = (aqi: number) => {
         if (aqi <= 50) return 'text-emerald-500';
         if (aqi <= 100) return 'text-amber-500';
         if (aqi <= 150) return 'text-orange-500';
-        if (aqi <= 200) return 'text-rose-500';
-        if (aqi <= 300) return 'text-purple-600';
-        return 'text-red-900';
+        return 'text-rose-500';
     };
 
-    const getAQIBg = (aqi: number) => {
-        if (aqi <= 50) return 'bg-emerald-50';
-        if (aqi <= 100) return 'bg-amber-50';
-        if (aqi <= 150) return 'bg-orange-50';
-        if (aqi <= 200) return 'bg-rose-50';
-        if (aqi <= 300) return 'bg-purple-50';
-        return 'bg-red-50';
+    const getPollenColor = (score: number) => {
+        if (score <= 1) return 'text-emerald-500';
+        if (score <= 3) return 'text-amber-500';
+        return 'text-rose-600';
     };
+
+    const MetricItem: React.FC<{ icon: string; label: string; value: string; colorClass?: string }> = ({ icon, label, value, colorClass }) => (
+        <div className="flex items-start gap-3 group">
+            <div className="w-4 flex justify-center flex-shrink-0 mt-0.5">
+                <i className={`fa-solid ${icon} ${colorClass || 'text-slate-300'} text-[12px] group-hover:text-indigo-500 transition-colors`}></i>
+            </div>
+            <div className="flex flex-col gap-0.5 min-w-0">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none truncate">{label}</span>
+                <span className={`text-[13px] font-normal ${colorClass || 'text-slate-800'} leading-[1.625] truncate`}>{value}</span>
+            </div>
+        </div>
+    );
 
     return (
-        <div className="bg-white border-x border-gray-100 px-8 py-4 border-t border-gray-50">
-            <div className="flex items-center justify-between text-xs font-black text-gray-400 uppercase tracking-widest mb-3">
-                <div className="flex items-center">
-                    <i className="fa-solid fa-wind mr-2"></i>
-                    Air Quality Intelligence
+        <div className="bg-white border-x border-gray-100 px-8 py-10 space-y-8">
+            <div className="flex items-center justify-between">
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
+                    <i className="fa-solid fa-earth-americas text-indigo-500"></i>
+                    Google Place APIs Intelligence
                 </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-black font-bold">Source: Google Environmental APIs</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                </div>
+
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Main Score */}
-                <div className={`p-4 rounded-2xl border border-gray-50 flex items-center gap-4 ${getAQIBg(aq.aqi)}`}>
-                    <div className={`w-16 h-16 rounded-full bg-white flex flex-col items-center justify-center shadow-lg ${getAQIColor(aq.aqi)}`}>
-                        <span className="text-2xl font-black leading-none">{aq.aqi}</span>
-                        <span className="text-[10px] uppercase font-bold tracking-widest opacity-60">UAQI</span>
-                    </div>
-                    <div className="flex flex-col">
-                        <span className={`text-lg font-black uppercase tracking-tight ${getAQIColor(aq.aqi)}`}>
-                            {aq.category}
-                        </span>
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
-                            Dominant: {aq.dominantPollutant?.toUpperCase()}
-                        </span>
-                    </div>
-                </div>
-
-                {/* Recommendations */}
-                <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center">
-                            <i className="fa-solid fa-users text-indigo-400 mr-2"></i>
-                            General Population
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Box 1: Air Quality */}
+                {aq && (
+                    <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
+                        <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                            <i className="fa-solid fa-wind text-[12px]"></i>
+                            Air Quality
                         </div>
-                        <p className="text-[13px] text-slate-700 font-normal leading-[1.625]">
-                            {aq.recommendations?.general || "No specific advice for the general public at this time."}
-                        </p>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center">
-                            <i className="fa-solid fa-person-dots-from-line text-rose-400 mr-2"></i>
-                            Sensitive Groups
+                        <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+                            <MetricItem
+                                icon="fa-gauge-high"
+                                label="UAQI Score"
+                                value={`${aq.aqi} (Global)`}
+                                colorClass={getAQIColor(aq.aqi)}
+                            />
+                            <MetricItem
+                                icon="fa-leaf"
+                                label="Status"
+                                value={aq.category}
+                                colorClass={getAQIColor(aq.aqi)}
+                            />
+                            <MetricItem
+                                icon="fa-atom"
+                                label="Dominant"
+                                value={aq.dominantPollutant?.toUpperCase() || 'N/A'}
+                            />
+                            <MetricItem
+                                icon="fa-person-shelter"
+                                label="Safety"
+                                value={aq.aqi > 100 ? 'Caution' : 'Safe'}
+                            />
                         </div>
-                        <p className="text-[13px] text-slate-700 font-normal leading-[1.625]">
-                            {aq.recommendations?.sensitiveGroups || "No heightened risk for sensitive groups currently."}
-                        </p>
                     </div>
-                </div>
-            </div>
+                )}
 
-            {/* Pollutant Breakdown */}
-            {aq.pollutants && aq.pollutants.length > 0 && (
-                <div className="mt-6">
-                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center">
-                        Detailed Pollutant Concentrations
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        {aq.pollutants.map((p, idx) => (
-                            <div key={idx} className="bg-gray-50 border border-gray-100 px-3 py-2 rounded-xl flex items-center gap-3">
-                                <div className="flex flex-col">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase">{p.fullName || p.name}</span>
-                                    <div className="flex items-baseline gap-1">
-                                        <span className="text-sm font-black text-slate-700">{p.concentration.toFixed(2)}</span>
-                                        <span className="text-[9px] font-bold text-slate-400">{p.unit}</span>
-                                    </div>
-                                </div>
+                {/* Box 2: Pollen AI Analysis */}
+                {pollen && (
+                    <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
+                        <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                            <i className="fa-solid fa-seedling text-[12px]"></i>
+                            Allergy Profile (AI)
+                        </div>
+                        <div className="grid grid-cols-1 gap-y-6">
+                            <div className="flex items-center justify-between">
+                                <MetricItem
+                                    icon="fa-chart-simple"
+                                    label="Allergy Risk"
+                                    value={`${pollen.score}/5 - ${pollen.category}`}
+                                    colorClass={getPollenColor(pollen.score)}
+                                />
                             </div>
-                        ))}
+                            <MetricItem
+                                icon="fa-calendar-days"
+                                label="Seasonality Risk"
+                                value={pollen.analysis?.seasonality_window || 'N/A'}
+                            />
+                            <MetricItem
+                                icon="fa-dna"
+                                label="Primary Triggers"
+                                value={pollen.analysis?.primary_triggers?.join(', ') || pollen.dominantPollenType || 'Minimal'}
+                            />
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+
+                {/* Box 3: Molecular Breakdowns */}
+                {aq?.pollutants && (
+                    <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
+                        <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                            <i className="fa-solid fa-flask-vial text-[12px]"></i>
+                            Molecular Breakdown
+                        </div>
+                        <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+                            {aq.pollutants.slice(0, 4).map((p, idx) => (
+                                <MetricItem
+                                    key={idx}
+                                    icon={p.name.includes('CO') ? 'fa-cloud' : p.name.includes('PM') ? 'fa-smog' : 'fa-atom'}
+                                    label={p.name}
+                                    value={`${p.concentration.toFixed(1)} ${p.unit === 'PARTS_PER_BILLION' ? 'ppb' : 'µg/m³'}`}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* AI Analysis & Recommendations Sub-Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
+                {/* Breathe Easy Summary */}
+                {pollen?.analysis?.breathe_easy_summary && (
+                    <div className="bg-emerald-50/10 p-5 rounded-[1.8rem] border border-emerald-100/30">
+                        <div className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                            <i className="fa-solid fa-wind text-[10px]"></i>
+                            Breathe Easy Summary
+                        </div>
+                        <p className="text-[12px] text-slate-600 font-normal leading-relaxed">{pollen.analysis.breathe_easy_summary}</p>
+                    </div>
+                )}
+
+                {/* Home Maintenance Tip */}
+                {pollen?.analysis?.maintenance_tip && (
+                    <div className="bg-amber-50/10 p-5 rounded-[1.8rem] border border-amber-100/30">
+                        <div className="text-[9px] font-black text-amber-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                            <i className="fa-solid fa-house-medical text-[10px]"></i>
+                            Maintenance Insight
+                        </div>
+                        <p className="text-[12px] text-slate-600 font-normal leading-relaxed">{pollen.analysis.maintenance_tip}</p>
+                    </div>
+                )}
+
+                {/* Health Recommendations (Combined) */}
+                {aq?.recommendations && (
+                    <div className="bg-indigo-50/10 p-5 rounded-[1.8rem] border border-indigo-100/30">
+                        <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                            <i className="fa-solid fa-user-doctor text-[10px]"></i>
+                            Health Guidance
+                        </div>
+                        <p className="text-[12px] text-slate-600 font-normal leading-relaxed truncate-3-lines" title={aq.recommendations.general}>
+                            {aq.recommendations.general}
+                        </p>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

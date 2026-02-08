@@ -5,7 +5,7 @@ import { APP_CONFIG } from "../config";
 import { logAPICall, updateAPICall } from "./firebase/api_logs";
 import { auth } from "./firebase/config";
 import { getGoogleDataFromCloud, saveGoogleDataToCloud } from "./firebaseService";
-import { analyzeStreetView } from "./geminiService";
+import { analyzeStreetView, analyzePollen } from "./geminiService";
 
 const RAPID_API_KEY = APP_CONFIG.usHousingApi.key;
 const RAPID_API_HOST = APP_CONFIG.usHousingApi.host;
@@ -460,7 +460,10 @@ export const fetchPollenData = async (lat: number, lng: number): Promise<any> =>
       score: maxPollen?.indexInfo?.value,
       category: maxPollen?.indexInfo?.category,
       description: maxPollen?.indexInfo?.indexDescription,
-      dominantPollenType: maxPollen?.displayName
+      dominantPollenType: maxPollen?.displayName,
+      // Pass along the raw technical data for Gemini analysis
+      pollenTypeInfo: today.pollenTypeInfo,
+      plantInfo: today.plantInfo
     };
 
   } catch (e) {
@@ -708,13 +711,26 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
       }
 
       // 3. Pollen (New Feature)
-      if (cachedEnvData?.pollen) {
+      if (cachedEnvData?.pollen?.analysis) {
         mappedData.pollen = cachedEnvData.pollen;
       } else {
         onStep?.("Fetching pollen data...");
-        console.log("[fetchPropertyDataFull] Cache miss for Pollen. Fetching...");
-        mappedData.pollen = await fetchPollenData(mappedData.coordinates.latitude, mappedData.coordinates.longitude);
-        console.log("[fetchPropertyDataFull] Pollen fetched:", mappedData.pollen);
+        const pollenRaw = await fetchPollenData(mappedData.coordinates.latitude, mappedData.coordinates.longitude);
+
+        if (pollenRaw) {
+          onStep?.("Analyzing allergy profile...");
+          try {
+            const userId = auth?.currentUser?.uid || "unknown";
+            const pollenAnalysis = await analyzePollen(pollenRaw, mappedData, userId);
+            mappedData.pollen = {
+              ...pollenRaw,
+              analysis: pollenAnalysis.data
+            };
+          } catch (e) {
+            console.warn("Pollen analysis failed, using raw data only:", e);
+            mappedData.pollen = pollenRaw;
+          }
+        }
       }
 
       // 4. AI Street View Analysis (New Feature)

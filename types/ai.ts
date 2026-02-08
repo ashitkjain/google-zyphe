@@ -211,6 +211,13 @@ export interface ComprehensiveAnalysisResult {
     risks_considerations: string;
 }
 
+export interface PollenAnalysisResult {
+    primary_triggers: string[];
+    seasonality_window: string;
+    breathe_easy_summary: string;
+    maintenance_tip: string;
+}
+
 export interface LeadReactivationResult {
     summary: {
         total_leads: number;

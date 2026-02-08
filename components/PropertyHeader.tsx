@@ -88,35 +88,36 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
         View Visual AI Analysis
       </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-16 gap-y-12">
-        {/* Row 1: Core Physical / Financial */}
-        <div className="space-y-5">
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-            <span className="w-4 h-px bg-slate-200"></span>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Box 1: Physical Specifications */}
+        <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
+          <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+            <i className="fa-solid fa-house-chimney text-[12px]"></i>
             Physical Specifications
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+          <div className="grid grid-cols-2 gap-y-6 gap-x-4">
             {coreSpecs.map((m, idx) => <MetricItem key={idx} m={m} />)}
           </div>
         </div>
 
-        <div className="space-y-5">
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-            <span className="w-4 h-px bg-slate-200"></span>
+        {/* Box 2: Value & Market Status */}
+        <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
+          <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+            <i className="fa-solid fa-chart-line text-[12px]"></i>
             Value & Market Status
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+          <div className="grid grid-cols-2 gap-y-6 gap-x-4">
             {financialSpecs.map((m, idx) => <MetricItem key={idx} m={m} />)}
           </div>
         </div>
 
-        {/* Row 2: Mobility / Schools */}
-        <div className="space-y-5">
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-            <span className="w-4 h-px bg-slate-200"></span>
+        {/* Box 3: Mobility & Connectivity */}
+        <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
+          <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+            <i className="fa-solid fa-route text-[12px]"></i>
             Mobility & Connectivity
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
             {[
               { icon: 'fa-person-walking', label: 'Walk Score', value: data.walkScore ? `${data.walkScore}/100 (${data.walkScoreDesc || 'N/A'})` : 'N/A' },
               { icon: 'fa-bus', label: 'Transit Score', value: data.transitScore ? `${data.transitScore}/100 (${data.transitScoreDesc || 'N/A'})` : 'N/A' },
@@ -125,30 +126,31 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
           </div>
         </div>
 
-        <div className="space-y-5">
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-            <span className="w-4 h-px bg-slate-200"></span>
+        {/* Box 4: Educational Institutions */}
+        <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300 lg:col-span-2">
+          <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+            <i className="fa-solid fa-graduation-cap text-[12px]"></i>
             Educational Institutions
           </div>
-          <div className="grid grid-cols-1 gap-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {data.schools?.slice(0, 3).map((s, idx) => (
               <MetricItem key={idx} m={{
-                icon: 'fa-graduation-cap',
+                icon: 'fa-school-flag',
                 label: s.name,
-                value: `Rating: ${s.rating}/10 • ${s.distance}`
+                value: `Rating: ${s.rating}/10 • ${s.distance} away`
               }} />
             ))}
-            {(!data.schools || data.schools.length === 0) && <p className="text-xs text-slate-400">No school data available for this area.</p>}
+            {(!data.schools || data.schools.length === 0) && <p className="text-[11px] text-slate-400 font-normal">No school data available for this area.</p>}
           </div>
         </div>
 
-        {/* Row 3: Climate Risk / Description (Full width Description below) */}
-        <div className="space-y-5 lg:col-span-1">
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-            <span className="w-4 h-px bg-slate-200"></span>
+        {/* Box 5: Climate Risk Assessment */}
+        <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
+          <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+            <i className="fa-solid fa-shield-halved text-[12px]"></i>
             Climate Risk Assessment
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+          <div className="grid grid-cols-2 gap-y-6 gap-x-4">
             {[
               { icon: 'fa-wind', label: 'Wind Risk', value: data.windRiskScore ? `${data.windRiskScore}/10` : 'N/A' },
               { icon: 'fa-droplet', label: 'Flood Risk', value: data.floodRiskScore ? `${data.floodRiskScore}/10` : 'N/A' },

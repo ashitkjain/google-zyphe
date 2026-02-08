@@ -173,6 +173,8 @@ export interface PropertyData {
         category: string;
         description: string;
         dominantPollenType: string;
+        analysis?: import('./ai').PollenAnalysisResult;
+        raw_data?: any;
     };
 }
 
