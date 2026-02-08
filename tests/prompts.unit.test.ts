@@ -19,11 +19,11 @@ describe('Prompt Engineering Integrity', () => {
     });
 
     describe('Neighborhood Analysis Prompt', () => {
-        it('should include neighborhood context', () => {
-            const mockProperty = { address: '123 Main St', city: 'Denver' } as any;
-            const prompt = getNeighborhoodAnalysisPrompt(mockProperty);
-            expect(prompt).toContain('neighborhood');
+        it('should include property address and description', () => {
+            const mockData = { address: '123 Main St', description: 'Lovely area' };
+            const prompt = getNeighborhoodAnalysisPrompt(mockData);
             expect(prompt).toContain('123 Main St');
+            expect(prompt).toContain('Lovely area');
         });
     });
 });

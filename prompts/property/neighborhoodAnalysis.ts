@@ -1,12 +1,15 @@
 import { Type } from "@google/genai";
 import { PropertyData } from "../../types";
 
-export const getNeighborhoodAnalysisPrompt = (property: PropertyData) => `
- You are an expert Spatial Analyst and Urban Planning Consultant. 
-  
+export const getNeighborhoodAnalysisPrompt = (property: { address: string; description?: string }) => `
+  You are an expert Spatial Analyst and Urban Planning Consultant. 
+   
   I am providing you with two map images for the property at: ${property.address}.
   - Image 1 (Zoom In): A close-up view showing the property parcel, home marker, and immediate street.
   - Image 2 (Zoom Out): A broader view of the neighborhood context.
+
+  Property Description:
+  ${property.description || "No description provided."}
 
   TASK:
   Analyze the provided map images in detail. Your analysis should be based primarily on visual evidence in the maps.
@@ -20,8 +23,8 @@ export const getNeighborhoodAnalysisPrompt = (property: PropertyData) => `
      - Step A: Determine the direction in which the home street runs (e.g., East-West, North-South, or a diagonal like Northeast-Southwest).
      - Step B: Observe the home marker's position in relation to the home street (Is it north/above, south/below, etc. of the street?).
      - Step C: Infer the Facing Direction:
-       * If street is East-West and house marker is south of street, front faces North.
-       * If street is North-South and house marker is west of street, front faces East.
+       * If street is East-West and house marker is south of the home street, front faces North.
+       * If street is North-South and house marker is west of the home street, front faces East.
        * Apply this exact logic to diagonal directions.
 
   2. STREET LAYOUT: Identify the street pattern (e.g., quiet cul-de-sac, grid system, busy arterial proximity). Note traffic flow indicators.
@@ -30,6 +33,8 @@ export const getNeighborhoodAnalysisPrompt = (property: PropertyData) => `
   5. INFRASTRUCTURE: Look for sidewalks, crosswalks, and pedestrian-friendly features.
   6. TOPOGRAPHY: Note any significant slopes, hills, or unique geographical features visible in the map context.
   7. DEVELOPMENT: Assess the age and style of surrounding development based on the roof patterns and parcel layouts.
+  8. AMENITIES: Identify retail, dining, HOA amenities and service clusters nearby. 
+     IMPORTANT: If the Property Description indicates the home is part of an HOA or planned community, specifically include the list of HOA amenities (pools, clubhouses, fitness centers, etc.) in your response.
 
   Return the response as a single JSON object matching the requested schema. Ensure the "overview" provides a high-level summary of the "vibe" found in the imagery.
 `;
@@ -50,7 +55,7 @@ export const neighborhoodAnalysisSchema = {
         neighborhood_density: { type: Type.STRING, description: "Evaluation of how crowded or spacious the area is." },
         topography: { type: Type.STRING, description: "Analysis of land elevation and slopes." },
         development_patterns: { type: Type.STRING, description: "Types of building layouts and age indicators." },
-        nearby_amenities: { type: Type.STRING, description: "Retail, dining, and service clusters identified." },
+        nearby_amenities: { type: Type.STRING, description: "Retail, dining, and service clusters identified, including HOA/Community amenities if applicable." },
         general: { type: Type.STRING, description: "Any other standout spatial observations." }
       },
       required: [

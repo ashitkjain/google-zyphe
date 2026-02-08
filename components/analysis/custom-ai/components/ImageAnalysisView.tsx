@@ -24,12 +24,7 @@ export const ImageAnalysisView: React.FC<ImageAnalysisViewProps> = ({ data }) =>
                                 <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center text-[10px] font-black shadow-lg">
                                     {(idx + 1).toString().padStart(3, '0')}
                                 </div>
-                                <div className="flex flex-col">
-                                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none mb-1">Vision Inference</span>
-                                    {imageRef && (
-                                        <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter">IDX: {imageRef}</span>
-                                    )}
-                                </div>
+
                             </div>
                         </div>
                         <p className="text-slate-700 font-sans font-normal text-[14px] leading-relaxed relative z-10">

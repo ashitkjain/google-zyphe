@@ -358,7 +358,10 @@ export const analyzeNeighborhood = async (mapZoomIn: string, mapZoomOut: string,
     urlToBase64(mapZoomOut)
   ]);
 
-  const prompt = getNeighborhoodAnalysisPrompt(optimizePropertyForAi(property) as PropertyData);
+  const prompt = getNeighborhoodAnalysisPrompt({
+    address: property.address,
+    description: property.description
+  });
 
   return executeGeminiRequest<NeighborhoodAnalysis>({
     model: FLASH_MODEL,
