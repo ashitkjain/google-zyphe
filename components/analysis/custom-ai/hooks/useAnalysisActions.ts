@@ -21,23 +21,33 @@ export const useAnalysisActions = (
     propertyData: any,
     propertyImages: string[],
     onUpdateAnalysis: (updated: CustomAIAnalysisResult) => void,
-    addLog: (service: string, meta: { type: 'request' | 'response' | 'error' | 'info' }, content: any) => void
+    addLog: (service: string, meta: { type: 'request' | 'response' | 'error' | 'info' }, content: any) => void,
+    isInitialLoading?: boolean
 ) => {
     const [timer, setTimer] = useState(0);
     const [qualityLoading, setQualityLoading] = useState(false);
     const [investmentLoading, setInvestmentLoading] = useState(false);
     const [biddingLoading, setBiddingLoading] = useState(false);
     const [pulseLoading, setPulseLoading] = useState(false);
-
     useEffect(() => {
-        let interval: number;
-        if (qualityLoading || investmentLoading || biddingLoading || pulseLoading) {
-            interval = window.setInterval(() => {
-                setTimer(t => t + 1);
+        let intervalId: any = null;
+
+        if (isInitialLoading || qualityLoading || investmentLoading || biddingLoading || pulseLoading) {
+            // Reset timer when a new loading state starts
+            // But only if we are transitioning FROM a non-loading state to a loading state
+            // Actually, the handlers call setTimer(0) already.
+
+            intervalId = setInterval(() => {
+                setTimer(prev => prev + 1);
             }, 1000);
+        } else {
+            setTimer(0);
         }
-        return () => clearInterval(interval);
-    }, [qualityLoading, investmentLoading, biddingLoading, pulseLoading]);
+
+        return () => {
+            if (intervalId) clearInterval(intervalId);
+        };
+    }, [isInitialLoading, qualityLoading, investmentLoading, biddingLoading, pulseLoading]);
 
     const handleRunQualityAnalysis = async () => {
         if (!analysis || analysis.image_quality_analysis || !propertyImages.length || qualityLoading) {

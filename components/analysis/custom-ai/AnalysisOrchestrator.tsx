@@ -74,7 +74,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         handleRunCommunityPulse,
         handleRunInvestmentResearch,
         handleRunBiddingStrategy
-    } = useAnalysisActions(analysis, zpid, propertyData, propertyImages, onUpdateAnalysis, addLog);
+    } = useAnalysisActions(analysis, zpid, propertyData, propertyImages, onUpdateAnalysis, addLog, loading);
 
     // Auto-trigger side effects when tabs change
     useEffect(() => {
