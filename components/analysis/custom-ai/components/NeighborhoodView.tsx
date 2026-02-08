@@ -48,15 +48,15 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                     <p className="text-gray-800 font-sans font-normal text-[13px] leading-[1.625]">{data.overview}</p>
                 </div>
 
-                {data.orientation && (
-                    <div className="!mt-4">
-                        <div className="flex items-center gap-2 text-[18px] font-sans">
-                            <span className="font-bold text-gray-900">Orientation :</span>
-                            <span className="text-gray-700">{data.orientation.final_orientation}</span>
-                        </div>
-                    </div>
-                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 pt-12 border-t border-gray-100">
+                    {data.orientation && (
+                        <div className="space-y-3">
+                            <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Orientation</div>
+                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">
+                                The home front is facing {data.orientation.final_orientation.toLowerCase().includes('facing') ? data.orientation.final_orientation : data.orientation.final_orientation}.
+                            </p>
+                        </div>
+                    )}
                     {data.neighborhood_features && (
                         <>
                             <div className="space-y-3">
