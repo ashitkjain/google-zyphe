@@ -4,7 +4,7 @@ import {
     ComprehensiveAnalysisResult
 } from '../../../types';
 
-export type TabType = 'interior' | 'rooms' | 'exterior_and_neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding' | 'image_analysis';
+export type TabType = 'interior' | 'rooms' | 'exterior_and_neighborhood' | 'neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding' | 'image_analysis';
 import { APP_CONFIG } from '../../../config';
 import { useAnalysisActions } from './hooks/useAnalysisActions';
 import { EmptyState } from './components/CommonComponents';
@@ -125,7 +125,8 @@ const AnalysisOrchestrator: React.FC<Props> = ({
     const tabs = [
         { id: 'interior', label: 'Interior', icon: 'fa-couch' },
         { id: 'rooms', label: 'Rooms', icon: 'fa-star' },
-        { id: 'exterior_and_neighborhood', label: 'Exterior and Neighborhood', icon: 'fa-tree' },
+        { id: 'exterior_and_neighborhood', label: 'Exterior', icon: 'fa-house' },
+        { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
         { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
         { id: 'investment', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
         { id: 'bidding', label: 'Bidding Strategy', icon: 'fa-gavel' },
@@ -197,17 +198,19 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                 {activeTab === 'interior' && <InteriorView data={analysis.home_interior} />}
                 {activeTab === 'rooms' && <RoomsView highlights={analysis.room_highlights} />}
                 {activeTab === 'exterior_and_neighborhood' && (
-                    <div className="space-y-12">
-                        <ExteriorView
-                            data={analysis.exterior_and_neighborhood}
-                            streetViewAnalysis={propertyData?.streetViewAnalysis}
-                        />
-                        {analysis.neighborhood && (
-                            <div className="pt-12 border-t border-slate-100">
-                                <NeighborhoodView data={analysis.neighborhood} />
-                            </div>
+                    <ExteriorView
+                        data={analysis.exterior_and_neighborhood}
+                        streetViewAnalysis={propertyData?.streetViewAnalysis}
+                    />
+                )}
+                {activeTab === 'neighborhood' && (
+                    <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        {!analysis.neighborhood ? (
+                            <EmptyState section="Neighborhood" />
+                        ) : (
+                            <NeighborhoodView data={analysis.neighborhood} />
                         )}
-                    </div>
+                    </section>
                 )}
                 {activeTab === 'pulse' && (
                     <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
