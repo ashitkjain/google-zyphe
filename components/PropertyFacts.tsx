@@ -39,7 +39,7 @@ const PropertyFacts: React.FC<Props> = ({ facts }) => {
         }
         return Object.fromEntries(Object.entries(parsed).filter(([_, v]) => v !== null && v !== undefined && v !== '')) as any;
       }
-    } catch (e) {}
+    } catch (e) { }
     return [rawValue];
   };
 
@@ -133,32 +133,32 @@ const PropertyFacts: React.FC<Props> = ({ facts }) => {
       displayValues = item.value;
     } else {
       const parsed = parseComplexFact(item.value);
-      displayValues = item.isComplex 
+      displayValues = item.isComplex
         ? (typeof parsed === 'object' && !Array.isArray(parsed)
-            ? Object.entries(parsed).map(([k, v]) => `${k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}: ${v}`)
-            : parsed as string[])
+          ? Object.entries(parsed).map(([k, v]) => `${k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}: ${v}`)
+          : parsed as string[])
         : (item.value === undefined || item.value === null || item.value === '' || item.value === 'null' ? [] : [String(item.value)]);
     }
-    
+
     if (displayValues.length === 0 || (displayValues.length === 1 && displayValues[0].toLowerCase() === 'null')) return null;
 
     return (
-      <div className="flex items-start gap-4 group mb-4 last:mb-0">
+      <div className="flex items-start gap-4 group mb-6 last:mb-0">
         <div className="w-5 flex justify-center flex-shrink-0 mt-0.5">
-          <i className={`fa-solid ${getIcon(item.label)} text-slate-300 text-sm group-hover:text-indigo-500 transition-colors`}></i>
+          <i className={`fa-solid ${getIcon(item.label)} text-slate-200 text-xs group-hover:text-indigo-500 transition-colors`}></i>
         </div>
-        <div className="flex-1 text-base leading-tight">
-          <div className="flex flex-wrap items-baseline gap-x-2">
-            <span className="font-bold text-slate-700 whitespace-nowrap">{item.label}:</span>
+        <div className="flex-1">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">{item.label}</span>
             {displayValues.length === 1 && (
-              <span className="font-medium text-slate-900 break-words">{displayValues[0]}</span>
+              <span className="text-[13px] font-normal text-slate-800 leading-[1.625]">{displayValues[0]}</span>
             )}
           </div>
           {displayValues.length > 1 && (
-            <ul className="space-y-1.5 mt-2 ml-1">
+            <ul className="space-y-1 mt-1 ml-1">
               {displayValues.map((val, vidx) => (
-                <li key={vidx} className="flex items-start gap-2 text-slate-600 font-medium break-words leading-snug">
-                  <span className="text-indigo-300 mt-1 flex-shrink-0 text-[10px]">•</span>
+                <li key={vidx} className="flex items-start gap-2 text-slate-800 font-normal text-[13px] leading-[1.625]">
+                  <span className="text-indigo-200 mt-1.5 flex-shrink-0 text-[8px]">•</span>
                   <span>{val}</span>
                 </li>
               ))}
@@ -175,8 +175,8 @@ const PropertyFacts: React.FC<Props> = ({ facts }) => {
         {categories.map((cat, idx) => {
           // Check if category has any visible items
           const hasVisibleItems = cat.items.some(item => {
-             const val = item.isManualArray ? item.value : parseComplexFact(item.value);
-             return Array.isArray(val) ? val.length > 0 : !!val;
+            const val = item.isManualArray ? item.value : parseComplexFact(item.value);
+            return Array.isArray(val) ? val.length > 0 : !!val;
           });
 
           if (!hasVisibleItems) return null;

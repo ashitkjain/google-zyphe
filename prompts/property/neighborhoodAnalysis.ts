@@ -20,13 +20,13 @@ export const getNeighborhoodAnalysisPrompt = (property: { address: string; descr
      Determine the direction the house is facing following these steps precisely:
      - STEP 1 (Text Analysis): First, carefully read the "Property Description" provided above. If the description explicitly states the orientation of the home (e.g., "north-facing," "faces east," "front of the house faces south"), use that information as the definitive orientation.
      - STEP 2 (Visual Analysis - Fallback): If the description does NOT mention the orientation, perform a visual analysis using the Zoom In image:
-       * Assume top of the map image is North.
+       * Assume top of the map image is North, right of the image is East, left is West and bottom is South.
        * Identify the Key Elements: Locate the home marker and the labeled street (matching the home address street).
        * Step A: Determine the direction in which the home street runs (e.g., East-West, North-South, or a diagonal like Northeast-Southwest).
-       * Step B: Observe the home marker's position in relation to the home street (Is it north/above, south/below, etc. of the street?).
+       * Step B: Observe the home marker's position in relation to the home street (Is it above, below, right, left etc. of the street?).
        * Step C: Infer the Facing Direction:
-         - If street is East-West and house marker is south of the home street, front faces North.
-         - If street is North-South and house marker is west of the home street, front faces East.
+         - If street is East-West and house marker is below the home street, front faces North.
+         - If street is North-South and house marker is left of the home street, front faces East.
          - Apply this exact logic to diagonal directions.
 
   2. STREET LAYOUT: Identify the street pattern (e.g., quiet cul-de-sac, grid system, busy arterial proximity). Note traffic flow indicators.
@@ -77,7 +77,7 @@ export const neighborhoodAnalysisSchema = {
       type: Type.OBJECT,
       properties: {
         street_direction: { type: Type.STRING, description: "e.g., East-West, North-South, etc." },
-        home_position_relative_to_street: { type: Type.STRING, description: "Position of the home in relation to the street (north of the street, south of the street, etc.)" },
+        home_position_relative_to_street: { type: Type.STRING, description: "Position of the home in relation to the street (above/north of the street, below/south of the street, right/east of the street, left/west of the street, etc.)" },
         final_orientation: { type: Type.STRING, description: "The deduced direction the front of the house faces (North, South, etc.)" },
         orientation_explanation: { type: Type.STRING, description: "Detailed reasoning explaining how the orientation was determined, referencing specific map elements or text clues." }
       },

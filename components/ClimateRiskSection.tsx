@@ -54,8 +54,8 @@ const ClimateRiskSection: React.FC<Props> = ({ data }) => {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {risks.map((r, idx) => (
-          <div 
-            key={idx} 
+          <div
+            key={idx}
             className={`flex items-center gap-3 p-3 rounded-xl border border-gray-50 transition-all hover:shadow-sm ${getRiskBg(r.score)}`}
           >
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-white shadow-sm ${getRiskColor(r.score)}`}>
@@ -63,12 +63,12 @@ const ClimateRiskSection: React.FC<Props> = ({ data }) => {
             </div>
             <div className="flex flex-col min-w-0">
               <div className="flex items-baseline gap-1">
-                <span className={`text-lg font-black leading-none ${getRiskColor(r.score)}`}>
+                <span className={`text-base font-black leading-none ${getRiskColor(r.score)}`}>
                   {r.score !== undefined ? r.score : '--'}
                 </span>
                 <span className="text-[10px] font-bold text-gray-400">/10</span>
               </div>
-              <span className="text-xs font-black text-gray-500 uppercase tracking-tight truncate">
+              <span className="text-[11px] font-black text-gray-500 uppercase tracking-tight truncate">
                 {r.type} • {getStatusLabel(r.score)}
               </span>
             </div>

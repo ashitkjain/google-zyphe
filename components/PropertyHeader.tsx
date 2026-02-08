@@ -32,12 +32,12 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
   // Fix: Explicitly type MetricItem as React.FC to handle React-reserved props like 'key' in mapped components
   const MetricItem: React.FC<{ m: any }> = ({ m }) => (
     <div className="flex items-start gap-3 group">
-      <div className="w-5 flex justify-center flex-shrink-0 mt-0.5">
-        <i className={`fa-solid ${m.icon} text-slate-400 text-sm group-hover:text-indigo-500 transition-colors`}></i>
+      <div className="w-4 flex justify-center flex-shrink-0 mt-0.5">
+        <i className={`fa-solid ${m.icon} text-slate-300 text-[12px] group-hover:text-indigo-500 transition-colors`}></i>
       </div>
-      <div className="flex flex-wrap items-baseline gap-x-2 text-base leading-tight">
-        <span className="font-bold text-slate-600 whitespace-nowrap">{m.label}:</span>
-        <span className="font-semibold text-slate-900 break-words">{m.value || 'N/A'}</span>
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">{m.label}</span>
+        <span className="text-[13px] font-normal text-slate-800 leading-[1.625]">{m.value || 'N/A'}</span>
       </div>
     </div>
   );
@@ -180,7 +180,7 @@ const PropertyDescription: React.FC<{ description: string }> = ({ description })
 
   return (
     <div className="relative">
-      <p className="text-slate-600 text-base leading-relaxed font-semibold whitespace-pre-wrap">
+      <p className="text-slate-800 font-normal text-[13px] leading-[1.625] whitespace-pre-wrap">
         {displayDescription}
       </p>
       {isLong && (

@@ -58,11 +58,11 @@ const PollenSection: React.FC<Props> = ({ data }) => {
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
                         Dominant Type
                     </div>
-                    <div className="flex items-center text-slate-700 font-bold text-lg">
+                    <div className="flex items-center text-slate-700 font-bold text-base">
                         <i className="fa-solid fa-tree mr-2 text-emerald-400"></i>
                         {pollen.dominantPollenType || "Low Activity"}
                     </div>
-                    <p className="text-[10px] text-slate-500 font-medium mt-1 leading-tight">
+                    <p className="text-[13px] text-slate-700 font-normal mt-1 leading-[1.625]">
                         {pollen.description}
                     </p>
                 </div>

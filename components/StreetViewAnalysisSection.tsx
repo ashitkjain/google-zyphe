@@ -76,7 +76,7 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data }) => {
                             </div>
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Architectural Style</span>
                         </div>
-                        <div className="text-lg font-black text-slate-800 leading-tight pl-11">
+                        <div className="text-base font-black text-slate-800 leading-tight pl-11">
                             {analysis.architecturalStyle}
                         </div>
                     </div>
@@ -88,7 +88,7 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data }) => {
                             </div>
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Neighborhood Vibe</span>
                         </div>
-                        <div className="text-lg font-black text-slate-800 leading-tight pl-11">
+                        <div className="text-base font-black text-slate-800 leading-tight pl-11">
                             {analysis.neighborhoodVibe}
                         </div>
                     </div>
@@ -102,7 +102,7 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data }) => {
                         <i className="fa-solid fa-leaf text-emerald-500 mr-2"></i>
                         Landscape & Garden
                     </div>
-                    <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                    <p className="text-[13px] text-slate-700 font-normal leading-[1.625]">
                         {analysis.gardenDescription}
                     </p>
                 </div>
@@ -118,7 +118,7 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data }) => {
                         <i className="fa-solid fa-shield-halved text-blue-500 mr-2"></i>
                         Safety & Infrastructure Assessment
                     </div>
-                    <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                    <p className="text-[13px] text-slate-700 font-normal leading-[1.625]">
                         {analysis.safetyAssessment}
                     </p>
                 </div>

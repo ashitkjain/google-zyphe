@@ -66,7 +66,7 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
                             <i className="fa-solid fa-users text-indigo-400 mr-2"></i>
                             General Population
                         </div>
-                        <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                        <p className="text-[13px] text-slate-700 font-normal leading-[1.625]">
                             {aq.recommendations?.general || "No specific advice for the general public at this time."}
                         </p>
                     </div>
@@ -75,7 +75,7 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
                             <i className="fa-solid fa-person-dots-from-line text-rose-400 mr-2"></i>
                             Sensitive Groups
                         </div>
-                        <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                        <p className="text-[13px] text-slate-700 font-normal leading-[1.625]">
                             {aq.recommendations?.sensitiveGroups || "No heightened risk for sensitive groups currently."}
                         </p>
                     </div>

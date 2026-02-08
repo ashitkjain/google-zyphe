@@ -35,8 +35,8 @@ const MobilityScores: React.FC<Props> = ({ data }) => {
       </div>
       <div className="grid grid-cols-3 gap-4">
         {scores.map((s, idx) => (
-          <div 
-            key={idx} 
+          <div
+            key={idx}
             className={`flex items-center gap-3 p-3 rounded-xl border border-gray-50 transition-all hover:shadow-sm ${getBg(s.score)}`}
           >
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-white shadow-sm ${getColor(s.score)}`}>
@@ -44,12 +44,12 @@ const MobilityScores: React.FC<Props> = ({ data }) => {
             </div>
             <div className="flex flex-col min-w-0">
               <div className="flex items-baseline gap-1">
-                <span className={`text-lg font-black leading-none ${getColor(s.score)}`}>
+                <span className={`text-base font-black leading-none ${getColor(s.score)}`}>
                   {s.score !== undefined ? s.score : '--'}
                 </span>
                 <span className="text-[10px] font-bold text-gray-400">/100</span>
               </div>
-              <span className="text-xs font-black text-gray-500 uppercase tracking-tight truncate">
+              <span className="text-[11px] font-black text-gray-400 uppercase tracking-tight truncate">
                 {s.type} {s.desc ? `• ${s.desc}` : ''}
               </span>
             </div>
