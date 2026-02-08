@@ -23,35 +23,7 @@ const PropertyMaps: React.FC<Props> = ({ mapZoomIn, mapZoomOut, coordinates, add
 
   return (
     <div className="bg-white border-x border-b border-gray-100 px-8 py-10 shadow-sm rounded-b-[2.5rem] space-y-10">
-      {/* Solar Intelligence Section */}
-      {solarData && (
-        <div className="space-y-6 pt-4">
-          <div className="flex items-center text-base font-black text-slate-900 uppercase tracking-widest">
-            <i className="fa-solid fa-sun text-amber-500 mr-3 animate-pulse"></i>
-            Solar Infrastructure Potential
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-amber-50/50 rounded-3xl p-6 border border-amber-100/50">
-              <div className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Annual Sunshine</div>
-              <div className="text-xl font-black text-slate-900">{Math.round(solarData.maxSunshineHoursPerYear || 0).toLocaleString()} <span className="text-xs text-slate-400 font-normal lowercase tracking-normal">Hours</span></div>
-              <div className="mt-2 text-[11px] font-normal text-slate-500 leading-tight">Max potential sunshine per year</div>
-            </div>
-
-            <div className="bg-indigo-50/50 rounded-3xl p-6 border border-indigo-100/50">
-              <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">Carbon Offset</div>
-              <div className="text-xl font-black text-slate-900">{Math.round(solarData.carbonOffsetFactorKgPerMwh || 0)} <span className="text-xs text-slate-400 font-normal lowercase tracking-normal">kg/MWh</span></div>
-              <div className="mt-2 text-[11px] font-normal text-slate-500 leading-tight">Environmental impact factor</div>
-            </div>
-
-            <div className="bg-emerald-50/50 rounded-3xl p-6 border border-emerald-100/50">
-              <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Max Panel Count</div>
-              <div className="text-xl font-black text-slate-900">{(solarData.solarPanels?.[0]?.totalCount || 0)} <span className="text-xs text-slate-400 font-normal lowercase tracking-normal">Panels</span></div>
-              <div className="mt-2 text-[11px] font-normal text-slate-500 leading-tight">Capacity for solar array</div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {coordinates && (
         <div className="space-y-6">

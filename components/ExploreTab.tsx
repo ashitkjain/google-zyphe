@@ -3,6 +3,7 @@ import PropertyHeader from './PropertyHeader';
 import PropertyImages from './PropertyImages';
 import PropertyFacts from './PropertyFacts';
 import AirQualitySection from './AirQualitySection';
+import PropertyDescription from './PropertyDescription';
 import StreetViewAnalysisSection from './StreetViewAnalysisSection';
 import PropertyMaps from './PropertyMaps';
 import Logo from './Logo';
@@ -70,7 +71,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     return (
         <>
             {viewMode === 'main' && (
-                <div className="space-y-10 animate-in fade-in duration-500">
+                <div className="animate-in fade-in duration-500">
                     {searchBar && (
                         <div className="max-w-4xl mx-auto pt-8 pb-4 px-4 sticky top-0 z-[40] bg-slate-50/80 backdrop-blur-md">
                             {searchBar}
@@ -84,10 +85,11 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 onToggleFavorite={onToggleFavorite}
                                 onRunAnalysis={() => onRunCustomAnalysis(false)}
                             />
-                            <PropertyImages images={propertyData.images} loading={imagesLoading} />
-                            <PropertyFacts facts={propertyData.resoFacts} />
                             <AirQualitySection data={propertyData} />
                             <StreetViewAnalysisSection data={propertyData} />
+                            <PropertyImages images={propertyData.images} loading={imagesLoading} />
+                            <PropertyFacts facts={propertyData.resoFacts} />
+                            {propertyData.description && <PropertyDescription description={propertyData.description} />}
                             <PropertyMaps
                                 mapZoomIn={propertyData.mapZoomIn}
                                 mapZoomOut={propertyData.mapZoomOut}

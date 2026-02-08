@@ -43,7 +43,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
   );
 
   return (
-    <div className="bg-white p-8 md:p-10 rounded-t-[2.5rem] border-x border-t border-slate-100 shadow-sm space-y-8">
+    <div className="bg-white p-8 md:p-10 md:pb-2 rounded-t-[2.5rem] border-x border-t border-slate-100 shadow-sm space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-50 pb-8">
         <div className="flex items-center gap-4">
           <h2 className="text-3xl font-black text-slate-900 tracking-tight">{data.address}</h2>
@@ -137,7 +137,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
               <MetricItem key={idx} m={{
                 icon: 'fa-school-flag',
                 label: s.name,
-                value: `Rating: ${s.rating}/10 • ${s.distance} away`
+                value: `Rating: ${s.rating}/10 • ${s.distance} miles away`
               }} />
             ))}
             {(!data.schools || data.schools.length === 0) && <p className="text-[11px] text-slate-400 font-normal">No school data available for this area.</p>}
@@ -161,39 +161,6 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
         </div>
       </div>
 
-      {/* Description Section - Integrated at the bottom */}
-      {data.description && data.description !== "No description available." && (
-        <div className="pt-8 border-t border-slate-50">
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-            <span className="w-4 h-px bg-slate-200"></span>
-            Property Overview
-          </div>
-          <PropertyDescription description={data.description} />
-        </div>
-      )}
-    </div>
-  );
-};
-
-const PropertyDescription: React.FC<{ description: string }> = ({ description }) => {
-  const [isExpanded, setIsExpanded] = React.useState(false);
-  const isLong = description.length > 500;
-  const displayDescription = isExpanded ? description : description.slice(0, 500) + (isLong ? '...' : '');
-
-  return (
-    <div className="relative">
-      <p className="text-slate-800 font-normal text-[13px] leading-[1.625] whitespace-pre-wrap">
-        {displayDescription}
-      </p>
-      {isLong && (
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="mt-4 text-indigo-600 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:text-indigo-800 transition-colors"
-        >
-          <span>{isExpanded ? 'Show Less' : 'Read Full Description'}</span>
-          <i className={`fa-solid ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
-        </button>
-      )}
     </div>
   );
 };

@@ -9,8 +9,9 @@ interface Props {
 const AirQualitySection: React.FC<Props> = ({ data }) => {
     const aq = data.airQuality;
     const pollen = data.pollen;
+    const solar = data.solarData;
 
-    if (!aq && !pollen) return null;
+    if (!aq && !pollen && !solar) return null;
 
     const getAQIColor = (aqi: number) => {
         if (aqi <= 50) return 'text-emerald-500';
@@ -38,16 +39,8 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
     );
 
     return (
-        <div className="bg-white border-x border-gray-100 px-8 py-10 space-y-8">
-            <div className="flex items-center justify-between">
-                <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
-                    <i className="fa-solid fa-earth-americas text-indigo-500"></i>
-                    Google Place APIs Intelligence
-                </div>
-
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="bg-white border-x border-slate-100 px-8 pt-0 pb-0">
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${solar ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6`}>
                 {/* Box 1: Air Quality */}
                 {aq && (
                     <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
@@ -112,7 +105,34 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
                     </div>
                 )}
 
-                {/* Box 3: Molecular Breakdowns */}
+                {/* Box 3: Solar Infrastructure */}
+                {solar && (
+                    <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
+                        <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                            <i className="fa-solid fa-sun text-[12px]"></i>
+                            Solar Potential
+                        </div>
+                        <div className="grid grid-cols-1 gap-y-6">
+                            <MetricItem
+                                icon="fa-cloud-sun"
+                                label="Annual Sunshine"
+                                value={`${Math.round(solar.maxSunshineHoursPerYear || 0).toLocaleString()} Hours`}
+                            />
+                            <MetricItem
+                                icon="fa-leaf"
+                                label="Carbon Offset"
+                                value={`${Math.round(solar.carbonOffsetFactorKgPerMwh || 0)} kg/MWh`}
+                            />
+                            <MetricItem
+                                icon="fa-solar-panel"
+                                label="Max Panel Cap"
+                                value={`${(solar.solarPanels?.[0]?.totalCount || 0)} Panels`}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* Box 4: Molecular Breakdowns */}
                 {aq?.pollutants && (
                     <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
                         <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
@@ -134,7 +154,7 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
             </div>
 
             {/* AI Analysis & Recommendations Sub-Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* Breathe Easy Summary */}
                 {pollen?.analysis?.breathe_easy_summary && (
                     <div className="bg-emerald-50/10 p-5 rounded-[1.8rem] border border-emerald-100/30">
