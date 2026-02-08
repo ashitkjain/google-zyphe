@@ -126,6 +126,12 @@ export interface StreetViewAnalysisResult {
     visualClutter: boolean;
     gardenDescription: string;
     safetyAssessment: string;
+    privacyRating: string;
+    maintenanceRisks: string[];
+    solarObstructions: string;
+    parkingLogistics: string;
+    familySafety: string;
+    utilityAesthetic: string;
     imageUrl?: string;
 }
 

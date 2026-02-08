@@ -733,9 +733,9 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
         }
       }
 
-      // 4. AI Street View Analysis (New Feature)
-      if (cachedEnvData?.streetViewAnalysis?.imageUrl) {
-        console.log("[fetchPropertyDataFull] Using cached Street View analysis with image.");
+      // 4. AI Street View Analysis (Refined with Forensic Analysis)
+      if (cachedEnvData?.streetViewAnalysis?.imageUrl && cachedEnvData?.streetViewAnalysis?.privacyRating) {
+        console.log("[fetchPropertyDataFull] Using cached Forensic Street View analysis.");
         mappedData.streetViewAnalysis = cachedEnvData.streetViewAnalysis;
       } else {
         onStep?.("Analyzing curb appeal with AI...");
