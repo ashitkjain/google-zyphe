@@ -50,9 +50,9 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
 
                 {data.orientation && (
                     <div className="pt-12 border-t border-gray-100">
-                        <div className="flex items-center gap-3">
-                            <span className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.3em] whitespace-nowrap">Orientation :</span>
-                            <span className="text-2xl font-black text-slate-900 uppercase tracking-tighter">{data.orientation.final_orientation}</span>
+                        <div className="flex items-center gap-2 text-[14px] font-sans">
+                            <span className="font-bold text-gray-900">Orientation :</span>
+                            <span className="text-gray-700">{data.orientation.final_orientation}</span>
                         </div>
                     </div>
                 )}
