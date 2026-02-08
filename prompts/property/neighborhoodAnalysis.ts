@@ -16,16 +16,18 @@ export const getNeighborhoodAnalysisPrompt = (property: { address: string; descr
   
   INSTRUCTIONS:
 
-  1. ORIENTATION ANALYSIS (Using Zoom In image):
+  1. ORIENTATION ANALYSIS:
      Determine the direction the house is facing following these steps precisely:
-     - Assume top of the map image is North.
-     - Identify the Key Elements: Locate the home marker and the labeled street (matching the home address street).
-     - Step A: Determine the direction in which the home street runs (e.g., East-West, North-South, or a diagonal like Northeast-Southwest).
-     - Step B: Observe the home marker's position in relation to the home street (Is it north/above, south/below, etc. of the street?).
-     - Step C: Infer the Facing Direction:
-       * If street is East-West and house marker is south of the home street, front faces North.
-       * If street is North-South and house marker is west of the home street, front faces East.
-       * Apply this exact logic to diagonal directions.
+     - STEP 1 (Text Analysis): First, carefully read the "Property Description" provided above. If the description explicitly states the orientation of the home (e.g., "north-facing," "faces east," "front of the house faces south"), use that information as the definitive orientation.
+     - STEP 2 (Visual Analysis - Fallback): If the description does NOT mention the orientation, perform a visual analysis using the Zoom In image:
+       * Assume top of the map image is North.
+       * Identify the Key Elements: Locate the home marker and the labeled street (matching the home address street).
+       * Step A: Determine the direction in which the home street runs (e.g., East-West, North-South, or a diagonal like Northeast-Southwest).
+       * Step B: Observe the home marker's position in relation to the home street (Is it north/above, south/below, etc. of the street?).
+       * Step C: Infer the Facing Direction:
+         - If street is East-West and house marker is south of the home street, front faces North.
+         - If street is North-South and house marker is west of the home street, front faces East.
+         - Apply this exact logic to diagonal directions.
 
   2. STREET LAYOUT: Identify the street pattern (e.g., quiet cul-de-sac, grid system, busy arterial proximity). Note traffic flow indicators.
   3. DENSITY & LAND USE: Evaluate the neighborhood density. Are homes tightly packed? Are there large lots? Are there commercial or industrial buffers nearby?
