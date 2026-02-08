@@ -49,8 +49,8 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                 </div>
 
                 {data.orientation && (
-                    <div className="pt-12 border-t border-gray-100">
-                        <div className="flex items-center gap-2 text-[14px] font-sans">
+                    <div className="!mt-4">
+                        <div className="flex items-center gap-2 text-[18px] font-sans">
                             <span className="font-bold text-gray-900">Orientation :</span>
                             <span className="text-gray-700">{data.orientation.final_orientation}</span>
                         </div>
