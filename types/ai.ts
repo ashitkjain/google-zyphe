@@ -19,8 +19,9 @@ export interface NeighborhoodAnalysis {
     },
     orientation?: {
         street_direction: string;
-        home_marker_position: string;
+        home_position_relative_to_street: string;
         final_orientation: string;
+        orientation_explanation: string;
     }
 }
 

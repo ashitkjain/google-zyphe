@@ -38,7 +38,9 @@ export const getNeighborhoodAnalysisPrompt = (property: { address: string; descr
   8. AMENITIES: Identify retail, dining, HOA amenities and service clusters nearby. 
      IMPORTANT: If the Property Description indicates the home is part of an HOA or planned community, specifically include the list of HOA amenities (pools, clubhouses, fitness centers, etc.) in your response.
 
-  Return the response as a single JSON object matching the requested schema. Ensure the "overview" provides a high-level summary of the "vibe" found in the imagery.
+  Return the response as a single JSON object matching the requested schema. 
+  Ensure the "orientation" block includes your step-by-step reasoning in "orientation_explanation", explaining exactly how you arrived at the final direction based on the map visuals or property description.
+  Ensure the "overview" provides a high-level summary of the "vibe" found in the imagery.
 `;
 
 export const neighborhoodAnalysisSchema = {
@@ -75,10 +77,11 @@ export const neighborhoodAnalysisSchema = {
       type: Type.OBJECT,
       properties: {
         street_direction: { type: Type.STRING, description: "e.g., East-West, North-South, etc." },
-        home_marker_position: { type: Type.STRING, description: "Position of marker relative to street (north, south, etc.)" },
-        final_orientation: { type: Type.STRING, description: "The deduced direction the front of the house faces (North, South, etc.)" }
+        home_position_relative_to_street: { type: Type.STRING, description: "Position of the home in relation to the street (north of the street, south of the street, etc.)" },
+        final_orientation: { type: Type.STRING, description: "The deduced direction the front of the house faces (North, South, etc.)" },
+        orientation_explanation: { type: Type.STRING, description: "Detailed reasoning explaining how the orientation was determined, referencing specific map elements or text clues." }
       },
-      required: ["street_direction", "home_marker_position", "final_orientation"]
+      required: ["street_direction", "home_position_relative_to_street", "final_orientation", "orientation_explanation"]
     }
   },
   required: ["overview", "neighborhood_features", "orientation"]
