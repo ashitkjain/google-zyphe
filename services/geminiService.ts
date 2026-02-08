@@ -186,7 +186,9 @@ export const executeGeminiRequest = async <T>(
       maxOutputTokens: Math.min(config?.maxOutputTokens || 8192, remainingTokens)
     };
 
-    if (schema) {
+    const hasSearchTool = config?.tools?.some((t: any) => t.google_search_retrieval || t.googleSearch);
+
+    if (schema && !hasSearchTool) {
       finalConfig.responseMimeType = "application/json";
       finalConfig.responseSchema = schema;
     }

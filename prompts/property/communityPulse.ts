@@ -32,33 +32,41 @@ export const getCommunityPulsePrompt = (property: PropertyData) => `
   {
     "what_residents_like": {
       "summary": "<positive aspects: what residents love, community vibe, friendliness, diversity>",
+      "points": ["Highlight 1", "Highlight 2", "Highlight 3"],
       "sources": []
     },
     "common_complaints": {
       "summary": "<negative aspects: complaints, noise, traffic, parking issues>",
+      "points": ["Highlight 1", "Highlight 2", "Highlight 3"],
       "sources": []
     },
     "safety_and_concerns": {
       "summary": "<safety perception, crime concerns, red flags, recurring warnings, environmental and infrastructure risks: industrial proximity, light pollution, drainage issues, or significant public works projects>",
+      "points": ["Highlight 1", "Highlight 2", "Highlight 3"],
       "sources": []
     },
     "schools_family_friendliness": {
       "summary": "<school quality and family-friendliness>",
+      "points": ["Highlight 1", "Highlight 2", "Highlight 3"],
       "sources": []
     },
     "lifestyle_convenience": {
       "summary": "<walkability, commute, remote work suitability, daily convenience>",
+      "points": ["Highlight 1", "Highlight 2", "Highlight 3"],
       "sources": []
     },
     "investment_insights": {
       "summary": "<rental demand, tenant profile, resale desirability, market trends>",
+      "points": ["Highlight 1", "Highlight 2", "Highlight 3"],
       "sources": []
     }
   }
 
   AVOID REPEATING the same information across different sections.
+  Each "points" array should contain 3-5 concise, impactful bullet points.
 
-  Respond ONLY with the JSON object, no additional text or markdown formatting.`;
+  Respond ONLY with the JSON object, no additional text or markdown formatting.
+`;
 
 
 const sectionSchema = {
