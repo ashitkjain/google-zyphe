@@ -16,6 +16,11 @@ export interface NeighborhoodAnalysis {
         development_patterns: string;
         nearby_amenities: string;
         general: string;
+    },
+    orientation?: {
+        street_direction: string;
+        home_marker_position: string;
+        final_orientation: string;
     }
 }
 
@@ -180,7 +185,6 @@ export interface CustomAIAnalysisResult {
         };
         views_privacy_orientation: {
             views: string;
-            orientation: string;
             privacy: string;
         };
         neighborhood_street_insights?: string;
@@ -262,6 +266,7 @@ export interface LLMCallEvent {
     llm_name: string;
     raw_payload: any;
     raw_response: any;
+    image_urls?: string[];
     status: 'pending' | 'completed' | 'failed';
     error?: string;
     estimated_cost?: number;

@@ -47,6 +47,26 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                     <div className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">NEIGHBORHOOD CONTEXT</div>
                     <p className="text-gray-800 font-sans font-normal text-[13px] leading-[1.625]">{data.overview}</p>
                 </div>
+
+                {data.orientation && (
+                    <div className="pt-12 border-t border-gray-100 space-y-6">
+                        <div className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">ORIENTATION ANALYSIS</div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            <div className="bg-gray-50/50 p-6 rounded-[1.5rem] border border-gray-100 flex flex-col items-center text-center space-y-2">
+                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Street Direction</div>
+                                <div className="text-xl font-black text-indigo-600 font-serif translate-y-[-2px]">{data.orientation.street_direction}</div>
+                            </div>
+                            <div className="bg-gray-50/50 p-6 rounded-[1.5rem] border border-gray-100 flex flex-col items-center text-center space-y-2">
+                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Home Position</div>
+                                <div className="text-xl font-black text-indigo-600 font-serif translate-y-[-2px] capitalize">{data.orientation.home_marker_position} of street</div>
+                            </div>
+                            <div className="bg-indigo-600 p-6 rounded-[1.5rem] flex flex-col items-center text-center space-y-2 shadow-lg shadow-indigo-100">
+                                <div className="text-[10px] font-black text-white/60 uppercase tracking-widest">Front Facing</div>
+                                <div className="text-2xl font-black text-white font-serif translate-y-[-2px]">{data.orientation.final_orientation}</div>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 pt-12 border-t border-gray-100">
                     {data.neighborhood_features && (
                         <>

@@ -195,12 +195,12 @@ export const runFullIntelligencePipeline = async (
 
     // 6. Spatial AI
     onProgress({ step: 'Spatial AI', status: 'running', message: 'Analyzing neighborhood context...' });
-    if (radar.mapZoomOut) {
-      const result = await analyzeNeighborhood(radar.mapZoomOut, enrichedData);
+    if (radar.mapZoomIn && radar.mapZoomOut) {
+      const result = await analyzeNeighborhood(radar.mapZoomIn, radar.mapZoomOut, enrichedData);
       visualResult.neighborhood = result.data;
       onProgress({ step: 'Spatial AI', status: 'completed', message: 'Spatial context mapped.', usage: result.usage });
     } else {
-      onProgress({ step: 'Spatial AI', status: 'completed', message: 'Spatial context skipped (no map).' });
+      onProgress({ step: 'Spatial AI', status: 'completed', message: 'Spatial context skipped (missing map imagery).' });
     }
 
     // 7. Market AI (City Level Caching)

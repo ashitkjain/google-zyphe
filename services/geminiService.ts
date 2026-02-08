@@ -140,9 +140,10 @@ export const executeGeminiRequest = async <T>(
     zpid?: string;
     extractResultJson?: boolean;
     schema?: any;
+    imageUrls?: string[];
   }
 ): Promise<{ data: T; usage: AIUsage; rawResponse: any }> => {
-  const { model, contents, config, userId, promptFilename, zpid, extractResultJson, schema } = params;
+  const { model, contents, config, userId, promptFilename, zpid, extractResultJson, schema, imageUrls } = params;
   const ai = getAi();
 
   const logId = await logLLMCall({
@@ -150,8 +151,9 @@ export const executeGeminiRequest = async <T>(
     zpid,
     prompt_filename: promptFilename,
     llm_name: model,
-    raw_payload: contents,
+    raw_payload: dehydratePayload(contents),
     raw_response: null,
+    image_urls: imageUrls,
     status: 'pending',
     request_sent_at: serverTimestamp()
   });
@@ -345,12 +347,17 @@ export const analyzeProperty = async (property: PropertyData, userId: string = "
     zpid: property.zpid,
     promptFilename: "propertyAnalysis.ts",
     extractResultJson: true,
-    schema: propertyAnalysisSchema
+    schema: propertyAnalysisSchema,
+    imageUrls: property.images
   });
 };
 
-export const analyzeNeighborhood = async (mapImageUrl: string, property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<NeighborhoodAnalysis>> => {
-  const { data, mimeType } = await urlToBase64(mapImageUrl);
+export const analyzeNeighborhood = async (mapZoomIn: string, mapZoomOut: string, property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<NeighborhoodAnalysis>> => {
+  const [img1, img2] = await Promise.all([
+    urlToBase64(mapZoomIn),
+    urlToBase64(mapZoomOut)
+  ]);
+
   const prompt = getNeighborhoodAnalysisPrompt(optimizePropertyForAi(property) as PropertyData);
 
   return executeGeminiRequest<NeighborhoodAnalysis>({
@@ -358,14 +365,16 @@ export const analyzeNeighborhood = async (mapImageUrl: string, property: Propert
     contents: {
       parts: [
         { text: prompt },
-        { inlineData: { data, mimeType } }
+        { inlineData: { data: img1.data, mimeType: img1.mimeType } },
+        { inlineData: { data: img2.data, mimeType: img2.mimeType } }
       ]
     },
     userId,
     zpid: property.zpid,
     promptFilename: "neighborhoodAnalysis.ts",
     extractResultJson: true,
-    schema: neighborhoodAnalysisSchema
+    schema: neighborhoodAnalysisSchema,
+    imageUrls: [mapZoomIn, mapZoomOut]
   });
 };
 
@@ -406,7 +415,6 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
     ? `${basePrompt}\n\nIMAGE TOKENS FOR YOUR REFERENCE:\n${imageTokens}`
     : `${basePrompt}\n\nNOTE: No photographs were provided for this property. Perform analysis based on detailed specifications.`;
 
-  const requestPayload = { text: textInstruction, image_count: imageParts.length };
 
   try {
     logId = await logLLMCall({
@@ -414,8 +422,9 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
       zpid: property.zpid,
       prompt_filename: "propertyImages.ts",
       llm_name: FLASH_LITE_MODEL,
-      raw_payload: requestPayload,
+      raw_payload: { text: textInstruction, image_parts_count: imageParts.length },
       raw_response: null,
+      image_urls: selectedImages,
       status: 'pending',
       request_sent_at: serverTimestamp()
     });
@@ -717,3 +726,31 @@ export const generateDailyPulse = async (leads: Lead[], userId: string = "unknow
     usage
   };
 };
+/**
+ * Helper to remove massive base64 strings from payloads before logging to Firestore.
+ */
+function dehydratePayload(payload: any): any {
+  if (!payload) return payload;
+
+  // If it's the standard Gemini parts array/object
+  if (typeof payload === 'object') {
+    const clean = JSON.parse(JSON.stringify(payload)); // Deep clone
+
+    const walk = (obj: any) => {
+      if (!obj || typeof obj !== 'object') return;
+
+      if (obj.inlineData && obj.inlineData.data) {
+        obj.inlineData.data = `[BASE64_DATA_REMOVED_SIZE_${obj.inlineData.data.length}]`;
+      }
+
+      for (const key in obj) {
+        if (typeof obj[key] === 'object') walk(obj[key]);
+      }
+    };
+
+    walk(clean);
+    return clean;
+  }
+
+  return payload;
+}

@@ -39,9 +39,15 @@ export const updateLLMCall = async (id: string, updates: Partial<LLMCallEvent>):
     }
 
     try {
-        console.log(`[LLM Log] Updating log: ${id}`, updates);
+        console.log(`[LLM Log] Updating log: ${id}`);
         const docRef = doc(db, "llm_call_events", id);
-        const sanitized = sanitizeForFirestore(updates);
+
+        const sanitizedUpdates = { ...updates };
+        if (sanitizedUpdates.raw_response && typeof sanitizedUpdates.raw_response === 'string' && sanitizedUpdates.raw_response.length > 500000) {
+            sanitizedUpdates.raw_response = sanitizedUpdates.raw_response.substring(0, 5000) + "... [Truncated due to size]";
+        }
+
+        const sanitized = sanitizeForFirestore(sanitizedUpdates);
         await updateDoc(docRef, sanitized);
         console.log(`[LLM Log] Successfully updated: ${id}`);
     } catch (error: any) {

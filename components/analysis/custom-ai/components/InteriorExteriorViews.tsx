@@ -158,7 +158,7 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnal
 
                 <div className="pt-12 border-t border-gray-100 space-y-6">
                     <div className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">VIEWS & PRIVACY</div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                         <div className="space-y-3">
                             <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Views</div>
                             <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.views_privacy_orientation?.views}</p>
@@ -166,10 +166,6 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnal
                         <div className="space-y-3">
                             <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Privacy</div>
                             <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.views_privacy_orientation?.privacy}</p>
-                        </div>
-                        <div className="space-y-3">
-                            <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Orientation</div>
-                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.views_privacy_orientation?.orientation}</p>
                         </div>
                     </div>
                 </div>

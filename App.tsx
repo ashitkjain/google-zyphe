@@ -484,9 +484,9 @@ const App: React.FC = () => {
       const res = await analyzePropertyImages(propertyData.images || [], propertyData);
       const result = res.data;
 
-      if (propertyData.mapZoomOut) {
+      if (propertyData.mapZoomIn && propertyData.mapZoomOut) {
         try {
-          const neighborRes = await analyzeNeighborhood(propertyData.mapZoomOut, propertyData);
+          const neighborRes = await analyzeNeighborhood(propertyData.mapZoomIn, propertyData.mapZoomOut, propertyData);
           result.neighborhood = neighborRes.data;
           addLog('Gemini AI', { type: 'response' }, neighborRes.data, neighborRes.usage);
         } catch (neighborErr) {

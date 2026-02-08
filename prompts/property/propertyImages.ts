@@ -42,7 +42,6 @@ export const getPropertyImagesPrompt = (property: PropertyData) => `
     },
     "views_privacy_orientation": {
       "views": "Description of any scenic views.",
-      "orientation": "Orientation of the home and sun exposure (e.g., south-facing backyard).",
       "privacy": "Degree of privacy from neighbors and the street."
     }
   }
@@ -85,10 +84,8 @@ Create a natural-flowing narrative that captures the curb appeal, backyard, surr
 Architecture style and condition of home exterior
 Front yard, landscaping, driveway, garage, and entryway features
 Backyard or patio: space, landscaping, privacy, seating areas, fences, pool/spa
-🌇 Views, Privacy, & Orientation
-Scenic views, orientation of the home (e.g., south-facing backyard, sunset exposure)
-Degree of privacy from neighbors or streets
-Sunlight exposure based on shadows or compass cues
+🌇 Views & Privacy
+Scenic views and degree of privacy from neighbors or streets
 🚗 Neighborhood & Street-Level Insights
 Condition of the street, sidewalks, and general neighborhood upkeep
 Quality and appearance of nearby homes
@@ -182,10 +179,9 @@ export const propertyImagesSchema = {
           type: Type.OBJECT,
           properties: {
             views: { type: Type.STRING, description: "Description of scenic views." },
-            orientation: { type: Type.STRING, description: "Sun exposure and compass orientation cues." },
             privacy: { type: Type.STRING, description: "Degree of privacy from neighbors and street." }
           },
-          required: ["views", "orientation", "privacy"]
+          required: ["views", "privacy"]
         },
         neighborhood_street_insights: {
           type: Type.STRING,
