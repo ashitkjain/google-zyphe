@@ -174,12 +174,6 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnal
                     </div>
                 </div>
 
-                {data.neighborhood_street_insights && (
-                    <div className="pt-12 border-t border-gray-100 space-y-6">
-                        <div className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">STREET & NEIGHBORHOOD INSIGHTS</div>
-                        <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.neighborhood_street_insights}</p>
-                    </div>
-                )}
             </div>
         </section>
     );

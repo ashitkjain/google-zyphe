@@ -94,8 +94,13 @@ export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAI
     try {
         const docRef = doc(db, "property_analyses_visual", String(zpid));
         logFirestoreQuery('setDoc', 'property_analyses_visual', { zpid });
+
+        // Remove community_pulse and image_quality_analysis from the property doc 
+        // to maintain single source of truth in their respective tables.
+        const { community_pulse, image_quality_analysis, ...persistentData } = analysis;
+
         await setDoc(docRef, {
-            ...sanitizeForFirestore(analysis),
+            ...sanitizeForFirestore(persistentData),
             zpid: String(zpid), // Explicitly include zpid as key field
             timestamp: serverTimestamp()
         });

@@ -725,7 +725,7 @@ exports.searchKnowledgeBase = functions.https.onCall(async (data, context) => {
     }
 });
 /**
- * Proxy function to fetch Google Street View images.
+ * Proxy function to fetch Google Street View and Radar.io images.
  * This bypasses CORS restrictions and potential client-side API key restrictions.
  */
 exports.proxyStreetViewImage = functions.https.onCall(async (data, context) => {

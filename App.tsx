@@ -27,7 +27,10 @@ import {
   getGeneralMarketIntelligenceFromCloud,
   deleteUserAccount,
   toggleFavorite,
-  getUserFavorites
+  getUserFavorites,
+  generateCityStateKey,
+  getCommunityPulseFromCloud,
+  saveCommunityPulseToCloud
 } from './services/firebaseService';
 import { APP_CONFIG } from './config';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -449,16 +452,22 @@ const App: React.FC = () => {
       if (!force && propertyData.zpid) {
         addLog('Cloud Cache', { type: 'request' }, { zpid: propertyData.zpid, task: 'visual_analysis' });
 
+        const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
+        const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
+        const cityStateKey = generateCityStateKey(city, state);
+
         // Parallel cache check for all components
-        const [cached, qualityCached, propInv, genMarket] = await Promise.all([
+        const [cached, qualityCached, pulseCached, propInv, genMarket] = await Promise.all([
           getVisualAnalysisFromCloud(propertyData.zpid),
           APP_CONFIG.caching.image_quality ? getImageQualityAnalysisFromCloud(propertyData.zpid) : Promise.resolve(null),
+          cityStateKey ? getCommunityPulseFromCloud(cityStateKey) : Promise.resolve(null),
           APP_CONFIG.caching.investment_research ? getPropertyInvestmentFromCloud(propertyData.zpid) : Promise.resolve(null),
           APP_CONFIG.caching.investment_research ? getGeneralMarketIntelligenceFromCloud(propertyData.zpid) : Promise.resolve(null)
         ]);
 
         if (cached) {
           if (qualityCached) cached.image_quality_analysis = qualityCached;
+          if (pulseCached) cached.community_pulse = pulseCached;
           if (propInv && genMarket) {
             cached.investment_research = { property_specific: propInv, general: genMarket };
           }
@@ -490,6 +499,14 @@ const App: React.FC = () => {
         const pulseRes = await analyzeCommunityPulse(propertyData);
         result.community_pulse = pulseRes.data;
         addLog('Gemini AI', { type: 'response' }, pulseRes.data, pulseRes.usage);
+
+        // Save independently to city-level cache
+        const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
+        const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
+        const cityStateKey = generateCityStateKey(city, state);
+        if (cityStateKey) {
+          await saveCommunityPulseToCloud(cityStateKey, pulseRes.data);
+        }
       } catch (pulseErr) {
         console.warn("Community pulse analysis failed:", pulseErr);
         addLog('System', { type: 'error' }, { message: "Community Pulse skipped", error: pulseErr });

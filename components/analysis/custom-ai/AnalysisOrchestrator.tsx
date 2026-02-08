@@ -208,7 +208,11 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                         {!analysis.neighborhood ? (
                             <EmptyState section="Neighborhood" />
                         ) : (
-                            <NeighborhoodView data={analysis.neighborhood} />
+                            <NeighborhoodView
+                                data={analysis.neighborhood}
+                                mapZoomIn={propertyData?.mapZoomIn}
+                                mapZoomOut={propertyData?.mapZoomOut}
+                            />
                         )}
                     </section>
                 )}

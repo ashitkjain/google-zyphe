@@ -4,13 +4,45 @@ import { EmptyState } from './CommonComponents';
 
 interface NeighborhoodViewProps {
     data: CustomAIAnalysisResult['neighborhood'];
+    mapZoomIn?: string;
+    mapZoomOut?: string;
 }
 
-export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data }) => {
+export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoomIn, mapZoomOut }) => {
     if (!data?.overview) return <EmptyState section="Neighborhood" />;
     return (
         <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-5xl mx-auto space-y-8">
             <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
+                {/* Visual Map Integration */}
+                {(mapZoomIn || mapZoomOut) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch pt-4">
+                        {mapZoomIn && (
+                            <div className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-inner group relative aspect-video">
+                                <img
+                                    src={mapZoomIn}
+                                    alt="Property Close-up Map"
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                                />
+                                <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20">
+                                    <i className="fa-solid fa-map mr-2"></i> Close-up View
+                                </div>
+                            </div>
+                        )}
+                        {mapZoomOut && (
+                            <div className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-inner group relative aspect-video">
+                                <img
+                                    src={mapZoomOut}
+                                    alt="Neighborhood Map"
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                                />
+                                <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20">
+                                    <i className="fa-solid fa-earth-americas mr-2"></i> Neighborhood View
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <div className="space-y-4">
                     <div className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">NEIGHBORHOOD CONTEXT</div>
                     <p className="text-gray-800 font-sans font-normal text-[13px] leading-[1.625]">{data.overview}</p>
