@@ -115,7 +115,7 @@ export const uploadRemoteImageToStorage = async (url: string, path: string): Pro
         } catch (e: any) {
             console.log(`[Storage] Direct fetch failed for ${url}: ${e.message}. Attempting proxy...`);
             try {
-                const { functions } = await import('./firebase/config');
+                const { functions } = await import('./config');
                 const { httpsCallable } = await import('firebase/functions');
                 if (functions) {
                     const proxyFunc = httpsCallable(functions, 'proxyStreetViewImage');
