@@ -37,43 +37,35 @@ export const runFullIntelligencePipeline = async (
   onLog?: (msg: string) => void
 ): Promise<string> => {
   try {
-    // 1. Geocoding
-    onProgress({ step: 'Geocoding', status: 'running', message: 'Normalizing address and generating maps...' });
-    const radar = await normalizeAddress(rawAddress, providedZpid);
+    // 1 & 3. Geocoding & Property Data (Parallel)
+    onProgress({ step: 'Discovery', status: 'running', message: 'Mapping location and fetching specifications...' });
+    const [radar, propData] = await Promise.all([
+      normalizeAddress(rawAddress, providedZpid),
+      fetchPropertyDataFull(providedZpid || rawAddress, !!providedZpid)
+    ]);
+
     const address = radar.formattedAddress;
-    onLog?.(`[Geocode] Address normalized: ${address}`);
-    onProgress({ step: 'Geocoding', status: 'completed', message: `Address normalized: ${address}` });
-
-    // 2. Fresh Scan
-    onProgress({ step: 'Status Check', status: 'running', message: 'Initiating fresh property scan...' });
-    onProgress({ step: 'Status Check', status: 'completed', message: 'Ready for fresh ingestion.' });
-
-    // 3. Property Data
-    onProgress({ step: 'Property Data', status: 'running', message: 'Fetching specifications...' });
-
-    // If we have a providedZpid, we use it directly to fetch data
-    onLog?.(`[Pipeline] Fetching data for ${providedZpid || address}`);
-    const propData = await fetchPropertyDataFull(providedZpid || address, !!providedZpid);
     const zpid = propData.zpid || providedZpid;
+    onLog?.(`[Geocode] Address: ${address}`);
     onLog?.(`[Pipeline] Resolved ZPID: ${zpid}`);
 
     if (!zpid) throw new Error("Could not resolve ZPID for property.");
+    onProgress({ step: 'Discovery', status: 'completed', message: `Found ${address}` });
 
-    // 4. Fetch Full Image Gallery (RapidAPI /property endpoint sometimes returns truncated images)
-    onProgress({ step: 'Gallery', status: 'running', message: 'Fetching complete photo gallery...' });
+    // 4. Gallery Fetch
+    onProgress({ step: 'Gallery', status: 'running', message: 'Syncing complete photo gallery...' });
     try {
       const fullImages = await fetchPropertyImages(zpid);
       if (fullImages && fullImages.length > (propData.images?.length || 0)) {
-        onLog?.(`[Gallery] Discovered ${fullImages.length} images (found ${propData.images?.length || 0} in summary).`);
+        onLog?.(`[Gallery] Discovered ${fullImages.length} images.`);
         propData.images = fullImages;
       }
     } catch (e) {
-      console.warn("[Gallery] Failed to fetch extended gallery, falling back to summary images:", e);
+      console.warn("[Gallery] Gallery sync failed, using summary photos:", e);
     }
 
     // --- ASSET PERSISTENCE ---
-    onProgress({ step: 'Property Data', status: 'running', message: 'Securing imagery in cloud storage...' });
-
+    onProgress({ step: 'Cloud Storage', status: 'running', message: 'Securing imagery and maps...' });
     const assets = await securePropertyAssets(
       zpid,
       propData.images || [],
@@ -81,159 +73,118 @@ export const runFullIntelligencePipeline = async (
       (p) => onLog?.(`[Assets] ${p.message}`)
     );
 
-    const persistentImages = assets.images;
-    const persistentMapUrl = assets.mapZoomOut;
-    const persistentMapZoomIn = assets.mapZoomIn;
-
-    onLog?.(`[Assets] Total ${persistentImages.length} images persisted and registered.`);
-
-    // Check if we have a mismatch
-    const isMismatch = providedZpid && providedZpid !== zpid;
-    const alternateIds = new Set<string>();
-    if (zpid) alternateIds.add(zpid);
-    if (providedZpid) alternateIds.add(providedZpid);
-
     const enrichedData: PropertyData = {
       ...propData,
-      zpid: zpid, // Canonical ID
-      feed_property_id: providedZpid, // Track what initiated this (e.g. 2056...)
-      alternate_ids: Array.from(alternateIds),
-      images: persistentImages, // Use the new persistent URLs
+      zpid: zpid,
+      feed_property_id: providedZpid,
+      images: assets.images,
       coordinates: radar.coordinates,
-      mapZoomIn: persistentMapZoomIn,
-      mapZoomOut: persistentMapUrl,
+      mapZoomIn: assets.mapZoomIn,
+      mapZoomOut: assets.mapZoomOut,
       address: address
     };
     await savePropertyToCloud(zpid, enrichedData);
-    onProgress({ step: 'Property Data', status: 'completed', message: 'Assets restored & specs saved.' });
+    onProgress({ step: 'Cloud Storage', status: 'completed', message: 'Assets secured.' });
 
-    // 4. Gallery (Handled above)
-    onProgress({ step: 'Gallery', status: 'completed', message: `${persistentImages.length} images secured in cloud storage.` });
+    // --- PARALLEL AI INTELLIGENCE BLOCK ---
+    onProgress({ step: 'Intelligence', status: 'running', message: 'Running parallel AI evaluation suite...' });
 
-    // Restore locally for downstream steps
-    const images = enrichedData.images || [];
-
-    // 5. Visual Intelligence
-    onProgress({ step: 'Visual AI', status: 'running', message: 'Analyzing interior and style...' });
-
-    let visualResult: CustomAIAnalysisResult;
-    const cachedVisual = await getVisualAnalysisFromCloud(zpid);
-
-    if (cachedVisual) {
-      // BUST CACHE if the cached analysis was truncated (e.g. from the old 15-image limit)
-      const cachedCount = cachedVisual.image_by_image_analysis?.length || 0;
-      const currentCount = images.length;
-
-      if (cachedCount < currentCount && currentCount > 15) {
-        onLog?.(`[Visual] Cache found but truncated (${cachedCount} vs ${currentCount} images). Bypassing cache for full analysis...`);
-        const result = await analyzePropertyImages(images, enrichedData);
-        visualResult = result.data;
-        onProgress({ step: 'Visual AI', status: 'completed', message: 'Full gallery analysis complete (Cache Bypassed).', usage: result.usage });
-      } else {
-        visualResult = cachedVisual;
-        onLog?.(`[Visual] Restored analysis from cache for ${zpid} (${cachedCount} images analyzed)`);
-        onProgress({ step: 'Visual AI', status: 'completed', message: 'Visual analysis restored from cache.' });
-      }
-    } else {
-      onLog?.(`[Visual] Running fresh AI analysis for ${zpid}...`);
-      const result = await analyzePropertyImages(images, enrichedData);
-      visualResult = result.data;
-      onProgress({ step: 'Visual AI', status: 'completed', message: 'Fresh visual analysis complete.', usage: result.usage });
-    }
-
-    // 6. Spatial AI
-    onProgress({ step: 'Spatial AI', status: 'running', message: 'Analyzing neighborhood context...' });
-    if (radar.mapZoomIn && radar.mapZoomOut) {
-      const result = await analyzeNeighborhood(radar.mapZoomIn, radar.mapZoomOut, enrichedData);
-      visualResult.neighborhood = result.data;
-      onProgress({ step: 'Spatial AI', status: 'completed', message: 'Spatial context mapped.', usage: result.usage });
-    } else {
-      onProgress({ step: 'Spatial AI', status: 'completed', message: 'Spatial context skipped (missing map imagery).' });
-    }
-
-    // 7. Market AI (City Level Caching)
-    onProgress({ step: 'Market AI', status: 'running', message: 'Gathering local sentiment...' });
-
-    // Determine City/State for localized caching
     const city = radar.components?.city || enrichedData.city;
     const state = radar.components?.state || enrichedData.state;
     const cityStateKey = generateCityStateKey(city, state);
 
-    if (cityStateKey) {
-      const cachedPulse = await getCommunityPulseFromCloud(cityStateKey);
-      if (cachedPulse) {
-        visualResult.community_pulse = cachedPulse;
-        onLog?.(`[Market] Community Pulse restored from city cache: ${cityStateKey}`);
-        onProgress({ step: 'Market AI', status: 'completed', message: 'Market pulse restored from city cache.' });
-      } else {
-        const resultPulse = await analyzeCommunityPulse(enrichedData);
-        visualResult.community_pulse = resultPulse.data;
-        await saveCommunityPulseToCloud(cityStateKey, resultPulse.data);
-        onLog?.(`[Market] Fresh pulse generated and cached for city: ${cityStateKey}`);
-        onProgress({ step: 'Market AI', status: 'completed', message: 'Fresh market pulse analysis complete.', usage: resultPulse.usage });
+    // Prepare Parallel Tasks
+    const visualTask = async () => {
+      let visual: CustomAIAnalysisResult;
+      const cached = await getVisualAnalysisFromCloud(zpid);
+      if (cached && (cached.image_by_image_analysis?.length || 0) >= enrichedData.images!.length) {
+        onLog?.(`[Visual] Cache hit (${enrichedData.images!.length} images)`);
+        return cached;
       }
-    } else {
-      const resultPulse = await analyzeCommunityPulse(enrichedData);
-      visualResult.community_pulse = resultPulse.data;
-      onProgress({ step: 'Market AI', status: 'completed', message: 'Fresh market pulse analysis complete (Uncached).', usage: resultPulse.usage });
-    }
+      onLog?.(`[Visual] Running fresh analysis...`);
+      const res = await analyzePropertyImages(enrichedData.images!, enrichedData);
+      onLog?.(`[Visual] Analysis complete.`);
+      return res.data;
+    };
 
-    // 8. Quality Audit (Consolidated into Visual AI)
-    onProgress({ step: 'Quality Audit', status: 'running', message: 'Finalizing picture quality scan...' });
-    if (visualResult.image_quality_analysis) {
-      // Save specifically to the new collection for legacy support/indexing
-      await saveImageQualityAnalysisToCloud(zpid, visualResult.image_quality_analysis);
-      onProgress({ step: 'Quality Audit', status: 'completed', message: 'Picture quality intelligence finalized.' });
-    } else {
-      onProgress({ step: 'Quality Audit', status: 'completed', message: 'Skipped (no quality data found).' });
-    }
+    const neighborhoodTask = async () => {
+      if (!assets.mapZoomIn || !assets.mapZoomOut) return null;
+      onLog?.(`[Spatial] Mapping neighborhood...`);
+      const res = await analyzeNeighborhood(assets.mapZoomIn, assets.mapZoomOut, enrichedData);
+      onLog?.(`[Spatial] Mapping complete.`);
+      return res.data;
+    };
 
-    await saveVisualAnalysisToCloud(zpid, visualResult);
+    const pulseTask = async () => {
+      if (cityStateKey) {
+        const cached = await getCommunityPulseFromCloud(cityStateKey);
+        if (cached) {
+          onLog?.(`[Market] Pulse cache hit: ${cityStateKey}`);
+          return cached;
+        }
+      }
+      onLog?.(`[Market] Analyzing resident sentiment...`);
+      const res = await analyzeCommunityPulse(enrichedData);
+      if (cityStateKey) await saveCommunityPulseToCloud(cityStateKey, res.data);
+      onLog?.(`[Market] Sentiment analysis complete.`);
+      return res.data;
+    };
 
-    // 9. Investment Research (Property Specific & General Market)
-    onProgress({ step: 'Investment AI', status: 'running', message: 'Analyzing investment potential...' });
+    const investmentTask = async () => {
+      const propInvTask = async () => {
+        const cached = await getPropertyInvestmentFromCloud(zpid);
+        if (cached) return cached;
+        const res = await analyzeInvestmentResearch(enrichedData);
+        await savePropertyInvestmentToCloud(zpid, res.data);
+        return res.data;
+      };
 
-    // Property Specific
-    let propInvestment: PropertySpecificInvestmentResult;
-    const cachedPropInv = await getPropertyInvestmentFromCloud(zpid);
-    if (cachedPropInv) {
-      propInvestment = cachedPropInv;
-    } else {
-      const res = await analyzeInvestmentResearch(enrichedData);
-      propInvestment = res.data;
-      await savePropertyInvestmentToCloud(zpid, propInvestment);
-    }
-
-    // General Market (City Level Caching)
-    let generalMarket: GeneralMarketIntelligenceResult;
-    if (cityStateKey) {
-      const cachedGeneralMarket = await getGeneralMarketIntelligenceFromCloud(cityStateKey);
-      if (cachedGeneralMarket) {
-        generalMarket = cachedGeneralMarket;
-        onLog?.(`[Investment] General Market Intelligence restored from city cache: ${cityStateKey}`);
-      } else {
+      const marketIntTask = async () => {
+        const key = cityStateKey || zpid;
+        const cached = await getGeneralMarketIntelligenceFromCloud(key);
+        if (cached) return cached;
         const res = await analyzeGeneralMarketIntelligence(enrichedData);
-        generalMarket = res.data;
-        await saveGeneralMarketIntelligenceToCloud(cityStateKey, generalMarket);
-        onLog?.(`[Investment] Fresh Market Intelligence generated and cached for city: ${cityStateKey}`);
-      }
-    } else {
-      const res = await analyzeGeneralMarketIntelligence(enrichedData);
-      generalMarket = res.data;
-      // zpid fallback if city-state key generation fails (legacy/unreliable data)
-      await saveGeneralMarketIntelligenceToCloud(zpid, generalMarket);
+        await saveGeneralMarketIntelligenceToCloud(key, res.data);
+        return res.data;
+      };
+
+      onLog?.(`[Investment] Scouring market historics...`);
+      const [specific, general] = await Promise.all([propInvTask(), marketIntTask()]);
+      onLog?.(`[Investment] Market research complete.`);
+      return { specific, general };
+    };
+
+    // Execute BIG AI BLOCK
+    const [visualResult, neighborhoodData, communityPulse, investmentData] = await Promise.all([
+      visualTask(),
+      neighborhoodTask(),
+      pulseTask(),
+      investmentTask()
+    ]);
+
+    // Assembly
+    const finalVisualResult: CustomAIAnalysisResult = {
+      ...visualResult,
+      neighborhood: neighborhoodData || undefined,
+      community_pulse: communityPulse,
+      property_investment: investmentData.specific,
+      general_market_intelligence: investmentData.general
+    };
+
+    // Save final visual state
+    await saveVisualAnalysisToCloud(zpid, finalVisualResult);
+    if (finalVisualResult.image_quality_analysis) {
+      await saveImageQualityAnalysisToCloud(zpid, finalVisualResult.image_quality_analysis);
     }
+    onProgress({ step: 'Intelligence', status: 'completed', message: 'AI Evaluations complete.' });
 
-    onProgress({ step: 'Investment AI', status: 'completed', message: 'Investment analysis complete.' });
+    // 10. Narrative AI Synthesis (Final Step)
+    onProgress({ step: 'Narrative', status: 'running', message: 'Synthesizing final report...' });
+    const resultComp = await analyzeComprehensive(enrichedData, finalVisualResult);
+    await saveComprehensiveAnalysisToCloud(zpid, resultComp.data);
+    onProgress({ step: 'Narrative', status: 'completed', message: 'Report synthesized.', usage: resultComp.usage });
 
-    // 10. Narrative AI
-    onProgress({ step: 'Narrative AI', status: 'running', message: 'Synthesizing professional report...' });
-    const resultComp = await analyzeComprehensive(enrichedData, visualResult);
-    const compResult = resultComp.data;
-    await saveComprehensiveAnalysisToCloud(zpid, compResult);
-    onProgress({ step: 'Narrative AI', status: 'completed', message: 'Comprehensive fresh report generated.', usage: resultComp.usage });
-
-    onProgress({ step: 'Status', status: 'completed', message: 'Fresh Property Intelligence Suite is ready.' });
+    onProgress({ step: 'Status', status: 'completed', message: 'Property Intelligence Suite is ready.' });
     return zpid;
   } catch (error: any) {
     let msg = error.message;

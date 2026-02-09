@@ -354,7 +354,11 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
                                                     </button>
                                                 </td>
                                                 <td className="px-8 py-6">
-                                                    {prop.existsInFirestore ? (
+                                                    {prop.status === 'completed' ? (
+                                                        <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[9px] font-black uppercase tracking-widest rounded-full border border-indigo-100 flex items-center gap-2 w-fit animate-in fade-in zoom-in duration-500">
+                                                            <i className="fa-solid fa-sparkles text-indigo-400"></i> Intelligence Primed
+                                                        </span>
+                                                    ) : prop.existsInFirestore ? (
                                                         <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase tracking-widest rounded-full border border-emerald-100 flex items-center gap-2 w-fit">
                                                             <i className="fa-solid fa-database"></i> Document Active
                                                         </span>
@@ -421,18 +425,9 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-baseline">
-                                        <span className="text-xs font-bold text-slate-600">Avg AI Latency</span>
+                                        <span className="text-xs font-bold text-slate-600">Avg Time / Prop</span>
                                         <span className="text-lg font-black text-slate-900">
-                                            {Math.round(ingestionReport.llmLogs.length > 0 ? (ingestionReport.llmLogs.reduce((acc, log) => {
-                                                const startTs = log.request_sent_at;
-                                                const endTs = log.response_received_at;
-                                                if (startTs && endTs) {
-                                                    const start = (startTs as any).toMillis?.() || (new Date(startTs)).getTime() || 0;
-                                                    const end = (endTs as any).toMillis?.() || (new Date(endTs)).getTime() || 0;
-                                                    if (start > 0 && end > 0) return acc + (end - start);
-                                                }
-                                                return acc;
-                                            }, 0) / ingestionReport.llmLogs.length) / 1000 : 0)}s
+                                            {Math.round(properties.filter(p => p.status === 'completed').length > 0 ? (properties.filter(p => p.status === 'completed').reduce((acc, p) => acc + ((p.endTime || 0) - (p.startTime || 0)), 0) / properties.filter(p => p.status === 'completed').length) / 1000 : 0)}s
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-baseline">
@@ -482,121 +477,6 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <div className="space-y-12">
-                        {/* Grouped Logs by Property */}
-                        {[...new Set([
-                            ...ingestionReport.llmLogs.map(l => l.zpid),
-                            ...ingestionReport.apiLogs.map(l => l.zpid)
-                        ])].sort((a, b) => {
-                            if (!a) return 1;
-                            if (!b) return -1;
-                            return 0;
-                        }).map(zpid => {
-                            const prop = zpid ? properties.find(p => p.zpid === zpid) : null;
-                            const propLLM = ingestionReport.llmLogs.filter(l => l.zpid === zpid);
-                            const propAPI = ingestionReport.apiLogs.filter(l => l.zpid === zpid);
-                            const propCost = propLLM.reduce((acc, l) => acc + (l.estimated_cost || 0), 0);
-
-                            if (propLLM.length === 0 && propAPI.length === 0) return null;
-
-                            return (
-                                <div key={zpid || 'general'} className="bg-slate-50/50 rounded-[2rem] border border-slate-100 overflow-hidden">
-                                    <div className="bg-white px-8 py-5 border-b border-slate-100 flex items-center justify-between">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-xs shadow-lg">
-                                                <i className="fa-solid fa-house-chimney text-[10px]"></i>
-                                            </div>
-                                            <div>
-                                                <h4 className="text-sm font-black text-slate-900">{prop?.address || zpid || 'General Discovery'}</h4>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                                    Property ID: <span className="text-indigo-600">{zpid || 'N/A'}</span>
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-6 text-right">
-                                            <div>
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Compute Cost</div>
-                                                <div className="text-sm font-black text-emerald-600">${propCost.toFixed(4)}</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Calls</div>
-                                                <div className="text-sm font-black text-slate-900">{propLLM.length + propAPI.length}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-left">
-                                            <thead className="bg-slate-50/80 text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                                <tr>
-                                                    <th className="px-8 py-4">Execution Thread</th>
-                                                    <th className="px-8 py-4">Endpoint / Agent</th>
-                                                    <th className="px-8 py-4 text-right">Usage / Latency</th>
-                                                    <th className="px-8 py-4 text-right">Status</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100">
-                                                {/* LLM Logs for this prop */}
-                                                {propLLM.sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0)).map(log => (
-                                                    <tr key={log.id} className="text-sm transition-colors hover:bg-white/80">
-                                                        <td className="px-8 py-4">
-                                                            <div className="flex items-center gap-2">
-                                                                <i className="fa-solid fa-robot text-indigo-500 w-4"></i>
-                                                                <span className="font-bold text-slate-900">Gemini</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-8 py-4">
-                                                            <div className="font-medium text-slate-600 underline decoration-slate-200 underline-offset-4 decoration-dotted">{log.prompt_filename || 'Unknown Agent'}</div>
-                                                            <div className="text-[8px] text-slate-400 font-black uppercase tracking-widest mt-1">
-                                                                {formatLogTime(log.request_sent_at)} → {formatLogTime(log.response_received_at)}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-8 py-4 text-right font-mono">
-                                                            <div className="text-indigo-600 font-bold text-[11px]">
-                                                                {log.usage_metadata?.totalTokenCount?.toLocaleString() || 0} tkn
-                                                            </div>
-                                                            <div className="text-[9px] text-slate-400 font-bold">
-                                                                {log.usage_metadata?.promptTokenCount?.toLocaleString() || 0} in / {log.usage_metadata?.candidatesTokenCount?.toLocaleString() || 0} out
-                                                            </div>
-                                                            <div className="text-[10px] text-emerald-600 font-black mt-1">
-                                                                ${(log.estimated_cost || 0).toFixed(4)}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-8 py-4 text-right">
-                                                            <span className={`px-2 py-1 rounded text-[9px] font-black uppercase ${log.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                                                {log.status}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                                {/* API Logs for this prop */}
-                                                {propAPI.sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0)).map(log => (
-                                                    <tr key={log.id} className="text-sm transition-colors hover:bg-white/80">
-                                                        <td className="px-8 py-4">
-                                                            <div className="flex items-center gap-2">
-                                                                <i className={`fa-solid ${log.api_name === 'Radar' ? 'fa-location-crosshairs text-emerald-500' : 'fa-server text-blue-500'} w-4`}></i>
-                                                                <span className="font-bold text-slate-900">{log.api_name}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-8 py-4 font-medium text-slate-600">{log.endpoint}</td>
-                                                        <td className="px-8 py-4 text-right font-mono text-slate-500 text-[11px]">
-                                                            {log.response_time_ms ? `${log.response_time_ms}ms` : '--'}
-                                                        </td>
-                                                        <td className="px-8 py-4 text-right">
-                                                            <span className={`px-2 py-1 rounded text-[9px] font-black uppercase ${log.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                                                {log.status}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            );
-                        })}
                     </div>
                 </div>
             )}
