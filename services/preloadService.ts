@@ -21,6 +21,7 @@ import {
 import { PropertyData, CustomAIAnalysisResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult, AIUsage } from '../types';
 import { analyzeGeneralMarketIntelligence } from './geminiService';
 import { uploadRemoteImageToStorage } from './firebase/storage.ts';
+import { securePropertyAssets } from './assetService';
 
 export interface PipelineProgress {
   step: string;
@@ -71,73 +72,20 @@ export const runFullIntelligencePipeline = async (
     }
 
     // --- ASSET PERSISTENCE ---
-    onProgress({ step: 'Property Data', status: 'running', message: 'Checking asset registry...' });
+    onProgress({ step: 'Property Data', status: 'running', message: 'Securing imagery in cloud storage...' });
 
-    // Try to restore from Asset Manifest first (Performance & Integrity check)
-    const cachedAssets = await getPropertyAssetsFromCloud(zpid);
-    let persistentImages: string[] = [];
-    let persistentMapUrl = radar.mapZoomOut;
-    let persistentMapZoomIn = radar.mapZoomIn;
+    const assets = await securePropertyAssets(
+      zpid,
+      propData.images || [],
+      { zoomIn: radar.mapZoomIn, zoomOut: radar.mapZoomOut },
+      (p) => onLog?.(`[Assets] ${p.message}`)
+    );
 
-    if (cachedAssets && cachedAssets.images?.length > 0) {
-      onLog?.(`[Assets] Manifest found! Restoring ${cachedAssets.images.length} persistent image references.`);
-      persistentImages = cachedAssets.images;
-      persistentMapUrl = cachedAssets.mapZoomOut || radar.mapZoomOut;
-      persistentMapZoomIn = cachedAssets.mapZoomIn || radar.mapZoomIn;
-    } else {
-      onProgress({ step: 'Property Data', status: 'running', message: 'Persisting images to secure storage...' });
+    const persistentImages = assets.images;
+    const persistentMapUrl = assets.mapZoomOut;
+    const persistentMapZoomIn = assets.mapZoomIn;
 
-      // 1. Persist Map Image
-      if (radar.mapZoomOut) {
-        try {
-          persistentMapUrl = await uploadRemoteImageToStorage(
-            radar.mapZoomOut,
-            `properties/${zpid}/maps/location_context.png`
-          );
-          onLog?.(`[Assets] Map image saved to storage.`);
-        } catch (e) {
-          console.error("Failed to save map image:", e);
-        }
-      }
-
-      // 2. Persist Gallery Images
-      const rawImages = propData.images || [];
-      const imagesToProcess = rawImages;
-      const CHUNK_SIZE = 5;
-
-      onLog?.(`[Assets] Processing ${imagesToProcess.length} images in batches of ${CHUNK_SIZE}...`);
-
-      for (let i = 0; i < imagesToProcess.length; i += CHUNK_SIZE) {
-        const chunk = imagesToProcess.slice(i, i + CHUNK_SIZE);
-        const chunkPromises = chunk.map(async (url, chunkIndex) => {
-          const index = i + chunkIndex;
-          try {
-            if (url.includes('firebasestorage')) return url;
-            return await uploadRemoteImageToStorage(
-              url,
-              `properties/${zpid}/gallery/img_${index + 1}.jpg`
-            );
-          } catch (e) {
-            console.warn(`Failed to upload image ${index}:`, e);
-            return url;
-          }
-        });
-
-        const chunkResults = await Promise.all(chunkPromises);
-        persistentImages.push(...chunkResults);
-        onLog?.(`[Assets] Progress: ${persistentImages.length}/${imagesToProcess.length} images secured.`);
-      }
-
-      // Save new manifest
-      await savePropertyAssetsToCloud(zpid, {
-        zpid,
-        images: persistentImages,
-        mapZoomIn: persistentMapZoomIn,
-        mapZoomOut: persistentMapUrl,
-        lastVerified: null // Handled by serverTimestamp in service
-      });
-      onLog?.(`[Assets] Total ${persistentImages.length} images persisted and registered.`);
-    }
+    onLog?.(`[Assets] Total ${persistentImages.length} images persisted and registered.`);
 
     // Check if we have a mismatch
     const isMismatch = providedZpid && providedZpid !== zpid;

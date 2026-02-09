@@ -72,8 +72,23 @@ export const useAnalysisActions = (
                 addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'image_quality_analysis', zpid });
             }
 
+            // MANDATORY ASSET SECURING
+            let securedImages = propertyImages;
+            if (zpid) {
+                try {
+                    const { securePropertyAssets } = await import('../../../../services/assetService');
+                    const assets = await securePropertyAssets(zpid, propertyImages, {
+                        zoomIn: propertyData.mapZoomIn,
+                        zoomOut: propertyData.mapZoomOut
+                    });
+                    securedImages = assets.images;
+                } catch (e) {
+                    console.warn("[useAnalysisActions] Asset securing failed:", e);
+                }
+            }
+
             addLog('Gemini AI', { type: 'request' }, { task: 'visual_analysis_consolidated', zpid });
-            const res = await aiAnalyzeImages(propertyImages, propertyData);
+            const res = await aiAnalyzeImages(securedImages, propertyData);
             const result = res.data;
 
             onUpdateAnalysis(result);

@@ -106,11 +106,37 @@ export const uploadRemoteImageToStorage = async (url: string, path: string): Pro
             // File doesn't exist, proceed with download/upload
         }
 
-        // Fetch the image
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Failed to fetch remote image: ${response.statusText}`);
+        // Fetch the image (with proxy fallback if direct fetch fails due to CORS/etc)
+        let blob: Blob;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Status ${response.status}`);
+            blob = await response.blob();
+        } catch (e: any) {
+            console.log(`[Storage] Direct fetch failed for ${url}: ${e.message}. Attempting proxy...`);
+            try {
+                const { functions } = await import('./firebase/config');
+                const { httpsCallable } = await import('firebase/functions');
+                if (functions) {
+                    const proxyFunc = httpsCallable(functions, 'proxyStreetViewImage');
+                    const result: any = await proxyFunc({ url });
 
-        const blob = await response.blob();
+                    // Convert base64 from proxy back to blob for uploadBytes
+                    const byteCharacters = atob(result.data.base64);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    blob = new Blob([byteArray], { type: result.data.mimeType });
+                } else {
+                    throw new Error("Functions not initialized");
+                }
+            } catch (proxyErr: any) {
+                console.warn(`[Storage] Both direct and proxy failed for ${url}:`, proxyErr.message);
+                throw proxyErr;
+            }
+        }
 
         // Upload
         const snapshot = await uploadBytes(storageRef, blob);

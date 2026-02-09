@@ -1,0 +1,50 @@
+Zyphe: Technical Specification and Feature Set
+
+This document outlines the functional capabilities and technical features of the Zyphe platform.
+
+1. Geospatial and Neighborhood Analysis
+Zyphe utilizes multi-source spatial data and computer vision to analyze property environments.
+Visual Neighborhood Identification: Processed analysis of Google Street View imagery to identify:
+Privacy Assessment: Evaluation of natural screening, fencing, and visibility from public thoroughfares.
+External Asset Condition: Detection of visible maintenance indicators including roof integrity, driveway condition, and exterior finish.
+Logistics Mapping: Identification of garage configurations, driveway capacity, and street parking regulations.
+Safety Infrastructure: Detection of sidewalk continuity and perimeter fencing.
+Utility Infrastructure Mapping: Identification of overhead power lines and utility pole presence.
+Environmental Monitoring:
+Air Quality Metrics: Real-time reporting of Universal Air Quality Index (UAQI) and specific pollutant concentrations (CO, NO2, PM2.5, PM10).
+Pollen and Allergen Analysis: Data on local pollen types, concentration levels, and seasonal trends.
+Solar Visibility Analysis: Assessment of solar potential based on historical sunshine data and 3D obstruction detection (neighboring structures and vegetation).
+
+2. Computer Vision Listing Analysis
+Automated processing of listing photographs to extract structural and design data.
+Interior Design Classification: Categorization of interior styles based on visual cues (e.g., Japandi, Modern, Traditional).
+Finish and Material Extraction: Identification of flooring types (hardwood, tile, carpet) and surface materials.
+Room Classification: Automated tagging and analysis of specific areas (Kitchens, Living Rooms, Primary Suites).
+Image Metadata Audit: Evaluation of photo quality parameters including lighting, composition, and staging for listing optimization.
+
+3. Workflow and Productivity Suite
+Operational tools for lead management and transaction tracking.
+Kanban Transaction Pipeline: A visual management system for tracking lead status and transaction progression.
+Universal Lead Ingestion: API support for capturing leads from third-party portals, social media channels, and existing CRM databases.
+Database Reactivation Logic: Automated analysis of historical lead data to identify re-engagement opportunities based on new search activity.
+Integrated Scheduling: A calendar system where scheduled events are linked to specific property data records and analysis reports.
+
+4. Financial and Market Analysis
+Quantitative tools for investment assessment and offer strategy.
+Bidding Range Analysis: Calculation of suggested offer ranges based on local Days on Market (DOM) and recent comparable sales.
+Rental Market Projections:
+Short-Term Rental (STR): Projected occupancy rates and Average Daily Rate (ADR) estimations.
+Long-Term Rental (LTR): Projected monthly rent and vacancy rate analysis.
+Comparable Property Integration: Retrieval and display of recent similar property transactions in the immediate vicinity.
+
+5. Risk and Mobility Intelligence
+Climate Risk Modeling: Risk indexing for environmental hazards including flood, fire, wind, and heat.
+Mobility Scores: Integration of Walk, Transit, and Bike scores.
+Education Mapping: Identification of nearby educational institutions with associated rating data.
+Structural Fact Extraction: Automated extraction of building specifications (foundation type, sewer system, utility configuration).
+
+6. Persistence and Architecture
+Cloud Data Caching: Persistence of all environmental and visual analyses in a centralized database for cross-platform retrieval.
+System Deployment Options: Supports both a comprehensive standalone platform and modular API-based integration with external real estate software (kvCORE, HubSpot, Chime).
+
+Zyphe Technical Documentation V2.5

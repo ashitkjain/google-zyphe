@@ -478,13 +478,40 @@ const App: React.FC = () => {
       }
 
 
-      addLog('Gemini AI', { type: 'request' }, { task: 'visual_analysis', forced: force });
-      const res = await analyzePropertyImages(propertyData.images || [], propertyData);
+      // MANDATORY ASSET SECURING ON REFRESH
+      // MANDATORY ASSET SECURING ON REFRESH
+      let currentImages = propertyData.images || [];
+      let propToAnalyze = propertyData;
+
+      if (force && propertyData.zpid) {
+        addLog('Zyphe Asset Engine', { type: 'request' }, { task: 'secure_assets', zpid: propertyData.zpid });
+        try {
+          const { securePropertyAssets } = await import('./services/assetService');
+          const assets = await securePropertyAssets(
+            propertyData.zpid,
+            currentImages,
+            { zoomIn: propertyData.mapZoomIn, zoomOut: propertyData.mapZoomOut }
+          );
+          currentImages = assets.images;
+
+          // Update local state and cloud record with persistent URLs
+          propToAnalyze = { ...propertyData, images: currentImages };
+          setPropertyData(propToAnalyze);
+          await savePropertyToCloud(propertyData.zpid, propToAnalyze);
+
+          addLog('Zyphe Asset Engine', { type: 'response' }, { status: 'Secured', count: currentImages.length });
+        } catch (e) {
+          console.warn("[App] Asset securing failed, proceeding with remote URLs", e);
+        }
+      }
+
+      addLog('Gemini AI', { type: 'request' }, { task: 'visual_analysis', forced: force, images_count: currentImages.length });
+      const res = await analyzePropertyImages(currentImages, propToAnalyze);
       const result = res.data;
 
-      if (propertyData.mapZoomIn && propertyData.mapZoomOut) {
+      if (propToAnalyze.mapZoomIn && propToAnalyze.mapZoomOut) {
         try {
-          const neighborRes = await analyzeNeighborhood(propertyData.mapZoomIn, propertyData.mapZoomOut, propertyData);
+          const neighborRes = await analyzeNeighborhood(propToAnalyze.mapZoomIn, propToAnalyze.mapZoomOut, propToAnalyze);
           result.neighborhood = neighborRes.data;
           addLog('Gemini AI', { type: 'response' }, neighborRes.data, neighborRes.usage);
         } catch (neighborErr) {
@@ -494,13 +521,13 @@ const App: React.FC = () => {
       }
 
       try {
-        const pulseRes = await analyzeCommunityPulse(propertyData);
+        const pulseRes = await analyzeCommunityPulse(propToAnalyze);
         result.community_pulse = pulseRes.data;
         addLog('Gemini AI', { type: 'response' }, pulseRes.data, pulseRes.usage);
 
         // Save independently to city-level cache
-        const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
-        const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
+        const city = propToAnalyze?.city || (propToAnalyze?.address && propToAnalyze.address.split(',')[1]?.trim());
+        const state = propToAnalyze?.state || (propToAnalyze?.address && propToAnalyze.address.split(',')[2]?.split(' ')[1]?.trim());
         const cityStateKey = generateCityStateKey(city, state);
         if (cityStateKey) {
           await saveCommunityPulseToCloud(cityStateKey, pulseRes.data);
@@ -512,8 +539,8 @@ const App: React.FC = () => {
 
       setCustomAnalysis(result);
       addLog('Gemini AI', { type: 'response' }, result, res.usage);
-      if (propertyData.zpid) {
-        const saveResult = await saveVisualAnalysisToCloud(propertyData.zpid, result);
+      if (propToAnalyze.zpid) {
+        const saveResult = await saveVisualAnalysisToCloud(propToAnalyze.zpid, result);
         if (!saveResult.success) {
           addLog('System', { type: 'error' }, { message: "Cloud Cache Save Failed", task: 'visual_analysis', error: saveResult.error });
         }

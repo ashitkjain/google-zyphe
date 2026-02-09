@@ -282,57 +282,59 @@ function calculateUsage(response: any, modelName: string): AIUsage {
 
 export async function urlToBase64(url: string): Promise<{ data: string, mimeType: string }> {
   try {
-    // 1. Check if it's a Google Maps or Radar URL - if so, use proxy immediately 
-    // because direct browser fetch will always fail due to CORS.
-    if (url.includes("maps.googleapis.com") || url.includes("api.radar.io")) {
-      console.log("[urlToBase64] Google Maps URL detected. Using Firebase Function proxy to bypass CORS/restrictions...");
+    // 1. Aggressive Proxy for known CORS-restricted domains OR if it's external but not Firebase
+    const isFirebase = url.includes("firebasestorage.googleapis.com");
+    if (!isFirebase && (url.includes("maps.googleapis.com") || url.includes("api.radar.io") || url.includes("zillowstatic.com") || url.includes("rent.net") || url.includes("static.com"))) {
+      console.log(`[urlToBase64] Domain detected for proxy: ${url}`);
       try {
         const { functions } = await import('./firebase/config');
         const { httpsCallable } = await import('firebase/functions');
-
         if (functions) {
           const proxyFunc = httpsCallable(functions, 'proxyStreetViewImage');
           const result: any = await proxyFunc({ url });
           return { data: result.data.base64, mimeType: result.data.mimeType };
         }
       } catch (proxyError: any) {
-        console.warn("[urlToBase64] Proxy fetch failed, falling back to direct fetch:", proxyError.message);
+        console.warn("[urlToBase64] Proxy fetch failed:", proxyError.message);
       }
     }
 
-    // 2. Standard direct fetch
-    const response = await fetch(url, { mode: 'cors' });
-    if (!response.ok) {
-      // If direct fetch fails with 403 and it wasn't handled by proxy yet, try proxy as last resort
-      if (response.status === 403) {
-        console.log("[urlToBase64] Direct fetch 403. Attempting proxy fallback...");
-        try {
-          const { functions } = await import('./firebase/config');
-          const { httpsCallable } = await import('firebase/functions');
-          if (functions) {
-            const proxyFunc = httpsCallable(functions, 'proxyStreetViewImage');
-            const result: any = await proxyFunc({ url });
-            return { data: result.data.base64, mimeType: result.data.mimeType };
-          }
-        } catch (e) { }
+    // 2. Standard direct fetch (with proxy fallback for any failure)
+    try {
+      const response = await fetch(url, { mode: 'cors' });
+      if (!response.ok) {
+        throw new Error(`Status ${response.status}`);
       }
-      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
-    }
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        if (!result) {
-          reject(new Error("Empty result from FileReader"));
-          return;
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          if (!result) {
+            reject(new Error("Empty result from FileReader"));
+            return;
+          }
+          const base64String = result.split(',')[1];
+          resolve({ data: base64String, mimeType: blob.type });
+        };
+        reader.onerror = () => reject(new Error("FileReader failed"));
+        reader.readAsDataURL(blob);
+      });
+    } catch (e: any) {
+      console.log(`[urlToBase64] Direct fetch failed for ${url}: ${e.message}. Attempting proxy as last resort...`);
+      try {
+        const { functions } = await import('./firebase/config');
+        const { httpsCallable } = await import('firebase/functions');
+        if (functions) {
+          const proxyFunc = httpsCallable(functions, 'proxyStreetViewImage');
+          const result: any = await proxyFunc({ url });
+          return { data: result.data.base64, mimeType: result.data.mimeType };
         }
-        const base64String = result.split(',')[1];
-        resolve({ data: base64String, mimeType: blob.type });
-      };
-      reader.onerror = () => reject(new Error("FileReader failed"));
-      reader.readAsDataURL(blob);
-    });
+      } catch (proxyErr: any) {
+        throw new Error(`Both direct and proxy fetch failed: ${proxyErr.message}`);
+      }
+      throw e;
+    }
   } catch (error: any) {
     console.warn(`Image fetch failed for ${url}:`, error.message);
     throw error;
@@ -402,13 +404,23 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
   let logId: string | null = null;
 
   const imageResults = await Promise.allSettled(selectedImages.map(async (url) => {
-    const { data, mimeType } = await urlToBase64(url);
-    return { inlineData: { data, mimeType }, url };
+    try {
+      const { data, mimeType } = await urlToBase64(url);
+      return { inlineData: { data, mimeType }, url };
+    } catch (e: any) {
+      console.warn(`[analyzePropertyImages] Failed to process image: ${url}`, e.message);
+      throw e;
+    }
   }));
 
   const successfulResults = imageResults
     .filter((result): result is PromiseFulfilledResult<{ inlineData: { data: string; mimeType: string }, url: string }> => result.status === 'fulfilled')
     .map(result => result.value);
+
+  console.log(`[analyzePropertyImages] Image Processing Summary: ${successfulResults.length}/${selectedImages.length} images successful.`);
+  if (successfulResults.length === 0 && selectedImages.length > 0) {
+    console.error("[analyzePropertyImages] CRITICAL: 0 images were successfully converted to base64. AI will have no visual context.");
+  }
 
   const imageParts = successfulResults.map(r => ({ inlineData: r.inlineData }));
   const imageTokens = successfulResults.map((r, i) => `Image ${i + 1} [TOKEN: ${r.url}]`).join('\n');

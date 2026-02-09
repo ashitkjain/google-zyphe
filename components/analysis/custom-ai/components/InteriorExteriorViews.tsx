@@ -89,50 +89,96 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnal
     return (
         <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-5xl mx-auto space-y-8">
             <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12 space-y-12">
-                {/* Visual Street View Integration */}
+                {/* Visual Street View Forensic Scan Integration */}
                 {(streetViewAnalysis?.imageUrl || streetViewAnalysis?.curbAppealScore) && (
-                    <div className="flex flex-col md:flex-row gap-8 items-stretch pt-4">
-                        {streetViewAnalysis?.imageUrl && (
-                            <div className="md:w-1/2 rounded-[2rem] overflow-hidden border border-gray-100 shadow-inner group relative">
-                                <img
-                                    src={streetViewAnalysis.imageUrl}
-                                    alt="Property Street View"
-                                    className="w-full h-full object-cover min-h-[300px] group-hover:scale-105 transition-transform duration-700"
-                                />
-                                <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20">
-                                    <i className="fa-solid fa-street-view mr-2"></i> Actual Street View
+                    <div className="space-y-8">
+                        <div className="flex flex-col lg:flex-row gap-8 items-stretch pt-4">
+                            {streetViewAnalysis?.imageUrl && (
+                                <div className="lg:w-1/2 rounded-[2.5rem] overflow-hidden border border-gray-100 shadow-inner group relative">
+                                    <img
+                                        src={streetViewAnalysis.imageUrl}
+                                        alt="Property Street View"
+                                        className="w-full h-full object-cover min-h-[350px] lg:min-h-[450px] group-hover:scale-105 transition-transform duration-[2s]"
+                                    />
+                                    <div className="absolute top-6 left-6 bg-black/50 backdrop-blur-xl text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20 flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                        Live AI Forensic Scan
+                                    </div>
+                                    <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent"></div>
+                                    <div className="absolute bottom-6 left-6 text-white text-[10px] font-black uppercase tracking-widest">
+                                        Google Street View Coverage
+                                    </div>
                                 </div>
+                            )}
+                            <div className={`${streetViewAnalysis?.imageUrl ? 'lg:w-1/2' : 'w-full'} flex flex-col gap-4`}>
+                                {/* AI Curb Appeal Box */}
+                                <div className="bg-indigo-50/30 rounded-[2rem] p-8 border border-indigo-100/50 flex flex-col justify-center">
+                                    <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4">FORENSIC CURB APPEAL</div>
+                                    <div className="flex items-end gap-3 mb-6">
+                                        <span className="text-7xl font-black text-gray-900 leading-none tracking-tighter">
+                                            {streetViewAnalysis?.curbAppealScore ? (streetViewAnalysis.curbAppealScore <= 10 ? streetViewAnalysis.curbAppealScore * 10 : streetViewAnalysis.curbAppealScore) : 'N/A'}
+                                        </span>
+                                        <span className="text-2xl font-black text-indigo-300 mb-1">/ 100</span>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-indigo-100/50">
+                                        <div className="space-y-1">
+                                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Privacy Seclusion</div>
+                                            <div className="text-gray-800 text-[12px] font-bold">{streetViewAnalysis?.privacyRating || 'Scan pending...'}</div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Parking Logistics</div>
+                                            <div className="text-gray-800 text-[12px] font-bold">{streetViewAnalysis?.parkingLogistics || 'Scan pending...'}</div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Utility System</div>
+                                            <div className="text-gray-800 text-[12px] font-bold">{streetViewAnalysis?.utilityAesthetic || 'Scan pending...'}</div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Architecture</div>
+                                            <div className="text-gray-800 text-[12px] font-bold truncate">{streetViewAnalysis?.architecturalStyle || 'No data'}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Maintenance Forensic Box */}
+                                {streetViewAnalysis?.maintenanceRisks && streetViewAnalysis.maintenanceRisks.length > 0 && (
+                                    <div className="bg-rose-50/20 rounded-[2rem] p-6 border border-rose-100/50">
+                                        <div className="text-[9px] font-black text-rose-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                            <i className="fa-solid fa-triangle-exclamation"></i>
+                                            Forensic Maintenance Alerts
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {streetViewAnalysis.maintenanceRisks.map((risk: string, i: number) => (
+                                                <div key={i} className="px-3 py-1.5 bg-white border border-rose-100 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-tight">
+                                                    {risk}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                        <div className={`${streetViewAnalysis?.imageUrl ? 'md:w-1/2' : 'w-full'} bg-indigo-50/50 rounded-[2rem] p-8 flex flex-col justify-center gap-6 border border-indigo-100/50`}>
-                            <div className="space-y-2">
-                                <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">CURB APPEAL AI RATING</div>
-                                <div className="flex items-end gap-3">
-                                    <span className="text-6xl font-black text-gray-900 leading-none">
-                                        {streetViewAnalysis?.curbAppealScore ? (streetViewAnalysis.curbAppealScore <= 10 ? streetViewAnalysis.curbAppealScore * 10 : streetViewAnalysis.curbAppealScore) : 'N/A'}
-                                    </span>
-                                    <span className="text-xl font-black text-indigo-300 mb-1">/ 100</span>
+                        </div>
+
+                        {/* Extended Forensic Analysis */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="p-6 bg-slate-50/50 rounded-[2rem] border border-slate-100 space-y-3">
+                                <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                                    <i className="fa-solid fa-shield-cat"></i>
+                                    Family & Safety Assessment
                                 </div>
+                                <p className="text-[12.5px] text-gray-700 font-medium leading-relaxed italic border-l-2 border-indigo-100 pl-4">
+                                    {streetViewAnalysis?.familySafety ? `"${streetViewAnalysis.familySafety}"` : 'Forensic scan required for safety assessment.'}
+                                </p>
                             </div>
-                            <div className="space-y-4">
-                                <div className="flex items-start gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 flex-shrink-0">
-                                        <i className="fa-solid fa-chess-rook text-xs"></i>
-                                    </div>
-                                    <div>
-                                        <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Architectural Context</div>
-                                        <div className="text-gray-800 text-[13px] font-semibold">{streetViewAnalysis?.architecturalStyle || 'No data'}</div>
-                                    </div>
+                            <div className="p-6 bg-slate-50/50 rounded-[2rem] border border-slate-100 space-y-3">
+                                <div className="text-[10px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                                    <i className="fa-solid fa-solar-panel"></i>
+                                    Solar & Obstruction Intake
                                 </div>
-                                <div className="flex items-start gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
-                                        <i className="fa-solid fa-leaf text-xs"></i>
-                                    </div>
-                                    <div>
-                                        <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Landscape Notes</div>
-                                        <div className="text-gray-800 text-[13px] font-semibold leading-[1.4] line-clamp-2">{streetViewAnalysis?.gardenDescription || 'No data'}</div>
-                                    </div>
-                                </div>
+                                <p className="text-[12.5px] text-gray-700 font-medium leading-relaxed italic border-l-2 border-emerald-100 pl-4">
+                                    {streetViewAnalysis?.solarObstructions ? `"${streetViewAnalysis.solarObstructions}"` : 'Forensic scan required for solar obstruction analysis.'}
+                                </p>
                             </div>
                         </div>
                     </div>

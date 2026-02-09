@@ -20,4 +20,5 @@ export * from './firebase/guides';
 export * from './firebase/cityData';
 export * from './firebase/search';
 export * from './firebase/googleData';
+export * from './assetService';
 
