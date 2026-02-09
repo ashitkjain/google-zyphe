@@ -9,6 +9,7 @@ import { getComprehensiveAnalysisPrompt, comprehensiveAnalysisSchema } from "../
 import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompts/property/investmentResearch";
 import { getGeneralMarketIntelligencePrompt, generalMarketIntelligenceSchema } from "../prompts/property/generalMarketIntelligence";
 import { biddingStrategyPrompt, biddingStrategySchema } from "../prompts/property/biddingStrategy";
+
 import { getLeadReactivationPrompt, leadReactivationSchema } from "../prompts/client/leadReactivation";
 import { getLeadTransformationPrompt } from "../prompts/client/leadTransformation";
 import { getGuideGenerationPrompt, guideGenerationSchema, GuideResult } from "../prompts/client/guideGeneration";
@@ -532,7 +533,6 @@ export const analyzeGeneralMarketIntelligence = async (property: PropertyData, u
     zpid: property.zpid,
     promptFilename: "generalMarketIntelligence.ts",
     extractResultJson: true,
-    schema: generalMarketIntelligenceSchema
   });
 };
 
@@ -585,7 +585,7 @@ export const analyzeStreetView = async (imageUrl: string, property: PropertyData
 
   // 1. Run AI Analysis
   const aiResponse = await executeGeminiRequest<StreetViewAnalysisResult>({
-    model: FLASH_MODEL,
+    model: FLASH_LITE_MODEL,
     contents: {
       parts: [
         { text: prompt },

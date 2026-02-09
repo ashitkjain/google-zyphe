@@ -141,6 +141,13 @@ export interface PropertyData {
     solarData?: {
         maxSunshineHoursPerYear?: number;
         carbonOffsetFactorKgPerMwh?: number;
+        panelCapacityWatts?: number;
+        estimatedSolarProduction?: {
+            estimatedPanels: number;
+            systemCapacityKw: number;
+            annualKwh: number;
+            carbonOffsetTons: number;
+        };
         wholeRoofStats?: {
             areaMeters2?: number;
             sunshineQuantiles?: number[];

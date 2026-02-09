@@ -160,6 +160,7 @@ export interface BiddingStrategyResult {
     };
 }
 
+
 export interface CustomAIAnalysisResult {
     report_title: string;
     image_by_image_analysis?: Array<{

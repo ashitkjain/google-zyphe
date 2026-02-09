@@ -345,7 +345,7 @@ export const checkExistingPropertiesBatch = async (zpids: string[]): Promise<Set
     return existing;
 };
 
-export const deletePropertyAnalysis = async (zpid: string) => {
+export const deletePropertyAnalysis = async (zpid: string, includeAssets: boolean = true) => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID", tables: [] };
 
     const collections = [
@@ -353,12 +353,15 @@ export const deletePropertyAnalysis = async (zpid: string) => {
         "property_analyses_comprehensive",
         "property_analyses_visual",
         "image_quality_analysis",
-        "property_assets",
         "property_investment_research"
     ];
 
+    if (includeAssets) {
+        collections.push("property_assets");
+    }
+
     try {
-        console.log(`[Firestore] Deleting all data for ZPID: "${zpid}"...`);
+        console.log(`[Firestore] Deleting ${includeAssets ? 'all' : 'intelligence'} data for ZPID: "${zpid}"...`);
 
         // Use proper deleteDoc for clean removal
         const { deleteDoc } = await import("firebase/firestore");
@@ -367,7 +370,7 @@ export const deletePropertyAnalysis = async (zpid: string) => {
             return deleteDoc(doc(db, coll, String(zpid)));
         }));
 
-        console.log(`[Firestore] SUCCESS: Fully removed ZPID "${zpid}" from cache.`);
+        console.log(`[Firestore] SUCCESS: Removed ZPID "${zpid}" from ${collections.length} collections.`);
         return { success: true, tables: collections };
     } catch (error) {
         return {

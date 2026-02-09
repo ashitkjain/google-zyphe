@@ -6,6 +6,7 @@ import { logAPICall, updateAPICall } from "./firebase/api_logs";
 import { auth } from "./firebase/config";
 import { getGoogleDataFromCloud, saveGoogleDataToCloud } from "./firebaseService";
 import { analyzeStreetView, analyzePollen } from "./geminiService";
+import { calculateSolarPotential } from "../utils/solarCalculations";
 
 const RAPID_API_KEY = APP_CONFIG.usHousingApi.key;
 const RAPID_API_HOST = APP_CONFIG.usHousingApi.host;
@@ -362,11 +363,40 @@ export const fetchSolarData = async (lat: number, lng: number): Promise<any> => 
       return null;
     }
     const data = await response.json();
-    console.log("[Solar API] Successful response:", data);
+    if (!data.solarPotential) return null;
+
+    // We explicitly only extract the high-level metrics and a LEAN version of the panel data.
+    // solarPanels and solarPanelConfigs arrays can be multiple MBs.
+    // We only keep the yearlyEnergyDcKwh for each panel to allow accurate calculations.
+    const {
+      maxSunshineHoursPerYear,
+      carbonOffsetFactorKgPerMwh,
+      wholeRoofStats,
+      panelCapacityWatts,
+      solarPanels
+    } = data.solarPotential;
+
+    const solarDataLean = {
+      maxSunshineHoursPerYear,
+      carbonOffsetFactorKgPerMwh,
+      panelCapacityWatts,
+      solarPanels: (solarPanels || []).map((p: any) => ({
+        yearlyEnergyDcKwh: p.yearlyEnergyDcKwh
+      })),
+      wholeRoofStats
+    };
+
+    const production = calculateSolarPotential(solarDataLean);
+
     return {
-      maxSunshineHoursPerYear: data.solarPotential?.maxSunshineHoursPerYear,
-      carbonOffsetFactorKgPerMwh: data.solarPotential?.carbonOffsetFactorKgPerMwh,
-      wholeRoofStats: data.solarPotential?.wholeRoofStats
+      maxSunshineHoursPerYear,
+      carbonOffsetFactorKgPerMwh,
+      estimatedSolarProduction: production,
+      wholeRoofStats: wholeRoofStats ? {
+        areaMeters2: wholeRoofStats.areaMeters2,
+        sunshineQuantiles: wholeRoofStats.sunshineQuantiles,
+        groundAreaMeters2: wholeRoofStats.groundAreaMeters2
+      } : undefined
     };
   } catch (e) {
     console.error("Failed to fetch solar data", e);

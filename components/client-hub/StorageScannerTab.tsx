@@ -106,8 +106,8 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
                 setProperties(prev => prev.map(p => p.zpid === item.zpid ? { ...p, status: 'running', startTime } : p));
 
                 if (item.existsInFirestore) {
-                    addLog(`[${item.zpid}] Deleting existing database record for fresh start...`);
-                    const delRes = await deletePropertyAnalysis(item.zpid);
+                    addLog(`[${item.zpid}] Deleting intelligence cache for fresh start (preserving assets)...`);
+                    const delRes = await deletePropertyAnalysis(item.zpid, false);
                     if (delRes.success) {
                         addLog(`[${item.zpid}] Successfully cleared from ${delRes.tables?.length || 0} tables.`);
                     }
@@ -176,16 +176,14 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
                     <p className="text-slate-500 font-medium">Scan local asset storage and re-trigger intelligence pipelines for existing ZPIDs.</p>
                 </div>
                 {/* Admin Only: Run Pipeline Control */}
-                {false && (
-                    <button
-                        onClick={handleRunPipeline}
-                        disabled={processing || selectedIds.size === 0}
-                        className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-xl shadow-indigo-100 transition-all flex items-center gap-3 disabled:opacity-50 disabled:grayscale"
-                    >
-                        {processing ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-bolt-lightning"></i>}
-                        Run Pipeline ({selectedIds.size})
-                    </button>
-                )}
+                <button
+                    onClick={handleRunPipeline}
+                    disabled={processing || selectedIds.size === 0}
+                    className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-xl shadow-indigo-100 transition-all flex items-center gap-3 disabled:opacity-50 disabled:grayscale"
+                >
+                    {processing ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-bolt-lightning"></i>}
+                    Run Ingestion ({selectedIds.size})
+                </button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">

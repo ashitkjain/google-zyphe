@@ -37,7 +37,7 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
             <i className="fa-solid fa-feather-pointed text-indigo-600 text-3xl animate-pulse"></i>
           </div>
         </div>
-        <h2 className="text-4xl font-black text-gray-900 mb-6 tracking-tight">Drafting Comprehensive Intelligence...</h2>
+        <h2 className="text-5xl font-black text-gray-900 mb-6 tracking-tight">Drafting Comprehensive Intelligence...</h2>
 
         <div className="mb-10">
           <span className="px-6 py-3 bg-indigo-50 border border-indigo-100 rounded-full text-sm font-black text-indigo-600 uppercase tracking-[0.2em] shadow-sm inline-flex items-center gap-3">
@@ -67,9 +67,9 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
     <div className="bg-white rounded-[2.5rem] pt-16 pb-10 px-10 md:pt-20 md:pb-12 md:px-12 border border-gray-100 shadow-sm mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center gap-4 mb-6">
         <i className={`fa-solid ${icon} text-indigo-600 text-lg`}></i>
-        <h3 className="text-xl font-black text-gray-900 tracking-tight">{title}</h3>
+        <h3 className="text-2xl font-black text-gray-900 tracking-tight">{title}</h3>
       </div>
-      <div className={`text-sm font-sans font-medium ${colorClass} leading-relaxed text-justify`}>
+      <div className={`text-[15.33px] font-sans font-medium ${colorClass} leading-relaxed text-justify px-2 md:px-4`}>
         {renderContent(content)}
       </div>
     </div>
@@ -80,7 +80,7 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
       <div className="flex items-center justify-between mb-12 sticky top-0 z-40 bg-gray-50/80 backdrop-blur-md py-6 -mx-4 px-4 sm:mx-0 sm:px-0">
         <button
           onClick={onBack}
-          className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-xl font-black text-[10px] uppercase tracking-widest text-gray-700 shadow-sm hover:bg-gray-50 active:scale-95 transition-all group w-fit"
+          className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-xl font-black text-[11px] uppercase tracking-widest text-gray-700 shadow-sm hover:bg-gray-50 active:scale-95 transition-all group w-fit"
         >
           <i className="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
           Back to Visual Analysis
@@ -101,7 +101,7 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
                 title="Remove from Favorites"
               >
                 <i className="fa-solid fa-trash-can text-lg"></i>
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-300 group-hover:text-rose-500">Remove</span>
+                <span className="text-[11px] font-black uppercase tracking-widest text-slate-300 group-hover:text-rose-500">Remove</span>
               </button>
             )}
           </div>
@@ -111,7 +111,7 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
           >
             <i className="fa-solid fa-print text-gray-600"></i>
           </button>
-          <div className="bg-gradient-to-r from-indigo-700 to-gray-900 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-indigo-100">
+          <div className="bg-gradient-to-r from-indigo-700 to-gray-900 text-white px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-indigo-100">
             Professional Report
           </div>
         </div>
@@ -131,9 +131,9 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
             <div className="w-12 h-12 bg-rose-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-rose-200">
               <i className="fa-solid fa-triangle-exclamation text-xl"></i>
             </div>
-            <h3 className="text-xl font-black text-rose-900 tracking-tight">Critical Risks & Considerations</h3>
+            <h3 className="text-2xl font-black text-rose-900 tracking-tight">Critical Risks & Considerations</h3>
           </div>
-          <div className="text-rose-800 leading-relaxed text-sm font-sans font-medium text-justify">
+          <div className="text-rose-800 leading-relaxed text-[15.33px] font-sans font-medium text-justify px-2 md:px-4">
             {renderContent(analysis.risks_considerations)}
           </div>
         </div>
@@ -141,10 +141,10 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
 
         <div className="pt-20 flex flex-col items-center gap-6">
           <div className="h-px bg-gray-200 w-full max-w-sm"></div>
-          <div className="text-[12px] font-black text-gray-400 uppercase tracking-[0.6em]">
+          <div className="text-[13px] font-black text-gray-400 uppercase tracking-[0.6em]">
             ZYPHE INTELLIGENCE SYSTEMS • V2.5
           </div>
-          <div className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">
+          <div className="text-[12px] text-gray-400 font-bold uppercase tracking-widest">
             {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
           </div>
         </div>

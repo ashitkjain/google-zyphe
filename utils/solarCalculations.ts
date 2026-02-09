@@ -1,44 +1,42 @@
-
 /**
- * Automates solar potential estimation based on Google Solar API response.
+ * Calculates production for a custom number of panels
+ * using individual panel data from the API.
  */
-export const calculateSolarPotential = (data: {
-    carbonOffsetFactorKgPerMwh?: number;
-    maxSunshineHoursPerYear?: number;
-    wholeRoofStats?: {
-        areaMeters2?: number;
-    };
-}) => {
-    if (!data.carbonOffsetFactorKgPerMwh || !data.maxSunshineHoursPerYear || !data.wholeRoofStats?.areaMeters2) {
-        return null;
-    }
+export function calculateCustomSystem(solarPotential: any, requestedPanelCount: number) {
+    const allPanels = solarPotential.solarPanels || [];
 
-    // CONFIGURATION CONSTANTS
-    const PANEL_SIZE_M2 = 1.7;         // Avg size of a 400W panel
-    const PANEL_CAPACITY_KW = 0.4;     // 400W per panel
-    const USABLE_AREA_RATIO = 0.5;     // Assuming 50% of roof is usable (shading/offsets)
-    const SYSTEM_EFFICIENCY = 0.85;    // Accounts for DC/AC conversion and wiring losses
+    // Cap the request at the maximum panels available on this roof
+    const actualCount = Math.min(requestedPanelCount, allPanels.length);
 
-    // 1. Estimate Number of Panels
-    const usableArea = data.wholeRoofStats.areaMeters2 * USABLE_AREA_RATIO;
-    const panelCount = Math.floor(usableArea / PANEL_SIZE_M2);
+    // Slice the best N panels and sum their individual production
+    // (Note: Google API returns panels already sorted by production descending)
+    const selectedPanels = allPanels.slice(0, actualCount);
+    const totalDcKwh = selectedPanels.reduce((sum: number, p: any) => sum + p.yearlyEnergyDcKwh, 0);
 
-    // 2. Calculate System Capacity (DC kW)
-    const systemCapacityKw = panelCount * PANEL_CAPACITY_KW;
+    const systemSizeKw = (actualCount * (solarPotential.panelCapacityWatts || 400)) / 1000;
+    const annualKwh = totalDcKwh * 0.85; // Applying standard 85% efficiency for AC conversion
 
-    // 3. Estimate Annual Energy Production (kWh)
-    // Formula: Capacity * Sunshine Hours * Efficiency
-    const annualKwh = systemCapacityKw * data.maxSunshineHoursPerYear * SYSTEM_EFFICIENCY;
-
-    // 4. Calculate Carbon Offset (Metric Tons)
-    const annualMwh = annualKwh / 1000;
-    const carbonOffsetKg = annualMwh * data.carbonOffsetFactorKgPerMwh;
-    const carbonOffsetTons = carbonOffsetKg / 1000;
+    // Calculate Carbon Offset (Metric Tons)
+    // annualMwh = annualKwh / 1000
+    const carbonOffsetTons = ((annualKwh / 1000) * (solarPotential.carbonOffsetFactorKgPerMwh || 0)) / 1000;
 
     return {
-        estimatedPanels: panelCount,
-        systemCapacityKw: parseFloat(systemCapacityKw.toFixed(2)),
+        estimatedPanels: actualCount,
+        systemCapacityKw: parseFloat(systemSizeKw.toFixed(2)),
         annualKwh: Math.round(annualKwh),
         carbonOffsetTons: parseFloat(carbonOffsetTons.toFixed(2)),
     };
+}
+
+/**
+ * Automates solar potential estimation based on Google Solar API response.
+ * This now uses accurate panel-level data instead of heuristics.
+ */
+export const calculateSolarPotential = (data: any) => {
+    if (!data.solarPanels || data.solarPanels.length === 0) {
+        return null;
+    }
+
+    // By default, we calculate for the MAXIMUM possible panels on the roof
+    return calculateCustomSystem(data, data.solarPanels.length);
 };

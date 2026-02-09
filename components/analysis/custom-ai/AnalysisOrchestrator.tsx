@@ -129,7 +129,6 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
         { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
         { id: 'investment', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
-        { id: 'bidding', label: 'Bidding Strategy', icon: 'fa-gavel' },
         { id: 'image_analysis', label: 'Image by Image analysis', icon: 'fa-images' },
         { id: 'quality', label: 'Picture Quality Audit', icon: 'fa-camera-rotate' },
     ].filter(tab => allowedTabs.includes(tab.id));
@@ -141,18 +140,18 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                 <div className="flex items-center gap-4">
                     <button
                         onClick={onBack}
-                        className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-700 shadow-sm hover:shadow-md hover:bg-gray-50 transition-all group w-fit"
+                        className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-2xl text-[11px] font-black uppercase tracking-widest text-gray-700 shadow-sm hover:shadow-md hover:bg-gray-50 transition-all group w-fit"
                     >
                         <i className="fa-solid fa-arrow-left transition-transform group-hover:-translate-x-1"></i>
                         Back
                     </button>
                     <div className="h-10 w-px bg-gray-200 hidden sm:block"></div>
                     <div className="flex flex-col gap-2">
-                        <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-none">
+                        <h2 className="text-3xl font-black text-slate-900 tracking-tight leading-none">
                             {propertyData?.address || 'Visual AI Report'}
                         </h2>
                         {analysis.report_title && (
-                            <p className="text-[9px] font-black text-indigo-600 uppercase tracking-[0.2em]">{analysis.report_title}</p>
+                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">{analysis.report_title}</p>
                         )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -165,13 +164,13 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-4">
-                    <button onClick={onRefresh} className="flex items-center gap-3 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm hover:shadow-md hover:bg-slate-50 transition-all group shadow-indigo-100">
+                    <button onClick={onRefresh} className="flex items-center gap-3 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-sm hover:shadow-md hover:bg-slate-50 transition-all group shadow-indigo-100">
                         <i className="fa-solid fa-rotate group-hover:rotate-180 transition-transform duration-500"></i> Refresh Analysis
                     </button>
-                    <button onClick={onRunComprehensive} className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-indigo-700 to-gray-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-[1.05] transition-all group">
+                    <button onClick={onRunComprehensive} className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-indigo-700 to-gray-900 text-white rounded-xl font-black text-[11px] uppercase tracking-widest shadow-xl hover:scale-[1.05] transition-all group">
                         <i className="fa-solid fa-file-invoice-dollar text-sm"></i> {comprehensiveResult ? 'Full Narrative Report' : 'Generate Full Report'}
                     </button>
-                    <div className="flex items-center gap-2 text-[10px] text-gray-400 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100 font-black uppercase tracking-widest">
+                    <div className="flex items-center gap-2 text-[11px] text-gray-400 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100 font-black uppercase tracking-widest">
                         <i className="fa-solid fa-bolt-lightning text-indigo-500"></i> Zyphe™ AI Intelligence
                     </div>
                 </div>
@@ -184,7 +183,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as TabType)}
-                            className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black transition-all text-[12px] whitespace-nowrap ${activeTab === tab.id ? 'bg-gradient-to-r from-indigo-700 to-gray-900 text-white shadow-lg' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                            className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black transition-all text-[13px] whitespace-nowrap ${activeTab === tab.id ? 'bg-gradient-to-r from-indigo-700 to-gray-900 text-white shadow-lg' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
                         >
                             <i className={`fa-solid ${tab.icon} ${activeTab === tab.id ? 'text-white' : 'text-gray-400'}`}></i>
                             {tab.label}

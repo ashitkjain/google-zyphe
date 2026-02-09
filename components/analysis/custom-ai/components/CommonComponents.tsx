@@ -60,12 +60,12 @@ export const PulseCard: React.FC<PulseCardProps> = ({ title, data, icon }) => {
                 <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400">
                     <i className={`fa-solid ${icon} text-xl`}></i>
                 </div>
-                <h4 className="text-xl font-black text-gray-900 tracking-tight">{title}</h4>
+                <h4 className="text-2xl font-black text-gray-900 tracking-tight">{title}</h4>
             </div>
-            <p className="text-gray-700 font-sans font-normal mb-4 leading-[1.625] text-[13px]">{data.summary}</p>
+            <p className="text-gray-700 font-sans font-normal mb-4 leading-[1.625] text-[14px]">{data.summary}</p>
             <ul className="space-y-2 mb-6 flex-1">
                 {data.points?.map((pt, i) => (
-                    <li key={i} className="flex gap-3 text-gray-600 text-[13px] leading-[1.625] font-sans font-normal">
+                    <li key={i} className="flex gap-3 text-gray-600 text-[14px] leading-[1.625] font-sans font-normal">
                         <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 flex-shrink-0"></span>
                         {pt}
                     </li>
@@ -73,8 +73,8 @@ export const PulseCard: React.FC<PulseCardProps> = ({ title, data, icon }) => {
             </ul>
             {cleanSources.length > 0 && (
                 <div className="pt-4 border-t border-gray-50">
-                    <div className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Knowledge Sources</div>
-                    <div className="text-[10px] text-gray-400 font-sans font-black leading-relaxed italic">{cleanSources.join(', ')}</div>
+                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Knowledge Sources</div>
+                    <div className="text-[11px] text-gray-400 font-sans font-black leading-relaxed italic">{cleanSources.join(', ')}</div>
                 </div>
             )}
         </div>
@@ -84,7 +84,7 @@ export const PulseCard: React.FC<PulseCardProps> = ({ title, data, icon }) => {
 export const EmptyState = ({ section }: { section: string }) => (
     <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white rounded-[3rem] border border-slate-100">
         <i className="fa-solid fa-wand-magic-sparkles text-6xl mb-6 text-slate-200"></i>
-        <p className="text-lg font-bold text-slate-800">No {section} Data Yet</p>
-        <p className="text-xs font-black uppercase tracking-widest text-slate-400 mt-2">Zyphe is waiting for your analysis trigger</p>
+        <p className="text-xl font-bold text-slate-800">No {section} Data Yet</p>
+        <p className="text-[13px] font-black uppercase tracking-widest text-slate-400 mt-2">Zyphe is waiting for your analysis trigger</p>
     </div>
 );

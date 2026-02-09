@@ -8,16 +8,15 @@ export const APP_CONFIG = {
         visual_analysis: true,
         image_quality: true,
         investment_research: true,
-        bidding_strategy: false, // Explicitly disabled as per user request
     },
     models: {
         flash: 'gemini-2.0-flash',
         flashLite: 'gemini-2.0-flash-lite',
     },
     roleTabs: {
-        buyer: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'pulse', 'image_analysis', 'investment', 'bidding'],
+        buyer: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'pulse', 'image_analysis', 'investment'],
         seller: ['image_analysis', 'quality'],
-        realtor: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'pulse', 'image_analysis', 'investment', 'bidding', 'quality', 'storage_registry']
+        realtor: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'pulse', 'image_analysis', 'investment', 'quality', 'storage_registry']
     },
     rapidapi: {
         realtyInUsApi: {

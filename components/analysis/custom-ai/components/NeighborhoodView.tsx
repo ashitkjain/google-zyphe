@@ -23,7 +23,7 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                                     alt="Property Close-up Map"
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                                 />
-                                <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20">
+                                <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border border-white/20">
                                     <i className="fa-solid fa-map mr-2"></i> Close-up View
                                 </div>
                             </div>
@@ -35,7 +35,7 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                                     alt="Neighborhood Map"
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                                 />
-                                <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20">
+                                <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border border-white/20">
                                     <i className="fa-solid fa-earth-americas mr-2"></i> Neighborhood View
                                 </div>
                             </div>
@@ -44,15 +44,15 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                 )}
 
                 <div className="space-y-4">
-                    <div className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">NEIGHBORHOOD CONTEXT</div>
-                    <p className="text-gray-800 font-sans font-normal text-[13px] leading-[1.625]">{data.overview}</p>
+                    <div className="text-2xl font-black text-indigo-600 uppercase tracking-[0.3em]">NEIGHBORHOOD CONTEXT</div>
+                    <p className="text-gray-800 font-sans font-normal text-[14px] leading-[1.625]">{data.overview}</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 pt-12 border-t border-gray-100">
                     {data.orientation && (
                         <div className="space-y-3">
-                            <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Orientation</div>
-                            <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">
+                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Orientation</div>
+                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">
                                 The home front is facing {data.orientation.final_orientation.toLowerCase().includes('facing') ? data.orientation.final_orientation : data.orientation.final_orientation}.
                             </p>
                         </div>
@@ -60,36 +60,36 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                     {data.neighborhood_features && (
                         <>
                             <div className="space-y-3">
-                                <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Street & Traffic</div>
-                                <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.neighborhood_features.street_layout_and_traffic}</p>
+                                <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Street & Traffic</div>
+                                <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.street_layout_and_traffic}</p>
                             </div>
                             <div className="space-y-3">
-                                <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Pedestrian</div>
-                                <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.neighborhood_features.sidewalks_and_pedestrian_infra}</p>
+                                <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Pedestrian</div>
+                                <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.sidewalks_and_pedestrian_infra}</p>
                             </div>
                             <div className="space-y-3">
-                                <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Nature & Greenery</div>
-                                <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.neighborhood_features.proximity_to_greenery_and_water}</p>
+                                <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Nature & Greenery</div>
+                                <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.proximity_to_greenery_and_water}</p>
                             </div>
                             <div className="space-y-3">
-                                <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Amenities</div>
-                                <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.neighborhood_features.nearby_amenities}</p>
+                                <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Amenities</div>
+                                <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.nearby_amenities}</p>
                             </div>
                             <div className="space-y-3">
-                                <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Development</div>
-                                <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.neighborhood_features.development_patterns}</p>
+                                <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Development</div>
+                                <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.development_patterns}</p>
                             </div>
                             <div className="space-y-3">
-                                <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Density</div>
-                                <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.neighborhood_features.neighborhood_density}</p>
+                                <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Density</div>
+                                <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.neighborhood_density}</p>
                             </div>
                             <div className="space-y-3">
-                                <div className="text-xl font-black text-gray-400 uppercase tracking-widest">Topography</div>
-                                <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.neighborhood_features.topography}</p>
+                                <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Topography</div>
+                                <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.topography}</p>
                             </div>
                             <div className="space-y-3">
-                                <div className="text-xl font-black text-gray-400 uppercase tracking-widest">General</div>
-                                <p className="text-gray-700 font-sans font-normal text-[13px] leading-[1.625]">{data.neighborhood_features.general}</p>
+                                <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">General</div>
+                                <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.neighborhood_features.general}</p>
                             </div>
                         </>
                     )}

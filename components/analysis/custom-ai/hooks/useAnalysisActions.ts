@@ -229,6 +229,7 @@ export const useAnalysisActions = (
         }
     };
 
+
     return {
         timer,
         qualityLoading,

@@ -149,16 +149,16 @@ const PropertyFacts: React.FC<Props> = ({ facts }) => {
         </div>
         <div className="flex-1">
           <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">{item.label}</span>
+            <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none">{item.label}</span>
             {displayValues.length === 1 && (
-              <span className="text-[13px] font-normal text-slate-800 leading-[1.625]">{displayValues[0]}</span>
+              <span className="text-[14px] font-normal text-slate-800 leading-[1.625]">{displayValues[0]}</span>
             )}
           </div>
           {displayValues.length > 1 && (
             <ul className="space-y-1 mt-1 ml-1">
               {displayValues.map((val, vidx) => (
-                <li key={vidx} className="flex items-start gap-2 text-slate-800 font-normal text-[13px] leading-[1.625]">
-                  <span className="text-indigo-200 mt-1.5 flex-shrink-0 text-[8px]">•</span>
+                <li key={vidx} className="flex items-start gap-2 text-slate-800 font-normal text-[14px] leading-[1.625]">
+                  <span className="text-indigo-200 mt-1.5 flex-shrink-0 text-[10px]">•</span>
                   <span>{val}</span>
                 </li>
               ))}
@@ -183,7 +183,7 @@ const PropertyFacts: React.FC<Props> = ({ facts }) => {
 
           return (
             <div key={idx} className="space-y-6">
-              <div className="text-[10px] font-black text-indigo-600/60 uppercase tracking-[0.2em] flex items-center gap-3">
+              <div className="text-[11px] font-black text-indigo-600/60 uppercase tracking-[0.2em] flex items-center gap-3">
                 {cat.title}
                 <span className="flex-1 h-px bg-slate-100"></span>
               </div>

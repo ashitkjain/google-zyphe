@@ -36,8 +36,8 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
         <i className={`fa-solid ${m.icon} text-slate-300 text-[12px] group-hover:text-indigo-500 transition-colors`}></i>
       </div>
       <div className="flex flex-col gap-0.5">
-        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">{m.label}</span>
-        <span className="text-[13px] font-normal text-slate-800 leading-[1.625]">{m.value || 'N/A'}</span>
+        <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none">{m.label}</span>
+        <span className="text-[14px] font-normal text-slate-800 leading-[1.625]">{m.value || 'N/A'}</span>
       </div>
     </div>
   );
@@ -46,7 +46,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
     <div className="bg-white p-8 md:p-10 md:pb-2 rounded-t-[2.5rem] border-x border-t border-slate-100 shadow-sm space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-50 pb-8">
         <div className="flex items-center gap-4">
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">{data.address}</h2>
+          <h2 className="text-4xl font-black text-slate-900 tracking-tight">{data.address}</h2>
           <div className="flex items-center gap-2 ml-2">
             <button
               onClick={() => onToggleFavorite && onToggleFavorite()}
@@ -69,8 +69,8 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">List Price</div>
-            <div className="text-2xl font-black text-indigo-600">{formatCurrency(data.price)}</div>
+            <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">List Price</div>
+            <div className="text-3xl font-black text-indigo-600">{formatCurrency(data.price)}</div>
           </div>
           <button
             onClick={onRunAnalysis}
@@ -91,8 +91,8 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Box 1: Physical Specifications */}
         <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
-          <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-            <i className="fa-solid fa-house-chimney text-[12px]"></i>
+          <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+            <i className="fa-solid fa-house-chimney text-[13px]"></i>
             Physical Specifications
           </div>
           <div className="grid grid-cols-2 gap-y-6 gap-x-4">
@@ -102,8 +102,8 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
 
         {/* Box 2: Value & Market Status */}
         <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
-          <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-            <i className="fa-solid fa-chart-line text-[12px]"></i>
+          <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+            <i className="fa-solid fa-chart-line text-[13px]"></i>
             Value & Market Status
           </div>
           <div className="grid grid-cols-2 gap-y-6 gap-x-4">
@@ -113,8 +113,8 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
 
         {/* Box 3: Mobility & Connectivity */}
         <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
-          <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-            <i className="fa-solid fa-route text-[12px]"></i>
+          <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+            <i className="fa-solid fa-route text-[13px]"></i>
             Mobility & Connectivity
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
@@ -126,11 +126,11 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
           </div>
         </div>
 
-        {/* Box 4: Educational Institutions */}
+        {/* Box 4: Schools */}
         <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300 lg:col-span-2">
-          <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-            <i className="fa-solid fa-graduation-cap text-[12px]"></i>
-            Educational Institutions
+          <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+            <i className="fa-solid fa-graduation-cap text-[13px]"></i>
+            Schools
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {data.schools?.slice(0, 3).map((s, idx) => (
@@ -146,8 +146,8 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
 
         {/* Box 5: Climate Risk Assessment */}
         <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
-          <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-            <i className="fa-solid fa-shield-halved text-[12px]"></i>
+          <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+            <i className="fa-solid fa-shield-halved text-[13px]"></i>
             Climate Risk Assessment
           </div>
           <div className="grid grid-cols-2 gap-y-6 gap-x-4">
