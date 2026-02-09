@@ -30,13 +30,42 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
         return 'text-rose-600';
     };
 
-    const MetricItem: React.FC<{ icon: string; label: string; value: string; colorClass?: string }> = ({ icon, label, value, colorClass }) => (
-        <div className="flex items-start gap-3 group">
+    const MetricItem: React.FC<{
+        icon: string;
+        label: string;
+        value: string;
+        colorClass?: string;
+        helpText?: string;
+        helpLink?: string;
+    }> = ({ icon, label, value, colorClass, helpText, helpLink }) => (
+        <div className="flex items-start gap-3 group relative">
             <div className="w-4 flex justify-center flex-shrink-0 mt-0.5">
                 <i className={`fa-solid ${icon} ${colorClass || 'text-slate-300'} text-[12px] group-hover:text-indigo-500 transition-colors`}></i>
             </div>
-            <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none truncate">{label}</span>
+            <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none truncate">{label}</span>
+                    {helpLink && (
+                        <div className="group/tooltip relative inline-block">
+                            <i className="fa-solid fa-circle-info text-[9px] text-slate-300 hover:text-indigo-500 cursor-help transition-colors"></i>
+                            <div className="invisible group-hover/tooltip:visible absolute left-0 bottom-full mb-2 w-48 p-3 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-50 animate-in fade-in slide-in-from-bottom-1 duration-200">
+                                <div className="font-bold mb-1 opacity-70 uppercase tracking-tighter">Information</div>
+                                <div className="font-medium leading-normal mb-2 whitespace-normal">{helpText}</div>
+                                <a
+                                    href={helpLink}
+                                    className="block text-indigo-400 font-bold hover:text-white transition-colors flex items-center gap-1 mt-1 border-t border-white/10 pt-1"
+                                    onClick={(e) => {
+                                        // If we are in a single page app context, we might want to prevent default and use a custom navigator
+                                        // For now, simple href is fine as GuidesTab handles URL sync.
+                                    }}
+                                >
+                                    Read Full Guide <i className="fa-solid fa-arrow-right text-[8px]"></i>
+                                </a>
+                                <div className="absolute -bottom-1 left-2 w-2 h-2 bg-slate-900 rotate-45"></div>
+                            </div>
+                        </div>
+                    )}
+                </div>
                 <span className={`text-[13px] font-normal ${colorClass || 'text-slate-800'} leading-[1.625] truncate`}>{value}</span>
             </div>
         </div>
@@ -129,6 +158,8 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
                                         label="Est. Production"
                                         value={`${solarPotential.annualKwh.toLocaleString()} kWh / Year`}
                                         colorClass="text-indigo-600"
+                                        helpText="Calculated using 400W panel standard with 1.7m² footprint, 50% roof usability ratio, and 85% system efficiency."
+                                        helpLink="/solar/how-solar-production-is-estimated"
                                     />
                                     <MetricItem
                                         icon="fa-solar-panel"

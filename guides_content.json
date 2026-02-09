@@ -20666,4 +20666,144 @@
       ]
     }
   }
+,
+  {
+    "topicSlug": "solar",
+    "slug": "how-solar-production-is-estimated",
+    "title": "How Solar Production is Estimated",
+    "content": {
+      "title": "Methodology: How We Estimate Solar Production",
+      "introduction": "This guide provides a transparent look into the Zyphe methodology for estimating solar energy potential and carbon offsets for residential properties. Our calculations combine high-resolution satellite roof analysis with standard industry efficiency factors and local environmental data.",
+      "whatThisMeans": {
+        "title": "Scientific Foundation",
+        "content": "Our estimates are built on four key pillars: Roof Area Analysis, System Capacity Modeling, Energy Production Ratios, and Environmental Impact mapping. By integrating Google Solar API data with our proprietary estimation script, we provide a conservative but realistic snapshot of a home's sustainable potential before you ever speak to an installer."
+      },
+      "whyThisHappens": {
+        "title": "The Purpose of This Model",
+        "content": "Initial solar quotes can be complex and varied. We provide an independent 'baseline' estimate. This allows homeowners to understand their property's inherent maximum potential using standardized assumptions, making it easier to compare against professional installation proposals."
+      },
+      "legalFramework": {
+        "title": "Data Sources & Variables",
+        "context": "Our model uses several standardized inputs sourced from Google Solar API and regional environmental factors. We explicitly account for losses that many 'idealized' calculators ignore.",
+        "statutes": [
+          {
+            "code": "Roof Usability Ratio (50%)",
+            "relevance": "We assume only 50% of the total roof area is usable. This accounts for fire code setbacks, shading from trees or vents, and non-optimal roof orientations (e.g., north-facing segments)."
+          },
+          {
+            "code": "System Efficiency (85%)",
+            "relevance": "We apply an 85% efficiency factor. This covers unavoidable losses from DC-to-AC power conversion (inverters), wiring resistance, and standard panel degradation."
+          },
+          {
+            "code": "Panel Standard (400W)",
+            "relevance": "We model using a high-efficiency 400W panel size (1.7m²) as the current industry benchmark for modern residential installations."
+          }
+        ]
+      },
+      "timelines": {
+        "title": "Calculation Flow",
+        "events": [
+          {
+            "event": "Roof Area Identification",
+            "timeframe": "Stage 1",
+            "impact": "The algorithm identifies the total square meters of roof segment area using overhead high-resolution imagery."
+          },
+          {
+            "event": "Usable Area Filtering",
+            "timeframe": "Stage 2",
+            "impact": "Total area is reduced by 50% (Usable Area Ratio) to find the 'True Potential' surface."
+          },
+          {
+            "event": "Panel Density Mapping",
+            "timeframe": "Stage 3",
+            "impact": "The usable area is divided by 1.7m² to determine how many physical panels can fit. Fractions are rounded down for realism."
+          },
+          {
+            "event": "Annual Production Forecast",
+            "timeframe": "Stage 4",
+            "impact": "Total capacity is multiplied by local annual sunshine hours and the 85% efficiency factor to get the kWh output."
+          }
+        ]
+      },
+      "whoIsCommonlyInvolved": {
+        "title": "Who Should Use This Data",
+        "roles": [
+          {
+            "role": "Home Buyers",
+            "description": "To assess future utility savings and potential investment value of a property before purchase."
+          },
+          {
+            "role": "Home Sellers",
+            "description": "To market the 'Eco-Intelligence' of their home and justify a premium price based on future sustainability."
+          },
+          {
+            "role": "Solar Contractors",
+            "description": "Use this as a starting point for more detailed 'forensic' site surveys including LIDAR shading analysis."
+          }
+        ]
+      },
+      "resolutionPathway": [
+        {
+          "step": 1,
+          "title": "Check Annual Sunshine",
+          "action": "Ensure the 'Solar Potential' card shows high sunshine hours (typically >1,300 for strong ROI)."
+        },
+        {
+          "step": 2,
+          "title": "Review Estimated KWh",
+          "action": "Compare the estimated annual kWh against your current utility bills to see potential offset percentage."
+        },
+        {
+          "step": 3,
+          "title": "Consult the Concierge",
+          "action": "Use Zyphe AI Chat to ask 'What is the best roof angle for solar on this house?' to get deeper visual insights."
+        }
+      ],
+      "whatThisDoesNotMean": {
+        "title": "What This Does NOT Mean",
+        "points": [
+          "This is NOT a formal engineering quote or an architectural design.",
+          "It does not account for the structural integrity of your roof or current electrical panel capacity.",
+          "Estimated production does not guarantee utility bill credits; these depend on your local utility's Net Metering policies.",
+          "It does not include the cost of installation, battery storage, or federal tax credit analysis."
+        ]
+      },
+      "commonMisunderstandings": [
+        {
+          "misunderstanding": "My roof is 3,000 sqft, so I can fill it all with panels.",
+          "reality": "Fire codes and shading usually restrict you to about 50% of that area. Our model builds this 'safety margin' in automatically."
+        },
+        {
+          "misunderstanding": "Solar production stays the same every year.",
+          "reality": "Weather patterns vary year-to-year, and panels gradually lose about 0.5% efficiency annually."
+        }
+      ],
+      "expertPerspective": {
+        "title": "Zyphe Engineering Insight",
+        "assessment": "Our goal is to eliminate 'greenwashing' by providing realistic, hardware-agnostic estimates. By assuming a mid-range system efficiency and strict area constraints, we ensure that homeowners are pleasantly surprised by actual installer performance rather than disappointed by unattainable promises.",
+        "riskMitigation": [
+          "Validate estimates with a professional site survey.",
+          "Check local tree canopy growth rates which might affect future shading.",
+          "Review your specific roof material for installation compatibility (e.g., Tile vs Composite).",
+          "Verify local utility interconnect agreements."
+        ]
+      },
+      "faqs": [
+        {
+          "question": "Why use 50% usable area?",
+          "answer": "This is a conservative industry standard that accounts for vents, chimneys, 'keep-out' zones for firefighters, and non-optimal pitches."
+        },
+        {
+          "question": "What is Carbon Offset Tonnage?",
+          "answer": "We multiply your estimated MWh production by the local grid's carbon intensity factor to show how many metric tons of CO2 you save the planet each year."
+        }
+      ],
+      "keyTakeaways": [
+        "Estimates use 400W panels and a 50% usability filter for realism.",
+        "85% total system efficiency is assumed to cover conversion and wiring losses.",
+        "Production is directly tied to local high-resolution satellite sunshine data.",
+        "This serves as a hardware-agnostic baseline for comparing professional quotes."
+      ]
+    }
+  }
 ]

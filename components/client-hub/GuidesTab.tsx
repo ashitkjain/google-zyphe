@@ -155,6 +155,21 @@ const GUIDE_DATA: GuideCategory[] = [
             { id: 'm14', title: 'Boundary disputes explained', slug: 'boundary-disputes-explained' },
             { id: 'm15', title: 'Easement disputes explained', slug: 'easement-disputes-explained' },
         ]
+    },
+    {
+        id: 'solar',
+        topicSlug: 'solar',
+        title: 'Solar & Sustainability',
+        icon: 'fa-solar-panel',
+        count: '1 page',
+        items: [
+            {
+                id: 's1',
+                title: 'How Solar Production is Estimated',
+                slug: 'how-solar-production-is-estimated',
+                description: 'Understand the methodology behind our solar potential calculations, including roof area analysis, panel efficiency, and local sunshine data.'
+            },
+        ]
     }
 ];
 
