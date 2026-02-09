@@ -2,6 +2,8 @@
 import React from 'react';
 import { PropertyData } from '../types';
 
+import { calculateSolarPotential } from '../utils/solarCalculations';
+
 interface Props {
     data: PropertyData;
 }
@@ -10,6 +12,8 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
     const aq = data.airQuality;
     const pollen = data.pollen;
     const solar = data.solarData;
+
+    const solarPotential = solar ? calculateSolarPotential(solar) : null;
 
     if (!aq && !pollen && !solar) return null;
 
@@ -118,16 +122,35 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
                                 label="Annual Sunshine"
                                 value={`${Math.round(solar.maxSunshineHoursPerYear || 0).toLocaleString()} Hours`}
                             />
-                            <MetricItem
-                                icon="fa-leaf"
-                                label="Carbon Offset"
-                                value={`${Math.round(solar.carbonOffsetFactorKgPerMwh || 0)} kg/MWh`}
-                            />
-                            <MetricItem
-                                icon="fa-solar-panel"
-                                label="Max Panel Cap"
-                                value={`${(solar.solarPanels?.[0]?.totalCount || 0)} Panels`}
-                            />
+                            {solarPotential ? (
+                                <>
+                                    <MetricItem
+                                        icon="fa-bolt"
+                                        label="Est. Production"
+                                        value={`${solarPotential.annualKwh.toLocaleString()} kWh / Year`}
+                                        colorClass="text-indigo-600"
+                                    />
+                                    <MetricItem
+                                        icon="fa-solar-panel"
+                                        label="Optimal Capacity"
+                                        value={`${solarPotential.estimatedPanels} Max Panels (${solarPotential.systemCapacityKw} kW)`}
+                                    />
+                                    <MetricItem
+                                        icon="fa-smog"
+                                        label="Metric Tons Offset"
+                                        value={`${solarPotential.carbonOffsetTons} t CO2/yr`}
+                                        colorClass="text-emerald-600"
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    <MetricItem
+                                        icon="fa-leaf"
+                                        label="Carbon Offset"
+                                        value={`${Math.round(solar.carbonOffsetFactorKgPerMwh || 0)} kg/MWh`}
+                                    />
+                                </>
+                            )}
                         </div>
                     </div>
                 )}

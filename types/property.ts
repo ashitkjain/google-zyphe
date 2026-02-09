@@ -146,11 +146,6 @@ export interface PropertyData {
             sunshineQuantiles?: number[];
             groundAreaMeters2?: number;
         };
-        solarPanels?: {
-            totalCount?: number;
-            maxPowerWatts?: number;
-            yearlyEnergyDcKwh?: number;
-        }[];
     };
     airQuality?: {
         aqi: number;

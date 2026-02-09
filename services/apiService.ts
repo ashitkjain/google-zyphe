@@ -366,8 +366,7 @@ export const fetchSolarData = async (lat: number, lng: number): Promise<any> => 
     return {
       maxSunshineHoursPerYear: data.solarPotential?.maxSunshineHoursPerYear,
       carbonOffsetFactorKgPerMwh: data.solarPotential?.carbonOffsetFactorKgPerMwh,
-      wholeRoofStats: data.solarPotential?.wholeRoofStats,
-      solarPanels: data.solarPotential?.solarPanels
+      wholeRoofStats: data.solarPotential?.wholeRoofStats
     };
   } catch (e) {
     console.error("Failed to fetch solar data", e);
