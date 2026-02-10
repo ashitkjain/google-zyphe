@@ -11,6 +11,13 @@ const formatDate = (date: any) => {
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
+const isOverdue = (dateVal: any, status: string) => {
+    if (!dateVal || status === 'DONE' || status === 'Completed') return false;
+    const now = new Date();
+    const d = dateVal.toDate ? dateVal.toDate() : new Date(dateVal);
+    return d.getTime() < now.getTime();
+};
+
 interface ClientDetailsViewProps {
     realtorId: string;
     clients: UserProfile[];
@@ -1629,7 +1636,10 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                                     <div className={`w-2 h-2 rounded-full ${task.priority === 'Urgent' ? 'bg-red-500 animate-pulse' : task.priority === 'High' ? 'bg-orange-500' : task.priority === 'Normal' ? 'bg-amber-400' : 'bg-slate-300'}`}></div>
                                                     <div>
                                                         <p className="text-xs font-bold text-slate-700">{task.name}</p>
-                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Due {formatDate(task.dueDate)}</p>
+                                                        <p className={`text-[9px] font-black uppercase tracking-tighter ${isOverdue(task.dueDate, task.status) ? 'text-red-500' : 'text-slate-400'}`}>
+                                                            {isOverdue(task.dueDate, task.status) ? 'PAST DUE: ' : 'Due '}
+                                                            {formatDate(task.dueDate)}
+                                                        </p>
                                                     </div>
                                                 </div>
                                                 <div className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[8px] font-black uppercase text-slate-400">

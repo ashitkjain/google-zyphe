@@ -12,18 +12,23 @@ interface TaskBoardProps {
 
 const formatDate = (val: any) => {
     if (!val) return '---';
-    // Handle Firestore Timestamp, native Date, ISO string, or corrupted {seconds, nanoseconds} map
     let date: Date;
     if (typeof val.toDate === 'function') {
         date = val.toDate();
-    } else if (val.seconds !== undefined) {
+    } else if (val?.seconds !== undefined) {
         date = new Date(val.seconds * 1000);
     } else {
         date = new Date(val);
     }
+    if (isNaN(date.getTime())) return '---';
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
 
-    if (isNaN(date.getTime())) return 'Invalid Date';
-    return date.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const isOverdue = (dateVal: any, status: string) => {
+    if (!dateVal || status === 'DONE' || status === 'Completed') return false;
+    const now = new Date();
+    const d = dateVal.toDate ? dateVal.toDate() : new Date(dateVal);
+    return d.getTime() < now.getTime();
 };
 
 const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, leads = [], onTasksUpdated }) => {
@@ -335,7 +340,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                                                         </td>
                                                         <td className="border border-slate-200 p-0 align-top">
                                                             <textarea
-                                                                className="w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-xs text-slate-600 focus:ring-1 focus:ring-indigo-500 outline-none resize-none overflow-hidden"
+                                                                className={`w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none resize-none overflow-hidden ${isOverdue(item.dueDate, item.status) ? 'text-red-500' : 'text-slate-600'}`}
                                                                 value={formatDate(item.dueDate)}
                                                                 rows={1}
                                                                 onChange={(e) => handleTaskChange(item.id, 'dueDate', e.target.value)}
