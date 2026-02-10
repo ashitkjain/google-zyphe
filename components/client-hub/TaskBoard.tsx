@@ -45,7 +45,8 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
     const [extraRows, setExtraRows] = useState<Record<number, any[]>>({
         0: [{}],
         1: [{}],
-        2: [{}]
+        2: [{}],
+        3: [{}]
     });
 
     const addRowToSection = (sIdx: number) => {
@@ -107,10 +108,16 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                 }, task.transaction_id);
             }
 
-            // 2. Add new ones from extraRows
-            const priorityMap: Record<number, CRMTask['priority']> = { 0: 'Urgent', 1: 'High', 2: 'Normal' };
+            // 2. Add new ones from extraRows 
+            // We use the section descriptions to determine the default priority for new rows
+            const sections = [
+                { name: 'My Task List', priority: 'Normal' as const },
+                { name: 'System generated', priority: 'High' as const },
+                { name: 'closing task list', priority: 'Low' as const },
+                { name: 'Other Tasks', priority: 'Normal' as const }
+            ];
 
-            for (const sIdx of [0, 1, 2]) {
+            for (let sIdx = 0; sIdx < sections.length; sIdx++) {
                 const rows = extraRows[sIdx] || [];
                 for (const row of rows) {
                     if (row.task && row.task.trim()) {
@@ -118,8 +125,8 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                             realtorId,
                             name: row.task,
                             comment: row.notes || '',
-                            dueDate: ensureDate(row.date),
-                            priority: row.priority || 'Normal',
+                            dueDate: row.date ? ensureDate(row.date) : null as any,
+                            priority: row.priority || sections[sIdx].priority,
                             status: row.done === 'Yes' ? 'Completed' : 'Pending',
                             clientId: row.clientId || ''
                         });
@@ -127,7 +134,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                 }
             }
             alert("✅ Tasks saved successfully!");
-            setExtraRows({ 0: [{}], 1: [{}], 2: [{}] });
+            setExtraRows({ 0: [{}], 1: [{}], 2: [{}], 3: [{}] });
 
             // Notify parent to re-fetch tasks
             if (onTasksUpdated) {
@@ -240,9 +247,9 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                         </div>
                         <div className="space-y-12">
                             {[
-                                { name: 'My Task List', mainColor: '#1d3d50', secondaryColor: '#539fc9', items: displayedTasks.filter(t => t.priority === 'Urgent') },
+                                { name: 'My Task List', mainColor: '#1d3d50', secondaryColor: '#539fc9', items: displayedTasks.filter(t => t.priority === 'Urgent' || t.priority === 'Normal') },
                                 { name: 'System generated', mainColor: '#4c6122', secondaryColor: '#8cae3e', items: displayedTasks.filter(t => t.priority === 'High') },
-                                { name: 'closing task list', mainColor: '#a15c1e', secondaryColor: '#d68b44', items: displayedTasks.filter(t => t.priority === 'Normal' || t.priority === 'Low') },
+                                { name: 'closing task list', mainColor: '#a15c1e', secondaryColor: '#d68b44', items: displayedTasks.filter(t => t.priority === 'Low') },
                                 {
                                     name: 'Other Tasks',
                                     mainColor: '#475569',
