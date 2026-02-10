@@ -1687,21 +1687,16 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                         .map(task => (
                                             <div key={task.id} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between group/task hover:bg-slate-100/50 transition-colors">
                                                 <div className="flex items-center gap-3">
-                                                    <button
-                                                        onClick={() => handleToggleTaskStatus(task)}
-                                                        className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${task.status === 'Completed' || task.status === 'DONE' ? 'bg-emerald-500 border-emerald-500' : 'bg-white border-slate-200 hover:border-indigo-400'}`}
-                                                    >
-                                                        {(task.status === 'Completed' || task.status === 'DONE') && <i className="fa-solid fa-check text-[8px] text-white"></i>}
-                                                    </button>
+                                                    <div className={`w-2 h-2 rounded-full ${task.priority === 'Urgent' ? 'bg-red-500 animate-pulse' : task.priority === 'High' ? 'bg-orange-500' : task.priority === 'Normal' ? 'bg-amber-400' : 'bg-slate-300'}`}></div>
                                                     <div className="cursor-pointer" onClick={() => startEditingTask(task)}>
-                                                        <p className={`text-xs font-bold ${task.status === 'Completed' || task.status === 'DONE' ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{task.name}</p>
+                                                        <p className="text-xs font-bold text-slate-700">{task.name}</p>
                                                         <p className={`text-[9px] font-black uppercase tracking-tighter ${isOverdue(task.dueDate, task.status) ? 'text-red-500' : 'text-slate-400'}`}>
                                                             {isOverdue(task.dueDate, task.status) ? 'PAST DUE: ' : 'Due '}
                                                             {formatDate(task.dueDate)}
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-1.5 opacity-0 group-hover/task:opacity-100 transition-opacity">
+                                                <div className="flex items-center gap-1.5 transition-opacity">
                                                     <button
                                                         onClick={() => startEditingTask(task)}
                                                         className="w-7 h-7 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all"
