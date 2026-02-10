@@ -146,6 +146,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         { id: 'product_market_fit', label: 'Product Market Fit', icon: 'fa-bullseye' },
         { id: 'post_close_intelligence', label: 'Post-Close Intelligence', icon: 'fa-key' },
         { id: 'technical_papers', label: 'Technical Papers', icon: 'fa-file-invoice' },
+        { id: 'technical_media', label: 'Technical Media', icon: 'fa-clapperboard' },
         { id: 'market_analysis', label: 'Market Analysis', icon: 'fa-chart-area' },
         { id: 'opportunity_discovery', label: 'Opportunity Discovery', icon: 'fa-binoculars' },
     ];

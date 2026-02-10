@@ -26,12 +26,12 @@ const TechnicalPapersTab: React.FC = () => {
                         <button
                             key={p.id}
                             onClick={() => setActivePaper(p.id as PaperId)}
-                            className={`px-4 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all border ${activePaper === p.id
-                                    ? 'bg-slate-900 border-slate-900 text-white shadow-lg'
-                                    : 'bg-white border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-600'
+                            className={`px-4 py-2 rounded-sm text-[8px] font-black uppercase tracking-widest transition-all border max-w-[180px] leading-[1.4] text-center ${activePaper === p.id
+                                ? 'bg-slate-900 border-slate-900 text-white shadow-lg'
+                                : 'bg-white border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-600'
                                 }`}
                         >
-                            {p.id === 'recommender_system' ? 'Paper 01' : 'Paper 02'}
+                            {p.title}
                         </button>
                     ))}
                 </div>

@@ -210,3 +210,38 @@ export const uploadVideoToStorage = async (file: File, summary: string): Promise
         throw new Error(error.message || "Failed to upload video");
     }
 };
+
+/**
+ * Lists all videos in the admin/videos directory.
+ */
+export const listAdminVideos = async (): Promise<{ name: string, url: string, summary: string, timestamp: number }[]> => {
+    const storage = (await import('./config')).storage;
+    if (!storage) throw new Error("Firebase Storage not initialized");
+
+    try {
+        const { getMetadata } = await import('firebase/storage');
+        const rootRef = ref(storage, 'admin/videos');
+        const listResult = await listAll(rootRef);
+
+        const videoPromises = listResult.items.map(async (item) => {
+            const [url, metadata] = await Promise.all([
+                getDownloadURL(item),
+                getMetadata(item)
+            ]);
+
+            return {
+                name: item.name,
+                url,
+                summary: metadata.customMetadata?.summary || 'No summary available.',
+                timestamp: metadata.timeCreated ? new Date(metadata.timeCreated).getTime() : 0
+            };
+        });
+
+        const videos = await Promise.all(videoPromises);
+        // Sort by newest first
+        return videos.sort((a, b) => b.timestamp - a.timestamp);
+    } catch (error: any) {
+        console.error("[Storage] Failed to list admin videos:", error);
+        return [];
+    }
+};
