@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserProfile, Lead, CRMTask, CalendarEvent, LeadNote } from '../../types';
-import { getClientTasks, getClientCalendarEvents, saveCalendarEvent, addTask } from '../../services/firebaseService';
+import { getClientTasks, getClientCalendarEvents, saveCalendarEvent, addTask, updateTask, deleteTask } from '../../services/firebaseService';
 import { HubTab } from './hub/HubHeader';
 import ClientSelector from './ClientSelector';
 import ClientEditModal from './ClientEditModal';
@@ -76,6 +76,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
     const [newTaskPriority, setNewTaskPriority] = useState<'Low' | 'Normal' | 'High' | 'Urgent'>('Normal');
     const [newTaskNote, setNewTaskNote] = useState('');
     const [isAddingTask, setIsAddingTask] = useState(false);
+    const [editingTask, setEditingTask] = useState<CRMTask | null>(null);
 
     useEffect(() => {
         if (initialSelectedId) {
@@ -229,39 +230,74 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
     const handleAddTask = async () => {
         if (!newTaskName.trim()) return;
         setIsAddingTask(true);
-        console.log(`[ClientDetails] Adding task: "${newTaskName}" for client: ${selectedClient.id}`);
         try {
-            const newTask: Partial<CRMTask> = {
+            const taskData: Partial<CRMTask> = {
                 realtorId,
                 clientId: selectedClient.id,
                 name: newTaskName,
                 comment: newTaskNote,
                 dueDate: newTaskDate ? new Date(newTaskDate) : null as any,
-                status: 'Pending',
                 priority: newTaskPriority,
-                created_at: new Date()
+                status: editingTask ? editingTask.status : 'Pending',
             };
-            const taskId = await addTask(newTask);
-            console.log(`[ClientDetails] Task created with ID: ${taskId}`);
-            if (taskId) {
-                const fullTask = { ...newTask, id: taskId } as CRMTask;
-                setClientTasks(prev => [...prev, fullTask].sort((a, b) => {
-                    const dateA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
-                    const dateB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
-                    return dateA - dateB;
-                }));
-                setNewTaskName('');
-                setNewTaskNote('');
-                setNewTaskDate('');
-                if (refreshTasks) {
-                    console.log(`[ClientDetails] Triggering global tasks refresh...`);
-                    await refreshTasks();
+
+            if (editingTask) {
+                const success = await updateTask(editingTask.id, taskData);
+                if (success) {
+                    setClientTasks(prev => prev.map(t => t.id === editingTask.id ? { ...t, ...taskData } : t));
+                    setEditingTask(null);
+                }
+            } else {
+                const taskId = await addTask({ ...taskData, status: 'Pending', created_at: new Date() });
+                if (taskId) {
+                    const fullTask = { ...taskData, id: taskId, status: 'Pending', created_at: new Date() } as CRMTask;
+                    setClientTasks(prev => [...prev, fullTask].sort((a, b) => {
+                        const dateA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+                        const dateB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+                        return dateA - dateB;
+                    }));
                 }
             }
+            setNewTaskName('');
+            setNewTaskNote('');
+            setNewTaskDate('');
+            setNewTaskPriority('Normal');
         } catch (error) {
-            console.error("Failed to add task:", error);
+            console.error("Failed to handle task:", error);
         } finally {
             setIsAddingTask(false);
+            if (refreshTasks) refreshTasks();
+        }
+    };
+
+    const handleDeleteTask = async (taskId: string) => {
+        if (!window.confirm("Are you sure you want to delete this task?")) return;
+        const success = await deleteTask(taskId);
+        if (success) {
+            setClientTasks(prev => prev.filter(t => t.id !== taskId));
+            if (refreshTasks) refreshTasks();
+        }
+    };
+
+    const handleToggleTaskStatus = async (task: CRMTask) => {
+        const newStatus = (task.status === 'Completed' || task.status === 'DONE') ? 'Pending' : 'Completed';
+        const success = await updateTask(task.id, { status: newStatus });
+        if (success) {
+            setClientTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
+            if (refreshTasks) refreshTasks();
+        }
+    };
+
+    const startEditingTask = (task: CRMTask) => {
+        setEditingTask(task);
+        setNewTaskName(task.name);
+        setNewTaskNote(task.comment || '');
+        setNewTaskPriority(task.priority);
+        if (task.dueDate) {
+            const d = task.dueDate.toDate ? task.dueDate.toDate() : new Date(task.dueDate);
+            setNewTaskDate(d.toISOString().split('T')[0]);
+        } else {
+            setNewTaskDate('');
         }
     };
 
@@ -1596,18 +1632,36 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                         value={newTaskNote}
                                         onChange={(e) => setNewTaskNote(e.target.value)}
                                     />
-                                    <button
-                                        onClick={handleAddTask}
-                                        disabled={!newTaskName.trim() || isAddingTask}
-                                        className="w-full py-2.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
-                                    >
-                                        {isAddingTask ? (
-                                            <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                                        ) : (
-                                            <i className="fa-solid fa-plus"></i>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={handleAddTask}
+                                            disabled={!newTaskName.trim() || isAddingTask}
+                                            className="flex-1 py-2.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                                        >
+                                            {isAddingTask ? (
+                                                <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                                            ) : editingTask ? (
+                                                <i className="fa-solid fa-check-double"></i>
+                                            ) : (
+                                                <i className="fa-solid fa-plus"></i>
+                                            )}
+                                            {editingTask ? 'Update Task' : 'Create Task'}
+                                        </button>
+                                        {editingTask && (
+                                            <button
+                                                onClick={() => {
+                                                    setEditingTask(null);
+                                                    setNewTaskName('');
+                                                    setNewTaskNote('');
+                                                    setNewTaskDate('');
+                                                    setNewTaskPriority('Normal');
+                                                }}
+                                                className="px-4 py-2.5 bg-slate-100/50 text-slate-500 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all border border-slate-200"
+                                            >
+                                                Cancel
+                                            </button>
                                         )}
-                                        Create Task
-                                    </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1631,19 +1685,37 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                     {clientTasks
                                         .filter(t => t.status !== 'DONE' && t.status !== 'Completed')
                                         .map(task => (
-                                            <div key={task.id} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between group">
+                                            <div key={task.id} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between group/task hover:bg-slate-100/50 transition-colors">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`w-2 h-2 rounded-full ${task.priority === 'Urgent' ? 'bg-red-500 animate-pulse' : task.priority === 'High' ? 'bg-orange-500' : task.priority === 'Normal' ? 'bg-amber-400' : 'bg-slate-300'}`}></div>
-                                                    <div>
-                                                        <p className="text-xs font-bold text-slate-700">{task.name}</p>
+                                                    <button
+                                                        onClick={() => handleToggleTaskStatus(task)}
+                                                        className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${task.status === 'Completed' || task.status === 'DONE' ? 'bg-emerald-500 border-emerald-500' : 'bg-white border-slate-200 hover:border-indigo-400'}`}
+                                                    >
+                                                        {(task.status === 'Completed' || task.status === 'DONE') && <i className="fa-solid fa-check text-[8px] text-white"></i>}
+                                                    </button>
+                                                    <div className="cursor-pointer" onClick={() => startEditingTask(task)}>
+                                                        <p className={`text-xs font-bold ${task.status === 'Completed' || task.status === 'DONE' ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{task.name}</p>
                                                         <p className={`text-[9px] font-black uppercase tracking-tighter ${isOverdue(task.dueDate, task.status) ? 'text-red-500' : 'text-slate-400'}`}>
                                                             {isOverdue(task.dueDate, task.status) ? 'PAST DUE: ' : 'Due '}
                                                             {formatDate(task.dueDate)}
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <div className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[8px] font-black uppercase text-slate-400">
-                                                    {task.status}
+                                                <div className="flex items-center gap-1.5 opacity-0 group-hover/task:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={() => startEditingTask(task)}
+                                                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all"
+                                                        title="Edit Task"
+                                                    >
+                                                        <i className="fa-solid fa-pen text-[10px]"></i>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteTask(task.id)}
+                                                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-100 transition-all"
+                                                        title="Delete Task"
+                                                    >
+                                                        <i className="fa-solid fa-trash-can text-[10px]"></i>
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))}
