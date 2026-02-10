@@ -28,6 +28,12 @@ service firebase.storage {
       allow write: if isAuthenticated();
     }
 
+    // Admin Videos
+    match /admin/videos/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
     // Default deny
     match /{allPaths=**} {
       allow read, write: if false;
