@@ -67,6 +67,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
     const [newTaskName, setNewTaskName] = useState('');
     const [newTaskDate, setNewTaskDate] = useState('');
     const [newTaskPriority, setNewTaskPriority] = useState<'Low' | 'Normal' | 'High' | 'Urgent'>('Normal');
+    const [newTaskNote, setNewTaskNote] = useState('');
     const [isAddingTask, setIsAddingTask] = useState(false);
 
     useEffect(() => {
@@ -219,7 +220,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
     };
 
     const handleAddTask = async () => {
-        if (!newTaskName.trim() || !newTaskDate) return;
+        if (!newTaskName.trim()) return;
         setIsAddingTask(true);
         console.log(`[ClientDetails] Adding task: "${newTaskName}" for client: ${selectedClient.id}`);
         try {
@@ -227,7 +228,8 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                 realtorId,
                 clientId: selectedClient.id,
                 name: newTaskName,
-                dueDate: new Date(newTaskDate),
+                comment: newTaskNote,
+                dueDate: newTaskDate ? new Date(newTaskDate) : null as any,
                 status: 'Pending',
                 priority: newTaskPriority,
                 created_at: new Date()
@@ -236,8 +238,14 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
             console.log(`[ClientDetails] Task created with ID: ${taskId}`);
             if (taskId) {
                 const fullTask = { ...newTask, id: taskId } as CRMTask;
-                setClientTasks(prev => [...prev, fullTask].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()));
+                setClientTasks(prev => [...prev, fullTask].sort((a, b) => {
+                    const dateA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+                    const dateB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+                    return dateA - dateB;
+                }));
                 setNewTaskName('');
+                setNewTaskNote('');
+                setNewTaskDate('');
                 if (refreshTasks) {
                     console.log(`[ClientDetails] Triggering global tasks refresh...`);
                     await refreshTasks();
@@ -1570,6 +1578,12 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                             <option value="Urgent">Urgent</option>
                                         </select>
                                     </div>
+                                    <textarea
+                                        placeholder="Add notes or details..."
+                                        className="w-full px-4 py-2.5 bg-white border border-indigo-100 rounded-xl text-xs font-bold transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none min-h-[80px]"
+                                        value={newTaskNote}
+                                        onChange={(e) => setNewTaskNote(e.target.value)}
+                                    />
                                     <button
                                         onClick={handleAddTask}
                                         disabled={!newTaskName.trim() || isAddingTask}
