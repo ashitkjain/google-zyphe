@@ -28,6 +28,10 @@ const formatDate = (val: any) => {
 
 const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, leads = [], onTasksUpdated }) => {
     const [isSaving, setIsSaving] = useState(false);
+    // Search and Sort State
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Completed'>('All');
+    const [sortBy, setBy] = useState<'date' | 'priority' | 'name'>('date');
 
     // Manage tasks locally for editing
     const [tasks, setTasks] = useState<CRMTask[]>(initialTasks);
@@ -137,40 +141,117 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
         }
     };
 
+    const getClientName = (clientId: string) => {
+        if (!clientId) return '';
+        const client = leads.find(l => l.id === clientId);
+        if (!client) return '';
+        return client.fullName || `${client.firstName} ${client.lastName}` || '';
+    };
+
+    const getFilteredAndSortedTasks = () => {
+        let result = tasks.filter(t => {
+            const matchesSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                getClientName(t.clientId).toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesStatus = statusFilter === 'All' ||
+                (statusFilter === 'Completed' ? t.status === 'Completed' : t.status !== 'Completed');
+            return matchesSearch && matchesStatus;
+        });
+
+        return result.sort((a, b) => {
+            if (sortBy === 'date') {
+                const dateA = a.dueDate ? (a.dueDate.toDate ? a.dueDate.toDate() : new Date(a.dueDate)).getTime() : Infinity;
+                const dateB = b.dueDate ? (b.dueDate.toDate ? b.dueDate.toDate() : new Date(b.dueDate)).getTime() : Infinity;
+                return dateA - dateB;
+            }
+            if (sortBy === 'name') return a.name.localeCompare(b.name);
+            return 0; // Default segments handle priority
+        });
+    };
+
+    const displayedTasks = getFilteredAndSortedTasks();
+
     return (
         <div className="flex-1 bg-[#F8FAFC]">
             {/* Content Area */}
-            <div>
-                <div className="flex-1 bg-white px-12 pt-3 pb-12 overflow-y-auto font-sans leading-normal text-slate-900">
+            <div className="h-full">
+                <div className="flex-1 bg-white px-12 pt-6 pb-12 overflow-y-auto font-sans leading-normal text-slate-900 border-l border-slate-100">
                     <div className="max-w-6xl mx-auto">
-                        <div className="flex justify-between items-center mb-6">
-                            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-4 py-2 rounded-lg border border-slate-100">
-                                <i className="fa-solid fa-calendar-check text-indigo-500"></i>
+                        <div className="flex flex-col gap-6 mb-8">
+                            <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-3">
+                                    <h1 className="text-2xl font-black text-slate-800 tracking-tight">Task Board</h1>
+                                    <div className="px-2.5 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-indigo-100/50">
+                                        {displayedTasks.length} {displayedTasks.length === 1 ? 'Task' : 'Tasks'}
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleSaveTasks}
+                                    disabled={isSaving}
+                                    className="px-4 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    <i className={`fa-solid ${isSaving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'}`}></i>
+                                    Save Changes
+                                </button>
+                            </div>
+
+                            {/* Filter Bar */}
+                            <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                <div className="flex-1 min-w-[300px] relative group">
+                                    <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"></i>
+                                    <input
+                                        type="text"
+                                        placeholder="Search by task name or client..."
+                                        className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Status</label>
+                                    <select
+                                        className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                                        value={statusFilter}
+                                        onChange={(e) => setStatusFilter(e.target.value as any)}
+                                    >
+                                        <option value="All">All Tasks</option>
+                                        <option value="Pending">Pending</option>
+                                        <option value="Completed">Completed</option>
+                                    </select>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sort</label>
+                                    <select
+                                        className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                                        value={sortBy}
+                                        onChange={(e) => setBy(e.target.value as any)}
+                                    >
+                                        <option value="date">Due Date</option>
+                                        <option value="name">Task Name</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-amber-50/50 px-4 py-2.5 rounded-xl border border-amber-100/50 w-fit">
+                                <i className="fa-solid fa-calendar-check text-amber-500"></i>
                                 Tasks with due dates are automatically synced to your calendar
                             </div>
-                            <button
-                                onClick={handleSaveTasks}
-                                disabled={isSaving}
-                                className="p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-600 hover:text-indigo-600 shadow-sm disabled:opacity-50 flex items-center group"
-                                title="Save Tasks"
-                            >
-                                <i className={`fa-solid ${isSaving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'} text-xl`}></i>
-                            </button>
                         </div>
                         <div className="space-y-12">
                             {[
-                                { name: 'My Task List', mainColor: '#1d3d50', secondaryColor: '#539fc9', items: tasks.filter(t => t.priority === 'Urgent') },
-                                { name: 'System generated', mainColor: '#4c6122', secondaryColor: '#8cae3e', items: tasks.filter(t => t.priority === 'High') },
-                                { name: 'closing task list', mainColor: '#a15c1e', secondaryColor: '#d68b44', items: tasks.filter(t => t.priority === 'Normal' || t.priority === 'Low') },
+                                { name: 'My Task List', mainColor: '#1d3d50', secondaryColor: '#539fc9', items: displayedTasks.filter(t => t.priority === 'Urgent') },
+                                { name: 'System generated', mainColor: '#4c6122', secondaryColor: '#8cae3e', items: displayedTasks.filter(t => t.priority === 'High') },
+                                { name: 'closing task list', mainColor: '#a15c1e', secondaryColor: '#d68b44', items: displayedTasks.filter(t => t.priority === 'Normal' || t.priority === 'Low') },
                                 {
                                     name: 'Other Tasks',
                                     mainColor: '#475569',
                                     secondaryColor: '#64748b',
-                                    items: tasks.filter(t => !['Urgent', 'High', 'Normal', 'Low'].includes(t.priority as string))
+                                    items: displayedTasks.filter(t => !['Urgent', 'High', 'Normal', 'Low'].includes(t.priority as string))
                                 }
                             ].map((section, sIdx) => {
                                 console.log(`[TaskBoard] Section "${section.name}" has ${section.items.length} items`);
-                                if (section.items.length === 0 && sIdx === 3) return null; // Hide Other if empty
+                                if (section.items.length === 0 && (sIdx === 3 || searchTerm || statusFilter !== 'All')) return null; // Hide Other if empty or filtering
                                 return (
                                     <div key={sIdx} className="w-full">
                                         <table className="w-full border-collapse border border-slate-300">
