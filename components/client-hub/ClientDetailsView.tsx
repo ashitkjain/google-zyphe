@@ -1559,7 +1559,12 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                     />
                                     <div className="flex gap-3">
                                         <input
-                                            type="date"
+                                            type={newTaskDate ? "date" : "text"}
+                                            placeholder="Add due date (optional)"
+                                            onFocus={(e) => (e.target.type = "date")}
+                                            onBlur={(e) => {
+                                                if (!e.target.value) e.target.type = "text";
+                                            }}
                                             className="flex-1 px-4 py-2 bg-white border border-indigo-100 rounded-xl text-xs font-bold transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none"
                                             value={newTaskDate}
                                             onChange={(e) => setNewTaskDate(e.target.value)}
