@@ -41,9 +41,15 @@ const HubHeader: React.FC<HubHeaderProps> = ({
     handleSeedManualMockData, realtorId, deleteUserAccount
 }) => {
     return (
-        <header className="bg-slate-900 px-4 sm:px-8 py-0 grid grid-cols-3 items-center border-b border-white/5 shadow-2xl relative z-[110]">
-            {/* Left Section: Navigation / Hamburger */}
-            <div className="flex items-center justify-start h-full">
+        <header className="bg-slate-900 px-4 sm:px-8 h-[72px] flex items-center justify-between border-b border-white/5 shadow-2xl relative z-[110]">
+            {/* Left Section: Logo & Navigation */}
+            <div className="flex items-center justify-start h-full gap-8">
+                <Logo
+                    size={showHamburger ? 40 : 52}
+                    onClick={() => { setActiveTab('explore'); setIsMobileMenuOpen(false); }}
+                    className="cursor-pointer transition-transform hover:scale-105 flex-shrink-0"
+                />
+
                 <button
                     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                     className={`${showHamburger ? 'flex' : 'hidden'} w-10 h-10 items-center justify-center text-white text-xl`}
@@ -51,7 +57,7 @@ const HubHeader: React.FC<HubHeaderProps> = ({
                     <i className={`fa-solid ${isMobileMenuOpen ? 'fa-xmark' : 'fa-bars'}`}></i>
                 </button>
 
-                <nav className={`${showHamburger ? 'hidden' : 'flex'} items-center h-[72px]`}>
+                <nav className={`${showHamburger ? 'hidden' : 'flex'} items-center h-full`}>
                     {earlyTabs.map((tab) => (
                         <button
                             key={tab.id}
@@ -186,10 +192,7 @@ const HubHeader: React.FC<HubHeaderProps> = ({
                 </nav>
             </div>
 
-            {/* Center Section: Logo */}
-            <div className="flex items-center justify-center py-4">
-                <Logo size={showHamburger ? 45 : 60} onClick={() => { setActiveTab('explore'); setIsMobileMenuOpen(false); }} className="cursor-pointer transition-transform hover:scale-105" />
-            </div>
+
 
             {/* Right Section: User Controls */}
             <div className="flex items-center justify-end gap-3 sm:gap-6 h-full">
