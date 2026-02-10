@@ -159,24 +159,18 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                         </div>
                         <div className="space-y-12">
                             {[
-                                { name: 'My Task List', mainColor: '#1d3d50', secondaryColor: '#539fc9', items: tasks.filter(t => t.priority === 'Urgent' && t.dueDate) },
-                                { name: 'System generated', mainColor: '#4c6122', secondaryColor: '#8cae3e', items: tasks.filter(t => t.priority === 'High' && t.dueDate) },
-                                { name: 'closing task list', mainColor: '#a15c1e', secondaryColor: '#d68b44', items: tasks.filter(t => (t.priority === 'Normal' || t.priority === 'Low') && t.dueDate) },
-                                {
-                                    name: 'Untimed Tasks (No Due Date)',
-                                    mainColor: '#64748b',
-                                    secondaryColor: '#94a3b8',
-                                    items: tasks.filter(t => !t.dueDate)
-                                },
+                                { name: 'My Task List', mainColor: '#1d3d50', secondaryColor: '#539fc9', items: tasks.filter(t => t.priority === 'Urgent') },
+                                { name: 'System generated', mainColor: '#4c6122', secondaryColor: '#8cae3e', items: tasks.filter(t => t.priority === 'High') },
+                                { name: 'closing task list', mainColor: '#a15c1e', secondaryColor: '#d68b44', items: tasks.filter(t => t.priority === 'Normal' || t.priority === 'Low') },
                                 {
                                     name: 'Other Tasks',
                                     mainColor: '#475569',
                                     secondaryColor: '#64748b',
-                                    items: tasks.filter(t => t.dueDate && !['Urgent', 'High', 'Normal', 'Low'].includes(t.priority as string))
+                                    items: tasks.filter(t => !['Urgent', 'High', 'Normal', 'Low'].includes(t.priority as string))
                                 }
                             ].map((section, sIdx) => {
                                 console.log(`[TaskBoard] Section "${section.name}" has ${section.items.length} items`);
-                                if (section.items.length === 0 && (sIdx === 3 || sIdx === 4)) return null; // Hide Untimed/Other if empty
+                                if (section.items.length === 0 && sIdx === 3) return null; // Hide Other if empty
                                 return (
                                     <div key={sIdx} className="w-full">
                                         <table className="w-full border-collapse border border-slate-300">
@@ -358,7 +352,8 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                                         </table>
                                     </div>
                                 );
-                            })}
+                            })
+                            }
                         </div>
 
                         <div className="mt-12 mb-8 text-center text-xs text-slate-400 font-medium">
