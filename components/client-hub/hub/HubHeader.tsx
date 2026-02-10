@@ -59,9 +59,9 @@ const HubHeader: React.FC<HubHeaderProps> = ({
                                 setActiveTab(tab.id);
                                 if (onNavigate) onNavigate(tab.id as any, '');
                             }}
-                            className={`relative h-full flex items-center gap-3 px-4 text-[10px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${activeTab === tab.id ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                            className={`relative h-[72px] flex items-center gap-3 px-5 text-[11px] font-black uppercase tracking-[0.1em] transition-all group overflow-hidden ${activeTab === tab.id ? 'text-white' : 'text-slate-400 hover:text-white'}`}
                         >
-                            <i className={`fa-solid ${tab.icon} transition-transform group-hover:scale-110 ${activeTab === tab.id ? 'text-indigo-500' : 'text-slate-500'}`}></i>
+                            <i className={`fa-solid ${tab.icon} text-sm transition-transform group-hover:scale-110 ${activeTab === tab.id ? 'text-indigo-400' : 'text-slate-500'}`}></i>
                             {tab.label}
                             {activeTab === tab.id && (
                                 <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500 animate-in slide-in-from-bottom border-t border-indigo-400/50"></div>
@@ -73,11 +73,11 @@ const HubHeader: React.FC<HubHeaderProps> = ({
                     <div className="relative h-full" ref={toolsRef}>
                         <button
                             onClick={() => setIsToolsOpen(!isToolsOpen)}
-                            className={`relative h-full flex items-center gap-3 px-4 text-[10px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab)) ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                            className={`relative h-[72px] flex items-center gap-3 px-5 text-[11px] font-black uppercase tracking-[0.1em] transition-all group overflow-hidden ${(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab)) ? 'text-white' : 'text-slate-400 hover:text-white'}`}
                         >
-                            <i className={`fa-solid fa-toolbox transition-transform group-hover:scale-110 ${(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab)) ? 'text-indigo-500' : 'text-slate-500'}`}></i>
+                            <i className={`fa-solid fa-toolbox text-sm transition-transform group-hover:scale-110 ${(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab)) ? 'text-indigo-400' : 'text-slate-500'}`}></i>
                             Tools
-                            <i className={`fa-solid fa-chevron-down text-[8px] transition-transform duration-300 ${isToolsOpen ? 'rotate-180' : ''}`}></i>
+                            <i className={`fa-solid fa-chevron-down text-[9px] transition-transform duration-300 ${isToolsOpen ? 'rotate-180' : ''}`}></i>
                             {(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab)) && (
                                 <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500 animate-in slide-in-from-bottom border-t border-indigo-400/50"></div>
                             )}
@@ -174,9 +174,9 @@ const HubHeader: React.FC<HubHeaderProps> = ({
                                 setActiveTab(tab.id);
                                 if (onNavigate) onNavigate(tab.id as any, '');
                             }}
-                            className={`relative h-full flex items-center gap-3 px-4 text-[10px] font-bold uppercase tracking-widest transition-all group overflow-hidden ${activeTab === tab.id ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                            className={`relative h-[72px] flex items-center gap-3 px-5 text-[11px] font-black uppercase tracking-[0.1em] transition-all group overflow-hidden ${activeTab === tab.id ? 'text-white' : 'text-slate-400 hover:text-white'}`}
                         >
-                            <i className={`fa-solid ${tab.icon} transition-transform group-hover:scale-110 ${activeTab === tab.id ? 'text-indigo-500' : 'text-slate-500'}`}></i>
+                            <i className={`fa-solid ${tab.icon} text-sm transition-transform group-hover:scale-110 ${activeTab === tab.id ? 'text-indigo-400' : 'text-slate-500'}`}></i>
                             {tab.label}
                             {activeTab === tab.id && (
                                 <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500 animate-in slide-in-from-bottom border-t border-indigo-400/50"></div>

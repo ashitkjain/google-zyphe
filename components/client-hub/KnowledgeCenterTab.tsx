@@ -31,44 +31,22 @@ const KnowledgeCenterTab: React.FC<KnowledgeCenterTabProps> = ({ onNavigate }) =
         <div className="flex flex-col h-full bg-slate-50">
             {/* Unified Toggle / Sub-nav */}
             <div className="bg-white border-b border-slate-200 sticky top-0 z-[40]">
-                <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-8 h-full">
-                        <button
-                            onClick={() => {
-                                setActiveSubTab('playbooks');
-                            }}
-                            className={`h-full flex items-center gap-2 text-xs font-black uppercase tracking-widest transition-all relative ${activeSubTab === 'playbooks' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            <i className="fa-solid fa-graduation-cap text-[10px]"></i>
-                            Best Practices
-                            {activeSubTab === 'playbooks' && (
-                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-600 rounded-t-full"></div>
-                            )}
-                        </button>
-                        <button
-                            onClick={() => {
-                                setActiveSubTab('resources');
-                            }}
-                            className={`h-full flex items-center gap-2 text-xs font-black uppercase tracking-widest transition-all relative ${activeSubTab === 'resources' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            <i className="fa-solid fa-book-open-reader text-[10px]"></i>
-                            General Questions
-                            {activeSubTab === 'resources' && (
-                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-600 rounded-t-full"></div>
-                            )}
-                        </button>
-                        <button
-                            onClick={() => {
-                                setActiveSubTab('support');
-                            }}
-                            className={`h-full flex items-center gap-2 text-xs font-black uppercase tracking-widest transition-all relative ${activeSubTab === 'support' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            <i className="fa-solid fa-circle-question text-[10px]"></i>
-                            Platform Help
-                            {activeSubTab === 'support' && (
-                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-600 rounded-t-full"></div>
-                            )}
-                        </button>
+                <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between gap-4">
+                    <div className="flex bg-slate-50 p-1.5 rounded-2xl border border-slate-200/60 shadow-sm">
+                        {[
+                            { id: 'playbooks', label: 'Best Practices', icon: 'fa-graduation-cap' },
+                            { id: 'resources', label: 'General Questions', icon: 'fa-book-open-reader' },
+                            { id: 'support', label: 'Platform Help', icon: 'fa-circle-question' },
+                        ].map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveSubTab(tab.id as any)}
+                                className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black transition-all text-[12px] uppercase tracking-widest whitespace-nowrap ${activeSubTab === tab.id ? 'bg-gradient-to-r from-indigo-700 to-gray-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600 hover:bg-white'}`}
+                            >
+                                <i className={`fa-solid ${tab.icon} ${activeSubTab === tab.id ? 'text-white' : 'text-slate-300'}`}></i>
+                                {tab.label}
+                            </button>
+                        ))}
                     </div>
 
                     <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-[9px] font-black text-slate-500 uppercase tracking-tight">

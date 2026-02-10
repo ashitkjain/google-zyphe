@@ -32,14 +32,21 @@ const LeadsViewControls: React.FC<LeadsViewControlsProps> = ({
             <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     {/* Sub-Category Selector */}
-                    <div className="flex bg-slate-100/50 p-1 rounded-xl border border-slate-200/60 shadow-sm">
-                        {['Leads', 'Nurture', 'Active Search', 'Offer', 'Contract'].map((cat) => (
+                    <div className="inline-flex bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm overflow-x-auto no-scrollbar max-w-full">
+                        {[
+                            { id: 'Leads', label: 'Leads', icon: 'fa-users-line' },
+                            { id: 'Nurture', label: 'Nurture', icon: 'fa-seedling' },
+                            { id: 'Active Search', label: 'Active Search', icon: 'fa-magnifying-glass-location' },
+                            { id: 'Offer', label: 'Offer', icon: 'fa-handshake' },
+                            { id: 'Contract', label: 'Closing', icon: 'fa-flag-checkered' },
+                        ].map((cat) => (
                             <button
-                                key={cat}
-                                onClick={() => onFunnelCategoryChange(cat as any)}
-                                className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeFunnelCategory === cat ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                key={cat.id}
+                                onClick={() => onFunnelCategoryChange(cat.id as any)}
+                                className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black transition-all text-[12px] uppercase tracking-widest whitespace-nowrap ${activeFunnelCategory === cat.id ? 'bg-gradient-to-r from-indigo-700 to-gray-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
                             >
-                                {cat === 'Contract' ? 'Closing' : cat}
+                                <i className={`fa-solid ${cat.icon} ${activeFunnelCategory === cat.id ? 'text-white' : 'text-slate-300'}`}></i>
+                                {cat.label}
                             </button>
                         ))}
                     </div>

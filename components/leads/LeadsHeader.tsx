@@ -42,19 +42,19 @@ const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCr
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 flex-1">
                     {/* Tab Switcher */}
-                    <div className="flex bg-slate-200/50 p-1 rounded-xl items-center mr-2 flex-shrink-0">
+                    <div className="flex bg-slate-200/50 p-1.5 rounded-2xl items-center mr-4 flex-shrink-0 border border-slate-300/30">
                         <button
                             onClick={() => setActiveTab('Buyer')}
-                            className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'Buyer' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-3 ${activeTab === 'Buyer' ? 'bg-gradient-to-r from-blue-700 to-slate-900 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
                         >
-                            <i className="fa-solid fa-user-tag"></i>
+                            <i className={`fa-solid fa-user-tag ${activeTab === 'Buyer' ? 'text-white' : 'text-slate-400'}`}></i>
                             Buyer
                         </button>
                         <button
                             onClick={() => setActiveTab('Buyer2')}
-                            className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'Buyer2' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-3 ${activeTab === 'Buyer2' ? 'bg-gradient-to-r from-emerald-700 to-slate-900 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
                         >
-                            <i className="fa-solid fa-user-tag"></i>
+                            <i className={`fa-solid fa-user-tag ${activeTab === 'Buyer2' ? 'text-white' : 'text-slate-400'}`}></i>
                             Seller
                         </button>
                     </div>
@@ -198,24 +198,24 @@ const LeadsHeader: React.FC<LeadsHeaderProps> = ({ activeTab, setActiveTab, onCr
 
                 {/* View Toggles */}
                 {!isMobile && (
-                    <div className="flex bg-slate-200/50 p-1 rounded-2xl items-center">
+                    <div className="flex bg-slate-200/50 p-1.5 rounded-2xl items-center border border-slate-300/30">
                         <button
                             onClick={() => setDisplayMode('kanban')}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${displayMode === 'kanban' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${displayMode === 'kanban' ? 'bg-gradient-to-r from-slate-700 to-slate-900 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
                         >
                             <i className="fa-solid fa-columns"></i>
                             Kanban
                         </button>
                         <button
                             onClick={() => setDisplayMode('gallery')}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${displayMode === 'gallery' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${displayMode === 'gallery' ? 'bg-gradient-to-r from-slate-700 to-slate-900 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
                         >
                             <i className="fa-solid fa-table-cells-large"></i>
                             Gallery
                         </button>
                         <button
                             onClick={() => setDisplayMode('list')}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${displayMode === 'list' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${displayMode === 'list' ? 'bg-gradient-to-r from-slate-700 to-slate-900 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
                         >
                             <i className="fa-solid fa-list"></i>
                             List
