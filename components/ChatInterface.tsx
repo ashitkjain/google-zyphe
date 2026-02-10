@@ -51,10 +51,18 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
 
       const systemInstruction = getChatInstruction(intelligenceContext);
 
-      // Perform a stateless content generation request
+      // Map existing messages to Gemini format and include current text
+      const history = messages.slice(-10).map(m => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      }));
+
+      const contents = [...history, { role: 'user', parts: [{ text }] }];
+
+      // Perform a content generation request with history
       const { data: aiText, rawResponse: response } = await executeGeminiRequest<string>({
         model: CHAT_MODEL,
-        contents: text,
+        contents,
         config: {
           systemInstruction,
           temperature: 0.1,
