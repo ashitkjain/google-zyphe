@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserProfile, Lead, CRMTask, CalendarEvent, LeadNote } from '../../types';
-import { getClientTasks, getClientCalendarEvents, saveCalendarEvent } from '../../services/firebaseService';
+import { getClientTasks, getClientCalendarEvents, saveCalendarEvent, addTask } from '../../services/firebaseService';
+import { HubTab } from './hub/HubHeader';
 import ClientSelector from './ClientSelector';
 import ClientEditModal from './ClientEditModal';
 
@@ -18,9 +19,11 @@ interface ClientDetailsViewProps {
     loading?: boolean;
     initialSelectedId?: string;
     hideClientList?: boolean;
+    setActiveTab?: (tab: HubTab) => void;
+    refreshTasks?: () => Promise<void>;
 }
 
-const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, clients, leads, onUpdateClient, loading, initialSelectedId, hideClientList }) => {
+const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, clients, leads, onUpdateClient, loading, initialSelectedId, hideClientList, setActiveTab, refreshTasks }) => {
     const getName = (c: any) => c.isUser ? c.displayName : `${c.firstName} ${c.lastName}`;
     const getEmail = (c: any) => c.email;
     const getPhone = (c: any) => c.isUser ? c.phoneNumber : c.phone;
@@ -60,6 +63,11 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
     const [sortOrder, setSortOrder] = useState<'newest' | 'name'>('newest');
     const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId || (nonArchivedClients.length > 0 ? nonArchivedClients[0].id : (allClients.length > 0 ? allClients[0].id : null)));
     const [showEditModal, setShowEditModal] = useState(false);
+    const [showTasksModal, setShowTasksModal] = useState(false);
+    const [newTaskName, setNewTaskName] = useState('');
+    const [newTaskDate, setNewTaskDate] = useState('');
+    const [newTaskPriority, setNewTaskPriority] = useState<'Low' | 'Normal' | 'High' | 'Urgent'>('Normal');
+    const [isAddingTask, setIsAddingTask] = useState(false);
 
     useEffect(() => {
         if (initialSelectedId) {
@@ -207,6 +215,33 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
             setDraftEvent(null);
         } else {
             alert("Failed to save event.");
+        }
+    };
+
+    const handleAddTask = async () => {
+        if (!newTaskName.trim() || !newTaskDate) return;
+        setIsAddingTask(true);
+        try {
+            const newTask: Partial<CRMTask> = {
+                realtorId,
+                clientId: selectedClient.id,
+                name: newTaskName,
+                dueDate: new Date(newTaskDate),
+                status: 'TODO',
+                priority: newTaskPriority,
+                created_at: new Date()
+            };
+            const taskId = await addTask(newTask);
+            if (taskId) {
+                const fullTask = { ...newTask, id: taskId } as CRMTask;
+                setClientTasks(prev => [...prev, fullTask].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()));
+                setNewTaskName('');
+                if (refreshTasks) await refreshTasks();
+            }
+        } catch (error) {
+            console.error("Failed to add task:", error);
+        } finally {
+            setIsAddingTask(false);
         }
     };
 
@@ -533,7 +568,12 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                         <i className="fa-solid fa-calendar-plus text-indigo-500"></i> Event
                                     </button>
                                     <button
-                                        onClick={() => alert('Task creation coming soon')}
+                                        onClick={() => {
+                                            setShowTasksModal(true);
+                                            const tomorrow = new Date();
+                                            tomorrow.setDate(tomorrow.getDate() + 1);
+                                            setNewTaskDate(formatDateToInput(tomorrow));
+                                        }}
                                         className="px-3 py-2 bg-white border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-2"
                                     >
                                         <i className="fa-solid fa-list-check text-amber-500"></i> Task
@@ -1478,6 +1518,121 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                 )
             }
 
+            {/* Tasks Modal */}
+            {showTasksModal && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                            <div>
+                                <h2 className="text-xl font-black text-slate-800 tracking-tight">Client Tasks</h2>
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{getName(selectedClient)}</p>
+                            </div>
+                            <button
+                                onClick={() => setShowTasksModal(false)}
+                                className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-white transition-all"
+                            >
+                                <i className="fa-solid fa-xmark text-lg"></i>
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+                            {/* New Task Form */}
+                            <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/50">
+                                <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-3 block">Add New Task</label>
+                                <div className="space-y-3">
+                                    <input
+                                        type="text"
+                                        placeholder="What needs to be done?"
+                                        className="w-full px-4 py-2.5 bg-white border border-indigo-100 rounded-xl text-xs font-bold transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                                        value={newTaskName}
+                                        onChange={(e) => setNewTaskName(e.target.value)}
+                                    />
+                                    <div className="flex gap-3">
+                                        <input
+                                            type="date"
+                                            className="flex-1 px-4 py-2 bg-white border border-indigo-100 rounded-xl text-xs font-bold transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                                            value={newTaskDate}
+                                            onChange={(e) => setNewTaskDate(e.target.value)}
+                                        />
+                                        <select
+                                            className="px-4 py-2 bg-white border border-indigo-100 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                                            value={newTaskPriority}
+                                            onChange={(e) => setNewTaskPriority(e.target.value as any)}
+                                        >
+                                            <option value="Low">Low</option>
+                                            <option value="Normal">Normal</option>
+                                            <option value="High">High</option>
+                                            <option value="Urgent">Urgent</option>
+                                        </select>
+                                    </div>
+                                    <button
+                                        onClick={handleAddTask}
+                                        disabled={!newTaskName.trim() || isAddingTask}
+                                        className="w-full py-2.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                                    >
+                                        {isAddingTask ? (
+                                            <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                                        ) : (
+                                            <i className="fa-solid fa-plus"></i>
+                                        )}
+                                        Create Task
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Upcoming Tasks List */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Upcoming Obligations</label>
+                                    <button
+                                        onClick={() => {
+                                            if (setActiveTab) setActiveTab('tasks');
+                                            setShowTasksModal(false);
+                                        }}
+                                        className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-700 flex items-center gap-1.5 group"
+                                    >
+                                        Go to Task Board
+                                        <i className="fa-solid fa-arrow-right text-[8px] group-hover:translate-x-0.5 transition-transform"></i>
+                                    </button>
+                                </div>
+
+                                <div className="max-h-60 overflow-y-auto pr-1 space-y-2 custom-scrollbar">
+                                    {clientTasks
+                                        .filter(t => {
+                                            const due = t.dueDate?.toDate ? t.dueDate.toDate() : new Date(t.dueDate);
+                                            return due > new Date() && t.status !== 'DONE' && t.status !== 'Completed';
+                                        })
+                                        .map(task => (
+                                            <div key={task.id} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between group">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-2 h-2 rounded-full ${task.priority === 'Urgent' ? 'bg-red-500 animate-pulse' : task.priority === 'High' ? 'bg-orange-500' : task.priority === 'Normal' ? 'bg-amber-400' : 'bg-slate-300'}`}></div>
+                                                    <div>
+                                                        <p className="text-xs font-bold text-slate-700">{task.name}</p>
+                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Due {formatDate(task.dueDate)}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[8px] font-black uppercase text-slate-400">
+                                                    {task.status}
+                                                </div>
+                                            </div>
+                                        ))}
+
+                                    {clientTasks.filter(t => {
+                                        const due = t.dueDate?.toDate ? t.dueDate.toDate() : new Date(t.dueDate);
+                                        return due > new Date() && t.status !== 'DONE' && t.status !== 'Completed';
+                                    }).length === 0 && (
+                                            <div className="py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                                                <i className="fa-solid fa-clipboard-list text-slate-200 text-2xl mb-2 block"></i>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase">No upcoming tasks</p>
+                                            </div>
+                                        )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Client Edit Modal */}
             {
                 selectedClient && (
@@ -1487,6 +1642,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                         onClose={() => setShowEditModal(false)}
                         onSave={async (updates) => {
                             await persistChanges(selectedClient.id, updates);
+                            setShowEditModal(false);
                         }}
                     />
                 )

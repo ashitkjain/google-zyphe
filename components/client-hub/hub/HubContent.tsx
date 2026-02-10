@@ -74,6 +74,8 @@ const HubContent: React.FC<HubContentProps> = ({
                     loading={loadingClients}
                     onUpdateClient={handleUpdateLead}
                     initialSelectedId={explicitlySelectedClientId}
+                    setActiveTab={setActiveTab}
+                    refreshTasks={refreshTasks}
                 />
             )}
 
