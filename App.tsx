@@ -30,7 +30,8 @@ import {
   getUserFavorites,
   generateCityStateKey,
   getCommunityPulseFromCloud,
-  saveCommunityPulseToCloud
+  saveCommunityPulseToCloud,
+  deletePropertyAnalysis
 } from './services/firebaseService';
 import { APP_CONFIG } from './config';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -438,9 +439,13 @@ const App: React.FC = () => {
   const handleRunCustomAnalysis = async (force = false) => {
     if (!propertyData) return;
 
-    if (!force && customAnalysis) {
-      transitionToView('visual-report' as ViewMode);
-      return;
+    if (force) {
+      setComprehensiveAnalysis(null);
+      if (propertyData.zpid) {
+        // Clear from cloud to ensure a total reset
+        await deletePropertyAnalysis(propertyData.zpid, 'intelligence');
+        addLog('System', { type: 'info' }, "Forced Refresh: Intelligence cache cleared.");
+      }
     }
 
     setCustomAnalysisLoading(true);
@@ -545,6 +550,13 @@ const App: React.FC = () => {
           addLog('System', { type: 'error' }, { message: "Cloud Cache Save Failed", task: 'visual_analysis', error: saveResult.error });
         }
       }
+
+      // Automatically trigger comprehensive refresh if this was a forced refresh
+      if (force) {
+        addLog('System', { type: 'info' }, "Visual refresh complete. Triggering narrative synthesis...");
+        // Pass local result directly since setCustomAnalysis is async and may not have propagated yet
+        handleRunComprehensive(true, result);
+      }
     } catch (err: any) {
       const logContent = err instanceof AiResponseError
         ? { message: err.message, raw: err.rawResponse, prompt: err.prompt }
@@ -556,8 +568,9 @@ const App: React.FC = () => {
     }
   };
 
-  const handleRunComprehensive = async (force = false) => {
-    if (!propertyData || !customAnalysis) return;
+  const handleRunComprehensive = async (force = false, providedVisual?: CustomAIAnalysisResult) => {
+    const visualContext = providedVisual || customAnalysis;
+    if (!propertyData || !visualContext) return;
 
     if (!force && comprehensiveAnalysis) {
       transitionToView('comprehensive-report' as ViewMode);
@@ -581,7 +594,7 @@ const App: React.FC = () => {
       }
 
       addLog('Gemini AI', { type: 'request' }, { task: 'comprehensive_analysis', forced: force });
-      const res = await analyzeComprehensive(propertyData, customAnalysis);
+      const res = await analyzeComprehensive(propertyData, visualContext);
       const result = res.data;
       setComprehensiveAnalysis(result);
       addLog('Gemini AI', { type: 'response' }, result, res.usage);
