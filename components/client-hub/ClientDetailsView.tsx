@@ -258,10 +258,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                     }));
                 }
             }
-            setNewTaskName('');
-            setNewTaskNote('');
-            setNewTaskDate('');
-            setNewTaskPriority('Normal');
+            cancelEditing();
         } catch (error) {
             console.error("Failed to handle task:", error);
         } finally {
@@ -288,7 +285,19 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
         }
     };
 
+    const cancelEditing = () => {
+        setEditingTask(null);
+        setNewTaskName('');
+        setNewTaskNote('');
+        setNewTaskDate('');
+        setNewTaskPriority('Normal');
+    };
+
     const startEditingTask = (task: CRMTask) => {
+        if (editingTask?.id === task.id) {
+            cancelEditing();
+            return;
+        }
         setEditingTask(task);
         setNewTaskName(task.name);
         setNewTaskNote(task.comment || '');
@@ -1649,13 +1658,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                         </button>
                                         {editingTask && (
                                             <button
-                                                onClick={() => {
-                                                    setEditingTask(null);
-                                                    setNewTaskName('');
-                                                    setNewTaskNote('');
-                                                    setNewTaskDate('');
-                                                    setNewTaskPriority('Normal');
-                                                }}
+                                                onClick={cancelEditing}
                                                 className="px-4 py-2.5 bg-slate-100/50 text-slate-500 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all border border-slate-200"
                                             >
                                                 Cancel
@@ -1685,7 +1688,10 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                     {clientTasks
                                         .filter(t => t.status !== 'DONE' && t.status !== 'Completed')
                                         .map(task => (
-                                            <div key={task.id} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between group/task hover:bg-slate-100/50 transition-colors">
+                                            <div
+                                                key={task.id}
+                                                className={`p-3 border rounded-xl flex items-center justify-between group/task transition-all ${editingTask?.id === task.id ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-slate-50 border-slate-100 hover:bg-slate-100/50'}`}
+                                            >
                                                 <div className="flex items-center gap-3">
                                                     <div className={`w-2 h-2 rounded-full ${task.priority === 'Urgent' ? 'bg-red-500 animate-pulse' : task.priority === 'High' ? 'bg-orange-500' : task.priority === 'Normal' ? 'bg-amber-400' : 'bg-slate-300'}`}></div>
                                                     <div className="cursor-pointer" onClick={() => startEditingTask(task)}>
