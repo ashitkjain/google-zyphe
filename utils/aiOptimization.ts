@@ -23,16 +23,18 @@ export const optimizePropertyForAi = (property: PropertyData): Partial<PropertyD
         ...keptData
     } = property;
 
-    // 2. Handle Price History (Keep last 5 years only)
+    // 2. Handle Price History (Keep last 5 years only, limit to TOP 3 entries)
     let optimizedHistory = undefined;
     if (property.priceHistory && Array.isArray(property.priceHistory)) {
         const fiveYearsAgo = new Date();
         fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
 
-        optimizedHistory = property.priceHistory.filter(h => {
-            const d = new Date(h.date);
-            return !isNaN(d.getTime()) && d >= fiveYearsAgo;
-        });
+        optimizedHistory = property.priceHistory
+            .filter(h => {
+                const d = new Date(h.date);
+                return !isNaN(d.getTime()) && d >= fiveYearsAgo;
+            })
+            .slice(0, 3);
     }
 
     // 3. Construct candidate and prune heavy technical sub-structures
@@ -75,6 +77,11 @@ export const optimizeVisualForAi = (visual: CustomAIAnalysisResult): Partial<Cus
         image_quality_analysis, // Technical audit, not needed for description
         ...kept
     } = visual;
+
+    // Further prune sub-objects
+    if (kept.general_market_intelligence) {
+        delete (kept.general_market_intelligence as any).web_sources;
+    }
 
     return kept;
 };
