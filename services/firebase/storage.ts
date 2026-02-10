@@ -166,3 +166,47 @@ export const listPropertiesInStorage = async (): Promise<string[]> => {
         return [];
     }
 };
+
+/**
+ * Uploads a video file to Firebase Storage and returns the public URL.
+ * Also allows attaching metadata like a summary.
+ * 
+ * @param file - The JS File object selected by the user.
+ * @param summary - A text summary of the video.
+ */
+export const uploadVideoToStorage = async (file: File, summary: string): Promise<string> => {
+    const storage = (await import('./config')).storage;
+    if (!storage) {
+        throw new Error('Firebase Storage is not initialized');
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('video/')) {
+        throw new Error('Only video files are allowed');
+    }
+
+    try {
+        const fileExt = file.name.split('.').pop() || 'mp4';
+        const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+        const storagePath = `admin/videos/${fileName}`;
+        const storageRef = ref(storage, storagePath);
+
+        // Upload the file directly with metadata
+        const metadata = {
+            customMetadata: {
+                'summary': summary
+            }
+        };
+
+        const snapshot = await uploadBytes(storageRef, file, metadata);
+
+        // Get the download URL
+        const downloadURL = await getDownloadURL(snapshot.ref);
+
+        console.log(`[Storage] Video uploaded successfully: ${storagePath}`);
+        return downloadURL;
+    } catch (error: any) {
+        console.error(`[Storage] Failed to upload video:`, error);
+        throw new Error(error.message || "Failed to upload video");
+    }
+};

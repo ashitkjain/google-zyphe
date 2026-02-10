@@ -24,6 +24,7 @@ import IndustryResearchTab from '../IndustryResearchTab';
 import ProductMarketFitTab from '../ProductMarketFitTab';
 import PostCloseIntelligenceTab from '../PostCloseIntelligenceTab';
 import TechnicalPapersTab from '../TechnicalPapersTab';
+import VideoUploadTab from '../VideoUploadTab';
 import { Lead, CRMTask, UserProfile, ReminderRule, CalendarEvent } from '../../../types';
 
 interface HubContentProps {
@@ -186,6 +187,8 @@ const HubContent: React.FC<HubContentProps> = ({
             {activeTab === 'post_close_intelligence' && <PostCloseIntelligenceTab />}
 
             {activeTab === 'technical_papers' && <TechnicalPapersTab />}
+
+            {activeTab === 'video_upload' && <VideoUploadTab />}
         </div>
     );
 };

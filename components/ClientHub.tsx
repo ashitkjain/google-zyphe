@@ -138,6 +138,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     const adminTabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'reminder_rules', label: 'Reminder Rules', icon: 'fa-bell-concierge' },
         { id: 'storage_registry', label: 'Bulk Prefetch', icon: 'fa-server' },
+        { id: 'video_upload', label: 'Video Upload', icon: 'fa-video' },
     ];
 
     const investorTabs: { id: HubTab; label: string; icon: string }[] = [
