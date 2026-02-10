@@ -9,14 +9,27 @@ export interface AssetProgress {
     message: string;
 }
 
+const uploadWithRetry = async (url: string, path: string, index: number, maxRetries = 3): Promise<string> => {
+    let lastError: any;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            return await uploadRemoteImageToStorage(url, path);
+        } catch (e: any) {
+            lastError = e;
+            console.warn(`[AssetService] Upload attempt ${attempt}/${maxRetries} failed for image ${index}: ${e.message}`);
+            if (attempt < maxRetries) {
+                const delay = Math.pow(2, attempt) * 500; // Exponential backoff
+                await new Promise(res => setTimeout(res, delay));
+            }
+        }
+    }
+    console.error(`[AssetService] CRITICAL: Hard failure securing image ${index} after ${maxRetries} attempts.`);
+    return `FAILED_TO_SECURE_IMG_${index + 1}_${Date.now()}`;
+};
+
 /**
  * Secures property imagery (gallery and maps) by downloading remote URLs 
  * and storing them in Firebase Storage for persistence.
- * 
- * @param zpid - Canonical property ID
- * @param imageUrls - List of remote image URLs
- * @param maps - Optional map URLs to secure
- * @param onProgress - Optional progression callback
  */
 export const securePropertyAssets = async (
     zpid: string,
@@ -28,12 +41,8 @@ export const securePropertyAssets = async (
     // 1. Check if we already have these assets registered and stored
     const cached = await getPropertyAssetsFromCloud(zpid);
     if (cached && cached.images?.length > 0) {
-        // If we have a manifest, we assume they are already in storage
-        // Optional: add a check to verify URLs start with firebasestorage
-        const allStored = cached.images.every(url => url.includes('firebasestorage'));
-        if (allStored) {
-            return cached;
-        }
+        const allStored = cached.images.every(url => url.includes('firebasestorage') || url.includes('FAILED_TO_SECURE'));
+        if (allStored) return cached;
     }
 
     const persistentImages: string[] = [];
@@ -43,10 +52,7 @@ export const securePropertyAssets = async (
     // 2. Secure Maps
     if (maps?.zoomIn && !maps.zoomIn.includes('firebasestorage')) {
         try {
-            persistentMapZoomIn = await uploadRemoteImageToStorage(
-                maps.zoomIn,
-                `properties/${zpid}/maps/zoom_in.png`
-            );
+            persistentMapZoomIn = await uploadWithRetry(maps.zoomIn, `properties/${zpid}/maps/zoom_in.png`, -1);
         } catch (e) {
             console.warn("[AssetService] Map Zoom In failed to secure:", e);
         }
@@ -54,10 +60,7 @@ export const securePropertyAssets = async (
 
     if (maps?.zoomOut && !maps.zoomOut.includes('firebasestorage')) {
         try {
-            persistentMapZoomOut = await uploadRemoteImageToStorage(
-                maps.zoomOut,
-                `properties/${zpid}/maps/location_context.png`
-            );
+            persistentMapZoomOut = await uploadWithRetry(maps.zoomOut, `properties/${zpid}/maps/location_context.png`, -2);
         } catch (e) {
             console.warn("[AssetService] Map Zoom Out failed to secure:", e);
         }
@@ -78,18 +81,14 @@ export const securePropertyAssets = async (
 
         const chunkPromises = chunk.map(async (url, chunkIndex) => {
             const index = i + chunkIndex;
-            try {
-                // Skip if already in firebase storage
-                if (url.includes('firebasestorage')) return url;
+            // Skip if already in firebase storage or already a failure placeholder
+            if (url.includes('firebasestorage') || url.includes('FAILED_TO_SECURE')) return url;
 
-                return await uploadRemoteImageToStorage(
-                    url,
-                    `properties/${zpid}/gallery/img_${index + 1}.jpg`
-                );
-            } catch (e) {
-                console.warn(`[AssetService] Failed to secure image ${index}:`, e);
-                return url; // Fallback to original URL
-            }
+            return await uploadWithRetry(
+                url,
+                `properties/${zpid}/gallery/img_${index + 1}.jpg`,
+                index
+            );
         });
 
         const chunkResults = await Promise.all(chunkPromises);
@@ -107,7 +106,7 @@ export const securePropertyAssets = async (
         images: persistentImages,
         mapZoomIn: persistentMapZoomIn || null,
         mapZoomOut: persistentMapZoomOut || null,
-        lastVerified: null // Handled by serverTimestamp in service
+        lastVerified: null
     };
 
     // 4. Registry in Firestore

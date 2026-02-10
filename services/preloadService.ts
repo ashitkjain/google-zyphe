@@ -94,35 +94,48 @@ export const runFullIntelligencePipeline = async (
     const cityStateKey = generateCityStateKey(city, state);
 
     // Prepare Parallel Tasks
-    const visualTask = async () => {
-      const isAnalysisComplete = (res: CustomAIAnalysisResult) => {
-        if (!res) return false;
-        const hasInterior = !!(res.home_interior?.overall_description && res.home_interior.overall_description.length > 50);
-        const hasExterior = !!(res.exterior_and_neighborhood?.exterior_and_lot_appeal?.architecture_style);
-        // We expect these two at a bare minimum for a "Complete" suite
-        return hasInterior && hasExterior;
-      };
+    const isAnalysisComplete = (res: any) => {
+      if (!res) return { valid: false, missing: ["No data returned"] };
+      const missing = [];
+      const hasInterior = !!(res.home_interior?.overall_description && res.home_interior.overall_description.length > 50);
+      const hasExterior = !!(res.exterior_and_neighborhood?.exterior_and_lot_appeal?.architecture_style);
+      const hasRooms = !!(res.room_highlights && res.room_highlights.length > 0);
 
+      if (!hasInterior) missing.push("Interior description (short or missing)");
+      if (!hasExterior) missing.push("Exterior analysis");
+      if (!hasRooms) missing.push("Room highlights/analysis");
+
+      return {
+        valid: missing.length === 0,
+        missing
+      };
+    };
+
+    const visualTask = async () => {
       const cached = await getVisualAnalysisFromCloud(zpid);
 
       // Cache validation: only hit if reasonably complete
-      if (cached && isAnalysisComplete(cached)) {
-        // If we have more images now than when we cached, we should re-run
-        const cachedImgCount = cached.image_by_image_analysis?.length || 0;
-        const currentImgCount = enrichedData.images?.length || 0;
-
-        if (cachedImgCount >= currentImgCount) {
-          onLog?.(`[Visual] Cache hit (${currentImgCount} images)`);
-          return cached;
+      if (cached) {
+        const check = isAnalysisComplete(cached);
+        if (check.valid) {
+          const cachedImgCount = cached.image_by_image_analysis?.length || 0;
+          const currentImgCount = enrichedData.images?.length || 0;
+          if (cachedImgCount >= currentImgCount) {
+            onLog?.(`[Visual] Cache hit (${currentImgCount} images)`);
+            return cached;
+          }
         }
       }
 
       onLog?.(`[Visual] Running fresh analysis...`);
       const res = await analyzePropertyImages(enrichedData.images!, enrichedData);
 
-      if (!isAnalysisComplete(res.data)) {
-        onLog?.(`[Visual] ERROR: AI produced incomplete narrative (missing interior/exterior sections).`);
-        throw new Error("Visual Intelligence synthesis was incomplete. Critical sections (Interior/Exterior) are missing from the AI response.");
+      const check = isAnalysisComplete(res.data);
+      if (!check.valid) {
+        const keys = res.data ? Object.keys(res.data) : 'null/undefined';
+        const errorMsg = `Visual Intelligence synthesis was incomplete: ${check.missing?.join(', ')}. (Received: ${typeof keys === 'string' ? keys : keys.join(', ')})`;
+        onLog?.(`[Visual] ERROR: ${errorMsg}`);
+        throw new Error(errorMsg);
       }
 
       onLog?.(`[Visual] Analysis complete.`);
@@ -171,18 +184,17 @@ export const runFullIntelligencePipeline = async (
       };
 
       onLog?.(`[Investment] Scouring market historics...`);
-      const [specific, general] = await Promise.all([propInvTask(), marketIntTask()]);
+      const specific = await propInvTask();
+      const general = await marketIntTask();
       onLog?.(`[Investment] Market research complete.`);
       return { specific, general };
     };
 
-    // Execute BIG AI BLOCK
-    const [visualResult, neighborhoodData, communityPulse, investmentData] = await Promise.all([
-      visualTask(),
-      neighborhoodTask(),
-      pulseTask(),
-      investmentTask()
-    ]);
+    // Execute AI Tasks Sequentially to prevent race conditions & improve reliability
+    const visualResult = await visualTask();
+    const neighborhoodData = await neighborhoodTask();
+    const communityPulse = await pulseTask();
+    const investmentData = await investmentTask();
 
     // Assembly
     const finalVisualResult: CustomAIAnalysisResult = {
@@ -210,9 +222,10 @@ export const runFullIntelligencePipeline = async (
     return zpid;
   } catch (error: any) {
     let msg = error.message;
+    onLog?.(`[Pipeline Error] ${msg}`);
     if (error instanceof AiResponseError) {
       console.error("AI JSON Parse Error. Raw text follows:", error.rawResponse);
-      msg = `${error.message} (Raw response logged to System terminal)`;
+      msg = `AI response malformed: ${error.message}. The model might have truncated the result.`;
     }
     onProgress({ step: 'Error', status: 'error', message: msg });
     throw error;

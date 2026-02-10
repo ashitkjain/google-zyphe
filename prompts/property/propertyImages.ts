@@ -48,14 +48,15 @@ export const getPropertyImagesPrompt = (property: PropertyData) => `
 }
 
 INSTRUCTIONS:
-First analyze each image and describe what you see in each one. You MUST use the provided [TOKEN: url] for each image to identify it in the JSON.
-Format -
-Image 1 [TOKEN: url] : Is it a room ? What room is it ? What does it show ? Analyze lighting, composition, staging, and technical photo metrics
-Image 2 [TOKEN: url] : Is it a room ? What room is it ? What does it show ? Analyze lighting, composition, staging, and technical photo metrics
-And so on.
+First analyze each image. You MUST match the provided [TOKEN: filename] for each image to the "image_id" field in the JSON (e.g., "img_1.jpg").
+CRITICAL: Information for the "analysis" field should NOT include any URLs or tokens. Only provide the descriptive analysis text there.
 
-After that collate this response and organize it into three sections:
-IMPORTANT ;  Only analyze those rooms for which the images have been provided
+Format for your internal mapping (do not output this literally in the JSON):
+Image 1 [TOKEN: img_1.jpg] : Is it a room ? What room is it ? What does it show ? Analyze lighting, composition, staging, and technical photo metrics
+Image 2 [TOKEN: img_2.jpg] : ...
+
+After that collate this response and organize it into the required JSON structure. Use the "filename" string as the image_id.
+IMPORTANT: Only analyze those rooms for which the images have been provided.
 
 📝 Home Interior
 Write a unified, lifestyle-oriented description that captures how a buyer might experience the interior as they walk through. Include:

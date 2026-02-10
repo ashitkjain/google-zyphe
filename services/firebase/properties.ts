@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, serverTimestamp, query, collection, where, documentId, getDocs } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp, query, collection, where, documentId, getDocs, getCountFromServer, limit } from "firebase/firestore";
 import {
     db,
     auth,
@@ -11,7 +11,6 @@ import {
     CustomAIAnalysisResult,
     ComprehensiveAnalysisResult,
     ImageQualityAnalysisResult,
-    InvestmentResearchResult,
     PropertySpecificInvestmentResult,
     GeneralMarketIntelligenceResult,
     PropertyAssets,
@@ -95,13 +94,9 @@ export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAI
         const docRef = doc(db, "property_analyses_visual", String(zpid));
         logFirestoreQuery('setDoc', 'property_analyses_visual', { zpid });
 
-        // Remove community_pulse and image_quality_analysis from the property doc 
-        // to maintain single source of truth in their respective tables.
-        const { community_pulse, image_quality_analysis, ...persistentData } = analysis;
-
         await setDoc(docRef, {
-            ...sanitizeForFirestore(persistentData),
-            zpid: String(zpid), // Explicitly include zpid as key field
+            ...sanitizeForFirestore(analysis),
+            zpid: String(zpid),
             timestamp: serverTimestamp()
         });
         return { success: true };
@@ -345,23 +340,33 @@ export const checkExistingPropertiesBatch = async (zpids: string[]): Promise<Set
     return existing;
 };
 
-export const deletePropertyAnalysis = async (zpid: string, includeAssets: boolean = true) => {
+export const deletePropertyAnalysis = async (zpid: string, mode: 'all' | 'intelligence' | 'assets' = 'all') => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID", tables: [] };
 
-    const collections = [
-        "properties",
+    const intelligenceTables = [
         "property_analyses_comprehensive",
         "property_analyses_visual",
         "image_quality_analysis",
-        "property_investment_research"
+        "property_investment_research",
+        "community_pulse"
     ];
 
-    if (includeAssets) {
+    const collections: string[] = [];
+
+    if (mode === 'all' || mode === 'intelligence') {
+        collections.push(...intelligenceTables);
+    }
+
+    if (mode === 'all') {
+        collections.push("properties");
+    }
+
+    if (mode === 'all' || mode === 'assets') {
         collections.push("property_assets");
     }
 
     try {
-        console.log(`[Firestore] Deleting ${includeAssets ? 'all' : 'intelligence'} data for ZPID: "${zpid}"...`);
+        console.log(`[Firestore] Deleting mode "${mode}" for ZPID: "${zpid}"...`);
 
         // Use proper deleteDoc for clean removal
         const { deleteDoc } = await import("firebase/firestore");
@@ -379,4 +384,51 @@ export const deletePropertyAnalysis = async (zpid: string, includeAssets: boolea
             tables: collections
         };
     }
+};
+
+export const getProjectCollectionStats = async () => {
+    if (!db) return null;
+    const collections = [
+        "properties",
+        "property_analyses_comprehensive",
+        "property_analyses_visual",
+        "image_quality_analysis",
+        "property_investment_research",
+        "property_assets",
+        "community_pulse",
+        "general_market_intelligence",
+        "llm_call_events",
+        "api_call_events"
+    ];
+
+    const stats: Record<string, { count: number, estimatedSizeKB: number }> = {};
+
+    await Promise.all(collections.map(async (collName) => {
+        try {
+            const collRef = collection(db, collName);
+            const countSnap = await getCountFromServer(collRef);
+            const count = countSnap.data().count;
+
+            let sizeKB = 0;
+            if (count > 0) {
+                const sampleQuery = query(collRef, limit(5));
+                const sampleSnap = await getDocs(sampleQuery);
+                let totalSampleCharCount = 0;
+                sampleSnap.forEach(doc => {
+                    totalSampleCharCount += JSON.stringify(doc.data()).length;
+                });
+                const avgSizePerDoc = totalSampleCharCount / (sampleSnap.size || 1);
+                sizeKB = (avgSizePerDoc * count) / 1024;
+            }
+
+            stats[collName] = {
+                count,
+                estimatedSizeKB: Math.round(sizeKB * 100) / 100
+            };
+        } catch (error) {
+            console.warn(`[Stats] Failed to get stats for ${collName}:`, error);
+        }
+    }));
+
+    return stats;
 };

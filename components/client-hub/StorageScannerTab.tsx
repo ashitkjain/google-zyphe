@@ -6,6 +6,7 @@ import { runFullIntelligencePipeline, PipelineProgress } from '../../services/pr
 import { auth } from '../../services/firebase/config';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
 import { getAPILogsForTimeRange, APICallEvent } from '../../services/firebase/api_logs';
+import { getProjectCollectionStats } from '../../services/firebase/properties';
 import { LLMCallEvent } from '../../types/ai';
 
 interface StorageProperty {
@@ -35,6 +36,8 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
         llmLogs: LLMCallEvent[];
         apiLogs: APICallEvent[];
     } | null>(null);
+    const [dbStats, setDbStats] = useState<Record<string, { count: number, estimatedSizeKB: number }> | null>(null);
+    const [loadingStats, setLoadingStats] = useState(false);
 
     useEffect(() => {
         scanStorage();
@@ -107,12 +110,11 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
                 const startTime = Date.now();
                 setProperties(prev => prev.map(p => p.zpid === item.zpid ? { ...p, status: 'running', startTime } : p));
 
-                if (item.existsInFirestore) {
-                    addLog(`[${item.zpid}] Deleting intelligence cache for fresh start (preserving assets)...`);
-                    const delRes = await deletePropertyAnalysis(item.zpid, false);
-                    if (delRes.success) {
-                        addLog(`[${item.zpid}] Successfully cleared from ${delRes.tables?.length || 0} tables.`);
-                    }
+                // Always attempt to clear intelligence cache for a fresh start in Bulk Prefetch
+                addLog(`[${item.zpid}] Preparing fresh environment (clearing intelligence cache)...`);
+                const delRes = await deletePropertyAnalysis(item.zpid, 'intelligence');
+                if (delRes.success) {
+                    addLog(`[${item.zpid}] Environment primed. Cleared ${delRes.tables?.length || 0} tables.`);
                 }
 
                 let currentAddress = item.address;
@@ -185,6 +187,21 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
         setStatusLog([]);
     };
 
+    const fetchStats = async () => {
+        setLoadingStats(true);
+        addLog("Retrieving database health metrics...");
+        try {
+            const stats = await getProjectCollectionStats();
+            setDbStats(stats);
+            addLog("Database health report generated.");
+        } catch (e) {
+            console.error(e);
+            addLog("Failed to retrieve database stats.");
+        } finally {
+            setLoadingStats(false);
+        }
+    };
+
     return (
         <div className="max-w-6xl mx-auto py-12 px-6 animate-in fade-in duration-700">
             <div className="flex justify-between items-end mb-10">
@@ -193,14 +210,24 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
                     <p className="text-slate-500 font-medium">Scan local asset storage and re-trigger intelligence pipelines for existing ZPIDs.</p>
                 </div>
                 {/* Admin Only: Run Pipeline Control */}
-                <button
-                    onClick={handleRunPipeline}
-                    disabled={processing || selectedIds.size === 0}
-                    className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-xl shadow-indigo-100 transition-all flex items-center gap-3 disabled:opacity-50 disabled:grayscale"
-                >
-                    {processing ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-bolt-lightning"></i>}
-                    Run Ingestion ({selectedIds.size})
-                </button>
+                <div className="flex gap-4">
+                    <button
+                        onClick={fetchStats}
+                        disabled={loadingStats}
+                        className="px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-900 rounded-2xl font-black shadow-lg shadow-slate-100 transition-all flex items-center gap-3 disabled:opacity-50"
+                    >
+                        {loadingStats ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-shield-heart"></i>}
+                        Health Check
+                    </button>
+                    <button
+                        onClick={handleRunPipeline}
+                        disabled={processing || selectedIds.size === 0}
+                        className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-xl shadow-indigo-100 transition-all flex items-center gap-3 disabled:opacity-50 disabled:grayscale"
+                    >
+                        {processing ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-bolt-lightning"></i>}
+                        Run Ingestion ({selectedIds.size})
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
@@ -518,6 +545,55 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+            {/* Database Health Stats */}
+            {dbStats && (
+                <div className="mt-16 bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl p-10">
+                    <div className="flex items-center gap-6 mb-10 pb-8 border-b border-slate-100">
+                        <div className="w-14 h-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center shadow-lg shadow-slate-200">
+                            <i className="fa-solid fa-server text-2xl"></i>
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-black text-slate-900">Database Health Metrics</h2>
+                            <p className="text-sm font-bold text-slate-500 uppercase tracking-[0.2em] mt-1">Real-time Firestore collection audit</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {Object.entries(dbStats).sort((a: any, b: any) => b[1].estimatedSizeKB - a[1].estimatedSizeKB).map(([name, stat]) => {
+                            const data = stat as { count: number, estimatedSizeKB: number };
+                            return (
+                                <div key={name} className="group bg-slate-50 hover:bg-white p-6 rounded-3xl border border-slate-100 hover:border-indigo-100 hover:shadow-xl hover:shadow-indigo-50/50 transition-all duration-300">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-white group-hover:bg-indigo-50 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 shadow-sm transition-colors">
+                                                <i className="fa-solid fa-folder-tree text-xs"></i>
+                                            </div>
+                                            <span className="text-[11px] font-black text-slate-900 tracking-tight truncate max-w-[140px] lowercase">{name.replace(/_/g, ' ')}</span>
+                                        </div>
+                                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${data.count > 100 ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600'}`}>
+                                            {data.count > 1000 ? 'Large' : data.count > 0 ? 'Active' : 'Empty'}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center bg-white rounded-2xl p-4 border border-slate-100">
+                                        <div className="text-center flex-1 border-r border-slate-50">
+                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Records</div>
+                                            <div className="text-xl font-black text-slate-900">{data.count.toLocaleString()}</div>
+                                        </div>
+                                        <div className="text-center flex-1">
+                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Est. Size</div>
+                                            <div className="text-xl font-black text-indigo-600">
+                                                {data.estimatedSizeKB > 1024
+                                                    ? `${(data.estimatedSizeKB / 1024).toFixed(1)} MB`
+                                                    : `${Math.round(data.estimatedSizeKB)} KB`}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}

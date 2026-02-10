@@ -400,9 +400,7 @@ export const analyzeCommunityPulse = async (property: PropertyData, userId: stri
 };
 
 export const analyzePropertyImages = async (imageUrls: string[], property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<CustomAIAnalysisResult>> => {
-  const selectedImages = imageUrls; // Sending all images to Gemini
-  const ai = getAi();
-  let logId: string | null = null;
+  const selectedImages = imageUrls;
 
   const imageResults = await Promise.allSettled(selectedImages.map(async (url) => {
     try {
@@ -424,7 +422,23 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
   }
 
   const imageParts = successfulResults.map(r => ({ inlineData: r.inlineData }));
-  const imageTokens = successfulResults.map((r, i) => `Image ${i + 1} [TOKEN: ${r.url}]`).join('\n');
+  const tokenMap: Record<string, string> = {};
+  const imageTokens = successfulResults.map((r, i) => {
+    // Extract filename from Firebase URL or fallback to index
+    // Firebase format: ...%2Fimg_1.jpg?alt=...
+    let filename = `IMAGE_${i + 1}`;
+    try {
+      const decoded = decodeURIComponent(r.url);
+      const parts = decoded.split('/');
+      const lastPart = parts[parts.length - 1].split('?')[0];
+      if (lastPart && lastPart.includes('.')) {
+        filename = lastPart;
+      }
+    } catch (e) { }
+
+    tokenMap[filename] = r.url;
+    return `Image ${i + 1} [TOKEN: ${filename}]`;
+  }).join('\n');
 
   const successfulImages = imageParts.length > 0;
   const basePrompt = getPropertyImagesPrompt(optimizePropertyForAi(property) as PropertyData);
@@ -432,67 +446,46 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
     ? `${basePrompt}\n\nIMAGE TOKENS FOR YOUR REFERENCE:\n${imageTokens}`
     : `${basePrompt}\n\nNOTE: No photographs were provided for this property. Perform analysis based on detailed specifications.`;
 
+  const response = await executeGeminiRequest<CustomAIAnalysisResult>({
+    model: FLASH_LITE_MODEL,
+    contents: { parts: [{ text: textInstruction }, ...imageParts] },
+    config: {
+      maxOutputTokens: 8192 // Ensure enough space for large galleries
+    },
+    userId,
+    zpid: property.zpid,
+    promptFilename: "propertyImages.ts",
+    extractResultJson: true,
+    schema: propertyImagesSchema,
+    imageUrls: selectedImages
+  });
 
-  try {
-    logId = await logLLMCall({
-      user_id: userId,
-      zpid: property.zpid,
-      prompt_filename: "propertyImages.ts",
-      llm_name: FLASH_LITE_MODEL,
-      raw_payload: { text: textInstruction, image_parts_count: imageParts.length },
-      raw_response: null,
-      image_urls: selectedImages,
-      status: 'pending',
-      request_sent_at: serverTimestamp()
-    });
-
-    const response = await ai.models.generateContent({
-      model: FLASH_LITE_MODEL,
-      contents: { parts: [{ text: textInstruction }, ...imageParts] },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: propertyImagesSchema
-      }
-    });
-
-    const responseText = response.text;
-    const usage = calculateUsage(response, FLASH_LITE_MODEL);
-
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: responseText,
-        status: 'completed',
-        response_received_at: serverTimestamp(),
-        usage_metadata: response.usageMetadata,
-        estimated_cost: usage.cost,
-        ...extractMetadata(response)
-      }).catch(err => console.error("Failed to update LLM log:", err));
+  // Post-process: Map PHOTO_IDs back to full URLs
+  if (response.data) {
+    // 1. Image by image analysis
+    if (response.data.image_by_image_analysis) {
+      response.data.image_by_image_analysis = response.data.image_by_image_analysis.map(item => ({
+        ...item,
+        image_id: tokenMap[item.image_id] || item.image_id
+      }));
     }
 
-    return {
-      data: extractJson<CustomAIAnalysisResult>(responseText),
-      usage
-    };
-  } catch (error: any) {
-    if (logId) {
-      updateLLMCall(logId, {
-        raw_response: error.message,
-        status: 'failed',
-        error: error.stack || error.message,
-        response_received_at: serverTimestamp()
-      }).catch(err => console.error("Failed to update LLM error log:", err));
-    }
+    // 2. Image quality top photos
+    if (response.data.image_quality_analysis?.top_photos) {
+      response.data.image_quality_analysis.top_photos = response.data.image_quality_analysis.top_photos.map(p => {
+        // AI might provide "img_1.jpg" in image_index or label
+        const filename = String(p.image_index || p.label);
+        const lookupKey = typeof p.image_index === 'number' ? `img_${p.image_index}.jpg` : filename;
 
-    const sanitizedPrompt = {
-      text: textInstruction,
-      images: `${imageParts.length} images (data omitted)`
-    };
-    if (error instanceof AiResponseError) {
-      error.prompt = sanitizedPrompt;
-      throw error;
+        return {
+          ...p,
+          image_url: tokenMap[lookupKey] || tokenMap[filename] || ""
+        };
+      });
     }
-    throw new AiResponseError(error.message, "Raw API Error", sanitizedPrompt);
   }
+
+  return response;
 };
 
 export const analyzeComprehensive = async (property: PropertyData, visual: CustomAIAnalysisResult, userId: string = "unknown"): Promise<AIResponseWithUsage<ComprehensiveAnalysisResult>> => {
