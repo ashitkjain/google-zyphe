@@ -68,6 +68,67 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
 
       let finalContent = aiText || "I apologize, I'm having trouble processing that request right now.";
 
+      // Handle the routing JSON if data is missing
+      try {
+        const routingResult = JSON.parse(finalContent);
+        if (routingResult.routing === "MISSING") {
+          if (routingResult.source === "images" && visual?.image_by_image_analysis) {
+            // Step 2: Resubmit with images found by token/id
+            const targetImageIds = routingResult.image_indices
+              .map((idx: number) => visual.image_by_image_analysis?.[idx]?.image_id)
+              .filter(Boolean);
+
+            if (targetImageIds.length > 0) {
+              const imageParts = await Promise.all(targetImageIds.map((url: string) => urlToBase64(url)));
+              const messageWithImages = {
+                role: 'user',
+                parts: [
+                  { text: `The following information was requested: "${text}". I have provided some relevant property photos. Please answer based on these photos.` },
+                  ...imageParts.map(img => ({ inlineData: img }))
+                ]
+              };
+
+              const imgResult = await executeGeminiRequest<string>({
+                model: CHAT_MODEL,
+                contents: messageWithImages as any,
+                config: {
+                  systemInstruction,
+                  temperature: 0.1
+                },
+                userId: "unknown",
+                promptFilename: "ChatInterface.tsx (Images)",
+                zpid: property.zpid
+              });
+              finalContent = imgResult.data || "I've checked the photos but still couldn't find a definitive answer.";
+            } else {
+              finalContent = "I'm sorry, I don't have the specific details and there are no relevant photos to check.";
+            }
+          } else if (routingResult.source === "search") {
+            // Step 2: Resubmit with Search Grounding
+            const searchResult = await executeGeminiRequest<string>({
+              model: CHAT_MODEL,
+              contents: text,
+              config: {
+                systemInstruction,
+                tools: [{ googleSearch: {} }] as any,
+                temperature: 0.1
+              },
+              userId: "unknown",
+              promptFilename: "ChatInterface.tsx (Search)",
+              zpid: property.zpid
+            });
+            finalContent = searchResult.data || "I searched for the information but couldn't find a reliable answer.";
+          } else {
+            finalContent = "I'm sorry, I don't have specific data for that request in my records yet. I can help with details on the property specifications, financials, or the neighborhood data I have available.";
+          }
+        } else {
+          // AI returned JSON that wasn't a "MISSING" route - likely a hallucination
+          finalContent = "I'm sorry, I'm having a bit of trouble retrieving that specific data right now. Could you try rephrasing your question about the property's features, neighborhood, or market data?";
+        }
+      } catch (e) {
+        // Not JSON, treat as normal response
+      }
+
       setMessages(prev => [...prev, { role: 'assistant', content: finalContent }]);
     } catch (err: any) {
       console.error("Chat Error:", err);
