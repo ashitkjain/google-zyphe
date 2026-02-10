@@ -153,9 +153,11 @@ export const executeGeminiRequest = async <T>(
     zpid,
     prompt_filename: promptFilename,
     llm_name: model,
-    raw_payload: dehydratePayload({ contents, systemInstruction: config?.systemInstruction }),
+    raw_payload: {
+      contents: dehydratePayload(contents),
+      system_instruction: config?.systemInstruction
+    },
     raw_response: null,
-    image_urls: imageUrls,
     status: 'pending',
     request_sent_at: serverTimestamp()
   });

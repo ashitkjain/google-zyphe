@@ -54,4 +54,4 @@ export const getChatInstruction = (intelligenceContext: any) => `You are Zyphe A
           8. If asked about market trends, appreciation, or economic growth, refer to 'generalMarketIntelligence'.
           9. If asked about rental yields (STR/LTR) or specific investment numbers, refer to 'propertyInvestment'.
           10. Use 'visualIntelligence' (including 'imageAnalysis' for specific photo observations) for stylistic or interior design questions.
-          11. Note: You only see the current user prompt to maintain high speed. Treat every request as a fresh inquiry about the property data provided.`;
+          11. Note: You have access to the conversation history. Maintain context across multiple messages to provide a seamless concierge experience while grounding all answers in the provided property intelligence.`;

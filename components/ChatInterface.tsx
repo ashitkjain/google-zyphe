@@ -52,13 +52,24 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
       const systemInstruction = getChatInstruction(intelligenceContext);
 
       // Map existing messages to Gemini format and include current text
-      // We only send the last two exchanges (4 messages) to keep the prompt focused
-      const history = messages.slice(-4).map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
-      }));
+      // Gemini history MUST start with a 'user' role. We filter out the initial assistant greeting to ensure this.
+      const history = messages
+        .filter((m, i) => i !== 0 || m.role !== 'assistant')
+        .slice(-4)
+        .map(m => ({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content }]
+        }));
 
-      const contents = [...history, { role: 'user', parts: [{ text }] }];
+      // Inject property context as a hidden instructional message if it's the start of the interaction
+      const contextMessage = history.length === 0 ? {
+        role: 'user',
+        parts: [{ text: `PROPERTY CONTEXT GROUNDING:\n${JSON.stringify(intelligenceContext, null, 2)}\n\nUser Question: ${text}` }]
+      } : null;
+
+      const contents = contextMessage
+        ? [contextMessage]
+        : [...history, { role: 'user', parts: [{ text }] }];
 
       // Perform a content generation request with history
       const { data: aiText, rawResponse: response } = await executeGeminiRequest<string>({
