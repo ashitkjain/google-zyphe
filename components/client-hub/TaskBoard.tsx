@@ -247,14 +247,14 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                         </div>
                         <div className="space-y-12">
                             {[
-                                { name: 'My Task List', mainColor: '#1d3d50', secondaryColor: '#539fc9', items: displayedTasks.filter(t => t.priority === 'Urgent' || t.priority === 'Normal') },
-                                { name: 'System generated', mainColor: '#4c6122', secondaryColor: '#8cae3e', items: displayedTasks.filter(t => t.priority === 'High') },
-                                { name: 'closing task list', mainColor: '#a15c1e', secondaryColor: '#d68b44', items: displayedTasks.filter(t => t.priority === 'Low') },
+                                { name: 'My Task List', mainColor: '#1d3d50', secondaryColor: '#539fc9', items: displayedTasks.filter(t => !t.transaction_id && (t.priority === 'Urgent' || t.priority === 'Normal')) },
+                                { name: 'System generated', mainColor: '#4c6122', secondaryColor: '#8cae3e', items: displayedTasks.filter(t => !t.transaction_id && t.priority === 'High') },
+                                { name: 'closing task list', mainColor: '#a15c1e', secondaryColor: '#d68b44', items: displayedTasks.filter(t => t.transaction_id || t.priority === 'Low') },
                                 {
                                     name: 'Other Tasks',
                                     mainColor: '#475569',
                                     secondaryColor: '#64748b',
-                                    items: displayedTasks.filter(t => !['Urgent', 'High', 'Normal', 'Low'].includes(t.priority as string))
+                                    items: displayedTasks.filter(t => !t.transaction_id && !['Urgent', 'High', 'Normal', 'Low'].includes(t.priority as string))
                                 }
                             ].map((section, sIdx) => {
                                 console.log(`[TaskBoard] Section "${section.name}" has ${section.items.length} items`);
