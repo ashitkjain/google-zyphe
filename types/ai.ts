@@ -215,6 +215,7 @@ export interface ComprehensiveAnalysisResult {
         climate_resilience: string;
         additional_considerations: string;
     };
+    strategic_insights: string;
     risks_considerations: string;
 }
 
