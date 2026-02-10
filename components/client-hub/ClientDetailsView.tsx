@@ -1600,7 +1600,13 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                         <div className="p-6 space-y-6">
                             {/* New Task Form */}
                             <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/50">
-                                <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-3 block">Add New Task</label>
+                                <label
+                                    onClick={cancelEditing}
+                                    className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-3 block cursor-pointer hover:text-indigo-800 transition-colors flex items-center justify-between"
+                                >
+                                    {editingTask ? 'Editing Task (Click to Add New)' : 'Add New Task'}
+                                    {editingTask && <i className="fa-solid fa-plus-circle"></i>}
+                                </label>
                                 <div className="space-y-3">
                                     <input
                                         type="text"
