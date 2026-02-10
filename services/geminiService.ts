@@ -200,12 +200,16 @@ export const executeGeminiRequest = async <T>(
     }
 
     // 3. Perform Generation
-    const { systemInstruction: rawInstruction, ...restConfig } = finalConfig;
+    // The @google/genai SDK expects systemInstruction as a STRING or Parts INSIDE the config object
+    const finalRequestConfig = {
+      ...finalConfig,
+      systemInstruction: config?.systemInstruction
+    };
+
     const response = await (ai.models as any).generateContent({
       model,
       contents: formattedContents,
-      config: restConfig,
-      systemInstruction: rawInstruction ? { parts: [{ text: rawInstruction }] } : undefined
+      config: finalRequestConfig,
     });
 
     const usage = calculateUsage(response, model);

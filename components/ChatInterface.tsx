@@ -55,21 +55,13 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
       // Gemini history MUST start with a 'user' role. We filter out the initial assistant greeting to ensure this.
       const history = messages
         .filter((m, i) => i !== 0 || m.role !== 'assistant')
-        .slice(-4)
+        .slice(-4) // Keep only the last 2 exchanges (user + model)
         .map(m => ({
           role: m.role === 'assistant' ? 'model' : 'user',
           parts: [{ text: m.content }]
         }));
 
-      // Inject property context as a hidden instructional message if it's the start of the interaction
-      const contextMessage = history.length === 0 ? {
-        role: 'user',
-        parts: [{ text: `PROPERTY CONTEXT GROUNDING:\n${JSON.stringify(intelligenceContext, null, 2)}\n\nUser Question: ${text}` }]
-      } : null;
-
-      const contents = contextMessage
-        ? [contextMessage]
-        : [...history, { role: 'user', parts: [{ text }] }];
+      const contents = [...history, { role: 'user', parts: [{ text }] }];
 
       // Perform a content generation request with history
       const { data: aiText, rawResponse: response } = await executeGeminiRequest<string>({
