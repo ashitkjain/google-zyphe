@@ -131,7 +131,15 @@ const HubContent: React.FC<HubContentProps> = ({
             )}
 
             {activeTab === 'tasks' && (
-                <TaskBoard realtorId={realtorId} tasks={tasks} leads={leads} onTasksUpdated={refreshTasks} />
+                <TaskBoard
+                    realtorId={realtorId}
+                    tasks={tasks}
+                    leads={[
+                        ...clients.map(c => ({ ...c, id: c.uid, fullName: c.displayName } as any)),
+                        ...leads.map(l => ({ ...l, fullName: `${l.firstName} ${l.lastName}` } as any))
+                    ]}
+                    onTasksUpdated={refreshTasks}
+                />
             )}
 
             {activeTab === 'settings' && <StatusSettings realtorId={realtorId} />}
