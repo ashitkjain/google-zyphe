@@ -37,6 +37,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Completed'>('All');
     const [sortBy, setBy] = useState<'date' | 'priority' | 'name'>('date');
+    const [activeMenuTaskId, setActiveMenuTaskId] = useState<string | null>(null);
 
     // Manage tasks locally for editing
     const [tasks, setTasks] = useState<CRMTask[]>(initialTasks);
@@ -71,6 +72,31 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
             sectionRows[rowIdx] = { ...sectionRows[rowIdx], [field]: value };
             return { ...prev, [sectionIdx]: sectionRows };
         });
+    };
+
+    const handleUpdateSingleTask = async (taskId: string) => {
+        if (!taskId) return;
+        const taskToSave = tasks.find(t => t.id === taskId);
+        if (!taskToSave) return;
+
+        setIsSaving(true);
+        try {
+            const success = await updateTask(taskId, {
+                ...taskToSave,
+                // Ensure dates are handled if they were changed as strings in local state
+                dueDate: taskToSave.dueDate ? (typeof taskToSave.dueDate === 'string' ? new Date(taskToSave.dueDate) : taskToSave.dueDate) : null
+            });
+            if (success && onTasksUpdated) {
+                await onTasksUpdated();
+            } else if (!success) {
+                alert("❌ Failed to save task changes.");
+            }
+        } catch (error) {
+            console.error("[TaskBoard] Update Error:", error);
+        } finally {
+            setIsSaving(false);
+            setActiveMenuTaskId(null);
+        }
     };
 
     const handleDeleteTask = async (taskId: string) => {
@@ -132,7 +158,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                             comment: row.notes || '',
                             dueDate: row.date ? ensureDate(row.date) : null as any,
                             priority: row.priority || sections[sIdx].priority,
-                            status: row.done === 'Yes' ? 'Completed' : 'Pending',
+                            status: row.status || (row.done === 'Yes' ? 'Completed' : 'Pending'),
                             clientId: row.clientId || ''
                         });
                     }
@@ -270,7 +296,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                                             <thead>
                                                 <tr>
                                                     <th colSpan={1} className="w-12 text-left px-3 py-1 bg-[#1d3d50] text-white text-sm font-bold border border-slate-300">Name</th>
-                                                    <th colSpan={5} className="px-3 py-1 bg-[#f9f9f9] border border-slate-300 text-left font-normal italic text-slate-500">
+                                                    <th colSpan={7} className="px-3 py-1 bg-[#f9f9f9] border border-slate-300 text-left font-normal italic text-slate-500">
                                                         {section.name || ''}
                                                     </th>
                                                     <th className="bg-[#f9f9f9] border border-slate-300 w-10 p-0 text-center">
@@ -283,13 +309,15 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                                                     </th>
                                                 </tr>
                                                 <tr>
-                                                    <th className="w-[5%] px-3 py-2 text-center text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>Done</th>
-                                                    <th className="w-[10%] px-3 py-2 text-left text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>Client</th>
-                                                    <th className="w-[7%] px-3 py-2 text-left text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>Priority</th>
-                                                    <th className="w-[28%] px-3 py-2 text-left text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>Task</th>
-                                                    <th className="w-[10%] px-3 py-2 text-left text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.secondaryColor }}>Date Due</th>
-                                                    <th className="w-[35%] px-3 py-2 text-left text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.secondaryColor }}>Notes</th>
-                                                    <th className="w-[5%] px-3 py-2 text-center text-white text-xs font-bold border border-slate-300" style={{ backgroundColor: section.secondaryColor }}></th>
+                                                    <th className="w-[4%] px-2 py-2 text-center text-white text-[10px] font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>OK</th>
+                                                    <th className="w-[8%] px-2 py-2 text-left text-white text-[10px] font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>Status</th>
+                                                    <th className="w-[8%] px-2 py-2 text-left text-white text-[10px] font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>Created</th>
+                                                    <th className="w-[10%] px-2 py-2 text-left text-white text-[10px] font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>Client</th>
+                                                    <th className="w-[7%] px-2 py-2 text-left text-white text-[10px] font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>Priority</th>
+                                                    <th className="w-[20%] px-2 py-2 text-left text-white text-[10px] font-bold border border-slate-300" style={{ backgroundColor: section.mainColor }}>Task</th>
+                                                    <th className="w-[8%] px-2 py-2 text-left text-white text-[10px] font-bold border border-slate-300" style={{ backgroundColor: section.secondaryColor }}>Due</th>
+                                                    <th className="w-[30%] px-2 py-2 text-left text-white text-[10px] font-bold border border-slate-300" style={{ backgroundColor: section.secondaryColor }}>Notes</th>
+                                                    <th className="w-[5%] px-2 py-2 text-center text-white text-[10px] font-bold border border-slate-300" style={{ backgroundColor: section.secondaryColor }}></th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -298,15 +326,30 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                                                         <td className="border border-slate-200 p-0 text-center align-middle">
                                                             <button
                                                                 onClick={() => handleTaskChange(item.id, 'status', item.status === 'Completed' ? 'Pending' : 'Completed')}
-                                                                className={`w-5 h-5 mx-auto rounded-md flex items-center justify-center transition-all border ${item.status === 'Completed'
+                                                                className={`w-4 h-4 mx-auto rounded-md flex items-center justify-center transition-all border ${item.status === 'Completed'
                                                                     ? 'bg-emerald-500 border-emerald-500 shadow-sm'
                                                                     : 'bg-white border-slate-300 hover:border-emerald-300'
                                                                     }`}
                                                             >
                                                                 {item.status === 'Completed' && (
-                                                                    <i className="fa-solid fa-check text-[10px] text-white"></i>
+                                                                    <i className="fa-solid fa-check text-[8px] text-white"></i>
                                                                 )}
                                                             </button>
+                                                        </td>
+                                                        <td className="border border-slate-200 p-0 align-top">
+                                                            <select
+                                                                className="w-full h-full px-2 py-2 bg-transparent border-none text-[10px] font-bold text-slate-600 focus:ring-1 focus:ring-indigo-500 outline-none appearance-none"
+                                                                value={item.status}
+                                                                onChange={(e) => handleTaskChange(item.id, 'status', e.target.value as any)}
+                                                            >
+                                                                <option value="Pending">Pending</option>
+                                                                <option value="In Progress">In Progress</option>
+                                                                <option value="Completed">Completed</option>
+                                                                <option value="Cancelled">Cancelled</option>
+                                                            </select>
+                                                        </td>
+                                                        <td className="border border-slate-200 px-2 py-2 align-top text-[10px] text-slate-400 font-medium bg-slate-50/30">
+                                                            {formatDate(item.createdAt || item.created_at || item.createDate)}
                                                         </td>
                                                         <td className="border border-slate-200 p-0 align-top">
                                                             <ClientSelector
@@ -315,7 +358,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                                                                 onSelect={(id) => handleTaskChange(item.id, 'clientId', id)}
                                                                 className="h-full"
                                                                 hideIcon={true}
-                                                                inputClassName="bg-transparent font-normal text-slate-600 !px-3"
+                                                                inputClassName="bg-transparent font-normal text-slate-600 !px-2 text-[10px]"
                                                             />
                                                         </td>
                                                         <td className="border border-slate-200 p-0 align-top">
@@ -332,6 +375,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                                                         </td>
                                                         <td className="border border-slate-200 p-0 align-top">
                                                             <textarea
+                                                                id={`task-name-${item.id}`}
                                                                 className="w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-xs font-medium text-slate-800 focus:ring-1 focus:ring-indigo-500 outline-none resize-none overflow-hidden"
                                                                 value={item.name}
                                                                 rows={1}
@@ -354,14 +398,50 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                                                                 onChange={(e) => handleTaskChange(item.id, 'comment', e.target.value)}
                                                             />
                                                         </td>
-                                                        <td className="border border-slate-200 p-0 text-center align-middle">
+                                                        <td className="border border-slate-200 p-0 text-center align-middle relative">
                                                             <button
-                                                                onClick={() => handleDeleteTask(item.id)}
-                                                                className="p-2 text-slate-300 hover:text-red-500 transition-colors"
-                                                                title="Delete Task"
+                                                                onClick={() => setActiveMenuTaskId(activeMenuTaskId === item.id ? null : item.id)}
+                                                                className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
+                                                                title="Actions"
                                                             >
-                                                                <i className="fa-solid fa-trash-can text-xs"></i>
+                                                                <i className="fa-solid fa-ellipsis-vertical text-xs"></i>
                                                             </button>
+
+                                                            {activeMenuTaskId === item.id && (
+                                                                <>
+                                                                    <div className="fixed inset-0 z-10" onClick={() => setActiveMenuTaskId(null)}></div>
+                                                                    <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-slate-200 rounded-lg shadow-xl z-20 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                handleUpdateSingleTask(item.id);
+                                                                                setActiveMenuTaskId(null);
+                                                                            }}
+                                                                            className="w-full px-4 py-2 text-left text-[11px] font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                                                        >
+                                                                            <i className="fa-solid fa-cloud-arrow-up text-indigo-500 w-4"></i>
+                                                                            Save Task
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                const input = document.getElementById(`task-name-${item.id}`);
+                                                                                if (input) (input as HTMLElement).focus();
+                                                                                setActiveMenuTaskId(null);
+                                                                            }}
+                                                                            className="w-full px-4 py-2 text-left text-[11px] font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                                                        >
+                                                                            <i className="fa-solid fa-pen-to-square text-amber-500 w-4"></i>
+                                                                            Edit Inline
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handleDeleteTask(item.id)}
+                                                                            className="w-full px-4 py-2 text-left text-[11px] font-bold text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-slate-100"
+                                                                        >
+                                                                            <i className="fa-solid fa-trash-can w-4"></i>
+                                                                            Delete Task
+                                                                        </button>
+                                                                    </div>
+                                                                </>
+                                                            )}
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -371,15 +451,29 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                                                         <td className="border border-slate-200 p-0 text-center align-middle">
                                                             <button
                                                                 onClick={() => handleExtraRowChange(sIdx, i, 'done', row.done === 'Yes' ? 'No' : 'Yes')}
-                                                                className={`w-5 h-5 mx-auto rounded-md flex items-center justify-center transition-all border ${row.done === 'Yes'
+                                                                className={`w-4 h-4 mx-auto rounded-md flex items-center justify-center transition-all border ${row.done === 'Yes'
                                                                     ? 'bg-emerald-500 border-emerald-500 shadow-sm'
                                                                     : 'bg-white border-slate-300 hover:border-emerald-300'
                                                                     }`}
                                                             >
                                                                 {row.done === 'Yes' && (
-                                                                    <i className="fa-solid fa-check text-[10px] text-white"></i>
+                                                                    <i className="fa-solid fa-check text-[8px] text-white"></i>
                                                                 )}
                                                             </button>
+                                                        </td>
+                                                        <td className="border border-slate-200 p-0 align-top">
+                                                            <select
+                                                                className="w-full h-full px-2 py-2 bg-transparent border-none text-[10px] font-bold text-slate-400 focus:ring-1 focus:ring-indigo-500 outline-none appearance-none"
+                                                                value={row.status || 'Pending'}
+                                                                onChange={(e) => handleExtraRowChange(sIdx, i, 'status', e.target.value)}
+                                                            >
+                                                                <option value="Pending">Pending</option>
+                                                                <option value="In Progress">In Progress</option>
+                                                                <option value="Completed">Completed</option>
+                                                            </select>
+                                                        </td>
+                                                        <td className="border border-slate-200 px-2 py-2 align-top text-[10px] text-slate-300 font-medium italic bg-slate-50/10">
+                                                            New Task
                                                         </td>
                                                         <td className="border border-slate-200 p-0 align-top">
                                                             <ClientSelector
@@ -388,12 +482,12 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
                                                                 onSelect={(id) => handleExtraRowChange(sIdx, i, 'clientId', id)}
                                                                 className="h-full"
                                                                 hideIcon={true}
-                                                                inputClassName="bg-transparent font-normal text-slate-400 !px-3"
+                                                                inputClassName="bg-transparent font-normal text-slate-400 !px-2 text-[10px]"
                                                             />
                                                         </td>
                                                         <td className="border border-slate-200 p-0 align-top">
                                                             <select
-                                                                className="w-full h-full px-3 py-2 bg-transparent border-none text-xs text-slate-400 focus:ring-1 focus:ring-indigo-500 outline-none appearance-none"
+                                                                className="w-full h-full px-2 py-2 bg-transparent border-none text-[10px] font-bold text-slate-400 focus:ring-1 focus:ring-indigo-500 outline-none appearance-none"
                                                                 value={row.priority || 'Normal'}
                                                                 onChange={(e) => handleExtraRowChange(sIdx, i, 'priority', e.target.value)}
                                                             >
