@@ -23,18 +23,10 @@ export const optimizePropertyForAi = (property: PropertyData): Partial<PropertyD
         ...keptData
     } = property;
 
-    // 2. Handle Price History (Keep last 5 years only, limit to TOP 3 entries)
+    // 2. Handle Price History (Limit to TOP 3 entries)
     let optimizedHistory = undefined;
     if (property.priceHistory && Array.isArray(property.priceHistory)) {
-        const fiveYearsAgo = new Date();
-        fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
-
-        optimizedHistory = property.priceHistory
-            .filter(h => {
-                const d = new Date(h.date);
-                return !isNaN(d.getTime()) && d >= fiveYearsAgo;
-            })
-            .slice(0, 3);
+        optimizedHistory = property.priceHistory.slice(0, 3);
     }
 
     // 3. Construct candidate and prune heavy technical sub-structures
