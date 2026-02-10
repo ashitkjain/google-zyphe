@@ -95,14 +95,36 @@ export const runFullIntelligencePipeline = async (
 
     // Prepare Parallel Tasks
     const visualTask = async () => {
-      let visual: CustomAIAnalysisResult;
+      const isAnalysisComplete = (res: CustomAIAnalysisResult) => {
+        if (!res) return false;
+        const hasInterior = !!(res.home_interior?.overall_description && res.home_interior.overall_description.length > 50);
+        const hasExterior = !!(res.exterior_and_neighborhood?.exterior_and_lot_appeal?.architecture_style);
+        // We expect these two at a bare minimum for a "Complete" suite
+        return hasInterior && hasExterior;
+      };
+
       const cached = await getVisualAnalysisFromCloud(zpid);
-      if (cached && (cached.image_by_image_analysis?.length || 0) >= enrichedData.images!.length) {
-        onLog?.(`[Visual] Cache hit (${enrichedData.images!.length} images)`);
-        return cached;
+
+      // Cache validation: only hit if reasonably complete
+      if (cached && isAnalysisComplete(cached)) {
+        // If we have more images now than when we cached, we should re-run
+        const cachedImgCount = cached.image_by_image_analysis?.length || 0;
+        const currentImgCount = enrichedData.images?.length || 0;
+
+        if (cachedImgCount >= currentImgCount) {
+          onLog?.(`[Visual] Cache hit (${currentImgCount} images)`);
+          return cached;
+        }
       }
+
       onLog?.(`[Visual] Running fresh analysis...`);
       const res = await analyzePropertyImages(enrichedData.images!, enrichedData);
+
+      if (!isAnalysisComplete(res.data)) {
+        onLog?.(`[Visual] ERROR: AI produced incomplete narrative (missing interior/exterior sections).`);
+        throw new Error("Visual Intelligence synthesis was incomplete. Critical sections (Interior/Exterior) are missing from the AI response.");
+      }
+
       onLog?.(`[Visual] Analysis complete.`);
       return res.data;
     };

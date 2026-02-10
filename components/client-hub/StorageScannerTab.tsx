@@ -28,6 +28,7 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
     const [properties, setProperties] = useState<StorageProperty[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [showReport, setShowReport] = useState(false);
     const [processing, setProcessing] = useState(false);
     const [statusLog, setStatusLog] = useState<string[]>([]);
     const [ingestionReport, setIngestionReport] = useState<{
@@ -91,6 +92,7 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
     const handleRunPipeline = async () => {
         if (selectedIds.size === 0) return;
         setProcessing(true);
+        setShowReport(true);
         setIngestionReport(null);
         const batchStartTime = Date.now() - (10 * 60 * 1000); // Look back 10 mins to be safe with server clock drift
         addLog(`Starting fresh pipeline for ${selectedIds.size} properties...`);
@@ -100,7 +102,7 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
         // Reset process state for selected
         setProperties(prev => prev.map(p => selectedIds.has(p.zpid) ? { ...p, status: 'pending', progress: null, error: undefined } : p));
 
-        for (const item of targets) {
+        const processProperty = async (item: StorageProperty) => {
             try {
                 const startTime = Date.now();
                 setProperties(prev => prev.map(p => p.zpid === item.zpid ? { ...p, status: 'running', startTime } : p));
@@ -148,6 +150,15 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
                 addLog(`[${item.zpid}] ERROR: ${err.message}`);
                 setProperties(prev => prev.map(p => p.zpid === item.zpid ? { ...p, status: 'error', error: err.message, endTime: Date.now() } : p));
             }
+        };
+
+        const BATCH_SIZE = 5;
+        for (let i = 0; i < targets.length; i += BATCH_SIZE) {
+            const batch = targets.slice(i, i + BATCH_SIZE);
+            if (targets.length > BATCH_SIZE) {
+                addLog(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(targets.length / BATCH_SIZE)} (${batch.length} properties)...`);
+            }
+            await Promise.all(batch.map(item => processProperty(item)));
         }
 
         // Generate Report
@@ -165,7 +176,13 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
         }
 
         setProcessing(false);
+    };
+
+    const handleBackToSelector = () => {
+        setShowReport(false);
         setSelectedIds(new Set());
+        setIngestionReport(null);
+        setStatusLog([]);
     };
 
     return (
@@ -206,9 +223,20 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
 
                 {/* Table or Ingestion Progress */}
                 <div className="lg:col-span-2 space-y-6">
-                    {processing || properties.some(p => p.status === 'running' || p.status === 'completed' && selectedIds.has(p.zpid)) ? (
+                    {showReport ? (
                         <div className="space-y-4">
-                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest px-4">Active Ingestion Jobs</h3>
+                            <div className="flex items-center justify-between px-4">
+                                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">{processing ? 'Active Ingestion Jobs' : 'Ingestion Summary'}</h3>
+                                {!processing && (
+                                    <button
+                                        onClick={handleBackToSelector}
+                                        className="text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-700 flex items-center gap-2 group"
+                                    >
+                                        <i className="fa-solid fa-arrow-left transition-transform group-hover:-translate-x-1"></i>
+                                        Reset & Return to Selector
+                                    </button>
+                                )}
+                            </div>
                             {properties.filter(p => p.status !== 'pending' || selectedIds.has(p.zpid)).map((item) => (
                                 <div key={item.zpid} className={`bg-white p-6 rounded-[2rem] border transition-all ${item.status === 'completed' ? 'border-emerald-100 shadow-emerald-50' : item.status === 'error' ? 'border-rose-100 shadow-rose-50' : 'border-slate-100 shadow-lg shadow-slate-200/50'}`}>
                                     <div className="flex items-center justify-between mb-4">
@@ -224,7 +252,17 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
                                                             'fa-hourglass-start'
                                                     }`}></i>
                                             </div>
-                                            <span className="text-sm font-black text-slate-900 truncate">{item.address || item.zpid}</span>
+                                            {item.status === 'completed' && item.address ? (
+                                                <button
+                                                    onClick={() => onNavigate?.('explore', item.address!)}
+                                                    className="text-sm font-black text-slate-900 truncate hover:text-indigo-600 transition-colors flex items-center gap-2 group/link"
+                                                >
+                                                    {item.address}
+                                                    <i className="fa-solid fa-arrow-up-right-from-square text-[10px] opacity-0 group-hover/link:opacity-100 transition-all text-indigo-400"></i>
+                                                </button>
+                                            ) : (
+                                                <span className="text-sm font-black text-slate-900 truncate">{item.address || item.zpid}</span>
+                                            )}
                                         </div>
                                         <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
                                             item.status === 'error' ? 'bg-rose-50 text-rose-600' :
@@ -261,10 +299,13 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
 
                                     {item.status === 'completed' && (
                                         <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest bg-emerald-50 py-2 px-4 rounded-xl w-fit">
+                                            <button
+                                                onClick={() => onNavigate?.('explore', item.address!)}
+                                                className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest bg-emerald-50 py-2 px-4 rounded-xl w-fit hover:bg-emerald-100 transition-colors"
+                                            >
                                                 <i className="fa-solid fa-check"></i>
                                                 Intelligence Suite Ready
-                                            </div>
+                                            </button>
                                             {item.startTime && item.endTime && (
                                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                                     Total: <span className="text-slate-900 font-mono">{Math.floor((item.endTime - item.startTime) / 1000)}s</span>

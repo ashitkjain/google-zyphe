@@ -161,27 +161,26 @@ const PlatformHelpTab: React.FC = () => {
                                     How it works
                                 </h2>
                                 <p className="text-slate-600 font-medium leading-relaxed">
-                                    Zyphe leverages the <strong>Google Solar API</strong> to analyze high-resolution satellite imagery.
-                                    Our engine calculates the total roof surface area, orientation, and local sunshine quantiles to provide an
-                                    independent production baseline.
+                                    Zyphe leverages the <strong>Google Solar API</strong> to analyze high-resolution satellite imagery down to the individual panel level.
+                                    Unlike traditional estimates that use simple roof area, our engine analyzes the specific <strong>yearly energy production potential</strong> of every potential panel location on your roof, accounting for tilt, orientation, and complex shading (trees, chimneys, neighbors).
                                 </p>
                             </section>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
                                 <div className="bg-indigo-50/30 p-6 rounded-3xl border border-indigo-100/50">
-                                    <div className="text-indigo-600 font-black text-[10px] uppercase tracking-widest mb-2">Usability Filter</div>
-                                    <div className="text-2xl font-black text-indigo-900 mb-1">50%</div>
-                                    <div className="text-slate-500 text-[11px] font-medium">Standard roof area utilization (accounts for fire codes & shading).</div>
+                                    <div className="text-indigo-600 font-black text-[10px] uppercase tracking-widest mb-2">Panel-Level Resolution</div>
+                                    <div className="text-2xl font-black text-indigo-900 mb-1">High</div>
+                                    <div className="text-slate-500 text-[11px] font-medium">Production is calculated per-panel using sub-meter sun shadow data.</div>
                                 </div>
                                 <div className="bg-indigo-50/30 p-6 rounded-3xl border border-indigo-100/50">
-                                    <div className="text-indigo-600 font-black text-[10px] uppercase tracking-widest mb-2">System Efficiency</div>
+                                    <div className="text-indigo-600 font-black text-[10px] uppercase tracking-widest mb-2">Standard Efficiency</div>
                                     <div className="text-2xl font-black text-indigo-900 mb-1">85%</div>
-                                    <div className="text-slate-500 text-[11px] font-medium">Combined DC/AC conversion and wiring loss factor.</div>
+                                    <div className="text-slate-500 text-[11px] font-medium">Combined DC to AC conversion and standard wiring loss factor.</div>
                                 </div>
                                 <div className="bg-indigo-50/30 p-6 rounded-3xl border border-indigo-100/50">
-                                    <div className="text-indigo-600 font-black text-[10px] uppercase tracking-widest mb-2">Panel Standard</div>
+                                    <div className="text-indigo-600 font-black text-[10px] uppercase tracking-widest mb-2">Panel Capacity</div>
                                     <div className="text-2xl font-black text-indigo-900 mb-1">400W</div>
-                                    <div className="text-slate-500 text-[11px] font-medium">Industry standard residential panel capacity (1.7m² footprint).</div>
+                                    <div className="text-slate-500 text-[11px] font-medium">Baseline capacity for a standard 1.7m² residential solar panel.</div>
                                 </div>
                             </div>
 
@@ -202,20 +201,19 @@ const PlatformHelpTab: React.FC = () => {
                                     <div className="space-y-8">
                                         <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
                                             <h4 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-3">
-                                                <span className="text-indigo-600">1.</span> Determine "Usable" Area
+                                                <span className="text-indigo-600">1.</span> Identify Panel Locations
                                             </h4>
                                             <p className="text-slate-500 text-sm leading-relaxed mb-4">
-                                                While the total roof area might be large, you typically can't cover 100% due to fire codes, vents, and shading.
-                                                We apply usability thresholds:
+                                                The API identifies every feasible 1.7m² spot on the roof. It excludes areas blocked by fire codes, vents, or excessive shade.
                                             </p>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                                                    <div className="text-[10px] font-black text-slate-400 uppercase mb-1">Conservative (30%)</div>
-                                                    <div className="text-lg font-black text-slate-800">~88 m²</div>
+                                                    <div className="text-[10px] font-black text-slate-400 uppercase mb-1">Total Roof Area</div>
+                                                    <div className="text-lg font-black text-slate-800">~290 m²</div>
                                                 </div>
                                                 <div className="bg-indigo-600 p-4 rounded-2xl shadow-lg shadow-indigo-100">
-                                                    <div className="text-[10px] font-black text-white/60 uppercase mb-1">Aggressive (60%)</div>
-                                                    <div className="text-lg font-black text-white">~176 m²</div>
+                                                    <div className="text-[10px] font-black text-white/60 uppercase mb-1">Usable Panel Spots</div>
+                                                    <div className="text-lg font-black text-white">103 Panels</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -246,16 +244,16 @@ const PlatformHelpTab: React.FC = () => {
                                                 <span className="text-indigo-600">3.</span> Annual Energy Production (kWh)
                                             </h4>
                                             <p className="text-slate-500 text-sm leading-relaxed mb-6">
-                                                We apply the <code>maxSunshineHoursPerYear</code> and an efficiency factor (usually 0.85 to account for real-world "DC to AC" losses).
+                                                We sum the <code>yearlyEnergyDcKwh</code> of each individual panel and apply a 0.85 efficiency factor to account for DC-to-AC conversion losses.
                                             </p>
                                             <div className="bg-white p-6 rounded-2xl border border-indigo-100 shadow-sm overflow-x-auto">
                                                 <div className="font-black text-indigo-900 text-sm mb-4 uppercase tracking-widest text-center opacity-40">The Formula</div>
                                                 <div className="text-center text-xl md:text-2xl font-black text-slate-800 tracking-tight">
-                                                    Capacity (kW) × Sunshine Hours × 0.85
+                                                    Σ (Individual Panel DC kWh) × 0.85
                                                 </div>
                                                 <div className="h-px bg-slate-100 my-4"></div>
                                                 <div className="text-center text-2xl font-black text-indigo-600">
-                                                    41.2 × 1771 × 0.85 ≈ <span className="text-indigo-950">62,000 kWh/year</span>
+                                                    72,941 DC kWh × 0.85 ≈ <span className="text-indigo-950">62,000 kWh/year</span>
                                                 </div>
                                             </div>
                                         </div>

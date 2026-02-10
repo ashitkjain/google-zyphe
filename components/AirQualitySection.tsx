@@ -220,7 +220,7 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
                         <div className="p-8 pb-0">
                             <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-8 flex items-center gap-2">
                                 <i className="fa-solid fa-solar-panel text-[15px]"></i>
-                                Solar & Structural DNA
+                                Solar Power Data
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-8 gap-x-6 mb-8">
@@ -233,7 +233,7 @@ const AirQualitySection: React.FC<Props> = ({ data }) => {
                                     <>
                                         <MetricItem
                                             icon="fa-bolt"
-                                            label="Production"
+                                            label="Estimated Annual Production"
                                             value={`${solarPotential.annualKwh.toLocaleString()} kWh`}
                                             colorClass="text-indigo-600"
                                             helpText={`Calculated using ${solar.panelCapacityWatts || 400}W panel standard with 1.7m² footprint and 85% system efficiency.`}
