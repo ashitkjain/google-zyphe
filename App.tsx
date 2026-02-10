@@ -452,20 +452,24 @@ const App: React.FC = () => {
     transitionToView('visual-report' as ViewMode);
 
     try {
+      const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
+      const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
+      const cityStateKey = generateCityStateKey(city, state);
+
+      // Pre-fetch city-level data even on force refresh to avoid redundant work
+      const [pulseCached, genMarket, propInv] = await Promise.all([
+        cityStateKey ? getCommunityPulseFromCloud(cityStateKey) : Promise.resolve(null),
+        APP_CONFIG.caching.investment_research ? getGeneralMarketIntelligenceFromCloud(propertyData.zpid) : Promise.resolve(null),
+        APP_CONFIG.caching.investment_research ? getPropertyInvestmentFromCloud(propertyData.zpid) : Promise.resolve(null)
+      ]);
+
       if (!force && propertyData.zpid) {
         addLog('Cloud Cache', { type: 'request' }, { zpid: propertyData.zpid, task: 'visual_analysis' });
 
-        const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
-        const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
-        const cityStateKey = generateCityStateKey(city, state);
-
         // Parallel cache check for all components
-        const [cached, qualityCached, pulseCached, propInv, genMarket] = await Promise.all([
+        const [cached, qualityCached] = await Promise.all([
           getVisualAnalysisFromCloud(propertyData.zpid),
-          APP_CONFIG.caching.image_quality ? getImageQualityAnalysisFromCloud(propertyData.zpid) : Promise.resolve(null),
-          cityStateKey ? getCommunityPulseFromCloud(cityStateKey) : Promise.resolve(null),
-          APP_CONFIG.caching.investment_research ? getPropertyInvestmentFromCloud(propertyData.zpid) : Promise.resolve(null),
-          APP_CONFIG.caching.investment_research ? getGeneralMarketIntelligenceFromCloud(propertyData.zpid) : Promise.resolve(null)
+          APP_CONFIG.caching.image_quality ? getImageQualityAnalysisFromCloud(propertyData.zpid) : Promise.resolve(null)
         ]);
 
         if (cached) {
@@ -481,6 +485,12 @@ const App: React.FC = () => {
         }
         addLog('Cloud Cache', { type: 'info' }, { status: 'Miss' });
       }
+
+      // If we are here, we are doing a fresh run (either forced or cache miss)
+      // We will seeded the result with any existing city-level data we found above
+      const cityDataSeed: any = {};
+      if (pulseCached) cityDataSeed.community_pulse = pulseCached;
+      if (propInv && genMarket) cityDataSeed.investment_research = { property_specific: propInv, general: genMarket };
 
 
       // MANDATORY ASSET SECURING ON REFRESH
@@ -512,7 +522,7 @@ const App: React.FC = () => {
 
       addLog('Gemini AI', { type: 'request' }, { task: 'visual_analysis', forced: force, images_count: currentImages.length });
       const res = await analyzePropertyImages(currentImages, propToAnalyze);
-      const result = res.data;
+      const result = { ...cityDataSeed, ...res.data };
 
       if (propToAnalyze.mapZoomIn && propToAnalyze.mapZoomOut) {
         try {
@@ -525,21 +535,23 @@ const App: React.FC = () => {
         }
       }
 
-      try {
-        const pulseRes = await analyzeCommunityPulse(propToAnalyze);
-        result.community_pulse = pulseRes.data;
-        addLog('Gemini AI', { type: 'response' }, pulseRes.data, pulseRes.usage);
+      if (!result.community_pulse) {
+        try {
+          const pulseRes = await analyzeCommunityPulse(propToAnalyze);
+          result.community_pulse = pulseRes.data;
+          addLog('Gemini AI', { type: 'response' }, pulseRes.data, pulseRes.usage);
 
-        // Save independently to city-level cache
-        const city = propToAnalyze?.city || (propToAnalyze?.address && propToAnalyze.address.split(',')[1]?.trim());
-        const state = propToAnalyze?.state || (propToAnalyze?.address && propToAnalyze.address.split(',')[2]?.split(' ')[1]?.trim());
-        const cityStateKey = generateCityStateKey(city, state);
-        if (cityStateKey) {
-          await saveCommunityPulseToCloud(cityStateKey, pulseRes.data);
+          // Save independently to city-level cache
+          const city = propToAnalyze?.city || (propToAnalyze?.address && propToAnalyze.address.split(',')[1]?.trim());
+          const state = propToAnalyze?.state || (propToAnalyze?.address && propToAnalyze.address.split(',')[2]?.split(' ')[1]?.trim());
+          const cityStateKey = generateCityStateKey(city, state);
+          if (cityStateKey) {
+            await saveCommunityPulseToCloud(cityStateKey, pulseRes.data);
+          }
+        } catch (pulseErr) {
+          console.warn("Community pulse analysis failed:", pulseErr);
+          addLog('System', { type: 'error' }, { message: "Community Pulse skipped", error: pulseErr });
         }
-      } catch (pulseErr) {
-        console.warn("Community pulse analysis failed:", pulseErr);
-        addLog('System', { type: 'error' }, { message: "Community Pulse skipped", error: pulseErr });
       }
 
       setCustomAnalysis(result);

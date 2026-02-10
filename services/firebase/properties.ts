@@ -347,9 +347,7 @@ export const deletePropertyAnalysis = async (zpid: string, mode: 'all' | 'intell
         "property_analyses_comprehensive",
         "property_analyses_visual",
         "image_quality_analysis",
-        "property_investment_research",
-        "community_pulse",
-        "general_market_intelligence"
+        "property_investment_research"
     ];
 
     const collections: string[] = [];
