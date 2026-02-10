@@ -1607,7 +1607,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                             {/* Upcoming Tasks List */}
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Upcoming Obligations</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Obligations</label>
                                     <button
                                         onClick={() => {
                                             if (setActiveTab) setActiveTab('tasks');
@@ -1622,10 +1622,7 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
 
                                 <div className="max-h-60 overflow-y-auto pr-1 space-y-2 custom-scrollbar">
                                     {clientTasks
-                                        .filter(t => {
-                                            const due = t.dueDate?.toDate ? t.dueDate.toDate() : new Date(t.dueDate);
-                                            return due > new Date() && t.status !== 'DONE' && t.status !== 'Completed';
-                                        })
+                                        .filter(t => t.status !== 'DONE' && t.status !== 'Completed')
                                         .map(task => (
                                             <div key={task.id} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between group">
                                                 <div className="flex items-center gap-3">
@@ -1641,15 +1638,12 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                             </div>
                                         ))}
 
-                                    {clientTasks.filter(t => {
-                                        const due = t.dueDate?.toDate ? t.dueDate.toDate() : new Date(t.dueDate);
-                                        return due > new Date() && t.status !== 'DONE' && t.status !== 'Completed';
-                                    }).length === 0 && (
-                                            <div className="py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                                                <i className="fa-solid fa-clipboard-list text-slate-200 text-2xl mb-2 block"></i>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase">No upcoming tasks</p>
-                                            </div>
-                                        )}
+                                    {clientTasks.filter(t => t.status !== 'DONE' && t.status !== 'Completed').length === 0 && (
+                                        <div className="py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                                            <i className="fa-solid fa-clipboard-list text-slate-200 text-2xl mb-2 block"></i>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase">No active tasks</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
