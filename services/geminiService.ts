@@ -19,7 +19,7 @@ import { DailyPulseResult, PollenAnalysisResult } from "../types/ai";
 import { getPollenAnalysisPrompt, pollenAnalysisSchema } from "../prompts/property/pollenAnalysis";
 import { APP_CONFIG } from "../config";
 import { logLLMCall, updateLLMCall } from "./firebase/llm_logs";
-import { optimizePropertyForAi } from "../utils/aiOptimization";
+import { optimizePropertyForAi, optimizeVisualForAi } from "../utils/aiOptimization";
 
 // Use config for model selection
 export const FLASH_MODEL = APP_CONFIG.models.flash;
@@ -489,7 +489,10 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
 };
 
 export const analyzeComprehensive = async (property: PropertyData, visual: CustomAIAnalysisResult, userId: string = "unknown"): Promise<AIResponseWithUsage<ComprehensiveAnalysisResult>> => {
-  const prompt = getComprehensiveAnalysisPrompt(optimizePropertyForAi(property) as PropertyData, visual);
+  const optimizedProp = optimizePropertyForAi(property) as PropertyData;
+  const optimizedVisual = optimizeVisualForAi(visual) as CustomAIAnalysisResult;
+
+  const prompt = getComprehensiveAnalysisPrompt(optimizedProp, optimizedVisual);
   return executeGeminiRequest<ComprehensiveAnalysisResult>({
     model: FLASH_LITE_MODEL,
     contents: prompt,

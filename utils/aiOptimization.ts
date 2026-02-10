@@ -1,31 +1,25 @@
 
-import { PropertyData } from "../types";
+import { PropertyData, CustomAIAnalysisResult } from "../types";
 
 /**
  * Optimizes the PropertyData object for AI context injection.
  * Filters out low-value API metadata, technical keys, ancient history, and null values
  * to reduce token usage and noise.
- * 
- * Strategy:
- * 1. Filter out technical API metadata (ids, urls, internal flags).
- * 2. Remove redundant address components (keep formatted address).
- * 3. Truncate history to the last 5 years.
- * 4. Recursively remove all null/undefined/empty keys.
  */
 export const optimizePropertyForAi = (property: PropertyData): Partial<PropertyData> => {
     if (!property) return {};
 
-    // 1. Create a shallow clone to avoid mutating the original
-    // We explicitly destructure to drop known "blocklist" fields intentionally
+    // 1. Create a shallow clone and drop known "blocklist" fields
     const {
         zpid,
         feed_property_id,
         alternate_ids,
-        images, // Drop raw image URLs (AI relies on Visual Analysis result, not raw links)
-        coordinates, // Drop raw coords (AI uses Neighborhood Analysis result)
+        images,
+        coordinates,
         mapZoomIn,
         mapZoomOut,
-        nearbyHomes, // Drop massive list of other homes
+        nearbyHomes,
+        comps, // Drop comps - not needed for narrative description
         ...keptData
     } = property;
 
@@ -36,33 +30,53 @@ export const optimizePropertyForAi = (property: PropertyData): Partial<PropertyD
         fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
 
         optimizedHistory = property.priceHistory.filter(h => {
-            // Keep if date is valid and recent
             const d = new Date(h.date);
             return !isNaN(d.getTime()) && d >= fiveYearsAgo;
         });
     }
 
-    // 3. Construct the optimized object with whitelisted transformations
-    // We start with 'keptData' which has already dropped the blocklist
+    // 3. Construct candidate and prune heavy technical sub-structures
     const candidate: any = {
         ...keptData,
         priceHistory: optimizedHistory,
-        // Override components with simple formatted address if it exists
-        // (Drop city/state/zip fields if they are just duplicates of address - but user asked to ONLY do 1, 2, 5)
-        // User requested: Filter out technical metadata (Done), Redundant structure (Done below), Ancient History (Done).
     };
 
-    // Remove specific redundant keys if formatted address is present
-    if (candidate.address) {
-        // We keep the main address string. 
-        // Often 'city', 'state' are useful for context if the address is messy, 
-        // but strictly speaking 'streetAddress', 'zipcode' etc inside objects are the redundancies.
-        // The previous step (destructuring) didn't drop city/state from root.
-        // Let's keeps them as "everything else" per user request.
+    // Prune Air Quality (keep only high-level)
+    if (candidate.airQuality) {
+        delete candidate.airQuality.pollutants;
+        delete candidate.airQuality.recommendations;
     }
 
-    // 4. Recursive Clean (Remove nulls, empty arrays, empty strings)
+    // Prune Solar Data (keep only relevant metrics)
+    if (candidate.solarData) {
+        delete candidate.solarData.solarPanels;
+        if (candidate.solarData.wholeRoofStats) {
+            delete candidate.solarData.wholeRoofStats.sunshineQuantiles;
+        }
+    }
+
+    // Prune Pollen
+    if (candidate.pollen) {
+        delete candidate.pollen.raw_data;
+    }
+
     return cleanObject(candidate);
+};
+
+/**
+ * Optimizes the Visual Analysis result for the final Comprehensive Narrative.
+ * Removes raw image-by-image analysis and technical audits to focus on synthesized insights.
+ */
+export const optimizeVisualForAi = (visual: CustomAIAnalysisResult): Partial<CustomAIAnalysisResult> => {
+    if (!visual) return {};
+
+    const {
+        image_by_image_analysis, // Huge token hog, redundant for narrative
+        image_quality_analysis, // Technical audit, not needed for description
+        ...kept
+    } = visual;
+
+    return kept;
 };
 
 // Helper: Recursively remove empty/null values
