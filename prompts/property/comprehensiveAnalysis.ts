@@ -43,7 +43,8 @@ export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: C
   {
   "summary": "150-200 word summary with key highlights. Use **bold** for critical decision factors such as: direction facing, quiet street, excellent school district, natural light, move-in ready, and any other key highlights.",
     "detailed_analysis": {
-      "location_neighborhood": "Based on the provided property facts and description, map analysis and your knowledge, write a short paragraph describing proximity to schools, highways, parks, public transport options, and shops. Note the Walk Score, neighborhood character (e.g., young professionals, families), and local safety data. Include commute times to major work hubs, access to public transport, and any upcoming local development. Add any information about the community amenities that you can find. Discuss local appreciation trends, vacancy risk, and saturation of short-term rentals. Use **bold** for key highlights like distances, scores, and important features.",
+      "location_neighborhood": "Based on the provided property facts and description, map analysis and your knowledge, write a short paragraph describing proximity to schools, highways, parks, public transport options, and shops. Note the Walk Score, neighborhood character (e.g., young professionals, families), and local safety data. Include commute times to major work hubs, access to public transport, and any upcoming local development. Add any information about the community amenities and HOA amenities (like pools, gyms, clubhouses) that you can find if applicable. Discuss local appreciation trends, vacancy risk, and saturation of short-term rentals. Use **bold** for key highlights like distances, scores, and important features.",
+      "community_pulse": "Summarize the local sentiment using provided community pulse data. Specifically highlight 'what residents like' (e.g., quiet streets, friendly neighbors, local events) and 'common complaints' (e.g., traffic, parking, noise). Provide a narrative on the 'vibe' of living in this specific area. Use **bold** for key sentiment highlights.",
       "outdoors_view_quality": "Using the provided photo and map analysis, write a short paragraph evaluating views (e.g., yard, hills, ocean) and the level of privacy. Assess the backyard, patio, or balcony for usability. Mention fencing, surface types, and sun exposure. Highlight any coastal erosion concerns or sea-level projections if relevant. Use **bold** for key highlights like view types, privacy level, and notable outdoor features.",
       "visual_appeal_condition": "Summarize the visual appeal and condition from provided information, like the provided property photo analysis, facts and description, including a paragraph commenting on finishes, natural lighting, cleanliness, and style (e.g., Mediterranean, Modern). Assess the apparent condition of the roof, windows, and major systems. Describe the physical atmosphere of the home. Use **bold** for key highlights like style, condition ratings, and standout features.",
       "privacy_layout": "Based on the provided images and map analysis, write a short paragraph assessing separation from neighbors, landscaping, window placement, lot shape, and interior room layout. Mention potential for an Accessory Dwelling Unit (ADU), zoning constraints, and expansion possibilities. Use **bold** for key highlights like lot size, privacy level, and expansion potential.",
@@ -64,6 +65,7 @@ export const comprehensiveAnalysisSchema = {
       type: Type.OBJECT,
       properties: {
         location_neighborhood: { type: Type.STRING },
+        community_pulse: { type: Type.STRING },
         outdoors_view_quality: { type: Type.STRING },
         visual_appeal_condition: { type: Type.STRING },
         privacy_layout: { type: Type.STRING },
@@ -72,6 +74,7 @@ export const comprehensiveAnalysisSchema = {
       },
       required: [
         "location_neighborhood",
+        "community_pulse",
         "outdoors_view_quality",
         "visual_appeal_condition",
         "privacy_layout",

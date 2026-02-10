@@ -209,6 +209,7 @@ export interface ComprehensiveAnalysisResult {
     summary: string;
     detailed_analysis: {
         location_neighborhood: string;
+        community_pulse: string;
         outdoors_view_quality: string;
         visual_appeal_condition: string;
         privacy_layout: string;

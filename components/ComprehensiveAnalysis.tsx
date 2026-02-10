@@ -120,11 +120,33 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
       <div className="space-y-2">
         <SectionCard title="Executive Summary" icon="fa-arrow-trend-up" content={analysis.summary} colorClass="text-gray-800" />
         <SectionCard title="Location & Neighborhood" icon="fa-location-dot" content={analysis.detailed_analysis?.location_neighborhood} />
+        <SectionCard title="Community Pulse" icon="fa-users" content={analysis.detailed_analysis?.community_pulse} />
         <SectionCard title="Outdoors & View Quality" icon="fa-eye" content={analysis.detailed_analysis?.outdoors_view_quality} />
         <SectionCard title="Architectural Appeal & Condition" icon="fa-house-circle-check" content={analysis.detailed_analysis?.visual_appeal_condition} />
         <SectionCard title="Privacy, Layout & Expansion" icon="fa-maximize" content={analysis.detailed_analysis?.privacy_layout} />
         <SectionCard title="Climate Resilience & Sustainability" icon="fa-cloud-bolt" content={analysis.detailed_analysis?.climate_resilience} />
         <SectionCard title="Infrastructure & Tech" icon="fa-sliders" content={analysis.detailed_analysis?.additional_considerations} />
+
+        <div className="bg-indigo-900 rounded-[3rem] p-10 md:p-16 border border-indigo-950 shadow-2xl mb-12 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-indigo-500/20 transition-all duration-1000"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-slate-500/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl"></div>
+
+          <div className="relative z-10">
+            <div className="flex items-center gap-6 mb-10">
+              <div className="w-16 h-16 bg-white/10 backdrop-blur-xl border border-white/20 text-white rounded-[1.5rem] flex items-center justify-center shadow-lg shadow-indigo-900/50">
+                <i className="fa-solid fa-brain-circuit text-2xl"></i>
+              </div>
+              <div>
+                <h3 className="text-3xl font-black text-white tracking-tight -mb-1">Strategic Forensics</h3>
+                <p className="text-indigo-300 text-[11px] font-black uppercase tracking-[0.25em]">Senior Strategist & Investment Thesis</p>
+              </div>
+            </div>
+
+            <div className="text-indigo-100 leading-relaxed text-[17px] font-medium text-justify px-2 md:px-6 italic">
+              {renderContent(analysis.strategic_insights)}
+            </div>
+          </div>
+        </div>
 
         <div className="bg-rose-50/50 rounded-[2.5rem] p-10 md:p-12 border border-rose-100 shadow-sm mb-8">
           <div className="flex items-center gap-4 mb-6">
