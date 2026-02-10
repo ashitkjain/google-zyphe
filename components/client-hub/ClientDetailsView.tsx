@@ -583,9 +583,6 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
                                     <button
                                         onClick={() => {
                                             setShowTasksModal(true);
-                                            const tomorrow = new Date();
-                                            tomorrow.setDate(tomorrow.getDate() + 1);
-                                            setNewTaskDate(formatDateToInput(tomorrow));
                                         }}
                                         className="px-3 py-2 bg-white border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-2"
                                     >
