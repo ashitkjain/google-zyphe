@@ -292,10 +292,7 @@ const DailyPulseModal: React.FC<DailyPulseModalProps> = ({ leads, tasks = [], ca
 
                 {/* Footer */}
                 <div className="bg-slate-100/50 px-8 py-4 border-t border-slate-100 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
-                        <i className="fa-solid fa-wand-magic-sparkles text-indigo-400"></i>
-                        Powered by Gemini 2.5 Flash Lite
-                    </div>
+                    <div></div>
                     <button onClick={onClose} className="text-xs font-black text-slate-500 hover:text-slate-800 uppercase tracking-widest transition-colors">
                         Dismiss Report
                     </button>
