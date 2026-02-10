@@ -31,16 +31,19 @@ interface Props {
     initialTab?: HubTab;
     onNavigate?: (view: any, path: string) => void;
     onUpdateProfile?: (updates: Partial<UserProfile>) => void;
+    userRole?: 'buyer' | 'seller' | 'realtor' | 'investor';
 }
 
-const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab, onNavigate, onUpdateProfile: onUpdateProfileProp }) => {
+const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab, onNavigate, onUpdateProfile: onUpdateProfileProp, userRole }) => {
     const [activeTab, setActiveTab] = useState<HubTab>(initialTab || (exploreContent ? 'explore' : 'leads'));
     const [isMobile, setIsMobile] = useState(false);
     const [isNarrow, setIsNarrow] = useState(false);
     const [isToolsOpen, setIsToolsOpen] = useState(false);
+    const [isInvestorOpen, setIsInvestorOpen] = useState(false);
     const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isMobileToolsExpanded, setIsMobileToolsExpanded] = useState(false);
+    const [isMobileInvestorExpanded, setIsMobileInvestorExpanded] = useState(false);
     const [isMobileSettingsExpanded, setIsMobileSettingsExpanded] = useState(false);
     const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
     const [isRemoveClientModalOpen, setIsRemoveClientModalOpen] = useState(false);
@@ -48,6 +51,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     const [newLeadSkeleton, setNewLeadSkeleton] = useState<any>(null);
     const [explicitlySelectedClientId, setExplicitlySelectedClientId] = useState<string | undefined>(undefined);
     const toolsRef = useRef<HTMLDivElement>(null);
+    const investorRef = useRef<HTMLDivElement>(null);
 
     // Hooks
     const hubData = useHubData(realtorId, activeTab);
@@ -136,10 +140,23 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         { id: 'storage_registry', label: 'Bulk Prefetch', icon: 'fa-server' },
     ];
 
+    const investorTabs: { id: HubTab; label: string; icon: string }[] = [
+        { id: 'industry_research', label: 'Industry Research', icon: 'fa-magnifying-glass-chart' },
+        { id: 'product_market_fit', label: 'Product Market Fit', icon: 'fa-bullseye' },
+        { id: 'post_close_intelligence', label: 'Post-Close Intelligence', icon: 'fa-key' },
+        { id: 'technical_papers', label: 'Technical Papers', icon: 'fa-file-invoice' },
+        { id: 'market_analysis', label: 'Market Analysis', icon: 'fa-chart-area' },
+        { id: 'opportunity_discovery', label: 'Opportunity Discovery', icon: 'fa-binoculars' },
+    ];
+
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) {
+            const isOutsideTools = toolsRef.current && !toolsRef.current.contains(e.target as Node);
+            const isOutsideInvestor = investorRef.current && !investorRef.current.contains(e.target as Node);
+
+            if (isOutsideTools && isOutsideInvestor) {
                 setIsToolsOpen(false);
+                setIsInvestorOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -158,6 +175,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                 setIsMobileMenuOpen={setIsMobileMenuOpen}
                 isToolsOpen={isToolsOpen}
                 setIsToolsOpen={setIsToolsOpen}
+                isInvestorOpen={isInvestorOpen}
+                setIsInvestorOpen={setIsInvestorOpen}
                 isSettingsDropdownOpen={isSettingsDropdownOpen}
                 setIsSettingsDropdownOpen={setIsSettingsDropdownOpen}
                 onSignOut={onSignOut}
@@ -168,7 +187,9 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                 lateTabs={lateTabs}
                 toolTabs={toolTabs}
                 adminTabs={adminTabs}
+                investorTabs={userRole === 'investor' ? investorTabs : []}
                 toolsRef={toolsRef}
+                investorRef={investorRef}
                 syncBestPractices={syncBestPractices}
                 handleResetAllData={handleResetAllData}
                 handleSeedManualMockData={handleSeedManualMockData}
@@ -187,8 +208,11 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                 lateTabs={lateTabs}
                 toolTabs={toolTabs}
                 adminTabs={adminTabs}
+                investorTabs={userRole === 'investor' ? investorTabs : []}
                 isMobileToolsExpanded={isMobileToolsExpanded}
                 setIsMobileToolsExpanded={setIsMobileToolsExpanded}
+                isMobileInvestorExpanded={isMobileInvestorExpanded}
+                setIsMobileInvestorExpanded={setIsMobileInvestorExpanded}
                 isMobileSettingsExpanded={isMobileSettingsExpanded}
                 setIsMobileSettingsExpanded={setIsMobileSettingsExpanded}
                 handleResetAllData={handleResetAllData}
@@ -234,6 +258,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                         realtorProfile={realtorProfile}
                         handleUpdateProfile={handleUpdateProfile}
                         onNavigate={onNavigate}
+                        userRole={userRole}
                     />
 
                     <Footer onNavigate={onNavigate} />

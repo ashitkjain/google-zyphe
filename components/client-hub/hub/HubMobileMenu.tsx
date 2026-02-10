@@ -12,8 +12,11 @@ interface HubMobileMenuProps {
     lateTabs: { id: HubTab; label: string; icon: string }[];
     toolTabs: { id: HubTab; label: string; icon: string }[];
     adminTabs: { id: HubTab; label: string; icon: string }[];
+    investorTabs: { id: HubTab; label: string; icon: string }[];
     isMobileToolsExpanded: boolean;
     setIsMobileToolsExpanded: (exp: boolean) => void;
+    isMobileInvestorExpanded: boolean;
+    setIsMobileInvestorExpanded: (exp: boolean) => void;
     isMobileSettingsExpanded: boolean;
     setIsMobileSettingsExpanded: (exp: boolean) => void;
     handleResetAllData: () => Promise<void>;
@@ -27,8 +30,9 @@ interface HubMobileMenuProps {
 
 const HubMobileMenu: React.FC<HubMobileMenuProps> = ({
     showHamburger, isMobileMenuOpen, setIsMobileMenuOpen, activeTab, setActiveTab,
-    onNavigate, earlyTabs, lateTabs, toolTabs, adminTabs, isMobileToolsExpanded,
-    setIsMobileToolsExpanded, isMobileSettingsExpanded, setIsMobileSettingsExpanded,
+    onNavigate, earlyTabs, lateTabs, toolTabs, adminTabs, investorTabs, isMobileToolsExpanded,
+    setIsMobileToolsExpanded, isMobileInvestorExpanded, setIsMobileInvestorExpanded,
+    isMobileSettingsExpanded, setIsMobileSettingsExpanded,
     handleResetAllData, handleSeedManualMockData, setIsAddClientModalOpen,
     setIsRemoveClientModalOpen, onSignOut, realtorId, deleteUserAccount
 }) => {
@@ -54,6 +58,27 @@ const HubMobileMenu: React.FC<HubMobileMenuProps> = ({
                 {earlyTabs.concat(lateTabs).map(tab => (
                     <TabButton key={tab.id} tab={tab} />
                 ))}
+
+                {investorTabs.length > 0 && (
+                    <div className="space-y-1.5 pt-2">
+                        <button
+                            onClick={() => setIsMobileInvestorExpanded(!isMobileInvestorExpanded)}
+                            className={`flex items-center justify-between w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${(investorTabs.some(t => t.id === activeTab) || isMobileInvestorExpanded) ? 'text-indigo-400' : 'text-slate-400 hover:text-white bg-slate-800/50 border border-white/5'}`}
+                        >
+                            <div className="flex items-center gap-4">
+                                <i className="fa-solid fa-chart-pie w-5 text-center text-xs"></i>
+                                Investor Tools
+                            </div>
+                            <i className={`fa-solid fa-chevron-down text-[10px] transition-transform duration-300 ${isMobileInvestorExpanded ? 'rotate-180' : ''}`}></i>
+                        </button>
+
+                        {isMobileInvestorExpanded && (
+                            <div className="pl-4 space-y-1.5 animate-in slide-in-from-top-2 duration-200">
+                                {investorTabs.map(tab => <TabButton key={tab.id} tab={tab} isSub />)}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 <div className="space-y-1.5 pt-2">
                     <button

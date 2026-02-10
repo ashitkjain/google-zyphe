@@ -2,7 +2,7 @@ import React from 'react';
 import Logo from '../../Logo';
 import { UserProfile } from '../../../types';
 
-export type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'knowledge_center' | 'clients' | 'creative_studio' | 'profile' | 'bulk_prefetch' | 'city_data' | 'storage_registry' | 'lead_ingestion' | 'calendar' | 'reminder_rules' | 'documents' | 'gantt' | 'transactions' | 'timeline' | 'audit_trail' | 'parties' | 'storage_scanner' | 'pdf_csv' | 'sms_registration';
+export type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'profile' | 'closing' | 'reactivate' | 'calendar' | 'reminder_rules' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'lead_ingestion' | 'pdf_csv' | 'sms_registration' | 'bulk_prefetch' | 'city_data' | 'storage_registry' | 'market_analysis' | 'opportunity_discovery' | 'industry_research' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers';
 
 interface HubHeaderProps {
     realtorName: string;
@@ -14,6 +14,8 @@ interface HubHeaderProps {
     setIsMobileMenuOpen: (open: boolean) => void;
     isToolsOpen: boolean;
     setIsToolsOpen: (open: boolean) => void;
+    isInvestorOpen: boolean;
+    setIsInvestorOpen: (open: boolean) => void;
     isSettingsDropdownOpen: boolean;
     setIsSettingsDropdownOpen: (open: boolean) => void;
     onSignOut: () => void;
@@ -24,7 +26,9 @@ interface HubHeaderProps {
     lateTabs: { id: HubTab; label: string; icon: string }[];
     toolTabs: { id: HubTab; label: string; icon: string }[];
     adminTabs: { id: HubTab; label: string; icon: string }[];
+    investorTabs: { id: HubTab; label: string; icon: string }[];
     toolsRef: React.RefObject<HTMLDivElement>;
+    investorRef: React.RefObject<HTMLDivElement>;
     syncBestPractices: () => Promise<void>;
     handleResetAllData: () => Promise<void>;
     handleSeedManualMockData: () => Promise<void>;
@@ -35,9 +39,10 @@ interface HubHeaderProps {
 const HubHeader: React.FC<HubHeaderProps> = ({
     realtorName, realtorProfile, activeTab, setActiveTab, showHamburger,
     isMobileMenuOpen, setIsMobileMenuOpen, isToolsOpen, setIsToolsOpen,
+    isInvestorOpen, setIsInvestorOpen,
     isSettingsDropdownOpen, setIsSettingsDropdownOpen, onSignOut, onNavigate,
     setIsAddClientModalOpen, setIsRemoveClientModalOpen, earlyTabs, lateTabs,
-    toolTabs, adminTabs, toolsRef, syncBestPractices, handleResetAllData,
+    toolTabs, adminTabs, investorTabs, toolsRef, investorRef, syncBestPractices, handleResetAllData,
     handleSeedManualMockData, realtorId, deleteUserAccount
 }) => {
     return (
@@ -75,10 +80,52 @@ const HubHeader: React.FC<HubHeaderProps> = ({
                         </button>
                     ))}
 
+                    {/* Investor Tools Dropdown */}
+                    {investorTabs.length > 0 && (
+                        <div className="relative h-full" ref={investorRef}>
+                            <button
+                                onClick={() => {
+                                    setIsInvestorOpen(!isInvestorOpen);
+                                    setIsToolsOpen(false);
+                                }}
+                                className={`relative h-[72px] flex items-center gap-3 px-5 text-[11px] font-black uppercase tracking-[0.1em] transition-all group overflow-hidden ${investorTabs.some(t => t.id === activeTab) ? 'text-white' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                <i className={`fa-solid fa-chart-pie text-sm transition-transform group-hover:scale-110 ${investorTabs.some(t => t.id === activeTab) ? 'text-indigo-400' : 'text-slate-500'}`}></i>
+                                Investor
+                                <i className={`fa-solid fa-chevron-down text-[9px] transition-transform duration-300 ${isInvestorOpen ? 'rotate-180' : ''}`}></i>
+                                {investorTabs.some(t => t.id === activeTab) && (
+                                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500 animate-in slide-in-from-bottom border-t border-indigo-400/50"></div>
+                                )}
+                            </button>
+
+                            {isInvestorOpen && (
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl py-3 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                                    {investorTabs.map((tab) => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => {
+                                                setActiveTab(tab.id);
+                                                setIsInvestorOpen(false);
+                                                if (onNavigate) onNavigate(tab.id as any, '');
+                                            }}
+                                            className={`w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-500'}`}
+                                        >
+                                            <i className={`fa-solid ${tab.icon} w-4 text-center ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-400'}`}></i>
+                                            {tab.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Realtor Tools Dropdown */}
                     <div className="relative h-full" ref={toolsRef}>
                         <button
-                            onClick={() => setIsToolsOpen(!isToolsOpen)}
+                            onClick={() => {
+                                setIsToolsOpen(!isToolsOpen);
+                                setIsInvestorOpen(false);
+                            }}
                             className={`relative h-[72px] flex items-center gap-3 px-5 text-[11px] font-black uppercase tracking-[0.1em] transition-all group overflow-hidden ${(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab)) ? 'text-white' : 'text-slate-400 hover:text-white'}`}
                         >
                             <i className={`fa-solid fa-toolbox text-sm transition-transform group-hover:scale-110 ${(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab)) ? 'text-indigo-400' : 'text-slate-500'}`}></i>

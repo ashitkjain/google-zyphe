@@ -18,6 +18,12 @@ import SmsRegistrationTab from '../SmsRegistrationTab';
 import BulkPrefetchTab from '../BulkPrefetchTab';
 import CityDataTab from '../CityDataTab';
 import StorageScannerTab from '../StorageScannerTab';
+import MarketAnalysisTab from '../MarketAnalysisTab';
+import OpportunityDiscoveryTab from '../OpportunityDiscoveryTab';
+import IndustryResearchTab from '../IndustryResearchTab';
+import ProductMarketFitTab from '../ProductMarketFitTab';
+import PostCloseIntelligenceTab from '../PostCloseIntelligenceTab';
+import TechnicalPapersTab from '../TechnicalPapersTab';
 import { Lead, CRMTask, UserProfile, ReminderRule, CalendarEvent } from '../../../types';
 
 interface HubContentProps {
@@ -50,6 +56,7 @@ interface HubContentProps {
     realtorProfile: UserProfile | null;
     handleUpdateProfile: (updates: Partial<UserProfile>) => Promise<void>;
     onNavigate?: (view: any, path: string) => void;
+    userRole?: string;
 }
 
 const HubContent: React.FC<HubContentProps> = ({
@@ -58,7 +65,7 @@ const HubContent: React.FC<HubContentProps> = ({
     isMobile, handleCreateLead, pendingNote, setPendingNote, handleSaveLeadNote,
     handleUpdateLeadNote, handleDeleteLeadNote, handleDragEnd, tasks, calendarEvents,
     refreshTasks, reminderRules, setReminderRules, onUpdateReminderRule, onSaveReminderRules,
-    realtorProfile, handleUpdateProfile, onNavigate
+    realtorProfile, handleUpdateProfile, onNavigate, userRole
 }) => {
     return (
         <div className="flex-1 flex flex-col">
@@ -167,6 +174,18 @@ const HubContent: React.FC<HubContentProps> = ({
             {activeTab === 'city_data' && <CityDataTab onNavigate={onNavigate} />}
 
             {activeTab === 'storage_registry' && <StorageScannerTab onNavigate={onNavigate} />}
+
+            {activeTab === 'market_analysis' && <MarketAnalysisTab />}
+
+            {activeTab === 'opportunity_discovery' && <OpportunityDiscoveryTab />}
+
+            {activeTab === 'industry_research' && <IndustryResearchTab />}
+
+            {activeTab === 'product_market_fit' && <ProductMarketFitTab setActiveTab={setActiveTab} />}
+
+            {activeTab === 'post_close_intelligence' && <PostCloseIntelligenceTab />}
+
+            {activeTab === 'technical_papers' && <TechnicalPapersTab />}
         </div>
     );
 };

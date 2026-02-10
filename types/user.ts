@@ -27,7 +27,7 @@ export interface UserProfile {
     uid: string;
     email: string;
     displayName: string;
-    role: 'buyer' | 'seller' | 'realtor';
+    role: 'buyer' | 'seller' | 'realtor' | 'investor';
     address?: string;
     realtorId?: string;
     phoneNumber?: string;

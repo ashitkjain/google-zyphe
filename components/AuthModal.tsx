@@ -35,7 +35,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
   const [name, setName] = useState(inviteData?.name || '');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [role, setRole] = useState<'buyer' | 'seller' | 'realtor'>(inviteData?.role || 'buyer');
+  const [role, setRole] = useState<'buyer' | 'seller' | 'realtor' | 'investor'>(inviteData?.role || 'buyer');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorLink, setErrorLink] = useState<{ url: string, label: string } | null>(null);
@@ -319,11 +319,12 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
           {!isLogin && (
             <div className="px-5 mb-6">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">I am a...</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {[
                   { id: 'buyer', label: 'Buyer', icon: 'fa-shopping-cart' },
                   { id: 'seller', label: 'Seller', icon: 'fa-house-user' },
-                  { id: 'realtor', label: 'Realtor', icon: 'fa-briefcase' }
+                  { id: 'realtor', label: 'Realtor', icon: 'fa-briefcase' },
+                  { id: 'investor', label: 'Investor', icon: 'fa-chart-pie' }
                 ].map((r) => (
                   <button
                     key={r.id}

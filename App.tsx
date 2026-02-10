@@ -56,7 +56,7 @@ import LegalDisclaimer from './components/LegalDisclaimer';
 import TermsView from './components/TermsView';
 import PrivacyPolicy from './components/PrivacyPolicy';
 
-type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing';
+type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'market_analysis' | 'opportunity_discovery';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -175,7 +175,7 @@ const App: React.FC = () => {
     } else if (newMode === 'legal-disclaimer' || newMode === 'terms' || newMode === 'privacy') {
       path = newMode === 'legal-disclaimer' ? '/legal-disclaimer' : newMode === 'terms' ? '/terms' : '/privacy';
     } else if (newMode === 'main' || newMode === 'explore') {
-      path = currentUser?.role === 'realtor' ? '/realtor' : '/';
+      path = (currentUser?.role === 'realtor' || currentUser?.role === 'investor') ? '/realtor' : '/';
     } else {
       path = `/realtor/${newMode}`;
     }
@@ -248,7 +248,7 @@ const App: React.FC = () => {
           // Hardcoded Admin Override for Production Access
           if (user.email === 'ashu.jain.iitk@gmail.com') {
             console.log("⚡️ [Admin Override] Granting full privileges to:", user.email);
-            profile.role = 'realtor';
+            profile.role = 'investor';
           }
           setCurrentUser(profile);
         } else {
@@ -263,7 +263,7 @@ const App: React.FC = () => {
               uid: user.uid,
               email: user.email || '',
               displayName: user.displayName || 'System Admin',
-              role: 'realtor',
+              role: 'investor',
               createdAt: new Date()
             });
           } else {
@@ -888,8 +888,8 @@ const App: React.FC = () => {
     );
   }
 
-  // REALTOR LAYOUT: Merged ClientHub + Homepage
-  if (currentUser?.role === 'realtor') {
+  // REALTOR/INVESTOR LAYOUT: Merged ClientHub + Homepage
+  if (currentUser?.role === 'realtor' || currentUser?.role === 'investor') {
     return (
       <div className="min-h-screen bg-slate-50">
         {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
@@ -907,6 +907,7 @@ const App: React.FC = () => {
           realtorId={currentUser.uid}
           realtorName={currentUser.displayName}
           onSignOut={handleSignOut}
+          userRole={currentUser.role}
           onBack={() => transitionToView('main')} // This might be redundant now
           exploreContent={exploreTab}
           initialTab={(viewMode === 'main' || viewMode === 'visual-report' || viewMode === 'comprehensive-report' ? 'explore' : viewMode) as any}
@@ -962,7 +963,7 @@ const App: React.FC = () => {
                   <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] border border-indigo-500/30">PRO</span>
                   <span className="hidden sm:inline opacity-20">|</span>
                   <span className="hidden sm:inline opacity-40">
-                    {realtorName ? `Client of ${realtorName}` : (currentUser.role === 'realtor' && currentUser.email === 'ashu.jain.iitk@gmail.com' ? 'System Admin Account' : `${currentUser.role} Account`)}
+                    {realtorName ? `Client of ${realtorName}` : (currentUser.email === 'ashu.jain.iitk@gmail.com' ? 'System Admin Account' : `${currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)} Account`)}
                   </span>
                 </>
               ) : (
