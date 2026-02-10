@@ -208,13 +208,13 @@ export interface CustomAIAnalysisResult {
 export interface ComprehensiveAnalysisResult {
     summary: string;
     detailed_analysis: {
-        location_neighborhood: string;
-        community_pulse: string;
-        outdoors_view_quality: string;
         visual_appeal_condition: string;
         privacy_layout: string;
-        climate_resilience: string;
+        outdoors_view_quality: string;
+        location_neighborhood: string;
+        community_pulse: string;
         additional_considerations: string;
+        climate_resilience: string;
     };
     strategic_insights: string;
     risks_considerations: string;

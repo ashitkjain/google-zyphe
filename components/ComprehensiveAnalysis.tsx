@@ -119,13 +119,13 @@ const ComprehensiveAnalysis: React.FC<Props> = ({ analysis, loading, onBack, add
 
       <div className="space-y-2">
         <SectionCard title="Executive Summary" icon="fa-arrow-trend-up" content={analysis.summary} colorClass="text-gray-800" />
-        <SectionCard title="Location & Neighborhood" icon="fa-location-dot" content={analysis.detailed_analysis?.location_neighborhood} />
-        <SectionCard title="Community Pulse" icon="fa-users" content={analysis.detailed_analysis?.community_pulse} />
-        <SectionCard title="Outdoors & View Quality" icon="fa-eye" content={analysis.detailed_analysis?.outdoors_view_quality} />
         <SectionCard title="Architectural Appeal & Condition" icon="fa-house-circle-check" content={analysis.detailed_analysis?.visual_appeal_condition} />
         <SectionCard title="Privacy, Layout & Expansion" icon="fa-maximize" content={analysis.detailed_analysis?.privacy_layout} />
-        <SectionCard title="Climate Resilience & Sustainability" icon="fa-cloud-bolt" content={analysis.detailed_analysis?.climate_resilience} />
+        <SectionCard title="Outdoors & View Quality" icon="fa-eye" content={analysis.detailed_analysis?.outdoors_view_quality} />
+        <SectionCard title="Location & Neighborhood" icon="fa-location-dot" content={analysis.detailed_analysis?.location_neighborhood} />
+        <SectionCard title="Community Pulse" icon="fa-users" content={analysis.detailed_analysis?.community_pulse} />
         <SectionCard title="Infrastructure & Tech" icon="fa-sliders" content={analysis.detailed_analysis?.additional_considerations} />
+        <SectionCard title="Climate Resilience & Sustainability" icon="fa-cloud-bolt" content={analysis.detailed_analysis?.climate_resilience} />
 
         <div className="bg-indigo-900 rounded-[3rem] p-10 md:p-16 border border-indigo-950 shadow-2xl mb-12 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-indigo-500/20 transition-all duration-1000"></div>
