@@ -34,6 +34,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ realtorId, tasks: initialTasks, l
 
     // Sync local tasks when prop changes (essential for persistence visibility)
     React.useEffect(() => {
+        console.log(`[TaskBoard] Received ${initialTasks.length} tasks from props`);
         setTasks(initialTasks);
     }, [initialTasks]);
     // Manage the "empty" row data for each section

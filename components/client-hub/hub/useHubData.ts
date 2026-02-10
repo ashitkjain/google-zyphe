@@ -21,7 +21,9 @@ export const useHubData = (realtorId: string, activeTab?: string) => {
     };
 
     const refreshTasks = async () => {
+        console.log(`[useHubData] Refreshing tasks for realtor: ${realtorId}`);
         const _tasks = await getTasks(realtorId);
+        console.log(`[useHubData] Fetched ${_tasks.length} tasks`);
         setTasks(_tasks);
     };
 

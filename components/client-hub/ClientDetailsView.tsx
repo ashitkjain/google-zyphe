@@ -221,22 +221,27 @@ const ClientDetailsView: React.FC<ClientDetailsViewProps> = ({ realtorId, client
     const handleAddTask = async () => {
         if (!newTaskName.trim() || !newTaskDate) return;
         setIsAddingTask(true);
+        console.log(`[ClientDetails] Adding task: "${newTaskName}" for client: ${selectedClient.id}`);
         try {
             const newTask: Partial<CRMTask> = {
                 realtorId,
                 clientId: selectedClient.id,
                 name: newTaskName,
                 dueDate: new Date(newTaskDate),
-                status: 'TODO',
+                status: 'Pending',
                 priority: newTaskPriority,
                 created_at: new Date()
             };
             const taskId = await addTask(newTask);
+            console.log(`[ClientDetails] Task created with ID: ${taskId}`);
             if (taskId) {
                 const fullTask = { ...newTask, id: taskId } as CRMTask;
                 setClientTasks(prev => [...prev, fullTask].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()));
                 setNewTaskName('');
-                if (refreshTasks) await refreshTasks();
+                if (refreshTasks) {
+                    console.log(`[ClientDetails] Triggering global tasks refresh...`);
+                    await refreshTasks();
+                }
             }
         } catch (error) {
             console.error("Failed to add task:", error);
