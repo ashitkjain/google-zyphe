@@ -10,7 +10,7 @@ const RadiusCaseStudy: React.FC = () => (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-6 border-y border-slate-100">
                 <div>
                     <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Company</div>
-                    <div className="text-sm font-bold text-slate-900">Radius (formerly Radius Agent)</div>
+                    <div className="text-sm font-bold text-slate-900">Radius Agent</div>
                 </div>
                 <div>
                     <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Sector</div>
@@ -35,11 +35,11 @@ const RadiusCaseStudy: React.FC = () => (
             </div>
             <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
                 <div className="text-[10px] font-black text-indigo-600 uppercase mb-2">Key Takeaway #2</div>
-                <div className="text-xs text-slate-900 font-bold">White-Labeling is a Magnet</div>
+                <div className="text-xs text-slate-900 font-bold">"AI Powered" is a brand</div>
             </div>
             <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
                 <div className="text-[10px] font-black text-indigo-600 uppercase mb-2">Key Takeaway #3</div>
-                <div className="text-xs text-slate-900 font-bold">Target "Admin Heavy" Workflows</div>
+                <div className="text-xs text-slate-900 font-bold">Brokers spend 80% time on "boring" backend tasks</div>
             </div>
         </div>
 

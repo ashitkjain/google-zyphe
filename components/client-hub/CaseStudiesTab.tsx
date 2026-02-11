@@ -31,13 +31,13 @@ const CaseStudiesTab: React.FC = () => {
                             onClick={() => setSelectedCaseStudy('cotality')}
                             className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedCaseStudy === 'cotality' ? 'bg-white text-slate-900 shadow-xl shadow-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
                         >
-                            Cotality Analysis
+                            Cotality
                         </button>
                         <button
                             onClick={() => setSelectedCaseStudy('radius')}
                             className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedCaseStudy === 'radius' ? 'bg-white text-slate-900 shadow-xl shadow-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
                         >
-                            Radius Summary
+                            Radius Agent
                         </button>
                     </div>
                 </div>

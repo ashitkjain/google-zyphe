@@ -31,7 +31,7 @@ const CotalityCaseStudy: React.FC = () => (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-8 border-b border-slate-100">
             <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
                 <div className="text-[10px] font-black text-indigo-600 uppercase mb-2">Key Takeaway #1</div>
-                <div className="text-xs text-slate-900 font-bold">Unified source is the goal</div>
+                <div className="text-xs text-slate-900 font-bold">Customers want unified source of data</div>
             </div>
             <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
                 <div className="text-[10px] font-black text-indigo-600 uppercase mb-2">Key Takeaway #2</div>
@@ -39,7 +39,7 @@ const CotalityCaseStudy: React.FC = () => (
             </div>
             <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
                 <div className="text-[10px] font-black text-indigo-600 uppercase mb-2">Key Takeaway #3</div>
-                <div className="text-xs text-slate-900 font-bold">Explainable AI is important</div>
+                <div className="text-xs text-slate-900 font-bold">Users are more likely to use Explainable AI over blackbox</div>
             </div>
         </div>
 
