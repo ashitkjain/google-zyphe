@@ -36,7 +36,7 @@ const CompassCaseStudy: React.FC = () => (
                 </div>
                 <div className="pt-4 border-t border-indigo-200/50">
                     <div className="text-[11px] font-black text-indigo-500 uppercase mb-1">Zyphe's approach</div>
-                    <p className="text-sm leading-relaxed text-indigo-700/80 italic font-medium">Auto-populates cross-platform records via a single entry point.</p>
+                    <p className="text-sm leading-relaxed text-indigo-700/80 italic font-medium">Zyphe will ingest data from all the key data sources and applications, so users don't have to manually enter data.</p>
                 </div>
             </div>
             <div className="p-6 bg-indigo-50 rounded-2xl border border-indigo-100 space-y-4">
@@ -46,7 +46,7 @@ const CompassCaseStudy: React.FC = () => (
                 </div>
                 <div className="pt-4 border-t border-indigo-200/50">
                     <div className="text-[11px] font-black text-indigo-500 uppercase mb-1">Zyphe's approach</div>
-                    <p className="text-sm leading-relaxed text-indigo-700/80 italic font-medium">Hands-free tour scheduling and lead updates via Zyphe Voice.</p>
+                    <p className="text-sm leading-relaxed text-indigo-700/80 italic font-medium">Hands-free task management, scheduling and lead updates via Zyphe Voice.</p>
                 </div>
             </div>
             <div className="p-6 bg-indigo-50 rounded-2xl border border-indigo-100 space-y-4">
@@ -56,7 +56,7 @@ const CompassCaseStudy: React.FC = () => (
                 </div>
                 <div className="pt-4 border-t border-indigo-200/50">
                     <div className="text-[11px] font-black text-indigo-500 uppercase mb-1">Zyphe's approach</div>
-                    <p className="text-sm leading-relaxed text-indigo-700/80 italic font-medium">Interactive "Zyphe Boards" transform property search into a visual discovery engine.</p>
+                    <p className="text-sm leading-relaxed text-indigo-700/80 italic font-medium">Interactive "Zyphe Boards" transform lead management and property search into a visual discovery engine.</p>
                 </div>
             </div>
         </div>

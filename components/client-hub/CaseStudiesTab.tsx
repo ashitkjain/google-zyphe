@@ -15,9 +15,9 @@ const CaseStudiesTab: React.FC = () => {
                             <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200">
                                 <i className="fa-solid fa-book-open text-sm"></i>
                             </div>
-                            <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight">Industry Archive</h1>
+                            <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight">Industry Case Studies</h1>
                         </div>
-                        <p className="text-slate-500 font-medium ml-13">Strategic deep-dives into real estate technological transformation.</p>
+                        <p className="text-slate-500 font-medium ml-13">Strategic deep-dives into real estate technological transformation, and how Zyphe is building with the best principles that were key to their successes.</p>
                     </div>
 
                     <div className="flex gap-2 p-1.5 bg-slate-200/50 rounded-2xl border border-slate-200 backdrop-blur-sm">

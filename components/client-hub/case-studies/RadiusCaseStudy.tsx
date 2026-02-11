@@ -46,7 +46,7 @@ const RadiusCaseStudy: React.FC = () => (
                 </div>
                 <div className="pt-4 border-t border-indigo-200/50">
                     <div className="text-[11px] font-black text-indigo-500 uppercase mb-1">Zyphe's approach</div>
-                    <p className="text-sm leading-relaxed text-indigo-700/80 italic font-medium">Bespoke white-labeling allows brokerages to claim AI as their internal IP.</p>
+                    <p className="text-sm leading-relaxed text-indigo-700/80 italic font-medium">Zyphe's bespoke white-labeling allows brokerages to claim AI as their internal IP, without changing their brand identity, brokerage or technology stack, if they choose to</p>
                 </div>
             </div>
             <div className="p-6 bg-indigo-50 rounded-2xl border border-indigo-100 space-y-4">
@@ -64,7 +64,7 @@ const RadiusCaseStudy: React.FC = () => (
         <section className="space-y-4">
             <h3 className="text-xl font-black text-slate-900 uppercase tracking-wider">Executive Summary</h3>
             <p className="text-base leading-relaxed text-slate-600">
-                As of 2026, Radius has positioned itself as the premier "Business-in-a-Box" for real estate entrepreneurs. Unlike traditional brokerages that offer tech as an afterthought, Radius is a <span className="text-indigo-600 font-bold">technology company with a brokerage license.</span> Their flagship AI assistant, <span className="text-slate-900 font-bold text-base font-serif">Mel</span>, automates roughly <span className="text-slate-900 font-bold">80% of back-office and administrative functions</span>, allowing teams to scale without the traditional "hiring tax." Following their $13M Series B in late 2023, Radius achieved triple-digit growth by focusing on the "unification" of CRM, compliance, and lead nurture.
+                As of 2026, Radius has positioned itself as the premier "Business-in-a-Box" for real estate entrepreneurs. Unlike traditional real estate technology companies, Radius is a <span className="text-indigo-600 font-bold">AI powered brokerage.</span> Their flagship AI assistant, <span className="text-slate-900 font-bold text-base font-serif">Mel</span>, automates many <span className="text-slate-900 font-bold">back-office and administrative functions</span>, allowing teams to scale without the traditional "hiring tax." Following their $13M Series B in late 2023, Radius achieved triple-digit growth by focusing on the "unification" of CRM, compliance, and lead nurture. However, <span className="font-bold text-slate-900">Radius is not a pure "plug and play" technology company</span>; it requires agents to switch to their brokerage to use the platform, creating a significant barrier to widespread adoption compared to brokerage-agnostic solutions.
             </p>
         </section>
 
