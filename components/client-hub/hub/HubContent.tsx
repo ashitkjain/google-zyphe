@@ -24,8 +24,10 @@ import IndustryResearchTab from '../IndustryResearchTab';
 import ProductMarketFitTab from '../ProductMarketFitTab';
 import PostCloseIntelligenceTab from '../PostCloseIntelligenceTab';
 import TechnicalPapersTab from '../TechnicalPapersTab';
+import CaseStudiesTab from '../CaseStudiesTab';
 import VideoUploadTab from '../VideoUploadTab';
 import TechnicalMediaTab from '../TechnicalMediaTab';
+import ExecutiveSummaryTab from '../ExecutiveSummaryTab';
 import { Lead, CRMTask, UserProfile, ReminderRule, CalendarEvent } from '../../../types';
 
 interface HubContentProps {
@@ -191,6 +193,8 @@ const HubContent: React.FC<HubContentProps> = ({
 
             {activeTab === 'video_upload' && <VideoUploadTab />}
             {activeTab === 'technical_media' && <TechnicalMediaTab />}
+            {activeTab === 'industry_case_studies' && <CaseStudiesTab />}
+            {activeTab === 'executive_summary' && <ExecutiveSummaryTab />}
         </div>
     );
 };

@@ -35,7 +35,8 @@ interface Props {
 }
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab, onNavigate, onUpdateProfile: onUpdateProfileProp, userRole }) => {
-    const [activeTab, setActiveTab] = useState<HubTab>(initialTab || (exploreContent ? 'explore' : 'leads'));
+    const defaultTab = initialTab || (userRole === 'investor' ? 'executive_summary' : (exploreContent ? 'explore' : 'leads'));
+    const [activeTab, setActiveTab] = useState<HubTab>(defaultTab);
     const [isMobile, setIsMobile] = useState(false);
     const [isNarrow, setIsNarrow] = useState(false);
     const [isToolsOpen, setIsToolsOpen] = useState(false);
@@ -142,6 +143,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     ];
 
     const investorTabs: { id: HubTab; label: string; icon: string }[] = [
+        { id: 'executive_summary', label: 'Executive Summary', icon: 'fa-file-signature' },
+        { id: 'industry_case_studies', label: 'Case Studies', icon: 'fa-book-open' },
         { id: 'industry_research', label: 'Industry Research', icon: 'fa-magnifying-glass-chart' },
         { id: 'product_market_fit', label: 'Product Market Fit', icon: 'fa-bullseye' },
         { id: 'post_close_intelligence', label: 'Post-Close Intelligence', icon: 'fa-key' },
