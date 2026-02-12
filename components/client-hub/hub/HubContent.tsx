@@ -190,7 +190,15 @@ const HubContent: React.FC<HubContentProps> = ({
 
             {activeTab === 'post_close_intelligence' && <PostCloseIntelligenceTab />}
 
-            {activeTab === 'technical_papers' && <TechnicalPapersTab />}
+            {(activeTab === 'technical_papers' || activeTab === 'technical_papers_recommender' || activeTab === 'technical_papers_context_graph') && (
+                <TechnicalPapersTab
+                    initialPaper={
+                        activeTab === 'technical_papers_context_graph'
+                            ? 'context_graph'
+                            : 'recommender_system'
+                    }
+                />
+            )}
 
             {activeTab === 'technical_media' && <TechnicalMediaTab />}
 

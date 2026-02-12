@@ -3,8 +3,17 @@ import React, { useState } from 'react';
 
 type PaperId = 'recommender_system' | 'context_graph';
 
-const TechnicalPapersTab: React.FC = () => {
-    const [activePaper, setActivePaper] = useState<PaperId>('recommender_system');
+interface TechnicalPapersTabProps {
+    initialPaper?: PaperId;
+}
+
+const TechnicalPapersTab: React.FC<TechnicalPapersTabProps> = ({ initialPaper }) => {
+    const [activePaper, setActivePaper] = useState<PaperId>(initialPaper || 'recommender_system');
+
+    // Sync state if initialPaper changes
+    React.useEffect(() => {
+        if (initialPaper) setActivePaper(initialPaper);
+    }, [initialPaper]);
 
     const papers = [
         { id: 'recommender_system', title: 'An Intelligent Context Aware Recommender System for Real Estate', date: 'Feb 2026', volume: 'Vol 01 / No. 04' },
@@ -13,30 +22,6 @@ const TechnicalPapersTab: React.FC = () => {
 
     return (
         <div className="p-12 max-w-7xl mx-auto space-y-12 animate-in fade-in duration-700 pb-32">
-            {/* Header & Paper Selector */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-slate-200 pb-8">
-                <div className="space-y-2">
-                    <h1 className="text-3xl font-light text-slate-900 tracking-tight">Technical Publications & Research</h1>
-                    <p className="text-slate-500 text-sm font-medium">
-                        A repository of peer-reviewed methodologies and architectural standards powering the Zyphe ecosystem.
-                    </p>
-                </div>
-                <div className="flex gap-2">
-                    {papers.map((p) => (
-                        <button
-                            key={p.id}
-                            onClick={() => setActivePaper(p.id as PaperId)}
-                            className={`px-4 py-2 rounded-sm text-[8px] font-black uppercase tracking-widest transition-all border max-w-[180px] leading-[1.4] text-center ${activePaper === p.id
-                                ? 'bg-slate-900 border-slate-900 text-white shadow-lg'
-                                : 'bg-white border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-600'
-                                }`}
-                        >
-                            {p.title}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
             {activePaper === 'recommender_system' && <RecommenderPaper p={papers[0]} />}
             {activePaper === 'context_graph' && <ContextGraphPaper p={papers[1]} />}
         </div>
@@ -56,12 +41,76 @@ const RecommenderPaper: React.FC<{ p: any }> = ({ p }) => (
             </h2>
         </div>
 
+        <div className="border border-indigo-200 bg-indigo-50/30 rounded-3xl p-8 space-y-8">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Lift from context aware recommender system</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="space-y-1">
+                    <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-serif font-black text-slate-900">59.9%</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Recall</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
+                        This represents the system's ability to find all relevant properties within the dataset.
+                    </p>
+                </div>
+                <div className="space-y-1">
+                    <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-serif font-black text-slate-900">58.5%</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600">User Coverage</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
+                        This indicates the percentage of users for which the system is able to provide recommendations.
+                    </p>
+                </div>
+                <div className="space-y-1">
+                    <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-serif font-black text-slate-900">29.3%</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600">MRR (Mean Reciprocal Rank)</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
+                        A measure of ranking quality, indicating how high the relevant property appeared in the list.
+                    </p>
+                </div>
+            </div>
+
+            <div className="pt-8 border-t border-indigo-200/50">
+                <div className="border border-slate-200/50 rounded-2xl overflow-hidden shadow-sm bg-white">
+                    <table className="w-full text-left text-[11px]">
+                        <thead className="bg-slate-50 border-b border-slate-100 font-black text-slate-400 uppercase tracking-widest">
+                            <tr>
+                                <th className="p-4">Metric</th>
+                                <th className="p-4 text-center">GRU Baseline</th>
+                                <th className="p-4 text-center">Context aware</th>
+                                <th className="p-4 text-center text-indigo-600">Lift (Difference)</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-bold text-slate-600">
+                            {[
+                                { m: "Recall", b: "54.3%", p: "59.9%", l: "+5.6%" },
+                                { m: "User Coverage", b: "53.5%", p: "58.5%", l: "+5.0%" },
+                                { m: "MRR (Mean Reciprocal Rank)", b: "25.1%", p: "29.3%", l: "+4.2%" },
+                            ].map((row, i) => (
+                                <tr key={i}>
+                                    <td className="p-4 text-slate-900 uppercase tracking-widest font-black">{row.m}</td>
+                                    <td className="p-4 text-center text-slate-400">{row.b}</td>
+                                    <td className="p-4 text-center text-slate-900 underline underline-offset-4 decoration-slate-200">{row.p}</td>
+                                    <td className="p-4 text-center text-indigo-600 bg-indigo-50/30">{row.l}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
             <div className="lg:col-span-8 space-y-10 text-[15px] leading-relaxed text-slate-700 font-medium">
                 <section className="space-y-6">
                     <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-900">Introduction</h3>
                     <div className="space-y-4">
-                        <p>This paper highlights Issues with current real estate recommender systems, and presents a research paper to support the case of using context aware recommender system -</p>
+                        <p>
+                            This article summarizes the research paper - <a href="https://www.researchgate.net/publication/338017241_An_Intelligent_Context_Aware_Recommender_System_for_Real-Estate" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline break-all">An Intelligent Context Aware Recommender System for Real Estate</a> that demonstrates why real estate search needs to be contextual, using a deep learning model.
+                        </p>
                         <ul className="space-y-3 list-disc pl-5 text-slate-600">
                             <li>Real estate purchase process is long and complex, not well suited for the most commonly used recommendation algorithms like content/collaborative filtering.</li>
                             <li>It is a complex multi-faceted decision process, searching through a huge list of choices that often causes user search fatigue.</li>

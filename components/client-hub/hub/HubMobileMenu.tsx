@@ -74,7 +74,19 @@ const HubMobileMenu: React.FC<HubMobileMenuProps> = ({
 
                         {isMobileInvestorExpanded && (
                             <div className="pl-4 space-y-1.5 animate-in slide-in-from-top-2 duration-200">
-                                {investorTabs.map(tab => <TabButton key={tab.id} tab={tab} isSub />)}
+                                {investorTabs.map(tab => {
+                                    if (tab.id === 'technical_papers') {
+                                        return (
+                                            <div key={tab.id} className="space-y-1.5">
+                                                <div className="px-3 py-1 text-[8px] font-black uppercase tracking-[0.2em] text-slate-600 mt-2">Technical Papers</div>
+                                                <TabButton tab={{ id: 'post_close_intelligence', label: 'Post-Close Intelligence', icon: 'fa-key' }} isSub />
+                                                <TabButton tab={{ id: 'technical_papers_recommender', label: 'Recommender System', icon: 'fa-file-invoice' }} isSub />
+                                                <TabButton tab={{ id: 'technical_papers_context_graph', label: 'Context Graph', icon: 'fa-file-invoice' }} isSub />
+                                            </div>
+                                        );
+                                    }
+                                    return <TabButton key={tab.id} tab={tab} isSub />;
+                                })}
                             </div>
                         )}
                     </div>

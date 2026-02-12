@@ -2,7 +2,7 @@ import React from 'react';
 import Logo from '../../Logo';
 import { UserProfile } from '../../../types';
 
-export type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'profile' | 'closing' | 'reactivate' | 'calendar' | 'reminder_rules' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'lead_ingestion' | 'pdf_csv' | 'sms_registration' | 'bulk_prefetch' | 'city_data' | 'storage_registry' | 'industry_research' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'video_upload' | 'technical_media' | 'executive_summary' | 'industry_case_studies' | 'unit_economics';
+export type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'profile' | 'closing' | 'reactivate' | 'calendar' | 'reminder_rules' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'lead_ingestion' | 'pdf_csv' | 'sms_registration' | 'bulk_prefetch' | 'city_data' | 'storage_registry' | 'industry_research' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_recommender' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'industry_case_studies' | 'unit_economics';
 
 interface HubHeaderProps {
     realtorName: string;
@@ -100,20 +100,69 @@ const HubHeader: React.FC<HubHeaderProps> = ({
 
                             {isInvestorOpen && (
                                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl py-3 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
-                                    {investorTabs.map((tab) => (
-                                        <button
-                                            key={tab.id}
-                                            onClick={() => {
-                                                setActiveTab(tab.id);
-                                                setIsInvestorOpen(false);
-                                                if (onNavigate) onNavigate(tab.id as any, '');
-                                            }}
-                                            className={`w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-500'}`}
-                                        >
-                                            <i className={`fa-solid ${tab.icon} w-4 text-center ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-400'}`}></i>
-                                            {tab.label}
-                                        </button>
-                                    ))}
+                                    {investorTabs.map((tab) => {
+                                        if (tab.id === 'technical_papers') {
+                                            return (
+                                                <div key={tab.id} className="relative group/tech">
+                                                    <button className={`w-full flex items-center justify-between gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 ${(activeTab === 'post_close_intelligence' || activeTab.includes('technical_papers')) ? 'text-indigo-600' : 'text-slate-500'}`}>
+                                                        <div className="flex items-center gap-4">
+                                                            <i className={`fa-solid ${tab.icon} w-4 text-center ${(activeTab === 'post_close_intelligence' || activeTab.includes('technical_papers')) ? 'text-indigo-600' : 'text-slate-400'}`}></i>
+                                                            {tab.label}
+                                                        </div>
+                                                        <i className="fa-solid fa-chevron-right text-[8px] text-slate-300 group-hover/tech:text-indigo-400"></i>
+                                                    </button>
+
+                                                    <div className="absolute left-full top-[-12px] ml-1 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl py-3 z-[110] hidden group-hover/tech:block animate-in fade-in slide-in-from-left-2 duration-200">
+                                                        <button
+                                                            onClick={() => {
+                                                                setActiveTab('post_close_intelligence');
+                                                                setIsInvestorOpen(false);
+                                                                if (onNavigate) onNavigate('post_close_intelligence', '');
+                                                            }}
+                                                            className={`w-full flex items-center gap-4 px-5 py-3 text-[9px] font-black uppercase tracking-widest text-left transition-all hover:bg-slate-50 ${activeTab === 'post_close_intelligence' ? 'text-indigo-600' : 'text-slate-500'}`}
+                                                        >
+                                                            Post-Close Intelligence
+                                                        </button>
+                                                        <div className="h-px bg-slate-50 my-1.5 mx-3"></div>
+                                                        <button
+                                                            onClick={() => {
+                                                                setActiveTab('technical_papers_recommender');
+                                                                setIsInvestorOpen(false);
+                                                                if (onNavigate) onNavigate('technical_papers_recommender', '');
+                                                            }}
+                                                            className={`w-full flex items-center gap-4 px-5 py-3 text-[9px] font-black uppercase tracking-widest text-left transition-all hover:bg-slate-50 ${activeTab === 'technical_papers_recommender' ? 'text-indigo-600' : 'text-slate-500'}`}
+                                                        >
+                                                            Recommender System
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setActiveTab('technical_papers_context_graph');
+                                                                setIsInvestorOpen(false);
+                                                                if (onNavigate) onNavigate('technical_papers_context_graph', '');
+                                                            }}
+                                                            className={`w-full flex items-center gap-4 px-5 py-3 text-[9px] font-black uppercase tracking-widest text-left transition-all hover:bg-slate-50 ${activeTab === 'technical_papers_context_graph' ? 'text-indigo-600' : 'text-slate-500'}`}
+                                                        >
+                                                            Vision & Proposal: The Zyphe "Context Graph"
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        return (
+                                            <button
+                                                key={tab.id}
+                                                onClick={() => {
+                                                    setActiveTab(tab.id);
+                                                    setIsInvestorOpen(false);
+                                                    if (onNavigate) onNavigate(tab.id as any, '');
+                                                }}
+                                                className={`w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-500'}`}
+                                            >
+                                                <i className={`fa-solid ${tab.icon} w-4 text-center ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-400'}`}></i>
+                                                {tab.label}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>

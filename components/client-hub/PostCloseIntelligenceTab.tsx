@@ -24,14 +24,31 @@ const PostCloseIntelligenceTab: React.FC = () => {
                     <i className="fa-solid fa-key"></i>
                     Asset Management 2026
                 </div>
-                <h1 className="text-4xl font-black text-slate-900 tracking-tight leading-tight max-w-4xl">
+                <h1 className="text-4xl font-black text-slate-900 tracking-tight leading-tight">
                     Post-Close Intelligence: The "Missing Middle"
                 </h1>
-                <p className="text-slate-500 font-medium max-w-3xl leading-relaxed text-lg">
-                    Transitioning from a transactional mindset to a relationship-centric model. Harnessing "dark data"
-                    from compliance vaults to create long-term client value and predictive selling opportunities.
-                </p>
             </div>
+
+            {/* Opportunity Section */}
+            <section className="bg-indigo-600 rounded-[3rem] p-12 text-white relative overflow-hidden shadow-2xl shadow-indigo-200">
+                <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/10 blur-[100px] rounded-full -mb-48 -mr-48"></div>
+                <div className="relative z-10 flex flex-col lg:flex-row items-center gap-12">
+                    <div className="flex-1 space-y-4">
+                        <h2 className="text-4xl font-black leading-tight">The 2026 Opportunity</h2>
+                        <p className="text-lg text-indigo-100 font-medium leading-relaxed">
+                            Only 13% of homeowners use the same agent twice. Post-Close Intelligence fixes the loyalty crisis, as the relationship between the agent and client often enters a "black hole" of generic holiday cards and monthly newsletters.
+                        </p>
+                    </div>
+                    <div className="flex-none w-full lg:w-[400px]">
+                        <div className="bg-white p-8 rounded-[2.5rem] text-slate-900 space-y-3 shadow-xl">
+                            <h4 className="font-black text-indigo-600 uppercase tracking-widest text-[10px]">The Zyphe Edge</h4>
+                            <p className="text-sm font-bold leading-relaxed">
+                                AI sits on top of the vault, scanning archived documents to extract actionable advice for the client.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
             {/* Problem & Gap Analysis */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -81,37 +98,6 @@ const PostCloseIntelligenceTab: React.FC = () => {
                 </section>
             </div>
 
-            {/* Opportunity Section */}
-            <section className="bg-indigo-600 rounded-[3rem] p-12 text-white relative overflow-hidden shadow-2xl shadow-indigo-200">
-                <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/10 blur-[100px] rounded-full -mb-48 -mr-48"></div>
-                <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-12">
-                    <div className="lg:col-span-1 space-y-6">
-                        <h2 className="text-3xl font-black leading-tight">The 2026 Opportunity</h2>
-                        <p className="text-indigo-100 font-medium leading-relaxed">
-                            Only 13% of homeowners use the same agent twice. Post-Close Intelligence fixes the loyalty crisis.
-                        </p>
-                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-xl text-xs font-black uppercase tracking-widest">
-                            <i className="fa-solid fa-chart-line"></i>
-                            Predictive Selling
-                        </div>
-                    </div>
-                    <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div className="bg-white p-8 rounded-[2rem] text-slate-900 space-y-3">
-                            <h4 className="font-black text-indigo-600 uppercase tracking-widest text-[10px]">The Zyphe Edge</h4>
-                            <p className="text-sm font-bold leading-relaxed">
-                                AI sits on top of the vault, scanning archived documents to extract actionable advice for the client.
-                            </p>
-                        </div>
-                        <div className="border border-white/20 p-8 rounded-[2rem] text-white space-y-3">
-                            <h4 className="font-black text-indigo-300 uppercase tracking-widest text-[10px]">Maintenance Cycle</h4>
-                            <p className="text-sm font-medium leading-relaxed">
-                                Tells the agent when a home is "ready" to sell based on aging systems like roof or HVAC status.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
             {/* Implementation Plan */}
             <section className="space-y-10">
                 <div className="flex flex-col gap-2">
@@ -139,7 +125,7 @@ const PostCloseIntelligenceTab: React.FC = () => {
             <section className="bg-slate-50 rounded-[3rem] p-12 border border-slate-200/50 space-y-10">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                     <div className="space-y-2">
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Dynamic Prototype</h3>
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Example : Dynamic Prototype</h3>
                         <h2 className="text-3xl font-black text-slate-900">[Client Name]’s Home Intelligence Report</h2>
                     </div>
                     <div className="text-right">
