@@ -56,7 +56,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                         <button
                             onClick={() => {
                                 setActiveTab?.('industry_research');
-                                onNavigate?.(null, '../realtor/industry_research');
+                                onNavigate?.('industry_research', '/realtor/industry_research');
                             }}
                             className="text-indigo-600 font-bold hover:underline"
                         >
@@ -266,7 +266,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                             <button
                                 onClick={() => {
                                     setActiveTab?.('industry_case_studies');
-                                    onNavigate?.(null, '../realtor/industry_case_studies');
+                                    onNavigate?.('industry_case_studies', '/realtor/industry_case_studies');
                                 }}
                                 className="text-indigo-600 font-bold hover:underline"
                             >

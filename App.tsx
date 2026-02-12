@@ -56,7 +56,7 @@ import LegalDisclaimer from './components/LegalDisclaimer';
 import TermsView from './components/TermsView';
 import PrivacyPolicy from './components/PrivacyPolicy';
 
-type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'video_upload' | 'technical_media' | 'executive_summary' | 'market_analysis' | 'opportunity_discovery';
+type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'video_upload' | 'technical_media' | 'executive_summary' | 'market_analysis' | 'opportunity_discovery';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
