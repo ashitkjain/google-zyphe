@@ -180,21 +180,21 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                     <i className="fa-solid fa-brain text-xl"></i>
                                 </div>
-                                <h4 className="text-xl font-black text-slate-900 leading-tight">Multi-Modal Intelligence</h4>
+                                <h4 className="text-2xl font-black text-slate-900 leading-tight">Multi-Modal Intelligence</h4>
                             </div>
-                            <p className="text-sm text-slate-500 leading-relaxed mb-6">
+                            <p className="text-base text-slate-500 leading-relaxed mb-6">
                                 There is a massive opportunity to deploy Multi-Modal GenAI that synthesizes visual, geospatial, and behavioral data to solve industry problems with human-level reasoning. These general purpose models don't require specialized ML engineering or staff to build advanced ML capabilities.
                             </p>
-                            <div className="mt-auto space-y-4 pt-6 border-t border-slate-100">
-                                <div className="space-y-1">
-                                    <h5 className="text-[11px] font-black text-indigo-600 uppercase tracking-wider">Contextual Discovery</h5>
-                                    <p className="text-[12px] text-slate-600 font-medium leading-relaxed">
+                            <div className="mt-auto space-y-5 pt-6 border-t border-slate-100">
+                                <div className="space-y-1.5">
+                                    <h5 className="text-[12px] font-black text-indigo-600 uppercase tracking-wider">Contextual Discovery</h5>
+                                    <p className="text-sm text-slate-600 font-medium leading-relaxed">
                                         There is an opportunity to integrate Visual and Geospatial AI to power recommendations that understand the "vibe" and surroundings of a property—not just its bed/bath count.
                                     </p>
                                 </div>
-                                <div className="space-y-1">
-                                    <h5 className="text-[11px] font-black text-indigo-600 uppercase tracking-wider">Predictive Intent</h5>
-                                    <p className="text-[12px] text-slate-600 font-medium leading-relaxed">
+                                <div className="space-y-1.5">
+                                    <h5 className="text-[12px] font-black text-indigo-600 uppercase tracking-wider">Predictive Intent</h5>
+                                    <p className="text-sm text-slate-600 font-medium leading-relaxed">
                                         By leveraging deep reasoning, there is an opportunity to mine buyer intent and automate lead reactivation in ways that were technically impossible until now.
                                     </p>
                                 </div>
@@ -207,21 +207,21 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                     <i className="fa-solid fa-gauge-high text-xl"></i>
                                 </div>
-                                <h4 className="text-xl font-black text-slate-900 leading-tight">20X Efficiency</h4>
+                                <h4 className="text-2xl font-black text-slate-900 leading-tight">20X Efficiency</h4>
                             </div>
-                            <p className="text-sm text-slate-500 leading-relaxed mb-6">
+                            <p className="text-base text-slate-500 leading-relaxed mb-6">
                                 The traditional high cost of software R&D is no longer a barrier to entry. With AI-assisted coding, there is an opportunity to compress the development lifecycle by a factor of 20.
                             </p>
-                            <div className="mt-auto space-y-4 pt-6 border-t border-slate-100">
-                                <div className="space-y-1">
-                                    <h5 className="text-[11px] font-black text-indigo-600 uppercase tracking-wider">Velocity as a Strategy</h5>
-                                    <p className="text-[12px] text-slate-600 font-medium leading-relaxed">
+                            <div className="mt-auto space-y-5 pt-6 border-t border-slate-100">
+                                <div className="space-y-1.5">
+                                    <h5 className="text-[12px] font-black text-indigo-600 uppercase tracking-wider">Velocity as a Strategy</h5>
+                                    <p className="text-sm text-slate-600 font-medium leading-relaxed">
                                         This efficiency creates an opportunity to develop deep, seamless integrations and high-fidelity user experiences at a fraction of the traditional cost.
                                     </p>
                                 </div>
-                                <div className="space-y-1">
-                                    <h5 className="text-[11px] font-black text-indigo-600 uppercase tracking-wider">Market Democratization</h5>
-                                    <p className="text-[12px] text-slate-600 font-medium leading-relaxed">
+                                <div className="space-y-1.5">
+                                    <h5 className="text-[12px] font-black text-indigo-600 uppercase tracking-wider">Market Democratization</h5>
+                                    <p className="text-sm text-slate-600 font-medium leading-relaxed">
                                         Lower R&D overhead provides the opportunity to bring enterprise-grade technology to the broad market at a price point that drives immediate, friction-free adoption.
                                     </p>
                                 </div>
@@ -234,21 +234,21 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                     <i className="fa-solid fa-file-shield text-xl"></i>
                                 </div>
-                                <h4 className="text-xl font-black text-slate-900 leading-tight">Data & Regulatory Changes</h4>
+                                <h4 className="text-2xl font-black text-slate-900 leading-tight">Data & Regulatory Changes</h4>
                             </div>
-                            <p className="text-sm text-slate-500 leading-relaxed mb-6">
+                            <p className="text-base text-slate-500 leading-relaxed mb-6">
                                 Recent shifts in data policy and API availability have removed the final moats protecting legacy incumbents.
                             </p>
-                            <div className="mt-auto space-y-4 pt-6 border-t border-slate-100">
-                                <div className="space-y-1">
-                                    <h5 className="text-[11px] font-black text-indigo-600 uppercase tracking-wider">MLS Transparency</h5>
-                                    <p className="text-[12px] text-slate-600 font-medium leading-relaxed">
+                            <div className="mt-auto space-y-5 pt-6 border-t border-slate-100">
+                                <div className="space-y-1.5">
+                                    <h5 className="text-[12px] font-black text-indigo-600 uppercase tracking-wider">MLS Transparency</h5>
+                                    <p className="text-sm text-slate-600 font-medium leading-relaxed">
                                         Through Brokerage Back Office (BBO) rights, there is now an opportunity to utilize highly regulated MLS data—including property imagery—to build more comprehensive consumer tools.
                                     </p>
                                 </div>
-                                <div className="space-y-1">
-                                    <h5 className="text-[11px] font-black text-indigo-600 uppercase tracking-wider">360-Degree Context</h5>
-                                    <p className="text-[12px] text-slate-600 font-medium leading-relaxed">
+                                <div className="space-y-1.5">
+                                    <h5 className="text-[12px] font-black text-indigo-600 uppercase tracking-wider">360-Degree Context</h5>
+                                    <p className="text-sm text-slate-600 font-medium leading-relaxed">
                                         There is an opportunity to aggregate low-cost, high-value data (Solar, Pollution, Crime, and Noise metrics) to provide a level of transparency that traditional platforms currently lack.
                                     </p>
                                 </div>
