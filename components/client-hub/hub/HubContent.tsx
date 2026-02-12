@@ -28,6 +28,7 @@ import CaseStudiesTab from '../CaseStudiesTab';
 import VideoUploadTab from '../VideoUploadTab';
 import TechnicalMediaTab from '../TechnicalMediaTab';
 import ExecutiveSummaryTab from '../ExecutiveSummaryTab';
+import UnitEconomicsTab from '../UnitEconomicsTab';
 import { Lead, CRMTask, UserProfile, ReminderRule, CalendarEvent } from '../../../types';
 
 interface HubContentProps {
@@ -195,6 +196,7 @@ const HubContent: React.FC<HubContentProps> = ({
             {activeTab === 'technical_media' && <TechnicalMediaTab />}
             {activeTab === 'industry_case_studies' && <CaseStudiesTab />}
             {activeTab === 'executive_summary' && <ExecutiveSummaryTab setActiveTab={setActiveTab} onNavigate={onNavigate} />}
+            {activeTab === 'unit_economics' && <UnitEconomicsTab />}
         </div>
     );
 };

@@ -151,6 +151,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
     const investorTabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'executive_summary', label: 'Executive Summary', icon: 'fa-file-signature' },
+        { id: 'unit_economics', label: 'Unit Economics', icon: 'fa-calculator' },
         { id: 'industry_case_studies', label: 'Case Studies', icon: 'fa-book-open' },
         { id: 'industry_research', label: 'Industry Research', icon: 'fa-magnifying-glass-chart' },
         { id: 'product_market_fit', label: 'Product Market Fit', icon: 'fa-bullseye' },

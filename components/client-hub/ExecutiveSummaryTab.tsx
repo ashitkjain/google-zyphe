@@ -313,7 +313,17 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                     <h5 className="text-lg font-black text-slate-900 leading-tight">High-Margin Operational Efficiency</h5>
                                 </div>
                                 <p className="text-sm text-slate-500 leading-relaxed">
-                                    Our "AI + Human" hybrid model utilizes AI-assisted coding to slash R&D timelines and offshore administrative staff to guarantee data accuracy. This allows us to offer premium, enterprise-grade solutions at a price point that unlocks the broader mid-market.
+                                    Our "AI + Human" hybrid model utilizes AI-assisted coding to slash R&D timelines and offshore administrative staff to guarantee data accuracy. This allows us to offer premium, enterprise-grade solutions at a price point that unlocks the broader mid-market (
+                                    <button
+                                        onClick={() => {
+                                            setActiveTab?.('unit_economics');
+                                            onNavigate?.('unit_economics', '/realtor/unit_economics');
+                                        }}
+                                        className="text-indigo-600 font-bold hover:underline"
+                                    >
+                                        Unit Economics
+                                    </button>
+                                    ).
                                 </p>
                             </div>
 
