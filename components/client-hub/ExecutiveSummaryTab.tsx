@@ -380,24 +380,24 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="p-4 bg-white/50 rounded-2xl border border-indigo-100/50">
                                     <div className="text-3xl font-black text-indigo-600">20%</div>
-                                    <div className="text-[10px] font-black text-indigo-900/70 uppercase leading-snug mt-1.5">Daily Usage<br />Velocity</div>
+                                    <div className="text-xs font-black text-indigo-900/70 uppercase leading-snug mt-1.5">Daily Usage<br />Velocity</div>
                                 </div>
                                 <div className="p-4 bg-white/50 rounded-2xl border border-indigo-100/50">
                                     <div className="text-3xl font-black text-indigo-400">32%</div>
-                                    <div className="text-[10px] font-black text-indigo-900/50 uppercase leading-snug mt-1.5">Untapped<br />Potential</div>
+                                    <div className="text-xs font-black text-indigo-900/50 uppercase leading-snug mt-1.5">Untapped<br />Potential</div>
                                 </div>
                             </div>
                         </div>
                         <div className="space-y-4">
                             <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Primary Motivators</span>
-                            <div className="space-y-3">
+                            <div className="space-y-5">
                                 {[
                                     { label: "Saving Time", val: 66 },
                                     { label: "Improving client experience", val: 64 },
                                     { label: "Closing more deals", val: 51 }
                                 ].map((g, i) => (
-                                    <div key={i} className="space-y-1.5">
-                                        <div className="flex justify-between text-[11px] font-black text-indigo-900/70 uppercase">
+                                    <div key={i} className="space-y-2">
+                                        <div className="flex justify-between text-xs font-black text-indigo-900/70 uppercase">
                                             <span>{g.label}</span>
                                             <span>{g.val}%</span>
                                         </div>
