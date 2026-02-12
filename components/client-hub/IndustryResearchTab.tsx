@@ -21,13 +21,13 @@ const IndustryResearchTab: React.FC = () => {
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
             {/* Legend / Header */}
-            <div className="flex flex-col gap-4">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-[10px] font-black uppercase tracking-widest text-indigo-600 w-fit">
+            <div className="flex flex-col gap-6">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-xs font-black uppercase tracking-[0.2em] text-indigo-600 w-fit">
                     <i className="fa-solid fa-microchip"></i>
                     Market Intelligence 2026
                 </div>
-                <h1 className="text-4xl font-black text-slate-900 tracking-tight">Real Estate Industry Research</h1>
-                <p className="text-slate-500 font-medium max-w-3xl leading-relaxed">
+                <h1 className="text-5xl font-black text-slate-900 tracking-tight leading-tight">Real Estate Industry Research</h1>
+                <p className="text-xl text-slate-500 font-medium max-w-4xl leading-relaxed">
                     The real estate sector is at an inflection point. Generative AI could add up to <span className="text-indigo-600 font-bold">$180 billion</span> in value, yet adoption remains staggered due to legacy tool complexity.
                 </p>
             </div>
@@ -45,9 +45,9 @@ const IndustryResearchTab: React.FC = () => {
                         { title: 'Data Silos', desc: 'Friction across multiple tools requiring manual entry and sync.' },
                         { title: 'Entry Barriers', desc: 'High costs for advanced tools currently out of reach for small realtors.' }
                     ].map((p, i) => (
-                        <div key={i} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:border-indigo-200 transition-colors">
-                            <h4 className="font-black text-slate-900 text-sm mb-2">{p.title}</h4>
-                            <p className="text-xs text-slate-500 font-medium leading-relaxed">{p.desc}</p>
+                        <div key={i} className="bg-white p-7 rounded-3xl border border-slate-100 shadow-sm hover:border-indigo-200 transition-colors">
+                            <h4 className="font-black text-slate-900 text-base mb-2">{p.title}</h4>
+                            <p className="text-sm text-slate-500 font-medium leading-relaxed">{p.desc}</p>
                         </div>
                     ))}
                 </div>
@@ -62,12 +62,12 @@ const IndustryResearchTab: React.FC = () => {
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {metrics.map((m, i) => (
-                            <div key={i} className="bg-slate-900 rounded-[2rem] p-6 text-white relative overflow-hidden group">
+                            <div key={i} className="bg-slate-900 rounded-[2rem] p-7 text-white relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-2xl rounded-full -mr-16 -mt-16 group-hover:bg-indigo-500/20 transition-colors"></div>
-                                <div className="relative z-10 flex flex-col gap-1">
-                                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{m.label}</span>
-                                    <div className="text-2xl font-black">{m.value}</div>
-                                    <p className="text-[10px] text-slate-400 font-medium mt-2 leading-relaxed">{m.context}</p>
+                                <div className="relative z-10 flex flex-col gap-1.5">
+                                    <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">{m.label}</span>
+                                    <div className="text-3xl font-black">{m.value}</div>
+                                    <p className="text-xs text-slate-400 font-medium mt-2 leading-relaxed">{m.context}</p>
                                 </div>
                             </div>
                         ))}
@@ -85,12 +85,12 @@ const IndustryResearchTab: React.FC = () => {
                             { level: 'Growth / Pro', price: '$300–$800/mo', desc: 'AI lead scoring, automated drips, full CRM.' },
                             { level: 'Enterprise / Elite', price: '$1,500+/mo', desc: 'Custom IDX, Reactivation, seamless integrations.' }
                         ].map((p, i) => (
-                            <div key={i} className="flex flex-col gap-1 pb-6 border-b border-slate-50 last:border-0 last:pb-0">
+                            <div key={i} className="flex flex-col gap-1.5 pb-6 border-b border-slate-50 last:border-0 last:pb-0">
                                 <div className="flex justify-between items-center">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{p.level}</span>
-                                    <span className="text-sm font-black text-indigo-600">{p.price}</span>
+                                    <span className="text-xs font-black uppercase tracking-widest text-slate-400">{p.level}</span>
+                                    <span className="text-base font-black text-indigo-600">{p.price}</span>
                                 </div>
-                                <p className="text-xs text-slate-600 font-medium">{p.desc}</p>
+                                <p className="text-sm text-slate-600 font-medium">{p.desc}</p>
                             </div>
                         ))}
                     </div>
@@ -107,19 +107,19 @@ const IndustryResearchTab: React.FC = () => {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-50 border-b border-slate-100">
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 w-1/4">Category</th>
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 w-1/4">Leaders</th>
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 w-1/4">Pricing</th>
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 w-1/4">Key Gaps</th>
+                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400 w-1/4">Category</th>
+                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400 w-1/4">Leaders</th>
+                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400 w-1/4">Pricing</th>
+                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400 w-1/4">Key Gaps</th>
                             </tr>
                         </thead>
                         <tbody>
                             {pricingMatrix.map((row, i) => (
                                 <tr key={i} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-8 py-5 text-sm font-black text-slate-900">{row.category}</td>
-                                    <td className="px-8 py-5 text-xs text-slate-600 font-medium">{row.leaders}</td>
-                                    <td className="px-8 py-5 text-xs text-slate-600 font-bold">{row.pricing}</td>
-                                    <td className="px-8 py-5 text-xs text-indigo-600 font-medium italic">{row.gap}</td>
+                                    <td className="px-8 py-6 text-base font-black text-slate-900">{row.category}</td>
+                                    <td className="px-8 py-6 text-sm text-slate-600 font-medium">{row.leaders}</td>
+                                    <td className="px-8 py-6 text-sm text-slate-600 font-bold">{row.pricing}</td>
+                                    <td className="px-8 py-6 text-sm text-indigo-600 font-medium italic">{row.gap}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -141,15 +141,15 @@ const IndustryResearchTab: React.FC = () => {
                             { title: 'Concision', icon: 'fa-compress-arrows-alt', list: ['Summarizing dense leases', 'Recorded call sentiment', 'Querying unstructured data'] },
                             { title: 'Coding Solutions', icon: 'fa-code', list: ['Legacy code translation', 'Data automation scripts', 'Interpreting complex bases'] },
                         ].map((c, i) => (
-                            <div key={i} className="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100 flex flex-col gap-3">
+                            <div key={i} className="bg-indigo-50/50 p-7 rounded-[2rem] border border-indigo-100 flex flex-col gap-4">
                                 <div className="flex items-center gap-3">
-                                    <i className={`fa-solid ${c.icon} text-indigo-600 text-sm`}></i>
-                                    <h4 className="font-black text-slate-900 text-xs uppercase tracking-widest">{c.title}</h4>
+                                    <i className={`fa-solid ${c.icon} text-indigo-600 text-base`}></i>
+                                    <h4 className="font-black text-slate-900 text-sm uppercase tracking-widest">{c.title}</h4>
                                 </div>
-                                <ul className="space-y-1.5">
+                                <ul className="space-y-2">
                                     {c.list.map((item, j) => (
-                                        <li key={j} className="text-[10px] text-slate-600 font-medium flex items-center gap-2">
-                                            <span className="w-1 h-1 bg-indigo-400 rounded-full"></span>
+                                        <li key={j} className="text-xs text-slate-600 font-medium flex items-center gap-3">
+                                            <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full"></span>
                                             {item}
                                         </li>
                                     ))}
@@ -165,17 +165,18 @@ const IndustryResearchTab: React.FC = () => {
                         Zyphe Implementation Strategy
                     </h3>
                     <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+                        {/* Strategy List */}
                         {[
                             { title: 'Data Lakehouse Strategy', desc: 'Consolidate proprietary and engineered data into a single firm-controlled source of truth.' },
                             { title: 'Contextual Prompting', desc: 'Rigorous testing of tested prompts for specific real estate tasks to ensure high-quality output.' },
                             { title: 'Bridge the Silos', desc: 'Integrate vendor systems (PMS, CRM, Maintenance) to eliminate data silos and accelerate decision making.' },
                             { title: 'Operational Evolution', desc: 'Transition administrative roles to focus on high-value specialties while AI handles the baseline.' }
                         ].map((s, i) => (
-                            <div key={i} className="flex gap-4">
-                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 text-slate-400 text-[10px] font-black">{i + 1}</div>
+                            <div key={i} className="flex gap-5">
+                                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 text-slate-400 text-xs font-black">{i + 1}</div>
                                 <div>
-                                    <h4 className="font-black text-slate-900 text-sm mb-1">{s.title}</h4>
-                                    <p className="text-xs text-slate-500 font-medium leading-relaxed">{s.desc}</p>
+                                    <h4 className="font-black text-slate-900 text-base mb-1.5">{s.title}</h4>
+                                    <p className="text-sm text-slate-500 font-medium leading-relaxed">{s.desc}</p>
                                 </div>
                             </div>
                         ))}
@@ -196,14 +197,7 @@ const IndustryResearchTab: React.FC = () => {
                             <span>PwC Trends 2026</span>
                         </div>
                     </div>
-                    <div className="flex gap-4">
-                        <button className="px-6 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-colors">
-                            Download Full Report
-                        </button>
-                        <button className="px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-colors">
-                            View Original Source
-                        </button>
-                    </div>
+
                 </div>
             </div>
         </div>

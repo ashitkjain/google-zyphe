@@ -44,8 +44,6 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
             <section className="space-y-4">
                 <div className="flex items-center gap-6 text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em]">
                     <span>Investor Confidential</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                    <span>v2.0 / 2026</span>
                 </div>
                 <div className="space-y-2">
                     <h1 className="text-6xl font-serif font-black text-slate-900 leading-[1.1] tracking-tight">
@@ -126,36 +124,36 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                 <div className="space-y-6">
                     <h3 className="text-3xl font-serif font-black text-slate-900">The Problems</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 font-medium">
-                        <div className="p-6 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
-                            <div className="flex items-center gap-4 mb-3">
-                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                    <i className="fa-solid fa-house-chimney-crack text-lg"></i>
+                        <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-11 h-11 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                    <i className="fa-solid fa-house-chimney-crack text-xl"></i>
                                 </div>
-                                <h4 className="text-lg font-black text-slate-900">For Buyers</h4>
+                                <h4 className="text-2xl font-black text-slate-900 leading-tight">Buyers</h4>
                             </div>
-                            <p className="text-sm text-slate-500 leading-relaxed">
+                            <p className="text-base text-slate-500 leading-relaxed font-medium">
                                 Listings are static. "Analysing" a home means staring at photos and guessing about repairs, neighborhood vibes, or investment potential.
                             </p>
                         </div>
-                        <div className="p-6 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
-                            <div className="flex items-center gap-4 mb-3">
-                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                    <i className="fa-solid fa-screwdriver-wrench text-lg"></i>
+                        <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-11 h-11 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                    <i className="fa-solid fa-screwdriver-wrench text-xl"></i>
                                 </div>
-                                <h4 className="text-lg font-black text-slate-900">For Sellers</h4>
+                                <h4 className="text-2xl font-black text-slate-900 leading-tight">Sellers</h4>
                             </div>
-                            <p className="text-sm text-slate-500 leading-relaxed">
+                            <p className="text-base text-slate-500 leading-relaxed font-medium">
                                 The process of preparing a home for the market is opaque. Sellers lack tools to objectively assess listing quality or presentation.
                             </p>
                         </div>
-                        <div className="p-6 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
-                            <div className="flex items-center gap-4 mb-3">
-                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                    <i className="fa-solid fa-network-wired text-lg"></i>
+                        <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-11 h-11 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                    <i className="fa-solid fa-network-wired text-xl"></i>
                                 </div>
-                                <h4 className="text-lg font-black text-slate-900">For Realtors</h4>
+                                <h4 className="text-2xl font-black text-slate-900 leading-tight">Realtors</h4>
                             </div>
-                            <p className="text-sm text-slate-500 leading-relaxed">
+                            <p className="text-base text-slate-500 leading-relaxed font-medium">
                                 Workflow is scattered across legacy systems. Many agents are underserved by modern tech and lack the specialized skills required for leveraging AI.
                             </p>
                         </div>
@@ -346,7 +344,18 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                 <div className="bg-indigo-50 p-6 rounded-[2.5rem] border border-indigo-100 flex flex-col lg:flex-row gap-8 items-start">
                     <div className="space-y-8 flex-1">
                         <div className="space-y-4">
-                            <span className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">Industry Validation</span>
+                            <div className="flex items-center gap-3">
+                                <span className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">Industry Validation</span>
+                                <button
+                                    onClick={() => {
+                                        setActiveTab?.('industry_research');
+                                        onNavigate?.('industry_research', '/realtor/industry_research');
+                                    }}
+                                    className="text-indigo-600 font-bold hover:underline text-sm bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200"
+                                >
+                                    Report
+                                </button>
+                            </div>
                             <p className="text-3xl font-serif font-black text-indigo-900 leading-tight">
                                 NAR 2025: Realtors and clients view AI positively, but are frustrated by fragmented platforms and data silos ("The Swivel Chair" workflow).
                             </p>
@@ -425,19 +434,9 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                     className="text-indigo-600 font-black hover:underline underline-offset-4"
                                 >
                                     Experience
-                                </button>
-                                <strong className="text-slate-900">, </strong>
-                                <button
-                                    onClick={() => { setActiveTab?.('product_market_fit'); onNavigate?.('product_market_fit', '/realtor/product_market_fit'); }}
-                                    className="text-indigo-600 font-black hover:underline underline-offset-4"
-                                >
+                                    <strong className="text-slate-900">, </strong>
                                     Functionality
-                                </button>
-                                <strong className="text-slate-900">, and </strong>
-                                <button
-                                    onClick={() => { setActiveTab?.('product_market_fit'); onNavigate?.('product_market_fit', '/realtor/product_market_fit'); }}
-                                    className="text-indigo-600 font-black hover:underline underline-offset-4"
-                                >
+                                    <strong className="text-slate-900">, </strong>
                                     Technology
                                 </button>
                                 <strong className="text-slate-900">.</strong> This architecture ensures every data point—from listing photos to buyer behaviors—is unified into a single ecosystem of intelligence.
@@ -449,40 +448,21 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <li className="flex gap-2 text-base">
                                     <span className="text-indigo-600 font-black">•</span>
                                     <span>
-                                        <strong className="text-slate-900">Pillar 1 (</strong>
-                                        <button
-                                            onClick={() => { setActiveTab?.('product_market_fit'); onNavigate?.('product_market_fit', '/realtor/product_market_fit'); }}
-                                            className="text-indigo-600 font-black hover:underline underline-offset-4"
-                                        >
-                                            Experience
-                                        </button>
-                                        <strong className="text-slate-900">):</strong> Delightful, intuitive interfaces featuring universal data ingestion and conversational commands that streamline the "Home Story" journey.
+                                        <strong className="text-slate-900">Pillar 1 (Experience):</strong> Delightful, intuitive interfaces featuring universal data ingestion and conversational commands that streamline the "Home Story" journey.
                                     </span>
                                 </li>
                                 <li className="flex gap-2 text-base">
                                     <span className="text-indigo-600 font-black">•</span>
                                     <span>
-                                        <strong className="text-slate-900">Pillar 2 (</strong>
-                                        <button
-                                            onClick={() => { setActiveTab?.('product_market_fit'); onNavigate?.('product_market_fit', '/realtor/product_market_fit'); }}
-                                            className="text-indigo-600 font-black hover:underline underline-offset-4"
-                                        >
-                                            Functionality
-                                        </button>
-                                        <strong className="text-slate-900">):</strong> A "business-in-a-box" suite, leveraging vision and spatial AI for property analysis alongside a proactive reactivation engine that mines dormant leads.
+                                        <strong className="text-slate-900">Pillar 2 (Functionality):</strong>
+                                        A "business-in-a-box" suite, leveraging vision and spatial AI for property analysis alongside a proactive reactivation engine that mines dormant leads.
                                     </span>
                                 </li>
                                 <li className="flex gap-2 text-base">
                                     <span className="text-indigo-600 font-black">•</span>
                                     <span>
-                                        <strong className="text-slate-900">Pillar 3 (</strong>
-                                        <button
-                                            onClick={() => { setActiveTab?.('product_market_fit'); onNavigate?.('product_market_fit', '/realtor/product_market_fit'); }}
-                                            className="text-indigo-600 font-black hover:underline underline-offset-4"
-                                        >
-                                            Technology
-                                        </button>
-                                        <strong className="text-slate-900">):</strong> A high-velocity architecture powered by Google technologies and a proprietary Context Graph that unifies visual, geospatial, and behavioral data into a single, grounded source of truth.
+                                        <strong className="text-slate-900">Pillar 3 (Technology):</strong>
+                                        A high-velocity architecture powered by Google technologies and a proprietary Context Graph that unifies visual, geospatial, and behavioral data into a single, grounded source of truth.
                                     </span>
                                 </li>
                             </ul>

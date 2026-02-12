@@ -18,8 +18,6 @@ import SmsRegistrationTab from '../SmsRegistrationTab';
 import BulkPrefetchTab from '../BulkPrefetchTab';
 import CityDataTab from '../CityDataTab';
 import StorageScannerTab from '../StorageScannerTab';
-import MarketAnalysisTab from '../MarketAnalysisTab';
-import OpportunityDiscoveryTab from '../OpportunityDiscoveryTab';
 import IndustryResearchTab from '../IndustryResearchTab';
 import ProductMarketFitTab from '../ProductMarketFitTab';
 import PostCloseIntelligenceTab from '../PostCloseIntelligenceTab';
@@ -180,23 +178,23 @@ const HubContent: React.FC<HubContentProps> = ({
 
             {activeTab === 'storage_registry' && <StorageScannerTab onNavigate={onNavigate} />}
 
-            {activeTab === 'market_analysis' && <MarketAnalysisTab />}
-
-            {activeTab === 'opportunity_discovery' && <OpportunityDiscoveryTab />}
+            {activeTab === 'executive_summary' && <ExecutiveSummaryTab setActiveTab={setActiveTab} onNavigate={onNavigate} />}
 
             {activeTab === 'industry_research' && <IndustryResearchTab />}
 
             {activeTab === 'product_market_fit' && <ProductMarketFitTab setActiveTab={setActiveTab} />}
 
+            {activeTab === 'industry_case_studies' && <CaseStudiesTab />}
+
+            {activeTab === 'unit_economics' && <UnitEconomicsTab />}
+
             {activeTab === 'post_close_intelligence' && <PostCloseIntelligenceTab />}
 
             {activeTab === 'technical_papers' && <TechnicalPapersTab />}
 
-            {activeTab === 'video_upload' && <VideoUploadTab />}
             {activeTab === 'technical_media' && <TechnicalMediaTab />}
-            {activeTab === 'industry_case_studies' && <CaseStudiesTab />}
-            {activeTab === 'executive_summary' && <ExecutiveSummaryTab setActiveTab={setActiveTab} onNavigate={onNavigate} />}
-            {activeTab === 'unit_economics' && <UnitEconomicsTab />}
+
+            {activeTab === 'video_upload' && <VideoUploadTab />}
         </div>
     );
 };

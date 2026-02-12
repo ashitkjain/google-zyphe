@@ -151,15 +151,13 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
 
     const investorTabs: { id: HubTab; label: string; icon: string }[] = [
         { id: 'executive_summary', label: 'Executive Summary', icon: 'fa-file-signature' },
-        { id: 'unit_economics', label: 'Unit Economics', icon: 'fa-calculator' },
-        { id: 'industry_case_studies', label: 'Case Studies', icon: 'fa-book-open' },
         { id: 'industry_research', label: 'Industry Research', icon: 'fa-magnifying-glass-chart' },
         { id: 'product_market_fit', label: 'Product Market Fit', icon: 'fa-bullseye' },
+        { id: 'industry_case_studies', label: 'Case Studies', icon: 'fa-book-open' },
+        { id: 'unit_economics', label: 'Unit Economics', icon: 'fa-calculator' },
         { id: 'post_close_intelligence', label: 'Post-Close Intelligence', icon: 'fa-key' },
         { id: 'technical_papers', label: 'Technical Papers', icon: 'fa-file-invoice' },
         { id: 'technical_media', label: 'Technical Media', icon: 'fa-clapperboard' },
-        { id: 'market_analysis', label: 'Market Analysis', icon: 'fa-chart-area' },
-        { id: 'opportunity_discovery', label: 'Opportunity Discovery', icon: 'fa-binoculars' },
     ];
 
     useEffect(() => {
