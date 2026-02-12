@@ -218,6 +218,48 @@ const ExecutiveSummaryTab: React.FC = () => {
                 </div>
             </section>
 
+            {/* The Opportunity Section */}
+            <section className="space-y-12">
+                <div className="space-y-8">
+                    <h3 className="text-3xl font-serif font-black text-slate-900">The Opportunity</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 font-medium">
+                        <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors transition-colors">
+                                    <i className="fa-solid fa-wand-magic-sparkles text-lg"></i>
+                                </div>
+                                <h4 className="text-lg font-black text-slate-900">Evolution of GenAI</h4>
+                            </div>
+                            <p className="text-sm text-slate-500 leading-relaxed">
+                                GenAI is enabling multi-modal intelligence and deep research and reasoning that can solve problems in new and more effective ways, faster and at a much lower cost. For example we are building visual and geo spatial intelligence that powers recommendations and search, and intent mining in ways that wasn't possible.
+                            </p>
+                        </div>
+                        <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors transition-colors">
+                                    <i className="fa-solid fa-code text-lg"></i>
+                                </div>
+                                <h4 className="text-lg font-black text-slate-900">AI Assisted Coding</h4>
+                            </div>
+                            <p className="text-sm text-slate-500 leading-relaxed">
+                                With AI assisted coding, we can develop applications at a small fraction cost and time. Think 20X. This will enable deep integrations for ingest, seamless and delightful user experiences at a much lower price that will drive fast adoption.
+                            </p>
+                        </div>
+                        <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors transition-colors">
+                                    <i className="fa-solid fa-shield-halved text-lg"></i>
+                                </div>
+                                <h4 className="text-lg font-black text-slate-900">Compliance & Data</h4>
+                            </div>
+                            <p className="text-sm text-slate-500 leading-relaxed">
+                                With BBO, now applications can broadly use highly regulated MLS data like property photos. Also, a lot of data that buyers are interested in like Solar, Pollution, Street View is available through google APIs, and noise, crime, etc are available through other providers at a very low cost.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             {/* The Zyphe Product Ecosystem */}
             <section className="space-y-16">
                 <div className="space-y-4">
