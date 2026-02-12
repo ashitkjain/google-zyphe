@@ -124,7 +124,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
             <section className="space-y-24">
                 {/* 1. The Problem */}
                 <div className="space-y-8">
-                    <h3 className="text-3xl font-serif font-black text-slate-900">The Problem</h3>
+                    <h3 className="text-3xl font-serif font-black text-slate-900">The Problems</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 font-medium">
                         <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
                             <div className="flex items-center gap-4 mb-4">
@@ -169,7 +169,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                             Pivotal Enablers: <span className="text-indigo-600">Capitalizing on the AI & Data Convergence</span>
                         </h3>
                         <p className="text-slate-600 font-medium leading-relaxed max-w-4xl">
-                            The real estate landscape has reached a technological inflection point. There is now a unique window to leverage three core enablers to disrupt the legacy status quo:
+                            The real estate landscape has reached a technological inflection point. There is now a unique window to leverage these core enablers to disrupt the legacy status quo:
                         </p>
                     </div>
 
@@ -415,9 +415,8 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                         <div className="absolute top-0 right-0 p-8 text-6xl font-black text-slate-50 group-hover:text-indigo-50 transition-colors">01</div>
                         <div className="space-y-2">
                             <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-600">Pillar 1: Experience</h4>
-                            <h5 className="text-2xl font-serif font-black text-slate-900">Removing the "Admin Tax"</h5>
+                            <h5 className="text-2xl font-serif font-black text-slate-900">Delightful, engaging and intuitive experiences that remove the "admin" tax</h5>
                         </div>
-                        <p className="text-slate-500 font-medium leading-relaxed">Focus: Making data entry a byproduct of conversation, not a manual burden for realtors.</p>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
                             <div className="p-6 bg-slate-50 rounded-3xl space-y-2">
                                 <div className="flex items-center gap-3">
@@ -448,10 +447,8 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                         <div className="absolute top-0 right-0 p-8 text-6xl font-black text-slate-50 group-hover:text-indigo-50 transition-colors">02</div>
                         <div className="space-y-2">
                             <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-600">Pillar 2: Functionality</h4>
-                            <h5 className="text-2xl font-serif font-black text-slate-900">The "Unified Intelligence" Core</h5>
+                            <h5 className="text-2xl font-serif font-black text-slate-900">A comprehensive suite of functionalities so users can find it all in one place</h5>
                         </div>
-                        <p className="text-slate-500 font-medium leading-relaxed">Focus: A modular, AI-native suite designed to replace legacy fragmentation with a single, high-speed ecosystem.</p>
-
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="flex gap-4 p-6 border border-slate-100 rounded-3xl bg-slate-50/50">
                                 <div className="w-10 h-10 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 flex-none"><i className="fa-solid fa-box-archive"></i></div>
@@ -503,10 +500,8 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                         <div className="absolute top-0 right-0 p-8 text-6xl font-black text-slate-50 group-hover:text-indigo-50 transition-colors">03</div>
                         <div className="space-y-2">
                             <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-600">Pillar 3: Technology</h4>
-                            <h5 className="text-2xl font-serif font-black text-slate-900">The Reasoning Web</h5>
+                            <h5 className="text-2xl font-serif font-black text-slate-900">Modern tech stack based on secure and reliable Google Technologies, Context Graphs, Deep Integrations</h5>
                         </div>
-                        <p className="text-slate-500 font-medium leading-relaxed">Focus: A multi-layered reasoning web that connects fragmented data into a single source of truth.</p>
-
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <div className="space-y-3 p-6 bg-slate-50 rounded-3xl border border-slate-100">
                                 <h6 className="font-black text-xs text-slate-900">Reasoning Web (Context Graph)</h6>

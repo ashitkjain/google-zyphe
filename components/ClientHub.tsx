@@ -53,6 +53,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     const [explicitlySelectedClientId, setExplicitlySelectedClientId] = useState<string | undefined>(undefined);
     const toolsRef = useRef<HTMLDivElement>(null);
     const investorRef = useRef<HTMLDivElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     // Hooks
     const hubData = useHubData(realtorId, activeTab);
@@ -83,6 +84,12 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    useEffect(() => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTop = 0;
+        }
+    }, [activeTab]);
 
     const showHamburger = isMobile || isNarrow;
 
@@ -229,7 +236,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                 deleteUserAccount={deleteUserAccount}
             />
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50">
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50">
                 <div className="flex flex-col min-h-full">
                     <HubContent
                         activeTab={activeTab}
