@@ -418,24 +418,72 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                     <div className="space-y-4 flex-1">
                         <h3 className="text-3xl font-serif font-black text-slate-900">The Zyphe Product Ecosystem</h3>
                         <div className="text-slate-500 font-medium leading-relaxed space-y-4">
-                            <p>
-                                <strong className="text-slate-900">Built on a 3-pillar product foundation: Experience, Functionality, and Technology.</strong> This architecture ensures every data point—from listing photos to buyer behaviors—is unified into a single ecosystem of intelligence.
+                            <p className="text-sm md:text-base">
+                                <strong className="text-slate-900">Built on a 3-pillar product foundation: </strong>
+                                <button
+                                    onClick={() => { setActiveTab?.('product_market_fit'); onNavigate?.('product_market_fit', '/realtor/product_market_fit'); }}
+                                    className="text-indigo-600 font-black hover:underline underline-offset-4"
+                                >
+                                    Experience
+                                </button>
+                                <strong className="text-slate-900">, </strong>
+                                <button
+                                    onClick={() => { setActiveTab?.('product_market_fit'); onNavigate?.('product_market_fit', '/realtor/product_market_fit'); }}
+                                    className="text-indigo-600 font-black hover:underline underline-offset-4"
+                                >
+                                    Functionality
+                                </button>
+                                <strong className="text-slate-900">, and </strong>
+                                <button
+                                    onClick={() => { setActiveTab?.('product_market_fit'); onNavigate?.('product_market_fit', '/realtor/product_market_fit'); }}
+                                    className="text-indigo-600 font-black hover:underline underline-offset-4"
+                                >
+                                    Technology
+                                </button>
+                                <strong className="text-slate-900">.</strong> This architecture ensures every data point—from listing photos to buyer behaviors—is unified into a single ecosystem of intelligence.
                             </p>
                             <p>
                                 Zyphe is designed to eliminate the <strong className="text-slate-900">"admin tax"</strong> and modernize the real estate lifecycle through an AI-native ecosystem:
                             </p>
                             <ul className="space-y-2">
-                                <li className="flex gap-2">
+                                <li className="flex gap-2 text-sm md:text-base">
                                     <span className="text-indigo-600 font-black">•</span>
-                                    <span><strong className="text-slate-900">Pillar 1 (Experience):</strong> Delightful, intuitive interfaces featuring universal data ingestion and conversational commands that streamline the "Home Story" journey.</span>
+                                    <span>
+                                        <strong className="text-slate-900">Pillar 1 (</strong>
+                                        <button
+                                            onClick={() => { setActiveTab?.('product_market_fit'); onNavigate?.('product_market_fit', '/realtor/product_market_fit'); }}
+                                            className="text-indigo-600 font-black hover:underline underline-offset-4"
+                                        >
+                                            Experience
+                                        </button>
+                                        <strong className="text-slate-900">):</strong> Delightful, intuitive interfaces featuring universal data ingestion and conversational commands that streamline the "Home Story" journey.
+                                    </span>
                                 </li>
-                                <li className="flex gap-2">
+                                <li className="flex gap-2 text-sm md:text-base">
                                     <span className="text-indigo-600 font-black">•</span>
-                                    <span><strong className="text-slate-900">Pillar 2 (Functionality):</strong> A "business-in-a-box" suite, leveraging vision and spatial AI for property analysis alongside a proactive reactivation engine that mines dormant leads.</span>
+                                    <span>
+                                        <strong className="text-slate-900">Pillar 2 (</strong>
+                                        <button
+                                            onClick={() => { setActiveTab?.('product_market_fit'); onNavigate?.('product_market_fit', '/realtor/product_market_fit'); }}
+                                            className="text-indigo-600 font-black hover:underline underline-offset-4"
+                                        >
+                                            Functionality
+                                        </button>
+                                        <strong className="text-slate-900">):</strong> A "business-in-a-box" suite, leveraging vision and spatial AI for property analysis alongside a proactive reactivation engine that mines dormant leads.
+                                    </span>
                                 </li>
-                                <li className="flex gap-2">
+                                <li className="flex gap-2 text-sm md:text-base">
                                     <span className="text-indigo-600 font-black">•</span>
-                                    <span><strong className="text-slate-900">Pillar 3 (Technology):</strong> A high-velocity architecture powered by Google technologies and a proprietary Context Graph that unifies visual, geospatial, and behavioral data into a single, grounded source of truth.</span>
+                                    <span>
+                                        <strong className="text-slate-900">Pillar 3 (</strong>
+                                        <button
+                                            onClick={() => { setActiveTab?.('product_market_fit'); onNavigate?.('product_market_fit', '/realtor/product_market_fit'); }}
+                                            className="text-indigo-600 font-black hover:underline underline-offset-4"
+                                        >
+                                            Technology
+                                        </button>
+                                        <strong className="text-slate-900">):</strong> A high-velocity architecture powered by Google technologies and a proprietary Context Graph that unifies visual, geospatial, and behavioral data into a single, grounded source of truth.
+                                    </span>
                                 </li>
                             </ul>
                         </div>
