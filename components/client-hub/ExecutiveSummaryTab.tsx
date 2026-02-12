@@ -52,7 +52,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                         Zyphe: The AI-Powered <span className="text-indigo-600">Real Estate Operating System</span>
                     </h1>
                     <p className="text-xl text-slate-500 font-medium max-w-3xl leading-relaxed">
-                        Unifying the fragmented property journey through multimodal intelligence and automated transaction management to unlock a 110-180B$ opportunity (
+                        Unifying the fragmented property journey through multimodal intelligence and a unified platform to unlock a 110-180B$ opportunity (
                         <button
                             onClick={() => {
                                 setActiveTab?.('industry_research');
@@ -60,7 +60,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                             }}
                             className="text-indigo-600 font-bold hover:underline"
                         >
-                            industry research
+                            Industry Research
                         </button>
                         ).
                     </p>
@@ -156,7 +156,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <h4 className="text-lg font-black text-slate-900">For Realtors</h4>
                             </div>
                             <p className="text-sm text-slate-500 leading-relaxed">
-                                Workflow is scattered across legacy systems. Many agents—particularly in rural areas—are underserved by modern tech and lack the specialized skills required for advanced database queries.
+                                Workflow is scattered across legacy systems. Many agents are underserved by modern tech and lack the specialized skills required for leveraging AI.
                             </p>
                         </div>
                     </div>
@@ -176,7 +176,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         {/* Enabler 1 */}
                         <div className="p-8 border border-slate-200 rounded-[2.5rem] bg-white hover:border-indigo-200 transition-all group flex flex-col h-full shadow-sm hover:shadow-md">
-                            <div className="flex items-center gap-4 mb-6">
+                            <div className="flex items-center gap-4 mb-4">
                                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                     <i className="fa-solid fa-brain text-xl"></i>
                                 </div>
@@ -203,7 +203,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
 
                         {/* Enabler 2 */}
                         <div className="p-8 border border-slate-200 rounded-[2.5rem] bg-white hover:border-indigo-200 transition-all group flex flex-col h-full shadow-sm hover:shadow-md">
-                            <div className="flex items-center gap-4 mb-6">
+                            <div className="flex items-center gap-4 mb-4">
                                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                     <i className="fa-solid fa-gauge-high text-xl"></i>
                                 </div>
@@ -230,7 +230,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
 
                         {/* Enabler 3 */}
                         <div className="p-8 border border-slate-200 rounded-[2.5rem] bg-white hover:border-indigo-200 transition-all group flex flex-col h-full shadow-sm hover:shadow-md">
-                            <div className="flex items-center gap-4 mb-6">
+                            <div className="flex items-center gap-4 mb-4">
                                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                     <i className="fa-solid fa-file-shield text-xl"></i>
                                 </div>
@@ -281,41 +281,49 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                         <p className="text-slate-500 font-medium">Our strategy focuses on capturing the "under-teched" mass market by removing the barriers of cost and complexity.</p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="p-8 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group">
-                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                                    <i className="fa-solid fa-chart-line text-xl"></i>
+                            <div className="p-8 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group flex flex-col">
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
+                                        <i className="fa-solid fa-chart-line text-lg"></i>
+                                    </div>
+                                    <h5 className="text-lg font-black text-slate-900 leading-tight">Alpha-Generating Innovation</h5>
                                 </div>
-                                <h5 className="text-lg font-black text-slate-900 mb-3">Alpha-Generating Innovation</h5>
                                 <p className="text-sm text-slate-500 leading-relaxed">
                                     We deploy high-impact features like Visual AI, Context Graphs, and GenAI-driven lead conversion and reactivation. These tools can transform high value applications from personalized and contextual search to post-closing engagement and reactivation.
                                 </p>
                             </div>
 
-                            <div className="p-8 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group">
-                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                                    <i className="fa-solid fa-plug-circle-check text-xl"></i>
+                            <div className="p-8 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group flex flex-col">
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
+                                        <i className="fa-solid fa-plug-circle-check text-lg"></i>
+                                    </div>
+                                    <h5 className="text-lg font-black text-slate-900 leading-tight">Zero-Friction Integration</h5>
                                 </div>
-                                <h5 className="text-lg font-black text-slate-900 mb-3">Zero-Friction Integration</h5>
                                 <p className="text-sm text-slate-500 leading-relaxed">
                                     To drive immediate market penetration, our "plug and play" architecture eliminates the switching costs typically associated with new tech. We integrate into existing workflows without requiring process overhauls, ensuring rapid, scalable adoption.
                                 </p>
                             </div>
 
-                            <div className="p-8 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group">
-                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                                    <i className="fa-solid fa-gears text-xl"></i>
+                            <div className="p-8 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group flex flex-col">
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
+                                        <i className="fa-solid fa-gears text-lg"></i>
+                                    </div>
+                                    <h5 className="text-lg font-black text-slate-900 leading-tight">High-Margin Operational Efficiency</h5>
                                 </div>
-                                <h5 className="text-lg font-black text-slate-900 mb-3">High-Margin Operational Efficiency</h5>
                                 <p className="text-sm text-slate-500 leading-relaxed">
                                     Our "AI + Human" hybrid model utilizes AI-assisted coding to slash R&D timelines and offshore administrative staff to guarantee data accuracy. This allows us to offer premium, enterprise-grade solutions at a price point that unlocks the broader mid-market.
                                 </p>
                             </div>
 
-                            <div className="p-8 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group">
-                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                                    <i className="fa-solid fa-rocket text-xl"></i>
+                            <div className="p-8 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group flex flex-col">
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
+                                        <i className="fa-solid fa-rocket text-lg"></i>
+                                    </div>
+                                    <h5 className="text-lg font-black text-slate-900 leading-tight">Organic Growth</h5>
                                 </div>
-                                <h5 className="text-lg font-black text-slate-900 mb-3">Organic Growth</h5>
                                 <p className="text-sm text-slate-500 leading-relaxed">
                                     By delivering synchronized value to the entire real estate ecosystem—buyers, sellers, and agents—Zyphe generates the network effects necessary for compounded organic growth.
                                 </p>
@@ -411,19 +419,25 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                         </div>
                         <p className="text-slate-500 font-medium leading-relaxed">Focus: Making data entry a byproduct of conversation, not a manual burden for realtors.</p>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
-                            <div className="p-6 bg-slate-50 rounded-3xl space-y-3">
-                                <i className="fa-solid fa-file-import text-indigo-500"></i>
-                                <h6 className="font-black text-xs text-slate-900">Universal Ingest</h6>
+                            <div className="p-6 bg-slate-50 rounded-3xl space-y-2">
+                                <div className="flex items-center gap-3">
+                                    <i className="fa-solid fa-file-import text-indigo-500 flex-none text-sm"></i>
+                                    <h6 className="font-black text-xs text-slate-900">Universal Ingest</h6>
+                                </div>
                                 <p className="text-[11px] text-slate-500 leading-relaxed font-medium">Instantly sanitizes and maps legacy CSVs, PDFs, and CRM data.</p>
                             </div>
-                            <div className="p-6 bg-slate-50 rounded-3xl space-y-3">
-                                <i className="fa-solid fa-comment-dots text-indigo-500"></i>
-                                <h6 className="font-black text-xs text-slate-900">Conversational Command</h6>
+                            <div className="p-6 bg-slate-50 rounded-3xl space-y-2">
+                                <div className="flex items-center gap-3">
+                                    <i className="fa-solid fa-comment-dots text-indigo-500 flex-none text-sm"></i>
+                                    <h6 className="font-black text-xs text-slate-900">Conversational Command</h6>
+                                </div>
                                 <p className="text-[11px] text-slate-500 leading-relaxed font-medium">Natural language for platform action and agentic task execution via chatbot.</p>
                             </div>
-                            <div className="p-6 bg-slate-50 rounded-3xl space-y-3">
-                                <i className="fa-solid fa-book-open text-indigo-500"></i>
-                                <h6 className="font-black text-xs text-slate-900">"Home Story" Portal</h6>
+                            <div className="p-6 bg-slate-50 rounded-3xl space-y-2">
+                                <div className="flex items-center gap-3">
+                                    <i className="fa-solid fa-book-open text-indigo-500 flex-none text-sm"></i>
+                                    <h6 className="font-black text-xs text-slate-900">"Home Story" Portal</h6>
+                                </div>
                                 <p className="text-[11px] text-slate-500 leading-relaxed font-medium">Intuitive "all-in-one" journey preventing manual data copy and entry.</p>
                             </div>
                         </div>
