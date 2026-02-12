@@ -134,74 +134,124 @@ const PostCloseIntelligenceTab: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                    <div className="lg:col-span-2 space-y-6">
-                        <div className="bg-white rounded-3xl p-8 shadow-sm">
-                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
-                                <i className="fa-solid fa-calendar-check text-indigo-500"></i>
-                                Digital Maintenance Roadmap
-                            </h4>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left">
-                                    <thead>
-                                        <tr className="text-[10px] font-black uppercase text-slate-400 border-b border-slate-50">
-                                            <th className="pb-4">System</th>
-                                            <th className="pb-4">Status</th>
-                                            <th className="pb-4">Action Required</th>
-                                            <th className="pb-4">Schedule</th>
+                <div className="space-y-8">
+                    {/* 1. Full-Width Roadmap */}
+                    <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100">
+                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+                            <i className="fa-solid fa-calendar-check text-indigo-500"></i>
+                            Digital Maintenance Roadmap
+                        </h4>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="text-[10px] font-black uppercase text-slate-400 border-b border-slate-50">
+                                        <th className="pb-4">System</th>
+                                        <th className="pb-4">Status</th>
+                                        <th className="pb-4">Action Required</th>
+                                        <th className="pb-4">Schedule</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {roadmapData.map((row, i) => (
+                                        <tr key={i} className="text-[11px] font-medium text-slate-600">
+                                            <td className="py-4 font-black text-slate-900">{row.system}</td>
+                                            <td className="py-4">{row.status}</td>
+                                            <td className="py-4 text-indigo-600">{row.action}</td>
+                                            <td className="py-4 font-bold text-slate-900">{row.schedule}</td>
                                         </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {roadmapData.map((row, i) => (
-                                            <tr key={i} className="text-[11px] font-medium text-slate-600">
-                                                <td className="py-4 font-black text-slate-900">{row.system}</td>
-                                                <td className="py-4">{row.status}</td>
-                                                <td className="py-4 text-indigo-600">{row.action}</td>
-                                                <td className="py-4 font-bold text-slate-900">{row.schedule}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 
-                    <div className="space-y-6">
-                        <div className="bg-indigo-900 rounded-3xl p-8 text-white shadow-xl">
-                            <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-6 underline decoration-indigo-500/50 underline-offset-4">Financial Health</h4>
-                            <div className="space-y-6">
-                                <div className="flex justify-between items-end pb-4 border-b border-white/5">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase">Current Value</span>
-                                    <div className="text-right">
-                                        <div className="text-xl font-black">$1,262,000</div>
-                                        <div className="text-[8px] font-black text-emerald-400 uppercase">+1% Appreciation</div>
+                    {/* 2. Horizontal Services Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Financial Health & Equity */}
+                        <div className="bg-indigo-900 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden flex flex-col h-full">
+                            <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
+                                <i className="fa-solid fa-chart-line text-6xl text-indigo-400"></i>
+                            </div>
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-6 underline decoration-indigo-500/50 underline-offset-4">Financial Health & Equity</h4>
+                            <div className="space-y-6 relative z-10 flex-1">
+                                <p className="text-[10px] text-indigo-200 font-bold italic">"Your property is now a live asset. Here is its Day 30 performance."</p>
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-end pb-3 border-b border-white/5">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase">Current Est. Value</span>
+                                        <div className="text-right">
+                                            <div className="text-lg font-black text-emerald-400">$1,262,000</div>
+                                            <div className="text-[8px] font-black text-emerald-400 uppercase">+1% Appreciation</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between items-end pb-3 border-b border-white/5">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase">Home Equity</span>
+                                        <div className="text-right">
+                                            <div className="text-lg font-black">$262,000</div>
+                                            <div className="text-[7px] font-bold text-slate-400">20% Down + Appreciation</div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex justify-between items-end pb-4 border-b border-white/5">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase">Home Equity</span>
-                                    <div className="text-xl font-black">$262,000</div>
-                                </div>
-                                <div className="bg-white/5 rounded-2xl p-4 space-y-2">
-                                    <span className="text-[9px] font-black text-emerald-400 uppercase">ROI Opportunity</span>
+                                <div className="bg-white/5 rounded-2xl p-4 space-y-2 border border-white/10">
+                                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">ROI Opportunity</span>
                                     <p className="text-[10px] text-slate-300 font-medium leading-relaxed italic">
-                                        "Primary Bath Refresh is projected to add $18k – $22k in value with an $8k spend."
+                                        "Completing the <strong className="text-white">Primary Bath Refresh</strong> is projected to add $18k–$22k in value."
                                     </p>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-3xl p-8 border border-slate-200">
-                            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Local Context</h4>
-                            <ul className="space-y-3">
-                                <li className="text-[10px] font-medium text-slate-600 flex items-start gap-3">
-                                    <i className="fa-solid fa-bell text-rose-500 mt-0.5"></i>
-                                    <span>Property Tax Alert: File Homeowner's Exemption by April.</span>
-                                </li>
-                                <li className="text-[10px] font-medium text-slate-600 flex items-start gap-3">
-                                    <i className="fa-solid fa-utensils text-amber-500 mt-0.5"></i>
-                                    <span>"Chaat Bhavan" weekend brunch is highly recommended!</span>
-                                </li>
-                            </ul>
+                        {/* Local Context & Settling In */}
+                        <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 space-y-6 flex flex-col h-full">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Local Context & "Settling In"</h4>
+                            <div className="space-y-5 flex-1">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center shrink-0">
+                                        <i className="fa-solid fa-calendar-day text-sm"></i>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <h5 className="text-[11px] font-black text-slate-900">Property Tax Alert</h5>
+                                        <p className="text-[9px] font-medium text-slate-500 leading-relaxed">File Homeowner's Exemption by <span className="text-rose-600 font-bold">April 10</span> to save ~$70.</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-4">
+                                    <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
+                                        <i className="fa-solid fa-utensils text-sm"></i>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <h5 className="text-[11px] font-black text-slate-900">Neighborhood Vibe</h5>
+                                        <p className="text-[9px] font-medium text-slate-500 leading-relaxed">"Chaat Bhavan" just launched a weekend brunch—highly recommended!</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-4">
+                                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
+                                        <i className="fa-solid fa-truck-front text-sm"></i>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <h5 className="text-[11px] font-black text-slate-900">Utility Sync</h5>
+                                        <p className="text-[9px] font-medium text-slate-500 leading-relaxed">Trash pickup is Tuesday.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Trusted Service Network */}
+                        <div className="bg-emerald-50 rounded-[2.5rem] p-8 border border-emerald-100 space-y-6 flex flex-col h-full">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Trusted Service Network</h4>
+                            <div className="space-y-4 flex-1">
+                                <div className="p-4 bg-white rounded-2xl border border-emerald-100 shadow-sm space-y-1">
+                                    <h5 className="text-[11px] font-black text-slate-900">HVAC Specialist</h5>
+                                    <p className="text-[10px] font-medium text-slate-600 leading-tight">Advanced Air Systems</p>
+                                    <p className="text-[8px] font-bold text-emerald-600 italic">"Mention my name for a free diagnostic"</p>
+                                </div>
+                                <div className="p-4 bg-white rounded-2xl border border-emerald-100 shadow-sm space-y-1">
+                                    <h5 className="text-[11px] font-black text-slate-900">Handyman</h5>
+                                    <p className="text-[10px] font-medium text-slate-600 leading-tight">Precision Home Pro</p>
+                                    <p className="text-[8px] font-bold text-emerald-600 italic">"Best for the gutter and filter tasks"</p>
+                                </div>
+                            </div>
+                            <p className="text-[9px] font-medium text-emerald-700 leading-relaxed italic mt-auto pt-4 border-t border-emerald-100/50">
+                                "Pre-vetted local partners who know your property type."
+                            </p>
                         </div>
                     </div>
                 </div>

@@ -156,7 +156,6 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         { id: 'industry_case_studies', label: 'Case Studies', icon: 'fa-book-open' },
         { id: 'unit_economics', label: 'Unit Economics', icon: 'fa-calculator' },
         { id: 'technical_papers', label: 'Technical Papers', icon: 'fa-file-invoice' },
-        { id: 'technical_media', label: 'Technical Media', icon: 'fa-clapperboard' },
     ];
 
     useEffect(() => {

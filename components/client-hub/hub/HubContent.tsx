@@ -192,6 +192,8 @@ const HubContent: React.FC<HubContentProps> = ({
 
             {(activeTab === 'technical_papers' || activeTab === 'technical_papers_recommender' || activeTab === 'technical_papers_context_graph') && (
                 <TechnicalPapersTab
+                    setActiveTab={setActiveTab}
+                    onNavigate={onNavigate}
                     initialPaper={
                         activeTab === 'technical_papers_context_graph'
                             ? 'context_graph'

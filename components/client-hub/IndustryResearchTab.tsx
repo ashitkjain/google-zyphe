@@ -15,7 +15,6 @@ const IndustryResearchTab: React.FC = () => {
         { category: 'CRM', leaders: 'Follow Up Boss, kvCORE', pricing: '$60 - $500', gap: 'Few tools "mine" old databases with AI.' },
         { category: 'Web Presence', leaders: 'Luxury Presence, Chime', pricing: '$200 - $1,500', gap: 'Static search; need neighborhood sentiment scores.' },
         { category: 'Closing', leaders: 'SkySlope, Dotloop', pricing: '$30 - $100', gap: 'No bridge from "Sold" to "Home Intelligence".' },
-        { category: 'Maps', leaders: 'Matterport, Cape Analytics', pricing: 'API / Project', gap: 'No current AI geo-spatial intelligence.' },
     ];
 
     return (
@@ -62,12 +61,12 @@ const IndustryResearchTab: React.FC = () => {
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {metrics.map((m, i) => (
-                            <div key={i} className="bg-slate-900 rounded-[2rem] p-7 text-white relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-2xl rounded-full -mr-16 -mt-16 group-hover:bg-indigo-500/20 transition-colors"></div>
-                                <div className="relative z-10 flex flex-col gap-1.5">
-                                    <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">{m.label}</span>
-                                    <div className="text-3xl font-black">{m.value}</div>
-                                    <p className="text-xs text-slate-400 font-medium mt-2 leading-relaxed">{m.context}</p>
+                            <div key={i} className="bg-white border border-slate-200 rounded-[1.5rem] p-6 shadow-sm hover:border-indigo-200 transition-all relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 blur-2xl rounded-full -mr-12 -mt-12 group-hover:bg-indigo-500/10 transition-colors"></div>
+                                <div className="relative z-10 flex flex-col gap-1">
+                                    <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">{m.label}</span>
+                                    <div className="text-2xl font-black text-slate-900">{m.value}</div>
+                                    <p className="text-[10px] text-slate-500 font-medium mt-1 leading-relaxed">{m.context}</p>
                                 </div>
                             </div>
                         ))}

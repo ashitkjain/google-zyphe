@@ -483,6 +483,47 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
 
             </section>
 
+            {/* Why would Zyphe succeed? */}
+            <section className="space-y-12 bg-slate-50/50 rounded-[3rem] p-12 border border-slate-200/50">
+                <div className="space-y-4 text-center max-w-3xl mx-auto">
+                    <h3 className="text-4xl font-serif font-black text-slate-900 tracking-tight">Why would <span className="text-indigo-600">Zyphe</span> succeed?</h3>
+                    <p className="text-slate-500 font-medium">A unique convergence of technology, timing, and economic efficiency.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {[
+                        { title: "Fixing a Broken Industry", desc: "We bridge the gap created by outdated, fragmented legacy systems that frustrate realtors, buyers, and sellers alike.", icon: "fa-linked-slash" },
+                        { title: "Ultra-low unit economics", desc: "By utilizing GenAI, AI-assisted development, and modern cloud architecture, we've achieved ultra-low unit economics that legacy competitors can't match.", icon: "fa-chart-pie" },
+                        { title: "The Unified Solution", desc: "We eliminate data silos with an all-in-one platform that harmonizes existing tools and cleans up the 'data mess' inherent in real estate.", icon: "fa-layer-group" },
+                        { title: "Hybrid Productivity", desc: "Our offshore back-office leverages a blend of AI and human expertise to deliver high-output services at a fraction of the cost.", icon: "fa-users-gear" },
+                        { title: "Democratizing AI", desc: "We provide 'AI-as-a-Service', empowering underserved boutique brokerages to compete with industry giants under a 'Powered by AI' brand.", icon: "fa-microchip" },
+                        { title: "Next-Gen AI Innovation", desc: "From geo-spatial AI and context graphs to automated lead reactivation, all digital closing and post-close engagement—we deliver the tech real estate has been waiting for.", icon: "fa-wand-magic-sparkles" },
+                        { title: "Relentless Evolution", desc: "At Zyphe, our pace of innovation is a permanent competitive advantage.", icon: "fa-rocket-launch" }
+                    ].map((point, i) => (
+                        <div key={i} className={`p-8 bg-white border border-slate-200 rounded-3xl shadow-sm hover:border-indigo-200 transition-all group ${i === 6 ? 'md:col-span-2 lg:col-span-1' : ''}`}>
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                    <i className={`fa-solid ${point.icon}`}></i>
+                                </div>
+                                <h4 className="text-lg font-black text-slate-900">{point.title}</h4>
+                            </div>
+                            <p className="text-sm text-slate-500 font-medium leading-relaxed">{point.desc}</p>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="max-w-4xl mx-auto pt-8">
+                    <div className="bg-indigo-600 rounded-[2.5rem] p-10 text-white relative overflow-hidden text-center shadow-xl shadow-indigo-100">
+                        <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+                            <i className="fa-solid fa-bolt-lightning text-8xl text-indigo-400"></i>
+                        </div>
+                        <p className="text-xl font-medium leading-relaxed relative z-10 italic">
+                            "While big companies will also be thinking about this, Zyphe will leapfrog them by rapid and low cost innovation that will extend this to untapped markets in a big industry"
+                        </p>
+                    </div>
+                </div>
+            </section>
+
             {/* Footer / Contact */}
             <section className="text-center pt-8 border-t border-slate-100 italic text-slate-400 font-medium text-sm">
                 "Not just a database. An ecosystem of intelligence."

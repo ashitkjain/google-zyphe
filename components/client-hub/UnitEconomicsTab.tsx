@@ -12,20 +12,20 @@ const UnitEconomicsTab: React.FC = () => {
                 <h1 className="text-5xl font-serif font-black text-slate-900 leading-[1.1] tracking-tight max-w-5xl">
                     High-Margin <span className="text-indigo-600">Unit Economics</span>
                 </h1>
-                <p className="text-xl text-slate-500 font-medium max-w-3xl leading-relaxed">
+                <p className="text-xl text-slate-500 font-medium leading-relaxed">
                     By leveraging advanced GenAI efficiency and offshore operational models, Zyphe achieves enterprise-grade innovation at a fraction of traditional R&D costs.
                 </p>
             </header>
 
-            <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* 1. Model Pricing */}
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* 1. Gemini Model Efficiency */}
                 <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm hover:border-indigo-200 transition-all flex flex-col space-y-8">
                     <div className="space-y-2">
                         <h3 className="text-2xl font-serif font-black text-slate-900">Gemini Model Efficiency</h3>
                         <p className="text-sm text-slate-500 font-medium">Pricing per 1M tokens (Standard Market Rates)</p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-6">
                         <div className="p-6 bg-slate-50 rounded-3xl space-y-4 border border-slate-100">
                             <div className="flex items-center justify-between">
                                 <h4 className="font-black text-xs text-indigo-600 uppercase tracking-widest">Gemini 2.5 Flash</h4>
@@ -35,10 +35,6 @@ const UnitEconomicsTab: React.FC = () => {
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-slate-500 font-medium font-sans">Input (Text/Img/Vid)</span>
                                     <span className="font-black text-slate-900">$0.30</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-slate-500 font-medium font-sans">Input (Audio)</span>
-                                    <span className="font-black text-slate-900">$1.00</span>
                                 </div>
                                 <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm">
                                     <span className="text-slate-900 font-black font-sans uppercase text-[10px]">Output (+ Thinking)</span>
@@ -57,10 +53,6 @@ const UnitEconomicsTab: React.FC = () => {
                                     <span className="text-slate-500 font-medium font-sans">Input (Text/Img/Vid)</span>
                                     <span className="font-black text-slate-900">$0.10</span>
                                 </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-slate-500 font-medium font-sans">Input (Audio)</span>
-                                    <span className="font-black text-slate-900">$0.30</span>
-                                </div>
                                 <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm">
                                     <span className="text-slate-900 font-black font-sans uppercase text-[10px]">Output (+ Thinking)</span>
                                     <span className="font-black text-slate-400">$0.40</span>
@@ -70,29 +62,37 @@ const UnitEconomicsTab: React.FC = () => {
                     </div>
                 </div>
 
-                {/* 2. Operational Cost Breakdown */}
+                {/* 2. Core Operational Costs */}
                 <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white shadow-2xl relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
                         <i className="fa-solid fa-calculator text-8xl text-indigo-400"></i>
                     </div>
 
                     <div className="relative space-y-8">
-                        <h3 className="text-2xl font-serif font-black text-white">Cost per Transactional Unit</h3>
+                        <h3 className="text-2xl font-serif font-black text-white">Platform Core</h3>
 
                         <div className="space-y-6">
                             <div className="flex gap-4 items-start">
                                 <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 flex-none"><i className="fa-solid fa-house-circle-check"></i></div>
                                 <div className="space-y-1">
                                     <h5 className="font-black text-sm">Property Analysis: ~$0.20</h5>
-                                    <p className="text-xs text-slate-400 font-medium leading-relaxed">Intelligence core analyzing ~50 images per property using cached results. Enabling context-aware synthesis for pennies.</p>
+                                    <p className="text-xs text-slate-400 font-medium leading-relaxed">Analyzing ~50 images per property using cached results. Enabling context-aware synthesis.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4 items-start">
+                                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 flex-none"><i className="fa-solid fa-robot"></i></div>
+                                <div className="space-y-1">
+                                    <h5 className="font-black text-sm">Chatbot Interactivity: 0.1¢ / msg</h5>
+                                    <p className="text-xs text-slate-400 font-medium leading-relaxed">Agentic queries using Flash Lite. Hyper-low transactional cost per user session.</p>
                                 </div>
                             </div>
 
                             <div className="flex gap-4 items-start">
                                 <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 flex-none"><i className="fa-solid fa-comment-dots"></i></div>
                                 <div className="space-y-1">
-                                    <h5 className="font-black text-sm">Chatbot Interactivity: 0.1¢ / msg</h5>
-                                    <p className="text-xs text-slate-400 font-medium leading-relaxed">Each agentic query costs roughly 0.1 cents (based on 10K tokens at $0.10/M tokens).</p>
+                                    <h5 className="font-black text-sm">Communication (Telnyx): $0.001 / msg</h5>
+                                    <p className="text-xs text-slate-400 font-medium leading-relaxed">SMS/Voice overhead allowing for massive reach at minimal scale. $1/mo per number.</p>
                                 </div>
                             </div>
 
@@ -100,7 +100,55 @@ const UnitEconomicsTab: React.FC = () => {
                                 <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 flex-none"><i className="fa-solid fa-cloud"></i></div>
                                 <div className="space-y-1">
                                     <h5 className="font-black text-sm">Infrastructure: Near-Zero</h5>
-                                    <p className="text-xs text-slate-400 font-medium leading-relaxed">Google Cloud native. Small overall data footprint (maps/images) makes scaling highly efficient.</p>
+                                    <p className="text-xs text-slate-400 font-medium leading-relaxed">Small data footprint makes scaling efficient across Google Cloud native services.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 3. Fully Digital Closing Services */}
+                <div className="bg-emerald-950 rounded-[2.5rem] p-10 text-white shadow-2xl relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
+                        <i className="fa-solid fa-signature text-8xl text-emerald-400"></i>
+                    </div>
+
+                    <div className="relative space-y-8">
+                        <div className="space-y-2">
+                            <h3 className="text-2xl font-serif font-black text-white italic">Digital Closing</h3>
+                            <p className="text-xs text-emerald-400/60 font-black uppercase tracking-widest">Transaction Refined</p>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div className="flex gap-4 items-start">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 flex-none"><i className="fa-solid fa-file-signature"></i></div>
+                                <div className="space-y-1">
+                                    <h5 className="font-black text-sm">E-Signatures (SignNow): $0.15 / doc</h5>
+                                    <p className="text-xs text-slate-400 font-medium leading-relaxed">Legally binding digital execution via enterprise API. Fractional transactional cost.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4 items-start">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 flex-none"><i className="fa-solid fa-video"></i></div>
+                                <div className="space-y-1">
+                                    <h5 className="font-black text-sm">Remote Notarization: ~$25 / session</h5>
+                                    <p className="text-xs text-slate-400 font-medium leading-relaxed">RON sessions Eliminate physical travel and courier fees. Direct digital chain of custody.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4 items-start">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 flex-none"><i className="fa-solid fa-id-card"></i></div>
+                                <div className="space-y-1">
+                                    <h5 className="font-black text-sm">Identity (KYC): $1.50 / check</h5>
+                                    <p className="text-xs text-slate-400 font-medium leading-relaxed">Biometric and document verification ensuring zero-fraud transactional security.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4 items-start">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 flex-none"><i className="fa-solid fa-vault"></i></div>
+                                <div className="space-y-1">
+                                    <h5 className="font-black text-sm">Asset Vaulting: $5.00 / closing</h5>
+                                    <p className="text-xs text-slate-400 font-medium leading-relaxed">Permanent eVault legal chain-of-custody (eOriginal) for the life of the asset.</p>
                                 </div>
                             </div>
                         </div>
@@ -116,28 +164,34 @@ const UnitEconomicsTab: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div className="p-8 bg-white border border-indigo-100 rounded-3xl shadow-sm space-y-4">
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><i className="fa-solid fa-bolt-lightning text-xl"></i></div>
-                        <div className="space-y-2">
-                            <h4 className="font-black text-slate-900">20X Dev Velocity</h4>
-                            <p className="text-sm text-slate-500 font-medium leading-relaxed">Antigravity Ultra licenses ($300/mo) support massive development compression, slasher R&D timelines.</p>
+                    <div className="p-8 bg-white border border-indigo-100 rounded-3xl shadow-sm space-y-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                                <i className="fa-solid fa-bolt-lightning text-xl"></i>
+                            </div>
+                            <h4 className="font-black text-slate-900 text-lg">20X Dev Velocity</h4>
                         </div>
+                        <p className="text-sm text-slate-500 font-medium leading-relaxed">Antigravity Ultra licenses ($300/mo) support massive development compression, slasher R&D timelines.</p>
                     </div>
 
-                    <div className="p-8 bg-white border border-indigo-100 rounded-3xl shadow-sm space-y-4">
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><i className="fa-solid fa-user-gear text-xl"></i></div>
-                        <div className="space-y-2">
-                            <h4 className="font-black text-slate-900">Offshore Hub</h4>
-                            <p className="text-sm text-slate-500 font-medium leading-relaxed">$500/mo per head for backoffice staff in India validating AI output and site data, ensuring 100% precision.</p>
+                    <div className="p-8 bg-white border border-indigo-100 rounded-3xl shadow-sm space-y-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                                <i className="fa-solid fa-user-gear text-xl"></i>
+                            </div>
+                            <h4 className="font-black text-slate-900 text-lg">Offshore Hub</h4>
                         </div>
+                        <p className="text-sm text-slate-500 font-medium leading-relaxed">$500/mo per head for backoffice staff in India validating AI output and site data, ensuring 100% precision.</p>
                     </div>
 
-                    <div className="p-8 bg-white border border-indigo-100 rounded-3xl shadow-sm space-y-4">
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><i className="fa-solid fa-network-wired text-xl"></i></div>
-                        <div className="space-y-2">
-                            <h4 className="font-black text-slate-900">Low-Cost API Ecosystem</h4>
-                            <p className="text-sm text-slate-500 font-medium leading-relaxed">Built using commodity data layers from Google, Radar, and rapidAPI to minimize vendor lock-in and cost.</p>
+                    <div className="p-8 bg-white border border-indigo-100 rounded-3xl shadow-sm space-y-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                                <i className="fa-solid fa-network-wired text-xl"></i>
+                            </div>
+                            <h4 className="font-black text-slate-900 text-lg">Low-Cost API Ecosystem</h4>
                         </div>
+                        <p className="text-sm text-slate-500 font-medium leading-relaxed">Built using commodity data layers from Google, Radar, and RapidAPI to minimize vendor lock-in and cost.</p>
                     </div>
                 </div>
             </section>

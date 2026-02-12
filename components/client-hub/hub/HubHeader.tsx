@@ -104,15 +104,36 @@ const HubHeader: React.FC<HubHeaderProps> = ({
                                         if (tab.id === 'technical_papers') {
                                             return (
                                                 <div key={tab.id} className="relative group/tech">
-                                                    <button className={`w-full flex items-center justify-between gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 ${(activeTab === 'post_close_intelligence' || activeTab.includes('technical_papers')) ? 'text-indigo-600' : 'text-slate-500'}`}>
+                                                    <button className={`w-full flex items-center justify-between gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 ${(activeTab === 'post_close_intelligence' || activeTab.includes('technical_papers') || activeTab === 'technical_media') ? 'text-indigo-600' : 'text-slate-500'}`}>
                                                         <div className="flex items-center gap-4">
-                                                            <i className={`fa-solid ${tab.icon} w-4 text-center ${(activeTab === 'post_close_intelligence' || activeTab.includes('technical_papers')) ? 'text-indigo-600' : 'text-slate-400'}`}></i>
+                                                            <i className={`fa-solid ${tab.icon} w-4 text-center ${(activeTab === 'post_close_intelligence' || activeTab.includes('technical_papers') || activeTab === 'technical_media') ? 'text-indigo-600' : 'text-slate-400'}`}></i>
                                                             {tab.label}
                                                         </div>
-                                                        <i className="fa-solid fa-chevron-right text-[8px] text-slate-300 group-hover/tech:text-indigo-400"></i>
+                                                        <i className="fa-solid fa-chevron-right text-[8px] text-slate-500 group-hover/tech:text-indigo-400"></i>
                                                     </button>
 
                                                     <div className="absolute left-full top-[-12px] ml-1 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl py-3 z-[110] hidden group-hover/tech:block animate-in fade-in slide-in-from-left-2 duration-200">
+                                                        <button
+                                                            onClick={() => {
+                                                                setActiveTab('technical_papers_context_graph');
+                                                                setIsInvestorOpen(false);
+                                                                if (onNavigate) onNavigate('technical_papers_context_graph', '');
+                                                            }}
+                                                            className={`w-full flex items-center gap-4 px-5 py-3 text-[9px] font-black uppercase tracking-widest text-left transition-all hover:bg-slate-50 ${activeTab === 'technical_papers_context_graph' ? 'text-indigo-600' : 'text-slate-500'}`}
+                                                        >
+                                                            The Zyphe "Context Graph"
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setActiveTab('technical_papers_recommender');
+                                                                setIsInvestorOpen(false);
+                                                                if (onNavigate) onNavigate('technical_papers_recommender', '');
+                                                            }}
+                                                            className={`w-full flex items-center gap-4 px-5 py-3 text-[9px] font-black uppercase tracking-widest text-left transition-all hover:bg-slate-50 ${activeTab === 'technical_papers_recommender' ? 'text-indigo-600' : 'text-slate-500'}`}
+                                                        >
+                                                            Context based recommender
+                                                        </button>
+                                                        <div className="h-px bg-slate-50 my-1.5 mx-3"></div>
                                                         <button
                                                             onClick={() => {
                                                                 setActiveTab('post_close_intelligence');
@@ -126,23 +147,13 @@ const HubHeader: React.FC<HubHeaderProps> = ({
                                                         <div className="h-px bg-slate-50 my-1.5 mx-3"></div>
                                                         <button
                                                             onClick={() => {
-                                                                setActiveTab('technical_papers_recommender');
+                                                                setActiveTab('technical_media');
                                                                 setIsInvestorOpen(false);
-                                                                if (onNavigate) onNavigate('technical_papers_recommender', '');
+                                                                if (onNavigate) onNavigate('technical_media', '');
                                                             }}
-                                                            className={`w-full flex items-center gap-4 px-5 py-3 text-[9px] font-black uppercase tracking-widest text-left transition-all hover:bg-slate-50 ${activeTab === 'technical_papers_recommender' ? 'text-indigo-600' : 'text-slate-500'}`}
+                                                            className={`w-full flex items-center gap-4 px-5 py-3 text-[9px] font-black uppercase tracking-widest text-left transition-all hover:bg-slate-50 ${activeTab === 'technical_media' ? 'text-indigo-600' : 'text-slate-500'}`}
                                                         >
-                                                            Recommender System
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                setActiveTab('technical_papers_context_graph');
-                                                                setIsInvestorOpen(false);
-                                                                if (onNavigate) onNavigate('technical_papers_context_graph', '');
-                                                            }}
-                                                            className={`w-full flex items-center gap-4 px-5 py-3 text-[9px] font-black uppercase tracking-widest text-left transition-all hover:bg-slate-50 ${activeTab === 'technical_papers_context_graph' ? 'text-indigo-600' : 'text-slate-500'}`}
-                                                        >
-                                                            Vision & Proposal: The Zyphe "Context Graph"
+                                                            Technical Media
                                                         </button>
                                                     </div>
                                                 </div>
