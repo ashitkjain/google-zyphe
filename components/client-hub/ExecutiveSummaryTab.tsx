@@ -48,10 +48,10 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                     <span>v2.0 / 2026</span>
                 </div>
                 <div className="space-y-2">
-                    <h1 className="text-6xl font-serif font-black text-slate-900 leading-[1.1] tracking-tight max-w-5xl">
+                    <h1 className="text-6xl font-serif font-black text-slate-900 leading-[1.1] tracking-tight">
                         Zyphe: The AI-Powered <span className="text-indigo-600">Real Estate Operating System</span>
                     </h1>
-                    <p className="text-2xl text-slate-500 font-medium max-w-4xl leading-[1.6]">
+                    <p className="text-xl text-slate-500 font-medium leading-[1.6]">
                         Unifying the fragmented property journey through multimodal intelligence and a unified platform to unlock a $110B–$180B opportunity (
                         <button
                             onClick={() => {
