@@ -105,8 +105,9 @@ const ExecutiveSummaryTab: React.FC = () => {
                 </section>
             )}
 
-            {/* The Problem Section */}
-            <section className="space-y-12">
+            {/* Combined Context Section */}
+            <section className="space-y-24">
+                {/* 1. The Problem */}
                 <div className="space-y-8">
                     <h3 className="text-3xl font-serif font-black text-slate-900">The Problem</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 font-medium">
@@ -144,88 +145,15 @@ const ExecutiveSummaryTab: React.FC = () => {
                             </p>
                         </div>
                     </div>
-
-                    {/* Industry Validation & Market Drivers */}
-                    <div className="space-y-12">
-                        <div className="bg-indigo-50 p-8 rounded-[2.5rem] border border-indigo-100 flex flex-col lg:flex-row gap-12 items-start">
-                            <div className="space-y-6 flex-1">
-                                <div className="space-y-2">
-                                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Industry Validation</span>
-                                    <p className="text-xl font-serif font-black text-indigo-900 leading-snug">
-                                        NAR 2025: Realtors and clients view AI positively, but are frustrated by fragmented platforms and data silos ("The Swivel Chair" workflow).
-                                    </p>
-                                </div>
-                                <ul className="space-y-3">
-                                    <li className="flex items-start gap-3 text-[12px] text-indigo-800/70 font-medium leading-relaxed">
-                                        <i className="fa-solid fa-circle-check mt-1 text-[10px] text-indigo-400"></i>
-                                        <span>Only 38% of respondents agree that their Brokerage provides them with all the technology tools they need to be successful.</span>
-                                    </li>
-                                    <li className="flex items-start gap-3 text-[12px] text-indigo-800/70 font-medium leading-relaxed">
-                                        <i className="fa-solid fa-circle-check mt-1 text-[10px] text-indigo-400"></i>
-                                        <span>MLS Satisfaction: Median score of 3/5 (Neutral/Content), signaling a significant gap in high-performing core technology.</span>
-                                    </li>
-                                    <li className="flex items-start gap-3 text-[12px] text-indigo-800/70 font-medium leading-relaxed">
-                                        <i className="fa-solid fa-circle-check mt-1 text-[10px] text-indigo-400"></i>
-                                        <span>Emerging Tech Gap: Only 8% of Realtors feel proficient enough to teach others, while 59% are "still learning" and 34% have little to no usage.</span>
-                                    </li>
-                                    <li className="flex items-start gap-3 text-[12px] text-indigo-800/70 font-medium leading-relaxed">
-                                        <i className="fa-solid fa-circle-check mt-1 text-[10px] text-indigo-400"></i>
-                                        <span>GenAI Adoption: While 41% of Realtors have begun utilizing Generative AI, a significant 30% currently utilize no emerging technology tools at all.</span>
-                                    </li>
-                                </ul>
-                            </div>
-                            <div className="min-w-[280px] lg:border-l lg:border-indigo-200 lg:pl-12 space-y-8">
-                                <div className="space-y-1">
-                                    <span className="text-4xl font-black text-indigo-600">$180B</span>
-                                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">McKinsey GenAI Value Add</p>
-                                </div>
-                                <div className="space-y-4">
-                                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">AI Adoption Curve</span>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="p-4 bg-white/50 rounded-2xl border border-indigo-100/50">
-                                            <div className="text-2xl font-black text-indigo-600">20%</div>
-                                            <div className="text-[9px] font-black text-indigo-900/60 uppercase leading-none mt-1">Daily Usage<br />Velocity</div>
-                                        </div>
-                                        <div className="p-4 bg-white/50 rounded-2xl border border-indigo-100/50">
-                                            <div className="text-2xl font-black text-indigo-400">32%</div>
-                                            <div className="text-[9px] font-black text-indigo-900/40 uppercase leading-none mt-1">Untapped<br />Potential</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="space-y-4">
-                                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Primary Motivators</span>
-                                    <div className="space-y-3">
-                                        {[
-                                            { label: "Saving Time", val: 66 },
-                                            { label: "Improving client experience", val: 64 },
-                                            { label: "Closing more deals", val: 51 }
-                                        ].map((g, i) => (
-                                            <div key={i} className="space-y-1">
-                                                <div className="flex justify-between text-[10px] font-black text-indigo-900/60 uppercase">
-                                                    <span>{g.label}</span>
-                                                    <span>{g.val}%</span>
-                                                </div>
-                                                <div className="h-1.5 w-full bg-indigo-100 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${g.val}%` }} />
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
-            </section>
 
-            {/* The Opportunity Section */}
-            <section className="space-y-12">
+                {/* 2. The Opportunity */}
                 <div className="space-y-8">
                     <h3 className="text-3xl font-serif font-black text-slate-900">The Opportunity</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 font-medium">
                         <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
                             <div className="flex items-center gap-4 mb-4">
-                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors transition-colors">
+                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
                                     <i className="fa-solid fa-wand-magic-sparkles text-lg"></i>
                                 </div>
                                 <h4 className="text-lg font-black text-slate-900">Evolution of GenAI</h4>
@@ -236,7 +164,7 @@ const ExecutiveSummaryTab: React.FC = () => {
                         </div>
                         <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
                             <div className="flex items-center gap-4 mb-4">
-                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors transition-colors">
+                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
                                     <i className="fa-solid fa-code text-lg"></i>
                                 </div>
                                 <h4 className="text-lg font-black text-slate-900">AI Assisted Coding</h4>
@@ -247,7 +175,7 @@ const ExecutiveSummaryTab: React.FC = () => {
                         </div>
                         <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
                             <div className="flex items-center gap-4 mb-4">
-                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors transition-colors">
+                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
                                     <i className="fa-solid fa-shield-halved text-lg"></i>
                                 </div>
                                 <h4 className="text-lg font-black text-slate-900">Compliance & Data</h4>
@@ -255,6 +183,75 @@ const ExecutiveSummaryTab: React.FC = () => {
                             <p className="text-sm text-slate-500 leading-relaxed">
                                 With BBO, now applications can broadly use highly regulated MLS data like property photos. Also, a lot of data that buyers are interested in like Solar, Pollution, Street View is available through google APIs, and noise, crime, etc are available through other providers at a very low cost.
                             </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 3. Industry Validation */}
+                <div className="bg-indigo-50 p-8 rounded-[2.5rem] border border-indigo-100 flex flex-col lg:flex-row gap-12 items-start">
+                    <div className="space-y-6 flex-1">
+                        <div className="space-y-2">
+                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Industry Validation</span>
+                            <p className="text-xl font-serif font-black text-indigo-900 leading-snug">
+                                NAR 2025: Realtors and clients view AI positively, but are frustrated by fragmented platforms and data silos ("The Swivel Chair" workflow).
+                            </p>
+                        </div>
+                        <ul className="space-y-3">
+                            <li className="flex items-start gap-3 text-[12px] text-indigo-800/70 font-medium leading-relaxed">
+                                <i className="fa-solid fa-circle-check mt-1 text-[10px] text-indigo-400"></i>
+                                <span>Only 38% of respondents agree that their Brokerage provides them with all the technology tools they need to be successful.</span>
+                            </li>
+                            <li className="flex items-start gap-3 text-[12px] text-indigo-800/70 font-medium leading-relaxed">
+                                <i className="fa-solid fa-circle-check mt-1 text-[10px] text-indigo-400"></i>
+                                <span>MLS Satisfaction: Median score of 3/5 (Neutral/Content), signaling a significant gap in high-performing core technology.</span>
+                            </li>
+                            <li className="flex items-start gap-3 text-[12px] text-indigo-800/70 font-medium leading-relaxed">
+                                <i className="fa-solid fa-circle-check mt-1 text-[10px] text-indigo-400"></i>
+                                <span>Emerging Tech Gap: Only 8% of Realtors feel proficient enough to teach others, while 59% are "still learning" and 34% have little to no usage.</span>
+                            </li>
+                            <li className="flex items-start gap-3 text-[12px] text-indigo-800/70 font-medium leading-relaxed">
+                                <i className="fa-solid fa-circle-check mt-1 text-[10px] text-indigo-400"></i>
+                                <span>GenAI Adoption: While 41% of Realtors have begun utilizing Generative AI, a significant 30% currently utilize no emerging technology tools at all.</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div className="min-w-[280px] lg:border-l lg:border-indigo-200 lg:pl-12 space-y-8">
+                        <div className="space-y-1">
+                            <span className="text-4xl font-black text-indigo-600">$180B</span>
+                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">McKinsey GenAI Value Add</p>
+                        </div>
+                        <div className="space-y-4">
+                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">AI Adoption Curve</span>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-4 bg-white/50 rounded-2xl border border-indigo-100/50">
+                                    <div className="text-2xl font-black text-indigo-600">20%</div>
+                                    <div className="text-[9px] font-black text-indigo-900/60 uppercase leading-none mt-1">Daily Usage<br />Velocity</div>
+                                </div>
+                                <div className="p-4 bg-white/50 rounded-2xl border border-indigo-100/50">
+                                    <div className="text-2xl font-black text-indigo-400">32%</div>
+                                    <div className="text-[9px] font-black text-indigo-900/40 uppercase leading-none mt-1">Untapped<br />Potential</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Primary Motivators</span>
+                            <div className="space-y-3">
+                                {[
+                                    { label: "Saving Time", val: 66 },
+                                    { label: "Improving client experience", val: 64 },
+                                    { label: "Closing more deals", val: 51 }
+                                ].map((g, i) => (
+                                    <div key={i} className="space-y-1">
+                                        <div className="flex justify-between text-[10px] font-black text-indigo-900/60 uppercase">
+                                            <span>{g.label}</span>
+                                            <span>{g.val}%</span>
+                                        </div>
+                                        <div className="h-1.5 w-full bg-indigo-100 rounded-full overflow-hidden">
+                                            <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${g.val}%` }} />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
