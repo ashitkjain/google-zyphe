@@ -152,42 +152,97 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                     </div>
                 </div>
 
-                {/* 2. The Opportunity */}
-                <div className="space-y-8">
-                    <h3 className="text-3xl font-serif font-black text-slate-900">The Opportunity</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 font-medium">
-                        <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                    <i className="fa-solid fa-wand-magic-sparkles text-lg"></i>
+                {/* 2. Pivotal Enablers Section */}
+                <div className="space-y-12">
+                    <div className="space-y-4">
+                        <h3 className="text-3xl font-serif font-black text-slate-900 leading-snug">
+                            Pivotal Enablers: <span className="text-indigo-600">Capitalizing on the AI & Data Convergence</span>
+                        </h3>
+                        <p className="text-slate-600 font-medium leading-relaxed max-w-4xl">
+                            The real estate landscape has reached a technological inflection point. There is now a unique window to leverage three core enablers to disrupt the legacy status quo:
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Enabler 1 */}
+                        <div className="p-8 border border-slate-200 rounded-[2.5rem] bg-white hover:border-indigo-200 transition-all group flex flex-col h-full shadow-sm hover:shadow-md">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                    <i className="fa-solid fa-brain text-xl"></i>
                                 </div>
-                                <h4 className="text-lg font-black text-slate-900">Evolution of GenAI</h4>
+                                <h4 className="text-xl font-black text-slate-900 leading-tight">1. The Multi-Modal Intelligence Opportunity</h4>
                             </div>
-                            <p className="text-sm text-slate-500 leading-relaxed">
-                                GenAI is enabling multi-modal intelligence and deep research and reasoning that can solve problems in new and more effective ways, faster and at a much lower cost. For example we are building visual and geo spatial intelligence that powers recommendations and search, and intent mining in ways that wasn't possible.
+                            <p className="text-sm text-slate-500 leading-relaxed mb-6">
+                                Current PropTech is limited by rigid, text-based search. There is a massive opportunity to deploy Multi-Modal GenAI that synthesizes visual, geospatial, and behavioral data to solve industry problems with human-level reasoning.
                             </p>
+                            <div className="mt-auto space-y-4 pt-6 border-t border-slate-100">
+                                <div className="space-y-1">
+                                    <h5 className="text-[11px] font-black text-indigo-600 uppercase tracking-wider">Contextual Discovery</h5>
+                                    <p className="text-[12px] text-slate-600 font-medium leading-relaxed">
+                                        There is an opportunity to integrate Visual and Geospatial AI to power recommendations that understand the "vibe" and surroundings of a property—not just its bed/bath count.
+                                    </p>
+                                </div>
+                                <div className="space-y-1">
+                                    <h5 className="text-[11px] font-black text-indigo-600 uppercase tracking-wider">Predictive Intent</h5>
+                                    <p className="text-[12px] text-slate-600 font-medium leading-relaxed">
+                                        By leveraging deep reasoning, there is an opportunity to mine buyer intent and automate lead reactivation in ways that were technically impossible until now.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
-                        <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                    <i className="fa-solid fa-code text-lg"></i>
+
+                        {/* Enabler 2 */}
+                        <div className="p-8 border border-slate-200 rounded-[2.5rem] bg-white hover:border-indigo-200 transition-all group flex flex-col h-full shadow-sm hover:shadow-md">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                    <i className="fa-solid fa-gauge-high text-xl"></i>
                                 </div>
-                                <h4 className="text-lg font-black text-slate-900">AI Assisted Coding</h4>
+                                <h4 className="text-xl font-black text-slate-900 leading-tight">2. The 20X Efficiency Opportunity</h4>
                             </div>
-                            <p className="text-sm text-slate-500 leading-relaxed">
-                                With AI assisted coding, we can develop applications at a small fraction cost and time. Think 20X. This will enable deep integrations for ingest, seamless and delightful user experiences at a much lower price that will drive fast adoption.
+                            <p className="text-sm text-slate-500 leading-relaxed mb-6">
+                                The traditional high cost of software R&D is no longer a barrier to entry. With AI-assisted coding, there is an opportunity to compress the development lifecycle by a factor of 20.
                             </p>
+                            <div className="mt-auto space-y-4 pt-6 border-t border-slate-100">
+                                <div className="space-y-1">
+                                    <h5 className="text-[11px] font-black text-indigo-600 uppercase tracking-wider">Velocity as a Strategy</h5>
+                                    <p className="text-[12px] text-slate-600 font-medium leading-relaxed">
+                                        This efficiency creates an opportunity to develop deep, seamless integrations and high-fidelity user experiences at a fraction of the traditional cost.
+                                    </p>
+                                </div>
+                                <div className="space-y-1">
+                                    <h5 className="text-[11px] font-black text-indigo-600 uppercase tracking-wider">Market Democratization</h5>
+                                    <p className="text-[12px] text-slate-600 font-medium leading-relaxed">
+                                        Lower R&D overhead provides the opportunity to bring enterprise-grade technology to the broad market at a price point that drives immediate, friction-free adoption.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
-                        <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                    <i className="fa-solid fa-shield-halved text-lg"></i>
+
+                        {/* Enabler 3 */}
+                        <div className="p-8 border border-slate-200 rounded-[2.5rem] bg-white hover:border-indigo-200 transition-all group flex flex-col h-full shadow-sm hover:shadow-md">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                    <i className="fa-solid fa-file-shield text-xl"></i>
                                 </div>
-                                <h4 className="text-lg font-black text-slate-900">Compliance & Data</h4>
+                                <h4 className="text-xl font-black text-slate-900 leading-tight">3. The Data & Regulatory Opportunity</h4>
                             </div>
-                            <p className="text-sm text-slate-500 leading-relaxed">
-                                With BBO, now applications can broadly use highly regulated MLS data like property photos. Also, a lot of data that buyers are interested in like Solar, Pollution, Street View is available through google APIs, and noise, crime, etc are available through other providers at a very low cost.
+                            <p className="text-sm text-slate-500 leading-relaxed mb-6">
+                                Recent shifts in data policy and API availability have removed the final moats protecting legacy incumbents.
                             </p>
+                            <div className="mt-auto space-y-4 pt-6 border-t border-slate-100">
+                                <div className="space-y-1">
+                                    <h5 className="text-[11px] font-black text-indigo-600 uppercase tracking-wider">MLS Transparency</h5>
+                                    <p className="text-[12px] text-slate-600 font-medium leading-relaxed">
+                                        Through Brokerage Back Office (BBO) rights, there is now an opportunity to utilize highly regulated MLS data—including property imagery—to build more comprehensive consumer tools.
+                                    </p>
+                                </div>
+                                <div className="space-y-1">
+                                    <h5 className="text-[11px] font-black text-indigo-600 uppercase tracking-wider">360-Degree Context</h5>
+                                    <p className="text-[12px] text-slate-600 font-medium leading-relaxed">
+                                        There is an opportunity to aggregate low-cost, high-value data (Solar, Pollution, Crime, and Noise metrics) to provide a level of transparency that traditional platforms currently lack.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -242,7 +297,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 </div>
                                 <h5 className="text-lg font-black text-slate-900 mb-3">High-Margin Operational Efficiency</h5>
                                 <p className="text-sm text-slate-500 leading-relaxed">
-                                    Our "AI + Human" hybrid model utilizes AI-assisted coding to slash R&D timelines and offshore administrative experts to guarantee data accuracy. This allows us to offer premium, enterprise-grade solutions at a price point that unlocks the broader mid-market.
+                                    Our "AI + Human" hybrid model utilizes AI-assisted coding to slash R&D timelines and offshore administrative staff to guarantee data accuracy. This allows us to offer premium, enterprise-grade solutions at a price point that unlocks the broader mid-market.
                                 </p>
                             </div>
 
