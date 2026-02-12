@@ -2,9 +2,10 @@ import React from 'react';
 
 interface ExecutiveSummaryTabProps {
     setActiveTab?: (tab: any) => void;
+    onNavigate?: (view: any, path: string) => void;
 }
 
-const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab }) => {
+const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab, onNavigate }) => {
     const [featuredVideo, setFeaturedVideo] = React.useState<{ url: string, name: string, summary: string, timestamp: number } | null>(null);
     const [loading, setLoading] = React.useState(true);
     const [showPlayer, setShowPlayer] = React.useState(false);
@@ -198,7 +199,10 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab 
                         <p className="text-slate-600 font-medium leading-relaxed max-w-4xl">
                             While the real estate tech sector is beginning to address systemic inefficiencies through AI and data unification—as detailed in our{' '}
                             <button
-                                onClick={() => setActiveTab?.('industry_case_studies')}
+                                onClick={() => {
+                                    setActiveTab?.('industry_case_studies');
+                                    onNavigate?.(null, '../realtor/industry_case_studies');
+                                }}
                                 className="text-indigo-600 font-bold hover:underline"
                             >
                                 Industry Case Studies
