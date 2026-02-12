@@ -433,127 +433,26 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                     </div>
                 </div>
 
-                <div className="space-y-8">
-                    {/* Pillar 1: Experience */}
-                    <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 space-y-6 relative overflow-hidden group hover:border-indigo-200 transition-colors">
-                        <div className="absolute top-0 right-0 p-8 text-6xl font-black text-slate-50 group-hover:text-indigo-50 transition-colors">01</div>
-                        <div className="space-y-1">
-                            <h4 className="text-[12px] font-black uppercase tracking-[0.3em] text-indigo-600">Pillar 1: Experience</h4>
-                            <h5 className="text-3xl font-serif font-black text-slate-900">Delightful, engaging and intuitive experiences that remove the "admin" tax</h5>
+                <div className="bg-slate-900 rounded-[3rem] p-12 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full -mr-48 -mt-48 blur-3xl group-hover:bg-indigo-500/20 transition-colors" />
+                    <div className="relative z-10 flex flex-col items-center text-center space-y-8">
+                        <div className="space-y-4 max-w-2xl">
+                            <h4 className="text-indigo-400 font-black uppercase tracking-[0.3em] text-sm">Product Strategy & Roadmap</h4>
+                            <h3 className="text-4xl font-serif font-black text-white">The full Zyphe roadmap, architecture deep-dives and market fit analysis are available in the dedicated strategy hub.</h3>
+                            <p className="text-slate-400 text-lg font-medium leading-relaxed">
+                                Explore how our 3-pillar foundation (Experience, Functionality, Technology) scales across markets to create a high-margin, organic growth engine.
+                            </p>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
-                            <div className="p-5 bg-slate-50 rounded-3xl space-y-3">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
-                                        <i className="fa-solid fa-file-import text-sm"></i>
-                                    </div>
-                                    <h6 className="font-black text-sm text-slate-900">Universal Ingest</h6>
-                                </div>
-                                <p className="text-sm text-slate-500 leading-relaxed font-medium">Instantly sanitizes and maps legacy CSVs, PDFs, and CRM data.</p>
-                            </div>
-                            <div className="p-5 bg-slate-50 rounded-3xl space-y-3">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
-                                        <i className="fa-solid fa-comment-dots text-sm"></i>
-                                    </div>
-                                    <h6 className="font-black text-sm text-slate-900">Conversational Command</h6>
-                                </div>
-                                <p className="text-sm text-slate-500 leading-relaxed font-medium">Natural language for platform action and agentic task execution via chatbot.</p>
-                            </div>
-                            <div className="p-5 bg-slate-50 rounded-3xl space-y-3">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
-                                        <i className="fa-solid fa-book-open text-sm"></i>
-                                    </div>
-                                    <h6 className="font-black text-sm text-slate-900">"Home Story" Portal</h6>
-                                </div>
-                                <p className="text-sm text-slate-500 leading-relaxed font-medium">Intuitive "all-in-one" journey preventing manual data copy and entry.</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Pillar 2: Functionality */}
-                    <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 space-y-6 relative overflow-hidden group hover:border-indigo-200 transition-colors">
-                        <div className="absolute top-0 right-0 p-8 text-6xl font-black text-slate-50 group-hover:text-indigo-50 transition-colors">02</div>
-                        <div className="space-y-1">
-                            <h4 className="text-[12px] font-black uppercase tracking-[0.3em] text-indigo-600">Pillar 2: Functionality</h4>
-                            <h5 className="text-3xl font-serif font-black text-slate-900">A comprehensive suite of functionalities so users can find it all in one place</h5>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="flex gap-4 p-5 border border-slate-100 rounded-3xl bg-slate-50/50">
-                                <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 flex-none shadow-sm"><i className="fa-solid fa-box-archive text-lg"></i></div>
-                                <div className="space-y-1">
-                                    <h6 className="font-black text-base text-slate-900">All-in-One + Modular</h6>
-                                    <p className="text-sm text-slate-500 font-medium leading-relaxed">Complete "business-in-a-box" (CRM, IDX, Closing) or "no-friction" plug-in for legacy stacks.</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-4 p-5 border border-slate-100 rounded-3xl bg-slate-50/50">
-                                <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 flex-none shadow-sm"><i className="fa-solid fa-vr-cardboard text-lg"></i></div>
-                                <div className="space-y-1">
-                                    <h6 className="font-black text-base text-slate-900">Vision & Spatial AI</h6>
-                                    <p className="text-sm text-slate-500 font-medium leading-relaxed">Analyzes listing photos and maps for condition, geo-spatial intelligence, and neighborhood data.</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-4 p-5 border border-slate-100 rounded-3xl bg-slate-50/50">
-                                <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 flex-none shadow-sm"><i className="fa-solid fa-hand-holding-heart text-lg"></i></div>
-                                <div className="space-y-1">
-                                    <h6 className="font-black text-base text-slate-900">Post-Closing Engagement</h6>
-                                    <p className="text-sm text-slate-500 font-medium leading-relaxed">Transforms transaction data into Automated Maintenance Roadmaps and ROI trackers.</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-4 p-5 border border-slate-100 rounded-3xl bg-slate-50/50">
-                                <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 flex-none shadow-sm"><i className="fa-solid fa-seedling text-lg"></i></div>
-                                <div className="space-y-1">
-                                    <h6 className="font-black text-base text-slate-900">Reactivation Engine</h6>
-                                    <p className="text-sm text-slate-500 font-medium leading-relaxed">Agentic AI that proactively mines dormant databases to revive cold leads using market triggers.</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-4 p-5 border border-slate-100 rounded-3xl bg-slate-50/50">
-                                <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 flex-none shadow-sm"><i className="fa-solid fa-screwdriver-wrench text-lg"></i></div>
-                                <div className="space-y-1">
-                                    <h6 className="font-black text-base text-slate-900">Comprehensive Realtor Tools</h6>
-                                    <p className="text-sm text-slate-500 font-medium leading-relaxed">Calendar, tasks, scratchpads, calculators, NL and audio interfaces all in one workflow.</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-4 p-5 border border-slate-100 rounded-3xl bg-slate-50/50">
-                                <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 flex-none shadow-sm"><i className="fa-solid fa-tower-broadcast text-lg"></i></div>
-                                <div className="space-y-1">
-                                    <h6 className="font-black text-base text-slate-900">Communication Hub</h6>
-                                    <p className="text-sm text-slate-500 font-medium leading-relaxed">Direct phonic, SMS, and email capabilities integrated into the CRM and Transaction layers.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Pillar 3: Technology */}
-                    <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 space-y-6 relative overflow-hidden group hover:border-indigo-200 transition-colors">
-                        <div className="absolute top-0 right-0 p-8 text-6xl font-black text-slate-50 group-hover:text-indigo-50 transition-colors">03</div>
-                        <div className="space-y-1">
-                            <h4 className="text-[12px] font-black uppercase tracking-[0.3em] text-indigo-600">Pillar 3: Technology</h4>
-                            <h5 className="text-3xl font-serif font-black text-slate-900">Modern tech stack based on secure and reliable Google Technologies, Context Graphs, Deep Integrations</h5>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <div className="space-y-3 p-5 bg-slate-50 rounded-3xl border border-slate-100">
-                                <h6 className="font-black text-base text-slate-900">Reasoning Web (Context Graph)</h6>
-                                <p className="text-sm text-slate-500 font-medium leading-relaxed">Architecture unifying visual, geospatial, and behavioral data into one source.</p>
-                            </div>
-                            <div className="space-y-3 p-5 bg-slate-50 rounded-3xl border border-slate-100">
-                                <h6 className="font-black text-base text-slate-900">20x Dev Velocity</h6>
-                                <p className="text-sm text-slate-500 font-medium leading-relaxed">Leveraging advanced code assistants and cloud-native infra for ultra-low-cost deployment.</p>
-                            </div>
-                            <div className="space-y-3 p-5 bg-slate-50 rounded-3xl border border-slate-100">
-                                <h6 className="font-black text-base text-slate-900">Grounded LLMs</h6>
-                                <p className="text-sm text-slate-500 font-medium leading-relaxed">Advanced models with real-time search grounding for live market data accuracy.</p>
-                            </div>
-                            <div className="space-y-3 p-5 bg-slate-50 rounded-3xl border border-slate-100">
-                                <h6 className="font-black text-base text-slate-900">Vision-to-Data Mapping</h6>
-                                <p className="text-sm text-slate-500 font-medium leading-relaxed">Proprietary models converting raw pixels into searchable property features and quality levels.</p>
-                            </div>
-                            <div className="space-y-3 p-5 bg-slate-50 rounded-3xl border border-slate-100">
-                                <h6 className="font-black text-base text-slate-900">Hybrid Integration Layer</h6>
-                                <p className="text-sm text-slate-500 font-medium leading-relaxed">High-speed API infrastructure for instant "plug-and-play" with legacy estate software.</p>
-                            </div>
-                        </div>
+                        <button
+                            onClick={() => {
+                                setActiveTab?.('product_market_fit');
+                                onNavigate?.('product_market_fit', '/realtor/product_market_fit');
+                            }}
+                            className="px-10 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-lg transition-all shadow-xl shadow-indigo-600/20 hover:scale-105 flex items-center gap-3"
+                        >
+                            <span>View Product Market Fit & Roadmap</span>
+                            <i className="fa-solid fa-arrow-right"></i>
+                        </button>
                     </div>
                 </div>
             </section>
