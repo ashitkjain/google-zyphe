@@ -417,9 +417,28 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                 <div className="flex flex-col lg:flex-row gap-8 items-center">
                     <div className="space-y-4 flex-1">
                         <h3 className="text-3xl font-serif font-black text-slate-900">The Zyphe Product Ecosystem</h3>
-                        <p className="text-slate-500 font-medium leading-relaxed">
-                            Built on a 3-pillar product foundation: Experience, Functionality, and Technology. This architecture ensures every data point—from listing photos to buyer behaviors—is unified into a single ecosystem of intelligence.
-                        </p>
+                        <div className="text-slate-500 font-medium leading-relaxed space-y-4">
+                            <p>
+                                <strong className="text-slate-900">Built on a 3-pillar product foundation: Experience, Functionality, and Technology.</strong> This architecture ensures every data point—from listing photos to buyer behaviors—is unified into a single ecosystem of intelligence.
+                            </p>
+                            <p>
+                                Zyphe is designed to eliminate the <strong className="text-slate-900">"admin tax"</strong> and modernize the real estate lifecycle through an AI-native ecosystem:
+                            </p>
+                            <ul className="space-y-2">
+                                <li className="flex gap-2">
+                                    <span className="text-indigo-600 font-black">•</span>
+                                    <span><strong className="text-slate-900">Pillar 1 (Experience):</strong> Delightful, intuitive interfaces featuring universal data ingestion and conversational commands that streamline the "Home Story" journey.</span>
+                                </li>
+                                <li className="flex gap-2">
+                                    <span className="text-indigo-600 font-black">•</span>
+                                    <span><strong className="text-slate-900">Pillar 2 (Functionality):</strong> A "business-in-a-box" suite, leveraging vision and spatial AI for property analysis alongside a proactive reactivation engine that mines dormant leads.</span>
+                                </li>
+                                <li className="flex gap-2">
+                                    <span className="text-indigo-600 font-black">•</span>
+                                    <span><strong className="text-slate-900">Pillar 3 (Technology):</strong> A high-velocity architecture powered by Google technologies and a proprietary Context Graph that unifies visual, geospatial, and behavioral data into a single, grounded source of truth.</span>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                     <div className="w-full lg:w-[320px] flex-none">
                         <div className="relative group rounded-3xl overflow-hidden border border-slate-200 shadow-xl">
