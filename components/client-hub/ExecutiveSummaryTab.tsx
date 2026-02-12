@@ -433,28 +433,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                     </div>
                 </div>
 
-                <div className="bg-slate-900 rounded-[3rem] p-12 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full -mr-48 -mt-48 blur-3xl group-hover:bg-indigo-500/20 transition-colors" />
-                    <div className="relative z-10 flex flex-col items-center text-center space-y-8">
-                        <div className="space-y-4 max-w-2xl">
-                            <h4 className="text-indigo-400 font-black uppercase tracking-[0.3em] text-sm">Product Strategy & Roadmap</h4>
-                            <h3 className="text-4xl font-serif font-black text-white">The full Zyphe roadmap, architecture deep-dives and market fit analysis are available in the dedicated strategy hub.</h3>
-                            <p className="text-slate-400 text-lg font-medium leading-relaxed">
-                                Explore how our 3-pillar foundation (Experience, Functionality, Technology) scales across markets to create a high-margin, organic growth engine.
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => {
-                                setActiveTab?.('product_market_fit');
-                                onNavigate?.('product_market_fit', '/realtor/product_market_fit');
-                            }}
-                            className="px-10 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-lg transition-all shadow-xl shadow-indigo-600/20 hover:scale-105 flex items-center gap-3"
-                        >
-                            <span>View Product Market Fit & Roadmap</span>
-                            <i className="fa-solid fa-arrow-right"></i>
-                        </button>
-                    </div>
-                </div>
+
             </section>
 
             {/* Footer / Contact */}
