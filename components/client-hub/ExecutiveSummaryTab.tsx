@@ -414,15 +414,15 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
 
             {/* The Zyphe Product Ecosystem */}
             <section className="space-y-16">
-                <div className="flex flex-col lg:flex-row gap-12 items-center">
+                <div className="flex flex-col lg:flex-row gap-8 items-center">
                     <div className="space-y-4 flex-1">
                         <h3 className="text-3xl font-serif font-black text-slate-900">The Zyphe Product Ecosystem</h3>
                         <p className="text-slate-500 font-medium leading-relaxed">
                             Built on a 3-pillar product foundation: Experience, Functionality, and Technology. This architecture ensures every data point—from listing photos to buyer behaviors—is unified into a single ecosystem of intelligence.
                         </p>
                     </div>
-                    <div className="flex-1 w-full max-w-2xl">
-                        <div className="relative group rounded-[2.5rem] overflow-hidden border border-slate-200 shadow-2xl">
+                    <div className="w-full lg:w-[320px] flex-none">
+                        <div className="relative group rounded-3xl overflow-hidden border border-slate-200 shadow-xl">
                             <img
                                 src="/assets/product_ecosystem.png"
                                 alt="Zyphe Product Ecosystem Pillars"
