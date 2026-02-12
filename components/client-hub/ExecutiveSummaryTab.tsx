@@ -52,7 +52,17 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                         Zyphe: The AI-Powered <span className="text-indigo-600">Real Estate Operating System</span>
                     </h1>
                     <p className="text-xl text-slate-500 font-medium max-w-3xl leading-relaxed">
-                        Unifying the fragmented property journey through multimodal intelligence and automated transaction management.
+                        Unifying the fragmented property journey through multimodal intelligence and automated transaction management to unlock a 110-180B$ opportunity (
+                        <button
+                            onClick={() => {
+                                setActiveTab?.('industry_research');
+                                onNavigate?.(null, '../realtor/industry_research');
+                            }}
+                            className="text-indigo-600 font-bold hover:underline"
+                        >
+                            industry research
+                        </button>
+                        ).
                     </p>
                 </div>
             </section>
@@ -170,10 +180,10 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                     <i className="fa-solid fa-brain text-xl"></i>
                                 </div>
-                                <h4 className="text-xl font-black text-slate-900 leading-tight">1. The Multi-Modal Intelligence Opportunity</h4>
+                                <h4 className="text-xl font-black text-slate-900 leading-tight">Multi-Modal Intelligence</h4>
                             </div>
                             <p className="text-sm text-slate-500 leading-relaxed mb-6">
-                                Current PropTech is limited by rigid, text-based search. There is a massive opportunity to deploy Multi-Modal GenAI that synthesizes visual, geospatial, and behavioral data to solve industry problems with human-level reasoning.
+                                There is a massive opportunity to deploy Multi-Modal GenAI that synthesizes visual, geospatial, and behavioral data to solve industry problems with human-level reasoning. These general purpose models don't require specialized ML engineering or staff to build advanced ML capabilities.
                             </p>
                             <div className="mt-auto space-y-4 pt-6 border-t border-slate-100">
                                 <div className="space-y-1">
@@ -197,7 +207,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                     <i className="fa-solid fa-gauge-high text-xl"></i>
                                 </div>
-                                <h4 className="text-xl font-black text-slate-900 leading-tight">2. The 20X Efficiency Opportunity</h4>
+                                <h4 className="text-xl font-black text-slate-900 leading-tight">20X Efficiency</h4>
                             </div>
                             <p className="text-sm text-slate-500 leading-relaxed mb-6">
                                 The traditional high cost of software R&D is no longer a barrier to entry. With AI-assisted coding, there is an opportunity to compress the development lifecycle by a factor of 20.
@@ -224,7 +234,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                     <i className="fa-solid fa-file-shield text-xl"></i>
                                 </div>
-                                <h4 className="text-xl font-black text-slate-900 leading-tight">3. The Data & Regulatory Opportunity</h4>
+                                <h4 className="text-xl font-black text-slate-900 leading-tight">Data & Regulatory Changes</h4>
                             </div>
                             <p className="text-sm text-slate-500 leading-relaxed mb-6">
                                 Recent shifts in data policy and API availability have removed the final moats protecting legacy incumbents.
@@ -277,7 +287,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 </div>
                                 <h5 className="text-lg font-black text-slate-900 mb-3">Alpha-Generating Innovation</h5>
                                 <p className="text-sm text-slate-500 leading-relaxed">
-                                    We deploy high-impact features that currently do not exist in the enterprise stack, including Visual AI, Context Graphs, and GenAI-driven lead reactivation. These tools transform post-closing engagement from a manual burden into a passive revenue stream.
+                                    We deploy high-impact features like Visual AI, Context Graphs, and GenAI-driven lead conversion and reactivation. These tools can transform high value applications from personalized and contextual search to post-closing engagement and reactivation.
                                 </p>
                             </div>
 
@@ -305,7 +315,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                     <i className="fa-solid fa-rocket text-xl"></i>
                                 </div>
-                                <h5 className="text-lg font-black text-slate-900 mb-3">Venture-Scale Growth</h5>
+                                <h5 className="text-lg font-black text-slate-900 mb-3">Organic Growth</h5>
                                 <p className="text-sm text-slate-500 leading-relaxed">
                                     By delivering synchronized value to the entire real estate ecosystem—buyers, sellers, and agents—Zyphe generates the network effects necessary for compounded organic growth.
                                 </p>
@@ -388,7 +398,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
             <section className="space-y-16">
                 <div className="space-y-4">
                     <h3 className="text-3xl font-serif font-black text-slate-900">The Zyphe Product Ecosystem</h3>
-                    <p className="text-slate-500 font-medium">Built on a 3-pillar foundation: Experience, Functionality, and Technology.</p>
+                    <p className="text-slate-500 font-medium">Built on a 3-pillar product foundation : Experience, Functionality, and Technology.</p>
                 </div>
 
                 <div className="space-y-12">
