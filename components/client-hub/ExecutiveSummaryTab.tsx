@@ -39,15 +39,15 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
     };
 
     return (
-        <div className="p-12 max-w-7xl mx-auto space-y-12 animate-in fade-in duration-700 pb-32">
+        <div className="p-8 max-w-7xl mx-auto space-y-12 animate-in fade-in duration-700 pb-32">
             {/* Hero Section */}
-            <section className="space-y-8">
+            <section className="space-y-4">
                 <div className="flex items-center gap-6 text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em]">
                     <span>Investor Confidential</span>
                     <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
                     <span>v2.0 / 2026</span>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-2">
                     <h1 className="text-6xl font-serif font-black text-slate-900 leading-[1.1] tracking-tight max-w-5xl">
                         Zyphe: The AI-Powered <span className="text-indigo-600">Real Estate Operating System</span>
                     </h1>
@@ -69,7 +69,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
 
             {/* Product Vision & Demo */}
             {!loading && featuredVideo && (
-                <section className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-stretch">
+                <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
                     <div className="lg:col-span-7">
                         <div
                             onClick={() => setShowPlayer(true)}
@@ -95,7 +95,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                         </div>
                     </div>
                     <div className="lg:col-span-5 h-full">
-                        <div className="h-full p-8 bg-slate-900 rounded-[2.5rem] text-white shadow-2xl flex flex-col justify-between relative overflow-hidden group">
+                        <div className="h-full p-6 bg-slate-900 rounded-[2.5rem] text-white shadow-2xl flex flex-col justify-between relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
                                 <i className="fa-solid fa-bolt-lightning text-8xl text-indigo-400"></i>
                             </div>
@@ -121,13 +121,13 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
             )}
 
             {/* Combined Context Section */}
-            <section className="space-y-24">
+            <section className="space-y-16">
                 {/* 1. The Problem */}
-                <div className="space-y-8">
+                <div className="space-y-6">
                     <h3 className="text-3xl font-serif font-black text-slate-900">The Problems</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 font-medium">
-                        <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
-                            <div className="flex items-center gap-4 mb-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 font-medium">
+                        <div className="p-6 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
+                            <div className="flex items-center gap-4 mb-3">
                                 <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
                                     <i className="fa-solid fa-house-chimney-crack text-lg"></i>
                                 </div>
@@ -137,8 +137,8 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 Listings are static. "Analysing" a home means staring at photos and guessing about repairs, neighborhood vibes, or investment potential.
                             </p>
                         </div>
-                        <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
-                            <div className="flex items-center gap-4 mb-4">
+                        <div className="p-6 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
+                            <div className="flex items-center gap-4 mb-3">
                                 <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
                                     <i className="fa-solid fa-screwdriver-wrench text-lg"></i>
                                 </div>
@@ -148,8 +148,8 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 The process of preparing a home for the market is opaque. Sellers lack tools to objectively assess listing quality or presentation.
                             </p>
                         </div>
-                        <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
-                            <div className="flex items-center gap-4 mb-4">
+                        <div className="p-6 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
+                            <div className="flex items-center gap-4 mb-3">
                                 <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
                                     <i className="fa-solid fa-network-wired text-lg"></i>
                                 </div>
@@ -163,8 +163,8 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                 </div>
 
                 {/* 2. Pivotal Enablers Section */}
-                <div className="space-y-12">
-                    <div className="space-y-4">
+                <div className="space-y-8">
+                    <div className="space-y-2">
                         <h3 className="text-3xl font-serif font-black text-slate-900 leading-snug">
                             Pivotal Enablers: <span className="text-indigo-600">Capitalizing on the AI & Data Convergence</span>
                         </h3>
@@ -258,11 +258,11 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                 </div>
 
                 {/* 2.5 Zyphe's Strategy Section */}
-                <div className="space-y-12">
-                    <div className="space-y-6">
+                <div className="space-y-8">
+                    <div className="space-y-3">
                         <h3 className="text-3xl font-serif font-black text-slate-900">Zyphe’s Strategy: Scaling Disruption</h3>
                         <p className="text-slate-600 font-medium leading-relaxed max-w-4xl">
-                            While the real estate tech sector is beginning to address systemic inefficiencies through AI and data unification—as detailed in our{' '}
+                            While the real estate tech sector is beginning to address systemic inefficiencies through AI and data unification, achieving demonstrated success—as detailed in our{' '}
                             <button
                                 onClick={() => {
                                     setActiveTab?.('industry_case_studies');
@@ -276,7 +276,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                         </p>
                     </div>
 
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                         <h4 className="text-xl font-black text-slate-900 uppercase tracking-wider border-l-4 border-indigo-600 pl-4">The Competitive Edge</h4>
                         <p className="text-slate-500 font-medium">Our strategy focuses on capturing the "under-teched" mass market by removing the barriers of cost and complexity.</p>
 
@@ -333,7 +333,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                 </div>
 
                 {/* 3. Industry Validation */}
-                <div className="bg-indigo-50 p-8 rounded-[2.5rem] border border-indigo-100 flex flex-col lg:flex-row gap-12 items-start">
+                <div className="bg-indigo-50 p-6 rounded-[2.5rem] border border-indigo-100 flex flex-col lg:flex-row gap-8 items-start">
                     <div className="space-y-6 flex-1">
                         <div className="space-y-2">
                             <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Industry Validation</span>
@@ -409,9 +409,9 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                     <p className="text-slate-500 font-medium">Built on a 3-pillar product foundation : Experience, Functionality, and Technology.</p>
                 </div>
 
-                <div className="space-y-12">
+                <div className="space-y-8">
                     {/* Pillar 1: Experience */}
-                    <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 space-y-8 relative overflow-hidden group hover:border-indigo-200 transition-colors">
+                    <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 space-y-6 relative overflow-hidden group hover:border-indigo-200 transition-colors">
                         <div className="absolute top-0 right-0 p-8 text-6xl font-black text-slate-50 group-hover:text-indigo-50 transition-colors">01</div>
                         <div className="space-y-2">
                             <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-600">Pillar 1: Experience</h4>
@@ -443,7 +443,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                     </div>
 
                     {/* Pillar 2: Functionality */}
-                    <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 space-y-8 relative overflow-hidden group hover:border-indigo-200 transition-colors">
+                    <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 space-y-6 relative overflow-hidden group hover:border-indigo-200 transition-colors">
                         <div className="absolute top-0 right-0 p-8 text-6xl font-black text-slate-50 group-hover:text-indigo-50 transition-colors">02</div>
                         <div className="space-y-2">
                             <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-600">Pillar 2: Functionality</h4>
@@ -496,7 +496,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                     </div>
 
                     {/* Pillar 3: Technology */}
-                    <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 space-y-8 relative overflow-hidden group hover:border-indigo-200 transition-colors">
+                    <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 space-y-6 relative overflow-hidden group hover:border-indigo-200 transition-colors">
                         <div className="absolute top-0 right-0 p-8 text-6xl font-black text-slate-50 group-hover:text-indigo-50 transition-colors">03</div>
                         <div className="space-y-2">
                             <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-600">Pillar 3: Technology</h4>
