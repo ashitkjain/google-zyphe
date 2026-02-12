@@ -194,7 +194,7 @@ const HubContent: React.FC<HubContentProps> = ({
             {activeTab === 'video_upload' && <VideoUploadTab />}
             {activeTab === 'technical_media' && <TechnicalMediaTab />}
             {activeTab === 'industry_case_studies' && <CaseStudiesTab />}
-            {activeTab === 'executive_summary' && <ExecutiveSummaryTab />}
+            {activeTab === 'executive_summary' && <ExecutiveSummaryTab setActiveTab={setActiveTab} />}
         </div>
     );
 };

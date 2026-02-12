@@ -1,6 +1,10 @@
 import React from 'react';
 
-const ExecutiveSummaryTab: React.FC = () => {
+interface ExecutiveSummaryTabProps {
+    setActiveTab?: (tab: any) => void;
+}
+
+const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab }) => {
     const [featuredVideo, setFeaturedVideo] = React.useState<{ url: string, name: string, summary: string, timestamp: number } | null>(null);
     const [loading, setLoading] = React.useState(true);
     const [showPlayer, setShowPlayer] = React.useState(false);
@@ -183,6 +187,70 @@ const ExecutiveSummaryTab: React.FC = () => {
                             <p className="text-sm text-slate-500 leading-relaxed">
                                 With BBO, now applications can broadly use highly regulated MLS data like property photos. Also, a lot of data that buyers are interested in like Solar, Pollution, Street View is available through google APIs, and noise, crime, etc are available through other providers at a very low cost.
                             </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 2.5 Zyphe's Strategy Section */}
+                <div className="space-y-12">
+                    <div className="space-y-6">
+                        <h3 className="text-3xl font-serif font-black text-slate-900">Zyphe’s Strategy: Scaling Disruption</h3>
+                        <p className="text-slate-600 font-medium leading-relaxed max-w-4xl">
+                            While the real estate tech sector is beginning to address systemic inefficiencies through AI and data unification—as detailed in our{' '}
+                            <button
+                                onClick={() => setActiveTab?.('industry_case_studies')}
+                                className="text-indigo-600 font-bold hover:underline"
+                            >
+                                Industry Case Studies
+                            </button>{' '}
+                            —Zyphe is positioned to leapfrog the incumbent trajectory. We aren't just iterating; we are accelerating. By combining proprietary AI architecture with an aggressive cost-efficiency model, Zyphe delivers 20X the innovation velocity at a fraction of the traditional economic burn.
+                        </p>
+                    </div>
+
+                    <div className="space-y-8">
+                        <h4 className="text-xl font-black text-slate-900 uppercase tracking-wider border-l-4 border-indigo-600 pl-4">The Competitive Edge</h4>
+                        <p className="text-slate-500 font-medium">Our strategy focuses on capturing the "under-teched" mass market by removing the barriers of cost and complexity.</p>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="p-8 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                    <i className="fa-solid fa-chart-line text-xl"></i>
+                                </div>
+                                <h5 className="text-lg font-black text-slate-900 mb-3">Alpha-Generating Innovation</h5>
+                                <p className="text-sm text-slate-500 leading-relaxed">
+                                    We deploy high-impact features that currently do not exist in the enterprise stack, including Visual AI, Context Graphs, and GenAI-driven lead reactivation. These tools transform post-closing engagement from a manual burden into a passive revenue stream.
+                                </p>
+                            </div>
+
+                            <div className="p-8 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                    <i className="fa-solid fa-plug-circle-check text-xl"></i>
+                                </div>
+                                <h5 className="text-lg font-black text-slate-900 mb-3">Zero-Friction Integration</h5>
+                                <p className="text-sm text-slate-500 leading-relaxed">
+                                    To drive immediate market penetration, our "plug and play" architecture eliminates the switching costs typically associated with new tech. We integrate into existing workflows without requiring process overhauls, ensuring rapid, scalable adoption.
+                                </p>
+                            </div>
+
+                            <div className="p-8 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                    <i className="fa-solid fa-gears text-xl"></i>
+                                </div>
+                                <h5 className="text-lg font-black text-slate-900 mb-3">High-Margin Operational Efficiency</h5>
+                                <p className="text-sm text-slate-500 leading-relaxed">
+                                    Our "AI + Human" hybrid model utilizes AI-assisted coding to slash R&D timelines and offshore administrative experts to guarantee data accuracy. This allows us to offer premium, enterprise-grade solutions at a price point that unlocks the broader mid-market.
+                                </p>
+                            </div>
+
+                            <div className="p-8 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                    <i className="fa-solid fa-rocket text-xl"></i>
+                                </div>
+                                <h5 className="text-lg font-black text-slate-900 mb-3">Venture-Scale Growth</h5>
+                                <p className="text-sm text-slate-500 leading-relaxed">
+                                    By delivering synchronized value to the entire real estate ecosystem—buyers, sellers, and agents—Zyphe generates the network effects necessary for compounded organic growth.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
