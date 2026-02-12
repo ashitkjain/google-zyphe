@@ -168,7 +168,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                         <h3 className="text-3xl font-serif font-black text-slate-900 leading-snug">
                             Pivotal Enablers: <span className="text-indigo-600">Capitalizing on the AI & Data Convergence</span>
                         </h3>
-                        <p className="text-slate-600 font-medium leading-relaxed max-w-4xl">
+                        <p className="text-slate-600 font-medium leading-relaxed">
                             The real estate landscape has reached a technological inflection point. There is now a unique window to leverage these core enablers to disrupt the legacy status quo:
                         </p>
                     </div>
