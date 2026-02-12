@@ -261,7 +261,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                 <div className="space-y-8">
                     <div className="space-y-3">
                         <h3 className="text-3xl font-serif font-black text-slate-900">Zyphe’s Strategy: Scaling Disruption</h3>
-                        <p className="text-xl text-slate-600 font-medium leading-relaxed max-w-5xl">
+                        <p className="text-xl text-slate-600 font-medium leading-relaxed">
                             While the real estate tech sector is beginning to address systemic inefficiencies through AI and data unification, achieving demonstrated success—as detailed in our{' '}
                             <button
                                 onClick={() => {
