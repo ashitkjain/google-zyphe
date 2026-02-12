@@ -51,14 +51,14 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                     <h1 className="text-6xl font-serif font-black text-slate-900 leading-[1.1] tracking-tight max-w-5xl">
                         Zyphe: The AI-Powered <span className="text-indigo-600">Real Estate Operating System</span>
                     </h1>
-                    <p className="text-xl text-slate-500 font-medium max-w-3xl leading-relaxed">
-                        Unifying the fragmented property journey through multimodal intelligence and a unified platform to unlock a 110-180B$ opportunity (
+                    <p className="text-2xl text-slate-500 font-medium max-w-4xl leading-[1.6]">
+                        Unifying the fragmented property journey through multimodal intelligence and a unified platform to unlock a $110B–$180B opportunity (
                         <button
                             onClick={() => {
                                 setActiveTab?.('industry_research');
                                 onNavigate?.('industry_research', '/realtor/industry_research');
                             }}
-                            className="text-indigo-600 font-bold hover:underline"
+                            className="text-indigo-600 font-black hover:underline underline-offset-4"
                         >
                             Industry Research
                         </button>
@@ -261,14 +261,14 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                 <div className="space-y-8">
                     <div className="space-y-3">
                         <h3 className="text-3xl font-serif font-black text-slate-900">Zyphe’s Strategy: Scaling Disruption</h3>
-                        <p className="text-slate-600 font-medium leading-relaxed max-w-4xl">
+                        <p className="text-xl text-slate-600 font-medium leading-relaxed max-w-5xl">
                             While the real estate tech sector is beginning to address systemic inefficiencies through AI and data unification, achieving demonstrated success—as detailed in our{' '}
                             <button
                                 onClick={() => {
                                     setActiveTab?.('industry_case_studies');
                                     onNavigate?.('industry_case_studies', '/realtor/industry_case_studies');
                                 }}
-                                className="text-indigo-600 font-bold hover:underline"
+                                className="text-indigo-600 font-black hover:underline underline-offset-4"
                             >
                                 Industry Case Studies
                             </button>{' '}
@@ -281,45 +281,45 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                         <p className="text-slate-500 font-medium">Our strategy focuses on capturing the "under-teched" mass market by removing the barriers of cost and complexity.</p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="p-8 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group flex flex-col">
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
-                                        <i className="fa-solid fa-chart-line text-lg"></i>
+                            <div className="p-7 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group flex flex-col shadow-sm">
+                                <div className="flex items-center gap-4 mb-3">
+                                    <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
+                                        <i className="fa-solid fa-chart-line text-xl"></i>
                                     </div>
-                                    <h5 className="text-lg font-black text-slate-900 leading-tight">Alpha-Generating Innovation</h5>
+                                    <h5 className="text-xl font-black text-slate-900 leading-tight">Alpha-Generating Innovation</h5>
                                 </div>
-                                <p className="text-sm text-slate-500 leading-relaxed">
+                                <p className="text-base text-slate-500 leading-relaxed font-medium">
                                     We deploy high-impact features like Visual AI, Context Graphs, and GenAI-driven lead conversion and reactivation. These tools can transform high value applications from personalized and contextual search to post-closing engagement and reactivation.
                                 </p>
                             </div>
 
-                            <div className="p-8 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group flex flex-col">
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
-                                        <i className="fa-solid fa-plug-circle-check text-lg"></i>
+                            <div className="p-7 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group flex flex-col shadow-sm">
+                                <div className="flex items-center gap-4 mb-3">
+                                    <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
+                                        <i className="fa-solid fa-plug-circle-check text-xl"></i>
                                     </div>
-                                    <h5 className="text-lg font-black text-slate-900 leading-tight">Zero-Friction Integration</h5>
+                                    <h5 className="text-xl font-black text-slate-900 leading-tight">Zero-Friction Integration</h5>
                                 </div>
-                                <p className="text-sm text-slate-500 leading-relaxed">
+                                <p className="text-base text-slate-500 leading-relaxed font-medium">
                                     To drive immediate market penetration, our "plug and play" architecture eliminates the switching costs typically associated with new tech. We integrate into existing workflows without requiring process overhauls, ensuring rapid, scalable adoption.
                                 </p>
                             </div>
 
-                            <div className="p-8 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group flex flex-col">
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
-                                        <i className="fa-solid fa-gears text-lg"></i>
+                            <div className="p-7 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group flex flex-col shadow-sm">
+                                <div className="flex items-center gap-4 mb-3">
+                                    <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
+                                        <i className="fa-solid fa-gears text-xl"></i>
                                     </div>
-                                    <h5 className="text-lg font-black text-slate-900 leading-tight">High-Margin Operational Efficiency</h5>
+                                    <h5 className="text-xl font-black text-slate-900 leading-tight">High-Margin Operational Efficiency</h5>
                                 </div>
-                                <p className="text-sm text-slate-500 leading-relaxed">
+                                <p className="text-base text-slate-500 leading-relaxed font-medium">
                                     Our "AI + Human" hybrid model utilizes AI-assisted coding to slash R&D timelines and offshore administrative staff to guarantee data accuracy. This allows us to offer premium, enterprise-grade solutions at a price point that unlocks the broader mid-market (
                                     <button
                                         onClick={() => {
                                             setActiveTab?.('unit_economics');
                                             onNavigate?.('unit_economics', '/realtor/unit_economics');
                                         }}
-                                        className="text-indigo-600 font-bold hover:underline"
+                                        className="text-indigo-600 font-bold hover:underline underline-offset-4"
                                     >
                                         Unit Economics
                                     </button>
@@ -327,14 +327,14 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 </p>
                             </div>
 
-                            <div className="p-8 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group flex flex-col">
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
-                                        <i className="fa-solid fa-rocket text-lg"></i>
+                            <div className="p-7 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group flex flex-col shadow-sm">
+                                <div className="flex items-center gap-4 mb-3">
+                                    <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
+                                        <i className="fa-solid fa-rocket text-xl"></i>
                                     </div>
-                                    <h5 className="text-lg font-black text-slate-900 leading-tight">Organic Growth</h5>
+                                    <h5 className="text-xl font-black text-slate-900 leading-tight">Organic Growth</h5>
                                 </div>
-                                <p className="text-sm text-slate-500 leading-relaxed">
+                                <p className="text-base text-slate-500 leading-relaxed font-medium">
                                     By delivering synchronized value to the entire real estate ecosystem—buyers, sellers, and agents—Zyphe generates the network effects necessary for compounded organic growth.
                                 </p>
                             </div>
@@ -351,21 +351,21 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 NAR 2025: Realtors and clients view AI positively, but are frustrated by fragmented platforms and data silos ("The Swivel Chair" workflow).
                             </p>
                         </div>
-                        <ul className="space-y-5">
-                            <li className="flex items-start gap-4 text-sm text-indigo-800/80 font-medium leading-relaxed">
-                                <i className="fa-solid fa-circle-check mt-1 text-sm text-indigo-400"></i>
+                        <ul className="space-y-6">
+                            <li className="flex items-start gap-4 text-base text-indigo-800/80 font-medium leading-relaxed">
+                                <i className="fa-solid fa-circle-check mt-1.5 text-sm text-indigo-400"></i>
                                 <span>Only 38% of respondents agree that their Brokerage provides them with all the technology tools they need to be successful.</span>
                             </li>
-                            <li className="flex items-start gap-4 text-sm text-indigo-800/80 font-medium leading-relaxed">
-                                <i className="fa-solid fa-circle-check mt-1 text-sm text-indigo-400"></i>
+                            <li className="flex items-start gap-4 text-base text-indigo-800/80 font-medium leading-relaxed">
+                                <i className="fa-solid fa-circle-check mt-1.5 text-sm text-indigo-400"></i>
                                 <span>MLS Satisfaction: Median score of 3/5 (Neutral/Content), signaling a significant gap in high-performing core technology.</span>
                             </li>
-                            <li className="flex items-start gap-4 text-sm text-indigo-800/80 font-medium leading-relaxed">
-                                <i className="fa-solid fa-circle-check mt-1 text-sm text-indigo-400"></i>
+                            <li className="flex items-start gap-4 text-base text-indigo-800/80 font-medium leading-relaxed">
+                                <i className="fa-solid fa-circle-check mt-1.5 text-sm text-indigo-400"></i>
                                 <span>Emerging Tech Gap: Only 8% of Realtors feel proficient enough to teach others, while 59% are "still learning" and 34% have little to no usage.</span>
                             </li>
-                            <li className="flex items-start gap-4 text-sm text-indigo-800/80 font-medium leading-relaxed">
-                                <i className="fa-solid fa-circle-check mt-1 text-sm text-indigo-400"></i>
+                            <li className="flex items-start gap-4 text-base text-indigo-800/80 font-medium leading-relaxed">
+                                <i className="fa-solid fa-circle-check mt-1.5 text-sm text-indigo-400"></i>
                                 <span>GenAI Adoption: While 41% of Realtors have begun utilizing Generative AI, a significant 30% currently utilize no emerging technology tools at all.</span>
                             </li>
                         </ul>
@@ -445,8 +445,8 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                             <p>
                                 Zyphe is designed to eliminate the <strong className="text-slate-900">"admin tax"</strong> and modernize the real estate lifecycle through an AI-native ecosystem:
                             </p>
-                            <ul className="space-y-2">
-                                <li className="flex gap-2 text-sm md:text-base">
+                            <ul className="space-y-3">
+                                <li className="flex gap-2 text-base">
                                     <span className="text-indigo-600 font-black">•</span>
                                     <span>
                                         <strong className="text-slate-900">Pillar 1 (</strong>
@@ -459,7 +459,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                         <strong className="text-slate-900">):</strong> Delightful, intuitive interfaces featuring universal data ingestion and conversational commands that streamline the "Home Story" journey.
                                     </span>
                                 </li>
-                                <li className="flex gap-2 text-sm md:text-base">
+                                <li className="flex gap-2 text-base">
                                     <span className="text-indigo-600 font-black">•</span>
                                     <span>
                                         <strong className="text-slate-900">Pillar 2 (</strong>
@@ -472,7 +472,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                         <strong className="text-slate-900">):</strong> A "business-in-a-box" suite, leveraging vision and spatial AI for property analysis alongside a proactive reactivation engine that mines dormant leads.
                                     </span>
                                 </li>
-                                <li className="flex gap-2 text-sm md:text-base">
+                                <li className="flex gap-2 text-base">
                                     <span className="text-indigo-600 font-black">•</span>
                                     <span>
                                         <strong className="text-slate-900">Pillar 3 (</strong>
