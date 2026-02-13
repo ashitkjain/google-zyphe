@@ -9,7 +9,7 @@ import {
 } from '../../services/firebase/cityData';
 import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis } from '../../services/firebase/properties';
 import { PropertyData } from '../../types';
-import { runFullIntelligencePipeline, PipelineProgress } from '../../services/preloadService';
+import { runFullIntelligencePipeline, PipelineProgress, prefetchCityIntelligence } from '../../services/preloadService';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
 import { getAPILogsForTimeRange } from '../../services/firebase/api_logs';
 import { auth } from '../../services/firebase/config';
@@ -152,6 +152,28 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         });
         setIngestionQueue(newJobs);
 
+        // Step 1: Prefetch City-Level Intelligence (Pulse & General Market)
+        // We find all unique city/state combinations in our target properties
+        const cityContexts = new Set<string>();
+        targets.forEach(t => {
+            const city = t.location?.address?.city;
+            const state = t.location?.address?.state_code;
+            if (city && state) cityContexts.add(`${city}|${state}`);
+        });
+
+        if (cityContexts.size > 0) {
+            log(`Phase 1: Warming Regional Intelligence for ${cityContexts.size} cities...`);
+            for (const context of Array.from(cityContexts)) {
+                const [city, state] = context.split('|');
+                try {
+                    await prefetchCityIntelligence(city, state, log);
+                } catch (e) {
+                    log(`Warning: Failed to warm context for ${city}: ${e}`);
+                }
+            }
+            log(`Phase 1 Complete. Regional contexts established.`);
+        }
+
         let successCount = 0;
 
         // Staggered parallel scanning: launches pipelines in parallel but staggers their start by 1s each
@@ -181,7 +203,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 // rather than trusting the feed's property_id which may be mismatched.
                 await runFullIntelligencePipeline(builtAddress, (progress) => {
                     setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
-                }, undefined, (msg) => log(`[${builtAddress}] ${msg}`));
+                }, undefined, (msg) => log(`[${builtAddress}] ${msg}`), true);
 
                 log(`Successfully completed intelligence suite for: ${builtAddress}`);
                 setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));

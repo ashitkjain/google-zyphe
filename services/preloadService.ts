@@ -34,7 +34,8 @@ export const runFullIntelligencePipeline = async (
   rawAddress: string,
   onProgress: (p: PipelineProgress) => void,
   providedZpid?: string,
-  onLog?: (msg: string) => void
+  onLog?: (msg: string) => void,
+  skipMissingCityData: boolean = false
 ): Promise<string> => {
   try {
     // 1 & 3. Geocoding & Property Data (Parallel)
@@ -158,6 +159,12 @@ export const runFullIntelligencePipeline = async (
           return cached;
         }
       }
+
+      if (skipMissingCityData) {
+        onLog?.(`[Market] Skipping Pulse (City Context not pre-generated)`);
+        return null;
+      }
+
       onLog?.(`[Market] Analyzing resident sentiment...`);
       const res = await analyzeCommunityPulse(enrichedData);
       if (cityStateKey) await saveCommunityPulseToCloud(cityStateKey, res.data);
@@ -178,6 +185,12 @@ export const runFullIntelligencePipeline = async (
         const key = cityStateKey || zpid;
         const cached = await getGeneralMarketIntelligenceFromCloud(key);
         if (cached) return cached;
+
+        if (skipMissingCityData) {
+          onLog?.(`[Investment] Skipping General Market Logic (Not pre-generated)`);
+          return null;
+        }
+
         const res = await analyzeGeneralMarketIntelligence(enrichedData);
         await saveGeneralMarketIntelligenceToCloud(key, res.data);
         return res.data;
@@ -229,5 +242,53 @@ export const runFullIntelligencePipeline = async (
     }
     onProgress({ step: 'Error', status: 'error', message: msg });
     throw error;
+  }
+};
+
+/**
+ * Triggers high-level city/state intelligence (Community Pulse & General Market)
+ * to be shared across all properties in that region.
+ */
+export const prefetchCityIntelligence = async (
+  city: string,
+  state: string,
+  onLog?: (msg: string) => void
+): Promise<void> => {
+  const cityStateKey = generateCityStateKey(city, state);
+  if (!cityStateKey) return;
+
+  onLog?.(`[City-Intelligence] Checking regional status for ${city}, ${state}...`);
+
+  const [cachedPulse, cachedMarket] = await Promise.all([
+    getCommunityPulseFromCloud(cityStateKey),
+    getGeneralMarketIntelligenceFromCloud(cityStateKey)
+  ]);
+
+  const dummyProp = { city, state, address: `${city}, ${state}` } as any;
+
+  if (!cachedPulse) {
+    onLog?.(`[City-Intelligence] Generating Community Pulse for ${city}...`);
+    try {
+      const res = await analyzeCommunityPulse(dummyProp);
+      await saveCommunityPulseToCloud(cityStateKey, res.data);
+      onLog?.(`[City-Intelligence] Pulse saved for ${city}.`);
+    } catch (e) {
+      onLog?.(`[City-Intelligence] Pulse failed: ${e}`);
+    }
+  } else {
+    onLog?.(`[City-Intelligence] Pulse found in cache for ${city}.`);
+  }
+
+  if (!cachedMarket) {
+    onLog?.(`[City-Intelligence] Generating General Market Intelligence for ${city}...`);
+    try {
+      const res = await analyzeGeneralMarketIntelligence(dummyProp);
+      await saveGeneralMarketIntelligenceToCloud(cityStateKey, res.data);
+      onLog?.(`[City-Intelligence] Market Intelligence saved for ${city}.`);
+    } catch (e) {
+      onLog?.(`[City-Intelligence] Market Intelligence failed: ${e}`);
+    }
+  } else {
+    onLog?.(`[City-Intelligence] Market Intelligence found in cache for ${city}.`);
   }
 };
