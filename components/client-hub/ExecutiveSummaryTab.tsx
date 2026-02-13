@@ -164,14 +164,14 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                 <div className="space-y-8">
                     <div className="space-y-2">
                         <h3 className="text-3xl font-serif font-black text-slate-900 leading-snug">
-                            Pivotal Enablers: <span className="text-indigo-600">Capitalizing on the AI & Data Convergence</span>
+                            Technological Inflection Point: <span className="text-indigo-600">Capitalizing on the AI & Data Convergence</span>
                         </h3>
                         <p className="text-slate-600 font-medium leading-relaxed">
-                            The real estate landscape has reached a technological inflection point. There is now a unique window to leverage these core enablers to disrupt the legacy status quo:
+                            With GenAI, the real estate landscape has reached a technological inflection point. There is now a unique window to leverage these core enablers to disrupt the legacy status quo:
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                         {/* Enabler 1 */}
                         <div className="p-8 border border-slate-200 rounded-[2.5rem] bg-white hover:border-indigo-200 transition-all group flex flex-col h-full shadow-sm hover:shadow-md">
                             <div className="flex items-center gap-4 mb-4">
@@ -181,19 +181,13 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <h4 className="text-2xl font-black text-slate-900 leading-tight">Multi-Modal Intelligence</h4>
                             </div>
                             <p className="text-base text-slate-500 leading-relaxed mb-6">
-                                There is a massive opportunity to deploy Multi-Modal GenAI that synthesizes visual, geospatial, and behavioral data to solve industry problems with human-level reasoning. These general purpose models don't require specialized ML engineering or staff to build advanced ML capabilities.
+                                Massive opportunity to deploy Multi-Modal GenAI that synthesizes visual, geospatial, and behavioral data to solve industry problems with human-level reasoning.
                             </p>
                             <div className="mt-auto space-y-5 pt-6 border-t border-slate-100">
                                 <div className="space-y-1.5">
                                     <h5 className="text-[12px] font-black text-indigo-600 uppercase tracking-wider">Contextual Discovery</h5>
                                     <p className="text-sm text-slate-600 font-medium leading-relaxed">
-                                        There is an opportunity to integrate Visual and Geospatial AI to power recommendations that understand the "vibe" and surroundings of a property—not just its bed/bath count.
-                                    </p>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <h5 className="text-[12px] font-black text-indigo-600 uppercase tracking-wider">Predictive Intent</h5>
-                                    <p className="text-sm text-slate-600 font-medium leading-relaxed">
-                                        By leveraging deep reasoning, there is an opportunity to mine buyer intent and automate lead reactivation in ways that were technically impossible until now.
+                                        Integrate Visual and Geospatial AI to power recommendations that understand the "vibe" and surroundings of a property.
                                     </p>
                                 </div>
                             </div>
@@ -205,22 +199,16 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                     <i className="fa-solid fa-gauge-high text-xl"></i>
                                 </div>
-                                <h4 className="text-2xl font-black text-slate-900 leading-tight">20X Efficiency</h4>
+                                <h4 className="text-2xl font-black text-slate-900 leading-tight">20X R&D Efficiency</h4>
                             </div>
                             <p className="text-base text-slate-500 leading-relaxed mb-6">
-                                The traditional high cost of software R&D is no longer a barrier to entry. With AI-assisted coding, there is an opportunity to compress the development lifecycle by a factor of 20.
+                                With AI-assisted coding, we compress the development lifecycle by a factor of 20, lowering the cost of R&D moats.
                             </p>
                             <div className="mt-auto space-y-5 pt-6 border-t border-slate-100">
                                 <div className="space-y-1.5">
                                     <h5 className="text-[12px] font-black text-indigo-600 uppercase tracking-wider">Velocity as a Strategy</h5>
                                     <p className="text-sm text-slate-600 font-medium leading-relaxed">
-                                        This efficiency creates an opportunity to develop deep, seamless integrations and high-fidelity user experiences at a fraction of the traditional cost.
-                                    </p>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <h5 className="text-[12px] font-black text-indigo-600 uppercase tracking-wider">Market Democratization</h5>
-                                    <p className="text-sm text-slate-600 font-medium leading-relaxed">
-                                        Lower R&D overhead provides the opportunity to bring enterprise-grade technology to the broad market at a price point that drives immediate, friction-free adoption.
+                                        Fidelity user experiences at a fraction of the traditional cost, driving immediate market democratization.
                                     </p>
                                 </div>
                             </div>
@@ -232,7 +220,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                     <i className="fa-solid fa-file-shield text-xl"></i>
                                 </div>
-                                <h4 className="text-2xl font-black text-slate-900 leading-tight">Data & Regulatory Changes</h4>
+                                <h4 className="text-2xl font-black text-slate-900 leading-tight">Regulatory Moats</h4>
                             </div>
                             <p className="text-base text-slate-500 leading-relaxed mb-6">
                                 Recent shifts in data policy and API availability have removed the final moats protecting legacy incumbents.
@@ -241,15 +229,31 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <div className="space-y-1.5">
                                     <h5 className="text-[12px] font-black text-indigo-600 uppercase tracking-wider">MLS Transparency</h5>
                                     <p className="text-sm text-slate-600 font-medium leading-relaxed">
-                                        Through Brokerage Back Office (BBO) rights, there is now an opportunity to utilize highly regulated MLS data—including property imagery—to build more comprehensive consumer tools.
+                                        Through BBO rights, we utilize highly regulated MLS data—including property imagery—to build deep consumer tools.
                                     </p>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <h5 className="text-[12px] font-black text-indigo-600 uppercase tracking-wider">360-Degree Context</h5>
-                                    <p className="text-sm text-slate-600 font-medium leading-relaxed">
-                                        There is an opportunity to aggregate low-cost, high-value data (Solar, Pollution, Crime, and Noise metrics) to provide a level of transparency that traditional platforms currently lack.
-                                    </p>
+                            </div>
+                        </div>
+
+                        {/* Enabler 4 - Premium MLS Attribution (New) */}
+                        <div className="p-8 border border-slate-200 rounded-[2.5rem] bg-white hover:border-indigo-200 transition-all group flex flex-col h-full shadow-sm hover:shadow-md">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                    <i className="fa-solid fa-house-lock text-xl"></i>
                                 </div>
+                                <h4 className="text-2xl font-black text-slate-900 leading-tight">MLS Attribution</h4>
+                            </div>
+                            <p className="text-base text-slate-500 leading-relaxed mb-6">
+                                Partnering with National Brokerages (BOR) to enable proper licensing and usage compliance for premium data enrichment.
+                            </p>
+                            <div className="mt-auto pt-6 border-t border-slate-100">
+                                <button
+                                    onClick={() => setActiveTab?.('premium_mls')}
+                                    className="w-full py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all flex items-center justify-center gap-2 group/btn"
+                                >
+                                    Explore Compliance
+                                    <i className="fa-solid fa-chevron-right group-hover/btn:translate-x-1 transition-transform"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -328,6 +332,27 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                             <div className="p-7 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group flex flex-col shadow-sm">
                                 <div className="flex items-center gap-4 mb-3">
                                     <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
+                                        <i className="fa-solid fa-house-lock text-xl"></i>
+                                    </div>
+                                    <h5 className="text-xl font-black text-slate-900 leading-tight">Premium MLS Attribution</h5>
+                                </div>
+                                <p className="text-base text-slate-500 leading-relaxed font-medium">
+                                    By leveraging Brokerage Back Office (BBO) rights, we gain access to highly regulated MLS data, including property imagery, enabling us to build more comprehensive consumer tools and ensure compliance.
+                                    <button
+                                        onClick={() => {
+                                            setActiveTab?.('premium_mls');
+                                            onNavigate?.('premium_mls', '/realtor/premium_mls');
+                                        }}
+                                        className="text-indigo-600 font-bold hover:underline underline-offset-4 ml-1"
+                                    >
+                                        Learn More
+                                    </button>
+                                </p>
+                            </div>
+
+                            <div className="p-7 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group flex flex-col shadow-sm">
+                                <div className="flex items-center gap-4 mb-3">
+                                    <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
                                         <i className="fa-solid fa-rocket text-xl"></i>
                                     </div>
                                     <h5 className="text-xl font-black text-slate-900 leading-tight">Organic Growth</h5>
@@ -378,6 +403,24 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <span>GenAI Adoption: While 41% of Realtors have begun utilizing Generative AI, a significant 30% currently utilize no emerging technology tools at all.</span>
                             </li>
                         </ul>
+
+                        <div className="pt-8 border-t border-indigo-200/30 mt-8">
+                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-4 block">Case Study Insights</span>
+                            <div className="flex flex-wrap gap-x-12 gap-y-6">
+                                <div className="space-y-1">
+                                    <h5 className="text-[11px] font-black text-indigo-900">Compass</h5>
+                                    <p className="text-[10px] text-indigo-800/60 font-medium leading-relaxed max-w-[200px]">Created PropOS for $1.5B+, a unified data fabric to break data silos to achieve 20% in deals closed per agent, 15% faster time to sell than market.</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <h5 className="text-[11px] font-black text-indigo-900">Cotality</h5>
+                                    <p className="text-[10px] text-indigo-800/60 font-medium leading-relaxed max-w-[200px]">Unified over 5.5 billion records, providing a 360-degree view of 99.9% of U.S. properties resulting in 90% reduction in manual data entry, Decision cycles from weeks to minutes.</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <h5 className="text-[11px] font-black text-indigo-900">Radius</h5>
+                                    <p className="text-[10px] text-indigo-800/60 font-medium leading-relaxed max-w-[200px]">Created unified AI-Native OS and Mel-AI assistant leading to 80% reduction in back-office time, 3x higher lead conversion, 293% agent growth, 330% YoY revenue, and "instantaneous" audits/payouts.</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div className="min-w-[300px] lg:border-l lg:border-indigo-200 lg:pl-12 space-y-10">
                         <div className="space-y-1.5">
@@ -419,10 +462,10 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                         </div>
                     </div>
                 </div>
-            </section>
+            </section >
 
             {/* The Zyphe Product Ecosystem */}
-            <section className="space-y-16">
+            < section className="space-y-16" >
                 <div className="flex flex-col lg:flex-row gap-8 items-center">
                     <div className="space-y-4 flex-1">
                         <h3 className="text-3xl font-serif font-black text-slate-900">The Zyphe Product Ecosystem</h3>
@@ -481,10 +524,10 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                 </div>
 
 
-            </section>
+            </section >
 
             {/* Why would Zyphe succeed? */}
-            <section className="space-y-12 bg-slate-50/50 rounded-[3rem] p-12 border border-slate-200/50">
+            < section className="space-y-12 bg-slate-50/50 rounded-[3rem] p-12 border border-slate-200/50" >
                 <div className="space-y-4 text-center max-w-3xl mx-auto">
                     <h3 className="text-4xl font-serif font-black text-slate-900 tracking-tight">Why would <span className="text-indigo-600">Zyphe</span> succeed?</h3>
                     <p className="text-slate-500 font-medium">A unique convergence of technology, timing, and economic efficiency.</p>
@@ -492,9 +535,8 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {[
-                        { title: "Fixing a Broken Industry", desc: "We bridge the gap created by outdated, fragmented legacy systems that frustrate realtors, buyers, and sellers alike.", icon: "fa-linked-slash" },
                         { title: "Ultra-low unit economics", desc: "By utilizing GenAI, AI-assisted development, and modern cloud architecture, we've achieved ultra-low unit economics that legacy competitors can't match.", icon: "fa-chart-pie" },
-                        { title: "The Unified Solution", desc: "We eliminate data silos with an all-in-one platform that harmonizes existing tools and cleans up the 'data mess' inherent in real estate.", icon: "fa-layer-group" },
+                        { title: "The Unified Solution", desc: "We eliminate data silos with an all-in-one platform that harmonizes existing tools", icon: "fa-layer-group" },
                         { title: "Hybrid Productivity", desc: "Our offshore back-office leverages a blend of AI and human expertise to deliver high-output services at a fraction of the cost.", icon: "fa-users-gear" },
                         { title: "Democratizing AI", desc: "We provide 'AI-as-a-Service', empowering underserved boutique brokerages to compete with industry giants under a 'Powered by AI' brand.", icon: "fa-microchip" },
                         { title: "Next-Gen AI Innovation", desc: "From geo-spatial AI and context graphs to automated lead reactivation, all digital closing and post-close engagement—we deliver the tech real estate has been waiting for.", icon: "fa-wand-magic-sparkles" },
@@ -522,56 +564,58 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                         </p>
                     </div>
                 </div>
-            </section>
+            </section >
 
             {/* Footer / Contact */}
-            <section className="text-center pt-8 border-t border-slate-100 italic text-slate-400 font-medium text-sm">
+            < section className="text-center pt-8 border-t border-slate-100 italic text-slate-400 font-medium text-sm" >
                 "Not just a database. An ecosystem of intelligence."
-            </section>
+            </section >
 
             {/* Video Player Modal */}
-            {showPlayer && featuredVideo && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-12 animate-in fade-in duration-300">
-                    <div
-                        className="absolute inset-0 bg-slate-950/95 backdrop-blur-md"
-                        onClick={() => setShowPlayer(false)}
-                    />
-                    <div className="relative w-full max-w-6xl aspect-video bg-black rounded-[2rem] overflow-hidden shadow-2xl border border-white/10 animate-in zoom-in-95 duration-300">
-                        <video
-                            ref={videoRef}
-                            src={featuredVideo.url}
-                            controls
-                            autoPlay
-                            className="w-full h-full object-contain"
+            {
+                showPlayer && featuredVideo && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-12 animate-in fade-in duration-300">
+                        <div
+                            className="absolute inset-0 bg-slate-950/95 backdrop-blur-md"
+                            onClick={() => setShowPlayer(false)}
                         />
-                        <div className="absolute top-6 right-6 flex gap-3">
-                            <button
-                                onClick={handleMaximize}
-                                className="w-12 h-12 rounded-full bg-white/10 hover:bg-indigo-600 backdrop-blur-md border border-white/20 flex items-center justify-center text-white transition-all transform hover:scale-110"
-                                title="Maximize to Fullscreen"
-                            >
-                                <i className="fa-solid fa-expand text-lg"></i>
-                            </button>
-                            <button
-                                onClick={() => setShowPlayer(false)}
-                                className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-black shadow-xl transition-all hover:rotate-90 hover:bg-slate-100"
-                                title="Close Player"
-                            >
-                                <i className="fa-solid fa-times text-lg"></i>
-                            </button>
-                        </div>
-                        <div className="absolute bottom-0 inset-x-0 p-8 pt-24 bg-gradient-to-t from-black via-black/80 to-transparent pointer-events-none">
-                            <h3 className="text-2xl font-black text-white tracking-tight">
-                                {featuredVideo.name.split('_').slice(1).join(' ').replace(/\.[^/.]+$/, "") || featuredVideo.name}
-                            </h3>
-                            <p className="text-slate-400 text-sm mt-2 max-w-3xl line-clamp-2 font-medium">
-                                {featuredVideo.summary}
-                            </p>
+                        <div className="relative w-full max-w-6xl aspect-video bg-black rounded-[2rem] overflow-hidden shadow-2xl border border-white/10 animate-in zoom-in-95 duration-300">
+                            <video
+                                ref={videoRef}
+                                src={featuredVideo.url}
+                                controls
+                                autoPlay
+                                className="w-full h-full object-contain"
+                            />
+                            <div className="absolute top-6 right-6 flex gap-3">
+                                <button
+                                    onClick={handleMaximize}
+                                    className="w-12 h-12 rounded-full bg-white/10 hover:bg-indigo-600 backdrop-blur-md border border-white/20 flex items-center justify-center text-white transition-all transform hover:scale-110"
+                                    title="Maximize to Fullscreen"
+                                >
+                                    <i className="fa-solid fa-expand text-lg"></i>
+                                </button>
+                                <button
+                                    onClick={() => setShowPlayer(false)}
+                                    className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-black shadow-xl transition-all hover:rotate-90 hover:bg-slate-100"
+                                    title="Close Player"
+                                >
+                                    <i className="fa-solid fa-times text-lg"></i>
+                                </button>
+                            </div>
+                            <div className="absolute bottom-0 inset-x-0 p-8 pt-24 bg-gradient-to-t from-black via-black/80 to-transparent pointer-events-none">
+                                <h3 className="text-2xl font-black text-white tracking-tight">
+                                    {featuredVideo.name.split('_').slice(1).join(' ').replace(/\.[^/.]+$/, "") || featuredVideo.name}
+                                </h3>
+                                <p className="text-slate-400 text-sm mt-2 max-w-3xl line-clamp-2 font-medium">
+                                    {featuredVideo.summary}
+                                </p>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 

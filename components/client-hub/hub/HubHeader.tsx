@@ -2,7 +2,7 @@ import React from 'react';
 import Logo from '../../Logo';
 import { UserProfile } from '../../../types';
 
-export type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'profile' | 'closing' | 'reactivate' | 'calendar' | 'reminder_rules' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'lead_ingestion' | 'pdf_csv' | 'sms_registration' | 'bulk_prefetch' | 'city_data' | 'storage_registry' | 'industry_research' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_recommender' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'industry_case_studies' | 'unit_economics';
+export type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'profile' | 'closing' | 'reactivate' | 'calendar' | 'reminder_rules' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'lead_ingestion' | 'pdf_csv' | 'sms_registration' | 'bulk_prefetch' | 'city_data' | 'storage_registry' | 'industry_research' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_recommender' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'industry_case_studies' | 'unit_economics' | 'premium_mls';
 
 interface HubHeaderProps {
     realtorName: string;
@@ -34,6 +34,7 @@ interface HubHeaderProps {
     handleSeedManualMockData: () => Promise<void>;
     realtorId: string;
     deleteUserAccount: (uid: string) => Promise<boolean>;
+    partnerLogo?: string;
 }
 
 const HubHeader: React.FC<HubHeaderProps> = ({
@@ -43,17 +44,40 @@ const HubHeader: React.FC<HubHeaderProps> = ({
     isSettingsDropdownOpen, setIsSettingsDropdownOpen, onSignOut, onNavigate,
     setIsAddClientModalOpen, setIsRemoveClientModalOpen, earlyTabs, lateTabs,
     toolTabs, adminTabs, investorTabs, toolsRef, investorRef, syncBestPractices, handleResetAllData,
-    handleSeedManualMockData, realtorId, deleteUserAccount
+    handleSeedManualMockData, realtorId, deleteUserAccount, partnerLogo
 }) => {
+    // Demonstration partner logo (Endeavoring National Brokerage)
+    const displayPartnerLogo = partnerLogo || "/assets/partner_broker_logo.png";
+
     return (
         <header className="bg-slate-900 px-4 sm:px-8 h-[72px] flex items-center justify-between border-b border-white/5 shadow-2xl relative z-[110]">
             {/* Left Section: Logo & Navigation */}
             <div className="flex items-center justify-start h-full gap-8">
-                <Logo
-                    size={showHamburger ? 40 : 52}
-                    onClick={() => { setActiveTab('explore'); setIsMobileMenuOpen(false); }}
-                    className="cursor-pointer transition-transform hover:scale-105 flex-shrink-0"
-                />
+                <div className="flex items-center gap-4 bg-white/5 pl-2 pr-4 py-1.5 rounded-2xl border border-white/10 group overflow-hidden">
+                    <div className="flex items-center gap-3">
+                        <Logo
+                            size={showHamburger ? 32 : 40}
+                            onClick={() => { setActiveTab('explore'); setIsMobileMenuOpen(false); }}
+                            className="cursor-pointer transition-transform hover:scale-105 flex-shrink-0"
+                        />
+                        <div className="w-px h-6 bg-white/10"></div>
+                        <div
+                            className={`${showHamburger ? 'w-8 h-8' : 'w-10 h-10'} rounded-lg bg-white/10 flex items-center justify-center border border-white/5 overflow-hidden flex-shrink-0`}
+                            title="Partner Broker Logo"
+                        >
+                            {partnerLogo ? (
+                                <img src={partnerLogo} alt="Partner" className="w-full h-full object-contain p-1" />
+                            ) : (
+                                <i className="fa-solid fa-handshake text-indigo-400 text-xs"></i>
+                            )}
+                        </div>
+                    </div>
+                    {!showHamburger && (
+                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 group-hover:text-slate-300 transition-colors border-l border-white/5 pl-4">
+                            Co-Branded Hub
+                        </span>
+                    )}
+                </div>
 
                 <button
                     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

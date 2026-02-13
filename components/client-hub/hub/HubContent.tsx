@@ -27,6 +27,7 @@ import VideoUploadTab from '../VideoUploadTab';
 import TechnicalMediaTab from '../TechnicalMediaTab';
 import ExecutiveSummaryTab from '../ExecutiveSummaryTab';
 import UnitEconomicsTab from '../UnitEconomicsTab';
+import PremiumMLSTab from '../PremiumMLSTab';
 import { Lead, CRMTask, UserProfile, ReminderRule, CalendarEvent } from '../../../types';
 
 interface HubContentProps {
@@ -189,6 +190,8 @@ const HubContent: React.FC<HubContentProps> = ({
             {activeTab === 'unit_economics' && <UnitEconomicsTab />}
 
             {activeTab === 'post_close_intelligence' && <PostCloseIntelligenceTab />}
+
+            {activeTab === 'premium_mls' && <PremiumMLSTab />}
 
             {(activeTab === 'technical_papers' || activeTab === 'technical_papers_recommender' || activeTab === 'technical_papers_context_graph') && (
                 <TechnicalPapersTab

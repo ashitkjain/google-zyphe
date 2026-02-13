@@ -144,6 +144,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     ];
 
     const adminTabs: { id: HubTab; label: string; icon: string }[] = [
+        { id: 'city_data', label: 'City Ingestion', icon: 'fa-city' },
         { id: 'reminder_rules', label: 'Reminder Rules', icon: 'fa-bell-concierge' },
         { id: 'storage_registry', label: 'Bulk Prefetch', icon: 'fa-server' },
         { id: 'video_upload', label: 'Video Upload', icon: 'fa-video' },
@@ -153,6 +154,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         { id: 'executive_summary', label: 'Executive Summary', icon: 'fa-file-signature' },
         { id: 'industry_research', label: 'Industry Research', icon: 'fa-magnifying-glass-chart' },
         { id: 'product_market_fit', label: 'Product Market Fit', icon: 'fa-bullseye' },
+        { id: 'premium_mls', label: 'Premium MLS', icon: 'fa-house-lock' },
         { id: 'industry_case_studies', label: 'Case Studies', icon: 'fa-book-open' },
         { id: 'unit_economics', label: 'Unit Economics', icon: 'fa-calculator' },
         { id: 'technical_papers', label: 'Technical Papers', icon: 'fa-file-invoice' },

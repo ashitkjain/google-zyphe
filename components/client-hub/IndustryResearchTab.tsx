@@ -52,6 +52,104 @@ const IndustryResearchTab: React.FC = () => {
                 </div>
             </section>
 
+            {/* Market Dynamics & TAM */}
+            <section className="space-y-6">
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                    <i className="fa-solid fa-globe text-indigo-500"></i>
+                    Market Dynamics & TAM
+                </h3>
+                <div className="bg-indigo-50/30 rounded-[3rem] p-10 border border-indigo-100/50">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                                    <i className="fa-solid fa-chart-line text-sm"></i>
+                                </div>
+                                <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Global Software</h4>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-2xl font-black text-indigo-600">$12.7 Billion</div>
+                                <p className="text-[10px] text-slate-500 font-medium leading-relaxed">Projected market size by 2029 is 29.3B.</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                                    <i className="fa-solid fa-building-circle-check text-sm"></i>
+                                </div>
+                                <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Global PropTech</h4>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-2xl font-black text-indigo-600">$44.59 Billion</div>
+                                <p className="text-[10px] text-slate-500 font-medium leading-relaxed">Including Fintech, construction tech, and asset management.</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                                    <i className="fa-solid fa-users text-sm"></i>
+                                </div>
+                                <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">US RE Brokerage Revenue</h4>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-2xl font-black text-indigo-600">$249.14 Billion</div>
+                                <p className="text-[10px] text-slate-500 font-medium leading-relaxed">Highly fragmented; top 5 firms hold &lt;25% market share.</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                                    <i className="fa-solid fa-robot text-sm"></i>
+                                </div>
+                                <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">AI Adoption</h4>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-2xl font-black text-indigo-600">40% Growth</div>
+                                <p className="text-[10px] text-slate-500 font-medium leading-relaxed">58% of U.S. firms already utilize AI-driven CRM systems.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-12 pt-10 border-t border-indigo-100/50 grid grid-cols-1 md:grid-cols-3 gap-12">
+                        <div className="flex gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-white border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 shadow-sm">
+                                <i className="fa-solid fa-id-badge text-base"></i>
+                            </div>
+                            <div className="space-y-1">
+                                <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">NAR Membership</h5>
+                                <p className="text-sm font-black text-indigo-600">~1.5 Million Realtors</p>
+                                <p className="text-[10px] text-slate-500 font-medium">Population remains stable despite interest rate fluctuations.</p>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-white border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 shadow-sm">
+                                <i className="fa-solid fa-hourglass-half text-base"></i>
+                            </div>
+                            <div className="space-y-1">
+                                <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Closing Effort</h5>
+                                <p className="text-sm font-black text-indigo-600">15–20 Hours / File</p>
+                                <p className="text-[10px] text-slate-500 font-medium leading-relaxed">Manual administrative tasks representing a <span className="text-rose-600 font-bold">30% "efficiency tax"</span>.</p>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-white border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 shadow-sm">
+                                <i className="fa-solid fa-wallet text-base"></i>
+                            </div>
+                            <div className="space-y-1">
+                                <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Monthly IT Spend</h5>
+                                <p className="text-sm font-black text-indigo-600">$50 – $500+/mo</p>
+                                <p className="text-[10px] text-slate-500 font-medium leading-relaxed">34% spend $50–$250; top 20% of earners spend &gt;$500/mo.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             {/* Metrics & Benchmarks */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-6">
@@ -159,23 +257,41 @@ const IndustryResearchTab: React.FC = () => {
                 </section>
 
                 <section className="space-y-6">
-                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
-                        <i className="fa-solid fa-rocket text-indigo-500"></i>
-                        Zyphe Implementation Strategy
-                    </h3>
-                    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
-                        {/* Strategy List */}
+                    <div className="space-y-2">
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                            <i className="fa-solid fa-rocket text-indigo-500"></i>
+                            McKinsey Recommends
+                        </h3>
+                        <p className="text-[10px] text-slate-500 font-bold italic">"Zyphe provides these AI-as-a-service layers to accelerate industry-wide AI adoption"</p>
+                    </div>
+                    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-8">
                         {[
-                            { title: 'Data Lakehouse Strategy', desc: 'Consolidate proprietary and engineered data into a single firm-controlled source of truth.' },
-                            { title: 'Contextual Prompting', desc: 'Rigorous testing of tested prompts for specific real estate tasks to ensure high-quality output.' },
-                            { title: 'Bridge the Silos', desc: 'Integrate vendor systems (PMS, CRM, Maintenance) to eliminate data silos and accelerate decision making.' },
-                            { title: 'Operational Evolution', desc: 'Transition administrative roles to focus on high-value specialties while AI handles the baseline.' }
+                            {
+                                title: 'Data Strategy (Proprietary & Engineered Data)',
+                                desc: 'Consolidate data in a firm-controlled "lakehouse" to maintain a single source of truth. Capture new data via IoT, computer vision, and tenant app interactions. Ensure robust data governance for performance.'
+                            },
+                            {
+                                title: 'Prompt Engineering (Contextual Libraries)',
+                                desc: 'Build a playbook of tested prompts for specific real estate tasks (e.g., lease renewal concessions). Use a rigorous testing process to refine syntax for predictable output.'
+                            },
+                            {
+                                title: 'Tool Design (Action-Oriented Interfaces)',
+                                desc: 'Launch self-service portals to encourage company-wide adoption and friction-free user engagement.'
+                            },
+                            {
+                                title: 'Modern Tech Stack (Infrastructure & Safety)',
+                                desc: 'Integrate vendor systems (PMS, CRM, maintenance) to eliminate data silos and harmonize existing workflows.'
+                            },
+                            {
+                                title: 'Operating Model (Talent & Evolution)',
+                                desc: 'Hire new roles (prompt/data engineers). Redefine existing roles to focus on high-value specialties while AI handles baseline administrative tasks.'
+                            }
                         ].map((s, i) => (
                             <div key={i} className="flex gap-5">
                                 <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 text-slate-400 text-xs font-black">{i + 1}</div>
-                                <div>
-                                    <h4 className="font-black text-slate-900 text-base mb-1.5">{s.title}</h4>
-                                    <p className="text-sm text-slate-500 font-medium leading-relaxed">{s.desc}</p>
+                                <div className="space-y-1">
+                                    <h4 className="font-black text-slate-900 text-sm mb-1">{s.title}</h4>
+                                    <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{s.desc}</p>
                                 </div>
                             </div>
                         ))}
@@ -188,12 +304,13 @@ const IndustryResearchTab: React.FC = () => {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="space-y-2">
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Industry Sources</h4>
-                        <div className="flex flex-wrap gap-4 text-[10px] font-bold text-slate-500">
-                            <span>First Page Sage 2026</span>
-                            <span>NAR Technology Survey</span>
-                            <span>Deloitte Outlook</span>
-                            <span>McKinsey AI Report</span>
-                            <span>PwC Trends 2026</span>
+                        <div className="flex flex-wrap gap-x-6 gap-y-2 text-[10px] font-bold text-slate-500">
+                            <span className="hover:text-indigo-600 transition-colors">First Page Sage 2026</span>
+                            <a href="https://www.nar.realtor/research-and-statistics/research-reports/realtor-technology-survey" target="_blank" rel="noopener noreferrer" className="hover:text-indigo-600 hover:underline underline-offset-4 transition-all">NAR Technology Survey</a>
+                            <a href="https://www.deloitte.com/us/en/insights/industry/financial-services/financial-services-industry-outlooks/commercial-real-estate-outlook.html" target="_blank" rel="noopener noreferrer" className="hover:text-indigo-600 hover:underline underline-offset-4 transition-all">Deloitte Outlook</a>
+                            <a href="https://www.mckinsey.com/industries/real-estate/our-insights/generative-ai-can-change-real-estate-but-the-industry-must-change-to-reap-the-benefits" target="_blank" rel="noopener noreferrer" className="hover:text-indigo-600 hover:underline underline-offset-4 transition-all">McKinsey AI Report</a>
+                            <a href="https://www.pwc.com/us/en/industries/financial-services/asset-wealth-management/real-estate/emerging-trends-in-real-estate-pwc-uli.html" target="_blank" rel="noopener noreferrer" className="hover:text-indigo-600 hover:underline underline-offset-4 transition-all">PwC & ULI Emerging Trends</a>
+                            <a href="https://www.jll.com/en-sa/insights/ai-for-business-growth-are-real-estate-investors-ready-to-gain-the-competitive-edge" target="_blank" rel="noopener noreferrer" className="hover:text-indigo-600 hover:underline underline-offset-4 transition-all">JLL AI Insights</a>
                         </div>
                     </div>
 

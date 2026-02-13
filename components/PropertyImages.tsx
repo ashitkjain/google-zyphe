@@ -5,9 +5,16 @@ interface Props {
   images?: string[];
   loading: boolean;
   homeStatus?: string;
+  attribution?: {
+    listingAgentName?: string;
+    listingAgentNumber?: string;
+    brokerageName?: string;
+    mlsName?: string;
+    mlsId?: string;
+  };
 }
 
-const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus }) => {
+const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribution }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -84,8 +91,8 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus }) => {
                 key={idx}
                 onClick={() => setSelectedImage(img)}
                 className={`relative flex-shrink-0 w-24 md:w-full h-20 md:h-24 rounded-xl overflow-hidden border-2 transition-all snap-start group ${selectedImage === img
-                    ? 'border-indigo-500 ring-2 ring-indigo-100 z-10'
-                    : 'border-transparent hover:border-gray-300'
+                  ? 'border-indigo-500 ring-2 ring-indigo-100 z-10'
+                  : 'border-transparent hover:border-gray-300'
                   }`}
               >
                 <img
@@ -100,6 +107,22 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus }) => {
         </div>
       )}
 
+      {images && images.length > 0 && attribution && (attribution.listingAgentName || attribution.brokerageName) && (
+        <div className="mt-4 px-2 py-3 border-t border-slate-50 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <i className="fa-solid fa-circle-info text-[10px] text-slate-300"></i>
+            <p className="text-[10px] text-slate-400 font-medium">
+              Listing provided courtesy of <span className="font-bold text-slate-500">{attribution.listingAgentName || 'Listing Agent'}</span>
+              {attribution.brokerageName && <> at <span className="font-bold text-slate-500">{attribution.brokerageName}</span></>}
+            </p>
+          </div>
+          {attribution.mlsName && (
+            <p className="text-[9px] text-slate-300 font-bold uppercase tracking-wider">
+              {attribution.mlsName} {attribution.mlsId && `#${attribution.mlsId}`}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 };

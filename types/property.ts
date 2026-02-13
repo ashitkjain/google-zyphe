@@ -178,6 +178,13 @@ export interface PropertyData {
         analysis?: import('./ai').PollenAnalysisResult;
         raw_data?: any;
     };
+    attribution?: {
+        listingAgentName?: string;
+        listingAgentNumber?: string;
+        brokerageName?: string;
+        mlsName?: string;
+        mlsId?: string;
+    };
 }
 
 export interface PropertyDetails {

@@ -104,6 +104,23 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         });
     };
 
+    const selectAll = () => {
+        const visibleIds = Object.values(groupedListings)
+            .flat()
+            .map(item => String(item.property_id || item.listing_id))
+            .filter(id => !cachedPropertyIds.has(id));
+
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            visibleIds.forEach(id => next.add(id));
+            return next;
+        });
+    };
+
+    const deselectAll = () => {
+        setSelectedIds(new Set());
+    };
+
     const handleBulkIngest = async () => {
         if (selectedIds.size === 0) return;
         if (selectedIds.size > 10) {
@@ -575,16 +592,35 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                             <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">City Data Engine</h1>
                             <p className="text-slate-500 text-sm font-medium">Scan cities for new properties and trigger the intelligence pipeline.</p>
                         </div>
-                        {selectedIds.size > 0 && (
-                            <button
-                                onClick={handleBulkIngest}
-                                disabled={loading}
-                                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-200 transition-all flex items-center gap-2 animate-in fade-in slide-in-from-right-4"
-                            >
-                                {loading ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>}
-                                Ingest Selected ({selectedIds.size})
-                            </button>
-                        )}
+                        <div className="flex items-center gap-3">
+                            {listings.length > 0 && (
+                                <div className="flex items-center bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                                    <button
+                                        onClick={selectAll}
+                                        className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-indigo-600 transition-all"
+                                    >
+                                        Select All
+                                    </button>
+                                    <div className="w-px h-4 bg-slate-200 mx-1"></div>
+                                    <button
+                                        onClick={deselectAll}
+                                        className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-rose-600 transition-all"
+                                    >
+                                        Deselect
+                                    </button>
+                                </div>
+                            )}
+
+                            {selectedIds.size > 0 && (
+                                <button
+                                    onClick={handleBulkIngest}
+                                    className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[1.2rem] text-sm font-black shadow-lg shadow-indigo-200 transition-all animate-in slide-in-from-right flex items-center gap-3 group"
+                                >
+                                    <i className="fa-solid fa-cloud-arrow-down transition-transform group-hover:-translate-y-1"></i>
+                                    Trigger Intelligence for {selectedIds.size} {selectedIds.size === 1 ? 'Property' : 'Properties'}
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* API Config & Search */}

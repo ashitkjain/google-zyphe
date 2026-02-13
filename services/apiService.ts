@@ -646,7 +646,14 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
             windowFeatures: safeStringify(data.resoFacts?.windowFeatures),
             roomFeatures: safeStringify(data.resoFacts?.roomFeatures),
           },
-          coordinates: data.longitude && data.latitude ? { latitude: data.latitude, longitude: data.longitude } : undefined
+          coordinates: data.longitude && data.latitude ? { latitude: data.latitude, longitude: data.longitude } : undefined,
+          attribution: data.attributionInfo || data.props?.attributionInfo ? {
+            listingAgentName: data.attributionInfo?.agentName || data.props?.attributionInfo?.agentName,
+            listingAgentNumber: data.attributionInfo?.agentPhoneNumber || data.props?.attributionInfo?.agentPhoneNumber,
+            brokerageName: data.attributionInfo?.brokerageName || data.props?.attributionInfo?.brokerageName,
+            mlsName: data.attributionInfo?.mlsName || data.props?.attributionInfo?.mlsName,
+            mlsId: data.attributionInfo?.mlsId || data.props?.attributionInfo?.mlsId,
+          } : undefined
         }; // End of mappedData assignment
       } // End of (!mappedData) block - API Fetching
     }

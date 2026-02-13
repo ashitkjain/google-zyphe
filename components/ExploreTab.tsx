@@ -87,7 +87,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                             />
                             <AirQualitySection data={propertyData} />
                             <StreetViewAnalysisSection data={propertyData} />
-                            <PropertyImages images={propertyData.images} loading={imagesLoading} />
+                            <PropertyImages images={propertyData.images} loading={imagesLoading} attribution={propertyData.attribution} />
                             <PropertyFacts facts={propertyData.resoFacts} />
                             {propertyData.description && <PropertyDescription description={propertyData.description} />}
                             <PropertyMaps
