@@ -131,11 +131,24 @@ export const runFullIntelligencePipeline = async (
       onLog?.(`[Visual] Running fresh analysis...`);
       const res = await analyzePropertyImages(enrichedData.images!, enrichedData);
 
+      // Diagnostic logging for schema validation
+      if (res.data) {
+        const keys = Object.keys(res.data);
+        const dataStatus = Array.isArray(res.data) ? 'Array' : typeof res.data;
+        onLog?.(`[Visual] Received ${dataStatus} from AI with ${keys.length} top-level fields.`);
+      }
+
       const check = isAnalysisComplete(res.data);
       if (!check.valid) {
         const keys = res.data ? Object.keys(res.data) : 'null/undefined';
         const errorMsg = `Visual Intelligence synthesis was incomplete: ${check.missing?.join(', ')}. (Received: ${typeof keys === 'string' ? keys : keys.join(', ')})`;
         onLog?.(`[Visual] ERROR: ${errorMsg}`);
+
+        // If it's an array but should be an object, it's a structural failure
+        if (Array.isArray(res.data)) {
+          onLog?.(`[Visual] Structural mismatch: AI returned an array of ${res.data.length} items instead of the expected report object.`);
+        }
+
         throw new Error(errorMsg);
       }
 
@@ -290,5 +303,99 @@ export const prefetchCityIntelligence = async (
     }
   } else {
     onLog?.(`[City-Intelligence] Market Intelligence found in cache for ${city}.`);
+  }
+};
+
+/**
+ * Lean pipeline that only secures images and maps without running AI analysis.
+ */
+export const runImageOnlyPipeline = async (
+  rawAddress: string,
+  onProgress: (p: PipelineProgress) => void,
+  providedZpid?: string,
+  onLog?: (msg: string) => void
+): Promise<string> => {
+  try {
+    let currentZpid = providedZpid;
+
+    // 0. Early optimization: Check if assets already exist
+    if (currentZpid) {
+      const existingAssets = await getPropertyAssetsFromCloud(currentZpid);
+      if (existingAssets?.images?.length > 0) {
+        const allStored = existingAssets.images.every(url => url.includes('firebasestorage') || url.includes('FAILED_TO_SECURE'));
+        if (allStored) {
+          onLog?.(`[Assets] Found existing persistent assets in cloud storage.`);
+          onProgress({ step: 'Status', status: 'completed', message: 'Images already secured.' });
+          return currentZpid;
+        }
+      }
+    }
+
+    // 1. Discovery (Geocoding & Basic Facts)
+    onProgress({ step: 'Discovery', status: 'running', message: 'Resolving location and property ID...' });
+    const [radar, propData] = await Promise.all([
+      normalizeAddress(rawAddress, providedZpid),
+      fetchPropertyDataFull(providedZpid || rawAddress, !!providedZpid)
+    ]);
+
+    const zpid = propData.zpid || providedZpid;
+    if (!zpid) throw new Error("Could not resolve ZPID.");
+    onLog?.(`[Discovery] Resolved ${radar.formattedAddress} (ZPID: ${zpid})`);
+    onProgress({ step: 'Discovery', status: 'completed', message: 'Location resolved.' });
+
+    // 2. Gallery Fetch
+    onProgress({ step: 'Gallery', status: 'running', message: 'Fetching listing photos...' });
+    let imageUrls = propData.images || [];
+    try {
+      const fullImages = await fetchPropertyImages(zpid);
+      if (fullImages?.length > imageUrls.length) {
+        imageUrls = fullImages;
+        onLog?.(`[Gallery] Found ${fullImages.length} images.`);
+      }
+    } catch (e) {
+      onLog?.(`[Gallery] Photo sync warning: ${e}`);
+    }
+
+    // 3. Street View URL Generation
+    const MAPS_API_KEY = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || ''; // Fallback to empty if not in meta
+    // We should ideally use the config
+    const configMapsKey = (await import('../config')).APP_CONFIG.maps.key;
+
+    const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${encodeURIComponent(radar.formattedAddress)}&fov=90&radius=100&source=outdoor&key=${configMapsKey}`;
+
+    // 4. Secure Assets
+    onProgress({ step: 'Securing', status: 'running', message: 'Uploading to cloud storage...' });
+    const assets = await securePropertyAssets(
+      zpid,
+      imageUrls,
+      {
+        zoomIn: radar.mapZoomIn,
+        zoomOut: radar.mapZoomOut,
+        streetView: streetViewUrl
+      },
+      (p) => onLog?.(`[Cloud] ${p.message}`)
+    );
+
+    // 5. Update Property Record with Persistent URLs
+    const updatedData: Partial<PropertyData> = {
+      ...propData,
+      zpid,
+      images: assets.images,
+      mapZoomIn: assets.mapZoomIn,
+      mapZoomOut: assets.mapZoomOut,
+      streetViewAnalysis: {
+        ...propData.streetViewAnalysis,
+        imageUrl: assets.streetView || propData.streetViewAnalysis?.imageUrl
+      } as any
+    };
+
+    await savePropertyToCloud(zpid, updatedData as PropertyData);
+    onProgress({ step: 'Status', status: 'completed', message: 'Images and maps secured.' });
+
+    return zpid;
+  } catch (error: any) {
+    onLog?.(`[Image Pipeline Error] ${error.message}`);
+    onProgress({ step: 'Error', status: 'error', message: error.message });
+    throw error;
   }
 };

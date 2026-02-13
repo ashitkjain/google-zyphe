@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
     CustomAIAnalysisResult,
     ComprehensiveAnalysisResult
@@ -55,9 +55,30 @@ const AnalysisOrchestrator: React.FC<Props> = ({
     isFavorited,
     onToggleFavorite
 }) => {
-    const role = (userRole as 'buyer' | 'seller' | 'realtor') || 'buyer';
+    const role = (userRole as 'buyer' | 'seller' | 'realtor' | 'investor') || 'buyer';
     const allowedTabs = (APP_CONFIG as any).roleTabs[role] || (APP_CONFIG as any).roleTabs.buyer;
-    const [activeTab, setActiveTab] = useState<TabType>(allowedTabs[0] || 'interior');
+
+    // Memoize the available tabs objects to avoid unnecessary re-renders and ensure stable first-tab lookup
+    const tabs = useMemo(() => [
+        { id: 'interior', label: 'Interior', icon: 'fa-couch' },
+        { id: 'rooms', label: 'Rooms', icon: 'fa-star' },
+        { id: 'exterior_and_neighborhood', label: 'Exterior', icon: 'fa-house' },
+        { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
+        { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
+        { id: 'investment', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
+        { id: 'image_analysis', label: 'Image by Image analysis', icon: 'fa-images' },
+        { id: 'quality', label: 'Picture Quality Audit', icon: 'fa-camera-rotate' },
+    ].filter(tab => allowedTabs.includes(tab.id)), [allowedTabs]);
+
+    // Initialize activeTab to the first TRULY available tab, fallback to 'interior'
+    const [activeTab, setActiveTab] = useState<TabType>((tabs[0]?.id as TabType) || 'interior');
+
+    // Keep activeTab in sync if role/tabs change and current tab becomes invalid
+    useEffect(() => {
+        if (tabs.length > 0 && !tabs.find(t => t.id === activeTab)) {
+            setActiveTab(tabs[0].id as TabType);
+        }
+    }, [tabs, activeTab]);
 
     // Hover preview state
     const [hoveredImage, setHoveredImage] = useState<string | null>(null);
@@ -122,16 +143,6 @@ const AnalysisOrchestrator: React.FC<Props> = ({
     if (loading) return <GeneralAnalysisLoading timer={timer} />;
     if (!analysis) return null;
 
-    const tabs = [
-        { id: 'interior', label: 'Interior', icon: 'fa-couch' },
-        { id: 'rooms', label: 'Rooms', icon: 'fa-star' },
-        { id: 'exterior_and_neighborhood', label: 'Exterior', icon: 'fa-house' },
-        { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
-        { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
-        { id: 'investment', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
-        { id: 'image_analysis', label: 'Image by Image analysis', icon: 'fa-images' },
-        { id: 'quality', label: 'Picture Quality Audit', icon: 'fa-camera-rotate' },
-    ].filter(tab => allowedTabs.includes(tab.id));
 
     return (
         <div className="space-y-8 pb-20 relative">

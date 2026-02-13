@@ -9,12 +9,13 @@ import {
 } from '../../services/firebase/cityData';
 import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis } from '../../services/firebase/properties';
 import { PropertyData } from '../../types';
-import { runFullIntelligencePipeline, PipelineProgress, prefetchCityIntelligence } from '../../services/preloadService';
+import { runFullIntelligencePipeline, runImageOnlyPipeline, PipelineProgress, prefetchCityIntelligence } from '../../services/preloadService';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
 import { getAPILogsForTimeRange } from '../../services/firebase/api_logs';
 import { auth } from '../../services/firebase/config';
 import { LLMCallEvent } from '../../types/ai';
 import { APICallEvent } from '../../services/firebase/api_logs';
+import { getPropertyStatusesBatch, PropertyStatusDetails } from '../../services/firebase/properties';
 
 interface IngestionJob {
     zpid: string;
@@ -33,7 +34,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const [loading, setLoading] = useState(false);
     const [statusLog, setStatusLog] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
-    const [stateFilter, setStateFilter] = useState<string>('');
+    const [stateFilter, setStateFilter] = useState<string>('ALL');
     const [ingestionQueue, setIngestionQueue] = useState<IngestionJob[]>([]);
     const [cachedPropertyIds, setCachedPropertyIds] = useState<Set<string>>(new Set());
     const [isCheckingCache, setIsCheckingCache] = useState(false);
@@ -42,7 +43,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         apiLogs: APICallEvent[];
     } | null>(null);
     const [viewMode, setViewMode] = useState<'table' | 'ingestion'>('table');
+    const [pipelineType, setPipelineType] = useState<'full' | 'images'>('full');
     const [deletionStatus, setDeletionStatus] = useState<{ address: string, tables: string[] } | null>(null);
+    const [propertyStatuses, setPropertyStatuses] = useState<Record<string, PropertyStatusDetails>>({});
 
     const availableStates = useMemo(() => {
         const states = new Set<string>();
@@ -54,44 +57,50 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         return Array.from(states).sort();
     }, [listings]);
 
-    // Auto-select first state when results arrive
-    React.useEffect(() => {
-        if (availableStates.length > 0 && (stateFilter === '' || stateFilter === 'ALL')) {
-            setStateFilter(availableStates[0]);
-        }
-    }, [availableStates]);
+    // State Filter effect removed
 
-    const groupedListings = useMemo(() => {
+    const groupedListings = useMemo<Record<string, any[]>>(() => {
         const groups: Record<string, any[]> = {};
-
-        // Determine search context
-        const isZipSearch = /^\d/.test(city.trim());
-        const searchCityTerm = city.split(',')[0].trim().toLowerCase();
 
         listings.forEach(item => {
             const itemCity = item.location?.address?.city || 'Unknown City';
             const state = item.location?.address?.state_code || 'Unknown State';
 
-            // 1. State Filter (UI Toggle)
+            // ONLY filter by state if a specific state is selected in the UI
             if (stateFilter && stateFilter !== 'ALL' && state !== stateFilter) return;
-
-            // 2. City Name Filter (User Intent)
-            // If user searched by name, strictly show ONLY that city (exclude neighbors in same zip)
-            if (!isZipSearch) {
-                if (itemCity.toLowerCase() !== searchCityTerm) return;
-            }
 
             const key = `${itemCity}, ${state}`;
             if (!groups[key]) groups[key] = [];
             groups[key].push(item);
         });
         return groups;
-    }, [listings, stateFilter, city]);
+    }, [listings, stateFilter]);
 
-    const log = (message: string) => {
+    const addLog = (message: string) => {
         console.log(message);
-        setStatusLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
+        setStatusLog(prev => [`[${new Date().toLocaleTimeString()}] ${message}`, ...prev].slice(0, 100));
     };
+
+    const fetchStatuses = async (targetListings: any[]) => {
+        if (targetListings.length === 0) return;
+        setIsCheckingCache(true);
+        const allIds = targetListings.map(l => String(l.property_id || l.listing_id || l.mls_id || l.mls?.id));
+        const statusMap = await getPropertyStatusesBatch(allIds);
+        setPropertyStatuses(statusMap);
+
+        // Also update cached IDs for graying out
+        const cached = new Set<string>();
+        Object.entries(statusMap).forEach(([id, details]) => {
+            if (details.property) cached.add(id);
+        });
+        setCachedPropertyIds(cached);
+        setIsCheckingCache(false);
+    };
+
+    // Auto-fetch statuses for results
+    React.useEffect(() => {
+        fetchStatuses(listings);
+    }, [listings]);
 
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -121,24 +130,115 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setSelectedIds(new Set());
     };
 
-    const handleBulkIngest = async () => {
+    const handleBulkSecureImages = async () => {
         if (selectedIds.size === 0) return;
-        if (selectedIds.size > 10) {
-            setError(`You can only ingest up to 10 properties at once. You selected ${selectedIds.size}.`);
-            return;
-        }
 
         setLoading(true);
         setError(null);
         setViewMode('ingestion');
-        setIngestionReport(null); // Reset previous report
+        setPipelineType('images');
+        setIngestionReport(null);
         const batchStartTime = Date.now();
-        log(`Starting Parallel Bulk Ingest & Intelligence Pipeline for ${selectedIds.size} properties...`);
+        addLog(`Starting Bulk Image Secure pipeline...`);
 
         const targets = listings.filter(l => {
             const id = String(l.property_id || l.listing_id || l.mls_id || l.mls?.id);
-            return selectedIds.has(id);
+            return selectedIds.has(id) && !cachedPropertyIds.has(id);
         });
+
+        if (targets.length === 0) {
+            addLog("No new properties to secure. All selected items are already cached.");
+            setLoading(false);
+            return;
+        }
+
+        addLog(`Processing ${targets.length} properties...`);
+
+        // Initialize Queue
+        const newJobs: IngestionJob[] = targets.map(item => {
+            const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+            return {
+                zpid: id,
+                address: item.location?.address?.line || id,
+                status: 'pending',
+                progress: null
+            };
+        });
+        setIngestionQueue(newJobs);
+
+        const CHUNK_SIZE = 5;
+        let successCount = 0;
+
+        for (let i = 0; i < targets.length; i += CHUNK_SIZE) {
+            const chunk = targets.slice(i, i + CHUNK_SIZE);
+            addLog(`Phase: Processing batch ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(targets.length / CHUNK_SIZE)}...`);
+
+            const chunkPromises = chunk.map(async (item) => {
+                const zpid = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+                const addrObj = item.location?.address;
+                const builtAddress = addrObj
+                    ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
+                    : (item.location?.address?.line || zpid);
+
+                const startTime = Date.now();
+                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime } : j));
+
+                try {
+                    await runImageOnlyPipeline(builtAddress, (progress) => {
+                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
+                    }, undefined, (msg) => addLog(`[${builtAddress}] ${msg}`));
+
+                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
+                    return true;
+                } catch (e: any) {
+                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
+                    return false;
+                }
+            });
+
+            const results = await Promise.all(chunkPromises);
+            successCount += results.filter(r => r === true).length;
+
+            // Short rest between chunks to stabilize Firebase storage and APIs
+            if (i + CHUNK_SIZE < targets.length) {
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
+
+        addLog(`Image Bulk Secure Complete. Successfully processed ${successCount} / ${targets.length} properties.`);
+        setLoading(false);
+        if (successCount === targets.length) setSelectedIds(new Set());
+    };
+
+    const handleBulkIngest = async () => {
+        if (selectedIds.size === 0) return;
+
+        setLoading(true);
+        setError(null);
+        setPipelineType('full');
+        setViewMode('ingestion');
+        setIngestionReport(null); // Reset previous report
+        const batchStartTime = Date.now();
+        addLog(`Starting Parallel Bulk Ingest & Intelligence Pipeline...`);
+
+        const targets = listings.filter(l => {
+            const id = String(l.property_id || l.listing_id || l.mls_id || l.mls?.id);
+            return selectedIds.has(id) && !cachedPropertyIds.has(id);
+        });
+
+        if (targets.length === 0) {
+            setError("No new properties to analyze. All selected items are already cached.");
+            setLoading(false);
+            return;
+        }
+
+        if (targets.length > 10) {
+            setError(`You can only analyze up to 10 NEW properties at once. You have ${targets.length} pending.`);
+            setLoading(false);
+            return;
+        }
+
+        addLog(`Processing ${targets.length} properties...`);
 
         // Initialize Queue
         const newJobs: IngestionJob[] = targets.map(item => {
@@ -162,16 +262,16 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         });
 
         if (cityContexts.size > 0) {
-            log(`Phase 1: Warming Regional Intelligence for ${cityContexts.size} cities...`);
+            addLog(`Phase 1: Warming Regional Intelligence for ${cityContexts.size} cities...`);
             for (const context of Array.from(cityContexts)) {
                 const [city, state] = context.split('|');
                 try {
-                    await prefetchCityIntelligence(city, state, log);
+                    await prefetchCityIntelligence(city, state, addLog);
                 } catch (e) {
-                    log(`Warning: Failed to warm context for ${city}: ${e}`);
+                    addLog(`Warning: Failed to warm context for ${city}: ${e}`);
                 }
             }
-            log(`Phase 1 Complete. Regional contexts established.`);
+            addLog(`Phase 1 Complete. Regional contexts established.`);
         }
 
         let successCount = 0;
@@ -192,7 +292,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             }
 
             const startTime = Date.now();
-            log(`Starting pipeline for property: ${builtAddress}`);
+            addLog(`Starting pipeline for property: ${builtAddress}`);
             // Mark running
             setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime } : j));
 
@@ -203,9 +303,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 // rather than trusting the feed's property_id which may be mismatched.
                 await runFullIntelligencePipeline(builtAddress, (progress) => {
                     setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
-                }, undefined, (msg) => log(`[${builtAddress}] ${msg}`), true);
+                }, undefined, (msg) => addLog(`[${builtAddress}] ${msg}`), true);
 
-                log(`Successfully completed intelligence suite for: ${builtAddress}`);
+                addLog(`Successfully completed intelligence suite for: ${builtAddress}`);
                 setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
                 return true;
             } catch (e: any) {
@@ -219,7 +319,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         const results = await Promise.all(ingestPromises);
         successCount = results.filter(r => r === true).length;
 
-        log(`Bulk Ingest Complete. Successfully processed ${successCount} / ${targets.length} properties.`);
+        addLog(`Bulk Ingest Complete. Successfully processed ${successCount} / ${targets.length} properties.`);
         setLoading(false);
 
         if (successCount === targets.length) {
@@ -237,15 +337,15 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             ]);
 
             setIngestionReport({ llmLogs, apiLogs });
-            log(`Usage Report Generated: ${llmLogs.length} AI calls, ${apiLogs.length} API calls.`);
+            addLog(`Usage Report Generated: ${llmLogs.length} AI calls, ${apiLogs.length} API calls.`);
         } catch (reportErr) {
             console.error("Failed to generate ingestion report:", reportErr);
         }
     };
 
 
-    const fetchListings = async (zip: string) => {
-        const config = APP_CONFIG.rapidapi.realtyInUsApi;
+    const fetchListings = async (zip: string, fallbackCity?: string, fallbackState?: string) => {
+        const config = APP_CONFIG.usHousingApi;
 
         // 1. Check Cloud Cache first (Database)
         try {
@@ -254,8 +354,19 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 const timestamp = cloudCached.timestamp.toDate?.()?.getTime() || cloudCached.timestamp;
                 // 24 hour TTL for listings
                 if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
-                    log(`Cloud Cache Hit for Zip: ${zip} (${cloudCached.listings?.length || 0} items)`);
-                    return cloudCached.listings || [];
+                    const cachedListings = (cloudCached.listings || []).map((item: any) => ({
+                        ...item,
+                        location: {
+                            ...item.location,
+                            address: {
+                                ...item.location?.address,
+                                city: item.location?.address?.city === 'Unknown City' ? (fallbackCity || 'Unknown City') : (item.location?.address?.city || fallbackCity || 'Unknown City'),
+                                state_code: item.location?.address?.state_code === 'Unknown State' ? (fallbackState || 'Unknown State') : (item.location?.address?.state_code || fallbackState || 'Unknown State')
+                            }
+                        }
+                    }));
+                    addLog(`Cloud Cache Hit for Zip: ${zip} (${cachedListings.length} items)`);
+                    return cachedListings;
                 }
             }
         } catch (e) {
@@ -263,35 +374,53 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         }
 
         // 2. Network Request
-        log(`Fetching live data for Zip: ${zip}...`);
-        const url = `https://${config.host}${config.endpoints.list}`;
-        const body = {
-            ...config.defaults,
-            postal_code: zip
-        };
+        const url = `https://${config.host}/propertyExtendedSearch?location=${zip}&status_type=ForSale`;
+        addLog(`Fetching live data from: ${url}`);
 
         try {
             const response = await fetch(url, {
-                method: 'POST',
+                method: 'GET',
                 headers: {
                     'X-RapidAPI-Key': config.key,
-                    'X-RapidAPI-Host': config.host,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(body)
+                    'X-RapidAPI-Host': config.host
+                }
             });
 
             if (!response.ok) {
                 const txt = await response.text();
-                log(`API Error for ${zip}: ${response.status} - ${txt}`);
+                addLog(`API Error for ${zip}: ${response.status} - ${txt}`);
                 return [];
             }
 
             const result = await response.json();
-            // Robust parsing for different API response structures
-            const data = result.data?.home_search?.results || result.results || [];
+            const rawData = Array.isArray(result) ? result : (result.props || result.results || []);
 
-            log(`Live API returned ${data.length} listings for ${zip}`);
+            // Map to ensure UI consistency - status_type filter is already done by API
+            const data = rawData.map((item: any) => {
+                const legacyLoc = (item.location && typeof item.location === 'object') ? item.location : {};
+                const legacyAddr = legacyLoc.address || {};
+
+                // Extract price safely
+                const rawPrice = item.list_price || item.price || item.last_sale_price || 0;
+                const numericPrice = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
+
+                return {
+                    ...item,
+                    property_id: String(item.property_id || item.zpid || item.listing_id || item.id || item.mls_id || Math.random()),
+                    location: {
+                        address: {
+                            line: legacyAddr.line || item.address || item.streetAddress || item.full_address || "Unknown Address",
+                            city: legacyAddr.city || item.city || item.town || fallbackCity || "Unknown City",
+                            state_code: legacyAddr.state_code || item.state || item.state_code || item.stateId || fallbackState || "Unknown State",
+                            postal_code: legacyAddr.postal_code || item.zipcode || item.zipCode || item.postal_code || zip
+                        }
+                    },
+                    list_price: numericPrice,
+                    primary_photo: item.primary_photo || (item.imgSrc || item.main_image ? { href: item.imgSrc || item.main_image } : null)
+                };
+            });
+
+            addLog(`Live API returned ${data.length} listings for ${zip}`);
 
             // 3. Save to Cloud Cache
             if (data.length > 0) {
@@ -300,7 +429,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
             return data;
         } catch (e: any) {
-            log(`Fetch failed for ${zip}: ${e.message}`);
+            addLog(`Fetch failed for ${zip}: ${e.message}`);
             return [];
         }
     };
@@ -311,7 +440,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             return;
         }
 
-        const config = APP_CONFIG.rapidapi.realtyInUsApi;
+        const config = APP_CONFIG.usHousingApi;
         const zipConfig = APP_CONFIG.rapidapi.zipCodesApi;
         if (!config.key) {
             setError('RapidAPI Key not configured in system.');
@@ -322,8 +451,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setError(null);
         setStatusLog([]);
         setListings([]);
+        setStateFilter('ALL');
 
-        log(`Starting ingestion for: ${city}`);
+        addLog(`Starting ingestion for: ${city}`);
 
         try {
             const isPostalCodeInput = /^\d{5}(-\d{4})?$/.test(city.trim());
@@ -331,29 +461,26 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
             if (isPostalCodeInput) {
                 targetZips = [city.trim()];
-                log(`Identified direct Zip Code: ${targetZips[0]}`);
+                addLog(`Identified direct Zip Code: ${targetZips[0]}`);
             } else {
                 const normalizedCity = city.trim();
-
-                // Step 1: Check Cloud Cache for Zip Metadata (Grouped by State)
+                addLog(`Checking regional resolution for ${normalizedCity}...`);
                 const cachedGroups = await getZipsForCity(normalizedCity);
 
                 if (cachedGroups) {
-                    // Flatten all zips from all states found in cache
                     const allCachedZips = Object.values(cachedGroups).flat();
                     if (allCachedZips.length > 0) {
-                        // Iterate entries to log states
                         const statesFound = Object.keys(cachedGroups).join(', ');
-                        log(`Cloud Cache Hit for City: ${normalizedCity}. Found ${allCachedZips.length} zips across [${statesFound}].`);
+                        addLog(`Cloud Cache Hit for City: ${normalizedCity}. Found ${allCachedZips.length} zips across [${statesFound}].`);
                         targetZips = allCachedZips;
                     }
                 }
 
                 if (targetZips.length === 0) {
-                    log(`Resolving Zip Codes for ${normalizedCity}...`);
-                    // Step 2: Resolve Zip Codes for the City (Network) using US Zip Codes API
+                    const zipConfig = APP_CONFIG.rapidapi.zipCodesApi;
+                    const zipApiUrl = `https://${zipConfig.host}${zipConfig.path}?q=${encodeURIComponent(normalizedCity)}`;
+                    addLog(`Querying Registry: ${zipApiUrl}`);
                     try {
-                        const zipApiUrl = `https://${zipConfig.host}${zipConfig.path}?q=${encodeURIComponent(normalizedCity)}`;
                         const zipResp = await fetch(zipApiUrl, {
                             method: 'GET',
                             headers: {
@@ -362,39 +489,39 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                             }
                         });
 
-                        if (zipResp.status === 429) {
-                            log('Rate Limit Hit (429) on Zip Resolution.');
-                        } else {
-                            const zipResult = await zipResp.json();
+                        const zipResult = await zipResp.json();
+                        let foundEntries: { zip: string, city: string, state: string }[] = [];
 
-                            // Trying robust parse assuming it returns something like [{zip_code: "94566", state: "CA"}, ...]
-                            let foundEntries: { zip: string, city: string, state: string }[] = [];
+                        if (Array.isArray(zipResult)) {
+                            foundEntries = zipResult.map((x: any) => ({
+                                zip: x.zipCode || x.zip_code || (typeof x === 'string' ? x : ''),
+                                city: x.uspsMainCityName || x.city || normalizedCity,
+                                state: x.stateCode || x.state || x.state_code || 'Unknown'
+                            }));
+                        } else if (zipResult.results && Array.isArray(zipResult.results)) {
+                            foundEntries = zipResult.results.map((x: any) => ({
+                                zip: x.zipCode || x.zip_code,
+                                city: x.uspsMainCityName || x.city || normalizedCity,
+                                state: x.stateCode || x.state || x.state_code || 'Unknown'
+                            }));
+                        } else if (zipResult.zip_codes) {
+                            foundEntries = zipResult.zip_codes.map((z: any) => ({
+                                zip: z,
+                                city: normalizedCity,
+                                state: 'Unknown'
+                            }));
+                        }
 
-                            if (Array.isArray(zipResult)) {
-                                foundEntries = zipResult.map((x: any) => ({
-                                    zip: typeof x === 'string' ? x : x.zip_code || x.zipCode,
-                                    city: x.city || normalizedCity, // Fallback to search term if missing
-                                    state: x.state || x.state_code || 'Unknown'
-                                }));
-                            } else if (zipResult.zip_codes) {
-                                // Some endpoints return { zip_codes: [...Strings] }
-                                foundEntries = zipResult.zip_codes.map((z: any) => ({ zip: z, city: normalizedCity, state: 'Unknown' }));
-                            }
+                        foundEntries = foundEntries.filter(z => z.zip && typeof z.zip === 'string');
+                        targetZips = foundEntries.map(z => z.zip);
 
-                            // Filter valid zips
-                            foundEntries = foundEntries.filter(z => z.zip && typeof z.zip === 'string');
-                            targetZips = foundEntries.map(z => z.zip);
-
+                        if (foundEntries.length > 0) {
                             const uniqueStates = [...new Set(foundEntries.map(z => z.state).filter(s => s !== 'Unknown'))];
-                            log(`Resolved ${targetZips.length} Zip Codes from API. States: ${uniqueStates.join(', ') || 'N/A'}`);
-
-                            // Save to Cloud Cache (Batch)
-                            if (foundEntries.length > 0) {
-                                saveZipMetadataBatch(foundEntries).catch(console.error);
-                            }
+                            addLog(`Resolved ${targetZips.length} Zip Codes from API. States: ${uniqueStates.join(', ') || 'N/A'}`);
+                            await saveZipMetadataBatch(foundEntries);
                         }
                     } catch (e) {
-                        log(`Zip resolution failed: ${e}`);
+                        addLog(`Zip resolution failed: ${e}`);
                     }
                 }
             }
@@ -420,72 +547,56 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             let rawResults: any[] = [];
 
             if (targetZips.length === 0) {
-                log('Zip-based scan impossible. Attempting direct City listing search...');
+                addLog('No Zip Codes resolved. Search cancelled.');
+                setLoading(false);
+                return;
+            }
 
-                const url = `https://${config.host}${config.endpoints.list}`;
-                const body = {
-                    ...config.defaults,
-                    location: `${city.trim()}`
-                };
+            const uniqueZips = [...new Set(targetZips)];
+            const zipsToScan = uniqueZips.slice(0, 10);
+            addLog(`Scanning ${zipsToScan.length} unique Zip Codes...`);
 
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'X-RapidAPI-Key': config.key,
-                        'X-RapidAPI-Host': config.host,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(body)
-                });
-
-                if (!response.ok) {
-                    const txt = await response.text();
-                    throw new Error(`Fallback Search Failed: ${response.status} - ${txt}`);
+            // Use a local registry for city/state info to avoid "Unknown" labels
+            const zipRegistry: Record<string, { city: string, state: string }> = {};
+            if (!isPostalCodeInput) {
+                // If it was a city search, we already have some info
+                const cachedGroups = await getZipsForCity(city.trim());
+                if (cachedGroups) {
+                    Object.entries(cachedGroups).forEach(([st, zips]) => {
+                        zips.forEach(z => {
+                            zipRegistry[z] = { city: city.trim(), state: st };
+                        });
+                    });
                 }
+            }
 
-                const result = await response.json();
-                rawResults = result.data?.home_search?.results || result.results || [];
-                log(`Direct City Search returned ${rawResults.length} listings.`);
-            } else {
-                const uniqueZips = [...new Set(targetZips)];
-                const zipsToScan = uniqueZips.slice(0, 10);
-                log(`Scanning ${zipsToScan.length} unique Zip Codes...`);
-
-                for (const zip of zipsToScan) {
-                    const zipListings = await fetchListings(zip);
-                    rawResults.push(...zipListings);
-                    // Tiny delay to avoid rate triggers
-                    await new Promise(r => setTimeout(r, 200));
-                }
+            for (const zip of zipsToScan) {
+                const fallback = zipRegistry[zip];
+                const zipListings = await fetchListings(zip, fallback?.city, fallback?.state);
+                rawResults.push(...zipListings);
+                // Tiny delay to avoid rate triggers
+                await new Promise(r => setTimeout(r, 200));
             }
 
             // Step 4: De-duplicate and Set State
             const deDuplicated = deduplicate(rawResults);
 
-            log(`Ingestion Complete. ${deDuplicated.length} unique properties found.`);
-            setListings(deDuplicated);
+            // Step 4: Finalize Results
+            addLog(`Aggregating results across ${targetZips.length} zones...`);
+            const results = deduplicate(rawResults);
 
-            // Check which properties are already in our database
-            if (deDuplicated.length > 0) {
-                setIsCheckingCache(true);
-                log('Checking against existing database...');
-                try {
-                    const zpids = deDuplicated.map(l => l.property_id);
-                    const existing = await checkExistingPropertiesBatch(zpids);
-                    setCachedPropertyIds(existing);
-                    log(`${existing.size} properties already exist in database.`);
-                } finally {
-                    setIsCheckingCache(false);
-                }
-            }
+            addLog(`Discovery complete. Found ${results.length} unique properties.`);
 
-            if (deDuplicated.length === 0) {
+            // Update state
+            setListings(results);
+
+            if (results.length === 0) {
                 setError('No listings found in the resolved areas.');
             }
 
         } catch (err: any) {
             console.error(err);
-            log(`Critical Error: ${err.message}`);
+            addLog(`Critical Error: ${err.message}`);
             setError(err.message || 'Workflow failed. See log.');
         } finally {
             setLoading(false);
@@ -557,12 +668,6 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                 >
                                     {item.location?.address?.line || 'Unknown Address'}
                                 </button>
-                                {isCached && (
-                                    <span className="px-1.5 py-0.5 bg-slate-100 text-[8px] font-black text-slate-400 uppercase tracking-tighter rounded-md border border-slate-200 flex items-center gap-1">
-                                        <i className="fa-solid fa-cloud-check text-[7px]"></i>
-                                        In Cache
-                                    </span>
-                                )}
                             </div>
                             <div className="text-xs text-slate-500 font-medium">
                                 {item.location?.address?.city}, {item.location?.address?.state_code} {item.location?.address?.postal_code}
@@ -572,6 +677,27 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 </td>
                 <td className={`p-4 text-right font-medium text-slate-900 ${isCached ? 'opacity-40' : ''}`}>
                     ${item.list_price?.toLocaleString() || '--'}
+                </td>
+                <td className="p-4">
+                    <div className="flex items-center gap-3">
+                        {/* Asset Icons */}
+                        <div className="flex items-center gap-1.5">
+                            <i className={`fa-solid fa-image text-[10px] ${propertyStatuses[itemId]?.assets?.images ? 'text-emerald-500' : 'text-slate-200'}`} title="Photos"></i>
+                            <i className={`fa-solid fa-map-location-dot text-[10px] ${propertyStatuses[itemId]?.assets?.map ? 'text-emerald-500' : 'text-slate-200'}`} title="Radar Maps"></i>
+                            <i className={`fa-solid fa-street-view text-[10px] ${propertyStatuses[itemId]?.assets?.streetView ? 'text-emerald-500' : 'text-slate-200'}`} title="StreetView"></i>
+                        </div>
+                        <div className="w-px h-3 bg-slate-100"></div>
+                        {/* Intel Icons */}
+                        <div className="flex items-center gap-1.5">
+                            <i className={`fa-solid fa-file-invoice text-[10px] ${propertyStatuses[itemId]?.property ? 'text-indigo-500' : 'text-slate-200'}`} title="Property View"></i>
+                            <i className={`fa-solid fa-brain text-[10px] ${propertyStatuses[itemId]?.visual ? 'text-indigo-500' : 'text-slate-200'}`} title="Visual AI Analysis"></i>
+                        </div>
+                    </div>
+                </td>
+                <td className="p-4 text-[10px] font-mono text-slate-400 text-center">
+                    {propertyStatuses[itemId]?.property?.timestamp ? (
+                        new Date(propertyStatuses[itemId].property.timestamp.toMillis ? propertyStatuses[itemId].property.timestamp.toMillis() : propertyStatuses[itemId].property.timestamp).toLocaleDateString()
+                    ) : '--'}
                 </td>
                 <td className="p-4 text-right">
                     <div className="flex justify-end items-center gap-1">
@@ -617,15 +743,16 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     };
 
     return (
-        <div className="max-w-7xl mx-auto py-10 px-6 animate-in fade-in duration-700">
-            {viewMode === 'table' ? (
-                <>
-                    <div className="mb-8 items-center justify-between flex">
-                        <div>
-                            <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">City Data Engine</h1>
-                            <p className="text-slate-500 text-sm font-medium">Scan cities for new properties and trigger the intelligence pipeline.</p>
-                        </div>
-                        <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto py-12 px-6 animate-in fade-in duration-700">
+            {/* Page Header */}
+            <div className="mb-10 items-center justify-between flex">
+                <div>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">City Data Engine</h1>
+                    <p className="text-slate-500 text-sm font-medium">Scan cities for new properties and trigger the intelligence pipeline.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    {viewMode === 'table' ? (
+                        <>
                             {listings.length > 0 && (
                                 <div className="flex items-center bg-slate-100 p-1.5 rounded-xl border border-slate-200">
                                     <button
@@ -645,520 +772,503 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                             )}
 
                             {selectedIds.size > 0 && (
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={handleBulkSecureImages}
+                                        className="px-6 py-3 bg-white border-2 border-slate-200 hover:border-indigo-400 hover:bg-slate-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group"
+                                    >
+                                        <i className="fa-solid fa-cloud-arrow-down text-indigo-500 group-hover:bounce"></i>
+                                        Secure Images ({selectedIds.size})
+                                    </button>
+                                    <button
+                                        onClick={handleBulkIngest}
+                                        className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[1.2rem] text-sm font-black shadow-lg shadow-indigo-200 transition-all animate-in slide-in-from-right flex items-center gap-3 group"
+                                    >
+                                        <i className="fa-solid fa-bolt-lightning group-hover:scale-125 transition-transform"></i>
+                                        Full Intel Suite ({selectedIds.size})
+                                    </button>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <button
+                            onClick={() => {
+                                // Update local cache state with successfully ingested properties so they appear grayed out
+                                const successfulZjids = ingestionQueue
+                                    .filter(j => j.status === 'completed')
+                                    .map(j => j.zpid);
+
+                                if (successfulZjids.length > 0) {
+                                    setCachedPropertyIds(prev => {
+                                        const next = new Set(prev);
+                                        successfulZjids.forEach(id => next.add(id));
+                                        return next;
+                                    });
+                                    // CRITICAL: Also remove from selectedIds so we don't try to re-process them
+                                    setSelectedIds(prev => {
+                                        const next = new Set(prev);
+                                        successfulZjids.forEach(id => next.delete(id));
+                                        return next;
+                                    });
+
+                                    // Trigger a full status refresh to show the new data in the table
+                                    fetchStatuses(listings);
+                                }
+
+                                setViewMode('table');
+                                setIngestionQueue([]); // Clear the queue when returning to table view
+                            }}
+                            className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-[1.2rem] text-sm font-black shadow-lg shadow-slate-200 transition-all animate-in zoom-in"
+                        >
+                            Done & Return to Listings
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Search Panel (Full Width) */}
+            {viewMode === 'table' && (
+                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-200/50 mb-10 animate-in fade-in slide-in-from-top-4">
+                    <div className="flex items-center gap-4 mb-6">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                            <i className="fa-solid fa-magnifying-glass-location text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-black text-slate-900">Market Discovery</h3>
+                            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest px-1">Enter a City or Zip Code to scan live markets</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                        <div className="lg:col-span-7">
+                            <input
+                                type="text"
+                                value={city}
+                                onChange={(e) => setCity(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                placeholder="Aspen, CO or 81611..."
+                                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold text-sm shadow-inner"
+                            />
+                        </div>
+
+                        <div className="lg:col-span-5 flex gap-2">
+                            <button
+                                onClick={handleSearch}
+                                disabled={loading}
+                                className="flex-1 px-8 py-4 bg-slate-900 hover:bg-black text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+                            >
+                                {loading ? (
+                                    <>
+                                        <i className="fa-solid fa-spinner animate-spin"></i>
+                                        Scanning Markets...
+                                    </>
+                                ) : (
+                                    <>
+                                        <i className="fa-solid fa-radar"></i>
+                                        Launch Ingestion
+                                    </>
+                                )}
+                            </button>
+                            {listings.length > 0 && (
                                 <button
-                                    onClick={handleBulkIngest}
-                                    className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[1.2rem] text-sm font-black shadow-lg shadow-indigo-200 transition-all animate-in slide-in-from-right flex items-center gap-3 group"
+                                    onClick={() => {
+                                        setListings([]);
+                                        setCity('');
+                                        setError(null);
+                                    }}
+                                    className="p-4 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl transition-all"
+                                    title="Reset Search"
                                 >
-                                    <i className="fa-solid fa-cloud-arrow-down transition-transform group-hover:-translate-y-1"></i>
-                                    Trigger Intelligence for {selectedIds.size} {selectedIds.size === 1 ? 'Property' : 'Properties'}
+                                    <i className="fa-solid fa-rotate-left"></i>
                                 </button>
                             )}
                         </div>
                     </div>
-
-                    {/* API Config & Search */}
-                    <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/40 mb-8">
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end">
-                            <div className="lg:col-span-7 relative">
-                                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">Location or Zip</label>
-                                <input
-                                    type="text"
-                                    value={city}
-                                    onChange={(e) => setCity(e.target.value)}
-                                    placeholder="Type a city (e.g. New York)..."
-                                    className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:bg-white focus:border-indigo-500 transition-all font-medium text-sm shadow-inner"
-                                />
-                            </div>
-
-                            <div className="lg:col-span-5">
-                                <button
-                                    onClick={handleSearch}
-                                    disabled={loading}
-                                    className="w-full px-8 py-3 bg-slate-900 hover:bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {loading ? <i className="fa-solid fa-circle-notch animate-spin"></i> : <i className="fa-solid fa-search"></i>}
-                                    {loading ? 'Processing...' : 'Fetch Zip Codes & For-Sale Properties'}
-                                </button>
-                            </div>
+                    {error && (
+                        <div className="mt-4 p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-xs font-bold animate-in slide-in-from-top-2">
+                            <i className="fa-solid fa-triangle-exclamation mr-2"></i>
+                            {error}
                         </div>
-
-                        {error && (
-                            <div className="mt-6 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-3 text-rose-600 text-sm font-bold animate-in slide-in-from-top-2">
-                                <i className="fa-solid fa-triangle-exclamation"></i>
-                                {error}
-                            </div>
-                        )}
-
-                        {deletionStatus && (
-                            <div className="mt-6 p-6 bg-emerald-50 border border-emerald-100 rounded-2xl animate-in slide-in-from-top-4 duration-500">
-                                <div className="flex items-start gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
-                                        <i className="fa-solid fa-check-double"></i>
-                                    </div>
-                                    <div>
-                                        <h4 className="text-sm font-black text-emerald-900 mb-1">Cache Purged Successfully</h4>
-                                        <p className="text-xs text-emerald-700 font-medium mb-3">All analytical data for <span className="font-bold underline">{deletionStatus.address}</span> has been wiped from:</p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {deletionStatus.tables.map(table => (
-                                                <span key={table} className="px-2 py-1 bg-white/50 border border-emerald-200 rounded-md text-[9px] font-black text-emerald-600 uppercase tracking-tighter">
-                                                    {table.replace(/_/g, ' ')}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => setDeletionStatus(null)}
-                                        className="ml-auto text-emerald-400 hover:text-emerald-600 transition-colors"
-                                    >
-                                        <i className="fa-solid fa-xmark"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </>
-            ) : (
-                <div className="mb-12">
-                    <div className="flex items-center justify-between mb-8">
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => setViewMode('table')}
-                                className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm"
-                            >
-                                <i className="fa-solid fa-arrow-left"></i>
-                            </button>
-                            <div>
-                                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Ingest Dashboard</h1>
-                                <p className="text-slate-500 text-sm font-medium">Monitoring {ingestionQueue.length} intelligence pipelines</p>
-                            </div>
-                        </div>
-
-                        {!loading && (
-                            <button
-                                onClick={() => {
-                                    // Update local cache state with successfully ingested properties so they appear grayed out
-                                    setCachedPropertyIds(prev => {
-                                        const next = new Set(prev);
-                                        ingestionQueue.forEach(job => {
-                                            if (job.status === 'completed') {
-                                                next.add(job.zpid);
-                                            }
-                                        });
-                                        return next;
-                                    });
-                                    setViewMode('table');
-                                }}
-                                className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-[1.2rem] text-sm font-black shadow-lg shadow-slate-200 transition-all animate-in zoom-in"
-                            >
-                                Done & Return to Listings
-                            </button>
-                        )}
-                    </div>
+                    )}
                 </div>
             )}
 
-            {/* Grouped Results */}
-            {viewMode === 'table' && (
-                listings.length > 0 ? (
-                    <div className="space-y-12">
-                        {/* Filter Controls */}
-                        {availableStates.length > 1 && (
-                            <div className="flex items-center gap-2 mb-8 bg-white/50 p-2 rounded-xl w-fit">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-3">Filter State:</span>
-                                {availableStates.map(st => (
-                                    <button
-                                        key={st}
-                                        onClick={() => setStateFilter(st)}
-                                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${stateFilter === st ? 'bg-slate-900 text-white shadow-md' : 'bg-transparent text-slate-500 hover:bg-white hover:text-slate-800'}`}
-                                    >
-                                        {st}
-                                    </button>
-                                ))}
-                                <button
-                                    onClick={() => setStateFilter('ALL')}
-                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${stateFilter === 'ALL' ? 'bg-slate-900 text-white shadow-md' : 'bg-transparent text-slate-500 hover:bg-white hover:text-slate-800'}`}
-                                >
-                                    All
-                                </button>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                {/* Left: Live Console */}
+                <div className="lg:col-span-1 space-y-6">
+                    <div className="bg-slate-900 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden h-[600px] flex flex-col border border-slate-800">
+                        <div className="flex items-center justify-between mb-6 relative z-10">
+                            <div className="flex items-center gap-3">
+                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Live Process Log</h3>
                             </div>
-                        )}
+                            <span className="text-[9px] font-mono text-slate-600">{statusLog.length} events</span>
+                        </div>
+                        <div className="flex-1 overflow-y-auto space-y-3 font-mono text-[10px] text-slate-300 custom-scrollbar pr-2">
+                            {statusLog.length === 0 ? (
+                                <div className="text-slate-600 italic">System idle. Awaiting discovery requests...</div>
+                            ) : (
+                                statusLog.map((msg, i) => (
+                                    <div key={i} className="border-l border-slate-800 pl-3 py-1 animate-in slide-in-from-left-2 transition-all">
+                                        {msg}
+                                    </div>
+                                ))
+                            )}
+                        </div>
 
-                        {(Object.entries(groupedListings) as [string, any[]][]).map(([groupKey, groupItems]) => (
-                            <div key={groupKey} className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
-                                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
-                                                <i className="fa-solid fa-map-location-dot"></i>
-                                            </div>
-                                            <div>
-                                                <h2 className="text-xl font-black text-slate-900">{groupKey}</h2>
-                                                <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-widest">
-                                                    <span>{groupItems.length} Properties</span>
-                                                    <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                                                    <span className="text-emerald-600">Active</span>
+                        {/* Status Footer */}
+                        <div className="mt-6 pt-6 border-t border-slate-800/50 flex flex-col gap-4">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-black text-slate-500 uppercase">Engine Status</span>
+                                <span className="text-[10px] font-black text-emerald-500 uppercase bg-emerald-500/10 px-2 py-0.5 rounded">Optimal</span>
+                            </div>
+                            <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+                                <div className={`h-full bg-indigo-500 transition-all duration-1000 ${loading || ingestionQueue.some(j => j.status === 'running') ? 'w-full animate-pulse' : 'w-0'}`}></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right: Results or Queue */}
+                <div className="lg:col-span-2 space-y-6">
+                    {/* Operational Diagnostics */}
+                    {listings.length > 0 && viewMode === 'table' && (
+                        <div className="bg-indigo-600 text-white p-4 rounded-3xl shadow-lg animate-in slide-in-from-right-8 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                                    <i className="fa-solid fa-list-check"></i>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Inventory Sync</p>
+                                    <p className="font-bold text-sm">{listings.length} Total Opportunities Found</p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Context</p>
+                                <p className="font-bold text-sm">{Object.keys(groupedListings).length} Groups • {stateFilter}</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {deletionStatus && (
+                        <div className="p-4 bg-rose-50 border border-emerald-100 rounded-2xl text-rose-600 text-sm font-bold flex items-center justify-between animate-in slide-in-from-top-4 shadow-lg shadow-rose-100/50">
+                            <div className="flex items-center gap-3">
+                                <i className="fa-solid fa-trash-can animate-bounce"></i>
+                                <span>Removed {deletionStatus.address} from all {deletionStatus.tables.length} tables.</span>
+                            </div>
+                            <button onClick={() => setDeletionStatus(null)} className="opacity-50 hover:opacity-100 transition-opacity">
+                                <i className="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Discovery Results */}
+                    {viewMode === 'table' && (
+                        listings.length > 0 ? (
+                            <div className="space-y-12 pb-20">
+                                {/* State Selection */}
+                                {availableStates.length > 0 && (
+                                    <div className="flex items-center gap-2 p-1.5 bg-white border border-slate-200 rounded-2xl w-fit shadow-sm">
+                                        <button
+                                            onClick={() => setStateFilter('ALL')}
+                                            className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${stateFilter === 'ALL' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50'}`}
+                                        >
+                                            View All
+                                        </button>
+                                        {availableStates.map(st => (
+                                            <button
+                                                key={st}
+                                                onClick={() => setStateFilter(st)}
+                                                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${stateFilter === st ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50'}`}
+                                            >
+                                                {st}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Location Groups */}
+                                {(Object.entries(groupedListings) as [string, any[]][]).map(([groupKey, groupItems]) => (
+                                    <div key={groupKey} className="bg-white rounded-[3rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden animate-in fade-in slide-in-from-bottom-8">
+                                        {/* Header */}
+                                        <div className="p-8 border-b border-slate-50 bg-slate-50/20 flex items-center justify-between">
+                                            <div className="flex items-center gap-5">
+                                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shadow-inner">
+                                                    <i className="fa-solid fa-map-pin"></i>
+                                                </div>
+                                                <div>
+                                                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">{groupKey}</h2>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{groupItems.length} Active Listings</span>
+                                                        <span className="w-1 h-1 rounded-full bg-emerald-500"></span>
+                                                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Market Live</span>
+                                                    </div>
                                                 </div>
                                             </div>
+                                            <button
+                                                onClick={() => copyToClipboard(groupItems.map(l => l.location?.address?.line).join('\n'))}
+                                                className="px-5 py-2.5 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-600 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm"
+                                            >
+                                                Copy Addresses
+                                            </button>
                                         </div>
 
+                                        {/* Table */}
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left">
+                                                <thead>
+                                                    <tr className="bg-slate-50/50 text-[10px] font-black uppercase tracking-[0.1em] text-slate-400">
+                                                        <th className="p-6 w-20 text-center">Batch</th>
+                                                        <th className="p-6">Property</th>
+                                                        <th className="p-6 text-right">Market Price</th>
+                                                        <th className="p-6">Cache Status</th>
+                                                        <th className="p-6 text-center">Last Scan</th>
+                                                        <th className="p-6 text-right">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-50">
+                                                    {groupItems.map((item, idx) => (
+                                                        <ListingRow key={idx} item={item} />
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
-                                    <button
-                                        onClick={() => copyToClipboard((groupItems as any[]).map(l => l.location?.address?.line).join('\n'))}
-                                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm flex items-center gap-2"
-                                    >
-                                        <i className="fa-solid fa-copy"></i> Copy Addresses
-                                    </button>
-                                </div>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left">
-                                        <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                            <tr>
-                                                <th className="p-4 w-12 text-center">
-                                                    ID
-                                                </th>
-                                                <th className="p-4">Property</th>
-                                                <th className="p-4 text-right">Price</th>
-                                                <th className="p-4 text-right">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100">
-                                            {(groupItems as any[]).map((item, idx) => (
-                                                <ListingRow key={idx} item={item} />
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                ) : (
-                    !loading && !error && (
-                        <div className="text-center py-24 opacity-40">
-                            <i className="fa-solid fa-table-cells text-6xl mb-4 text-slate-300"></i>
-                            <p className="font-medium text-slate-400">Data table is empty. Start a search above.</p>
-                        </div>
-                    )
-                )
-            )}
+                        ) : (
+                            !loading && !error && (
+                                <div className="text-center py-40 bg-white rounded-[3rem] border border-slate-100 shadow-inner flex flex-col items-center justify-center">
+                                    <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-8 animate-in zoom-in-50 duration-500">
+                                        <i className="fa-solid fa-layer-group text-4xl text-slate-200"></i>
+                                    </div>
+                                    <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">Market Intelligence Terminal</h3>
+                                    <p className="text-slate-400 text-sm font-medium max-w-sm mx-auto leading-relaxed">
+                                        Enter a city or zip code above to initialize discovery. Use the "Launch Ingestion" button to begin scanning.
+                                    </p>
+                                </div>
+                            )
+                        )
+                    )}
 
-            <div className={`${viewMode === 'ingestion' ? 'block' : 'hidden'}`}>
-                {/* Active Ingestion Jobs (Rich UI) */}
-                {ingestionQueue.length > 0 && (
-                    <div className="space-y-6">
-                        <div className="flex items-center justify-between px-4">
-                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Active Ingestion Jobs</h3>
-                            <span className="px-3 py-1 bg-slate-100 rounded-full text-[9px] font-black text-slate-500 uppercase">
-                                {ingestionQueue.filter(q => q.status === 'completed').length} / {ingestionQueue.length} Done
-                            </span>
-                        </div>
+                    {/* Active Ingestion Jobs (Rich UI) */}
+                    {viewMode === 'ingestion' && ingestionQueue.length > 0 && (
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between px-4">
+                                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Active Ingestion Jobs</h3>
+                                <span className="px-3 py-1 bg-slate-100 rounded-full text-[9px] font-black text-slate-500 uppercase">
+                                    {ingestionQueue.filter(q => q.status === 'completed').length} / {ingestionQueue.length} {pipelineType === 'images' ? 'Images Secured' : 'Reports Synthesized'}
+                                </span>
+                            </div>
 
-                        <div className="grid grid-cols-1 gap-4">
-                            {ingestionQueue.map((item) => (
-                                <div key={item.zpid} className={`bg-white p-6 rounded-[2rem] border transition-all ${item.status === 'completed' ? 'border-emerald-100 shadow-emerald-50' : item.status === 'error' ? 'border-rose-100 shadow-rose-50' : 'border-slate-100 shadow-lg shadow-slate-200/50'}`}>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex items-center gap-3 overflow-hidden">
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
+                            <div className="grid grid-cols-1 gap-4">
+                                {ingestionQueue.map((item) => (
+                                    <div key={item.zpid} className={`bg-white p-6 rounded-[2rem] border transition-all ${item.status === 'completed' ? 'border-emerald-100 shadow-emerald-50' : item.status === 'error' ? 'border-rose-100 shadow-rose-50' : 'border-slate-100 shadow-lg shadow-slate-200/50'}`}>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-3 overflow-hidden">
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
+                                                    item.status === 'error' ? 'bg-rose-50 text-rose-600' :
+                                                        item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
+                                                            'bg-slate-50 text-slate-400'
+                                                    }`}>
+                                                    <i className={`fa-solid ${item.status === 'completed' ? 'fa-circle-check' :
+                                                        item.status === 'error' ? 'fa-circle-xmark' :
+                                                            item.status === 'running' ? 'fa-spinner animate-spin' :
+                                                                'fa-hourglass-start'
+                                                        }`}></i>
+                                                </div>
+                                                {item.status === 'completed' ? (
+                                                    <button
+                                                        onClick={() => onNavigate && onNavigate('explore', item.address)}
+                                                        className="text-sm font-black text-slate-900 truncate hover:text-indigo-600 hover:underline transition-colors text-left"
+                                                    >
+                                                        {item.address}
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-sm font-black text-slate-900 truncate">{item.address}</span>
+                                                )}
+                                            </div>
+                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
                                                 item.status === 'error' ? 'bg-rose-50 text-rose-600' :
                                                     item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
-                                                        'bg-slate-50 text-slate-400'
+                                                        'bg-slate-100 text-slate-400'
                                                 }`}>
-                                                <i className={`fa-solid ${item.status === 'completed' ? 'fa-circle-check' :
-                                                    item.status === 'error' ? 'fa-circle-xmark' :
-                                                        item.status === 'running' ? 'fa-spinner animate-spin' :
-                                                            'fa-hourglass-start'
-                                                    }`}></i>
+                                                {item.status}
+                                            </span>
+                                        </div>
+
+                                        {item.status === 'running' && item.progress && (
+                                            <div className="space-y-3 animate-in fade-in">
+                                                <div className="flex justify-between text-[10px] font-black uppercase tracking-tighter text-slate-400">
+                                                    <div className="flex items-center gap-2">
+                                                        <span>{item.progress.step}</span>
+                                                        <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                                        <span className="font-mono text-indigo-500">
+                                                            {item.startTime ? Math.floor((Date.now() - item.startTime) / 1000) : 0}s
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-indigo-600">Active</span>
+                                                </div>
+                                                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-indigo-600 transition-all duration-500 ease-out"
+                                                        style={{ width: `${(100 / 9) * (['Geocoding', 'Status Check', 'Property Data', 'Gallery', 'Visual AI', 'Spatial AI', 'Market AI', 'Quality Audit', 'Narrative AI'].indexOf(item.progress.step) + 1)}%` }}
+                                                    ></div>
+                                                </div>
+                                                <p className="text-[11px] text-slate-500 font-medium italic">
+                                                    {item.progress.message}
+                                                </p>
                                             </div>
-                                            {item.status === 'completed' ? (
+                                        )}
+
+                                        {item.status === 'error' && (
+                                            <p className="text-[11px] text-rose-600 font-medium bg-rose-50 p-3 rounded-xl border border-rose-100">
+                                                <i className="fa-solid fa-triangle-exclamation mr-2"></i>
+                                                {item.error}
+                                            </p>
+                                        )}
+
+                                        {item.status === 'completed' && (
+                                            <div className="flex items-center justify-between">
                                                 <button
                                                     onClick={() => onNavigate && onNavigate('explore', item.address)}
-                                                    className="text-sm font-black text-slate-900 truncate hover:text-indigo-600 hover:underline transition-colors text-left"
+                                                    className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest bg-emerald-50 py-2 px-4 rounded-xl hover:bg-emerald-100 transition-colors w-fit group"
                                                 >
-                                                    {item.address}
+                                                    <i className="fa-solid fa-check"></i>
+                                                    {pipelineType === 'images' ? 'Assets Secured in Cloud' : 'Intelligence Suite Ready'}
+                                                    <i className="fa-solid fa-arrow-right ml-1 group-hover:translate-x-1 transition-transform"></i>
                                                 </button>
-                                            ) : (
-                                                <span className="text-sm font-black text-slate-900 truncate">{item.address}</span>
-                                            )}
-                                        </div>
-                                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
-                                            item.status === 'error' ? 'bg-rose-50 text-rose-600' :
-                                                item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
-                                                    'bg-slate-100 text-slate-400'
-                                            }`}>
-                                            {item.status}
-                                        </span>
-                                    </div>
-
-                                    {item.status === 'running' && item.progress && (
-                                        <div className="space-y-3 animate-in fade-in">
-                                            <div className="flex justify-between text-[10px] font-black uppercase tracking-tighter text-slate-400">
-                                                <div className="flex items-center gap-2">
-                                                    <span>{item.progress.step}</span>
-                                                    <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                                                    <span className="font-mono text-indigo-500">
-                                                        {item.startTime ? Math.floor((Date.now() - item.startTime) / 1000) : 0}s
+                                                {item.startTime && item.endTime && (
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                        Total: <span className="text-slate-900 font-mono">{Math.floor((item.endTime - item.startTime) / 1000)}s</span>
                                                     </span>
-                                                </div>
-                                                <span className="text-indigo-600">Active</span>
+                                                )}
                                             </div>
-                                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-indigo-600 transition-all duration-500 ease-out"
-                                                    style={{ width: `${(100 / 9) * (['Geocoding', 'Status Check', 'Property Data', 'Gallery', 'Visual AI', 'Spatial AI', 'Market AI', 'Quality Audit', 'Narrative AI'].indexOf(item.progress.step) + 1)}%` }}
-                                                ></div>
-                                            </div>
-                                            <p className="text-[11px] text-slate-500 font-medium italic">
-                                                {item.progress.message}
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {item.status === 'error' && (
-                                        <p className="text-[11px] text-rose-600 font-medium bg-rose-50 p-3 rounded-xl border border-rose-100">
-                                            <i className="fa-solid fa-triangle-exclamation mr-2"></i>
-                                            {item.error}
-                                        </p>
-                                    )}
-
-                                    {item.status === 'completed' && (
-                                        <div className="flex items-center justify-between">
-                                            <button
-                                                onClick={() => onNavigate && onNavigate('explore', item.address)}
-                                                className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest bg-emerald-50 py-2 px-4 rounded-xl hover:bg-emerald-100 transition-colors w-fit group"
-                                            >
-                                                <i className="fa-solid fa-check"></i>
-                                                Intelligence Suite Ready
-                                                <i className="fa-solid fa-arrow-right ml-1 group-hover:translate-x-1 transition-transform"></i>
-                                            </button>
-                                            {item.startTime && item.endTime && (
-                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                                    Total: <span className="text-slate-900 font-mono">{Math.floor((item.endTime - item.startTime) / 1000)}s</span>
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Ingestion Summary Report */}
-                {ingestionReport && (
-                    <div className="mt-16 bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl p-10 animate-in fade-in zoom-in duration-500">
-                        <div className="flex items-center gap-6 mb-10 pb-8 border-b border-slate-100">
-                            <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
-                                <i className="fa-solid fa-chart-line text-2xl"></i>
-                            </div>
-                            <div>
-                                <h2 className="text-2xl font-black text-slate-900">Ingestion Usage Report</h2>
-                                <p className="text-sm font-bold text-slate-500 uppercase tracking-[0.2em] mt-1">Audit of intelligence pipeline execution</p>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                            {/* Gemini Summary */}
-                            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-indigo-600 shadow-sm">
-                                        <i className="fa-solid fa-brain text-sm"></i>
-                                    </div>
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Gemini AI</span>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-baseline">
-                                        <span className="text-xs font-bold text-slate-600">Total Calls</span>
-                                        <span className="text-lg font-black text-slate-900">{ingestionReport.llmLogs.length}</span>
-                                    </div>
-                                    <div className="flex justify-between items-baseline">
-                                        <span className="text-xs font-bold text-slate-600">Total Cost</span>
-                                        <span className="text-lg font-black text-emerald-600">
-                                            ${(ingestionReport.llmLogs.reduce((acc, log) => acc + (log.estimated_cost || 0), 0)).toFixed(4)}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Cache Summary */}
-                            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-indigo-400 shadow-sm">
-                                        <i className="fa-solid fa-cloud-check text-sm"></i>
-                                    </div>
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cache Logic</span>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-baseline">
-                                        <span className="text-xs font-bold text-slate-600">Registry Hits</span>
-                                        <span className="text-lg font-black text-slate-900">
-                                            {ingestionQueue.filter(j => j.progress?.message?.toLowerCase().includes('cache') || j.progress?.message?.toLowerCase().includes('restore')).length}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between items-baseline text-indigo-600">
-                                        <span className="text-xs font-bold">Est. Savings</span>
-                                        <span className="text-lg font-black">~$1.45</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* API Summary */}
-                            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-emerald-600 shadow-sm">
-                                        <i className="fa-solid fa-cloud-arrow-down text-sm"></i>
-                                    </div>
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">External APIs</span>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-baseline">
-                                        <span className="text-xs font-bold text-slate-600">Total Requests</span>
-                                        <span className="text-lg font-black text-slate-900">{ingestionReport.apiLogs.length}</span>
-                                    </div>
-                                    <div className="flex justify-between items-baseline">
-                                        <span className="text-xs font-bold text-slate-600">Data Points</span>
-                                        <span className="text-lg font-black text-slate-900">{ingestionQueue.length * 12}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Performance Summary */}
-                            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-amber-600 shadow-sm">
-                                        <i className="fa-solid fa-bolt text-sm"></i>
-                                    </div>
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Speed</span>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-baseline">
-                                        <span className="text-xs font-bold text-slate-600">Avg AI Response</span>
-                                        <span className="text-lg font-black text-slate-900">
-                                            {Math.round(ingestionReport.llmLogs.length > 0 ? (ingestionReport.llmLogs.reduce((acc, log) => {
-                                                if (log.response_received_at && log.request_sent_at) {
-                                                    const start = (log.request_sent_at as any).toMillis?.() || 0;
-                                                    const end = (log.response_received_at as any).toMillis?.() || 0;
-                                                    return acc + (end - start);
-                                                }
-                                                return acc;
-                                            }, 0) / ingestionReport.llmLogs.length) / 1000 : 0)}s
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between items-baseline">
-                                        <span className="text-xs font-bold text-slate-600">Total Pipeline</span>
-                                        <span className="text-lg font-black text-slate-900">
-                                            {Math.max(...ingestionQueue.map(j => (j.endTime && j.startTime) ? (j.endTime - j.startTime) / 1000 : 0)).toFixed(0)}s
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-12 overflow-x-auto rounded-3xl border border-slate-100">
-                            <table className="w-full text-left">
-                                <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                    <tr>
-                                        <th className="p-5">Call Type</th>
-                                        <th className="p-5">Endpoint / Agent</th>
-                                        <th className="p-5 text-right">Tokens / Time</th>
-                                        <th className="p-5 text-right">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {ingestionQueue.filter(j => j.progress?.message?.toLowerCase().includes('restore') || j.progress?.message?.toLowerCase().includes('cache')).map(j => (
-                                        <tr key={`cache-${j.zpid}`} className="text-sm border-l-4 border-l-indigo-400 bg-indigo-50/20">
-                                            <td className="p-5">
-                                                <div className="flex items-center gap-2">
-                                                    <i className="fa-solid fa-cloud-check text-indigo-400 w-4"></i>
-                                                    <span className="font-bold text-slate-900">Intelligence Cache</span>
-                                                </div>
-                                            </td>
-                                            <td className="p-5 font-medium text-slate-600">
-                                                {j.progress?.step === 'Investment AI' ? 'investmentResearch.ts' :
-                                                    j.progress?.step === 'Visual AI' ? 'propertyImages.ts' :
-                                                        j.progress?.step === 'Narrative AI' ? 'comprehensiveAnalysis.ts' :
-                                                            j.progress?.step || 'Multiple Modules'}
-                                            </td>
-                                            <td className="p-5 text-right font-mono">
-                                                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-white px-2 py-1 rounded-md border border-indigo-100 shadow-sm">
-                                                    RESTORED (0.0ms)
-                                                </span>
-                                            </td>
-                                            <td className="p-5 text-right">
-                                                <span className="px-2 py-1 rounded text-[10px] font-black uppercase bg-emerald-50 text-emerald-600">
-                                                    CACHED
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {ingestionReport.llmLogs.sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0)).map(log => (
-                                        <tr key={log.id} className="text-sm transition-colors hover:bg-slate-50/50">
-                                            <td className="p-5">
-                                                <div className="flex items-center gap-2">
-                                                    <i className="fa-solid fa-robot text-indigo-500 w-4"></i>
-                                                    <span className="font-bold text-slate-900">Gemini</span>
-                                                </div>
-                                            </td>
-                                            <td className="p-5 font-medium text-slate-600">{log.prompt_filename || 'Unknown Agent'}</td>
-                                            <td className="p-5 text-right font-mono">
-                                                <div className="text-indigo-600 font-bold">
-                                                    {log.usage_metadata?.totalTokenCount?.toLocaleString() || 0} tkn
-                                                </div>
-                                                <div className="text-[10px] text-slate-400 font-medium">
-                                                    {log.usage_metadata?.promptTokenCount?.toLocaleString() || 0} in / {log.usage_metadata?.candidatesTokenCount?.toLocaleString() || 0} out
-                                                </div>
-                                                <div className="text-[11px] text-emerald-600 font-black mt-1">
-                                                    ${(log.estimated_cost || 0).toFixed(4)}
-                                                </div>
-                                            </td>
-                                            <td className="p-5 text-right">
-                                                <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${log.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                                    {log.status}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {ingestionReport.apiLogs.sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0)).map(log => (
-                                        <tr key={log.id} className="text-sm transition-colors hover:bg-slate-50/50">
-                                            <td className="p-5">
-                                                <div className="flex items-center gap-2">
-                                                    <i className={`fa-solid ${log.api_name === 'Radar' ? 'fa-location-crosshairs text-emerald-500' : 'fa-server text-blue-500'} w-4`}></i>
-                                                    <span className="font-bold text-slate-900">{log.api_name}</span>
-                                                </div>
-                                            </td>
-                                            <td className="p-5 font-medium text-slate-600">{log.endpoint}</td>
-                                            <td className="p-5 text-right font-mono text-slate-500">
-                                                {log.response_time_ms ? `${log.response_time_ms}ms` : '--'}
-                                            </td>
-                                            <td className="p-5 text-right">
-                                                <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${log.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                                    {log.status}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-
-                {/* Ingestion Console (Available in both, but emphasized in ingestion mode) */}
-                {statusLog.length > 0 && (
-                    <div className={`mt-12 p-6 bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl shadow-slate-900/20 transition-all ${viewMode === 'ingestion' ? 'opacity-100' : 'opacity-40 hover:opacity-100'}`}>
-                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                                System Event Log
-                            </div>
-                            <span className="text-[9px] font-mono opacity-50">{statusLog.length} events logged</span>
-                        </div>
-                        <div className={`${viewMode === 'ingestion' ? 'max-h-64' : 'max-h-24'} overflow-y-auto font-mono text-[11px] text-slate-300 space-y-1.5`}>
-                            {statusLog.map((log, i) => (
-                                <div key={i} className="border-l-2 border-slate-800 pl-3 py-0.5 animate-in slide-in-from-left-2">{log}</div>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
+
+            {/* Ingestion Usage Report */}
+            {ingestionReport && (
+                <div className="mt-20 border-t border-slate-100 pt-20 animate-in slide-in-from-bottom-8">
+                    <div className="flex items-end justify-between mb-12">
+                        <div>
+                            <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em] mb-4">Post-Analysis Intelligence</div>
+                            <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Usage & Performance</h2>
+                        </div>
+                        <div className="flex gap-4">
+                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-right">
+                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">AI Cost (Est)</div>
+                                <div className="text-xl font-mono font-black text-slate-900">
+                                    ${ingestionReport.llmLogs.reduce((acc, l) => acc + (l.estimated_cost || 0), 0).toFixed(4)}
+                                </div>
+                            </div>
+                            <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 text-right">
+                                <div className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">Success Rate</div>
+                                <div className="text-xl font-mono font-black text-emerald-700">
+                                    {ingestionQueue.length > 0 ? Math.round((ingestionQueue.filter(q => q.status === 'completed').length / ingestionQueue.length) * 100) : 0}%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                        {/* Gemini Logs */}
+                        <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
+                            <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xs">
+                                        <i className="fa-solid fa-brain"></i>
+                                    </div>
+                                    <span className="font-black text-slate-900 uppercase text-[11px] tracking-widest">Gemini Architecture Calls</span>
+                                </div>
+                                <span className="text-[10px] font-mono text-slate-400">{ingestionReport?.llmLogs?.length || 0} events</span>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/30">
+                                            <th className="p-5">Agent / Task</th>
+                                            <th className="p-5 text-right">Consumption</th>
+                                            <th className="p-5 text-right">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {ingestionReport?.llmLogs && Array.isArray(ingestionReport.llmLogs) && [...ingestionReport.llmLogs].sort((a, b) => b.timestamp - a.timestamp).map((logEntry, i) => (
+                                            <tr key={i} className="text-sm transition-colors hover:bg-slate-50/50">
+                                                <td className="p-5">
+                                                    <div className="font-bold text-slate-900">{logEntry.agent_name}</div>
+                                                    <div className="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">{logEntry.zpid}</div>
+                                                </td>
+                                                <td className="p-5 text-right">
+                                                    <div className="text-indigo-600 font-bold">
+                                                        {logEntry.usage_metadata?.totalTokenCount?.toLocaleString() || 0} tkn
+                                                    </div>
+                                                    <div className="text-[10px] text-emerald-600 font-black">
+                                                        ${(logEntry.estimated_cost || 0).toFixed(4)}
+                                                    </div>
+                                                </td>
+                                                <td className="p-5 text-right">
+                                                    <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${logEntry.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                        {logEntry.status}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* API Logs */}
+                        <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
+                            <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xs">
+                                        <i className="fa-solid fa-cloud"></i>
+                                    </div>
+                                    <span className="font-black text-slate-900 uppercase text-[11px] tracking-widest">External API Gateway</span>
+                                </div>
+                                <span className="text-[10px] font-mono text-slate-400">{ingestionReport?.apiLogs?.length || 0} events</span>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/30">
+                                            <th className="p-5">Provider / Endpoint</th>
+                                            <th className="p-5 text-right">Latency</th>
+                                            <th className="p-5 text-right">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {ingestionReport?.apiLogs && Array.isArray(ingestionReport.apiLogs) && [...ingestionReport.apiLogs].sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0)).map((apiLog, i) => (
+                                            <tr key={i} className="text-sm transition-colors hover:bg-slate-50/50">
+                                                <td className="p-5">
+                                                    <div className="font-bold text-slate-900">{apiLog.api_name}</div>
+                                                    <div className="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">{apiLog.endpoint}</div>
+                                                </td>
+                                                <td className="p-5 text-right font-mono text-slate-500">
+                                                    {apiLog.response_time_ms ? `${apiLog.response_time_ms}ms` : '--'}
+                                                </td>
+                                                <td className="p-5 text-right">
+                                                    <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${apiLog.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                        {apiLog.status}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

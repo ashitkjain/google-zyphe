@@ -9,6 +9,7 @@ import PropertyMaps from './PropertyMaps';
 import Logo from './Logo';
 import CustomAIAnalysis from './CustomAIAnalysis';
 import ComprehensiveAnalysis from './ComprehensiveAnalysis';
+import ComplianceAttribution from './ComplianceAttribution';
 
 import ChatInterface from './ChatInterface';
 import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogEntry } from '../types';
@@ -97,6 +98,7 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 address={propertyData.address}
                                 solarData={propertyData.solarData}
                             />
+                            <ComplianceAttribution data={propertyData} />
                         </>
                     ) : (
                         <div className="max-w-4xl mx-auto py-6 text-center space-y-12">

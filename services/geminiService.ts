@@ -453,10 +453,11 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
     : `${basePrompt}\n\nNOTE: No photographs were provided for this property. Perform analysis based on detailed specifications.`;
 
   const response = await executeGeminiRequest<CustomAIAnalysisResult>({
-    model: FLASH_LITE_MODEL,
+    model: FLASH_MODEL, // Upgrade to 2.0 Flash for complex multi-image analysis
     contents: { parts: [{ text: textInstruction }, ...imageParts] },
     config: {
-      maxOutputTokens: 8192 // Ensure enough space for large galleries
+      maxOutputTokens: 8192,
+      temperature: 0.1 // Lower temperature for more consistent JSON structure
     },
     userId,
     zpid: property.zpid,

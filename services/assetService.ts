@@ -34,7 +34,7 @@ const uploadWithRetry = async (url: string, path: string, index: number, maxRetr
 export const securePropertyAssets = async (
     zpid: string,
     imageUrls: string[],
-    maps?: { zoomIn?: string; zoomOut?: string },
+    maps?: { zoomIn?: string; zoomOut?: string; streetView?: string },
     onProgress?: (p: AssetProgress) => void
 ): Promise<PropertyAssets> => {
 
@@ -42,12 +42,18 @@ export const securePropertyAssets = async (
     const cached = await getPropertyAssetsFromCloud(zpid);
     if (cached && cached.images?.length > 0) {
         const allStored = cached.images.every(url => url.includes('firebasestorage') || url.includes('FAILED_TO_SECURE'));
-        if (allStored) return cached;
+        // Check maps too
+        const mapsStored = (!maps?.zoomIn || cached.mapZoomIn?.includes('firebasestorage')) &&
+            (!maps?.zoomOut || cached.mapZoomOut?.includes('firebasestorage')) &&
+            (!maps?.streetView || cached.streetView?.includes('firebasestorage'));
+
+        if (allStored && mapsStored) return cached;
     }
 
     const persistentImages: string[] = [];
     let persistentMapZoomIn = maps?.zoomIn;
     let persistentMapZoomOut = maps?.zoomOut;
+    let persistentStreetView = maps?.streetView;
 
     // 2. Secure Maps
     if (maps?.zoomIn && !maps.zoomIn.includes('firebasestorage')) {
@@ -63,6 +69,14 @@ export const securePropertyAssets = async (
             persistentMapZoomOut = await uploadWithRetry(maps.zoomOut, `properties/${zpid}/maps/location_context.png`, -2);
         } catch (e) {
             console.warn("[AssetService] Map Zoom Out failed to secure:", e);
+        }
+    }
+
+    if (maps?.streetView && !maps.streetView.includes('firebasestorage')) {
+        try {
+            persistentStreetView = await uploadWithRetry(maps.streetView, `properties/${zpid}/maps/street_view.jpg`, -3);
+        } catch (e) {
+            console.warn("[AssetService] Street View failed to secure:", e);
         }
     }
 
@@ -106,6 +120,7 @@ export const securePropertyAssets = async (
         images: persistentImages,
         mapZoomIn: persistentMapZoomIn || null,
         mapZoomOut: persistentMapZoomOut || null,
+        streetView: persistentStreetView || null,
         lastVerified: null
     };
 

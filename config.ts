@@ -11,7 +11,7 @@ export const APP_CONFIG = {
     },
     models: {
         flash: 'gemini-2.0-flash',
-        flashLite: 'gemini-2.5-flash-lite',
+        flashLite: 'gemini-2.0-flash-lite',
     },
     roleTabs: {
         buyer: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'pulse', 'image_analysis', 'investment'],

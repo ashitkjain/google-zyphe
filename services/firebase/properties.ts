@@ -340,6 +340,63 @@ export const checkExistingPropertiesBatch = async (zpids: string[]): Promise<Set
     return existing;
 };
 
+export interface PropertyStatusDetails {
+    property?: { timestamp: any };
+    assets?: {
+        images: boolean;
+        map: boolean;
+        streetView: boolean;
+        timestamp: any;
+    };
+    visual?: { timestamp: any };
+}
+
+export const getPropertyStatusesBatch = async (zpids: string[]): Promise<Record<string, PropertyStatusDetails>> => {
+    if (!db || zpids.length === 0) return {};
+    const statuses: Record<string, PropertyStatusDetails> = {};
+
+    const chunkSize = 10;
+    const chunks: string[][] = [];
+    for (let i = 0; i < zpids.length; i += chunkSize) {
+        chunks.push(zpids.slice(i, i + chunkSize));
+    }
+
+    try {
+        await Promise.all(chunks.map(async (chunk) => {
+            const [snapProps, snapAssets, snapVisual] = await Promise.all([
+                getDocs(query(collection(db, "properties"), where(documentId(), "in", chunk))),
+                getDocs(query(collection(db, "property_assets"), where(documentId(), "in", chunk))),
+                getDocs(query(collection(db, "property_analyses_visual"), where(documentId(), "in", chunk)))
+            ]);
+
+            snapProps.forEach(doc => {
+                if (!statuses[doc.id]) statuses[doc.id] = {};
+                statuses[doc.id].property = { timestamp: doc.data().lastUpdated };
+            });
+
+            snapAssets.forEach(doc => {
+                if (!statuses[doc.id]) statuses[doc.id] = {};
+                const data = doc.data();
+                statuses[doc.id].assets = {
+                    images: data.images?.length > 0 && data.images[0].includes('firebasestorage'),
+                    map: !!data.mapZoomIn && data.mapZoomIn.includes('firebasestorage'),
+                    streetView: !!data.streetView && data.streetView.includes('firebasestorage'),
+                    timestamp: data.lastVerified
+                };
+            });
+
+            snapVisual.forEach(doc => {
+                if (!statuses[doc.id]) statuses[doc.id] = {};
+                statuses[doc.id].visual = { timestamp: doc.data().timestamp };
+            });
+        }));
+    } catch (e) {
+        console.warn("Failed to get property statuses batch", e);
+    }
+
+    return statuses;
+};
+
 export const deletePropertyAnalysis = async (zpid: string, mode: 'all' | 'intelligence' | 'assets' = 'all') => {
     if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID", tables: [] };
 

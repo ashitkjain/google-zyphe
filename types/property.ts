@@ -230,5 +230,6 @@ export interface PropertyAssets {
     images: string[];
     mapZoomIn?: string;
     mapZoomOut?: string;
+    streetView?: string;
     lastVerified: any; // serverTimestamp
 }
