@@ -371,9 +371,28 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 }
             }
 
-            // Fallback: If Multi-Zip scan is impossible (rate limit or no zips), try direct City Search
+            // Step 2: Define De-duplication Logic
+            const deduplicate = (items: any[]) => {
+                const seenIds = new Set<string>();
+                return items.filter(item => {
+                    const id = item.property_id || item.listing_id;
+                    const addrId = item.location?.address?.line;
+
+                    // Create a composite string ID to handle number/string type differences
+                    // and provide a robust fallback if primary IDs are missing
+                    const compositeId = id ? String(id) : (addrId ? addrId.toLowerCase().replace(/\s+/g, '') : null);
+
+                    if (!compositeId || seenIds.has(compositeId)) return false;
+                    seenIds.add(compositeId);
+                    return true;
+                });
+            };
+
+            // Step 3: Fetch Data (Zip Scan or Direct Fallback)
+            let rawResults: any[] = [];
+
             if (targetZips.length === 0) {
-                log('Zip-based scan failed. Attempting direct City listing search...');
+                log('Zip-based scan impossible. Attempting direct City listing search...');
 
                 const url = `https://${config.host}${config.endpoints.list}`;
                 const body = {
@@ -397,37 +416,23 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 }
 
                 const result = await response.json();
-                const data = result.data?.home_search?.results || result.results || [];
+                rawResults = result.data?.home_search?.results || result.results || [];
+                log(`Direct City Search returned ${rawResults.length} listings.`);
+            } else {
+                const uniqueZips = [...new Set(targetZips)];
+                const zipsToScan = uniqueZips.slice(0, 10);
+                log(`Scanning ${zipsToScan.length} unique Zip Codes...`);
 
-                log(`Direct City Search returned ${data.length} listings.`);
-                setListings(data);
-                setLoading(false);
-                return;
+                for (const zip of zipsToScan) {
+                    const zipListings = await fetchListings(zip);
+                    rawResults.push(...zipListings);
+                    // Tiny delay to avoid rate triggers
+                    await new Promise(r => setTimeout(r, 200));
+                }
             }
 
-            // Step 2: Fetch listings for each Zip (with cache)
-            const allResults: any[] = [];
-            const uniqueZips = [...new Set(targetZips)];
-
-            // Safety limit
-            const zipsToScan = uniqueZips.slice(0, 10);
-            log(`Scanning ${zipsToScan.length} unique Zip Codes...`);
-
-            for (const zip of zipsToScan) {
-                const zipListings = await fetchListings(zip);
-                allResults.push(...zipListings);
-                // Tiny delay to be nice to the API
-                await new Promise(r => setTimeout(r, 200));
-            }
-
-            // Step 3: De-duplicate and Set
-            const seenIds = new Set();
-            const deDuplicated = allResults.filter(item => {
-                const id = item.property_id || item.listing_id || (item.location?.address?.line + item.list_price);
-                if (seenIds.has(id)) return false;
-                seenIds.add(id);
-                return true;
-            });
+            // Step 4: De-duplicate and Set State
+            const deDuplicated = deduplicate(rawResults);
 
             log(`Ingestion Complete. ${deDuplicated.length} unique properties found.`);
             setListings(deDuplicated);
