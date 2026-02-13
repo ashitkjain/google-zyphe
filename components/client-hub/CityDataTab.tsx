@@ -107,7 +107,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const selectAll = () => {
         const visibleIds = Object.values(groupedListings)
             .flat()
-            .map(item => String(item.property_id || item.listing_id))
+            .map((item: any) => String(item.property_id || item.listing_id || item.mls_id || item.mls?.id))
             .filter(id => !cachedPropertyIds.has(id));
 
         setSelectedIds(prev => {
@@ -135,15 +135,21 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         const batchStartTime = Date.now();
         log(`Starting Parallel Bulk Ingest & Intelligence Pipeline for ${selectedIds.size} properties...`);
 
-        const targets = listings.filter(l => selectedIds.has(l.property_id));
+        const targets = listings.filter(l => {
+            const id = String(l.property_id || l.listing_id || l.mls_id || l.mls?.id);
+            return selectedIds.has(id);
+        });
 
         // Initialize Queue
-        const newJobs: IngestionJob[] = targets.map(item => ({
-            zpid: item.property_id,
-            address: item.location?.address?.line || item.property_id,
-            status: 'pending',
-            progress: null
-        }));
+        const newJobs: IngestionJob[] = targets.map(item => {
+            const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+            return {
+                zpid: id,
+                address: item.location?.address?.line || id,
+                status: 'pending',
+                progress: null
+            };
+        });
         setIngestionQueue(newJobs);
 
         let successCount = 0;
@@ -151,7 +157,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         // Staggered parallel scanning: launches pipelines in parallel but staggers their start by 1s each
         // to avoid hitting API rate limit bursts while maintaining some concurrency.
         const ingestPromises = targets.map(async (item, index) => {
-            const zpid = item.property_id;
+            const zpid = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
             // Construct strict address for lookup quality
             const addrObj = item.location?.address;
             const builtAddress = addrObj
@@ -375,11 +381,11 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             const deduplicate = (items: any[]) => {
                 const seenIds = new Set<string>();
                 return items.filter(item => {
-                    const id = item.property_id || item.listing_id;
+                    const id = item.property_id || item.listing_id || item.mls_id || item.mls?.id;
                     const addrId = item.location?.address?.line;
 
                     // Create a composite string ID to handle number/string type differences
-                    // and provide a robust fallback if primary IDs are missing
+                    // and provide a robust fallback if primary IDs (ZPID/ListingID/MLSID) are missing
                     const compositeId = id ? String(id) : (addrId ? addrId.toLowerCase().replace(/\s+/g, '') : null);
 
                     if (!compositeId || seenIds.has(compositeId)) return false;
@@ -470,7 +476,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
     // Table Row Component
     const ListingRow = ({ item }: { item: any, key?: any }) => {
-        const itemId = String(item.property_id || item.listing_id);
+        const itemId = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
         const isSelected = selectedIds.has(itemId);
         const isCached = cachedPropertyIds.has(itemId);
 
