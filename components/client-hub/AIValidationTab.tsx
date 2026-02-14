@@ -24,8 +24,8 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
     const [savingZpids, setSavingZpids] = useState<Set<string>>(new Set());
 
     const cityStats = useMemo(() => {
-        const uniqueCities = Array.from(new Set(properties.map(p => p.city || 'Other'))).sort();
-        return uniqueCities.map(city => {
+        const uniqueCities = Array.from(new Set(properties.map(p => p.city || 'Other')));
+        const stats = uniqueCities.map(city => {
             const cityProps = properties.filter(p => (p.city || 'Other') === city);
             const total = cityProps.length;
             const assessed = cityProps.filter(p => p.assessment).length;
@@ -34,6 +34,12 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                 total,
                 pending: total - assessed
             };
+        });
+
+        // Sort by pending properties descending, then by name
+        return stats.sort((a, b) => {
+            if (b.pending !== a.pending) return b.pending - a.pending;
+            return a.name.localeCompare(b.name);
         });
     }, [properties]);
 
