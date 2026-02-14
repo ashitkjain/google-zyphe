@@ -20,6 +20,7 @@ export interface AIAssessment {
     create_date: any;
     last_update_date: any;
     tester: string;
+    userId: string;
 }
 
 const COLLECTION_NAME = 'ai_assessment';

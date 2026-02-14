@@ -95,7 +95,8 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                 propertyAddress: address,
                 assessment,
                 comment,
-                tester: userId
+                tester: userId,
+                userId: userId
             });
 
             // Update local state
@@ -107,6 +108,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                     assessment,
                     comment,
                     tester: userId,
+                    userId: userId,
                     create_date: prev[zpid]?.create_date || new Date(),
                     last_update_date: new Date()
                 }
