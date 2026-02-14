@@ -95,19 +95,28 @@ export const runFullIntelligencePipeline = async (
     const cityStateKey = generateCityStateKey(city, state);
 
     // Prepare Parallel Tasks
-    const isAnalysisComplete = (res: any) => {
+    const isAnalysisComplete = (res: any, imageCount: number = 0) => {
       if (!res) return { valid: false, missing: ["No data returned"] };
       const missing = [];
       const hasInterior = !!(res.home_interior?.overall_description && res.home_interior.overall_description.length > 50);
       const hasExterior = !!(res.exterior_and_neighborhood?.exterior_and_lot_appeal?.architecture_style);
+
+      // If we have no images, it's expected that room highlights will be empty.
+      // If we HAVE images, the AI really should find rooms, but we shouldn't 
+      // block the entire pipeline if it fails to extract them (we'll just have a warning).
       const hasRooms = !!(res.room_highlights && res.room_highlights.length > 0);
 
       if (!hasInterior) missing.push("Interior description (short or missing)");
       if (!hasExterior) missing.push("Exterior analysis");
-      if (!hasRooms) missing.push("Room highlights/analysis");
+
+      // We no longer Hard Block on room highlights if image count is low or AI is being difficult.
+      // But we will log it if it's missing when we expected it.
+      if (imageCount > 0 && !hasRooms) {
+        onLog?.(`[Visual] Warning: 0 room highlights extracted despite having ${imageCount} images.`);
+      }
 
       return {
-        valid: missing.length === 0,
+        valid: missing.length === 0, // Only interior/exterior are hard requirements
         missing
       };
     };
@@ -117,7 +126,7 @@ export const runFullIntelligencePipeline = async (
 
       // Cache validation: only hit if reasonably complete
       if (cached) {
-        const check = isAnalysisComplete(cached);
+        const check = isAnalysisComplete(cached, enrichedData.images?.length || 0);
         if (check.valid) {
           const cachedImgCount = cached.image_by_image_analysis?.length || 0;
           const currentImgCount = enrichedData.images?.length || 0;
@@ -138,7 +147,7 @@ export const runFullIntelligencePipeline = async (
         onLog?.(`[Visual] Received ${dataStatus} from AI with ${keys.length} top-level fields.`);
       }
 
-      const check = isAnalysisComplete(res.data);
+      const check = isAnalysisComplete(res.data, enrichedData.images?.length || 0);
       if (!check.valid) {
         const keys = res.data ? Object.keys(res.data) : 'null/undefined';
         const errorMsg = `Visual Intelligence synthesis was incomplete: ${check.missing?.join(', ')}. (Received: ${typeof keys === 'string' ? keys : keys.join(', ')})`;
@@ -222,17 +231,24 @@ export const runFullIntelligencePipeline = async (
     const communityPulse = await pulseTask();
     const investmentData = await investmentTask();
 
-    // Assembly
+    // Assembly - Keep visualResult lean (only item-specific data)
     const finalVisualResult: CustomAIAnalysisResult = {
       ...visualResult,
       neighborhood: neighborhoodData || undefined,
+      // Removed: community_pulse, property_investment, general_market_intelligence (these are stored in their own tables)
+    };
+
+    // Save final visual state
+    await saveVisualAnalysisToCloud(zpid, finalVisualResult);
+
+    // Assembly for Narrative (includes shared research for synthesis)
+    const contextForComprehensive = {
+      ...finalVisualResult,
       community_pulse: communityPulse,
       property_investment: investmentData.specific,
       general_market_intelligence: investmentData.general
     };
 
-    // Save final visual state
-    await saveVisualAnalysisToCloud(zpid, finalVisualResult);
     if (finalVisualResult.image_quality_analysis) {
       await saveImageQualityAnalysisToCloud(zpid, finalVisualResult.image_quality_analysis);
     }
@@ -240,7 +256,7 @@ export const runFullIntelligencePipeline = async (
 
     // 10. Narrative AI Synthesis (Final Step)
     onProgress({ step: 'Narrative', status: 'running', message: 'Synthesizing final report...' });
-    const resultComp = await analyzeComprehensive(enrichedData, finalVisualResult);
+    const resultComp = await analyzeComprehensive(enrichedData, contextForComprehensive);
     await saveComprehensiveAnalysisToCloud(zpid, resultComp.data);
     onProgress({ step: 'Narrative', status: 'completed', message: 'Report synthesized.', usage: resultComp.usage });
 
@@ -317,19 +333,6 @@ export const runImageOnlyPipeline = async (
 ): Promise<string> => {
   try {
     let currentZpid = providedZpid;
-
-    // 0. Early optimization: Check if assets already exist
-    if (currentZpid) {
-      const existingAssets = await getPropertyAssetsFromCloud(currentZpid);
-      if (existingAssets?.images?.length > 0) {
-        const allStored = existingAssets.images.every(url => url.includes('firebasestorage') || url.includes('FAILED_TO_SECURE'));
-        if (allStored) {
-          onLog?.(`[Assets] Found existing persistent assets in cloud storage.`);
-          onProgress({ step: 'Status', status: 'completed', message: 'Images already secured.' });
-          return currentZpid;
-        }
-      }
-    }
 
     // 1. Discovery (Geocoding & Basic Facts)
     onProgress({ step: 'Discovery', status: 'running', message: 'Resolving location and property ID...' });

@@ -5,6 +5,7 @@ export interface APICallEvent {
     id?: string;
     user_id: string;
     zpid?: string;
+    address?: string;
     api_name: string;
     endpoint: string;
     params: any;

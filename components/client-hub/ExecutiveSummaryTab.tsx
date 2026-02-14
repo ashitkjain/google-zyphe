@@ -262,8 +262,8 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                 {/* 2.5 Zyphe's Strategy Section */}
                 <div className="space-y-8">
                     <div className="space-y-3">
-                        <h3 className="text-3xl font-serif font-black text-slate-900">Zyphe’s Strategy: Scaling Disruption</h3>
-                        <p className="text-xl text-slate-600 font-medium leading-relaxed">
+                        <h3 className="text-2xl font-serif font-black text-slate-900">Zyphe’s Strategy: Scaling Disruption</h3>
+                        <p className="text-lg text-slate-600 font-medium leading-relaxed">
                             While the real estate tech sector is beginning to address systemic inefficiencies through AI and data unification, achieving demonstrated success—as detailed in our{' '}
                             <button
                                 onClick={() => {
@@ -279,8 +279,8 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                     </div>
 
                     <div className="space-y-6">
-                        <h4 className="text-xl font-black text-slate-900 uppercase tracking-wider border-l-4 border-indigo-600 pl-4">The Competitive Edge</h4>
-                        <p className="text-slate-500 font-medium">Our strategy focuses on capturing the "under-teched" mass market by removing the barriers of cost and complexity.</p>
+                        <h4 className="text-lg font-black text-slate-900 uppercase tracking-wider border-l-4 border-indigo-600 pl-4">The Competitive Edge</h4>
+                        <p className="text-sm text-slate-500 font-medium">Our strategy focuses on capturing the "under-teched" mass market by removing the barriers of cost and complexity.</p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="p-7 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group flex flex-col shadow-sm">
@@ -288,9 +288,9 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                     <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
                                         <i className="fa-solid fa-chart-line text-xl"></i>
                                     </div>
-                                    <h5 className="text-xl font-black text-slate-900 leading-tight">Alpha-Generating Innovation</h5>
+                                    <h5 className="text-lg font-black text-slate-900 leading-tight">Alpha-Generating Innovation</h5>
                                 </div>
-                                <p className="text-base text-slate-500 leading-relaxed font-medium">
+                                <p className="text-sm text-slate-500 leading-relaxed font-medium">
                                     We deploy high-impact features like Visual AI, Context Graphs, and GenAI-driven lead conversion and reactivation. These tools can transform high value applications from personalized and contextual search to post-closing engagement and reactivation.
                                 </p>
                             </div>
@@ -300,9 +300,9 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                     <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
                                         <i className="fa-solid fa-plug-circle-check text-xl"></i>
                                     </div>
-                                    <h5 className="text-xl font-black text-slate-900 leading-tight">Zero-Friction Integration</h5>
+                                    <h5 className="text-lg font-black text-slate-900 leading-tight">Zero-Friction Integration</h5>
                                 </div>
-                                <p className="text-base text-slate-500 leading-relaxed font-medium">
+                                <p className="text-sm text-slate-500 leading-relaxed font-medium">
                                     To drive immediate market penetration, our "plug and play" architecture eliminates the switching costs typically associated with new tech. We integrate into existing workflows without requiring process overhauls, ensuring rapid, scalable adoption.
                                 </p>
                             </div>
@@ -312,9 +312,9 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                     <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
                                         <i className="fa-solid fa-gears text-xl"></i>
                                     </div>
-                                    <h5 className="text-xl font-black text-slate-900 leading-tight">High-Margin Operational Efficiency</h5>
+                                    <h5 className="text-lg font-black text-slate-900 leading-tight">High-Margin Operational Efficiency</h5>
                                 </div>
-                                <p className="text-base text-slate-500 leading-relaxed font-medium">
+                                <p className="text-sm text-slate-500 leading-relaxed font-medium">
                                     Our "AI + Human" hybrid model utilizes AI-assisted coding to slash R&D timelines and offshore administrative staff to guarantee data accuracy. This allows us to offer premium, enterprise-grade solutions at a price point that unlocks the broader mid-market (
                                     <button
                                         onClick={() => {
@@ -334,9 +334,9 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                     <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
                                         <i className="fa-solid fa-house-lock text-xl"></i>
                                     </div>
-                                    <h5 className="text-xl font-black text-slate-900 leading-tight">Premium MLS Attribution</h5>
+                                    <h5 className="text-lg font-black text-slate-900 leading-tight">Premium MLS Attribution</h5>
                                 </div>
-                                <p className="text-base text-slate-500 leading-relaxed font-medium">
+                                <p className="text-sm text-slate-500 leading-relaxed font-medium">
                                     By leveraging Brokerage Back Office (BBO) rights, we gain access to highly regulated MLS data, including property imagery, enabling us to build more comprehensive consumer tools and ensure compliance.
                                     <button
                                         onClick={() => {
@@ -349,24 +349,152 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                     </button>
                                 </p>
                             </div>
+                        </div>
+                    </div>
+                </div>
 
-                            <div className="p-7 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group flex flex-col shadow-sm">
-                                <div className="flex items-center gap-4 mb-3">
-                                    <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
-                                        <i className="fa-solid fa-rocket text-xl"></i>
-                                    </div>
-                                    <h5 className="text-xl font-black text-slate-900 leading-tight">Organic Growth</h5>
-                                </div>
-                                <p className="text-base text-slate-500 leading-relaxed font-medium">
-                                    By delivering synchronized value to the entire real estate ecosystem—buyers, sellers, and agents—Zyphe generates the network effects necessary for compounded organic growth.
+
+                {/* The Zyphe Product Ecosystem */}
+                <div className="mt-20 space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                    <div className="flex flex-col lg:flex-row gap-12 items-center">
+                        <div className="space-y-6 flex-1">
+                            <h3 className="text-2xl font-serif font-black text-slate-900 border-b-2 border-indigo-600 pb-4 inline-block">The Zyphe Product Ecosystem</h3>
+                            <div className="text-slate-500 font-medium leading-relaxed space-y-6">
+                                <p className="text-sm md:text-base">
+                                    <strong className="text-slate-900">Built on a 3-pillar product foundation: </strong>
+                                    <button
+                                        onClick={() => { setActiveTab?.('product_market_fit'); onNavigate?.('product_market_fit', '/realtor/product_market_fit'); }}
+                                        className="text-indigo-600 font-black hover:underline underline-offset-4"
+                                    >
+                                        Experience
+                                        <strong className="text-slate-900">, </strong>
+                                        Functionality
+                                        <strong className="text-slate-900">, </strong>
+                                        Technology
+                                    </button>
+                                    <strong className="text-slate-900">.</strong> This architecture ensures every data point—from listing photos to buyer behaviors—is unified into a single ecosystem of intelligence.
                                 </p>
+                                <p className="text-sm">
+                                    Zyphe is designed to eliminate the <strong className="text-slate-900">"admin tax"</strong> and modernize the real estate lifecycle through an AI-native ecosystem:
+                                </p>
+                                <ul className="space-y-4">
+                                    <li className="flex gap-4 text-sm">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 mt-2.5 flex-none" />
+                                        <span>
+                                            <strong className="text-slate-900 font-black">Pillar 1 (Experience):</strong> Delightful, intuitive interfaces featuring universal data ingestion and conversational commands that streamline the "Home Story" journey.
+                                        </span>
+                                    </li>
+                                    <li className="flex gap-4 text-sm">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 mt-2.5 flex-none" />
+                                        <span>
+                                            <strong className="text-slate-900 font-black">Pillar 2 (Functionality):</strong>
+                                            A "business-in-a-box" suite, leveraging vision and spatial AI for property analysis, AI powered leads management, post-closing client management and a proactive reactivation engine that mines dormant leads.
+                                        </span>
+                                    </li>
+                                    <li className="flex gap-4 text-sm">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 mt-2.5 flex-none" />
+                                        <span>
+                                            <strong className="text-slate-900 font-black">Pillar 3 (Technology):</strong>
+                                            A high-velocity architecture powered by Google technologies and a proprietary Context Graph that unifies visual, geospatial, and behavioral data into a single, grounded source of truth.
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div className="w-full lg:w-[400px] flex-none">
+                            <div className="relative group rounded-[2.5rem] overflow-hidden border border-slate-200 shadow-2xl">
+                                <img
+                                    src="/assets/product_ecosystem.png"
+                                    alt="Zyphe Product Ecosystem Pillars"
+                                    className="w-full h-auto transform group-hover:scale-105 transition-transform duration-1000"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* 3. Industry Validation */}
-                <div className="bg-indigo-50 p-6 rounded-[2.5rem] border border-indigo-100 flex flex-col lg:flex-row gap-8 items-start">
+                {/* Market Landscape Table */}
+                <div className="mt-16 space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                    <div className="flex items-center gap-3">
+                        <i className="fa-solid fa-earth-americas text-indigo-500"></i>
+                        <p className="text-base text-slate-500 font-medium leading-relaxed italic">
+                            Zyphe will operate in 3 product categories initially.
+                        </p>
+                    </div>
+
+                    <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-2xl shadow-slate-200/50">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/30">
+                                        <th className="py-3 px-6">Category</th>
+                                        <th className="py-3 px-6">Leaders</th>
+                                        <th className="py-3 px-6">US Market</th>
+                                        <th className="py-3 px-6">CAGR</th>
+                                        <th className="py-3 px-6">Key Driver</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50/50">
+                                    {[
+                                        {
+                                            cat: "CRM",
+                                            sub: "$60 - $500 /user/mo",
+                                            leaders: "Follow Up Boss, kvCORE, HubSpot",
+                                            market: "$2.55 Billion",
+                                            cagr: "12.2%",
+                                            driver: "62% of US agencies have now adopted a formal CRM."
+                                        },
+                                        {
+                                            cat: "Closing",
+                                            sub: "$200 - $1,500 /mo",
+                                            leaders: "Luxury Presence, Chime, iHomefinder",
+                                            market: "$1.15 Billion",
+                                            cagr: "11.4%",
+                                            driver: "Fast adoption of \"Breeze\" (automated) disclosures and e-signatures."
+                                        },
+                                        {
+                                            cat: "IDX",
+                                            sub: "$30 - $100 /file",
+                                            leaders: "SkySlope, Dotloop, Lone Wolf",
+                                            market: "$3.80 Billion*",
+                                            cagr: "10.3%",
+                                            driver: "Shift toward \"Search-as-a-Service\" and AI-driven lead scoring."
+                                        }
+                                    ].map((row, i) => (
+                                        <tr key={i} className="group transition-colors hover:bg-slate-50/50">
+                                            <td className="py-3 px-6">
+                                                <div className="font-black text-slate-900 text-base mb-1">{row.cat}</div>
+                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{row.sub}</div>
+                                            </td>
+                                            <td className="py-3 px-6 text-[13px] font-medium text-slate-500">
+                                                {row.leaders}
+                                            </td>
+                                            <td className="py-3 px-6">
+                                                <span className="text-lg font-black text-indigo-600 font-mono tracking-tighter">{row.market}</span>
+                                            </td>
+                                            <td className="py-3 px-6">
+                                                <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-xs font-black">
+                                                    {row.cagr}
+                                                </span>
+                                            </td>
+                                            <td className="py-3 px-6">
+                                                <p className="text-[13px] text-slate-500 font-medium leading-relaxed italic max-w-xs transition-colors group-hover:text-slate-900">
+                                                    {row.driver}
+                                                </p>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* 3. Industry Validation */}
+            <section className="bg-indigo-50 p-10 rounded-[2.5rem] border border-indigo-100 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                <div className="flex flex-col lg:flex-row gap-12 items-start mb-12">
                     <div className="space-y-8 flex-1">
                         <div className="space-y-4">
                             <div className="flex items-center gap-3">
@@ -403,25 +531,8 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <span>GenAI Adoption: While 41% of Realtors have begun utilizing Generative AI, a significant 30% currently utilize no emerging technology tools at all.</span>
                             </li>
                         </ul>
-
-                        <div className="pt-8 border-t border-indigo-200/30 mt-8">
-                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-4 block">Case Study Insights</span>
-                            <div className="flex flex-wrap gap-x-12 gap-y-6">
-                                <div className="space-y-1">
-                                    <h5 className="text-[11px] font-black text-indigo-900">Compass</h5>
-                                    <p className="text-[10px] text-indigo-800/60 font-medium leading-relaxed max-w-[200px]">Created PropOS for $1.5B+, a unified data fabric to break data silos to achieve 20% in deals closed per agent, 15% faster time to sell than market.</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <h5 className="text-[11px] font-black text-indigo-900">Cotality</h5>
-                                    <p className="text-[10px] text-indigo-800/60 font-medium leading-relaxed max-w-[200px]">Unified over 5.5 billion records, providing a 360-degree view of 99.9% of U.S. properties resulting in 90% reduction in manual data entry, Decision cycles from weeks to minutes.</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <h5 className="text-[11px] font-black text-indigo-900">Radius</h5>
-                                    <p className="text-[10px] text-indigo-800/60 font-medium leading-relaxed max-w-[200px]">Created unified AI-Native OS and Mel-AI assistant leading to 80% reduction in back-office time, 3x higher lead conversion, 293% agent growth, 330% YoY revenue, and "instantaneous" audits/payouts.</p>
-                                </div>
-                            </div>
-                        </div>
                     </div>
+
                     <div className="min-w-[300px] lg:border-l lg:border-indigo-200 lg:pl-12 space-y-10">
                         <div className="space-y-1.5">
                             <span className="text-5xl font-black text-indigo-600">$180B</span>
@@ -462,69 +573,33 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                         </div>
                     </div>
                 </div>
-            </section >
 
-            {/* The Zyphe Product Ecosystem */}
-            < section className="space-y-16" >
-                <div className="flex flex-col lg:flex-row gap-8 items-center">
-                    <div className="space-y-4 flex-1">
-                        <h3 className="text-3xl font-serif font-black text-slate-900">The Zyphe Product Ecosystem</h3>
-                        <div className="text-slate-500 font-medium leading-relaxed space-y-4">
-                            <p className="text-sm md:text-base">
-                                <strong className="text-slate-900">Built on a 3-pillar product foundation: </strong>
-                                <button
-                                    onClick={() => { setActiveTab?.('product_market_fit'); onNavigate?.('product_market_fit', '/realtor/product_market_fit'); }}
-                                    className="text-indigo-600 font-black hover:underline underline-offset-4"
-                                >
-                                    Experience
-                                    <strong className="text-slate-900">, </strong>
-                                    Functionality
-                                    <strong className="text-slate-900">, </strong>
-                                    Technology
-                                </button>
-                                <strong className="text-slate-900">.</strong> This architecture ensures every data point—from listing photos to buyer behaviors—is unified into a single ecosystem of intelligence.
+                <div className="pt-10 border-t border-indigo-200/30 w-full">
+                    <span className="text-xs font-black text-indigo-400 uppercase tracking-[0.2em] mb-6 block px-4">Case Study Insights</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-16 gap-y-10 px-4">
+                        <div className="space-y-3">
+                            <h5 className="text-xl font-black text-indigo-900">Compass</h5>
+                            <p className="text-base text-indigo-800/60 font-medium leading-relaxed">
+                                Created PropOS for $1.5B+, a unified data fabric to break data silos to achieve 20% in deals closed per agent, 15% faster time to sell than market.
                             </p>
-                            <p>
-                                Zyphe is designed to eliminate the <strong className="text-slate-900">"admin tax"</strong> and modernize the real estate lifecycle through an AI-native ecosystem:
-                            </p>
-                            <ul className="space-y-3">
-                                <li className="flex gap-2 text-base">
-                                    <span className="text-indigo-600 font-black">•</span>
-                                    <span>
-                                        <strong className="text-slate-900">Pillar 1 (Experience):</strong> Delightful, intuitive interfaces featuring universal data ingestion and conversational commands that streamline the "Home Story" journey.
-                                    </span>
-                                </li>
-                                <li className="flex gap-2 text-base">
-                                    <span className="text-indigo-600 font-black">•</span>
-                                    <span>
-                                        <strong className="text-slate-900">Pillar 2 (Functionality):</strong>
-                                        A "business-in-a-box" suite, leveraging vision and spatial AI for property analysis alongside a proactive reactivation engine that mines dormant leads.
-                                    </span>
-                                </li>
-                                <li className="flex gap-2 text-base">
-                                    <span className="text-indigo-600 font-black">•</span>
-                                    <span>
-                                        <strong className="text-slate-900">Pillar 3 (Technology):</strong>
-                                        A high-velocity architecture powered by Google technologies and a proprietary Context Graph that unifies visual, geospatial, and behavioral data into a single, grounded source of truth.
-                                    </span>
-                                </li>
-                            </ul>
                         </div>
-                    </div>
-                    <div className="w-full lg:w-[320px] flex-none">
-                        <div className="relative group rounded-3xl overflow-hidden border border-slate-200 shadow-xl">
-                            <img
-                                src="/assets/product_ecosystem.png"
-                                alt="Zyphe Product Ecosystem Pillars"
-                                className="w-full h-auto transform group-hover:scale-105 transition-transform duration-700"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <div className="space-y-3">
+                            <h5 className="text-xl font-black text-indigo-900">Cotality</h5>
+                            <p className="text-base text-indigo-800/60 font-medium leading-relaxed">
+                                Unified over 5.5 billion records, providing a 360-degree view of 99.9% of U.S. properties resulting in 90% reduction in manual data entry, Decision cycles from weeks to minutes.
+                            </p>
+                        </div>
+                        <div className="space-y-3">
+                            <h5 className="text-xl font-black text-indigo-900">Radius</h5>
+                            <p className="text-base text-indigo-800/60 font-medium leading-relaxed">
+                                Created unified AI-Native OS and Mel-AI assistant leading to 80% reduction in back-office time, 3x higher lead conversion, 293% agent growth, 330% YoY revenue, and "instantaneous" audits/payouts.
+                            </p>
                         </div>
                     </div>
                 </div>
+            </section>
 
 
-            </section >
 
             {/* Why would Zyphe succeed? */}
             < section className="space-y-12 bg-slate-50/50 rounded-[3rem] p-12 border border-slate-200/50" >
@@ -566,10 +641,9 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                 </div>
             </section >
 
-            {/* Footer / Contact */}
-            < section className="text-center pt-8 border-t border-slate-100 italic text-slate-400 font-medium text-sm" >
+            <section className="text-center pt-8 border-t border-slate-100 italic text-slate-400 font-medium text-sm">
                 "Not just a database. An ecosystem of intelligence."
-            </section >
+            </section>
 
             {/* Video Player Modal */}
             {
@@ -615,7 +689,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                     </div>
                 )
             }
-        </div >
+        </div>
     );
 };
 

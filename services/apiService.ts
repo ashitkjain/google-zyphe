@@ -72,6 +72,7 @@ export const normalizeAddress = async (address: string, zpid?: string): Promise<
   const geocodeLogId = await logAPICall({
     user_id: auth?.currentUser?.uid || 'unknown',
     zpid: zpid,
+    address: address,
     api_name: 'Radar',
     endpoint: 'geocode/forward',
     params: { address },
@@ -353,11 +354,31 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
   }
 };
 
-export const fetchSolarData = async (lat: number, lng: number): Promise<any> => {
+export const fetchSolarData = async (lat: number, lng: number, zpid?: string, address?: string): Promise<any> => {
   const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${lat}&location.longitude=${lng}&requiredQuality=HIGH&key=${MAPS_API_KEY}`;
+
+  const logId = await logAPICall({
+    user_id: auth?.currentUser?.uid || 'unknown',
+    zpid,
+    address,
+    api_name: 'Google Solar',
+    endpoint: 'findClosest',
+    params: { lat, lng },
+    status: 'pending'
+  });
+  const start = Date.now();
 
   try {
     const response = await fetch(url);
+
+    if (logId) {
+      updateAPICall(logId, {
+        status: response.ok ? 'completed' : 'failed',
+        response_time_ms: Date.now() - start,
+        error: response.ok ? undefined : `Status ${response.status}`
+      });
+    }
+
     if (!response.ok) {
       console.warn(`[Solar API] Error or no data for this location: ${response.status}`);
       return null;
@@ -404,8 +425,19 @@ export const fetchSolarData = async (lat: number, lng: number): Promise<any> => 
   }
 };
 
-export const fetchAirQuality = async (lat: number, lng: number): Promise<any> => {
+export const fetchAirQuality = async (lat: number, lng: number, zpid?: string, address?: string): Promise<any> => {
   const url = `https://airquality.googleapis.com/v1/currentConditions:lookup?key=${MAPS_API_KEY}`;
+
+  const logId = await logAPICall({
+    user_id: auth?.currentUser?.uid || 'unknown',
+    zpid,
+    address,
+    api_name: 'Google AirQuality',
+    endpoint: 'lookup',
+    params: { lat, lng },
+    status: 'pending'
+  });
+  const start = Date.now();
 
   try {
     const response = await fetch(url, {
@@ -426,6 +458,14 @@ export const fetchAirQuality = async (lat: number, lng: number): Promise<any> =>
         languageCode: "en"
       })
     });
+
+    if (logId) {
+      updateAPICall(logId, {
+        status: response.ok ? 'completed' : 'failed',
+        response_time_ms: Date.now() - start,
+        error: response.ok ? undefined : `Status ${response.status}`
+      });
+    }
 
     if (!response.ok) {
       console.warn(`[Air Quality API] Error: ${response.status}`);
@@ -458,13 +498,31 @@ export const fetchAirQuality = async (lat: number, lng: number): Promise<any> =>
   }
 };
 
-export const fetchPollenData = async (lat: number, lng: number): Promise<any> => {
-  // We use forecast:lookup to get today's pollen info
+export const fetchPollenData = async (lat: number, lng: number, zpid?: string, address?: string): Promise<any> => {
   const url = `https://pollen.googleapis.com/v1/forecast:lookup?key=${MAPS_API_KEY}&location.latitude=${lat}&location.longitude=${lng}&days=1`;
-  console.log(`[Pollen API] Fetching pollen data for ${lat}, ${lng} from URL: ${url}`);
+
+  const logId = await logAPICall({
+    user_id: auth?.currentUser?.uid || 'unknown',
+    zpid,
+    address,
+    api_name: 'Google Pollen',
+    endpoint: 'lookup',
+    params: { lat, lng },
+    status: 'pending'
+  });
+  const start = Date.now();
 
   try {
     const response = await fetch(url);
+
+    if (logId) {
+      updateAPICall(logId, {
+        status: response.ok ? 'completed' : 'failed',
+        response_time_ms: Date.now() - start,
+        error: response.ok ? undefined : `Status ${response.status}`
+      });
+    }
+
     if (!response.ok) {
       console.warn(`[Pollen API] Error: ${response.status}`);
       return null;
@@ -531,6 +589,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
         const logId = await logAPICall({
           user_id: auth?.currentUser?.uid || 'unknown',
           zpid: isZpid ? addressOrZpid : undefined,
+          address: isZpid ? undefined : addressOrZpid,
           api_name: 'RapidAPI',
           endpoint: 'property',
           params: { addressOrZpid, isZpid, attempt },
@@ -735,7 +794,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
         mappedData.solarData = cachedEnvData.solarData;
       } else {
         onStep?.("Analyzing solar potential...");
-        mappedData.solarData = await fetchSolarData(mappedData.coordinates.latitude, mappedData.coordinates.longitude);
+        mappedData.solarData = await fetchSolarData(mappedData.coordinates.latitude, mappedData.coordinates.longitude, mappedData.zpid, mappedData.address);
       }
 
       // 2. Air Quality
@@ -743,7 +802,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
         mappedData.airQuality = cachedEnvData.airQuality;
       } else {
         onStep?.("Fetching air quality data...");
-        mappedData.airQuality = await fetchAirQuality(mappedData.coordinates.latitude, mappedData.coordinates.longitude);
+        mappedData.airQuality = await fetchAirQuality(mappedData.coordinates.latitude, mappedData.coordinates.longitude, mappedData.zpid, mappedData.address);
       }
 
       // 3. Pollen (New Feature)
@@ -751,7 +810,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
         mappedData.pollen = cachedEnvData.pollen;
       } else {
         onStep?.("Fetching pollen data...");
-        const pollenRaw = await fetchPollenData(mappedData.coordinates.latitude, mappedData.coordinates.longitude);
+        const pollenRaw = await fetchPollenData(mappedData.coordinates.latitude, mappedData.coordinates.longitude, mappedData.zpid, mappedData.address);
 
         if (pollenRaw) {
           onStep?.("Analyzing allergy profile...");

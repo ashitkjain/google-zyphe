@@ -13,8 +13,20 @@ export const logLLMCall = async (event: Omit<LLMCallEvent, 'id' | 'timestamp'>):
             finalUserId = uid;
         }
 
+        const eventToLog: any = { ...event };
+
+        // Safety: Truncate massive payloads to prevent Firestore 1MB doc limit (approx 200k chars)
+        const MAX_LOG_SIZE = 200000;
+        if (eventToLog.raw_payload && JSON.stringify(eventToLog.raw_payload).length > MAX_LOG_SIZE) {
+            eventToLog.raw_payload = {
+                truncated: true,
+                message: "Payload too large for Firestore log. Truncated for stability.",
+                prompt_start: JSON.stringify(eventToLog.raw_payload).substring(0, 1000)
+            };
+        }
+
         const docData = sanitizeForFirestore({
-            ...event,
+            ...eventToLog,
             user_id: finalUserId,
             timestamp: serverTimestamp()
         });
@@ -43,8 +55,10 @@ export const updateLLMCall = async (id: string, updates: Partial<LLMCallEvent>):
         const docRef = doc(db, "llm_call_events", id);
 
         const sanitizedUpdates = { ...updates };
-        if (sanitizedUpdates.raw_response && typeof sanitizedUpdates.raw_response === 'string' && sanitizedUpdates.raw_response.length > 500000) {
-            sanitizedUpdates.raw_response = sanitizedUpdates.raw_response.substring(0, 5000) + "... [Truncated due to size]";
+        const MAX_LOG_SIZE = 200000;
+
+        if (sanitizedUpdates.raw_response && typeof sanitizedUpdates.raw_response === 'string' && sanitizedUpdates.raw_response.length > MAX_LOG_SIZE) {
+            sanitizedUpdates.raw_response = sanitizedUpdates.raw_response.substring(0, 5000) + "... [Truncated due to total document size limits (~1MB)]";
         }
 
         const sanitized = sanitizeForFirestore(sanitizedUpdates);

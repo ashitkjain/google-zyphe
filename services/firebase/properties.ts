@@ -94,8 +94,14 @@ export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAI
         const docRef = doc(db, "property_analyses_visual", String(zpid));
         logFirestoreQuery('setDoc', 'property_analyses_visual', { zpid });
 
+        // SAFETY: Ensure shared/regional data is NOT duplicated into the property-specific record
+        const cleanAnalysis = { ...analysis };
+        delete cleanAnalysis.community_pulse;
+        delete cleanAnalysis.property_investment;
+        delete cleanAnalysis.general_market_intelligence;
+
         await setDoc(docRef, {
-            ...sanitizeForFirestore(analysis),
+            ...sanitizeForFirestore(cleanAnalysis),
             zpid: String(zpid),
             timestamp: serverTimestamp()
         });
@@ -347,6 +353,7 @@ export interface PropertyStatusDetails {
         map: boolean;
         streetView: boolean;
         timestamp: any;
+        thumbnailUrl?: string;
     };
     visual?: { timestamp: any };
 }
@@ -377,11 +384,13 @@ export const getPropertyStatusesBatch = async (zpids: string[]): Promise<Record<
             snapAssets.forEach(doc => {
                 if (!statuses[doc.id]) statuses[doc.id] = {};
                 const data = doc.data();
+                const imagesSecured = data.images?.length > 0 && data.images[0].includes('firebasestorage');
                 statuses[doc.id].assets = {
-                    images: data.images?.length > 0 && data.images[0].includes('firebasestorage'),
+                    images: imagesSecured,
                     map: !!data.mapZoomIn && data.mapZoomIn.includes('firebasestorage'),
                     streetView: !!data.streetView && data.streetView.includes('firebasestorage'),
-                    timestamp: data.lastVerified
+                    timestamp: data.lastVerified,
+                    thumbnailUrl: imagesSecured ? data.images[0] : undefined
                 };
             });
 

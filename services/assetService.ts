@@ -38,16 +38,14 @@ export const securePropertyAssets = async (
     onProgress?: (p: AssetProgress) => void
 ): Promise<PropertyAssets> => {
 
-    // 1. Check if we already have these assets registered and stored
+    // 1. Check if we already have the gallery registered and stored.
+    // For maps, we will proceed to the specific securing block to allow physical verification.
     const cached = await getPropertyAssetsFromCloud(zpid);
     if (cached && cached.images?.length > 0) {
         const allStored = cached.images.every(url => url.includes('firebasestorage') || url.includes('FAILED_TO_SECURE'));
-        // Check maps too
-        const mapsStored = (!maps?.zoomIn || cached.mapZoomIn?.includes('firebasestorage')) &&
-            (!maps?.zoomOut || cached.mapZoomOut?.includes('firebasestorage')) &&
-            (!maps?.streetView || cached.streetView?.includes('firebasestorage'));
-
-        if (allStored && mapsStored) return cached;
+        // If images are secure, we still proceed to check maps if they are provided,
+        // but if no maps were provided and images are done, we can return.
+        if (allStored && !maps?.zoomIn && !maps?.zoomOut && !maps?.streetView) return cached;
     }
 
     const persistentImages: string[] = [];
@@ -56,7 +54,9 @@ export const securePropertyAssets = async (
     let persistentStreetView = maps?.streetView;
 
     // 2. Secure Maps
-    if (maps?.zoomIn && !maps.zoomIn.includes('firebasestorage')) {
+    // We always attempt maps if provided because uploadRemoteImageToStorage 
+    // internalizes the physical storage existence check.
+    if (maps?.zoomIn) {
         try {
             persistentMapZoomIn = await uploadWithRetry(maps.zoomIn, `properties/${zpid}/maps/zoom_in.png`, -1);
         } catch (e) {
@@ -64,7 +64,7 @@ export const securePropertyAssets = async (
         }
     }
 
-    if (maps?.zoomOut && !maps.zoomOut.includes('firebasestorage')) {
+    if (maps?.zoomOut) {
         try {
             persistentMapZoomOut = await uploadWithRetry(maps.zoomOut, `properties/${zpid}/maps/location_context.png`, -2);
         } catch (e) {
@@ -72,7 +72,7 @@ export const securePropertyAssets = async (
         }
     }
 
-    if (maps?.streetView && !maps.streetView.includes('firebasestorage')) {
+    if (maps?.streetView) {
         try {
             persistentStreetView = await uploadWithRetry(maps.streetView, `properties/${zpid}/maps/street_view.jpg`, -3);
         } catch (e) {

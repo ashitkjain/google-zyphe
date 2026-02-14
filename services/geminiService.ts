@@ -140,17 +140,19 @@ export const executeGeminiRequest = async <T>(
     userId?: string;
     promptFilename: string;
     zpid?: string;
+    address?: string;
     extractResultJson?: boolean;
     schema?: any;
     imageUrls?: string[];
   }
 ): Promise<{ data: T; usage: AIUsage; rawResponse: any }> => {
-  const { model, contents, config, userId, promptFilename, zpid, extractResultJson, schema, imageUrls } = params;
+  const { model, contents, config, userId, promptFilename, zpid, address, extractResultJson, schema, imageUrls } = params;
   const ai = getAi();
 
   const logId = await logLLMCall({
     user_id: userId || "unknown",
     zpid,
+    address,
     prompt_filename: promptFilename,
     llm_name: model,
     raw_payload: {
@@ -200,50 +202,47 @@ export const executeGeminiRequest = async <T>(
     }
 
     // 3. Perform Generation
-    // The @google/genai SDK expects systemInstruction as a STRING or Parts INSIDE the config object
-    const finalRequestConfig = {
-      ...finalConfig,
-      systemInstruction: config?.systemInstruction
-    };
-
-    const response = await (ai.models as any).generateContent({
+    const result = await (ai.models as any).generateContent({
       model,
       contents: formattedContents,
-      config: finalRequestConfig,
+      config: finalConfig,
     });
 
-    const usage = calculateUsage(response, model);
-    const responseText = response.text;
+    const responseText = typeof result.text === 'function' ? result.text() : result.text;
+    const usage = calculateUsage(result, model);
 
-    // 4. Update Log with success
+    // 4. Extract data first to catch parsing errors before marking as 'completed'
+    const data = extractResultJson ? extractJson<T>(responseText) : responseText as unknown as T;
+
+    // 5. Update Log with success (NOW AWAITED)
     if (logId) {
-      updateLLMCall(logId, {
+      await updateLLMCall(logId, {
         raw_response: responseText,
         status: 'completed',
         response_received_at: serverTimestamp(),
-        usage_metadata: (response.usageMetadata as any),
+        usage_metadata: (result.usageMetadata as any),
         estimated_cost: usage.cost,
-        ...extractMetadata(response)
-      }).catch(err => console.error("Failed to update AI log:", err));
+        ...extractMetadata(result)
+      });
     }
 
     return {
-      data: extractResultJson ? extractJson<T>(responseText) : responseText as unknown as T,
+      data,
       usage,
-      rawResponse: response
+      rawResponse: result
     };
   } catch (error: any) {
     if (logId) {
-      updateLLMCall(logId, {
+      await updateLLMCall(logId, {
         raw_response: error.message,
         status: 'failed',
-        error: error.stack || error.message,
+        error: error.stack || (typeof error === 'string' ? error : JSON.stringify(error)),
         response_received_at: serverTimestamp()
-      }).catch(err => console.error("Failed to update AI error log:", err));
+      });
     }
 
     if (error instanceof AiResponseError) throw error;
-    throw new AiResponseError(error.message, "AI Execution Error", contents);
+    throw new AiResponseError(error.message || "AI Execution Error", "ERROR", contents);
   }
 };
 
@@ -355,6 +354,7 @@ export const analyzeProperty = async (property: PropertyData, userId: string = "
     contents: prompt,
     userId,
     zpid: property.zpid,
+    address: property.address,
     promptFilename: "propertyAnalysis.ts",
     extractResultJson: true,
     schema: propertyAnalysisSchema,
@@ -384,6 +384,7 @@ export const analyzeNeighborhood = async (mapZoomIn: string, mapZoomOut: string,
     },
     userId,
     zpid: property.zpid,
+    address: property.address,
     promptFilename: "neighborhoodAnalysis.ts",
     extractResultJson: true,
     schema: neighborhoodAnalysisSchema,
@@ -399,6 +400,7 @@ export const analyzeCommunityPulse = async (property: PropertyData, userId: stri
     config: { tools: [groundingTool], temperature: 1.0 },
     userId,
     zpid: property.zpid,
+    address: property.address,
     promptFilename: "communityPulse.ts",
     extractResultJson: true,
     schema: communityPulseSchema
@@ -461,6 +463,7 @@ export const analyzePropertyImages = async (imageUrls: string[], property: Prope
     },
     userId,
     zpid: property.zpid,
+    address: property.address,
     promptFilename: "propertyImages.ts",
     extractResultJson: true,
     schema: propertyImagesSchema,
@@ -506,6 +509,7 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
     config: { temperature: 0.7 },
     userId,
     zpid: property.zpid,
+    address: property.address,
     promptFilename: "comprehensiveAnalysis.ts",
     extractResultJson: true,
     schema: comprehensiveAnalysisSchema
@@ -520,6 +524,7 @@ export const analyzeInvestmentResearch = async (property: PropertyData, userId: 
     config: { tools: [groundingTool], temperature: 1.0 },
     userId,
     zpid: property.zpid,
+    address: property.address,
     promptFilename: "investmentResearch.ts",
     extractResultJson: true,
     schema: investmentResearchSchema
@@ -534,6 +539,7 @@ export const analyzeGeneralMarketIntelligence = async (property: PropertyData, u
     config: { tools: [groundingTool], temperature: 1.0 },
     userId,
     zpid: property.zpid,
+    address: property.address,
     promptFilename: "generalMarketIntelligence.ts",
     extractResultJson: true,
   });
@@ -547,6 +553,7 @@ export const analyzeBiddingStrategy = async (property: PropertyData, userId: str
     config: { tools: [groundingTool], temperature: 1.0 },
     userId,
     zpid: property.zpid,
+    address: property.address,
     promptFilename: "biddingStrategy.ts",
     extractResultJson: true,
     schema: biddingStrategySchema
@@ -597,6 +604,7 @@ export const analyzeStreetView = async (imageUrl: string, property: PropertyData
     },
     userId,
     zpid: property.zpid,
+    address: property.address,
     promptFilename: "streetViewAnalysis.ts",
     extractResultJson: true,
     schema: streetViewAnalysisSchema
@@ -629,6 +637,7 @@ export const analyzePollen = async (pollenRawData: any, property: PropertyData, 
     contents: prompt,
     userId,
     zpid: property.zpid,
+    address: property.address,
     promptFilename: "pollenAnalysis.ts",
     extractResultJson: true,
     schema: pollenAnalysisSchema

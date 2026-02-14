@@ -43,6 +43,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         apiLogs: APICallEvent[];
     } | null>(null);
     const [viewMode, setViewMode] = useState<'table' | 'ingestion'>('table');
+    const [activeReportTab, setActiveReportTab] = useState<'ai' | 'api'>('ai');
     const [pipelineType, setPipelineType] = useState<'full' | 'images'>('full');
     const [deletionStatus, setDeletionStatus] = useState<{ address: string, tables: string[] } | null>(null);
     const [propertyStatuses, setPropertyStatuses] = useState<Record<string, PropertyStatusDetails>>({});
@@ -58,6 +59,18 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     }, [listings]);
 
     // State Filter effect removed
+    const zpidToAddressMap = useMemo(() => {
+        const map: Record<string, string> = {};
+        listings.forEach(item => {
+            const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+            const addrObj = item.location?.address;
+            const builtAddress = addrObj
+                ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
+                : (item.location?.address?.line || id);
+            map[id] = builtAddress;
+        });
+        return map;
+    }, [listings]);
 
     const groupedListings = useMemo<Record<string, any[]>>(() => {
         const groups: Record<string, any[]> = {};
@@ -116,8 +129,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const selectAll = () => {
         const visibleIds = Object.values(groupedListings)
             .flat()
-            .map((item: any) => String(item.property_id || item.listing_id || item.mls_id || item.mls?.id))
-            .filter(id => !cachedPropertyIds.has(id));
+            .map((item: any) => String(item.property_id || item.listing_id || item.mls_id || item.mls?.id));
 
         setSelectedIds(prev => {
             const next = new Set(prev);
@@ -143,14 +155,9 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
         const targets = listings.filter(l => {
             const id = String(l.property_id || l.listing_id || l.mls_id || l.mls?.id);
-            return selectedIds.has(id) && !cachedPropertyIds.has(id);
+            return selectedIds.has(id);
         });
 
-        if (targets.length === 0) {
-            addLog("No new properties to secure. All selected items are already cached.");
-            setLoading(false);
-            return;
-        }
 
         addLog(`Processing ${targets.length} properties...`);
 
@@ -223,20 +230,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
         const targets = listings.filter(l => {
             const id = String(l.property_id || l.listing_id || l.mls_id || l.mls?.id);
-            return selectedIds.has(id) && !cachedPropertyIds.has(id);
+            return selectedIds.has(id);
         });
 
-        if (targets.length === 0) {
-            setError("No new properties to analyze. All selected items are already cached.");
-            setLoading(false);
-            return;
-        }
 
-        if (targets.length > 10) {
-            setError(`You can only analyze up to 10 NEW properties at once. You have ${targets.length} pending.`);
-            setLoading(false);
-            return;
-        }
 
         addLog(`Processing ${targets.length} properties...`);
 
@@ -274,50 +271,55 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             addLog(`Phase 1 Complete. Regional contexts established.`);
         }
 
+        const CHUNK_SIZE = 5;
         let successCount = 0;
 
-        // Staggered parallel scanning: launches pipelines in parallel but staggers their start by 1s each
-        // to avoid hitting API rate limit bursts while maintaining some concurrency.
-        const ingestPromises = targets.map(async (item, index) => {
-            const zpid = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
-            // Construct strict address for lookup quality
-            const addrObj = item.location?.address;
-            const builtAddress = addrObj
-                ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
-                : (item.location?.address?.line || zpid);
+        for (let i = 0; i < targets.length; i += CHUNK_SIZE) {
+            const chunk = targets.slice(i, i + CHUNK_SIZE);
+            addLog(`Phase 2: Processing batch ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(targets.length / CHUNK_SIZE)}...`);
 
-            // Wait for stagger delay
-            if (index > 0) {
-                await new Promise(r => setTimeout(r, index * 1000));
+            const chunkPromises = chunk.map(async (item, index) => {
+                const zpid = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+                const addrObj = item.location?.address;
+                const builtAddress = addrObj
+                    ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
+                    : (item.location?.address?.line || zpid);
+
+                // Small stagger within chunk to avoid hitting API rate limit bursts
+                if (index > 0) {
+                    await new Promise(r => setTimeout(r, index * 1000));
+                }
+
+                const startTime = Date.now();
+                addLog(`Starting pipeline for property: ${builtAddress}`);
+                // Mark running
+                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime } : j));
+
+                try {
+                    // Run Full Intelligence Pipeline
+                    await runFullIntelligencePipeline(builtAddress, (progress) => {
+                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
+                    }, undefined, (msg) => addLog(`[${builtAddress}] ${msg}`), true);
+
+                    addLog(`Successfully completed intelligence suite for: ${builtAddress}`);
+                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
+                    return true;
+                } catch (e: any) {
+                    console.error(`Ingestion failed for ${zpid}:`, e);
+                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
+                    return false;
+                }
+            });
+
+            // Wait for current batch to complete
+            const results = await Promise.all(chunkPromises);
+            successCount += results.filter(r => r === true).length;
+
+            // Short rest between chunks to stabilize Firebase storage and APIs
+            if (i + CHUNK_SIZE < targets.length) {
+                await new Promise(r => setTimeout(r, 2000));
             }
-
-            const startTime = Date.now();
-            addLog(`Starting pipeline for property: ${builtAddress}`);
-            // Mark running
-            setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime } : j));
-
-            try {
-                // Run Full Intelligence Pipeline
-                // IMPORTANT: We pass 'undefined' for the zpid argument to FORCE the pipeline to look up 
-                // the property by address. This ensures we get the canonical ZPID headers from the API 
-                // rather than trusting the feed's property_id which may be mismatched.
-                await runFullIntelligencePipeline(builtAddress, (progress) => {
-                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
-                }, undefined, (msg) => addLog(`[${builtAddress}] ${msg}`), true);
-
-                addLog(`Successfully completed intelligence suite for: ${builtAddress}`);
-                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
-                return true;
-            } catch (e: any) {
-                console.error(`Ingestion failed for ${zpid}:`, e);
-                setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
-                return false;
-            }
-        });
-
-        // Wait for all to complete
-        const results = await Promise.all(ingestPromises);
-        successCount = results.filter(r => r === true).length;
+        }
 
         addLog(`Bulk Ingest Complete. Successfully processed ${successCount} / ${targets.length} properties.`);
         setLoading(false);
@@ -617,8 +619,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             <tr
                 className={`transition-all duration-300 border-b border-slate-100 last:border-0 
                     ${isSelected ? 'bg-indigo-50/40' : 'hover:bg-slate-50'} 
-                    ${isCached ? 'bg-slate-50/50' : 'cursor-pointer'}`}
-                onClick={() => !isCached && toggleSelection(itemId)}
+                    cursor-pointer`}
+                onClick={() => toggleSelection(itemId)}
             >
                 <td className="p-4" onClick={(e) => e.stopPropagation()}>
                     {isCheckingCache ? (
@@ -628,19 +630,18 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                     ) : (
                         <input
                             type="checkbox"
-                            checked={isSelected || isCached}
-                            disabled={isCached}
-                            readOnly={isCached}
-                            onChange={() => !isCached && toggleSelection(itemId)}
-                            className={`w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 transition-all
-                                ${isCached ? 'opacity-20 cursor-not-allowed bg-slate-200' : 'cursor-pointer hover:border-indigo-400'}`}
+                            checked={isSelected}
+                            onChange={() => toggleSelection(itemId)}
+                            className={`w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 transition-all cursor-pointer hover:border-indigo-400`}
                         />
                     )}
                 </td>
                 <td className="p-4">
                     <div className="flex items-center gap-4">
-                        <div className={`w-16 h-12 bg-slate-200 rounded-lg overflow-hidden flex-shrink-0 relative ${isCached ? 'grayscale opacity-50' : ''}`}>
-                            {item.primary_photo?.href ? (
+                        <div className={`w-16 h-12 bg-slate-200 rounded-lg overflow-hidden flex-shrink-0 relative`}>
+                            {propertyStatuses[itemId]?.assets?.thumbnailUrl ? (
+                                <img src={propertyStatuses[itemId].assets.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                            ) : item.primary_photo?.href ? (
                                 <img src={item.primary_photo.href} alt="" className="w-full h-full object-cover" />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center text-slate-400">
@@ -648,12 +649,12 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                 </div>
                             )}
                             {isCached && (
-                                <div className="absolute inset-0 bg-slate-900/10 flex items-center justify-center">
-                                    <i className="fa-solid fa-database text-white text-[10px] drop-shadow"></i>
+                                <div className="absolute top-1 right-1 bg-emerald-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-sm">
+                                    <i className="fa-solid fa-cloud"></i>
                                 </div>
                             )}
                         </div>
-                        <div className={isCached ? 'opacity-40' : ''}>
+                        <div>
                             <div className="flex items-center gap-2 mb-0.5">
                                 <button
                                     onClick={(e) => {
@@ -669,13 +670,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     {item.location?.address?.line || 'Unknown Address'}
                                 </button>
                             </div>
-                            <div className="text-xs text-slate-500 font-medium">
-                                {item.location?.address?.city}, {item.location?.address?.state_code} {item.location?.address?.postal_code}
-                            </div>
                         </div>
                     </div>
                 </td>
-                <td className={`p-4 text-right font-medium text-slate-900 ${isCached ? 'opacity-40' : ''}`}>
+                <td className={`p-4 text-right font-medium text-slate-900`}>
                     ${item.list_price?.toLocaleString() || '--'}
                 </td>
                 <td className="p-4">
@@ -744,12 +742,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
     return (
         <div className="max-w-7xl mx-auto py-12 px-6 animate-in fade-in duration-700">
-            {/* Page Header */}
-            <div className="mb-10 items-center justify-between flex">
-                <div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">City Data Engine</h1>
-                    <p className="text-slate-500 text-sm font-medium">Scan cities for new properties and trigger the intelligence pipeline.</p>
-                </div>
+            <div className="mb-6 items-center justify-between flex">
                 <div className="flex items-center gap-3">
                     {viewMode === 'table' ? (
                         <>
@@ -932,23 +925,6 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 {/* Right: Results or Queue */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Operational Diagnostics */}
-                    {listings.length > 0 && viewMode === 'table' && (
-                        <div className="bg-indigo-600 text-white p-4 rounded-3xl shadow-lg animate-in slide-in-from-right-8 flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                                    <i className="fa-solid fa-list-check"></i>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Inventory Sync</p>
-                                    <p className="font-bold text-sm">{listings.length} Total Opportunities Found</p>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Context</p>
-                                <p className="font-bold text-sm">{Object.keys(groupedListings).length} Groups • {stateFilter}</p>
-                            </div>
-                        </div>
-                    )}
 
                     {deletionStatus && (
                         <div className="p-4 bg-rose-50 border border-emerald-100 rounded-2xl text-rose-600 text-sm font-bold flex items-center justify-between animate-in slide-in-from-top-4 shadow-lg shadow-rose-100/50">
@@ -969,12 +945,6 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                 {/* State Selection */}
                                 {availableStates.length > 0 && (
                                     <div className="flex items-center gap-2 p-1.5 bg-white border border-slate-200 rounded-2xl w-fit shadow-sm">
-                                        <button
-                                            onClick={() => setStateFilter('ALL')}
-                                            className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${stateFilter === 'ALL' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50'}`}
-                                        >
-                                            View All
-                                        </button>
                                         {availableStates.map(st => (
                                             <button
                                                 key={st}
@@ -984,6 +954,12 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                 {st}
                                             </button>
                                         ))}
+                                        <button
+                                            onClick={() => setStateFilter('ALL')}
+                                            className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${stateFilter === 'ALL' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50'}`}
+                                        >
+                                            View All
+                                        </button>
                                     </div>
                                 )}
 
@@ -1177,95 +1153,132 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                        {/* Gemini Logs */}
-                        <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
-                            <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xs">
-                                        <i className="fa-solid fa-brain"></i>
-                                    </div>
-                                    <span className="font-black text-slate-900 uppercase text-[11px] tracking-widest">Gemini Architecture Calls</span>
-                                </div>
-                                <span className="text-[10px] font-mono text-slate-400">{ingestionReport?.llmLogs?.length || 0} events</span>
+                    <div className="flex items-center gap-6 mb-12 border-b border-slate-100">
+                        <button
+                            onClick={() => setActiveReportTab('ai')}
+                            className={`pb-4 text-sm font-black uppercase tracking-widest transition-all relative ${activeReportTab === 'ai' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            <div className="flex items-center gap-3">
+                                <i className="fa-solid fa-brain"></i>
+                                Gemini Analysis
+                                <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-lg text-[10px]">{ingestionReport.llmLogs.length}</span>
                             </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/30">
-                                            <th className="p-5">Agent / Task</th>
-                                            <th className="p-5 text-right">Consumption</th>
-                                            <th className="p-5 text-right">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {ingestionReport?.llmLogs && Array.isArray(ingestionReport.llmLogs) && [...ingestionReport.llmLogs].sort((a, b) => b.timestamp - a.timestamp).map((logEntry, i) => (
-                                            <tr key={i} className="text-sm transition-colors hover:bg-slate-50/50">
-                                                <td className="p-5">
-                                                    <div className="font-bold text-slate-900">{logEntry.agent_name}</div>
-                                                    <div className="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">{logEntry.zpid}</div>
-                                                </td>
-                                                <td className="p-5 text-right">
-                                                    <div className="text-indigo-600 font-bold">
-                                                        {logEntry.usage_metadata?.totalTokenCount?.toLocaleString() || 0} tkn
-                                                    </div>
-                                                    <div className="text-[10px] text-emerald-600 font-black">
-                                                        ${(logEntry.estimated_cost || 0).toFixed(4)}
-                                                    </div>
-                                                </td>
-                                                <td className="p-5 text-right">
-                                                    <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${logEntry.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                                        {logEntry.status}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            {activeReportTab === 'ai' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-600 rounded-full animate-in fade-in zoom-in duration-300"></div>}
+                        </button>
+                        <button
+                            onClick={() => setActiveReportTab('api')}
+                            className={`pb-4 text-sm font-black uppercase tracking-widest transition-all relative ${activeReportTab === 'api' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            <div className="flex items-center gap-3">
+                                <i className="fa-solid fa-cloud"></i>
+                                API Gateway
+                                <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-lg text-[10px]">{ingestionReport.apiLogs.length}</span>
                             </div>
-                        </div>
+                            {activeReportTab === 'api' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300"></div>}
+                        </button>
+                    </div>
 
-                        {/* API Logs */}
-                        <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
-                            <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xs">
-                                        <i className="fa-solid fa-cloud"></i>
+                    <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+                        {activeReportTab === 'ai' ? (
+                            /* Gemini Logs */
+                            <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
+                                <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xs">
+                                            <i className="fa-solid fa-brain"></i>
+                                        </div>
+                                        <span className="font-black text-slate-900 uppercase text-[11px] tracking-widest">Gemini Architecture Calls</span>
                                     </div>
-                                    <span className="font-black text-slate-900 uppercase text-[11px] tracking-widest">External API Gateway</span>
+                                    <span className="text-[10px] font-mono text-slate-400">{ingestionReport?.llmLogs?.length || 0} events</span>
                                 </div>
-                                <span className="text-[10px] font-mono text-slate-400">{ingestionReport?.apiLogs?.length || 0} events</span>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/30">
-                                            <th className="p-5">Provider / Endpoint</th>
-                                            <th className="p-5 text-right">Latency</th>
-                                            <th className="p-5 text-right">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {ingestionReport?.apiLogs && Array.isArray(ingestionReport.apiLogs) && [...ingestionReport.apiLogs].sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0)).map((apiLog, i) => (
-                                            <tr key={i} className="text-sm transition-colors hover:bg-slate-50/50">
-                                                <td className="p-5">
-                                                    <div className="font-bold text-slate-900">{apiLog.api_name}</div>
-                                                    <div className="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">{apiLog.endpoint}</div>
-                                                </td>
-                                                <td className="p-5 text-right font-mono text-slate-500">
-                                                    {apiLog.response_time_ms ? `${apiLog.response_time_ms}ms` : '--'}
-                                                </td>
-                                                <td className="p-5 text-right">
-                                                    <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${apiLog.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                                        {apiLog.status}
-                                                    </span>
-                                                </td>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/30">
+                                                <th className="p-5">Agent / Task</th>
+                                                <th className="p-5 text-right">Consumption</th>
+                                                <th className="p-5 text-right">Status</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {ingestionReport?.llmLogs && Array.isArray(ingestionReport.llmLogs) && [...ingestionReport.llmLogs].sort((a, b) => b.timestamp - a.timestamp).map((logEntry, i) => (
+                                                <tr key={i} className="text-sm transition-colors hover:bg-slate-50/50">
+                                                    <td className="p-5">
+                                                        <div className="font-bold text-slate-900 mb-0.5">{logEntry.agent_name}</div>
+                                                        <div className="text-[10px] text-indigo-600 font-black truncate max-w-[250px] mb-0.5">
+                                                            {logEntry.address || (logEntry.zpid && zpidToAddressMap[logEntry.zpid]) || logEntry.zpid || '--'}
+                                                        </div>
+                                                        <div className="text-[9px] text-slate-400 font-mono truncate max-w-[200px]">ID: {logEntry.zpid || 'N/A'}</div>
+                                                    </td>
+                                                    <td className="p-5 text-right">
+                                                        <div className="text-indigo-600 font-bold">
+                                                            {logEntry.usage_metadata?.totalTokenCount?.toLocaleString() || 0} tkn
+                                                        </div>
+                                                        <div className="text-[10px] text-emerald-600 font-black">
+                                                            ${(logEntry.estimated_cost || 0).toFixed(4)}
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-5 text-right">
+                                                        <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${logEntry.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                            {logEntry.status}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
-                        </div>
+                        ) : (
+                            /* API Logs */
+                            <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
+                                <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xs">
+                                            <i className="fa-solid fa-cloud"></i>
+                                        </div>
+                                        <span className="font-black text-slate-900 uppercase text-[11px] tracking-widest">External API Gateway</span>
+                                    </div>
+                                    <span className="text-[10px] font-mono text-slate-400">{ingestionReport?.apiLogs?.length || 0} events</span>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/30">
+                                                <th className="p-5">Provider / Endpoint</th>
+                                                <th className="p-5 text-right">Latency</th>
+                                                <th className="p-5 text-right">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {ingestionReport?.apiLogs && Array.isArray(ingestionReport.apiLogs) && [...ingestionReport.apiLogs].sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0)).map((apiLog, i) => (
+                                                <tr key={i} className="text-sm transition-colors hover:bg-slate-50/50">
+                                                    <td className="p-5">
+                                                        <div className="font-bold text-slate-900 mb-0.5">
+                                                            {apiLog.api_name === 'RapidAPI' ? `RapidAPI: ${apiLog.endpoint}` : apiLog.api_name}
+                                                        </div>
+                                                        <div className="text-[10px] text-blue-600 font-black truncate max-w-[250px] mb-0.5">
+                                                            {apiLog.address || (apiLog.zpid && zpidToAddressMap[apiLog.zpid]) || apiLog.zpid || '--'}
+                                                        </div>
+                                                        <div className="text-[9px] text-slate-400 font-mono truncate max-w-[200px]">
+                                                            {apiLog.api_name === 'RapidAPI' ? 'Endpoint: ' + apiLog.endpoint : apiLog.endpoint}
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-5 text-right font-mono text-slate-500">
+                                                        {apiLog.response_time_ms ? `${apiLog.response_time_ms}ms` : '--'}
+                                                    </td>
+                                                    <td className="p-5 text-right">
+                                                        <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${apiLog.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                            {apiLog.status}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
