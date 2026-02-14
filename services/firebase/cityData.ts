@@ -1,4 +1,4 @@
-import { doc, setDoc, getDocs, getDoc, collection, query, where, writeBatch, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, writeBatch, serverTimestamp } from "firebase/firestore";
 import {
     db,
     sanitizeForFirestore,
@@ -29,25 +29,44 @@ export interface ZipListingsCache {
 
 /**
  * Saves a batch of zip code metadata to Firestore.
- * This effectively caches the "City -> Zip" breakup by storing each Zip as an individual node.
+ * Key is the normalized City Name.
+ * The document contains all zips for that city, grouped by state.
  */
 export const saveZipMetadataBatch = async (data: { zip: string, city: string, state: string }[]) => {
     if (!db) return { success: false, error: "Database not initialized" };
     try {
         const batch = writeBatch(db);
 
+        // Group data by city (normalized)
+        const cityGroups: Record<string, { city: string, zipsByState: Record<string, string[]> }> = {};
+
         data.forEach(item => {
-            const docRef = doc(db, "city_zip_cache", item.zip);
-            batch.set(docRef, {
-                zipCode: item.zip,
-                city: item.city,
-                state: item.state,
-                city_str_normalized: item.city.toLowerCase().trim(),
-                timestamp: serverTimestamp()
-            }, { merge: true }); // Merge to update timestamp or add missing fields if exists
+            const cityNorm = item.city.toLowerCase().trim();
+            if (!cityGroups[cityNorm]) {
+                cityGroups[cityNorm] = {
+                    city: item.city.trim(),
+                    zipsByState: {}
+                };
+            }
+            if (!cityGroups[cityNorm].zipsByState[item.state]) {
+                cityGroups[cityNorm].zipsByState[item.state] = [];
+            }
+            if (!cityGroups[cityNorm].zipsByState[item.state].includes(item.zip)) {
+                cityGroups[cityNorm].zipsByState[item.state].push(item.zip);
+            }
         });
 
-        logFirestoreQuery('writeBatch', 'city_zip_cache', { count: data.length });
+        // Commit grouped changes as merged documents
+        for (const [cityNorm, info] of Object.entries(cityGroups)) {
+            const docRef = doc(db, "city_zip_cache", cityNorm);
+            batch.set(docRef, {
+                city: info.city,
+                zipsByState: info.zipsByState,
+                timestamp: serverTimestamp()
+            }, { merge: true });
+        }
+
+        logFirestoreQuery('writeBatch', 'city_zip_cache', { cities: Object.keys(cityGroups).length });
         await batch.commit();
 
         return { success: true };
@@ -58,35 +77,24 @@ export const saveZipMetadataBatch = async (data: { zip: string, city: string, st
 
 /**
  * Retrieves all zip codes for a given city name.
- * Returns them grouped by State for easier UI handling.
+ * Uses a direct document lookup by normalized city name.
  */
 export const getZipsForCity = async (city: string): Promise<Record<string, string[]> | null> => {
     if (!db) return null;
     try {
         const cityNormalized = city.toLowerCase().trim();
-        const q = query(
-            collection(db, "city_zip_cache"),
-            where("city_str_normalized", "==", cityNormalized)
-        );
+        const docRef = doc(db, "city_zip_cache", cityNormalized);
 
-        logFirestoreQuery('getDocs', 'city_zip_cache', { cityNormalized });
-        const querySnapshot = await getDocs(q);
+        logFirestoreQuery('getDoc', 'city_zip_cache', { cityNormalized });
+        const docSnap = await getDoc(docRef);
 
-        if (querySnapshot.empty) return null;
+        if (!docSnap.exists()) return null;
 
-        const results: Record<string, string[]> = {};
-
-        querySnapshot.forEach(doc => {
-            const data = doc.data() as ZipCodeMetadata;
-            const state = data.state || 'Unknown';
-            if (!results[state]) results[state] = [];
-            results[state].push(data.zipCode);
-        });
-
-        return results;
+        const data = docSnap.data();
+        return data.zipsByState || null;
     } catch (error: any) {
         handleFirestoreError(error, "getZipsForCity");
-        return null; // Return null on error to trigger fallback to API
+        return null;
     }
 };
 
