@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
-import { db, auth, saveAIAssessment, getAIAssessments, AIAssessment } from '../../services/firebaseService';
+import { db, auth, saveAIAssessment, getAIAssessments, AIAssessment, getUserProfile } from '../../services/firebaseService';
 import { PropertyData } from '../../types';
 
 interface PropertyValidationStatus extends PropertyData {
@@ -22,6 +22,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
     const [assessments, setAssessments] = useState<Record<string, AIAssessment>>({});
     const [activeCity, setActiveCity] = useState<string | null>(null);
     const [savingZpids, setSavingZpids] = useState<Set<string>>(new Set());
+    const [userNames, setUserNames] = useState<Record<string, string>>({});
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 20;
 
@@ -69,10 +70,22 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
             const visualSnapshot = await getDocs(collection(db, "property_analyses_visual"));
             const visualMap = Object.fromEntries(visualSnapshot.docs.map(d => [d.id, d.data()]));
 
-            // 3. Fetch existing assessments
+            // 3. Fetch existing assessments and relevant user profiles
             const existingAssessments = await getAIAssessments();
             const assessmentMap = Object.fromEntries(existingAssessments.map(a => [a.mlsid, a]));
             setAssessments(assessmentMap);
+
+            // Fetch user names for audit trail
+            const uniqueTesters = Array.from(new Set(existingAssessments.map(a => a.tester).filter(Boolean)));
+            const nameMap: Record<string, string> = { ...userNames };
+
+            await Promise.all(uniqueTesters.map(async (uid) => {
+                if (!nameMap[uid]) {
+                    const profile = await getUserProfile(uid);
+                    if (profile) nameMap[uid] = profile.displayName || profile.email || 'Unknown';
+                }
+            }));
+            setUserNames(nameMap);
 
             // 4. Map and determine status
             const mapped: PropertyValidationStatus[] = rawProperties.map(p => {
@@ -225,6 +238,8 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                             <tr className="bg-slate-50 border-b border-slate-100">
                                 <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Property</th>
                                 <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assessment</th>
+                                <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Audited By</th>
+                                <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Last Updated</th>
                                 <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Comments</th>
                                 <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
                             </tr>
@@ -280,6 +295,31 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                                 <option value="bad" className="bg-rose-50 text-rose-700">Bad</option>
                                                 <option value="other" className="bg-slate-50 text-slate-600">Other</option>
                                             </select>
+                                        </td>
+                                        <td className="p-6">
+                                            {assessments[prop.zpid] ? (
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-[8px] font-bold">
+                                                        {(userNames[assessments[prop.zpid].tester] || '??').substring(0, 2).toUpperCase()}
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-slate-600 truncate max-w-[100px]">
+                                                        {userNames[assessments[prop.zpid].tester] || 'Processing...'}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-[10px] font-bold text-slate-300 italic">Unassigned</span>
+                                            )}
+                                        </td>
+                                        <td className="p-6">
+                                            <div className="text-[10px] font-bold text-slate-500">
+                                                {assessments[prop.zpid]?.last_update_date ? (
+                                                    (() => {
+                                                        const d = assessments[prop.zpid].last_update_date;
+                                                        const date = d.toDate ? d.toDate() : new Date(d);
+                                                        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                                    })()
+                                                ) : '--'}
+                                            </div>
                                         </td>
                                         <td className="p-6">
                                             <textarea
