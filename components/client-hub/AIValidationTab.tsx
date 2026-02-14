@@ -44,8 +44,11 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
             };
         });
 
+        // Hide a city tab if it has below 5 properties
+        const filteredStats = stats.filter(stat => stat.total >= 5);
+
         // Sort by pending properties descending, then by name
-        return stats.sort((a, b) => {
+        return filteredStats.sort((a, b) => {
             if (b.pending !== a.pending) return b.pending - a.pending;
             return a.name.localeCompare(b.name);
         });
