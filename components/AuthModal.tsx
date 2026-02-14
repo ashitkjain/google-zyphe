@@ -183,10 +183,13 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
       setError("Password must be at least 6 characters.");
       return;
     }
+    // Phone number is now optional
+    /*
     if (!isLogin && !phone) {
       setError("Phone number is required.");
       return;
     }
+    */
 
     setLoading(true);
     setError(null);
@@ -387,10 +390,9 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Phone Number</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Phone Number (Optional)</label>
                   <input
                     type="tel"
-                    required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all"
