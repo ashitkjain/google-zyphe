@@ -1033,27 +1033,7 @@ const App: React.FC = () => {
                 <i className="fa-solid fa-arrow-right"></i>
               </button>
 
-              <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                <button
-                  onClick={() => {
-                    alert("Please sign in first to reset your specific account data. You can also find these options in 'Data Fields' once logged in.");
-                  }}
-                  className="hover:text-rose-500 transition-colors"
-                >
-                  <i className="fa-solid fa-trash-can mr-2"></i>
-                  Reset Data
-                </button>
-                <span className="opacity-20 text-slate-300">|</span>
-                <button
-                  onClick={() => {
-                    alert("Please sign in first to seed your specific account data. You can also find these options in 'Data Fields' once logged in.");
-                  }}
-                  className="hover:text-indigo-600 transition-colors"
-                >
-                  <i className="fa-solid fa-database mr-2"></i>
-                  Add Mock Data
-                </button>
-              </div>
+
             </div>
           </div>
         ) : (viewMode === 'knowledge_center' || viewMode === 'guides' || !currentUser ? (

@@ -26,6 +26,8 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
     const [uploading, setUploading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     React.useEffect(() => {
@@ -619,7 +621,6 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                         <i className="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
                                         <input
                                             type="email"
-                                            defaultValue={profile.email}
                                             className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
                                             placeholder="Enter new email"
                                         />
@@ -633,18 +634,32 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ profile, onUpdateProfile }) => 
                                     <div className="relative">
                                         <i className="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
                                         <input
-                                            type="password"
-                                            className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                                            type={showPassword ? "text" : "password"}
+                                            className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
                                             placeholder="New Password"
                                         />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                        >
+                                            <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'} text-xs`}></i>
+                                        </button>
                                     </div>
                                     <div className="relative">
                                         <i className="fa-solid fa-lock-open absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
                                         <input
-                                            type="password"
-                                            className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                                            type={showConfirmPassword ? "text" : "password"}
+                                            className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
                                             placeholder="Confirm New Password"
                                         />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                        >
+                                            <i className={`fa-solid ${showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'} text-xs`}></i>
+                                        </button>
                                     </div>
                                 </div>
                             </section>

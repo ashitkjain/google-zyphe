@@ -42,6 +42,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
   const [copySuccess, setCopySuccess] = useState(false);
   const [resetMode, setResetMode] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Sync state when inviteData changes or when modal opens
   React.useEffect(() => {
@@ -443,14 +444,23 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
                     </button>
                   )}
                 </div>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all"
-                  placeholder="••••••••"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-5 py-3.5 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-medium transition-all pr-12"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'} text-xs`}></i>
+                  </button>
+                </div>
                 {!isLogin && <p className="text-[9px] text-slate-400 mt-1.5 ml-1">Minimum 6 characters required.</p>}
               </div>
             )}

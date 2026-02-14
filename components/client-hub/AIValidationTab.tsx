@@ -20,13 +20,29 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
     const [loading, setLoading] = useState(true);
     const [properties, setProperties] = useState<PropertyValidationStatus[]>([]);
     const [assessments, setAssessments] = useState<Record<string, AIAssessment>>({});
-    const [activeCity, setActiveCity] = useState<string>('All Cities');
+    const [activeCity, setActiveCity] = useState<string | null>(null);
     const [savingZpids, setSavingZpids] = useState<Set<string>>(new Set());
 
-    const cities = useMemo(() => {
+    const cityStats = useMemo(() => {
         const uniqueCities = Array.from(new Set(properties.map(p => p.city || 'Other'))).sort();
-        return ['All Cities', ...uniqueCities];
+        return uniqueCities.map(city => {
+            const cityProps = properties.filter(p => (p.city || 'Other') === city);
+            const total = cityProps.length;
+            const assessed = cityProps.filter(p => p.assessment).length;
+            return {
+                name: city,
+                total,
+                pending: total - assessed
+            };
+        });
     }, [properties]);
+
+    // Set default city if none active
+    useEffect(() => {
+        if (!activeCity && cityStats.length > 0) {
+            setActiveCity(cityStats[0].name);
+        }
+    }, [cityStats, activeCity]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -77,7 +93,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
     }, []);
 
     const filteredProperties = useMemo(() => {
-        if (activeCity === 'All Cities') return properties;
+        if (!activeCity) return [];
         return properties.filter(p => (p.city || 'Other') === activeCity);
     }, [properties, activeCity]);
 
@@ -151,16 +167,29 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
             </div>
 
             {/* City Filter */}
-            <div className="flex gap-3 mb-8 overflow-x-auto pb-2 no-scrollbar">
-                {cities.map(city => (
+            <div className="flex gap-4 mb-8 overflow-x-auto pb-4 no-scrollbar">
+                {cityStats.map(stat => (
                     <button
-                        key={city}
-                        onClick={() => setActiveCity(city)}
-                        className={`px-6 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all border
-                            ${activeCity === city ? 'bg-slate-900 border-slate-900 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-500 hover:border-indigo-300'}
+                        key={stat.name}
+                        onClick={() => setActiveCity(stat.name)}
+                        className={`px-8 py-3.5 rounded-[1.5rem] transition-all border flex flex-col items-start gap-1 min-w-[160px]
+                            ${activeCity === stat.name ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-[1.02]' : 'bg-white border-slate-200 text-slate-500 hover:border-indigo-300'}
                         `}
                     >
-                        {city}
+                        <span className="text-[11px] font-black uppercase tracking-widest">{stat.name}</span>
+                        <div className="flex items-center gap-3 mt-1">
+                            <div className="flex items-center gap-1.5">
+                                <span className={`text-[9px] font-bold ${activeCity === stat.name ? 'text-slate-300' : 'text-slate-400'}`}>TOTAL:</span>
+                                <span className={`text-[10px] font-black ${activeCity === stat.name ? 'text-white' : 'text-slate-700'}`}>{stat.total}</span>
+                            </div>
+                            <div className="w-px h-2 bg-slate-300/30"></div>
+                            <div className="flex items-center gap-1.5">
+                                <span className={`text-[9px] font-bold ${activeCity === stat.name ? 'text-slate-300' : 'text-slate-400'}`}>PENDING:</span>
+                                <span className={`text-[10px] font-black ${stat.pending > 0 ? (activeCity === stat.name ? 'text-amber-400' : 'text-amber-600') : (activeCity === stat.name ? 'text-emerald-400' : 'text-emerald-600')}`}>
+                                    {stat.pending}
+                                </span>
+                            </div>
+                        </div>
                     </button>
                 ))}
             </div>
