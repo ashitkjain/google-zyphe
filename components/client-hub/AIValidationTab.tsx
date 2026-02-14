@@ -340,7 +340,6 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                             <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Property</th>
                                             <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Assigned To</th>
                                             <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assessment</th>
-                                            <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Audited By</th>
                                             <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Last Updated</th>
                                             <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Comments</th>
                                             <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
@@ -414,20 +413,6 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                                             <option value="bad" className="bg-rose-50 text-rose-700">Bad</option>
                                                             <option value="other" className="bg-slate-50 text-slate-600">Other</option>
                                                         </select>
-                                                    </td>
-                                                    <td className="p-6">
-                                                        {assessments[prop.zpid] ? (
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-[8px] font-bold">
-                                                                    {(userNames[assessments[prop.zpid].tester] || '??').substring(0, 2).toUpperCase()}
-                                                                </div>
-                                                                <span className="text-[10px] font-bold text-slate-600 truncate max-w-[100px]">
-                                                                    {userNames[assessments[prop.zpid].tester] || 'Processing...'}
-                                                                </span>
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-[10px] font-bold text-slate-300 italic">Unassigned</span>
-                                                        )}
                                                     </td>
                                                     <td className="p-6">
                                                         <div className="text-[10px] font-bold text-slate-500">
@@ -683,6 +668,10 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                     <li className="flex items-center gap-2">
                                         <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
                                         <span className="font-bold">Image by image:</span> Verify each description against the specific image.
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
+                                        Click <span className="font-bold">Generate Full Report:</span> Verify the full report for accuracy based on the above steps.
                                     </li>
                                 </ul>
                             </div>
