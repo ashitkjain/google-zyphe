@@ -29,6 +29,7 @@ import TechnicalMediaTab from '../TechnicalMediaTab';
 import ExecutiveSummaryTab from '../ExecutiveSummaryTab';
 import UnitEconomicsTab from '../UnitEconomicsTab';
 import PremiumMLSTab from '../PremiumMLSTab';
+import AIValidationTab from '../AIValidationTab';
 import { Lead, CRMTask, UserProfile, ReminderRule, CalendarEvent } from '../../../types';
 
 interface HubContentProps {
@@ -179,6 +180,8 @@ const HubContent: React.FC<HubContentProps> = ({
             {activeTab === 'city_data' && <CityDataTab onNavigate={onNavigate} />}
 
             {activeTab === 'data_health' && <DataHealthTab />}
+
+            {activeTab === 'ai_validation' && <AIValidationTab onNavigate={onNavigate} />}
 
             {activeTab === 'storage_registry' && <StorageScannerTab onNavigate={onNavigate} />}
 

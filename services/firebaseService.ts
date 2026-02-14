@@ -21,4 +21,5 @@ export * from './firebase/cityData';
 export * from './firebase/search';
 export * from './firebase/googleData';
 export * from './assetService';
+export * from './firebase/ai_assessment';
 
