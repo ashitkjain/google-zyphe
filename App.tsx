@@ -56,7 +56,7 @@ import LegalDisclaimer from './components/LegalDisclaimer';
 import TermsView from './components/TermsView';
 import PrivacyPolicy from './components/PrivacyPolicy';
 
-type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'video_upload' | 'technical_media' | 'executive_summary' | 'market_analysis' | 'opportunity_discovery';
+type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'video_upload' | 'technical_media' | 'executive_summary' | 'market_analysis' | 'opportunity_discovery' | 'ai_validation';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -249,6 +249,10 @@ const App: React.FC = () => {
           if (user.email === 'ashu.jain.iitk@gmail.com') {
             console.log("⚡️ [Admin Override] Granting full privileges to:", user.email);
             profile.role = 'investor';
+          }
+          if (user.email === 'tester@zyphe.ai') {
+            console.log("⚡️ [Tester Override] Granting tester privileges to:", user.email);
+            profile.role = 'tester';
           }
           setCurrentUser(profile);
         } else {
@@ -888,8 +892,8 @@ const App: React.FC = () => {
     );
   }
 
-  // REALTOR/INVESTOR LAYOUT: Merged ClientHub + Homepage
-  if (currentUser?.role === 'realtor' || currentUser?.role === 'investor') {
+  // REALTOR/INVESTOR/TESTER LAYOUT: Merged ClientHub + Homepage
+  if (currentUser?.role === 'realtor' || currentUser?.role === 'investor' || currentUser?.role === 'tester') {
     return (
       <div className="min-h-screen bg-slate-50">
         {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}

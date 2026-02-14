@@ -31,7 +31,7 @@ interface Props {
     initialTab?: HubTab;
     onNavigate?: (view: any, path: string) => void;
     onUpdateProfile?: (updates: Partial<UserProfile>) => void;
-    userRole?: 'buyer' | 'seller' | 'realtor' | 'investor';
+    userRole?: 'buyer' | 'seller' | 'realtor' | 'investor' | 'tester';
 }
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab, onNavigate, onUpdateProfile: onUpdateProfileProp, userRole }) => {
@@ -120,19 +120,26 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         setIsCreateLeadModalOpen(true);
     };
 
-    const earlyTabs: { id: HubTab; label: string; icon: string }[] = [
-        { id: 'explore', label: 'Explore', icon: 'fa-globe' },
-        { id: 'leads', label: 'Funnel', icon: 'fa-bullseye' },
-        { id: 'closing', label: 'Closing', icon: 'fa-file-invoice-dollar' },
-        { id: 'reactivate', label: 'Reactivate', icon: 'fa-bolt' },
-        { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
-    ];
+    const isTester = userRole === 'tester';
 
-    const lateTabs: { id: HubTab; label: string; icon: string }[] = [
+    const earlyTabs: { id: HubTab; label: string; icon: string }[] = isTester
+        ? [
+            { id: 'explore', label: 'Explore', icon: 'fa-globe' },
+            { id: 'ai_validation', label: 'AI Validation', icon: 'fa-robot' },
+        ]
+        : [
+            { id: 'explore', label: 'Explore', icon: 'fa-globe' },
+            { id: 'leads', label: 'Funnel', icon: 'fa-bullseye' },
+            { id: 'closing', label: 'Closing', icon: 'fa-file-invoice-dollar' },
+            { id: 'reactivate', label: 'Reactivate', icon: 'fa-bolt' },
+            { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
+        ];
+
+    const lateTabs: { id: HubTab; label: string; icon: string }[] = isTester ? [] : [
         { id: 'knowledge_center', label: 'Library', icon: 'fa-book-bookmark' },
     ];
 
-    const toolTabs: { id: HubTab; label: string; icon: string }[] = [
+    const toolTabs: { id: HubTab; label: string; icon: string }[] = isTester ? [] : [
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
         { id: 'calendar', label: 'Calendar', icon: 'fa-calendar-days' },
         { id: 'lead_ingestion', label: 'Lead Ingestion', icon: 'fa-link' },
@@ -143,7 +150,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         { id: 'sms_registration', label: 'SMS Registration', icon: 'fa-comment-sms' },
     ];
 
-    const adminTabs: { id: HubTab; label: string; icon: string }[] = [
+    const adminTabs: { id: HubTab; label: string; icon: string }[] = isTester ? [] : [
         { id: 'city_data', label: 'City Ingestion', icon: 'fa-city' },
         { id: 'data_health', label: 'Data Health', icon: 'fa-heart-pulse' },
         { id: 'ai_validation', label: 'AI Validation', icon: 'fa-robot' },
@@ -152,7 +159,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         { id: 'video_upload', label: 'Video Upload', icon: 'fa-video' },
     ];
 
-    const investorTabs: { id: HubTab; label: string; icon: string }[] = [
+    const investorTabs: { id: HubTab; label: string; icon: string }[] = (isTester || userRole !== 'investor') ? [] : [
         { id: 'executive_summary', label: 'Executive Summary', icon: 'fa-file-signature' },
         { id: 'industry_research', label: 'Industry Research', icon: 'fa-magnifying-glass-chart' },
         { id: 'product_market_fit', label: 'Product Market Fit', icon: 'fa-bullseye' },

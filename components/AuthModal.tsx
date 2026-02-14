@@ -35,7 +35,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
   const [name, setName] = useState(inviteData?.name || '');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [role, setRole] = useState<'buyer' | 'seller' | 'realtor' | 'investor'>(inviteData?.role || 'buyer');
+  const [role, setRole] = useState<'buyer' | 'seller' | 'realtor' | 'investor' | 'tester'>(inviteData?.role || 'buyer');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorLink, setErrorLink] = useState<{ url: string, label: string } | null>(null);
@@ -324,7 +324,8 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
                   { id: 'buyer', label: 'Buyer', icon: 'fa-shopping-cart' },
                   { id: 'seller', label: 'Seller', icon: 'fa-house-user' },
                   { id: 'realtor', label: 'Realtor', icon: 'fa-briefcase' },
-                  { id: 'investor', label: 'Investor', icon: 'fa-chart-pie' }
+                  { id: 'investor', label: 'Investor', icon: 'fa-chart-pie' },
+                  { id: 'tester', label: 'Tester', icon: 'fa-robot' }
                 ].map((r) => (
                   <button
                     key={r.id}

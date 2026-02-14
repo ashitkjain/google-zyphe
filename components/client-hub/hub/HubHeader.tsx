@@ -204,105 +204,107 @@ const HubHeader: React.FC<HubHeaderProps> = ({
                     )}
 
                     {/* Realtor Tools Dropdown */}
-                    <div className="relative h-full" ref={toolsRef}>
-                        <button
-                            onClick={() => {
-                                setIsToolsOpen(!isToolsOpen);
-                                setIsInvestorOpen(false);
-                            }}
-                            className={`relative h-[72px] flex items-center gap-3 px-5 text-[11px] font-black uppercase tracking-[0.1em] transition-all group overflow-hidden ${(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab)) ? 'text-white' : 'text-slate-400 hover:text-white'}`}
-                        >
-                            <i className={`fa-solid fa-toolbox text-sm transition-transform group-hover:scale-110 ${(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab)) ? 'text-indigo-400' : 'text-slate-500'}`}></i>
-                            Tools
-                            <i className={`fa-solid fa-chevron-down text-[9px] transition-transform duration-300 ${isToolsOpen ? 'rotate-180' : ''}`}></i>
-                            {(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab)) && (
-                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500 animate-in slide-in-from-bottom border-t border-indigo-400/50"></div>
-                            )}
-                        </button>
+                    {(toolTabs.length > 0 || adminTabs.length > 0) && (
+                        <div className="relative h-full" ref={toolsRef}>
+                            <button
+                                onClick={() => {
+                                    setIsToolsOpen(!isToolsOpen);
+                                    setIsInvestorOpen(false);
+                                }}
+                                className={`relative h-[72px] flex items-center gap-3 px-5 text-[11px] font-black uppercase tracking-[0.1em] transition-all group overflow-hidden ${(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab)) ? 'text-white' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                <i className={`fa-solid fa-toolbox text-sm transition-transform group-hover:scale-110 ${(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab)) ? 'text-indigo-400' : 'text-slate-500'}`}></i>
+                                Tools
+                                <i className={`fa-solid fa-chevron-down text-[9px] transition-transform duration-300 ${isToolsOpen ? 'rotate-180' : ''}`}></i>
+                                {(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab)) && (
+                                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500 animate-in slide-in-from-bottom border-t border-indigo-400/50"></div>
+                                )}
+                            </button>
 
-                        {isToolsOpen && (
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl py-3 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
-                                {toolTabs.map((tab) => (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => {
-                                            setActiveTab(tab.id);
-                                            setIsToolsOpen(false);
-                                            if (onNavigate) onNavigate(tab.id as any, '');
-                                        }}
-                                        className={`w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-500'}`}
-                                    >
-                                        <i className={`fa-solid ${tab.icon} w-4 text-center ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-400'}`}></i>
-                                        {tab.label}
-                                    </button>
-                                ))}
+                            {isToolsOpen && (
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl py-3 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                                    {toolTabs.map((tab) => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => {
+                                                setActiveTab(tab.id);
+                                                setIsToolsOpen(false);
+                                                if (onNavigate) onNavigate(tab.id as any, '');
+                                            }}
+                                            className={`w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-500'}`}
+                                        >
+                                            <i className={`fa-solid ${tab.icon} w-4 text-center ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-400'}`}></i>
+                                            {tab.label}
+                                        </button>
+                                    ))}
 
-                                <div className="h-px bg-slate-100 my-1.5 mx-3"></div>
+                                    <div className="h-px bg-slate-100 my-1.5 mx-3"></div>
 
-                                <div className="relative group/admin">
-                                    <button className="w-full flex items-center justify-between gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 text-slate-500 hover:text-indigo-600">
-                                        <div className="flex items-center gap-4">
-                                            <i className="fa-solid fa-lock w-4 text-center text-slate-400 group-hover/admin:text-indigo-600"></i>
-                                            Admin
-                                        </div>
-                                        <i className="fa-solid fa-chevron-right text-[8px] text-slate-300 group-hover/admin:text-indigo-400"></i>
-                                    </button>
+                                    <div className="relative group/admin">
+                                        <button className="w-full flex items-center justify-between gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 text-slate-500 hover:text-indigo-600">
+                                            <div className="flex items-center gap-4">
+                                                <i className="fa-solid fa-lock w-4 text-center text-slate-400 group-hover/admin:text-indigo-600"></i>
+                                                Admin
+                                            </div>
+                                            <i className="fa-solid fa-chevron-right text-[8px] text-slate-300 group-hover/admin:text-indigo-400"></i>
+                                        </button>
 
-                                    <div className="absolute left-full top-[-12px] ml-1 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl py-3 z-[110] hidden group-hover/admin:block animate-in fade-in slide-in-from-left-2 duration-200">
-                                        {adminTabs.map((tab) => (
+                                        <div className="absolute left-full top-[-12px] ml-1 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl py-3 z-[110] hidden group-hover/admin:block animate-in fade-in slide-in-from-left-2 duration-200">
+                                            {adminTabs.map((tab) => (
+                                                <button
+                                                    key={tab.id}
+                                                    onClick={() => {
+                                                        setActiveTab(tab.id);
+                                                        setIsToolsOpen(false);
+                                                        if (onNavigate) onNavigate(tab.id as any, '');
+                                                    }}
+                                                    className={`w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-500'}`}
+                                                >
+                                                    <i className={`fa-solid ${tab.icon} w-4 text-center ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-400'}`}></i>
+                                                    {tab.label}
+                                                </button>
+                                            ))}
                                             <button
-                                                key={tab.id}
-                                                onClick={() => {
-                                                    setActiveTab(tab.id);
+                                                onClick={async () => {
+                                                    if (!confirm('Rebuild search index?')) return;
                                                     setIsToolsOpen(false);
-                                                    if (onNavigate) onNavigate(tab.id as any, '');
+                                                    await syncBestPractices();
+                                                    alert('Search Index Repair Initiated.');
                                                 }}
-                                                className={`w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-500'}`}
+                                                className="w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 text-slate-500 hover:text-indigo-600"
                                             >
-                                                <i className={`fa-solid ${tab.icon} w-4 text-center ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-400'}`}></i>
-                                                {tab.label}
+                                                <i className="fa-solid fa-wrench w-4 text-center text-slate-400"></i>
+                                                Repair Index
                                             </button>
-                                        ))}
-                                        <button
-                                            onClick={async () => {
-                                                if (!confirm('Rebuild search index?')) return;
-                                                setIsToolsOpen(false);
-                                                await syncBestPractices();
-                                                alert('Search Index Repair Initiated.');
-                                            }}
-                                            className="w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 text-slate-500 hover:text-indigo-600"
-                                        >
-                                            <i className="fa-solid fa-wrench w-4 text-center text-slate-400"></i>
-                                            Repair Index
-                                        </button>
-                                        <div className="h-px bg-slate-100 my-1.5 mx-3"></div>
-                                        <button
-                                            onClick={async () => {
-                                                if (window.confirm("Reset all data?")) {
-                                                    await handleResetAllData();
+                                            <div className="h-px bg-slate-100 my-1.5 mx-3"></div>
+                                            <button
+                                                onClick={async () => {
+                                                    if (window.confirm("Reset all data?")) {
+                                                        await handleResetAllData();
+                                                        setIsToolsOpen(false);
+                                                    }
+                                                }}
+                                                className="w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-rose-50 text-slate-500 hover:text-rose-600"
+                                            >
+                                                <i className="fa-solid fa-trash-can w-4 text-center text-rose-400"></i>
+                                                Reset Data
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    await handleSeedManualMockData();
                                                     setIsToolsOpen(false);
-                                                }
-                                            }}
-                                            className="w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-rose-50 text-slate-500 hover:text-rose-600"
-                                        >
-                                            <i className="fa-solid fa-trash-can w-4 text-center text-rose-400"></i>
-                                            Reset Data
-                                        </button>
-                                        <button
-                                            onClick={async () => {
-                                                await handleSeedManualMockData();
-                                                setIsToolsOpen(false);
-                                            }}
-                                            className="w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-indigo-50 text-slate-500 hover:text-indigo-600"
-                                        >
-                                            <i className="fa-solid fa-database w-4 text-center text-indigo-400"></i>
-                                            Seed Mock Data
-                                        </button>
+                                                }}
+                                                className="w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-indigo-50 text-slate-500 hover:text-indigo-600"
+                                            >
+                                                <i className="fa-solid fa-database w-4 text-center text-indigo-400"></i>
+                                                Seed Mock Data
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
-                    </div>
+                            )}
+                        </div>
+                    )}
 
                     {lateTabs.map((tab) => (
                         <button

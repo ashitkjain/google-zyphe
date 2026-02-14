@@ -93,34 +93,36 @@ const HubMobileMenu: React.FC<HubMobileMenuProps> = ({
                     </div>
                 )}
 
-                <div className="space-y-1.5 pt-2">
-                    <button
-                        onClick={() => setIsMobileToolsExpanded(!isMobileToolsExpanded)}
-                        className={`flex items-center justify-between w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab) || isMobileToolsExpanded) ? 'text-indigo-400' : 'text-slate-400 hover:text-white bg-slate-800/50 border border-white/5'}`}
-                    >
-                        <div className="flex items-center gap-4">
-                            <i className="fa-solid fa-toolbox w-5 text-center text-xs"></i>
-                            Realtor Tools
-                        </div>
-                        <i className={`fa-solid fa-chevron-down text-[10px] transition-transform duration-300 ${isMobileToolsExpanded ? 'rotate-180' : ''}`}></i>
-                    </button>
+                {(toolTabs.length > 0 || adminTabs.length > 0) && (
+                    <div className="space-y-1.5 pt-2">
+                        <button
+                            onClick={() => setIsMobileToolsExpanded(!isMobileToolsExpanded)}
+                            className={`flex items-center justify-between w-full p-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${(toolTabs.some(t => t.id === activeTab) || adminTabs.some(t => t.id === activeTab) || isMobileToolsExpanded) ? 'text-indigo-400' : 'text-slate-400 hover:text-white bg-slate-800/50 border border-white/5'}`}
+                        >
+                            <div className="flex items-center gap-4">
+                                <i className="fa-solid fa-toolbox w-5 text-center text-xs"></i>
+                                Realtor Tools
+                            </div>
+                            <i className={`fa-solid fa-chevron-down text-[10px] transition-transform duration-300 ${isMobileToolsExpanded ? 'rotate-180' : ''}`}></i>
+                        </button>
 
-                    {isMobileToolsExpanded && (
-                        <div className="pl-4 space-y-1.5 animate-in slide-in-from-top-2 duration-200">
-                            {toolTabs.map(tab => <TabButton key={tab.id} tab={tab} isSub />)}
-                            <div className="h-px bg-white/5 my-2 mx-4"></div>
-                            <div className="px-4 py-2 text-[8px] font-black uppercase tracking-[0.2em] text-slate-500">Admin</div>
-                            {adminTabs.map(tab => <TabButton key={tab.id} tab={tab} isSub />)}
-                            <div className="h-px bg-white/5 my-2 mx-4"></div>
-                            <button onClick={async () => { if (confirm("Reset Data?")) { await handleResetAllData(); setIsMobileMenuOpen(false); } }} className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500">
-                                <i className="fa-solid fa-trash-can w-5 text-center text-[10px]"></i> Reset Data
-                            </button>
-                            <button onClick={async () => { await handleSeedManualMockData(); setIsMobileMenuOpen(false); }} className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500">
-                                <i className="fa-solid fa-database w-5 text-center text-[10px]"></i> Seed Mock Data
-                            </button>
-                        </div>
-                    )}
-                </div>
+                        {isMobileToolsExpanded && (
+                            <div className="pl-4 space-y-1.5 animate-in slide-in-from-top-2 duration-200">
+                                {toolTabs.map(tab => <TabButton key={tab.id} tab={tab} isSub />)}
+                                <div className="h-px bg-white/5 my-2 mx-4"></div>
+                                <div className="px-4 py-2 text-[8px] font-black uppercase tracking-[0.2em] text-slate-500">Admin</div>
+                                {adminTabs.map(tab => <TabButton key={tab.id} tab={tab} isSub />)}
+                                <div className="h-px bg-white/5 my-2 mx-4"></div>
+                                <button onClick={async () => { if (confirm("Reset Data?")) { await handleResetAllData(); setIsMobileMenuOpen(false); } }} className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500">
+                                    <i className="fa-solid fa-trash-can w-5 text-center text-[10px]"></i> Reset Data
+                                </button>
+                                <button onClick={async () => { await handleSeedManualMockData(); setIsMobileMenuOpen(false); }} className="flex items-center gap-4 w-full p-3 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] text-slate-500">
+                                    <i className="fa-solid fa-database w-5 text-center text-[10px]"></i> Seed Mock Data
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 <div className="space-y-1.5 pt-2">
                     <button
