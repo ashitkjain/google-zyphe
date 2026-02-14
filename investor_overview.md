@@ -6,7 +6,7 @@
 
 ### The Problem
 The current real estate tech stack is disjointed:
-*   **For Buyers:** Listings are static. "Analysing" a home means staring at photos and guessing about repairs, neighborhood vibes, or investment potential.
+*   **For Buyers:** Listings are static. "Analysing" a home means staring at photos and guessing about repairs, neighborhood vibes, or investment potential. Recommendations lack context.
 *   **For Sellers:** The process of preparing a home for market is opaque. Sellers lack tools to objectively assess listing quality or presentation, leaving them dependent on expensive full-service intermediaries for even basic optimizations.
 *   **For Realtors:** Workflow is scattered across legacy systems and manual trackers. Many agents—particularly in rural areas—are underserved by modern tech and lack the specialized skills required for advanced database queries, making efficient property discovery a manual bottleneck. Lead response times are slow, and follow-ups are manual and error-prone.
 *   **Industry Validation:** According to the [**2025 NAR Realtors Technology Survey**](https://cms.nar.realtor/sites/default/files/2025-09/2025-realtors-technology-survey-report-09-18-2025.pdf), both realtors and their clients view technology and AI positively; however, the primary friction point remains the frustration of working with fragmented platforms and scattered data silos.

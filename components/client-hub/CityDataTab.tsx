@@ -16,6 +16,8 @@ import { auth } from '../../services/firebase/config';
 import { LLMCallEvent } from '../../types/ai';
 import { APICallEvent } from '../../services/firebase/api_logs';
 import { getPropertyStatusesBatch, PropertyStatusDetails } from '../../services/firebase/properties';
+import { getUserProfile } from '../../services/firebase/user';
+import { searchResoProperties } from '../../services/resoService';
 
 interface IngestionJob {
     zpid: string;
@@ -375,9 +377,29 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             console.warn('Cloud cache check failed', e);
         }
 
-        // 2. Network Request
+        // 2. Hybrid Network Request: Try RESO first if keys exist
+        const uid = auth?.currentUser?.uid;
+        if (uid) {
+            const profile = await getUserProfile(uid);
+            const resoConfig = profile?.realtor?.resoConfig;
+            if (resoConfig) {
+                addLog(`Checking RESO Web API for listings in ${zip}...`);
+                try {
+                    const resoListings = await searchResoProperties(resoConfig, zip);
+                    if (resoListings && resoListings.length > 0) {
+                        addLog(`RESO API Success: Found ${resoListings.length} listings.`);
+                        // Save to cache before returning
+                        saveZipListings(zip, resoListings).catch(console.error);
+                        return resoListings;
+                    }
+                } catch (e) {
+                    addLog(`RESO Search failed, falling back to legacy: ${e}`);
+                }
+            }
+        }
+
         const url = `https://${config.host}/propertyExtendedSearch?location=${zip}&status_type=ForSale`;
-        addLog(`Fetching live data from: ${url}`);
+        addLog(`Fetching live data from (Fallback): ${url}`);
 
         try {
             const response = await fetch(url, {

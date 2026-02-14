@@ -50,7 +50,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                         Zyphe: The AI-Powered <span className="text-indigo-600">Real Estate Operating System</span>
                     </h1>
                     <p className="text-xl text-slate-500 font-medium leading-[1.6]">
-                        Unifying the fragmented property journey through multimodal intelligence and a unified platform to unlock a $110B–$180B opportunity (
+                        Unifying the fragmented property journey through multimodal intelligence and a unified platform to unlock a $110B–$180B AI opportunity (
                         <button
                             onClick={() => {
                                 setActiveTab?.('industry_research');
@@ -132,18 +132,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <h4 className="text-2xl font-black text-slate-900 leading-tight">Buyers</h4>
                             </div>
                             <p className="text-base text-slate-500 leading-relaxed font-medium">
-                                Listings are static. "Analysing" a home means staring at photos and guessing about repairs, neighborhood vibes, or investment potential.
-                            </p>
-                        </div>
-                        <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="w-11 h-11 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                    <i className="fa-solid fa-screwdriver-wrench text-xl"></i>
-                                </div>
-                                <h4 className="text-2xl font-black text-slate-900 leading-tight">Sellers</h4>
-                            </div>
-                            <p className="text-base text-slate-500 leading-relaxed font-medium">
-                                The process of preparing a home for the market is opaque. Sellers lack tools to objectively assess listing quality or presentation.
+                                Listings are static. "Analysing" a home means staring at photos and guessing about repairs, neighborhood vibes, or investment potential. Recommendations lack context and nuanced requirements.
                             </p>
                         </div>
                         <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
@@ -157,6 +146,18 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 Workflow is scattered across legacy systems. Many agents are underserved by modern tech and lack the specialized skills required for leveraging AI.
                             </p>
                         </div>
+                        <div className="p-8 border border-slate-200 rounded-[2rem] bg-white hover:border-indigo-200 transition-colors group">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-11 h-11 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                    <i className="fa-solid fa-screwdriver-wrench text-xl"></i>
+                                </div>
+                                <h4 className="text-2xl font-black text-slate-900 leading-tight">Sellers</h4>
+                            </div>
+                            <p className="text-base text-slate-500 leading-relaxed font-medium">
+                                The process of preparing a home for the market is opaque. Sellers lack tools to objectively assess listing quality or presentation.
+                            </p>
+                        </div>
+
                     </div>
                 </div>
 
@@ -181,7 +182,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <h4 className="text-2xl font-black text-slate-900 leading-tight">Multi-Modal Intelligence</h4>
                             </div>
                             <p className="text-base text-slate-500 leading-relaxed mb-6">
-                                Massive opportunity to deploy Multi-Modal GenAI that synthesizes visual, geospatial, and behavioral data to solve industry problems with human-level reasoning.
+                                Multi-Modal GenAI that can synthesize visual, geospatial, and behavioral data with human-level reasoning. Gemini models and optimized context graph democratize reduce the cost of Machine Learning.
                             </p>
                             <div className="mt-auto space-y-5 pt-6 border-t border-slate-100">
                                 <div className="space-y-1.5">
@@ -199,10 +200,11 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                     <i className="fa-solid fa-gauge-high text-xl"></i>
                                 </div>
-                                <h4 className="text-2xl font-black text-slate-900 leading-tight">20X R&D Efficiency</h4>
+                                <h4 className="text-2xl font-black text-slate-900 leading-tight">20X Technology</h4>
                             </div>
                             <p className="text-base text-slate-500 leading-relaxed mb-6">
-                                With AI-assisted coding, we compress the development lifecycle by a factor of 20, lowering the cost of R&D moats.
+                                With AI-assisted coding, we compress the development lifecycle by a factor of 20X.
+                                With Google cloud, we enable vector databases, scalable, reliable. low cost and compliant deployment.
                             </p>
                             <div className="mt-auto space-y-5 pt-6 border-t border-slate-100">
                                 <div className="space-y-1.5">
@@ -220,10 +222,10 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                     <i className="fa-solid fa-file-shield text-xl"></i>
                                 </div>
-                                <h4 className="text-2xl font-black text-slate-900 leading-tight">Regulatory Moats</h4>
+                                <h4 className="text-2xl font-black text-slate-900 leading-tight">Data Compliance</h4>
                             </div>
                             <p className="text-base text-slate-500 leading-relaxed mb-6">
-                                Recent shifts in data policy and API availability have removed the final moats protecting legacy incumbents.
+                                Recent shifts in data policy and API availability have removed the hurdles in using protected MLS data. Partnering with National Brokerages (BOR) to enable proper licensing and usage compliance for premium data enrichment.
                             </p>
                             <div className="mt-auto space-y-5 pt-6 border-t border-slate-100">
                                 <div className="space-y-1.5">
@@ -241,19 +243,18 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                     <i className="fa-solid fa-house-lock text-xl"></i>
                                 </div>
-                                <h4 className="text-2xl font-black text-slate-900 leading-tight">MLS Attribution</h4>
+                                <h4 className="text-2xl font-black text-slate-900 leading-tight">Unparalleled Innovation</h4>
                             </div>
                             <p className="text-base text-slate-500 leading-relaxed mb-6">
-                                Partnering with National Brokerages (BOR) to enable proper licensing and usage compliance for premium data enrichment.
+                                GenAI is the new frontier of innovation. Zyphe is at the forefront of this revolution, leveraging AI to transform the real estate industry. Real estate tech is ripe for disruption, with AI and data unification poised to drive systemic change.
                             </p>
-                            <div className="mt-auto pt-6 border-t border-slate-100">
-                                <button
-                                    onClick={() => setActiveTab?.('premium_mls')}
-                                    className="w-full py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all flex items-center justify-center gap-2 group/btn"
-                                >
-                                    Explore Compliance
-                                    <i className="fa-solid fa-chevron-right group-hover/btn:translate-x-1 transition-transform"></i>
-                                </button>
+                            <div className="mt-auto space-y-5 pt-6 border-t border-slate-100">
+                                <div className="space-y-1.5">
+                                    <h5 className="text-[12px] font-black text-indigo-600 uppercase tracking-wider">GenAI Revolution</h5>
+                                    <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                                        AI is facilitating customer journeys, creating marketing materials, and opening up new revenue streams.
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -274,13 +275,13 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                             >
                                 Industry Case Studies
                             </button>{' '}
-                            —Zyphe is positioned to leapfrog the incumbent trajectory. We aren't just iterating; we are accelerating. By combining proprietary AI architecture with an aggressive cost-efficiency model, Zyphe delivers 20X the innovation velocity at a fraction of the traditional economic burn.
+                            —Zyphe is positioned to leapfrog the incumbent trajectory. We aren't just iterating; we are accelerating. By combining proprietary AI architecture with an aggressive cost-efficiency model, Zyphe delivers 20X the innovation velocity at a fraction of the traditional economic burn. Zyphe will succeed because of a unique convergence of technology, timing, and economic efficiency.
                         </p>
                     </div>
 
                     <div className="space-y-6">
                         <h4 className="text-lg font-black text-slate-900 uppercase tracking-wider border-l-4 border-indigo-600 pl-4">The Competitive Edge</h4>
-                        <p className="text-sm text-slate-500 font-medium">Our strategy focuses on capturing the "under-teched" mass market by removing the barriers of cost and complexity.</p>
+                        <p className="text-sm text-slate-500 font-medium">Our strategy focuses on capturing the "under-teched" mass market by building a cost-efficient, AI-powered innovative platform, removing the barriers of cost and complexity.</p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="p-7 bg-white border border-slate-200 rounded-[2rem] hover:border-indigo-200 transition-all group flex flex-col shadow-sm">
@@ -312,7 +313,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                     <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
                                         <i className="fa-solid fa-gears text-xl"></i>
                                     </div>
-                                    <h5 className="text-lg font-black text-slate-900 leading-tight">High-Margin Operational Efficiency</h5>
+                                    <h5 className="text-lg font-black text-slate-900 leading-tight">High-Margin Efficiency</h5>
                                 </div>
                                 <p className="text-sm text-slate-500 leading-relaxed font-medium">
                                     Our "AI + Human" hybrid model utilizes AI-assisted coding to slash R&D timelines and offshore administrative staff to guarantee data accuracy. This allows us to offer premium, enterprise-grade solutions at a price point that unlocks the broader mid-market (
@@ -334,19 +335,10 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                     <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-none">
                                         <i className="fa-solid fa-house-lock text-xl"></i>
                                     </div>
-                                    <h5 className="text-lg font-black text-slate-900 leading-tight">Premium MLS Attribution</h5>
+                                    <h5 className="text-lg font-black text-slate-900 leading-tight">Filling Product Gaps</h5>
                                 </div>
                                 <p className="text-sm text-slate-500 leading-relaxed font-medium">
-                                    By leveraging Brokerage Back Office (BBO) rights, we gain access to highly regulated MLS data, including property imagery, enabling us to build more comprehensive consumer tools and ensure compliance.
-                                    <button
-                                        onClick={() => {
-                                            setActiveTab?.('premium_mls');
-                                            onNavigate?.('premium_mls', '/realtor/premium_mls');
-                                        }}
-                                        className="text-indigo-600 font-bold hover:underline underline-offset-4 ml-1"
-                                    >
-                                        Learn More
-                                    </button>
+                                    There are untapped opportunities and gaps in leading products, like CRM that are too complex and siloed, lead management and reactivation tools that are AI wash, and closing platforms that lack post closing client engagement.
                                 </p>
                             </div>
                         </div>
@@ -388,14 +380,34 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                         <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 mt-2.5 flex-none" />
                                         <span>
                                             <strong className="text-slate-900 font-black">Pillar 2 (Functionality):</strong>
-                                            A "business-in-a-box" suite, leveraging vision and spatial AI for property analysis, AI powered leads management, post-closing client management and a proactive reactivation engine that mines dormant leads.
+                                            A "business-in-a-box" suite, leveraging vision and spatial AI for property analysis, AI powered leads management,{' '}
+                                            <button
+                                                onClick={() => {
+                                                    setActiveTab?.('post_close_intelligence');
+                                                    onNavigate?.('post_close_intelligence', '/realtor/post_close_intelligence');
+                                                }}
+                                                className="text-indigo-600 font-black hover:underline underline-offset-4"
+                                            >
+                                                post-closing client engagement
+                                            </button>{' '}
+                                            and a proactive reactivation engine that mines dormant leads.
                                         </span>
                                     </li>
                                     <li className="flex gap-4 text-sm">
                                         <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 mt-2.5 flex-none" />
                                         <span>
                                             <strong className="text-slate-900 font-black">Pillar 3 (Technology):</strong>
-                                            A high-velocity architecture powered by Google technologies and a proprietary Context Graph that unifies visual, geospatial, and behavioral data into a single, grounded source of truth.
+                                            A high-velocity architecture powered by Google technologies and a proprietary{' '}
+                                            <button
+                                                onClick={() => {
+                                                    setActiveTab?.('technical_papers_context_graph');
+                                                    onNavigate?.('technical_papers_context_graph', '/realtor/technical_papers_context_graph');
+                                                }}
+                                                className="text-indigo-600 font-black hover:underline underline-offset-4"
+                                            >
+                                                Context Graph
+                                            </button>{' '}
+                                            that unifies visual, geospatial, and behavioral data into a single, grounded source of truth.
                                         </span>
                                     </li>
                                 </ul>
@@ -419,7 +431,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                     <div className="flex items-center gap-3">
                         <i className="fa-solid fa-earth-americas text-indigo-500"></i>
                         <p className="text-base text-slate-500 font-medium leading-relaxed italic">
-                            Zyphe will operate in 3 product categories initially.
+                            Initally, Zyphe will operate in 3 product categories.
                         </p>
                     </div>
 
@@ -493,66 +505,66 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
             </section>
 
             {/* 3. Industry Validation */}
-            <section className="bg-indigo-50 p-10 rounded-[2.5rem] border border-indigo-100 animate-in fade-in slide-in-from-bottom-8 duration-700">
+            <section className="bg-white p-10 rounded-[2.5rem] border border-slate-200 animate-in fade-in slide-in-from-bottom-8 duration-700 shadow-sm">
                 <div className="flex flex-col lg:flex-row gap-12 items-start mb-12">
                     <div className="space-y-8 flex-1">
                         <div className="space-y-4">
                             <div className="flex items-center gap-3">
-                                <span className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">Industry Validation</span>
+                                <span className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Industry Validation</span>
                                 <button
                                     onClick={() => {
                                         setActiveTab?.('industry_research');
                                         onNavigate?.('industry_research', '/realtor/industry_research');
                                     }}
-                                    className="text-indigo-600 font-bold hover:underline text-sm bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200"
+                                    className="text-black font-bold hover:underline text-sm bg-slate-100 px-3 py-1 rounded-full border border-slate-200"
                                 >
                                     Report
                                 </button>
                             </div>
-                            <p className="text-3xl font-serif font-black text-indigo-900 leading-tight">
+                            <p className="text-3xl font-serif font-black text-black leading-tight">
                                 NAR 2025: Realtors and clients view AI positively, but are frustrated by fragmented platforms and data silos ("The Swivel Chair" workflow).
                             </p>
                         </div>
                         <ul className="space-y-6">
-                            <li className="flex items-start gap-4 text-base text-indigo-800/80 font-medium leading-relaxed">
-                                <i className="fa-solid fa-circle-check mt-1.5 text-sm text-indigo-400"></i>
+                            <li className="flex items-start gap-4 text-base text-slate-700 font-medium leading-relaxed">
+                                <i className="fa-solid fa-circle-check mt-1.5 text-sm text-slate-400"></i>
                                 <span>Only 38% of respondents agree that their Brokerage provides them with all the technology tools they need to be successful.</span>
                             </li>
-                            <li className="flex items-start gap-4 text-base text-indigo-800/80 font-medium leading-relaxed">
-                                <i className="fa-solid fa-circle-check mt-1.5 text-sm text-indigo-400"></i>
+                            <li className="flex items-start gap-4 text-base text-slate-700 font-medium leading-relaxed">
+                                <i className="fa-solid fa-circle-check mt-1.5 text-sm text-slate-400"></i>
                                 <span>MLS Satisfaction: Median score of 3/5 (Neutral/Content), signaling a significant gap in high-performing core technology.</span>
                             </li>
-                            <li className="flex items-start gap-4 text-base text-indigo-800/80 font-medium leading-relaxed">
-                                <i className="fa-solid fa-circle-check mt-1.5 text-sm text-indigo-400"></i>
+                            <li className="flex items-start gap-4 text-base text-slate-700 font-medium leading-relaxed">
+                                <i className="fa-solid fa-circle-check mt-1.5 text-sm text-slate-400"></i>
                                 <span>Emerging Tech Gap: Only 8% of Realtors feel proficient enough to teach others, while 59% are "still learning" and 34% have little to no usage.</span>
                             </li>
-                            <li className="flex items-start gap-4 text-base text-indigo-800/80 font-medium leading-relaxed">
-                                <i className="fa-solid fa-circle-check mt-1.5 text-sm text-indigo-400"></i>
+                            <li className="flex items-start gap-4 text-base text-slate-700 font-medium leading-relaxed">
+                                <i className="fa-solid fa-circle-check mt-1.5 text-sm text-slate-400"></i>
                                 <span>GenAI Adoption: While 41% of Realtors have begun utilizing Generative AI, a significant 30% currently utilize no emerging technology tools at all.</span>
                             </li>
                         </ul>
                     </div>
 
-                    <div className="min-w-[300px] lg:border-l lg:border-indigo-200 lg:pl-12 space-y-10">
+                    <div className="min-w-[300px] lg:border-l lg:border-slate-200 lg:pl-12 space-y-10">
                         <div className="space-y-1.5">
-                            <span className="text-5xl font-black text-indigo-600">$180B</span>
-                            <p className="text-xs font-black text-indigo-400 uppercase tracking-widest">McKinsey GenAI Value Add</p>
+                            <span className="text-5xl font-black text-black">$180B</span>
+                            <p className="text-xs font-black text-slate-500 uppercase tracking-widest">McKinsey GenAI Value Add</p>
                         </div>
                         <div className="space-y-4">
-                            <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">AI Adoption Curve</span>
+                            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">AI Adoption Curve</span>
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="p-4 bg-white/50 rounded-2xl border border-indigo-100/50">
-                                    <div className="text-3xl font-black text-indigo-600">20%</div>
-                                    <div className="text-xs font-black text-indigo-900/70 uppercase leading-snug mt-1.5">Daily Usage<br />Velocity</div>
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                                    <div className="text-3xl font-black text-black">20%</div>
+                                    <div className="text-xs font-black text-slate-900 uppercase leading-snug mt-1.5">Daily Usage<br />Velocity</div>
                                 </div>
-                                <div className="p-4 bg-white/50 rounded-2xl border border-indigo-100/50">
-                                    <div className="text-3xl font-black text-indigo-400">32%</div>
-                                    <div className="text-xs font-black text-indigo-900/50 uppercase leading-snug mt-1.5">Untapped<br />Potential</div>
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                                    <div className="text-3xl font-black text-slate-400">32%</div>
+                                    <div className="text-xs font-black text-slate-500 uppercase leading-snug mt-1.5">Untapped<br />Potential</div>
                                 </div>
                             </div>
                         </div>
                         <div className="space-y-4">
-                            <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Primary Motivators</span>
+                            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Primary Motivators</span>
                             <div className="space-y-5">
                                 {[
                                     { label: "Saving Time", val: 66 },
@@ -560,12 +572,12 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                                     { label: "Closing more deals", val: 51 }
                                 ].map((g, i) => (
                                     <div key={i} className="space-y-2">
-                                        <div className="flex justify-between text-xs font-black text-indigo-900/70 uppercase">
+                                        <div className="flex justify-between text-xs font-black text-slate-900 uppercase">
                                             <span>{g.label}</span>
                                             <span>{g.val}%</span>
                                         </div>
-                                        <div className="h-1.5 w-full bg-indigo-100 rounded-full overflow-hidden">
-                                            <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${g.val}%` }} />
+                                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                            <div className="h-full bg-black rounded-full" style={{ width: `${g.val}%` }} />
                                         </div>
                                     </div>
                                 ))}
@@ -574,60 +586,39 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                     </div>
                 </div>
 
-                <div className="pt-10 border-t border-indigo-200/30 w-full">
-                    <span className="text-xs font-black text-indigo-400 uppercase tracking-[0.2em] mb-6 block px-4">Case Study Insights</span>
+                <div className="w-full">
+                    <span className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-6 block px-4">Insights from data consolidation and AI</span>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-16 gap-y-10 px-4">
                         <div className="space-y-3">
-                            <h5 className="text-xl font-black text-indigo-900">Compass</h5>
-                            <p className="text-base text-indigo-800/60 font-medium leading-relaxed">
-                                Created PropOS for $1.5B+, a unified data fabric to break data silos to achieve 20% in deals closed per agent, 15% faster time to sell than market.
+                            <h5 className="text-xl font-black text-black">Compass Agent</h5>
+                            <p className="text-base text-slate-600 font-medium leading-relaxed">
+                                Created PropOS for $1.5B+, a unified data fabric to break data silos to achieve <br />
+                                • Deals closed per agent of 20% <br />
+                                • 15% faster time to sell than market.
                             </p>
                         </div>
                         <div className="space-y-3">
-                            <h5 className="text-xl font-black text-indigo-900">Cotality</h5>
-                            <p className="text-base text-indigo-800/60 font-medium leading-relaxed">
-                                Unified over 5.5 billion records, providing a 360-degree view of 99.9% of U.S. properties resulting in 90% reduction in manual data entry, Decision cycles from weeks to minutes.
+                            <h5 className="text-xl font-black text-black">Cotality (Data provider)</h5>
+                            <p className="text-base text-slate-600 font-medium leading-relaxed">
+                                Unified over 5.5 billion records to<br />
+                                • Reduce manual data entry by 90%, <br />
+                                • Reduce decision cycles from weeks to minutes.
                             </p>
                         </div>
                         <div className="space-y-3">
-                            <h5 className="text-xl font-black text-indigo-900">Radius</h5>
-                            <p className="text-base text-indigo-800/60 font-medium leading-relaxed">
-                                Created unified AI-Native OS and Mel-AI assistant leading to 80% reduction in back-office time, 3x higher lead conversion, 293% agent growth, 330% YoY revenue, and "instantaneous" audits/payouts.
+                            <h5 className="text-xl font-black text-black">Radius Agent</h5>
+                            <p className="text-base text-slate-600 font-medium leading-relaxed">
+                                Created unified AI-Native OS and Mel-AI assistant to <br />
+                                • Reduce back-office time by 80% <br />
+                                • 3x higher lead conversion, <br />
                             </p>
                         </div>
                     </div>
                 </div>
             </section>
 
-
-
             {/* Why would Zyphe succeed? */}
-            < section className="space-y-12 bg-slate-50/50 rounded-[3rem] p-12 border border-slate-200/50" >
-                <div className="space-y-4 text-center max-w-3xl mx-auto">
-                    <h3 className="text-4xl font-serif font-black text-slate-900 tracking-tight">Why would <span className="text-indigo-600">Zyphe</span> succeed?</h3>
-                    <p className="text-slate-500 font-medium">A unique convergence of technology, timing, and economic efficiency.</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {[
-                        { title: "Ultra-low unit economics", desc: "By utilizing GenAI, AI-assisted development, and modern cloud architecture, we've achieved ultra-low unit economics that legacy competitors can't match.", icon: "fa-chart-pie" },
-                        { title: "The Unified Solution", desc: "We eliminate data silos with an all-in-one platform that harmonizes existing tools", icon: "fa-layer-group" },
-                        { title: "Hybrid Productivity", desc: "Our offshore back-office leverages a blend of AI and human expertise to deliver high-output services at a fraction of the cost.", icon: "fa-users-gear" },
-                        { title: "Democratizing AI", desc: "We provide 'AI-as-a-Service', empowering underserved boutique brokerages to compete with industry giants under a 'Powered by AI' brand.", icon: "fa-microchip" },
-                        { title: "Next-Gen AI Innovation", desc: "From geo-spatial AI and context graphs to automated lead reactivation, all digital closing and post-close engagement—we deliver the tech real estate has been waiting for.", icon: "fa-wand-magic-sparkles" },
-                        { title: "Relentless Evolution", desc: "At Zyphe, our pace of innovation is a permanent competitive advantage.", icon: "fa-rocket-launch" }
-                    ].map((point, i) => (
-                        <div key={i} className={`p-8 bg-white border border-slate-200 rounded-3xl shadow-sm hover:border-indigo-200 transition-all group ${i === 6 ? 'md:col-span-2 lg:col-span-1' : ''}`}>
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                                    <i className={`fa-solid ${point.icon}`}></i>
-                                </div>
-                                <h4 className="text-lg font-black text-slate-900">{point.title}</h4>
-                            </div>
-                            <p className="text-sm text-slate-500 font-medium leading-relaxed">{point.desc}</p>
-                        </div>
-                    ))}
-                </div>
+            <section className="space-y-10 bg-slate-50/50 rounded-[3rem] p-10 border border-slate-200/50">
 
                 <div className="max-w-4xl mx-auto pt-8">
                     <div className="bg-indigo-600 rounded-[2.5rem] p-10 text-white relative overflow-hidden text-center shadow-xl shadow-indigo-100">
@@ -635,7 +626,7 @@ const ExecutiveSummaryTab: React.FC<ExecutiveSummaryTabProps> = ({ setActiveTab,
                             <i className="fa-solid fa-bolt-lightning text-8xl text-indigo-400"></i>
                         </div>
                         <p className="text-xl font-medium leading-relaxed relative z-10 italic">
-                            "While big companies will also be thinking about this, Zyphe will leapfrog them by rapid and low cost innovation that will extend this to untapped markets in a big industry"
+                            "Zyphe will leapfrog the big companies, working on this, by rapid and low cost innovation that will extend this to untapped markets in a big industry"
                         </p>
                     </div>
                 </div>

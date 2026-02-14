@@ -1,6 +1,13 @@
 import { FunnelStage, LeadHealth } from './enums';
 import { StatusOption, PropertyOption } from './shared';
 
+export interface RESOConfig {
+    clientId: string;
+    clientSecret: string;
+    tokenUrl: string;
+    odataUrl: string;
+}
+
 export interface RealtorNode {
     photoURL?: string;
     bio?: string;
@@ -21,6 +28,7 @@ export interface RealtorNode {
     totalSales?: string;
     avgPrice?: string;
     totalClients?: string;
+    resoConfig?: RESOConfig;
 }
 
 export interface UserProfile {

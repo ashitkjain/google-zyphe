@@ -26,8 +26,8 @@ const IndustryResearchTab: React.FC = () => {
                     Market Intelligence 2026
                 </div>
                 <h1 className="text-5xl font-black text-slate-900 tracking-tight leading-tight">Real Estate Industry Research</h1>
-                <p className="text-xl text-slate-500 font-medium max-w-4xl leading-relaxed">
-                    The real estate sector is at an inflection point. Generative AI could add up to <span className="text-indigo-600 font-bold">$180 billion</span> in value, yet adoption remains staggered due to legacy tool complexity.
+                <p className="text-xl text-slate-500 font-medium leading-relaxed">
+                    The real estate sector is at an inflection point. Generative AI could add up to <span className="text-indigo-600 font-bold">$180 billion</span> in value (<a href="https://www.mckinsey.com/industries/real-estate/our-insights/generative-ai-can-change-real-estate-but-the-industry-must-change-to-reap-the-benefits" target="_blank" rel="noopener noreferrer" className="text-indigo-600 font-bold hover:underline underline-offset-4 transition-all">McKinsey</a>), yet adoption remains staggered due to legacy tool complexity.
                 </p>
             </div>
 
@@ -150,79 +150,7 @@ const IndustryResearchTab: React.FC = () => {
                 </div>
             </section>
 
-            {/* Metrics & Benchmarks */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-6">
-                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
-                        <i className="fa-solid fa-chart-simple text-indigo-500"></i>
-                        Performance Benchmarks (2026)
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {metrics.map((m, i) => (
-                            <div key={i} className="bg-white border border-slate-200 rounded-[1.5rem] p-6 shadow-sm hover:border-indigo-200 transition-all relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 blur-2xl rounded-full -mr-12 -mt-12 group-hover:bg-indigo-500/10 transition-colors"></div>
-                                <div className="relative z-10 flex flex-col gap-1">
-                                    <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">{m.label}</span>
-                                    <div className="text-2xl font-black text-slate-900">{m.value}</div>
-                                    <p className="text-[10px] text-slate-500 font-medium mt-1 leading-relaxed">{m.context}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
 
-                <div className="space-y-6">
-                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
-                        <i className="fa-solid fa-dollar-sign text-emerald-500"></i>
-                        Pricing Framework
-                    </h3>
-                    <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl p-8 space-y-6">
-                        {[
-                            { level: 'Entry Level', price: '$50–$150/mo', desc: 'Basic CRM, IDX templates, manual tasks.' },
-                            { level: 'Growth / Pro', price: '$300–$800/mo', desc: 'AI lead scoring, automated drips, full CRM.' },
-                            { level: 'Enterprise / Elite', price: '$1,500+/mo', desc: 'Custom IDX, Reactivation, seamless integrations.' }
-                        ].map((p, i) => (
-                            <div key={i} className="flex flex-col gap-1.5 pb-6 border-b border-slate-50 last:border-0 last:pb-0">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-xs font-black uppercase tracking-widest text-slate-400">{p.level}</span>
-                                    <span className="text-base font-black text-indigo-600">{p.price}</span>
-                                </div>
-                                <p className="text-sm text-slate-600 font-medium">{p.desc}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            {/* Tool Matrix */}
-            <section className="space-y-6">
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
-                    <i className="fa-solid fa-layer-group text-slate-500"></i>
-                    Tool Segmentation & Gaps
-                </h3>
-                <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-slate-50 border-b border-slate-100">
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400 w-1/4">Category</th>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400 w-1/4">Leaders</th>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400 w-1/4">Pricing</th>
-                                <th className="px-8 py-5 text-xs font-black uppercase tracking-widest text-slate-400 w-1/4">Key Gaps</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {pricingMatrix.map((row, i) => (
-                                <tr key={i} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-8 py-6 text-base font-black text-slate-900">{row.category}</td>
-                                    <td className="px-8 py-6 text-sm text-slate-600 font-medium">{row.leaders}</td>
-                                    <td className="px-8 py-6 text-sm text-slate-600 font-bold">{row.pricing}</td>
-                                    <td className="px-8 py-6 text-sm text-indigo-600 font-medium italic">{row.gap}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
 
             {/* McKinsey Strategy */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -297,6 +225,51 @@ const IndustryResearchTab: React.FC = () => {
                         ))}
                     </div>
                 </section>
+            </div>
+
+
+            {/* Metrics & Benchmarks */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-6">
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                        <i className="fa-solid fa-chart-simple text-indigo-500"></i>
+                        Performance Benchmarks (2026)
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {metrics.map((m, i) => (
+                            <div key={i} className="bg-white border border-slate-200 rounded-[1.5rem] p-6 shadow-sm hover:border-indigo-200 transition-all relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 blur-2xl rounded-full -mr-12 -mt-12 group-hover:bg-indigo-500/10 transition-colors"></div>
+                                <div className="relative z-10 flex flex-col gap-1">
+                                    <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">{m.label}</span>
+                                    <div className="text-2xl font-black text-slate-900">{m.value}</div>
+                                    <p className="text-[10px] text-slate-500 font-medium mt-1 leading-relaxed">{m.context}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="space-y-6">
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                        <i className="fa-solid fa-dollar-sign text-emerald-500"></i>
+                        Pricing Framework
+                    </h3>
+                    <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl p-8 space-y-6">
+                        {[
+                            { level: 'Entry Level', price: '$50–$150/mo', desc: 'Basic CRM, IDX templates, manual tasks.' },
+                            { level: 'Growth / Pro', price: '$300–$800/mo', desc: 'AI lead scoring, automated drips, full CRM.' },
+                            { level: 'Enterprise / Elite', price: '$1,500+/mo', desc: 'Custom IDX, Reactivation, seamless integrations.' }
+                        ].map((p, i) => (
+                            <div key={i} className="flex flex-col gap-1.5 pb-6 border-b border-slate-50 last:border-0 last:pb-0">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs font-black uppercase tracking-widest text-slate-400">{p.level}</span>
+                                    <span className="text-base font-black text-indigo-600">{p.price}</span>
+                                </div>
+                                <p className="text-sm text-slate-600 font-medium">{p.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
 
             {/* References */}

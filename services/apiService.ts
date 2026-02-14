@@ -1,12 +1,13 @@
 
 import { PropertyData, RadarGeocodeResponse, PropertyComp } from "../types";
-import { savePropertyToCloud, getPropertyFromCloud } from "./firebaseService";
+import { savePropertyToCloud, getPropertyFromCloud, getUserProfile } from "./firebaseService";
 import { APP_CONFIG } from "../config";
 import { logAPICall, updateAPICall } from "./firebase/api_logs";
 import { auth } from "./firebase/config";
 import { getGoogleDataFromCloud, saveGoogleDataToCloud } from "./firebaseService";
 import { analyzeStreetView, analyzePollen } from "./geminiService";
 import { calculateSolarPotential } from "../utils/solarCalculations";
+import { fetchResoPropertyData } from "./resoService";
 
 const RAPID_API_KEY = APP_CONFIG.usHousingApi.key;
 const RAPID_API_HOST = APP_CONFIG.usHousingApi.host;
@@ -277,8 +278,26 @@ export const fetchPropertyImages = async (zpid: string, retries = 3): Promise<st
   const cacheKey = `images-${zpid}`;
   if (ongoingRequests.has(cacheKey)) return ongoingRequests.get(cacheKey)!;
 
-  const url = `https://${RAPID_API_HOST}/images?zpid=${zpid}`;
   const promise = (async () => {
+    // Hybrid Logic: Try RESO first if keys exist
+    const uid = auth?.currentUser?.uid;
+    if (uid) {
+      const profile = await getUserProfile(uid);
+      const resoConfig = profile?.realtor?.resoConfig;
+      if (resoConfig) {
+        try {
+          const resoData = await fetchResoPropertyData(resoConfig, zpid, true);
+          if (resoData && resoData.images && resoData.images.length > 0) {
+            console.log("[fetchPropertyImages] RESO Image Success:", zpid);
+            return resoData.images;
+          }
+        } catch (e) {
+          console.warn("[RESO] Image fetch failed, falling back:", e);
+        }
+      }
+    }
+
+    const url = `https://${RAPID_API_HOST}/images?zpid=${zpid}`;
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         const logId = await logAPICall({
@@ -575,8 +594,28 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
     }
 
     if (!mappedData) {
+      // Hybrid Ingest Logic: Try RESO Web API first if the user (Realtor) has provided keys
+      const uid = auth?.currentUser?.uid;
+      if (uid) {
+        const profile = await getUserProfile(uid);
+        const resoConfig = profile?.realtor?.resoConfig;
 
+        if (resoConfig) {
+          onStep?.('Accessing RESO Web API...');
+          try {
+            const resoData = await fetchResoPropertyData(resoConfig, addressOrZpid, isZpid);
+            if (resoData) {
+              console.log("[fetchPropertyDataFull] RESO API Success:", addressOrZpid);
+              mappedData = resoData;
+            }
+          } catch (e) {
+            console.warn("[RESO] Fetch failed, falling back to legacy ingest:", e);
+          }
+        }
+      }
+    }
 
+    if (!mappedData) {
       const url = isZpid
         ? `https://${RAPID_API_HOST}/property?zpid=${addressOrZpid}`
         : `https://${RAPID_API_HOST}/property?address=${encodeURIComponent(addressOrZpid)}`;
