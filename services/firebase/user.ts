@@ -232,6 +232,20 @@ export const getRealtorClients = async (realtorId: string) => {
         return [];
     }
 };
+export const getAllTesters = async () => {
+    if (!db) return [];
+    try {
+        const usersCol = collection(db, "users");
+        const q = query(usersCol, where("role", "==", "tester"));
+        logFirestoreQuery('getDocs', 'users', { role: 'tester' });
+        const snap = await getDocs(q);
+        return snap.docs.map(doc => doc.data() as UserProfile);
+    } catch (error) {
+        console.error("Error fetching testers:", error);
+        return [];
+    }
+};
+
 export const removeClient = async (clientId: string) => {
     if (!db) return false;
     try {

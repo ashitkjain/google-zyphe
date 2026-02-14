@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
-import { db, auth, saveAIAssessment, getAIAssessments, AIAssessment, getUserProfile } from '../../services/firebaseService';
+import { db, auth, saveAIAssessment, getAIAssessments, AIAssessment, getUserProfile, getAllTesters } from '../../services/firebaseService';
 import { PropertyData } from '../../types';
 
 interface PropertyValidationStatus extends PropertyData {
@@ -23,8 +23,10 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
     const [activeCity, setActiveCity] = useState<string | null>(null);
     const [savingZpids, setSavingZpids] = useState<Set<string>>(new Set());
     const [userNames, setUserNames] = useState<Record<string, string>>({});
+    const [allTesters, setAllTesters] = useState<{ uid: string, displayName: string }[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [activeTab, setActiveTab] = useState<'audits' | 'reports'>('audits');
+    const [assignmentConfirm, setAssignmentConfirm] = useState<{ zpid: string, address: string, userId: string } | null>(null);
     const [reportStartDate, setReportStartDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
     const [reportEndDate, setReportEndDate] = useState(new Date().toISOString().split('T')[0]);
     const pageSize = 20;
@@ -78,10 +80,18 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
             const assessmentMap = Object.fromEntries(existingAssessments.map(a => [a.mlsid, a]));
             setAssessments(assessmentMap);
 
-            // Fetch user names for audit trail
-            const uniqueTesters = Array.from(new Set(existingAssessments.map(a => a.tester).filter(Boolean)));
-            const nameMap: Record<string, string> = { ...userNames };
+            // Fetch ALL testers for assignment dropdown
+            const testers = await getAllTesters();
+            const testerList = testers.map(t => ({ uid: t.uid, displayName: t.displayName || t.email || 'Unknown' }));
+            setAllTesters(testerList);
 
+            // Fetch user names for audit trail
+            const nameMap: Record<string, string> = { ...userNames };
+            testers.forEach(t => {
+                nameMap[t.uid] = t.displayName || t.email || 'Unknown';
+            });
+
+            const uniqueTesters = Array.from(new Set(existingAssessments.map(a => a.tester).filter(Boolean)));
             await Promise.all(uniqueTesters.map(async (uid) => {
                 if (!nameMap[uid]) {
                     const profile = await getUserProfile(uid);
@@ -155,6 +165,46 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
             count
         })).sort((a, b) => b.count - a.count);
     }, [assessments, userNames, reportStartDate, reportEndDate]);
+
+    const handleAssignTester = async (zpid: string, address: string, targetUserId: string, force: boolean = false) => {
+        const existing = assessments[zpid];
+        if (existing && existing.tester && existing.tester !== targetUserId && !force) {
+            setAssignmentConfirm({ zpid, address, userId: targetUserId });
+            return;
+        }
+
+        setSavingZpids(prev => new Set(prev).add(zpid));
+        try {
+            const payload = {
+                mlsid: zpid,
+                propertyAddress: address,
+                tester: targetUserId,
+                userId: targetUserId, // Maintain both for legacy
+                assessment: existing?.assessment || '',
+                comment: existing?.comment || ''
+            };
+
+            await saveAIAssessment(payload as any);
+
+            setAssessments(prev => ({
+                ...prev,
+                [zpid]: {
+                    ...payload,
+                    last_update_date: new Date()
+                } as any
+            }));
+
+            setAssignmentConfirm(null);
+        } catch (error) {
+            console.error("Assignment failed:", error);
+        } finally {
+            setSavingZpids(prev => {
+                const nx = new Set(prev);
+                nx.delete(zpid);
+                return nx;
+            });
+        }
+    };
 
     const handleSaveAssessment = async (zpid: string, address: string, assessment: 'good' | 'bad' | 'other', comment: string) => {
         const userId = auth?.currentUser?.uid;
@@ -278,6 +328,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                 <thead>
                                     <tr className="bg-slate-50 border-b border-slate-100">
                                         <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Property</th>
+                                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Assigned To</th>
                                         <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assessment</th>
                                         <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Audited By</th>
                                         <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Last Updated</th>
@@ -316,6 +367,23 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                                             </div>
                                                         </div>
                                                     </button>
+                                                </td>
+                                                <td className="p-6">
+                                                    <div className="flex justify-center">
+                                                        <select
+                                                            value={assessments[prop.zpid]?.tester || ''}
+                                                            onChange={(e) => handleAssignTester(prop.zpid, prop.address, e.target.value)}
+                                                            className={`bg-white border rounded-lg px-3 py-2 text-[10px] font-bold text-slate-600 outline-none transition-all w-32
+                                                                ${assessments[prop.zpid]?.tester ? 'border-indigo-200 bg-indigo-50/30' : 'border-slate-200 opacity-60'}
+                                                                ${savingZpids.has(prop.zpid) ? 'animate-pulse pointer-events-none' : ''}
+                                                            `}
+                                                        >
+                                                            <option value="">Unassigned</option>
+                                                            {allTesters.map(t => (
+                                                                <option key={t.uid} value={t.uid}>{t.displayName}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
                                                 </td>
                                                 <td className="p-6">
                                                     <select
@@ -506,6 +574,34 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                 )}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            )}
+            {/* Reassignment Confirmation Modal */}
+            {assignmentConfirm && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-[2.5rem] w-full max-w-md p-10 shadow-2xl border border-slate-100 animate-in zoom-in duration-300">
+                        <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6 text-amber-500 border border-amber-100">
+                            <i className="fa-solid fa-triangle-exclamation text-3xl"></i>
+                        </div>
+                        <h3 className="text-xl font-black text-slate-900 text-center leading-tight mb-2">Reassign Auditor?</h3>
+                        <p className="text-sm text-slate-500 text-center mb-8 px-4 font-medium">
+                            This property is being validated. Are you sure you want to change the assignee?
+                        </p>
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={() => handleAssignTester(assignmentConfirm.zpid, assignmentConfirm.address, assignmentConfirm.userId, true)}
+                                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+                            >
+                                Yes, Change Assignee
+                            </button>
+                            <button
+                                onClick={() => setAssignmentConfirm(null)}
+                                className="w-full py-4 bg-slate-50 text-slate-500 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-100 transition-all outline-none"
+                            >
+                                No, Cancel
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
