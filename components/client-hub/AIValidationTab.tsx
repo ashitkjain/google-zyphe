@@ -25,7 +25,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
     const [userNames, setUserNames] = useState<Record<string, string>>({});
     const [allTesters, setAllTesters] = useState<{ uid: string, displayName: string }[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
-    const [activeTab, setActiveTab] = useState<'audits' | 'reports'>('audits');
+    const [activeTab, setActiveTab] = useState<'audits' | 'reports' | 'instructions'>('audits');
     const [assignmentConfirm, setAssignmentConfirm] = useState<{ zpid: string, address: string, userId: string } | null>(null);
     const [reportStartDate, setReportStartDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
     const [reportEndDate, setReportEndDate] = useState(new Date().toISOString().split('T')[0]);
@@ -277,6 +277,12 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                         >
                             Reports
                         </button>
+                        <button
+                            onClick={() => setActiveTab('instructions')}
+                            className={`text-xs font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all ${activeTab === 'instructions' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                        >
+                            Instructions
+                        </button>
                     </div>
                 </div>
                 <button
@@ -288,16 +294,16 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
             </div>
 
             {activeTab === 'audits' ? (
-                <>
+                <div className="space-y-8">
                     {/* City Filter */}
-                    <div className="flex gap-4 mb-8 overflow-x-auto pb-4 no-scrollbar">
+                    <div className="flex gap-4 mb-4 overflow-x-auto pb-4 no-scrollbar">
                         {cityStats.map(stat => (
                             <button
                                 key={stat.name}
                                 onClick={() => setActiveCity(stat.name)}
                                 className={`px-8 py-3.5 rounded-[1.5rem] transition-all border flex flex-col items-start gap-1 min-w-[160px]
-                            ${activeCity === stat.name ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-[1.02]' : 'bg-white border-slate-200 text-slate-500 hover:border-indigo-300'}
-                        `}
+                                ${activeCity === stat.name ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-[1.02]' : 'bg-white border-slate-200 text-slate-500 hover:border-indigo-300'}
+                            `}
                             >
                                 <span className="text-[11px] font-black uppercase tracking-widest">{stat.name}</span>
                                 <div className="flex items-center gap-3 mt-1">
@@ -323,154 +329,157 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Loading validation data...</p>
                         </div>
                     ) : (
-                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-slate-50 border-b border-slate-100">
-                                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Property</th>
-                                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Assigned To</th>
-                                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assessment</th>
-                                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Audited By</th>
-                                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Last Updated</th>
-                                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Comments</th>
-                                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {paginatedProperties.map((prop) => {
-                                        const localAssessment = assessments[prop.zpid]?.assessment || prop.assessment;
-                                        const localComment = assessments[prop.zpid]?.comment || prop.comment || '';
+                        <div className="space-y-8">
+                            <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-50 border-b border-slate-100">
+                                            <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Property</th>
+                                            <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Assigned To</th>
+                                            <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assessment</th>
+                                            <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Audited By</th>
+                                            <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Last Updated</th>
+                                            <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Comments</th>
+                                            <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {paginatedProperties.map((prop) => {
+                                            const localAssessment = assessments[prop.zpid]?.assessment || prop.assessment;
+                                            const localComment = assessments[prop.zpid]?.comment || prop.comment || '';
 
-                                        return (
-                                            <tr key={prop.zpid} className={`group hover:bg-slate-50/50 transition-colors ${prop.isGrayedOut ? 'opacity-40' : ''}`}>
-                                                <td className="p-6">
-                                                    <button
-                                                        onClick={() => handlePropertyClick(prop.address)}
-                                                        className="text-left group/link flex items-center gap-4"
-                                                    >
-                                                        <div className="w-16 h-12 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200">
-                                                            {prop.images?.[0] ? (
-                                                                <img src={prop.images[0]} alt="" className="w-full h-full object-cover group-hover/link:scale-110 transition-transform duration-500" />
-                                                            ) : (
-                                                                <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                                                    <i className="fa-solid fa-house text-xs"></i>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div>
-                                                            <div className="text-sm font-black text-slate-900 group-hover/link:text-indigo-600 transition-colors decoration-indigo-500/30 group-hover/link:underline underline-offset-4 leading-tight">
-                                                                {prop.address}
-                                                            </div>
-                                                            <div className="text-[10px] font-mono text-slate-400 mt-1 flex items-center gap-2">
-                                                                ZPID: {prop.zpid}
-                                                                <i className="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
-                                                            </div>
-                                                        </div>
-                                                    </button>
-                                                </td>
-                                                <td className="p-6">
-                                                    <div className="flex justify-center">
-                                                        <select
-                                                            value={assessments[prop.zpid]?.tester || ''}
-                                                            onChange={(e) => handleAssignTester(prop.zpid, prop.address, e.target.value)}
-                                                            className={`bg-white border rounded-lg px-3 py-2 text-[10px] font-bold text-slate-600 outline-none transition-all w-32
-                                                                ${assessments[prop.zpid]?.tester ? 'border-indigo-200 bg-indigo-50/30' : 'border-slate-200 opacity-60'}
-                                                                ${savingZpids.has(prop.zpid) ? 'animate-pulse pointer-events-none' : ''}
-                                                            `}
+                                            return (
+                                                <tr key={prop.zpid} className={`group hover:bg-slate-50/50 transition-colors ${prop.isGrayedOut ? 'opacity-40' : ''}`}>
+                                                    <td className="p-6">
+                                                        <button
+                                                            onClick={() => handlePropertyClick(prop.address)}
+                                                            className="text-left group/link flex items-center gap-4"
                                                         >
-                                                            <option value="">Unassigned</option>
-                                                            {allTesters.map(t => (
-                                                                <option key={t.uid} value={t.uid}>{t.displayName}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                </td>
-                                                <td className="p-6">
-                                                    <select
-                                                        value={localAssessment || ''}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value as any;
-                                                            setProperties(prev => prev.map(p => p.zpid === prop.zpid ? { ...p, assessment: val } : p));
-                                                        }}
-                                                        className={`border rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest outline-none transition-all w-32
-                                                    ${localAssessment === 'good' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
-                                                                localAssessment === 'bad' ? 'bg-rose-50 border-rose-200 text-rose-700' :
-                                                                    localAssessment === 'other' ? 'bg-slate-100 border-slate-300 text-slate-600' :
-                                                                        'bg-slate-50 border-slate-200 text-slate-700'}
-                                                `}
-                                                    >
-                                                        <option value="" className="bg-white text-slate-900">Select...</option>
-                                                        <option value="good" className="bg-emerald-50 text-emerald-700">Good</option>
-                                                        <option value="bad" className="bg-rose-50 text-rose-700">Bad</option>
-                                                        <option value="other" className="bg-slate-50 text-slate-600">Other</option>
-                                                    </select>
-                                                </td>
-                                                <td className="p-6">
-                                                    {assessments[prop.zpid] ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-[8px] font-bold">
-                                                                {(userNames[assessments[prop.zpid].tester] || '??').substring(0, 2).toUpperCase()}
+                                                            <div className="w-16 h-12 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200">
+                                                                {prop.images?.[0] ? (
+                                                                    <img src={prop.images[0]} alt="" className="w-full h-full object-cover group-hover/link:scale-110 transition-transform duration-500" />
+                                                                ) : (
+                                                                    <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                                                        <i className="fa-solid fa-house text-xs"></i>
+                                                                    </div>
+                                                                )}
                                                             </div>
-                                                            <span className="text-[10px] font-bold text-slate-600 truncate max-w-[100px]">
-                                                                {userNames[assessments[prop.zpid].tester] || 'Processing...'}
-                                                            </span>
+                                                            <div>
+                                                                <div className="text-sm font-black text-slate-900 group-hover/link:text-indigo-600 transition-colors decoration-indigo-500/30 group-hover/link:underline underline-offset-4 leading-tight">
+                                                                    {prop.address}
+                                                                </div>
+                                                                <div className="text-[10px] font-mono text-slate-400 mt-1 flex items-center gap-2">
+                                                                    ZPID: {prop.zpid}
+                                                                    <i className="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
+                                                                </div>
+                                                            </div>
+                                                        </button>
+                                                    </td>
+                                                    <td className="p-6">
+                                                        <div className="flex justify-center">
+                                                            <select
+                                                                value={assessments[prop.zpid]?.tester || ''}
+                                                                onChange={(e) => handleAssignTester(prop.zpid, prop.address, e.target.value)}
+                                                                className={`bg-white border rounded-lg px-3 py-2 text-[10px] font-bold text-slate-600 outline-none transition-all w-32
+                                                                    ${assessments[prop.zpid]?.tester ? 'border-indigo-200 bg-indigo-50/30' : 'border-slate-200 opacity-60'}
+                                                                    ${savingZpids.has(prop.zpid) ? 'animate-pulse pointer-events-none' : ''}
+                                                                `}
+                                                            >
+                                                                <option value="">Unassigned</option>
+                                                                {allTesters.map(t => (
+                                                                    <option key={t.uid} value={t.uid}>{t.displayName}</option>
+                                                                ))}
+                                                            </select>
                                                         </div>
-                                                    ) : (
-                                                        <span className="text-[10px] font-bold text-slate-300 italic">Unassigned</span>
-                                                    )}
-                                                </td>
-                                                <td className="p-6">
-                                                    <div className="text-[10px] font-bold text-slate-500">
-                                                        {assessments[prop.zpid]?.last_update_date ? (
-                                                            (() => {
-                                                                const d = assessments[prop.zpid].last_update_date;
-                                                                const date = d.toDate ? d.toDate() : new Date(d);
-                                                                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                                                            })()
-                                                        ) : '--'}
-                                                    </div>
-                                                </td>
-                                                <td className="p-6">
-                                                    <textarea
-                                                        value={localComment}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value;
-                                                            setProperties(prev => prev.map(p => p.zpid === prop.zpid ? { ...p, comment: val } : p));
-                                                        }}
-                                                        placeholder="Enter audit notes..."
-                                                        className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-medium outline-none focus:bg-white focus:border-indigo-500 transition-all text-slate-600 w-full min-h-[40px] max-h-[120px] resize-y"
-                                                    />
-                                                </td>
-                                                <td className="p-6 text-right">
-                                                    <button
-                                                        onClick={() => handleSaveAssessment(prop.zpid, prop.address, prop.assessment as any, prop.comment || '')}
-                                                        disabled={savingZpids.has(prop.zpid) || !prop.assessment}
-                                                        className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all
-                                                    ${savingZpids.has(prop.zpid) ? 'bg-slate-100 text-slate-400' :
-                                                                !prop.assessment ? 'bg-slate-50 text-slate-300 pointer-events-none' :
-                                                                    'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95'}
-                                                `}
-                                                    >
-                                                        {savingZpids.has(prop.zpid) ? (
-                                                            <i className="fa-solid fa-spinner animate-spin"></i>
-                                                        ) : assessments[prop.zpid] ? (
-                                                            <span>Update</span>
+                                                    </td>
+                                                    <td className="p-6">
+                                                        <select
+                                                            value={localAssessment || ''}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value as any;
+                                                                setProperties(prev => prev.map(p => p.zpid === prop.zpid ? { ...p, assessment: val } : p));
+                                                            }}
+                                                            className={`border rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest outline-none transition-all w-32
+                                                            ${localAssessment === 'good' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
+                                                                    localAssessment === 'bad' ? 'bg-rose-50 border-rose-200 text-rose-700' :
+                                                                        localAssessment === 'other' ? 'bg-slate-100 border-slate-300 text-slate-600' :
+                                                                            'bg-slate-50 border-slate-200 text-slate-700'}
+                                                        `}
+                                                        >
+                                                            <option value="" className="bg-white text-slate-900">Select...</option>
+                                                            <option value="good" className="bg-emerald-50 text-emerald-700">Good</option>
+                                                            <option value="bad" className="bg-rose-50 text-rose-700">Bad</option>
+                                                            <option value="other" className="bg-slate-50 text-slate-600">Other</option>
+                                                        </select>
+                                                    </td>
+                                                    <td className="p-6">
+                                                        {assessments[prop.zpid] ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-[8px] font-bold">
+                                                                    {(userNames[assessments[prop.zpid].tester] || '??').substring(0, 2).toUpperCase()}
+                                                                </div>
+                                                                <span className="text-[10px] font-bold text-slate-600 truncate max-w-[100px]">
+                                                                    {userNames[assessments[prop.zpid].tester] || 'Processing...'}
+                                                                </span>
+                                                            </div>
                                                         ) : (
-                                                            <span>Save Audit</span>
+                                                            <span className="text-[10px] font-bold text-slate-300 italic">Unassigned</span>
                                                         )}
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                            {filteredProperties.length === 0 && (
-                                <div className="py-20 text-center opacity-30">
-                                    <i className="fa-solid fa-folder-open text-5xl mb-4 text-slate-200"></i>
-                                    <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No properties discovered for this region</p>
-                                </div>
-                            )}
+                                                    </td>
+                                                    <td className="p-6">
+                                                        <div className="text-[10px] font-bold text-slate-500">
+                                                            {assessments[prop.zpid]?.last_update_date ? (
+                                                                (() => {
+                                                                    const d = assessments[prop.zpid].last_update_date;
+                                                                    const date = d.toDate ? d.toDate() : new Date(d);
+                                                                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                                                })()
+                                                            ) : '--'}
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-6">
+                                                        <textarea
+                                                            value={localComment}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+                                                                setProperties(prev => prev.map(p => p.zpid === prop.zpid ? { ...p, comment: val } : p));
+                                                            }}
+                                                            placeholder="Enter audit notes..."
+                                                            className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-medium outline-none focus:bg-white focus:border-indigo-500 transition-all text-slate-600 w-full min-h-[40px] max-h-[120px] resize-y"
+                                                        />
+                                                    </td>
+                                                    <td className="p-6 text-right">
+                                                        <button
+                                                            onClick={() => handleSaveAssessment(prop.zpid, prop.address, prop.assessment as any, prop.comment || '')}
+                                                            disabled={savingZpids.has(prop.zpid) || !prop.assessment}
+                                                            className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all
+                                                            ${savingZpids.has(prop.zpid) ? 'bg-slate-100 text-slate-400' :
+                                                                    !prop.assessment ? 'bg-slate-50 text-slate-300 pointer-events-none' :
+                                                                        'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95'}
+                                                        `}
+                                                        >
+                                                            {savingZpids.has(prop.zpid) ? (
+                                                                <i className="fa-solid fa-spinner animate-spin"></i>
+                                                            ) : assessments[prop.zpid] ? (
+                                                                <span>Update</span>
+                                                            ) : (
+                                                                <span>Save Audit</span>
+                                                            )}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                                {filteredProperties.length === 0 && (
+                                    <div className="py-20 text-center opacity-30">
+                                        <i className="fa-solid fa-folder-open text-5xl mb-4 text-slate-200"></i>
+                                        <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No properties discovered for this region</p>
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Pagination Controls */}
                             {totalPages > 1 && (
                                 <div className="mt-8 flex items-center justify-between bg-white px-8 py-4 rounded-[2rem] border border-slate-200 shadow-sm mx-1">
@@ -502,10 +511,10 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                     </div>
                                 </div>
                             )}
-                        </>
+                        </div>
                     )}
-                </>
-            ) : (
+                </div>
+            ) : activeTab === 'reports' ? (
                 <div className="space-y-8">
                     {/* Report Filters */}
                     <div className="flex flex-wrap items-center gap-6 bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
@@ -576,7 +585,120 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                         </table>
                     </div>
                 </div>
+            ) : (
+                <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-10 max-w-4xl mx-auto">
+                    <h2 className="text-2xl font-black text-slate-900 mb-8 flex items-center gap-3">
+                        <i className="fa-solid fa-file-invoice text-indigo-600"></i>
+                        Property Validation Instructions
+                    </h2>
+
+                    <div className="space-y-10">
+                        {/* Step 1 */}
+                        <div className="flex gap-6">
+                            <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-black shrink-0 border border-indigo-100 shadow-sm">1</div>
+                            <div>
+                                <h3 className="text-lg font-black text-slate-800 mb-2">Access and Login</h3>
+                                <ul className="space-y-2 text-slate-600 text-sm font-medium">
+                                    <li className="flex items-center gap-2">
+                                        <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
+                                        Navigate to <span className="font-bold text-indigo-600">zyphe.ai/realtor</span>
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
+                                        Create an account as a <span className="font-bold text-indigo-600">tester</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        {/* Step 2 */}
+                        <div className="flex gap-6">
+                            <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-black shrink-0 border border-indigo-100 shadow-sm">2</div>
+                            <div>
+                                <h3 className="text-lg font-black text-slate-800 mb-2">Locate the Property</h3>
+                                <ul className="space-y-2 text-slate-600 text-sm font-medium">
+                                    <li className="flex items-center gap-2">
+                                        <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
+                                        Select the <span className="font-bold">AI Validation</span> tab from the top navigation.
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
+                                        Wait for the list of properties to load (organized by city).
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
+                                        Select any property and select your name in the <span className="font-bold">“Assigned To”</span> dropdown.
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
+                                        Click on any property in the list to open it in a new <span className="font-bold text-indigo-600">Explore</span> tab.
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        {/* Step 3 */}
+                        <div className="flex gap-6">
+                            <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-black shrink-0 border border-indigo-100 shadow-sm">3</div>
+                            <div>
+                                <h3 className="text-lg font-black text-slate-800 mb-2">Initial Data Verification (Zillow Comparison)</h3>
+                                <ul className="space-y-2 text-slate-600 text-sm font-medium">
+                                    <li className="flex items-center gap-2">
+                                        <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
+                                        Open <span className="font-bold text-indigo-600 border-b-2 border-indigo-100">Zillow.com</span> and search for the same address.
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
+                                        <span className="font-bold">Photo Count:</span> Compare number of photos on Zyphe against Zillow.
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
+                                        <span className="font-bold">Detail Check:</span> Verify primary details shown on Zillow match Zyphe accurately.
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        {/* Step 4 */}
+                        <div className="flex gap-6">
+                            <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-black shrink-0 border border-indigo-100 shadow-sm">4</div>
+                            <div>
+                                <h3 className="text-lg font-black text-slate-800 mb-2">Visual & AI Analysis Validation</h3>
+                                <ul className="space-y-2 text-slate-600 text-sm font-medium">
+                                    <li className="flex items-center gap-2">
+                                        <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
+                                        Click <span className="font-bold italic">“View Visual Analysis”</span> button to review AI insights.
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
+                                        <span className="font-bold">Interior & Rooms:</span> Compare AI descriptions/tags against actual photos.
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
+                                        <span className="font-bold">Neighborhood:</span> Ensure property markings are correct on Google Maps.
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
+                                        <span className="font-bold">Image by image:</span> Verify each description against the specific image.
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        {/* Step 5 */}
+                        <div className="flex gap-6">
+                            <div className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 font-black shrink-0 border border-emerald-100 shadow-sm">5</div>
+                            <div>
+                                <h3 className="text-lg font-black text-slate-800 mb-2">Completion</h3>
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm font-medium text-slate-600">
+                                    Once validated, mark the properties as <span className="text-emerald-600 font-bold">Good</span>, <span className="text-rose-600 font-bold">Bad</span>, or <span className="text-slate-600 font-bold underline decoration-slate-300">Other</span> in the AI validation tab. Add a comment and save.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
+
             {/* Reassignment Confirmation Modal */}
             {assignmentConfirm && (
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
