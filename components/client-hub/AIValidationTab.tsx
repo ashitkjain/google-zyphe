@@ -22,6 +22,8 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
     const [assessments, setAssessments] = useState<Record<string, AIAssessment>>({});
     const [activeCity, setActiveCity] = useState<string | null>(null);
     const [savingZpids, setSavingZpids] = useState<Set<string>>(new Set());
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 20;
 
     const cityStats = useMemo(() => {
         const uniqueCities = Array.from(new Set(properties.map(p => p.city || 'Other')));
@@ -49,6 +51,11 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
             setActiveCity(cityStats[0].name);
         }
     }, [cityStats, activeCity]);
+
+    // Reset pagination when city changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeCity]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -102,6 +109,13 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
         if (!activeCity) return [];
         return properties.filter(p => (p.city || 'Other') === activeCity);
     }, [properties, activeCity]);
+
+    const paginatedProperties = useMemo(() => {
+        const start = (currentPage - 1) * pageSize;
+        return filteredProperties.slice(start, start + pageSize);
+    }, [filteredProperties, currentPage]);
+
+    const totalPages = Math.ceil(filteredProperties.length / pageSize);
 
     const handleSaveAssessment = async (zpid: string, address: string, assessment: 'good' | 'bad' | 'other', comment: string) => {
         const userId = auth?.currentUser?.uid;
@@ -216,7 +230,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {filteredProperties.map((prop) => {
+                            {paginatedProperties.map((prop) => {
                                 const localAssessment = assessments[prop.zpid]?.assessment || prop.assessment;
                                 const localComment = assessments[prop.zpid]?.comment || prop.comment || '';
 
@@ -308,6 +322,37 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                             <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No properties discovered for this region</p>
                         </div>
                     )}
+                </div>
+
+                {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="mt-8 flex items-center justify-between bg-white px-8 py-4 rounded-[2rem] border border-slate-200 shadow-sm">
+                    <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                        Showing <span className="text-slate-900">{(currentPage - 1) * pageSize + 1}</span> to <span className="text-slate-900">{Math.min(currentPage * pageSize, filteredProperties.length)}</span> of <span className="text-slate-900">{filteredProperties.length}</span> properties
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-all"
+                        >
+                            <i className="fa-solid fa-chevron-left text-xs"></i>
+                        </button>
+
+                        <div className="flex items-center gap-1.5 px-4 font-black text-xs text-slate-800">
+                            <span className="text-indigo-600">{currentPage}</span>
+                            <span className="text-slate-300">/</span>
+                            <span>{totalPages}</span>
+                        </div>
+
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-all"
+                        >
+                            <i className="fa-solid fa-chevron-right text-xs"></i>
+                        </button>
+                    </div>
                 </div>
             )}
         </div>
