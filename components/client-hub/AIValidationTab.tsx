@@ -205,7 +205,6 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                         <thead>
                             <tr className="bg-slate-50 border-b border-slate-100">
                                 <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Property</th>
-                                <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Intelligence Health</th>
                                 <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assessment</th>
                                 <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Comments</th>
                                 <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
@@ -233,32 +232,23 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                             </button>
                                         </td>
                                         <td className="p-6">
-                                            <div className="flex gap-2">
-                                                <div className={`px-2 py-1 rounded text-[9px] font-black uppercase border
-                                                    ${prop.hasCoreData ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}
-                                                `}>
-                                                    Core Data
-                                                </div>
-                                                <div className={`px-2 py-1 rounded text-[9px] font-black uppercase border
-                                                    ${prop.hasInterior ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}
-                                                `}>
-                                                    Interior Analysis
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="p-6">
                                             <select
                                                 value={localAssessment || ''}
                                                 onChange={(e) => {
                                                     const val = e.target.value as any;
                                                     setProperties(prev => prev.map(p => p.zpid === prop.zpid ? { ...p, assessment: val } : p));
                                                 }}
-                                                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:border-indigo-500 transition-all text-slate-700 w-32"
+                                                className={`border rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest outline-none transition-all w-32
+                                                    ${localAssessment === 'good' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
+                                                        localAssessment === 'bad' ? 'bg-rose-50 border-rose-200 text-rose-700' :
+                                                            localAssessment === 'other' ? 'bg-slate-100 border-slate-300 text-slate-600' :
+                                                                'bg-slate-50 border-slate-200 text-slate-700'}
+                                                `}
                                             >
-                                                <option value="">Select...</option>
-                                                <option value="good">Good</option>
-                                                <option value="bad">Bad</option>
-                                                <option value="other">Other</option>
+                                                <option value="" className="bg-white text-slate-900">Select...</option>
+                                                <option value="good" className="bg-emerald-50 text-emerald-700">Good</option>
+                                                <option value="bad" className="bg-rose-50 text-rose-700">Bad</option>
+                                                <option value="other" className="bg-slate-50 text-slate-600">Other</option>
                                             </select>
                                         </td>
                                         <td className="p-6">
