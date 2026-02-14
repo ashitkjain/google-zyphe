@@ -604,7 +604,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                 <ul className="space-y-2 text-slate-600 text-sm font-medium">
                                     <li className="flex items-center gap-2">
                                         <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
-                                        Navigate to <span className="font-bold text-indigo-600">zyphe.ai/realtor</span>
+                                        Navigate to <a href="/realtor" className="font-bold text-indigo-600 hover:underline">zyphe.ai/realtor</a>
                                     </li>
                                     <li className="flex items-center gap-2">
                                         <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
@@ -634,7 +634,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                     </li>
                                     <li className="flex items-center gap-2">
                                         <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
-                                        Click on any property in the list to open it in a new <span className="font-bold text-indigo-600">Explore</span> tab.
+                                        Click on any property in the list to open it in a new <a href="/" target="_blank" className="font-bold text-indigo-600 hover:underline">Explore</a> tab.
                                     </li>
                                 </ul>
                             </div>
@@ -648,7 +648,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                 <ul className="space-y-2 text-slate-600 text-sm font-medium">
                                     <li className="flex items-center gap-2">
                                         <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
-                                        Open <span className="font-bold text-indigo-600 border-b-2 border-indigo-100">Zillow.com</span> and search for the same address.
+                                        Open <a href="https://www.zillow.com" target="_blank" rel="noopener noreferrer" className="font-bold text-indigo-600 border-b-2 border-indigo-100 hover:bg-indigo-50 transition-colors">Zillow.com</a> and search for the same address.
                                     </li>
                                     <li className="flex items-center gap-2">
                                         <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
