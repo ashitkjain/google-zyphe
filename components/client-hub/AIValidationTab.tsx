@@ -152,9 +152,8 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
     };
 
     const handlePropertyClick = (address: string) => {
-        if (onNavigate) {
-            onNavigate('explore', address);
-        }
+        const url = `${window.location.origin}/?q=${encodeURIComponent(address)}`;
+        window.open(url, '_blank');
     };
 
     return (
@@ -226,14 +225,25 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                         <td className="p-6">
                                             <button
                                                 onClick={() => handlePropertyClick(prop.address)}
-                                                className="text-left group/link"
+                                                className="text-left group/link flex items-center gap-4"
                                             >
-                                                <div className="text-sm font-black text-slate-900 group-hover/link:text-indigo-600 transition-colors decoration-indigo-500/30 group-hover/link:underline underline-offset-4">
-                                                    {prop.address}
+                                                <div className="w-16 h-12 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200">
+                                                    {prop.images?.[0] ? (
+                                                        <img src={prop.images[0]} alt="" className="w-full h-full object-cover group-hover/link:scale-110 transition-transform duration-500" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                                            <i className="fa-solid fa-house text-xs"></i>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div className="text-[10px] font-mono text-slate-400 mt-1 flex items-center gap-2">
-                                                    ZPID: {prop.zpid}
-                                                    <i className="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
+                                                <div>
+                                                    <div className="text-sm font-black text-slate-900 group-hover/link:text-indigo-600 transition-colors decoration-indigo-500/30 group-hover/link:underline underline-offset-4 leading-tight">
+                                                        {prop.address}
+                                                    </div>
+                                                    <div className="text-[10px] font-mono text-slate-400 mt-1 flex items-center gap-2">
+                                                        ZPID: {prop.zpid}
+                                                        <i className="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
+                                                    </div>
                                                 </div>
                                             </button>
                                         </td>

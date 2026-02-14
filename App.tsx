@@ -200,6 +200,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+
+    // Handle Invites
     if (params.get('mode') === 'invite') {
       const email = params.get('email') || '';
       const name = params.get('name') || '';
@@ -213,7 +215,24 @@ const App: React.FC = () => {
       // Clean URL
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, []);
+
+    // Handle Direct Property Search via Query Param
+    const queryAddr = params.get('q');
+    if (queryAddr) {
+      setAddress(queryAddr);
+      // If we are already on a realtor path, we might want to stay there, 
+      // but usually direct queries should land on the main explore view
+      if (window.location.pathname.startsWith('/realtor')) {
+        setViewMode('explore');
+      } else {
+        setViewMode('main');
+      }
+      performSearch(queryAddr);
+
+      // Clean URL to prevent re-triggering on refresh while keeping state
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [currentUser]); // currentUser added since performSearch might need auth context
 
   useEffect(() => {
     if (!auth) return;
