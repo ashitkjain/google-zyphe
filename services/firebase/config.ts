@@ -103,6 +103,19 @@ export const handleFirestoreError = (error: any, context: string) => {
     return genericError;
 };
 
+export const STATE_MAP: Record<string, string> = {
+    'ALABAMA': 'AL', 'ALASKA': 'AK', 'ARIZONA': 'AZ', 'ARKANSAS': 'AR', 'CALIFORNIA': 'CA',
+    'COLORADO': 'CO', 'CONNECTICUT': 'CT', 'DELAWARE': 'DE', 'FLORIDA': 'FL', 'GEORGIA': 'GA',
+    'HAWAII': 'HI', 'IDAHO': 'ID', 'ILLINOIS': 'IL', 'INDIANA': 'IN', 'IOWA': 'IA',
+    'KANSAS': 'KS', 'KENTUCKY': 'KY', 'LOUISIANA': 'LA', 'MAINE': 'ME', 'MARYLAND': 'MD',
+    'MASSACHUSETTS': 'MA', 'MICHIGAN': 'MI', 'MINNESOTA': 'MN', 'MISSISSIPPI': 'MS', 'MISSOURI': 'MO',
+    'MONTANA': 'MT', 'NEBRASKA': 'NE', 'NEVADA': 'NV', 'NEW HAMPSHIRE': 'NH', 'NEW JERSEY': 'NJ',
+    'NEW MEXICO': 'NM', 'NEW YORK': 'NY', 'NORTH CAROLINA': 'NC', 'NORTH DAKOTA': 'ND', 'OHIO': 'OH',
+    'OKLAHOMA': 'OK', 'OREGON': 'OR', 'PENNSYLVANIA': 'PA', 'RHODE ISLAND': 'RI', 'SOUTH CAROLINA': 'SC',
+    'SOUTH DAKOTA': 'SD', 'TENNESSEE': 'TN', 'TEXAS': 'TX', 'UTAH': 'UT', 'VERMONT': 'VT',
+    'VIRGINIA': 'VA', 'WASHINGTON': 'WA', 'WEST VIRGINIA': 'WV', 'WISCONSIN': 'WI', 'WYOMING': 'WY'
+};
+
 /**
  * Generates a standardized, duplicate-proof key for city-state data.
  * Format: "LosAngeles-CA" (Case insensitive, spaces removed)
@@ -111,25 +124,15 @@ export const handleFirestoreError = (error: any, context: string) => {
 export const generateCityStateKey = (city: string | undefined, state: string | undefined): string | null => {
     if (!city || !state) return null;
 
-    const stateMap: Record<string, string> = {
-        'ALABAMA': 'AL', 'ALASKA': 'AK', 'ARIZONA': 'AZ', 'ARKANSAS': 'AR', 'CALIFORNIA': 'CA',
-        'COLORADO': 'CO', 'CONNECTICUT': 'CT', 'DELAWARE': 'DE', 'FLORIDA': 'FL', 'GEORGIA': 'GA',
-        'HAWAII': 'HI', 'IDAHO': 'ID', 'ILLINOIS': 'IL', 'INDIANA': 'IN', 'IOWA': 'IA',
-        'KANSAS': 'KS', 'KENTUCKY': 'KY', 'LOUISIANA': 'LA', 'MAINE': 'ME', 'MARYLAND': 'MD',
-        'MASSACHUSETTS': 'MA', 'MICHIGAN': 'MI', 'MINNESOTA': 'MN', 'MISSISSIPPI': 'MS', 'MISSOURI': 'MO',
-        'MONTANA': 'MT', 'NEBRASKA': 'NE', 'NEVADA': 'NV', 'NEW HAMPSHIRE': 'NH', 'NEW JERSEY': 'NJ',
-        'NEW MEXICO': 'NM', 'NEW YORK': 'NY', 'NORTH CAROLINA': 'NC', 'NORTH DAKOTA': 'ND', 'OHIO': 'OH',
-        'OKLAHOMA': 'OK', 'OREGON': 'OR', 'PENNSYLVANIA': 'PA', 'RHODE ISLAND': 'RI', 'SOUTH CAROLINA': 'SC',
-        'SOUTH DAKOTA': 'SD', 'TENNESSEE': 'TN', 'TEXAS': 'TX', 'UTAH': 'UT', 'VERMONT': 'VT',
-        'VIRGINIA': 'VA', 'WASHINGTON': 'WA', 'WEST VIRGINIA': 'WV', 'WISCONSIN': 'WI', 'WYOMING': 'WY'
-    };
+    // Standardize City: remove spaces, special chars, and lowercase strictly
+    const cleanCity = city.trim().toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '');
 
-    // Standardize City
-    const cleanCity = city.toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '');
-
-    // Standardize State: Remove non-letters first for matching
+    // Standardize State: handle abbreviations and full names strictly
     let lookupState = state.replace(/[^a-zA-Z\s]/g, '').trim().toUpperCase();
-    const cleanState = (stateMap[lookupState] || (lookupState.length === 2 ? lookupState : lookupState)).toLowerCase();
+
+    // If it's a known full name, map it. If it's length 2, keep as-is. If unknown, lowercase it.
+    let cleanState = STATE_MAP[lookupState] || (lookupState.length === 2 ? lookupState : lookupState);
+    cleanState = cleanState.toLowerCase().trim();
 
     if (!cleanCity || !cleanState) return null;
 

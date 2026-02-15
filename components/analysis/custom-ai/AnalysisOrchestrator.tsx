@@ -4,7 +4,7 @@ import {
     ComprehensiveAnalysisResult
 } from '../../../types';
 
-export type TabType = 'interior' | 'rooms' | 'exterior_and_neighborhood' | 'neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding' | 'image_analysis';
+export type TabType = 'interior' | 'rooms' | 'exterior_and_neighborhood' | 'neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding' | 'image_analysis' | 'deep_research';
 import { APP_CONFIG } from '../../../config';
 import { useAnalysisActions } from './hooks/useAnalysisActions';
 import { EmptyState } from './components/CommonComponents';
@@ -12,6 +12,7 @@ import { InvestmentView } from './components/InvestmentView';
 import { BiddingView } from './components/BiddingView';
 import { QualityAnalysisView } from './components/QualityAnalysisView';
 import { CommunityPulseView } from './components/CommunityPulseView';
+import { DeepInvestmentView } from './components/DeepInvestmentView';
 import { ImageAnalysisView } from './components/ImageAnalysisView';
 import { InteriorView, RoomsView, ExteriorView } from './components/InteriorExteriorViews';
 import { NeighborhoodView } from './components/NeighborhoodView';
@@ -65,7 +66,8 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         { id: 'exterior_and_neighborhood', label: 'Exterior', icon: 'fa-house' },
         { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
         { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
-        { id: 'investment', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
+        { id: 'deep_research', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
+        { id: 'investment', label: 'Property Economics', icon: 'fa-chart-pie' },
         { id: 'image_analysis', label: 'Image by Image analysis', icon: 'fa-images' },
         { id: 'quality', label: 'Picture Quality Audit', icon: 'fa-camera-rotate' },
     ].filter(tab => allowedTabs.includes(tab.id)), [allowedTabs]);
@@ -91,10 +93,12 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         investmentLoading,
         biddingLoading,
         pulseLoading,
+        deepLoading,
         handleRunQualityAnalysis,
         handleRunCommunityPulse,
         handleRunInvestmentResearch,
-        handleRunBiddingStrategy
+        handleRunBiddingStrategy,
+        handleRunDeepInvestmentResearch
     } = useAnalysisActions(analysis, zpid, propertyData, propertyImages, onUpdateAnalysis, addLog, loading);
 
     // Auto-trigger side effects when tabs change
@@ -115,6 +119,12 @@ const AnalysisOrchestrator: React.FC<Props> = ({
             handleRunCommunityPulse();
         }
     }, [activeTab, analysis?.community_pulse, pulseLoading]);
+
+    useEffect(() => {
+        if (activeTab === 'deep_research' && !analysis?.deep_investment_research && !deepLoading) {
+            handleRunDeepInvestmentResearch();
+        }
+    }, [activeTab, analysis?.deep_investment_research, deepLoading]);
 
     useEffect(() => {
         if (activeTab === 'bidding' && !analysis?.bidding_strategy && !biddingLoading) {
@@ -262,6 +272,17 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                             <EmptyState section="Investment Research" />
                         ) : (
                             <InvestmentView specific={analysis.property_investment} general={analysis.general_market_intelligence} />
+                        )}
+                    </section>
+                )}
+                {activeTab === 'deep_research' && (
+                    <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        {deepLoading ? (
+                            <AnalysisLoading title="Deep Researching..." subtitle="Synthesizing city-wide investment perspectives." timer={timer} address={propertyData?.address} icon="fa-magnifying-glass-chart" />
+                        ) : !analysis.deep_investment_research ? (
+                            <EmptyState section="Investment Research" />
+                        ) : (
+                            <DeepInvestmentView data={analysis.deep_investment_research} />
                         )}
                     </section>
                 )}

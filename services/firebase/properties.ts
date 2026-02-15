@@ -15,7 +15,8 @@ import {
     PropertySpecificInvestmentResult,
     GeneralMarketIntelligenceResult,
     PropertyAssets,
-    CommunityPulseResult
+    CommunityPulseResult,
+    DeepInvestmentResearchResult
 } from "../../types";
 
 export const savePropertyAssetsToCloud = async (zpid: string, assets: PropertyAssets) => {
@@ -276,11 +277,41 @@ export const getCommunityPulseFromCloud = async (cityStateKey: string): Promise<
     }
 };
 
+export const saveDeepInvestmentResearchToCloud = async (cityStateKey: string, research: DeepInvestmentResearchResult) => {
+    if (!db || !cityStateKey) return { success: false, error: "Database not initialized or missing City-State Key" };
+    try {
+        const docRef = doc(db, "deep_investment_research", cityStateKey);
+        logFirestoreQuery('setDoc', 'deep_investment_research', { cityStateKey });
+        await setDoc(docRef, {
+            ...research,
+            status: 'completed',
+            lastUpdated: serverTimestamp()
+        }, { merge: true });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: handleFirestoreError(error, "saveDeepInvestmentResearchToCloud") as string };
+    }
+};
+
+export const getDeepInvestmentResearchFromCloud = async (cityStateKey: string): Promise<DeepInvestmentResearchResult | null> => {
+    if (!db || !cityStateKey) return null;
+    try {
+        const docRef = doc(db, "deep_investment_research", cityStateKey);
+        logFirestoreQuery('getDoc', 'deep_investment_research', { cityStateKey });
+        const docSnap = await getDoc(docRef);
+        return docSnap.exists() ? (docSnap.data() as DeepInvestmentResearchResult) : null;
+    } catch (error) {
+        handleFirestoreError(error, "getDeepInvestmentResearchFromCloud");
+        return null;
+    }
+};
+
 export const setCityResearchFlag = async (cityStateKey: string, status: 'running' | 'completed' | 'failed', error?: string) => {
     if (!db || !cityStateKey) return { success: false };
     try {
         const pulseRef = doc(db, "community_pulse", cityStateKey);
         const marketRef = doc(db, "general_market_intelligence", cityStateKey);
+        const deepRef = doc(db, "deep_investment_research", cityStateKey);
 
         const updateData = {
             status,
@@ -288,11 +319,12 @@ export const setCityResearchFlag = async (cityStateKey: string, status: 'running
             error: error || null
         };
 
-        logFirestoreQuery('setDoc', 'community_pulse/market_intel', { cityStateKey, status });
+        logFirestoreQuery('setDoc', 'city_research_flags', { cityStateKey, status });
 
         await Promise.all([
             setDoc(pulseRef, updateData, { merge: true }),
-            setDoc(marketRef, updateData, { merge: true })
+            setDoc(marketRef, updateData, { merge: true }),
+            setDoc(deepRef, updateData, { merge: true })
         ]);
 
         return { success: true };

@@ -23,7 +23,19 @@ def perform_research():
         return jsonify({"error": "No query provided"}), 400
 
     # Combine query with schema instruction if provided
-    full_input = f"{query}\n\nIMPORTANT: Return the final output strictly as a JSON object matching this schema: {schema_hint}" if schema_hint else query
+    # Using a more forceful template for deep research agents
+    prompt_template = f"""
+Query: {query}
+
+CRITICAL INSTRUCTION:
+You are a research agent. You MUST perform deep research and then summarize your findings into a single JSON object.
+The JSON object MUST follow this schema strictly:
+{schema_hint}
+
+Place all your research, analysis, and grounding data inside the "content" field as a Markdown-formatted string.
+DO NOT return any text outside of the JSON block.
+"""
+    full_input = prompt_template if schema_hint else query
 
     try:
         # 1. Start the Deep Research Session
@@ -35,26 +47,48 @@ def perform_research():
         )
         
         interaction_name = interaction.id
+        print(f"Started research session: {interaction_name}")
         
         # 2. Poll for the result
-        max_attempts = 60 # 60 * 10s = 10 minutes
+        max_attempts = 120 # 120 * 10s = 20 minutes for Deep Research
         attempts = 0
         
         while attempts < max_attempts:
             status_check = client.interactions.get(id=interaction_name)
+            print(f"Polling {interaction_name}: {status_check.status}")
             
             if status_check.status == "completed":
-                final_text = status_check.outputs[-1].text
-                # Try to extract JSON if it's wrapped in markdown
-                if "```json" in final_text:
-                    final_text = final_text.split("```json")[1].split("```")[0].strip()
-                elif "```" in final_text:
-                    final_text = final_text.split("```")[1].strip()
+                # Deep Research might have multiple outputs; we want the final synthesis
+                # Search backwards for the first valid JSON we can find
+                for output in reversed(status_check.outputs):
+                    if not hasattr(output, 'text') or not output.text:
+                        continue
+                        
+                    text = output.text
+                    
+                    # Extraction logic
+                    json_str = None
+                    if "```json" in text:
+                        json_str = text.split("```json")[1].split("```")[0].strip()
+                    elif "{" in text and "}" in text:
+                        # Find the first { and last }
+                        start = text.find("{")
+                        end = text.rfind("}")
+                        if start != -1 and end != -1:
+                            json_str = text[start:end+1]
+                    
+                    if json_str:
+                        try:
+                            parsed = json.loads(json_str)
+                            # Ensure it has the required field if schema_hint was provided
+                            if not schema_hint or "content" in parsed:
+                                return jsonify({"data": parsed, "status": "success"})
+                        except:
+                            continue
                 
-                try:
-                    return jsonify({"data": json.loads(final_text), "status": "success"})
-                except:
-                    return jsonify({"data": final_text, "status": "raw_completion"})
+                # If no JSON found in any output, return the last text as-is
+                last_text = status_check.outputs[-1].text if status_check.outputs else "No output"
+                return jsonify({"data": {"content": last_text}, "status": "fallback_text"})
                     
             elif status_check.status in ["failed", "cancelled"]:
                 return jsonify({"error": f"Research {status_check.status}"}), 500

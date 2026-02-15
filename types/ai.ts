@@ -93,6 +93,13 @@ export interface PropertySpecificInvestmentResult {
     };
 }
 
+export interface DeepInvestmentResearchResult {
+    content: string;
+    status?: 'running' | 'completed' | 'failed' | string;
+    lastRan?: any;
+    lastUpdated?: any;
+}
+
 export interface GeneralMarketIntelligenceResult {
     market_dynamics: {
         historical_appreciation: string;
@@ -208,6 +215,7 @@ export interface CustomAIAnalysisResult {
     image_quality_analysis?: ImageQualityAnalysisResult;
     property_investment?: PropertySpecificInvestmentResult;
     general_market_intelligence?: GeneralMarketIntelligenceResult;
+    deep_investment_research?: DeepInvestmentResearchResult;
     bidding_strategy?: BiddingStrategyResult;
 }
 

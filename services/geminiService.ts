@@ -1,6 +1,6 @@
 import { serverTimestamp } from "firebase/firestore";
 import { GoogleGenAI } from "@google/genai";
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult, BiddingStrategyResult, LeadReactivationResult, AIResponseWithUsage, AIUsage } from "../types";
+import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult, NeighborhoodAnalysis, CommunityPulseResult, ComprehensiveAnalysisResult, ImageQualityAnalysisResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult, DeepInvestmentResearchResult, BiddingStrategyResult, LeadReactivationResult, AIResponseWithUsage, AIUsage } from "../types";
 import { getPropertyAnalysisPrompt, propertyAnalysisSchema } from "../prompts/property/propertyAnalysis";
 import { getNeighborhoodAnalysisPrompt, neighborhoodAnalysisSchema } from "../prompts/property/neighborhoodAnalysis";
 import { getCommunityPulsePrompt, communityPulseSchema } from "../prompts/property/communityPulse";
@@ -8,13 +8,17 @@ import { getPropertyImagesPrompt, propertyImagesSchema } from "../prompts/proper
 import { getComprehensiveAnalysisPrompt, comprehensiveAnalysisSchema } from "../prompts/property/comprehensiveAnalysis";
 import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompts/property/investmentResearch";
 import { getGeneralMarketIntelligencePrompt, generalMarketIntelligenceSchema } from "../prompts/property/generalMarketIntelligence";
+import { getDeepInvestmentResearchPrompt, deepInvestmentResearchSchema } from "../prompts/property/deepInvestmentResearch";
 import { biddingStrategyPrompt, biddingStrategySchema } from "../prompts/property/biddingStrategy";
 
 import {
   getCommunityPulseFromCloud,
+  getGeneralMarketIntelligenceFromCloud,
+  getDeepInvestmentResearchFromCloud,
   setCityResearchFlag,
   saveCommunityPulseToCloud,
-  saveGeneralMarketIntelligenceToCloud
+  saveGeneralMarketIntelligenceToCloud,
+  saveDeepInvestmentResearchToCloud
 } from "./firebase/properties";
 import { generateCityStateKey } from "./firebase/config";
 
@@ -403,13 +407,14 @@ export const analyzeNeighborhood = async (mapZoomIn: string, mapZoomOut: string,
   });
 };
 
-export const analyzeCommunityPulse = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<CommunityPulseResult>> => {
+export const analyzeCommunityPulse = async (property: PropertyData, userId: string = "unknown", zpid?: string): Promise<AIResponseWithUsage<CommunityPulseResult>> => {
   const prompt = getCommunityPulsePrompt(optimizePropertyForAi(property) as PropertyData);
   const startTime = Date.now();
 
   console.log(`[Python Deep Research] Starting Community Pulse for ${property.city}...`);
   const { data } = await executePythonDeepResearch<CommunityPulseResult>(prompt, communityPulseSchema, {
     userId,
+    zpid,
     address: property.address,
     promptFilename: "communityPulse.ts"
   });
@@ -553,12 +558,38 @@ export const analyzeInvestmentResearch = async (property: PropertyData, userId: 
   });
 };
 
-export const analyzeGeneralMarketIntelligence = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<GeneralMarketIntelligenceResult>> => {
+export const analyzeDeepInvestmentResearch = async (property: PropertyData, userId: string = "unknown", zpid?: string): Promise<AIResponseWithUsage<DeepInvestmentResearchResult>> => {
+  const prompt = getDeepInvestmentResearchPrompt(optimizePropertyForAi(property) as PropertyData);
+
+  console.log(`[Python Deep Research] Starting Deep Investment Research for ${property.city}...`);
+  const { data } = await executePythonDeepResearch<DeepInvestmentResearchResult>(prompt, deepInvestmentResearchSchema, {
+    userId,
+    zpid,
+    address: property.address,
+    promptFilename: "deepInvestmentResearch.ts"
+  });
+
+  const usage: AIUsage = {
+    promptTokens: 0,
+    candidatesTokens: 0,
+    totalTokens: 0,
+    cost: 0.10,
+    model: "deep-research-pro-preview"
+  };
+
+  return {
+    data,
+    usage
+  };
+};
+
+export const analyzeGeneralMarketIntelligence = async (property: PropertyData, userId: string = "unknown", zpid?: string): Promise<AIResponseWithUsage<GeneralMarketIntelligenceResult>> => {
   const prompt = getGeneralMarketIntelligencePrompt(optimizePropertyForAi(property) as PropertyData);
 
   console.log(`[Python Deep Research] Starting Market Intelligence for ${property.city}...`);
   const { data } = await executePythonDeepResearch<GeneralMarketIntelligenceResult>(prompt, generalMarketIntelligenceSchema, {
     userId,
+    zpid,
     address: property.address,
     promptFilename: "generalMarketIntelligence.ts"
   });
@@ -590,19 +621,33 @@ export const runBackgroundCityResearch = async (property: PropertyData, userId: 
     return { status: 'skipped', cityStateKey: 'unknown' };
   }
 
-  // 1. Check if already running (within last 30 mins)
-  const pulseRecord = await getCommunityPulseFromCloud(cityStateKey);
+  // 1. Check if already running or completed (within last 6 hours)
+  const [pulseRecord, marketRecord, deepRecord] = await Promise.all([
+    getCommunityPulseFromCloud(cityStateKey),
+    getGeneralMarketIntelligenceFromCloud(cityStateKey),
+    getDeepInvestmentResearchFromCloud(cityStateKey)
+  ]);
+
   const now = Date.now();
-  const lastRan = pulseRecord?.lastRan?.toDate ? pulseRecord.lastRan.toDate().getTime() :
-    (pulseRecord?.lastRan?.seconds ? pulseRecord.lastRan.seconds * 1000 : 0);
+  const getAge = (rec: any) => rec?.lastUpdated ? (now - (rec.lastUpdated.seconds * 1000)) : Infinity;
 
-  const isCurrentlyRunning = pulseRecord?.status === 'running' && (now - lastRan < 30 * 60 * 1000);
-  const isRecentlyCompleted = pulseRecord?.status === 'completed' && (now - lastRan < 6 * 60 * 60 * 1000);
+  const pulseDone = pulseRecord?.status === 'completed' && getAge(pulseRecord) < 6 * 60 * 60 * 1000;
+  const marketDone = marketRecord?.status === 'completed' && getAge(marketRecord) < 6 * 60 * 60 * 1000;
+  const deepDone = deepRecord?.status === 'completed' && getAge(deepRecord) < 6 * 60 * 60 * 1000;
 
-  if (isCurrentlyRunning || isRecentlyCompleted) {
-    console.log(`[runBackgroundCityResearch] Research already in progress or recently completed for ${cityStateKey}. Skipping.`);
+  const isCurrentlyRunning = pulseRecord?.status === 'running' || marketRecord?.status === 'running' || deepRecord?.status === 'running';
+
+  if (isCurrentlyRunning) {
+    console.log(`[runBackgroundCityResearch] Research currently running for ${cityStateKey}. Waiting for existing process.`);
     return { status: 'skipped', cityStateKey };
   }
+
+  if (pulseDone && marketDone && deepDone) {
+    console.log(`[runBackgroundCityResearch] All research types already completed for ${cityStateKey}. Skipping.`);
+    return { status: 'skipped', cityStateKey };
+  }
+
+  console.log(`[runBackgroundCityResearch] Triggering research for ${cityStateKey} (Pulse: ${!pulseDone}, Market: ${!marketDone}, Deep: ${!deepDone})`);
 
   // 2. Define the Research Task
   const promise = (async () => {
@@ -610,19 +655,12 @@ export const runBackgroundCityResearch = async (property: PropertyData, userId: 
       console.log(`[runBackgroundCityResearch] Starting parallel research for: ${cityStateKey}`);
       await setCityResearchFlag(cityStateKey, 'running');
 
-      // Run Community Pulse and Market Intelligence in parallel
-      const [pulseRes, marketRes] = await Promise.all([
-        analyzeCommunityPulse(property, userId),
-        analyzeGeneralMarketIntelligence(property, userId)
-      ]);
+      // Run ONLY Deep Research for now to stay within concurrency limits
+      const deepRes = await analyzeDeepInvestmentResearch(property, userId, cityStateKey);
 
       console.log(`[runBackgroundCityResearch] Successfully completed research for ${cityStateKey}. Saving...`);
-      // Save Results to Cloud (this also sets status to 'completed' via the save functions)
-      const saveResults = await Promise.all([
-        saveCommunityPulseToCloud(cityStateKey, pulseRes.data),
-        saveGeneralMarketIntelligenceToCloud(cityStateKey, marketRes.data)
-      ]);
-      console.log(`[runBackgroundCityResearch] Saved results for ${cityStateKey}:`, { pulse: saveResults[0].success, market: saveResults[1].success });
+      const saveResult = await saveDeepInvestmentResearchToCloud(cityStateKey, deepRes.data);
+      console.log(`[runBackgroundCityResearch] Saved deep research for ${cityStateKey}:`, saveResult.success);
     } catch (error: any) {
       console.error(`[runBackgroundCityResearch] Failed for ${cityStateKey}:`, error);
       await setCityResearchFlag(cityStateKey, 'failed', error.message || String(error));

@@ -13,6 +13,7 @@ service cloud.firestore {
         'property_investment_research',
         'general_market_intelligence',
         'community_pulse',
+        'deep_investment_research',
         'google_environmental_data',
         'ai_assessment'
       ];
@@ -25,6 +26,7 @@ service cloud.firestore {
         'property_investment_research',
         'general_market_intelligence',
         'community_pulse',
+        'deep_investment_research',
         'google_environmental_data',
         'ai_assessment'
       ];

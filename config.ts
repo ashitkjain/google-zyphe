@@ -13,10 +13,10 @@ export const APP_CONFIG = {
         flash: 'gemini-2.0-flash',
     },
     roleTabs: {
-        buyer: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'pulse', 'image_analysis', 'investment'],
+        buyer: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'pulse', 'image_analysis', 'investment', 'deep_research'],
         seller: ['image_analysis', 'quality'],
-        realtor: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'pulse', 'image_analysis', 'investment', 'quality', 'storage_registry'],
-        investor: ['executive_summary', 'interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'pulse', 'image_analysis', 'investment', 'quality', 'storage_registry', 'market_analysis', 'opportunity_discovery', 'industry_research', 'product_market_fit', 'post_close_intelligence', 'technical_papers', 'technical_media']
+        realtor: ['interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'pulse', 'image_analysis', 'investment', 'quality', 'storage_registry', 'deep_research'],
+        investor: ['deep_research', 'executive_summary', 'interior', 'rooms', 'exterior_and_neighborhood', 'neighborhood', 'pulse', 'image_analysis', 'investment', 'quality', 'storage_registry', 'market_analysis', 'opportunity_discovery', 'industry_research', 'product_market_fit', 'post_close_intelligence', 'technical_papers', 'technical_media']
     },
     rapidapi: {
         realtyInUsApi: {

@@ -10,9 +10,18 @@ import {
     savePropertyInvestmentToCloud,
     generateCityStateKey,
     getGeneralMarketIntelligenceFromCloud,
-    saveGeneralMarketIntelligenceToCloud
+    saveGeneralMarketIntelligenceToCloud,
+    getDeepInvestmentResearchFromCloud,
+    saveDeepInvestmentResearchToCloud
 } from '../../../../services/firebaseService';
-import { analyzePropertyImages as aiAnalyzeImages, analyzeInvestmentResearch as aiAnalyzeInvestment, analyzeGeneralMarketIntelligence as aiAnalyzeMarket, analyzeBiddingStrategy as aiAnalyzeBidding, analyzeCommunityPulse as aiAnalyzePulse } from '../../../../services/geminiService';
+import {
+    analyzePropertyImages as aiAnalyzeImages,
+    analyzeInvestmentResearch as aiAnalyzeInvestment,
+    analyzeGeneralMarketIntelligence as aiAnalyzeMarket,
+    analyzeBiddingStrategy as aiAnalyzeBidding,
+    analyzeCommunityPulse as aiAnalyzePulse,
+    analyzeDeepInvestmentResearch as aiAnalyzeDeepResearch
+} from '../../../../services/geminiService';
 import { APP_CONFIG } from '../../../../config';
 
 export const useAnalysisActions = (
@@ -29,10 +38,11 @@ export const useAnalysisActions = (
     const [investmentLoading, setInvestmentLoading] = useState(false);
     const [biddingLoading, setBiddingLoading] = useState(false);
     const [pulseLoading, setPulseLoading] = useState(false);
+    const [deepLoading, setDeepLoading] = useState(false);
     useEffect(() => {
         let intervalId: any = null;
 
-        if (isInitialLoading || qualityLoading || investmentLoading || biddingLoading || pulseLoading) {
+        if (isInitialLoading || qualityLoading || investmentLoading || biddingLoading || pulseLoading || deepLoading) {
             // Reset timer when a new loading state starts
             // But only if we are transitioning FROM a non-loading state to a loading state
             // Actually, the handlers call setTimer(0) already.
@@ -47,7 +57,7 @@ export const useAnalysisActions = (
         return () => {
             if (intervalId) clearInterval(intervalId);
         };
-    }, [isInitialLoading, qualityLoading, investmentLoading, biddingLoading, pulseLoading]);
+    }, [isInitialLoading, qualityLoading, investmentLoading, biddingLoading, pulseLoading, deepLoading]);
 
     const handleRunQualityAnalysis = async () => {
         if (!analysis || analysis.image_quality_analysis || !propertyImages.length || qualityLoading) {
@@ -230,15 +240,60 @@ export const useAnalysisActions = (
     };
 
 
+    const handleRunDeepInvestmentResearch = async () => {
+        if (!analysis || !propertyData || deepLoading) return;
+
+        setTimer(0);
+        setDeepLoading(true);
+        addLog('System', { type: 'info' }, { task: 'deep_investment_research_init', zpid });
+
+        try {
+            const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
+            const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
+            const cityStateKey = generateCityStateKey(city, state);
+
+            let deepData = null;
+            if (cityStateKey) {
+                deepData = await getDeepInvestmentResearchFromCloud(cityStateKey);
+            }
+
+            if (deepData) {
+                addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'deep_investment_research', location: cityStateKey || zpid });
+            } else {
+                addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'deep_investment_research', location: cityStateKey || zpid });
+                const res = await aiAnalyzeDeepResearch(propertyData);
+                deepData = res.data;
+                if (cityStateKey) {
+                    await saveDeepInvestmentResearchToCloud(cityStateKey, deepData);
+                }
+                addLog('Gemini AI', { type: 'response' }, { task: 'deep_investment_research', location: cityStateKey || zpid }, (res as any).usage);
+            }
+
+            onUpdateAnalysis({
+                ...analysis,
+                deep_investment_research: deepData
+            });
+
+        } catch (err: any) {
+            console.error("Deep Investment Research Failed:", err);
+            addLog('System', { type: 'error' }, { message: "Deep Investment Research Failed", error: err.message || err });
+        } finally {
+            setDeepLoading(false);
+        }
+    };
+
+
     return {
         timer,
         qualityLoading,
         investmentLoading,
         biddingLoading,
         pulseLoading,
+        deepLoading,
         handleRunQualityAnalysis,
         handleRunCommunityPulse,
         handleRunInvestmentResearch,
-        handleRunBiddingStrategy
+        handleRunBiddingStrategy,
+        handleRunDeepInvestmentResearch
     };
 };

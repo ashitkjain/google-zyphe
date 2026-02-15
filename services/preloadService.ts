@@ -21,6 +21,8 @@ import {
   getPropertyInvestmentFromCloud,
   saveGeneralMarketIntelligenceToCloud,
   getGeneralMarketIntelligenceFromCloud,
+  getDeepInvestmentResearchFromCloud,
+  saveDeepInvestmentResearchToCloud,
   savePropertyAssetsToCloud,
   getPropertyAssetsFromCloud,
   saveCommunityPulseToCloud,
@@ -210,16 +212,17 @@ export const runFullIntelligencePipeline = async (
         }
       }
 
-      if (skipMissingCityData) {
-        onLog?.(`[Market] Skipping Pulse (Not pre-generated for "${cityStateKey}")`);
-        return null;
-      }
+      // Temporarily wired off due to Gemini concurrency limits (2 max)
+      onLog?.(`[Market] Skipping Pulse research (Concurrency limited)`);
+      return null;
 
+      /*
       onLog?.(`[Market] Analyzing resident sentiment...`);
       const res = await analyzeCommunityPulse(enrichedData, userId);
       if (cityStateKey) await saveCommunityPulseToCloud(cityStateKey, res.data);
       onLog?.(`[Market] Sentiment analysis complete.`);
       return res.data;
+      */
     };
 
     const propInvTask = async () => {
@@ -250,6 +253,11 @@ export const runFullIntelligencePipeline = async (
         return cached;
       }
 
+      // Temporarily wired off due to Gemini concurrency limits (2 max)
+      onLog?.(`[Investment] Skipping General Market Intelligence (Concurrency limited)`);
+      return null;
+
+      /*
       if (skipMissingCityData) {
         onLog?.(`[Investment] Skipping General Market Logic (Not pre-generated for "${key}")`);
         return null;
@@ -258,6 +266,7 @@ export const runFullIntelligencePipeline = async (
       const res = await analyzeGeneralMarketIntelligence(enrichedData, userId);
       await saveGeneralMarketIntelligenceToCloud(key, res.data);
       return res.data;
+      */
     };
 
     // Execute AI Tasks Parallelized for maximum speed

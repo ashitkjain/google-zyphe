@@ -12,12 +12,13 @@ import { PropertyData } from '../../types';
 import { runFullIntelligencePipeline, runImageOnlyPipeline, PipelineProgress, prefetchCityIntelligence } from '../../services/preloadService';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
 import { getAPILogsForTimeRange } from '../../services/firebase/api_logs';
-import { auth } from '../../services/firebase/config';
+import { auth, STATE_MAP } from '../../services/firebase/config';
 import { LLMCallEvent } from '../../types/ai';
 import { APICallEvent } from '../../services/firebase/api_logs';
 import { getPropertyStatusesBatch, PropertyStatusDetails } from '../../services/firebase/properties';
 import { getUserProfile } from '../../services/firebase/user';
 import { searchResoProperties } from '../../services/resoService';
+
 
 interface IngestionJob {
     zpid: string;
@@ -94,6 +95,21 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
     const addLog = (message: string) => {
         console.log(message);
         setStatusLog(prev => [`[${new Date().toLocaleTimeString()}] ${message}`, ...prev].slice(0, 100));
+    };
+
+    const formatIngestionIdentifier = (id: string | null | undefined, address?: string) => {
+        if (address) return address;
+        if (!id) return '--';
+        if (zpidToAddressMap[id]) return zpidToAddressMap[id];
+
+        // Handle Regional Research (city-state) keys
+        if (id.includes('-') && id.split('-').length === 2) {
+            const [c, s] = id.split('-');
+            const prettyCity = c.charAt(0).toUpperCase() + c.slice(1);
+            const prettyState = s.toUpperCase();
+            return `Regional Research: ${prettyCity}, ${prettyState}`;
+        }
+        return id;
     };
 
     const fetchStatuses = async (targetListings: any[]) => {
@@ -253,7 +269,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
             if (city && stateRaw) {
                 const normState = stateRaw.trim().toUpperCase();
-                const state = (stateMap[normState] || (normState.length === 2 ? normState : normState));
+                const state = (STATE_MAP[normState] || (normState.length === 2 ? normState : normState));
                 cityContexts.add(`${city.trim()}|${state.trim()}`);
             }
         });
@@ -988,14 +1004,24 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     // Parse input
                                     let [c, s] = city.split(',').map(x => x.trim());
 
-                                    // 1. If state missing, try to find it in current listings
-                                    if (!s && listings.length > 0) {
-                                        const firstMatch = listings.find(l =>
-                                            l.location?.address?.city?.toLowerCase() === c.toLowerCase()
-                                        );
-                                        if (firstMatch) {
-                                            s = firstMatch.location?.address?.state_code || firstMatch.location?.address?.state;
+                                    // 1. If state missing, try to prioritize current active filter
+                                    if (!s) {
+                                        if (stateFilter && stateFilter !== 'ALL') {
+                                            s = stateFilter;
+                                        } else if (listings.length > 0) {
+                                            const firstMatch = listings.find(l =>
+                                                l.location?.address?.city?.toLowerCase() === c.toLowerCase()
+                                            );
+                                            if (firstMatch) {
+                                                s = firstMatch.location?.address?.state_code || firstMatch.location?.address?.state;
+                                            }
                                         }
+                                    }
+
+                                    // Normalize state (handle full names to codes)
+                                    if (s) {
+                                        const normState = s.trim().toUpperCase();
+                                        s = (STATE_MAP[normState] || (normState.length === 2 ? normState : normState));
                                     }
 
                                     // 2. Secondary fallback for common testing
@@ -1366,7 +1392,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                             {logEntry.prompt_filename?.replace('.ts', '').replace(/([A-Z])/g, ' $1').trim() || 'Unspecified Task'}
                                                         </div>
                                                         <div className="text-[10px] text-indigo-600 font-black truncate max-w-[250px] mb-0.5">
-                                                            {logEntry.address || (logEntry.zpid && zpidToAddressMap[logEntry.zpid]) || logEntry.zpid || '--'}
+                                                            {formatIngestionIdentifier(logEntry.zpid, logEntry.address)}
                                                         </div>
                                                         <div className="text-[9px] text-slate-400 font-mono truncate max-w-[200px]">Model: {logEntry.llm_name || 'Gemini'}</div>
                                                     </td>
@@ -1430,7 +1456,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                             {apiLog.api_name}
                                                         </div>
                                                         <div className="text-[10px] text-blue-600 font-black truncate max-w-[250px] mb-0.5">
-                                                            {apiLog.address || (apiLog.zpid && zpidToAddressMap[apiLog.zpid]) || apiLog.zpid || '--'}
+                                                            {formatIngestionIdentifier(apiLog.zpid, apiLog.address)}
                                                         </div>
                                                         <div className="text-[9px] text-slate-400 font-mono truncate max-w-[200px]">
                                                             {apiLog.api_name === 'RapidAPI' ? 'Endpoint: ' + apiLog.endpoint : apiLog.endpoint}
