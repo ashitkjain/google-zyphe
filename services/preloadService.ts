@@ -1,6 +1,15 @@
 
 import { normalizeAddress, fetchPropertyDataFull, fetchPropertyImages } from './apiService.ts';
-import { analyzePropertyImages, analyzeNeighborhood, analyzeCommunityPulse, analyzeComprehensive, analyzeInvestmentResearch, AiResponseError } from './geminiService.ts';
+import {
+  analyzePropertyImages,
+  analyzeNeighborhood,
+  analyzeCommunityPulse,
+  analyzeComprehensive,
+  analyzeInvestmentResearch,
+  analyzeGeneralMarketIntelligence,
+  runBackgroundCityResearch,
+  AiResponseError
+} from './geminiService.ts';
 import {
   savePropertyToCloud,
   saveVisualAnalysisToCloud,
@@ -19,7 +28,6 @@ import {
   generateCityStateKey
 } from './firebaseService.ts';
 import { PropertyData, CustomAIAnalysisResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult, AIUsage } from '../types';
-import { analyzeGeneralMarketIntelligence } from './geminiService';
 import { uploadRemoteImageToStorage } from './firebase/storage.ts';
 import { securePropertyAssets } from './assetService';
 
@@ -34,6 +42,7 @@ export const runFullIntelligencePipeline = async (
   rawAddress: string,
   onProgress: (p: PipelineProgress) => void,
   providedZpid?: string,
+  userId: string = 'unknown',
   onLog?: (msg: string) => void,
   skipMissingCityData: boolean = false
 ): Promise<string> => {
@@ -74,10 +83,16 @@ export const runFullIntelligencePipeline = async (
       (p) => onLog?.(`[Assets] ${p.message}`)
     );
 
+    const alternate_ids = [...(propData.alternate_ids || [])];
+    if (providedZpid && providedZpid !== zpid && !alternate_ids.includes(providedZpid)) {
+      alternate_ids.push(providedZpid);
+    }
+
     const enrichedData: PropertyData = {
       ...propData,
       zpid: zpid,
       feed_property_id: providedZpid,
+      alternate_ids,
       images: assets.images,
       coordinates: radar.coordinates,
       mapZoomIn: assets.mapZoomIn,
@@ -90,9 +105,10 @@ export const runFullIntelligencePipeline = async (
     // --- PARALLEL AI INTELLIGENCE BLOCK ---
     onProgress({ step: 'Intelligence', status: 'running', message: 'Running parallel AI evaluation suite...' });
 
-    const city = radar.components?.city || enrichedData.city;
-    const state = radar.components?.state || enrichedData.state;
+    const city = radar.components?.city || propData.city;
+    const state = radar.components?.state || propData.state;
     const cityStateKey = generateCityStateKey(city, state);
+    onLog?.(`[Pipeline] Location context: ${city}, ${state} (Key: ${cityStateKey})`);
 
     // Prepare Parallel Tasks
     const isAnalysisComplete = (res: any, imageCount: number = 0) => {
@@ -138,7 +154,7 @@ export const runFullIntelligencePipeline = async (
       }
 
       onLog?.(`[Visual] Running fresh analysis...`);
-      const res = await analyzePropertyImages(enrichedData.images!, enrichedData);
+      const res = await analyzePropertyImages(enrichedData.images!, enrichedData, userId);
 
       // Diagnostic logging for schema validation
       if (res.data) {
@@ -168,68 +184,92 @@ export const runFullIntelligencePipeline = async (
     const neighborhoodTask = async () => {
       if (!assets.mapZoomIn || !assets.mapZoomOut) return null;
       onLog?.(`[Spatial] Mapping neighborhood...`);
-      const res = await analyzeNeighborhood(assets.mapZoomIn, assets.mapZoomOut, enrichedData);
+      const res = await analyzeNeighborhood(assets.mapZoomIn, assets.mapZoomOut, enrichedData, userId);
       onLog?.(`[Spatial] Mapping complete.`);
       return res.data;
     };
 
     const pulseTask = async () => {
+      onLog?.(`[Market] Checking Urban Pulse for key: "${cityStateKey}"`);
       if (cityStateKey) {
-        const cached = await getCommunityPulseFromCloud(cityStateKey);
-        if (cached) {
-          onLog?.(`[Market] Pulse cache hit: ${cityStateKey}`);
+        let cached = await getCommunityPulseFromCloud(cityStateKey);
+        onLog?.(`[Market] Current DB status for ${cityStateKey}: ${cached?.status || 'NOT_FOUND'}`);
+
+        // Wait if currently running
+        let attempts = 0;
+        while (cached?.status === 'running' && attempts < 15) {
+          onLog?.(`[Market] City Pulse research in progress for ${cityStateKey}, waiting 10s...`);
+          await new Promise(r => setTimeout(r, 10000));
+          cached = await getCommunityPulseFromCloud(cityStateKey);
+          attempts++;
+        }
+
+        if (cached?.status === 'completed') {
+          onLog?.(`[Market] Pulse loaded for ${cityStateKey}.`);
           return cached;
         }
       }
 
       if (skipMissingCityData) {
-        onLog?.(`[Market] Skipping Pulse (City Context not pre-generated)`);
+        onLog?.(`[Market] Skipping Pulse (Not pre-generated for "${cityStateKey}")`);
         return null;
       }
 
       onLog?.(`[Market] Analyzing resident sentiment...`);
-      const res = await analyzeCommunityPulse(enrichedData);
+      const res = await analyzeCommunityPulse(enrichedData, userId);
       if (cityStateKey) await saveCommunityPulseToCloud(cityStateKey, res.data);
       onLog?.(`[Market] Sentiment analysis complete.`);
       return res.data;
     };
 
-    const investmentTask = async () => {
-      const propInvTask = async () => {
-        const cached = await getPropertyInvestmentFromCloud(zpid);
-        if (cached) return cached;
-        const res = await analyzeInvestmentResearch(enrichedData);
-        await savePropertyInvestmentToCloud(zpid, res.data);
-        return res.data;
-      };
-
-      const marketIntTask = async () => {
-        const key = cityStateKey || zpid;
-        const cached = await getGeneralMarketIntelligenceFromCloud(key);
-        if (cached) return cached;
-
-        if (skipMissingCityData) {
-          onLog?.(`[Investment] Skipping General Market Logic (Not pre-generated)`);
-          return null;
-        }
-
-        const res = await analyzeGeneralMarketIntelligence(enrichedData);
-        await saveGeneralMarketIntelligenceToCloud(key, res.data);
-        return res.data;
-      };
-
-      onLog?.(`[Investment] Scouring market historics...`);
-      const specific = await propInvTask();
-      const general = await marketIntTask();
-      onLog?.(`[Investment] Market research complete.`);
-      return { specific, general };
+    const propInvTask = async () => {
+      const cached = await getPropertyInvestmentFromCloud(zpid);
+      if (cached) return cached;
+      const res = await analyzeInvestmentResearch(enrichedData, userId);
+      await savePropertyInvestmentToCloud(zpid, res.data);
+      return res.data;
     };
 
-    // Execute AI Tasks Sequentially to prevent race conditions & improve reliability
-    const visualResult = await visualTask();
-    const neighborhoodData = await neighborhoodTask();
-    const communityPulse = await pulseTask();
-    const investmentData = await investmentTask();
+    const marketIntTask = async () => {
+      const key = cityStateKey || zpid;
+      onLog?.(`[Investment] Checking Market Intelligence for key: "${key}"`);
+      let cached = await getGeneralMarketIntelligenceFromCloud(key);
+      onLog?.(`[Investment] Current DB status for ${key}: ${cached?.status || 'NOT_FOUND'}`);
+
+      // Wait if currently running
+      let attempts = 0;
+      while (cached?.status === 'running' && attempts < 15) {
+        onLog?.(`[Investment] General Market research in progress for ${key}, waiting 10s...`);
+        await new Promise(r => setTimeout(r, 10000));
+        cached = await getGeneralMarketIntelligenceFromCloud(key);
+        attempts++;
+      }
+
+      if (cached?.status === 'completed') {
+        onLog?.(`[Investment] General Market Intelligence loaded for ${key}.`);
+        return cached;
+      }
+
+      if (skipMissingCityData) {
+        onLog?.(`[Investment] Skipping General Market Logic (Not pre-generated for "${key}")`);
+        return null;
+      }
+
+      const res = await analyzeGeneralMarketIntelligence(enrichedData, userId);
+      await saveGeneralMarketIntelligenceToCloud(key, res.data);
+      return res.data;
+    };
+
+    // Execute AI Tasks Parallelized for maximum speed
+    // This starts all independent evaluations (Visual, Spatial, Regional, Financial) simultaneously.
+    onLog?.(`[Pipeline] Launching parallel AI evaluation suite...`);
+    const [visualResult, neighborhoodData, communityPulse, investmentSpecific, marketIntelligence] = await Promise.all([
+      visualTask(),
+      neighborhoodTask(),
+      pulseTask(),
+      propInvTask(),
+      marketIntTask()
+    ]);
 
     // Assembly - Keep visualResult lean (only item-specific data)
     const finalVisualResult: CustomAIAnalysisResult = {
@@ -245,18 +285,13 @@ export const runFullIntelligencePipeline = async (
     const contextForComprehensive = {
       ...finalVisualResult,
       community_pulse: communityPulse,
-      property_investment: investmentData.specific,
-      general_market_intelligence: investmentData.general
+      property_investment: investmentSpecific,
+      general_market_intelligence: marketIntelligence
     };
-
-    if (finalVisualResult.image_quality_analysis) {
-      await saveImageQualityAnalysisToCloud(zpid, finalVisualResult.image_quality_analysis);
-    }
-    onProgress({ step: 'Intelligence', status: 'completed', message: 'AI Evaluations complete.' });
 
     // 10. Narrative AI Synthesis (Final Step)
     onProgress({ step: 'Narrative', status: 'running', message: 'Synthesizing final report...' });
-    const resultComp = await analyzeComprehensive(enrichedData, contextForComprehensive);
+    const resultComp = await analyzeComprehensive(enrichedData, contextForComprehensive, userId);
     await saveComprehensiveAnalysisToCloud(zpid, resultComp.data);
     onProgress({ step: 'Narrative', status: 'completed', message: 'Report synthesized.', usage: resultComp.usage });
 
@@ -281,44 +316,37 @@ export const runFullIntelligencePipeline = async (
 export const prefetchCityIntelligence = async (
   city: string,
   state: string,
+  userId: string = 'unknown',
   onLog?: (msg: string) => void
 ): Promise<void> => {
-  const cityStateKey = generateCityStateKey(city, state);
-  if (!cityStateKey) return;
+  onLog?.(`[City-Intelligence] Triggering background urban research for ${city}, ${state}...`);
 
-  onLog?.(`[City-Intelligence] Checking regional status for ${city}, ${state}...`);
+  const dummyProp = {
+    city,
+    state,
+    address: `${city}, ${state}`
+  } as PropertyData;
 
-  const [cachedPulse, cachedMarket] = await Promise.all([
-    getCommunityPulseFromCloud(cityStateKey),
-    getGeneralMarketIntelligenceFromCloud(cityStateKey)
-  ]);
+  const result = await runBackgroundCityResearch(dummyProp, userId);
 
-  const dummyProp = { city, state, address: `${city}, ${state}` } as any;
-
-  if (!cachedPulse) {
-    onLog?.(`[City-Intelligence] Generating Community Pulse for ${city}...`);
-    try {
-      const res = await analyzeCommunityPulse(dummyProp);
-      await saveCommunityPulseToCloud(cityStateKey, res.data);
-      onLog?.(`[City-Intelligence] Pulse saved for ${city}.`);
-    } catch (e) {
-      onLog?.(`[City-Intelligence] Pulse failed: ${e}`);
-    }
+  if (result?.status === 'started') {
+    onLog?.(`[City-Intelligence] Urban research pipeline engaged for ${city}. Waiting for completion...`);
+    if (result.promise) await result.promise;
+    onLog?.(`[City-Intelligence] Urban research complete for ${city}.`);
   } else {
-    onLog?.(`[City-Intelligence] Pulse found in cache for ${city}.`);
-  }
+    onLog?.(`[City-Intelligence] Urban research for ${city} already in progress or recently completed.`);
 
-  if (!cachedMarket) {
-    onLog?.(`[City-Intelligence] Generating General Market Intelligence for ${city}...`);
-    try {
-      const res = await analyzeGeneralMarketIntelligence(dummyProp);
-      await saveGeneralMarketIntelligenceToCloud(cityStateKey, res.data);
-      onLog?.(`[City-Intelligence] Market Intelligence saved for ${city}.`);
-    } catch (e) {
-      onLog?.(`[City-Intelligence] Market Intelligence failed: ${e}`);
+    // Safety: If it's currently running, we should still wait for it before proceeding
+    // to ensure Phase 2 has the data available.
+    let cached = await getCommunityPulseFromCloud(result.cityStateKey);
+    let attempts = 0;
+    while (cached?.status === 'running' && attempts < 20) {
+      if (attempts === 0) onLog?.(`[City-Intelligence] Waiting for existing urban research to land...`);
+      await new Promise(r => setTimeout(r, 15000)); // Staggered wait
+      cached = await getCommunityPulseFromCloud(result.cityStateKey);
+      attempts++;
     }
-  } else {
-    onLog?.(`[City-Intelligence] Market Intelligence found in cache for ${city}.`);
+    onLog?.(`[City-Intelligence] Prerequisites checked for ${city}.`);
   }
 };
 
@@ -380,9 +408,16 @@ export const runImageOnlyPipeline = async (
     );
 
     // 5. Update Property Record with Persistent URLs
+    const alternate_ids = [...(propData.alternate_ids || [])];
+    if (providedZpid && providedZpid !== zpid && !alternate_ids.includes(providedZpid)) {
+      alternate_ids.push(providedZpid);
+    }
+
     const updatedData: Partial<PropertyData> = {
       ...propData,
       zpid,
+      feed_property_id: providedZpid,
+      alternate_ids,
       images: assets.images,
       mapZoomIn: assets.mapZoomIn,
       mapZoomOut: assets.mapZoomOut,

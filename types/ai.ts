@@ -38,6 +38,9 @@ export interface CommunityPulseResult {
     schools_family_friendliness: CommunityPulseSection;
     lifestyle_convenience: CommunityPulseSection;
     investment_insights: CommunityPulseSection;
+    status?: 'running' | 'completed' | 'failed' | string;
+    lastRan?: any;
+    lastUpdated?: any;
 }
 
 export interface ImageQualityPoint {
@@ -115,6 +118,9 @@ export interface GeneralMarketIntelligenceResult {
         title: string;
         url: string;
     }>;
+    status?: 'running' | 'completed' | 'failed' | string;
+    lastRan?: any;
+    lastUpdated?: any;
 }
 
 // Removed InvestmentResearchResult aggregation to avoid redundancy
@@ -292,6 +298,7 @@ export interface LLMCallEvent {
         promptTokenCount: number;
         candidatesTokenCount: number;
         totalTokenCount: number;
+        cachedContentTokenCount?: number;
     };
     safety_ratings?: any;
     finish_reason?: string;

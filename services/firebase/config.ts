@@ -125,11 +125,11 @@ export const generateCityStateKey = (city: string | undefined, state: string | u
     };
 
     // Standardize City
-    const cleanCity = city.replace(/\s+/g, '').replace(/[^a-zA-Z]/g, '');
+    const cleanCity = city.toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '');
 
     // Standardize State: Remove non-letters first for matching
     let lookupState = state.replace(/[^a-zA-Z\s]/g, '').trim().toUpperCase();
-    const cleanState = stateMap[lookupState] || (lookupState.length === 2 ? lookupState : lookupState);
+    const cleanState = (stateMap[lookupState] || (lookupState.length === 2 ? lookupState : lookupState)).toLowerCase();
 
     if (!cleanCity || !cleanState) return null;
 

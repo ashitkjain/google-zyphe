@@ -4,7 +4,8 @@ import {
     auth,
     sanitizeForFirestore,
     logFirestoreQuery,
-    handleFirestoreError
+    handleFirestoreError,
+    generateCityStateKey
 } from "./config";
 import {
     PropertyData,
@@ -222,7 +223,11 @@ export const saveGeneralMarketIntelligenceToCloud = async (cityStateKey: string,
     try {
         const docRef = doc(db, "general_market_intelligence", cityStateKey);
         logFirestoreQuery('setDoc', 'general_market_intelligence', { cityStateKey });
-        await setDoc(docRef, research, { merge: true });
+        await setDoc(docRef, {
+            ...research,
+            status: 'completed',
+            lastUpdated: serverTimestamp()
+        }, { merge: true });
         return { success: true };
     } catch (error) {
         return { success: false, error: handleFirestoreError(error, "saveGeneralMarketIntelligenceToCloud") as string };
@@ -247,7 +252,11 @@ export const saveCommunityPulseToCloud = async (cityStateKey: string, pulse: Com
     try {
         const docRef = doc(db, "community_pulse", cityStateKey);
         logFirestoreQuery('setDoc', 'community_pulse', { cityStateKey });
-        await setDoc(docRef, pulse, { merge: true });
+        await setDoc(docRef, {
+            ...pulse,
+            status: 'completed',
+            lastUpdated: serverTimestamp()
+        }, { merge: true });
         return { success: true };
     } catch (error) {
         return { success: false, error: handleFirestoreError(error, "saveCommunityPulseToCloud") as string };
@@ -264,6 +273,31 @@ export const getCommunityPulseFromCloud = async (cityStateKey: string): Promise<
     } catch (error) {
         handleFirestoreError(error, "getCommunityPulseFromCloud");
         return null;
+    }
+};
+
+export const setCityResearchFlag = async (cityStateKey: string, status: 'running' | 'completed' | 'failed', error?: string) => {
+    if (!db || !cityStateKey) return { success: false };
+    try {
+        const pulseRef = doc(db, "community_pulse", cityStateKey);
+        const marketRef = doc(db, "general_market_intelligence", cityStateKey);
+
+        const updateData = {
+            status,
+            lastRan: serverTimestamp(),
+            error: error || null
+        };
+
+        logFirestoreQuery('setDoc', 'community_pulse/market_intel', { cityStateKey, status });
+
+        await Promise.all([
+            setDoc(pulseRef, updateData, { merge: true }),
+            setDoc(marketRef, updateData, { merge: true })
+        ]);
+
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: handleFirestoreError(err, "setCityResearchFlag") };
     }
 };
 
@@ -358,18 +392,70 @@ export interface PropertyStatusDetails {
     visual?: { timestamp: any };
 }
 
-export const getPropertyStatusesBatch = async (zpids: string[]): Promise<Record<string, PropertyStatusDetails>> => {
-    if (!db || zpids.length === 0) return {};
+export const getPropertyStatusesBatch = async (requestedIds: string[]): Promise<Record<string, PropertyStatusDetails>> => {
+    if (!db || requestedIds.length === 0) return {};
     const statuses: Record<string, PropertyStatusDetails> = {};
+    const idMap: Record<string, string> = {}; // requestedId -> canonicalZpid
+    const canonicalZpids = new Set<string>();
 
     const chunkSize = 10;
-    const chunks: string[][] = [];
-    for (let i = 0; i < zpids.length; i += chunkSize) {
-        chunks.push(zpids.slice(i, i + chunkSize));
+    const requestedChunks: string[][] = [];
+    for (let i = 0; i < requestedIds.length; i += chunkSize) {
+        requestedChunks.push(requestedIds.slice(i, i + chunkSize));
     }
 
     try {
-        await Promise.all(chunks.map(async (chunk) => {
+        // Step 1: Resolve canonical ZPIDs for all requested IDs
+        await Promise.all(requestedChunks.map(async (chunk) => {
+            const [snapPrimary, snapAlt] = await Promise.all([
+                getDocs(query(collection(db, "properties"), where(documentId(), "in", chunk))),
+                getDocs(query(collection(db, "properties"), where("alternate_ids", "array-contains-any", chunk)))
+            ]);
+
+            const processDocs = (docs: any[]) => {
+                docs.forEach(doc => {
+                    const data = doc.data();
+                    const zpid = String(doc.id);
+                    canonicalZpids.add(zpid);
+
+                    // Map requested IDs to this canonical ZPID
+                    if (chunk.includes(zpid)) {
+                        idMap[zpid] = zpid;
+                    }
+                    if (data.alternate_ids && Array.isArray(data.alternate_ids)) {
+                        data.alternate_ids.forEach((alias: string) => {
+                            if (chunk.includes(alias)) {
+                                idMap[alias] = zpid;
+                            }
+                        });
+                    }
+                    // Also check feed_property_id if present
+                    if (data.feed_property_id && chunk.includes(data.feed_property_id)) {
+                        idMap[data.feed_property_id] = zpid;
+                    }
+                });
+            };
+
+            processDocs(snapPrimary.docs);
+            processDocs(snapAlt.docs);
+        }));
+
+        // If no properties found at all, we can't have assets/visual
+        if (canonicalZpids.size === 0) {
+            // But we should still return empty statuses for requested IDs to be safe
+            return statuses;
+        }
+
+        const canonicalList = Array.from(canonicalZpids);
+        const canonicalChunks: string[][] = [];
+        for (let i = 0; i < canonicalList.length; i += chunkSize) {
+            canonicalChunks.push(canonicalList.slice(i, i + chunkSize));
+        }
+
+        // Step 2: Fetch assets and visual analysis for canonical ZPIDs
+        const canonicalStatuses: Record<string, PropertyStatusDetails> = {};
+
+        await Promise.all(canonicalChunks.map(async (chunk) => {
             const [snapProps, snapAssets, snapVisual] = await Promise.all([
                 getDocs(query(collection(db, "properties"), where(documentId(), "in", chunk))),
                 getDocs(query(collection(db, "property_assets"), where(documentId(), "in", chunk))),
@@ -377,15 +463,15 @@ export const getPropertyStatusesBatch = async (zpids: string[]): Promise<Record<
             ]);
 
             snapProps.forEach(doc => {
-                if (!statuses[doc.id]) statuses[doc.id] = {};
-                statuses[doc.id].property = { timestamp: doc.data().lastUpdated };
+                if (!canonicalStatuses[doc.id]) canonicalStatuses[doc.id] = {};
+                canonicalStatuses[doc.id].property = { timestamp: doc.data().lastUpdated };
             });
 
             snapAssets.forEach(doc => {
-                if (!statuses[doc.id]) statuses[doc.id] = {};
+                if (!canonicalStatuses[doc.id]) canonicalStatuses[doc.id] = {};
                 const data = doc.data();
                 const imagesSecured = data.images?.length > 0 && data.images[0].includes('firebasestorage');
-                statuses[doc.id].assets = {
+                canonicalStatuses[doc.id].assets = {
                     images: imagesSecured,
                     map: !!data.mapZoomIn && data.mapZoomIn.includes('firebasestorage'),
                     streetView: !!data.streetView && data.streetView.includes('firebasestorage'),
@@ -395,10 +481,19 @@ export const getPropertyStatusesBatch = async (zpids: string[]): Promise<Record<
             });
 
             snapVisual.forEach(doc => {
-                if (!statuses[doc.id]) statuses[doc.id] = {};
-                statuses[doc.id].visual = { timestamp: doc.data().timestamp };
+                if (!canonicalStatuses[doc.id]) canonicalStatuses[doc.id] = {};
+                canonicalStatuses[doc.id].visual = { timestamp: doc.data().timestamp };
             });
         }));
+
+        // Step 3: Map canonical statuses back to requested IDs
+        requestedIds.forEach(reqId => {
+            const canonicalZpid = idMap[reqId];
+            if (canonicalZpid && canonicalStatuses[canonicalZpid]) {
+                statuses[reqId] = canonicalStatuses[canonicalZpid];
+            }
+        });
+
     } catch (e) {
         console.warn("Failed to get property statuses batch", e);
     }

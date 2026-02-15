@@ -75,7 +75,8 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
         },
         userId: "unknown",
         promptFilename: "ChatInterface.tsx",
-        zpid: property.zpid
+        zpid: property.zpid,
+        cache: true // Enable context caching for continuous chat
       });
 
       let finalContent = aiText || "I apologize, I'm having trouble processing that request right now.";
@@ -109,7 +110,8 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
                 },
                 userId: "unknown",
                 promptFilename: "ChatInterface.tsx (Images)",
-                zpid: property.zpid
+                zpid: property.zpid,
+                cache: true
               });
               finalContent = imgResult.data || "I've checked the photos but still couldn't find a definitive answer.";
             } else {

@@ -10,11 +10,20 @@ import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompt
 import { getGeneralMarketIntelligencePrompt, generalMarketIntelligenceSchema } from "../prompts/property/generalMarketIntelligence";
 import { biddingStrategyPrompt, biddingStrategySchema } from "../prompts/property/biddingStrategy";
 
+import {
+  getCommunityPulseFromCloud,
+  setCityResearchFlag,
+  saveCommunityPulseToCloud,
+  saveGeneralMarketIntelligenceToCloud
+} from "./firebase/properties";
+import { generateCityStateKey } from "./firebase/config";
+
 import { getLeadReactivationPrompt, leadReactivationSchema } from "../prompts/client/leadReactivation";
 import { getLeadTransformationPrompt } from "../prompts/client/leadTransformation";
 import { getGuideGenerationPrompt, guideGenerationSchema, GuideResult } from "../prompts/client/guideGeneration";
 import { getDailyPulsePrompt, dailyPulseSchema } from "../prompts/leads/dailyPulse";
 import { Lead, CRMTask, CalendarEvent } from "../types";
+import { executePythonDeepResearch } from "./pythonResearchService";
 import { DailyPulseResult, PollenAnalysisResult } from "../types/ai";
 import { getPollenAnalysisPrompt, pollenAnalysisSchema } from "../prompts/property/pollenAnalysis";
 import { APP_CONFIG } from "../config";
@@ -23,9 +32,8 @@ import { optimizePropertyForAi, optimizeVisualForAi } from "../utils/aiOptimizat
 
 // Use config for model selection
 export const FLASH_MODEL = APP_CONFIG.models.flash;
-export const FLASH_LITE_MODEL = APP_CONFIG.models.flashLite;
-export const GEMINI_MODEL = FLASH_LITE_MODEL; // Legacy fallback
-export const CHAT_MODEL = FLASH_LITE_MODEL;
+export const GEMINI_MODEL = FLASH_MODEL;
+export const CHAT_MODEL = FLASH_MODEL;
 
 const groundingTool = { googleSearch: {} };
 
@@ -144,9 +152,10 @@ export const executeGeminiRequest = async <T>(
     extractResultJson?: boolean;
     schema?: any;
     imageUrls?: string[];
+    cache?: boolean;
   }
 ): Promise<{ data: T; usage: AIUsage; rawResponse: any }> => {
-  const { model, contents, config, userId, promptFilename, zpid, address, extractResultJson, schema, imageUrls } = params;
+  const { model, contents, config, userId, promptFilename, zpid, address, extractResultJson, schema, imageUrls, cache } = params;
   const ai = getAi();
 
   const logId = await logLLMCall({
@@ -258,14 +267,11 @@ function extractMetadata(response: any) {
   };
 }
 
-const MODEL_PRICING: Record<string, { input: number, output: number }> = {
+const MODEL_PRICING: Record<string, { input: number, output: number, cached?: number }> = {
   // Paid Tier (Standard) Pricing per 1M tokens (for prompts <= 128k)
   'gemini-1.5-flash': { input: 0.10 / 1000000, output: 0.40 / 1000000 },
-  'gemini-1.5-pro': { input: 1.25 / 1000000, output: 5.00 / 1000000 },
-  'gemini-2.0-flash': { input: 0.10 / 1000000, output: 0.40 / 1000000 },
-  'gemini-2.0-flash-lite': { input: 0.075 / 1000000, output: 0.30 / 1000000 },
-  'gemini-2.5-flash': { input: 0.10 / 1000000, output: 0.40 / 1000000 },
-  'gemini-2.5-flash-lite': { input: 0.075 / 1000000, output: 0.30 / 1000000 },
+  'gemini-1.5-pro': { input: 1.25 / 1000000, output: 5.00 / 1000000, cached: 0.3125 / 1000000 },
+  'gemini-2.0-flash': { input: 0.10 / 1000000, output: 0.40 / 1000000, cached: 0.01 / 1000000 },
   'gemini-2.0-pro-exp': { input: 1.25 / 1000000, output: 5.00 / 1000000 },
 };
 
@@ -273,9 +279,13 @@ function calculateUsage(response: any, modelName: string): AIUsage {
   const usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 };
   const pricing = MODEL_PRICING[modelName] || MODEL_PRICING['gemini-1.5-flash'];
 
-  // Basic calculation. Note: Pro pricing doubles for prompts > 128k, 
-  // but for real estate snippets we are almost always < 128k.
-  const cost = (usage.promptTokenCount * pricing.input) + (usage.candidatesTokenCount * pricing.output);
+  // Basic calculation. Adjust for cached tokens if present.
+  const cachedTokens = usage.cachedContentTokenCount || 0;
+  const regularTokens = usage.promptTokenCount - cachedTokens;
+
+  const cost = (regularTokens * pricing.input) +
+    (cachedTokens * (pricing as any).cached || pricing.input) +
+    (usage.candidatesTokenCount * pricing.output);
 
   return {
     promptTokens: usage.promptTokenCount,
@@ -350,7 +360,7 @@ export async function urlToBase64(url: string): Promise<{ data: string, mimeType
 export const analyzeProperty = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<AIAnalysisResult>> => {
   const prompt = getPropertyAnalysisPrompt(optimizePropertyForAi(property) as PropertyData);
   return executeGeminiRequest<AIAnalysisResult>({
-    model: FLASH_LITE_MODEL,
+    model: FLASH_MODEL,
     contents: prompt,
     userId,
     zpid: property.zpid,
@@ -394,17 +404,27 @@ export const analyzeNeighborhood = async (mapZoomIn: string, mapZoomOut: string,
 
 export const analyzeCommunityPulse = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<CommunityPulseResult>> => {
   const prompt = getCommunityPulsePrompt(optimizePropertyForAi(property) as PropertyData);
-  return executeGeminiRequest<CommunityPulseResult>({
-    model: FLASH_MODEL,
-    contents: prompt,
-    config: { tools: [groundingTool], temperature: 1.0 },
+  const startTime = Date.now();
+
+  console.log(`[Python Deep Research] Starting Community Pulse for ${property.city}...`);
+  const { data } = await executePythonDeepResearch<CommunityPulseResult>(prompt, communityPulseSchema, {
     userId,
-    zpid: property.zpid,
     address: property.address,
-    promptFilename: "communityPulse.ts",
-    extractResultJson: true,
-    schema: communityPulseSchema
+    promptFilename: "communityPulse.ts"
   });
+
+  const usage: AIUsage = {
+    promptTokens: 0,
+    candidatesTokens: 0,
+    totalTokens: 0,
+    cost: 0.10,
+    model: "deep-research-pro-preview"
+  };
+
+  return {
+    data,
+    usage
+  };
 };
 
 export const analyzePropertyImages = async (imageUrls: string[], property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<CustomAIAnalysisResult>> => {
@@ -504,7 +524,7 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
 
   const prompt = getComprehensiveAnalysisPrompt(optimizedProp, optimizedVisual);
   return executeGeminiRequest<ComprehensiveAnalysisResult>({
-    model: FLASH_LITE_MODEL,
+    model: FLASH_MODEL,
     contents: prompt,
     config: { temperature: 0.7 },
     userId,
@@ -512,16 +532,17 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
     address: property.address,
     promptFilename: "comprehensiveAnalysis.ts",
     extractResultJson: true,
-    schema: comprehensiveAnalysisSchema
+    schema: comprehensiveAnalysisSchema,
+    cache: true // Large context reuse
   });
 };
 
 export const analyzeInvestmentResearch = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<PropertySpecificInvestmentResult>> => {
   const prompt = getInvestmentResearchPrompt(optimizePropertyForAi(property) as PropertyData);
   return executeGeminiRequest<PropertySpecificInvestmentResult>({
-    model: FLASH_LITE_MODEL,
+    model: FLASH_MODEL,
     contents: prompt,
-    config: { tools: [groundingTool], temperature: 1.0 },
+    config: { temperature: 1.0 },
     userId,
     zpid: property.zpid,
     address: property.address,
@@ -533,16 +554,82 @@ export const analyzeInvestmentResearch = async (property: PropertyData, userId: 
 
 export const analyzeGeneralMarketIntelligence = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<GeneralMarketIntelligenceResult>> => {
   const prompt = getGeneralMarketIntelligencePrompt(optimizePropertyForAi(property) as PropertyData);
-  return executeGeminiRequest<GeneralMarketIntelligenceResult>({
-    model: FLASH_MODEL,
-    contents: prompt,
-    config: { tools: [groundingTool], temperature: 1.0 },
+
+  console.log(`[Python Deep Research] Starting Market Intelligence for ${property.city}...`);
+  const { data } = await executePythonDeepResearch<GeneralMarketIntelligenceResult>(prompt, generalMarketIntelligenceSchema, {
     userId,
-    zpid: property.zpid,
     address: property.address,
-    promptFilename: "generalMarketIntelligence.ts",
-    extractResultJson: true,
+    promptFilename: "generalMarketIntelligence.ts"
   });
+
+  const usage: AIUsage = {
+    promptTokens: 0,
+    candidatesTokens: 0,
+    totalTokens: 0,
+    cost: 0.10,
+    model: "deep-research-pro-preview"
+  };
+
+  return {
+    data,
+    usage
+  };
+};
+
+/**
+ * Runs Community Pulse and General Market Intelligence in parallel in the background.
+ * Uses grounding (Deep Research) and tracks status per city.
+ */
+export const runBackgroundCityResearch = async (property: PropertyData, userId: string = "unknown"): Promise<{ status: 'started' | 'skipped', cityStateKey: string, promise?: Promise<void> }> => {
+  const { city, state } = property;
+  const cityStateKey = generateCityStateKey(city, state);
+
+  if (!cityStateKey) {
+    console.warn("[runBackgroundCityResearch] Missing city/state for research", { city, state });
+    return { status: 'skipped', cityStateKey: 'unknown' };
+  }
+
+  // 1. Check if already running (within last 30 mins)
+  const pulseRecord = await getCommunityPulseFromCloud(cityStateKey);
+  const now = Date.now();
+  const lastRan = pulseRecord?.lastRan?.toDate ? pulseRecord.lastRan.toDate().getTime() :
+    (pulseRecord?.lastRan?.seconds ? pulseRecord.lastRan.seconds * 1000 : 0);
+
+  const isCurrentlyRunning = pulseRecord?.status === 'running' && (now - lastRan < 30 * 60 * 1000);
+  const isRecentlyCompleted = pulseRecord?.status === 'completed' && (now - lastRan < 6 * 60 * 60 * 1000);
+
+  if (isCurrentlyRunning || isRecentlyCompleted) {
+    console.log(`[runBackgroundCityResearch] Research already in progress or recently completed for ${cityStateKey}. Skipping.`);
+    return { status: 'skipped', cityStateKey };
+  }
+
+  // 2. Define the Research Task
+  const promise = (async () => {
+    try {
+      console.log(`[runBackgroundCityResearch] Starting parallel research for: ${cityStateKey}`);
+      await setCityResearchFlag(cityStateKey, 'running');
+
+      // Run Community Pulse and Market Intelligence in parallel
+      const [pulseRes, marketRes] = await Promise.all([
+        analyzeCommunityPulse(property, userId),
+        analyzeGeneralMarketIntelligence(property, userId)
+      ]);
+
+      console.log(`[runBackgroundCityResearch] Successfully completed research for ${cityStateKey}. Saving...`);
+      // Save Results to Cloud (this also sets status to 'completed' via the save functions)
+      const saveResults = await Promise.all([
+        saveCommunityPulseToCloud(cityStateKey, pulseRes.data),
+        saveGeneralMarketIntelligenceToCloud(cityStateKey, marketRes.data)
+      ]);
+      console.log(`[runBackgroundCityResearch] Saved results for ${cityStateKey}:`, { pulse: saveResults[0].success, market: saveResults[1].success });
+    } catch (error: any) {
+      console.error(`[runBackgroundCityResearch] Failed for ${cityStateKey}:`, error);
+      await setCityResearchFlag(cityStateKey, 'failed', error.message || String(error));
+      throw error;
+    }
+  })();
+
+  return { status: 'started', cityStateKey, promise };
 };
 
 export const analyzeBiddingStrategy = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<BiddingStrategyResult>> => {
@@ -577,7 +664,7 @@ export const analyzeLeadDatabase = async (rawData: string, userId: string = "unk
 export const transformLeadCsv = async (csvData: string, userId: string = "unknown"): Promise<string> => {
   const prompt = getLeadTransformationPrompt(csvData);
   const { data } = await executeGeminiRequest<string>({
-    model: FLASH_LITE_MODEL,
+    model: FLASH_MODEL,
     contents: prompt,
     userId,
     promptFilename: "leadTransformation.ts"
@@ -595,7 +682,7 @@ export const analyzeStreetView = async (imageUrl: string, property: PropertyData
 
   // 1. Run AI Analysis
   const aiResponse = await executeGeminiRequest<StreetViewAnalysisResult>({
-    model: FLASH_LITE_MODEL,
+    model: FLASH_MODEL,
     contents: {
       parts: [
         { text: prompt },
@@ -633,7 +720,7 @@ export const analyzeStreetView = async (imageUrl: string, property: PropertyData
 export const analyzePollen = async (pollenRawData: any, property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<PollenAnalysisResult>> => {
   const prompt = getPollenAnalysisPrompt(pollenRawData);
   return executeGeminiRequest<PollenAnalysisResult>({
-    model: FLASH_LITE_MODEL,
+    model: FLASH_MODEL,
     contents: prompt,
     userId,
     zpid: property.zpid,
@@ -705,7 +792,7 @@ export const generateGuideImage = async (category: string, title: string, topicS
 export const generateDailyPulse = async (leads: Lead[], userId: string = "unknown", tasks: CRMTask[] = [], calendarEvents: CalendarEvent[] = []): Promise<AIResponseWithUsage<DailyPulseResult>> => {
   const { systemInstruction, prompt: userPrompt } = getDailyPulsePrompt(leads, tasks, calendarEvents);
   const combinedPrompt = `${systemInstruction}\n\n${userPrompt}`;
-  const modelToUse = FLASH_LITE_MODEL;
+  const modelToUse = FLASH_MODEL;
 
   const { data: aiResult, usage } = await executeGeminiRequest<DailyPulseResult>({
     model: modelToUse,

@@ -219,6 +219,64 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         if (successCount === targets.length) setSelectedIds(new Set());
     };
 
+    const handleCityWarmUp = async () => {
+        if (selectedIds.size === 0) {
+            addLog("No properties selected. Please select at least one property to identify target cities.");
+            return;
+        }
+
+        setLoading(true);
+        addLog(`Phase 1: Starting Manual Region Warming for selected contexts...`);
+
+        const targets = listings.filter(l => {
+            const id = String(l.property_id || l.listing_id || l.mls_id || l.mls?.id);
+            return selectedIds.has(id);
+        });
+
+        const cityContexts = new Set<string>();
+        const stateMap: Record<string, string> = {
+            'ALABAMA': 'AL', 'ALASKA': 'AK', 'ARIZONA': 'AZ', 'ARKANSAS': 'AR', 'CALIFORNIA': 'CA',
+            'COLORADO': 'CO', 'CONNECTICUT': 'CT', 'DELAWARE': 'DE', 'FLORIDA': 'FL', 'GEORGIA': 'GA',
+            'HAWAII': 'HI', 'IDAHO': 'ID', 'ILLINOIS': 'IL', 'INDIANA': 'IN', 'IOWA': 'IA',
+            'KANSAS': 'KS', 'KENTUCKY': 'KY', 'LOUISIANA': 'LA', 'MAINE': 'ME', 'MARYLAND': 'MD',
+            'MASSACHUSETTS': 'MA', 'MICHIGAN': 'MI', 'MINNESOTA': 'MN', 'MISSISSIPPI': 'MS', 'MISSOURI': 'MO',
+            'MONTANA': 'MT', 'NEBRASKA': 'NE', 'NEVADA': 'NV', 'NEW HAMPSHIRE': 'NH', 'NEW JERSEY': 'NJ',
+            'NEW MEXICO': 'NM', 'NEW YORK': 'NY', 'NORTH CAROLINA': 'NC', 'NORTH DAKOTA': 'ND', 'OHIO': 'OH',
+            'OKLAHOMA': 'OK', 'OREGON': 'OR', 'PENNSYLVANIA': 'PA', 'RHODE ISLAND': 'RI', 'SOUTH CAROLINA': 'SC',
+            'SOUTH DAKOTA': 'SD', 'TENNESSEE': 'TN', 'TEXAS': 'TX', 'UTAH': 'UT', 'VERMONT': 'VT',
+            'VIRGINIA': 'VA', 'WASHINGTON': 'WA', 'WEST VIRGINIA': 'WV', 'WISCONSIN': 'WI', 'WYOMING': 'WY'
+        };
+
+        targets.forEach(t => {
+            const city = t.location?.address?.city;
+            const stateRaw = t.location?.address?.state_code || t.location?.address?.state;
+
+            if (city && stateRaw) {
+                const normState = stateRaw.trim().toUpperCase();
+                const state = (stateMap[normState] || (normState.length === 2 ? normState : normState));
+                cityContexts.add(`${city.trim()}|${state.trim()}`);
+            }
+        });
+
+        if (cityContexts.size > 0) {
+            for (const context of Array.from(cityContexts)) {
+                const [city, state] = context.split('|');
+                try {
+                    const userId = auth?.currentUser?.uid || 'unknown';
+                    addLog(`Manual Warm: Triggering deep research for ${city}, ${state}...`);
+                    await prefetchCityIntelligence(city, state, userId, addLog);
+                    addLog(`Manual Warm: Success for ${city}.`);
+                } catch (e: any) {
+                    addLog(`Manual Warm: Error for ${city}: ${e.message || String(e)}`);
+                }
+            }
+            addLog(`Manual Regional Warming Complete.`);
+        } else {
+            addLog("No valid city/state contexts found in selection.");
+        }
+        setLoading(false);
+    };
+
     const handleBulkIngest = async () => {
         if (selectedIds.size === 0) return;
 
@@ -254,10 +312,28 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         // Step 1: Prefetch City-Level Intelligence (Pulse & General Market)
         // We find all unique city/state combinations in our target properties
         const cityContexts = new Set<string>();
+        const stateMap: Record<string, string> = {
+            'ALABAMA': 'AL', 'ALASKA': 'AK', 'ARIZONA': 'AZ', 'ARKANSAS': 'AR', 'CALIFORNIA': 'CA',
+            'COLORADO': 'CO', 'CONNECTICUT': 'CT', 'DELAWARE': 'DE', 'FLORIDA': 'FL', 'GEORGIA': 'GA',
+            'HAWAII': 'HI', 'IDAHO': 'ID', 'ILLINOIS': 'IL', 'INDIANA': 'IN', 'IOWA': 'IA',
+            'KANSAS': 'KS', 'KENTUCKY': 'KY', 'LOUISIANA': 'LA', 'MAINE': 'ME', 'MARYLAND': 'MD',
+            'MASSACHUSETTS': 'MA', 'MICHIGAN': 'MI', 'MINNESOTA': 'MN', 'MISSISSIPPI': 'MS', 'MISSOURI': 'MO',
+            'MONTANA': 'MT', 'NEBRASKA': 'NE', 'NEVADA': 'NV', 'NEW HAMPSHIRE': 'NH', 'NEW JERSEY': 'NJ',
+            'NEW MEXICO': 'NM', 'NEW YORK': 'NY', 'NORTH CAROLINA': 'NC', 'NORTH DAKOTA': 'ND', 'OHIO': 'OH',
+            'OKLAHOMA': 'OK', 'OREGON': 'OR', 'PENNSYLVANIA': 'PA', 'RHODE ISLAND': 'RI', 'SOUTH CAROLINA': 'SC',
+            'SOUTH DAKOTA': 'SD', 'TENNESSEE': 'TN', 'TEXAS': 'TX', 'UTAH': 'UT', 'VERMONT': 'VT',
+            'VIRGINIA': 'VA', 'WASHINGTON': 'WA', 'WEST VIRGINIA': 'WV', 'WISCONSIN': 'WI', 'WYOMING': 'WY'
+        };
+
         targets.forEach(t => {
             const city = t.location?.address?.city;
-            const state = t.location?.address?.state_code;
-            if (city && state) cityContexts.add(`${city}|${state}`);
+            const stateRaw = t.location?.address?.state_code || t.location?.address?.state;
+
+            if (city && stateRaw) {
+                const normState = stateRaw.trim().toUpperCase();
+                const state = (stateMap[normState] || (normState.length === 2 ? normState : normState));
+                cityContexts.add(`${city.trim()}|${state.trim()}`);
+            }
         });
 
         if (cityContexts.size > 0) {
@@ -265,7 +341,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             for (const context of Array.from(cityContexts)) {
                 const [city, state] = context.split('|');
                 try {
-                    await prefetchCityIntelligence(city, state, addLog);
+                    const userId = auth?.currentUser?.uid || 'unknown';
+                    await prefetchCityIntelligence(city, state, userId, addLog);
                 } catch (e) {
                     addLog(`Warning: Failed to warm context for ${city}: ${e}`);
                 }
@@ -298,10 +375,11 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime } : j));
 
                 try {
+                    const userId = auth?.currentUser?.uid || 'unknown';
                     // Run Full Intelligence Pipeline
                     await runFullIntelligencePipeline(builtAddress, (progress) => {
                         setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
-                    }, undefined, (msg) => addLog(`[${builtAddress}] ${msg}`), true);
+                    }, zpid, userId, (msg) => addLog(`[${builtAddress}] ${msg}`), true);
 
                     addLog(`Successfully completed intelligence suite for: ${builtAddress}`);
                     setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
@@ -482,6 +560,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         try {
             const isPostalCodeInput = /^\d{5}(-\d{4})?$/.test(city.trim());
             let targetZips: string[] = [];
+            let cachedGroups: Record<string, string[]> | null = null;
+            let foundEntries: { zip: string, city: string, state: string }[] = [];
 
             if (isPostalCodeInput) {
                 targetZips = [city.trim()];
@@ -489,7 +569,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             } else {
                 const normalizedCity = city.trim();
                 addLog(`Checking regional resolution for ${normalizedCity}...`);
-                const cachedGroups = await getZipsForCity(normalizedCity);
+                cachedGroups = await getZipsForCity(normalizedCity);
 
                 if (cachedGroups) {
                     const allCachedZips = Object.values(cachedGroups).flat();
@@ -514,7 +594,6 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                         });
 
                         const zipResult = await zipResp.json();
-                        let foundEntries: { zip: string, city: string, state: string }[] = [];
 
                         if (Array.isArray(zipResult)) {
                             foundEntries = zipResult.map((x: any) => ({
@@ -582,10 +661,16 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
             // Use a local registry for city/state info to avoid "Unknown" labels
             const zipRegistry: Record<string, { city: string, state: string }> = {};
+
+            // Populate registry from whatever resolved our zips
             if (!isPostalCodeInput) {
-                // If it was a city search, we already have some info
-                const cachedGroups = await getZipsForCity(city.trim());
-                if (cachedGroups) {
+                // If we have foundEntries from the API, use those first
+                if (typeof foundEntries !== 'undefined' && foundEntries.length > 0) {
+                    foundEntries.forEach(entry => {
+                        zipRegistry[entry.zip] = { city: entry.city, state: entry.state };
+                    });
+                } else if (cachedGroups) {
+                    // Fallback to cachedGroups if we didn't hit the API
                     Object.entries(cachedGroups).forEach(([st, zips]) => {
                         zips.forEach(z => {
                             zipRegistry[z] = { city: city.trim(), state: st };
@@ -796,6 +881,14 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                         Secure Images ({selectedIds.size})
                                     </button>
                                     <button
+                                        onClick={handleCityWarmUp}
+                                        disabled={loading}
+                                        className="px-6 py-3 bg-white border-2 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group"
+                                    >
+                                        <i className="fa-solid fa-earth-americas text-emerald-500 group-hover:rotate-12 transition-transform"></i>
+                                        Warm Region ({selectedIds.size})
+                                    </button>
+                                    <button
                                         onClick={handleBulkIngest}
                                         className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[1.2rem] text-sm font-black shadow-lg shadow-indigo-200 transition-all animate-in slide-in-from-right flex items-center gap-3 group"
                                     >
@@ -870,12 +963,12 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                             <button
                                 onClick={handleSearch}
                                 disabled={loading}
-                                className="flex-1 px-8 py-4 bg-slate-900 hover:bg-black text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+                                className="px-8 py-4 bg-slate-900 hover:bg-black text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
                             >
                                 {loading ? (
                                     <>
                                         <i className="fa-solid fa-spinner animate-spin"></i>
-                                        Scanning Markets...
+                                        Scanning...
                                     </>
                                 ) : (
                                     <>
@@ -883,6 +976,49 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                         Launch Ingestion
                                     </>
                                 )}
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (!city) {
+                                        addLog("Please enter a city name to warm.");
+                                        return;
+                                    }
+                                    setLoading(true);
+
+                                    // Parse input
+                                    let [c, s] = city.split(',').map(x => x.trim());
+
+                                    // 1. If state missing, try to find it in current listings
+                                    if (!s && listings.length > 0) {
+                                        const firstMatch = listings.find(l =>
+                                            l.location?.address?.city?.toLowerCase() === c.toLowerCase()
+                                        );
+                                        if (firstMatch) {
+                                            s = firstMatch.location?.address?.state_code || firstMatch.location?.address?.state;
+                                        }
+                                    }
+
+                                    // 2. Secondary fallback for common testing
+                                    if (!s) s = 'CA'; // Default to CA for speed in common regions
+
+                                    const displayTarget = `${c}, ${s}`;
+                                    addLog(`Manual Warm: Triggering deep research for ${displayTarget}...`);
+
+                                    try {
+                                        const userId = auth?.currentUser?.uid || 'unknown';
+                                        await prefetchCityIntelligence(c, s, userId, addLog);
+                                        addLog(`Manual Warm: Success for ${displayTarget}. Research is now live in DB.`);
+                                    } catch (e: any) {
+                                        addLog(`Manual Warm: Error for ${displayTarget}: ${e.message}`);
+                                    }
+                                    setLoading(false);
+                                }}
+                                disabled={loading || !city}
+                                className="px-6 py-4 bg-white border-2 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50 text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm transition-all flex items-center gap-3 disabled:opacity-50"
+                                title="Warm Regional Intelligence"
+                            >
+                                <i className="fa-solid fa-earth-americas text-emerald-500"></i>
+                                Warm Region
                             </button>
                             {listings.length > 0 && (
                                 <button
@@ -1226,14 +1362,22 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                             {ingestionReport?.llmLogs && Array.isArray(ingestionReport.llmLogs) && [...ingestionReport.llmLogs].sort((a, b) => b.timestamp - a.timestamp).map((logEntry, i) => (
                                                 <tr key={i} className="text-sm transition-colors hover:bg-slate-50/50">
                                                     <td className="p-5">
-                                                        <div className="font-bold text-slate-900 mb-0.5">{logEntry.agent_name}</div>
+                                                        <div className="font-bold text-slate-900 mb-0.5">
+                                                            {logEntry.prompt_filename?.replace('.ts', '').replace(/([A-Z])/g, ' $1').trim() || 'Unspecified Task'}
+                                                        </div>
                                                         <div className="text-[10px] text-indigo-600 font-black truncate max-w-[250px] mb-0.5">
                                                             {logEntry.address || (logEntry.zpid && zpidToAddressMap[logEntry.zpid]) || logEntry.zpid || '--'}
                                                         </div>
-                                                        <div className="text-[9px] text-slate-400 font-mono truncate max-w-[200px]">ID: {logEntry.zpid || 'N/A'}</div>
+                                                        <div className="text-[9px] text-slate-400 font-mono truncate max-w-[200px]">Model: {logEntry.llm_name || 'Gemini'}</div>
                                                     </td>
                                                     <td className="p-5 text-right">
-                                                        <div className="text-indigo-600 font-bold">
+                                                        <div className="text-indigo-600 font-bold flex items-center justify-end gap-1.5">
+                                                            {logEntry.usage_metadata?.cachedContentTokenCount && logEntry.usage_metadata.cachedContentTokenCount > 0 && (
+                                                                <span className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 text-amber-600 border border-amber-100 rounded text-[9px] font-black animate-pulse">
+                                                                    <i className="fa-solid fa-bolt-lightning text-[8px]"></i>
+                                                                    CACHED
+                                                                </span>
+                                                            )}
                                                             {logEntry.usage_metadata?.totalTokenCount?.toLocaleString() || 0} tkn
                                                         </div>
                                                         <div className="text-[10px] text-emerald-600 font-black">
@@ -1277,7 +1421,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                 <tr key={i} className="text-sm transition-colors hover:bg-slate-50/50">
                                                     <td className="p-5">
                                                         <div className="font-bold text-slate-900 mb-0.5">
-                                                            {apiLog.api_name === 'RapidAPI' ? `RapidAPI: ${apiLog.endpoint}` : apiLog.api_name}
+                                                            {apiLog.api_name}
                                                         </div>
                                                         <div className="text-[10px] text-blue-600 font-black truncate max-w-[250px] mb-0.5">
                                                             {apiLog.address || (apiLog.zpid && zpidToAddressMap[apiLog.zpid]) || apiLog.zpid || '--'}
