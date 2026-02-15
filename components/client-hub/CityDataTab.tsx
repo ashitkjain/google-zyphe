@@ -770,7 +770,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                         const fullAddress = addrObj
                                             ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
                                             : (item.location?.address?.line || itemId);
-                                        if (onNavigate) onNavigate('explore', fullAddress);
+                                        window.open(`${window.location.origin}/?q=${encodeURIComponent(fullAddress)}`, '_blank');
                                     }}
                                     className="font-bold text-slate-900 text-sm hover:text-indigo-600 hover:underline text-left transition-colors"
                                 >
@@ -1213,7 +1213,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                 </div>
                                                 {item.status === 'completed' ? (
                                                     <button
-                                                        onClick={() => onNavigate && onNavigate('explore', item.address)}
+                                                        onClick={() => window.open(`${window.location.origin}/?q=${encodeURIComponent(item.address)}`, '_blank')}
                                                         className="text-sm font-black text-slate-900 truncate hover:text-indigo-600 hover:underline transition-colors text-left"
                                                     >
                                                         {item.address}
@@ -1265,7 +1265,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                         {item.status === 'completed' && (
                                             <div className="flex items-center justify-between">
                                                 <button
-                                                    onClick={() => onNavigate && onNavigate('explore', item.address)}
+                                                    onClick={() => window.open(`${window.location.origin}/?q=${encodeURIComponent(item.address)}`, '_blank')}
                                                     className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest bg-emerald-50 py-2 px-4 rounded-xl hover:bg-emerald-100 transition-colors w-fit group"
                                                 >
                                                     <i className="fa-solid fa-check"></i>
@@ -1376,6 +1376,12 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                                 <span className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 text-amber-600 border border-amber-100 rounded text-[9px] font-black animate-pulse">
                                                                     <i className="fa-solid fa-bolt-lightning text-[8px]"></i>
                                                                     CACHED
+                                                                </span>
+                                                            )}
+                                                            {logEntry.raw_payload?.tools?.some((t: any) => t.googleSearch || t.google_search_retrieval) && (
+                                                                <span className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded text-[9px] font-black uppercase tracking-tighter">
+                                                                    <i className="fa-solid fa-earth-americas text-[8px]"></i>
+                                                                    Grounded
                                                                 </span>
                                                             )}
                                                             {logEntry.usage_metadata?.totalTokenCount?.toLocaleString() || 0} tkn

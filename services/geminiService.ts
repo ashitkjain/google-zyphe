@@ -166,7 +166,8 @@ export const executeGeminiRequest = async <T>(
     llm_name: model,
     raw_payload: {
       contents: dehydratePayload(contents),
-      system_instruction: config?.systemInstruction
+      system_instruction: config?.systemInstruction,
+      tools: config?.tools
     },
     raw_response: null,
     status: 'pending',

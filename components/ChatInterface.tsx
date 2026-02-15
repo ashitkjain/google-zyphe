@@ -33,7 +33,8 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
     }
   }, [messages, loading]);
 
-  const handleSendMessage = async (text: string = input) => {
+  const handleSendMessage = async (textOverride?: string) => {
+    const text = textOverride || input;
     if (!text.trim() || loading) return;
 
     const userMessage: Message = { role: 'user', content: text };
@@ -43,19 +44,12 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
 
     let logId: string | null = null;
     try {
-      const ai = getAi();
-
-      // Construct intelligence context to be sent with the system instruction
-      // This ensures the model is always aware of the property without needing the full chat history
       const intelligenceContext = getChatContext(property, visual, comprehensive);
-
       const systemInstruction = getChatInstruction(intelligenceContext);
 
-      // Map existing messages to Gemini format and include current text
-      // Gemini history MUST start with a 'user' role. We filter out the initial assistant greeting to ensure this.
       const history = messages
         .filter((m, i) => i !== 0 || m.role !== 'assistant')
-        .slice(-4) // Keep only the last 2 exchanges (user + model)
+        .slice(-4)
         .map(m => ({
           role: m.role === 'assistant' ? 'model' : 'user',
           parts: [{ text: m.content }]
@@ -63,7 +57,6 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
 
       const contents = [...history, { role: 'user', parts: [{ text }] }];
 
-      // Perform a content generation request with history
       const { data: aiText, rawResponse: response } = await executeGeminiRequest<string>({
         model: CHAT_MODEL,
         contents,
@@ -76,88 +69,77 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
         userId: "unknown",
         promptFilename: "ChatInterface.tsx",
         zpid: property.zpid,
-        cache: true // Enable context caching for continuous chat
+        cache: true
       });
 
       let finalContent = aiText || "I apologize, I'm having trouble processing that request right now.";
 
-      // Handle the routing JSON if data is missing
-      try {
-        const routingResult = JSON.parse(finalContent);
-        if (routingResult.routing === "MISSING") {
-          if (routingResult.source === "images" && visual?.image_by_image_analysis) {
-            // Step 2: Resubmit with images found by token/id
-            const targetImageIds = routingResult.image_indices
-              .map((idx: number) => visual.image_by_image_analysis?.[idx]?.image_id)
-              .filter(Boolean);
+      // Extract routing if present
+      const match = finalContent.match(/\{[\s\S]*"routing"\s*:\s*"MISSING"[\s\S]*\}/);
+      if (match) {
+        try {
+          const routingResult = JSON.parse(match[0]);
+          if (routingResult.routing === "MISSING") {
+            if (routingResult.source === "images" && visual?.image_by_image_analysis) {
+              const targetImageIds = routingResult.image_indices
+                ?.map((idx: number) => visual.image_by_image_analysis?.[idx]?.image_id)
+                .filter(Boolean);
 
-            if (targetImageIds.length > 0) {
-              const imageParts = await Promise.all(targetImageIds.map((url: string) => urlToBase64(url)));
-              const messageWithImages = {
-                role: 'user',
-                parts: [
-                  { text: `The following information was requested: "${text}". I have provided some relevant property photos. Please answer based on these photos.` },
-                  ...imageParts.map(img => ({ inlineData: img }))
-                ]
-              };
+              if (targetImageIds && targetImageIds.length > 0) {
+                const imageParts = await Promise.all(targetImageIds.map((url: string) => urlToBase64(url)));
+                const messageWithImages = {
+                  role: 'user',
+                  parts: [
+                    { text: `The following information was requested: "${text}". I have provided some relevant property photos. Please answer based on these photos.` },
+                    ...imageParts.map(img => ({ inlineData: img }))
+                  ]
+                };
 
-              const imgResult = await executeGeminiRequest<string>({
+                const imgResult = await executeGeminiRequest<string>({
+                  model: CHAT_MODEL,
+                  contents: messageWithImages as any,
+                  config: { systemInstruction, temperature: 0.1 },
+                  userId: "unknown",
+                  promptFilename: "ChatInterface.tsx (Images)",
+                  zpid: property.zpid,
+                  cache: true
+                });
+                finalContent = imgResult.data || finalContent;
+              }
+            } else if (routingResult.source === "search") {
+              const searchResult = await executeGeminiRequest<string>({
                 model: CHAT_MODEL,
-                contents: messageWithImages as any,
+                contents: text,
                 config: {
                   systemInstruction,
+                  tools: [{ googleSearch: {} }] as any,
                   temperature: 0.1
                 },
                 userId: "unknown",
-                promptFilename: "ChatInterface.tsx (Images)",
-                zpid: property.zpid,
-                cache: true
+                promptFilename: "ChatInterface.tsx (Search)",
+                zpid: property.zpid
               });
-              finalContent = imgResult.data || "I've checked the photos but still couldn't find a definitive answer.";
-            } else {
-              finalContent = "I'm sorry, I don't have the specific details and there are no relevant photos to check.";
+              finalContent = searchResult.data || finalContent;
             }
-          } else if (routingResult.source === "search") {
-            // Step 2: Resubmit with Search Grounding
-            const searchResult = await executeGeminiRequest<string>({
-              model: CHAT_MODEL,
-              contents: text,
-              config: {
-                systemInstruction,
-                tools: [{ googleSearch: {} }] as any,
-                temperature: 0.1
-              },
-              userId: "unknown",
-              promptFilename: "ChatInterface.tsx (Search)",
-              zpid: property.zpid
-            });
-            finalContent = searchResult.data || "I searched for the information but couldn't find a reliable answer.";
-          } else {
-            finalContent = "I'm sorry, I don't have specific data for that request in my records yet. I can help with details on the property specifications, financials, or the neighborhood data I have available.";
           }
-        } else {
-          // AI returned JSON that wasn't a "MISSING" route - likely a hallucination
-          finalContent = "I'm sorry, I'm having a bit of trouble retrieving that specific data right now. Could you try rephrasing your question about the property's features, neighborhood, or market data?";
+        } catch (e) {
+          console.warn("Found routing-like string but failed to parse:", e);
         }
-      } catch (e) {
-        // Not JSON, treat as normal response
       }
 
-      setMessages(prev => [...prev, { role: 'assistant', content: finalContent }]);
+      // FINAL SANITIZATION: Strip any remaining JSON blocks or [cite:...] tags from the final display
+      const sanitizeDisplay = (content: string) => {
+        return content
+          .replace(/```json[\s\S]*?```/g, '')
+          .replace(/\{[\s\S]*"routing"\s*:\s*"MISSING"[\s\S]*\}/g, '')
+          .replace(/\[cite:.*?\]/gi, '')
+          .trim();
+      };
+
+      setMessages(prev => [...prev, { role: 'assistant', content: sanitizeDisplay(finalContent) }]);
     } catch (err: any) {
       console.error("Chat Error:", err);
-
-      // Log the error in Firestore for production debugging
-      if (logId) {
-        updateLLMCall(logId, {
-          raw_response: err.message,
-          status: 'failed',
-          error: err.stack || err.message,
-          response_received_at: serverTimestamp()
-        }).catch(e => console.error("Failed to update chat error log:", e));
-      }
-
-      setMessages(prev => [...prev, { role: 'assistant', content: "I've encountered a connection error. Please try asking your question again." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "I've encountered an issue. Please try again." }]);
     } finally {
       setLoading(false);
     }
@@ -247,7 +229,6 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
                 <span className="w-1 h-1 rounded-full bg-indigo-500"></span>
                 <span className="text-[9px] font-black text-indigo-600 uppercase tracking-[0.2em]">Zyphe Concierge</span>
               </div>
-              <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">v2.4 Intelligence</span>
             </div>
             <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="relative">
               <input
