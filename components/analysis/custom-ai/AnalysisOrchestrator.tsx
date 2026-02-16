@@ -33,7 +33,7 @@ interface Props {
     zpid?: string;
     propertyData?: any;
     onUpdateAnalysis: (updated: CustomAIAnalysisResult) => void;
-    addLog: (service: string, meta: { type: 'request' | 'response' | 'error' | 'info' }, content: any) => void;
+    addLog: (service: string, meta: { type: 'request' | 'response' | 'error' | 'info' }, content: any, usage?: any) => void;
     isFavorited?: boolean;
     onToggleFavorite?: () => void;
 }

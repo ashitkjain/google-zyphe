@@ -336,14 +336,14 @@ export const prefetchCityIntelligence = async (
     address: `${city}, ${state}`
   } as PropertyData;
 
-  const result = await runBackgroundCityResearch(dummyProp, userId);
+  const result = await runBackgroundCityResearch(dummyProp, userId, onLog);
 
   if (result?.status === 'started') {
     onLog?.(`[City-Intelligence] Urban research pipeline engaged for ${city}. Waiting for completion...`);
     if (result.promise) await result.promise;
     onLog?.(`[City-Intelligence] Urban research complete for ${city}.`);
   } else {
-    onLog?.(`[City-Intelligence] Urban research for ${city} already in progress or recently completed.`);
+    onLog?.(`[City-Intelligence] Urban research for ${city} is currently in progress. Attaching to existing stream...`);
 
     // Safety: If it's currently running, we should still wait for it before proceeding
     // to ensure Phase 2 has the data available.

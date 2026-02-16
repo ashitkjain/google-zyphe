@@ -80,8 +80,8 @@ DO NOT return any text outside of the JSON block.
                     if json_str:
                         try:
                             parsed = json.loads(json_str)
-                            # Ensure it has the required field if schema_hint was provided
-                            if not schema_hint or "content" in parsed:
+                            # Ensure it's a dictionary and has the required field if schema_hint was provided
+                            if isinstance(parsed, dict) and (not schema_hint or "content" in parsed):
                                 return jsonify({"data": parsed, "status": "success"})
                         except:
                             continue

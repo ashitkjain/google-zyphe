@@ -9,6 +9,8 @@ interface NeighborhoodViewProps {
 }
 
 export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoomIn, mapZoomOut }) => {
+    const [selectedMap, setSelectedMap] = React.useState<{ url: string, title: string } | null>(null);
+
     if (!data?.overview) return <EmptyState section="Neighborhood" />;
     return (
         <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-5xl mx-auto space-y-8">
@@ -17,7 +19,10 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                 {(mapZoomIn || mapZoomOut) && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch pt-4">
                         {mapZoomIn && (
-                            <div className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-inner group relative aspect-video">
+                            <div
+                                onClick={() => setSelectedMap({ url: mapZoomIn, title: 'Property Close-up Map' })}
+                                className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-inner group relative aspect-video cursor-zoom-in active:scale-[0.98] transition-all"
+                            >
                                 <img
                                     src={mapZoomIn}
                                     alt="Property Close-up Map"
@@ -26,10 +31,16 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                                 <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border border-white/20">
                                     <i className="fa-solid fa-map mr-2"></i> Close-up View
                                 </div>
+                                <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/10 flex items-center justify-center transition-all duration-300">
+                                    <i className="fa-solid fa-magnifying-glass-plus text-white text-3xl opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                                </div>
                             </div>
                         )}
                         {mapZoomOut && (
-                            <div className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-inner group relative aspect-video">
+                            <div
+                                onClick={() => setSelectedMap({ url: mapZoomOut, title: 'Neighborhood Map' })}
+                                className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-inner group relative aspect-video cursor-zoom-in active:scale-[0.98] transition-all"
+                            >
                                 <img
                                     src={mapZoomOut}
                                     alt="Neighborhood Map"
@@ -37,6 +48,9 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                                 />
                                 <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border border-white/20">
                                     <i className="fa-solid fa-earth-americas mr-2"></i> Neighborhood View
+                                </div>
+                                <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/10 flex items-center justify-center transition-all duration-300">
+                                    <i className="fa-solid fa-magnifying-glass-plus text-white text-3xl opacity-0 group-hover:opacity-100 transition-opacity"></i>
                                 </div>
                             </div>
                         )}
@@ -95,6 +109,48 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
                     )}
                 </div>
             </div>
+
+            {/* Lightbox Modal */}
+            {selectedMap && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-12 animate-in fade-in duration-300"
+                    onKeyDown={(e) => e.key === 'Escape' && setSelectedMap(null)}
+                >
+                    {/* Backdrop */}
+                    <div
+                        className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl"
+                        onClick={() => setSelectedMap(null)}
+                    ></div>
+
+                    {/* Modal Content */}
+                    <div className="relative bg-white rounded-[3rem] shadow-2xl overflow-hidden max-w-[95vw] max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-300">
+                        {/* Header */}
+                        <div className="absolute top-6 right-6 z-10">
+                            <button
+                                onClick={() => setSelectedMap(null)}
+                                className="w-12 h-12 rounded-full bg-black/20 hover:bg-black/40 backdrop-blur-md text-white flex items-center justify-center transition-all group active:scale-90"
+                            >
+                                <i className="fa-solid fa-xmark text-xl group-hover:rotate-90 transition-transform"></i>
+                            </button>
+                        </div>
+
+                        {/* Title Overlay */}
+                        <div className="absolute top-6 left-6 z-10 px-6 py-3 rounded-2xl bg-black/20 border border-white/20 backdrop-blur-md">
+                            <div className="text-[10px] font-black text-white/60 uppercase tracking-[0.2em] mb-0.5">Expanded Visualization</div>
+                            <div className="text-sm font-black text-white">{selectedMap.title}</div>
+                        </div>
+
+                        {/* Image Container */}
+                        <div className="flex-1 flex items-center justify-center bg-slate-50 overflow-auto">
+                            <img
+                                src={selectedMap.url}
+                                alt={selectedMap.title}
+                                className="max-w-full max-h-full object-contain shadow-sm"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </section>
     );
 };

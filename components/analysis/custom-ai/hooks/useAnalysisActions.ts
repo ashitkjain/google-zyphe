@@ -30,7 +30,7 @@ export const useAnalysisActions = (
     propertyData: any,
     propertyImages: string[],
     onUpdateAnalysis: (updated: CustomAIAnalysisResult) => void,
-    addLog: (service: string, meta: { type: 'request' | 'response' | 'error' | 'info' }, content: any) => void,
+    addLog: (service: string, meta: { type: 'request' | 'response' | 'error' | 'info' }, content: any, usage?: any) => void,
     isInitialLoading?: boolean
 ) => {
     const [timer, setTimer] = useState(0);
@@ -124,98 +124,106 @@ export const useAnalysisActions = (
         if (!analysis || !propertyData || pulseLoading) return;
 
         setTimer(0);
-        setPulseLoading(true);
-        addLog('System', { type: 'info' }, { task: 'community_pulse_init', zpid });
-
-        try {
-            const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
-            const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
-            const cityStateKey = generateCityStateKey(city, state);
-
-            let pulseData = null;
-            if (cityStateKey) {
-                pulseData = await getCommunityPulseFromCloud(cityStateKey);
-            }
-
-            if (pulseData) {
-                addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'community_pulse', location: cityStateKey || zpid });
-            } else {
-                addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'community_pulse', location: cityStateKey || zpid });
-                const res = await aiAnalyzePulse(propertyData);
-                pulseData = res.data;
-                if (cityStateKey) {
-                    await saveCommunityPulseToCloud(cityStateKey, pulseData);
+        addLog('System', { type: 'info' }, { message: "Community Pulse is currently DISABLED." });
+        setPulseLoading(false);
+        return;
+        /*
+                addLog('System', { type: 'info' }, { task: 'community_pulse_init', zpid });
+        
+                try {
+                    const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
+                    const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
+                    const cityStateKey = generateCityStateKey(city, state);
+        
+                    let pulseData = null;
+                    if (cityStateKey) {
+                        pulseData = await getCommunityPulseFromCloud(cityStateKey);
+                    }
+        
+                    if (pulseData) {
+                        addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'community_pulse', location: cityStateKey || zpid });
+                    } else {
+                        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'community_pulse', location: cityStateKey || zpid });
+                        const res = await aiAnalyzePulse(propertyData);
+                        pulseData = res.data;
+                        if (cityStateKey) {
+                            await saveCommunityPulseToCloud(cityStateKey, pulseData);
+                        }
+                        addLog('Gemini AI', { type: 'response' }, { task: 'community_pulse', location: cityStateKey || zpid }, (res as any).usage);
+                    }
+        
+                    onUpdateAnalysis({
+                        ...analysis,
+                        community_pulse: pulseData
+                    });
+        
+                } catch (err: any) {
+                    console.error("Community Pulse Failed:", err);
+                    addLog('System', { type: 'error' }, { message: "Community Pulse Failed", error: err.message || err });
+                } finally {
+                    setPulseLoading(false);
                 }
-                addLog('Gemini AI', { type: 'response' }, { task: 'community_pulse', location: cityStateKey || zpid }, (res as any).usage);
-            }
-
-            onUpdateAnalysis({
-                ...analysis,
-                community_pulse: pulseData
-            });
-
-        } catch (err: any) {
-            console.error("Community Pulse Failed:", err);
-            addLog('System', { type: 'error' }, { message: "Community Pulse Failed", error: err.message || err });
-        } finally {
-            setPulseLoading(false);
-        }
+        */
     };
 
     const handleRunInvestmentResearch = async () => {
         if (!analysis || !zpid || !propertyData || investmentLoading) return;
 
         setTimer(0);
-        setInvestmentLoading(true);
-        addLog('System', { type: 'info' }, { task: 'investment_research_parallel_init', zpid });
-
-        try {
-            let propInvestment: PropertySpecificInvestmentResult | null = await getPropertyInvestmentFromCloud(zpid);
-            if (propInvestment) {
-                addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'property_investment', zpid });
-            } else {
-                addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'property_investment', zpid });
-                const res = await aiAnalyzeInvestment(propertyData);
-                propInvestment = res.data;
-                await savePropertyInvestmentToCloud(zpid, propInvestment);
-                addLog('Gemini AI', { type: 'response' }, { task: 'property_investment', zpid }, (res as any).usage);
-            }
-
-            const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
-            const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
-            const cityStateKey = generateCityStateKey(city, state);
-
-            let generalMarket: GeneralMarketIntelligenceResult | null = null;
-            if (cityStateKey) {
-                generalMarket = await getGeneralMarketIntelligenceFromCloud(cityStateKey);
-            }
-
-            if (generalMarket) {
-                addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'general_market_intelligence', location: cityStateKey || zpid });
-            } else {
-                addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'general_market_intelligence', location: cityStateKey || zpid });
-                const res = await aiAnalyzeMarket(propertyData);
-                generalMarket = res.data;
-                if (cityStateKey) {
-                    await saveGeneralMarketIntelligenceToCloud(cityStateKey, generalMarket);
-                } else {
-                    await saveGeneralMarketIntelligenceToCloud(zpid, generalMarket!);
+        addLog('System', { type: 'info' }, { message: "Market Intelligence (Regional) is currently DISABLED." });
+        setInvestmentLoading(false);
+        return;
+        /*
+                addLog('System', { type: 'info' }, { task: 'investment_research_parallel_init', zpid });
+        
+                try {
+                    let propInvestment: PropertySpecificInvestmentResult | null = await getPropertyInvestmentFromCloud(zpid);
+                    if (propInvestment) {
+                        addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'property_investment', zpid });
+                    } else {
+                        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'property_investment', zpid });
+                        const res = await aiAnalyzeInvestment(propertyData);
+                        propInvestment = res.data;
+                        await savePropertyInvestmentToCloud(zpid, propInvestment);
+                        addLog('Gemini AI', { type: 'response' }, { task: 'property_investment', zpid }, (res as any).usage);
+                    }
+        
+                    const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
+                    const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
+                    const cityStateKey = generateCityStateKey(city, state);
+        
+                    let generalMarket: GeneralMarketIntelligenceResult | null = null;
+                    if (cityStateKey) {
+                        generalMarket = await getGeneralMarketIntelligenceFromCloud(cityStateKey);
+                    }
+        
+                    if (generalMarket) {
+                        addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'general_market_intelligence', location: cityStateKey || zpid });
+                    } else {
+                        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'general_market_intelligence', location: cityStateKey || zpid });
+                        const res = await aiAnalyzeMarket(propertyData);
+                        generalMarket = res.data;
+                        if (cityStateKey) {
+                            await saveGeneralMarketIntelligenceToCloud(cityStateKey, generalMarket);
+                        } else {
+                            await saveGeneralMarketIntelligenceToCloud(zpid, generalMarket!);
+                        }
+                        addLog('Gemini AI', { type: 'response' }, { task: 'general_market_intelligence', location: cityStateKey || zpid }, (res as any).usage);
+                    }
+        
+                    onUpdateAnalysis({
+                        ...analysis,
+                        property_investment: propInvestment,
+                        general_market_intelligence: generalMarket
+                    });
+        
+                } catch (err: any) {
+                    console.error("Investment Research Failed:", err);
+                    addLog('System', { type: 'error' }, { message: "Investment Research Failed", error: err.message || err });
+                } finally {
+                    setInvestmentLoading(false);
                 }
-                addLog('Gemini AI', { type: 'response' }, { task: 'general_market_intelligence', location: cityStateKey || zpid }, (res as any).usage);
-            }
-
-            onUpdateAnalysis({
-                ...analysis,
-                property_investment: propInvestment,
-                general_market_intelligence: generalMarket
-            });
-
-        } catch (err: any) {
-            console.error("Investment Research Failed:", err);
-            addLog('System', { type: 'error' }, { message: "Investment Research Failed", error: err.message || err });
-        } finally {
-            setInvestmentLoading(false);
-        }
+        */
     };
 
     const handleRunBiddingStrategy = async () => {
@@ -244,42 +252,65 @@ export const useAnalysisActions = (
         if (!analysis || !propertyData || deepLoading) return;
 
         setTimer(0);
-        setDeepLoading(true);
-        addLog('System', { type: 'info' }, { task: 'deep_investment_research_init', zpid });
-
-        try {
-            const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
-            const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
-            const cityStateKey = generateCityStateKey(city, state);
-
-            let deepData = null;
-            if (cityStateKey) {
-                deepData = await getDeepInvestmentResearchFromCloud(cityStateKey);
-            }
-
-            if (deepData) {
-                addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'deep_investment_research', location: cityStateKey || zpid });
-            } else {
-                addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'deep_investment_research', location: cityStateKey || zpid });
-                const res = await aiAnalyzeDeepResearch(propertyData);
-                deepData = res.data;
-                if (cityStateKey) {
-                    await saveDeepInvestmentResearchToCloud(cityStateKey, deepData);
+        addLog('System', { type: 'info' }, { message: "Deep Investment Research is currently DISABLED." });
+        setDeepLoading(false);
+        return;
+        /*
+                addLog('System', { type: 'info' }, { task: 'deep_investment_research_init', zpid });
+        
+                try {
+                    const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
+                    const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
+                    const cityStateKey = generateCityStateKey(city, state);
+        
+                    let deepData = null;
+                    if (cityStateKey) {
+                        deepData = await getDeepInvestmentResearchFromCloud(cityStateKey);
+                    }
+        
+                    // Polling logic: if it exists but is running, wait for it
+                    let attempts = 0;
+                    const MAX_ATTEMPTS = 30; // 5 minutes at 10s intervals
+        
+                    while (deepData?.status === 'running' && attempts < MAX_ATTEMPTS) {
+                        if (attempts === 0) addLog('Cloud Cache', { type: 'info' }, { status: 'Waiting', task: 'deep_investment_research', message: 'Existing research in progress...' });
+                        await new Promise(r => setTimeout(r, 10000));
+                        if (cityStateKey) {
+                            deepData = await getDeepInvestmentResearchFromCloud(cityStateKey);
+                        }
+                        attempts++;
+                    }
+        
+                    if (deepData && deepData.status === 'completed') {
+                        addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'deep_investment_research', location: cityStateKey || zpid });
+                    } else if (deepData?.status === 'failed') {
+                        addLog('Cloud Cache', { type: 'error' }, { status: 'Failed', task: 'deep_investment_research', message: deepData.error || 'Previous run failed.' });
+                        // If it failed previously, we might want to retry, but for now we fallback to AI call
+                        deepData = null;
+                    }
+        
+                    if (!deepData || !deepData.content) {
+                        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'deep_investment_research', location: cityStateKey || zpid });
+                        const res = await aiAnalyzeDeepResearch(propertyData);
+                        deepData = res.data;
+                        if (cityStateKey) {
+                            await saveDeepInvestmentResearchToCloud(cityStateKey, deepData);
+                        }
+                        addLog('Gemini AI', { type: 'response' }, { task: 'deep_investment_research', location: cityStateKey || zpid }, (res as any).usage);
+                    }
+        
+                    onUpdateAnalysis({
+                        ...analysis,
+                        deep_investment_research: deepData
+                    });
+        
+                } catch (err: any) {
+                    console.error("Deep Investment Research Failed:", err);
+                    addLog('System', { type: 'error' }, { message: "Deep Investment Research Failed", error: err.message || err });
+                } finally {
+                    setDeepLoading(false);
                 }
-                addLog('Gemini AI', { type: 'response' }, { task: 'deep_investment_research', location: cityStateKey || zpid }, (res as any).usage);
-            }
-
-            onUpdateAnalysis({
-                ...analysis,
-                deep_investment_research: deepData
-            });
-
-        } catch (err: any) {
-            console.error("Deep Investment Research Failed:", err);
-            addLog('System', { type: 'error' }, { message: "Deep Investment Research Failed", error: err.message || err });
-        } finally {
-            setDeepLoading(false);
-        }
+        */
     };
 
 

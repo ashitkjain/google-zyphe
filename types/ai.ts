@@ -95,6 +95,44 @@ export interface PropertySpecificInvestmentResult {
 
 export interface DeepInvestmentResearchResult {
     content: string;
+    structured_report?: {
+        macroeconomic_indicators: {
+            summary: string;
+            details: string[];
+            visual_hint?: string;
+        };
+        market_dynamics: {
+            summary: string;
+            details: string[];
+            visual_hint?: string;
+        };
+        demographic_shifts: {
+            summary: string;
+            details: string[];
+            visual_hint?: string;
+        };
+        infrastructure_and_development: {
+            summary: string;
+            details: string[];
+            visual_hint?: string;
+        };
+        investment_outlook: {
+            short_term: string;
+            long_term: string;
+            visual_hint?: string;
+        };
+        micro_markets: Array<{
+            name: string;
+            profile: string;
+            investment_thesis: string;
+            visual_hint?: string;
+        }>;
+        local_risks: {
+            summary: string;
+            risk_factors: string[];
+            visual_hint?: string;
+        };
+    };
     status?: 'running' | 'completed' | 'failed' | string;
     lastRan?: any;
     lastUpdated?: any;

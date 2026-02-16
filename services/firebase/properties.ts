@@ -224,8 +224,9 @@ export const saveGeneralMarketIntelligenceToCloud = async (cityStateKey: string,
     try {
         const docRef = doc(db, "general_market_intelligence", cityStateKey);
         logFirestoreQuery('setDoc', 'general_market_intelligence', { cityStateKey });
+        const researchData = typeof research === 'string' ? { market_dynamics: { summary: research } } : research;
         await setDoc(docRef, {
-            ...research,
+            ...researchData,
             status: 'completed',
             lastUpdated: serverTimestamp()
         }, { merge: true });
@@ -253,8 +254,11 @@ export const saveCommunityPulseToCloud = async (cityStateKey: string, pulse: Com
     try {
         const docRef = doc(db, "community_pulse", cityStateKey);
         logFirestoreQuery('setDoc', 'community_pulse', { cityStateKey });
+        // Guard: If pulse is accidentally a string, wrap it. Spreading a string results in a character map.
+        const pulseData = typeof pulse === 'string' ? { investment_insights: { summary: pulse } } : pulse;
+
         await setDoc(docRef, {
-            ...pulse,
+            ...pulseData,
             status: 'completed',
             lastUpdated: serverTimestamp()
         }, { merge: true });
@@ -282,8 +286,9 @@ export const saveDeepInvestmentResearchToCloud = async (cityStateKey: string, re
     try {
         const docRef = doc(db, "deep_investment_research", cityStateKey);
         logFirestoreQuery('setDoc', 'deep_investment_research', { cityStateKey });
+        const researchData = typeof research === 'string' ? { content: research } : research;
         await setDoc(docRef, {
-            ...research,
+            ...researchData,
             status: 'completed',
             lastUpdated: serverTimestamp()
         }, { merge: true });

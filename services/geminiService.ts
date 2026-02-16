@@ -407,10 +407,11 @@ export const analyzeNeighborhood = async (mapZoomIn: string, mapZoomOut: string,
   });
 };
 
-export const analyzeCommunityPulse = async (property: PropertyData, userId: string = "unknown", zpid?: string): Promise<AIResponseWithUsage<CommunityPulseResult>> => {
+export const analyzeCommunityPulse = async (property: PropertyData, userId: string = "unknown", zpid?: string, onLog?: (msg: string) => void): Promise<AIResponseWithUsage<CommunityPulseResult>> => {
   const prompt = getCommunityPulsePrompt(optimizePropertyForAi(property) as PropertyData);
   const startTime = Date.now();
 
+  onLog?.(`[Python Deep Research] Offloading Community Pulse task to Python Engine...`);
   console.log(`[Python Deep Research] Starting Community Pulse for ${property.city}...`);
   const { data } = await executePythonDeepResearch<CommunityPulseResult>(prompt, communityPulseSchema, {
     userId,
@@ -558,9 +559,10 @@ export const analyzeInvestmentResearch = async (property: PropertyData, userId: 
   });
 };
 
-export const analyzeDeepInvestmentResearch = async (property: PropertyData, userId: string = "unknown", zpid?: string): Promise<AIResponseWithUsage<DeepInvestmentResearchResult>> => {
+export const analyzeDeepInvestmentResearch = async (property: PropertyData, userId: string = "unknown", zpid?: string, onLog?: (msg: string) => void): Promise<AIResponseWithUsage<DeepInvestmentResearchResult>> => {
   const prompt = getDeepInvestmentResearchPrompt(optimizePropertyForAi(property) as PropertyData);
 
+  onLog?.(`[Python Deep Research] Offloading Deep Research task to Python Engine...`);
   console.log(`[Python Deep Research] Starting Deep Investment Research for ${property.city}...`);
   const { data } = await executePythonDeepResearch<DeepInvestmentResearchResult>(prompt, deepInvestmentResearchSchema, {
     userId,
@@ -583,9 +585,10 @@ export const analyzeDeepInvestmentResearch = async (property: PropertyData, user
   };
 };
 
-export const analyzeGeneralMarketIntelligence = async (property: PropertyData, userId: string = "unknown", zpid?: string): Promise<AIResponseWithUsage<GeneralMarketIntelligenceResult>> => {
+export const analyzeGeneralMarketIntelligence = async (property: PropertyData, userId: string = "unknown", zpid?: string, onLog?: (msg: string) => void): Promise<AIResponseWithUsage<GeneralMarketIntelligenceResult>> => {
   const prompt = getGeneralMarketIntelligencePrompt(optimizePropertyForAi(property) as PropertyData);
 
+  onLog?.(`[Python Deep Research] Offloading Market Intelligence task to Python Engine...`);
   console.log(`[Python Deep Research] Starting Market Intelligence for ${property.city}...`);
   const { data } = await executePythonDeepResearch<GeneralMarketIntelligenceResult>(prompt, generalMarketIntelligenceSchema, {
     userId,
@@ -612,7 +615,7 @@ export const analyzeGeneralMarketIntelligence = async (property: PropertyData, u
  * Runs Community Pulse and General Market Intelligence in parallel in the background.
  * Uses grounding (Deep Research) and tracks status per city.
  */
-export const runBackgroundCityResearch = async (property: PropertyData, userId: string = "unknown"): Promise<{ status: 'started' | 'skipped', cityStateKey: string, promise?: Promise<void> }> => {
+export const runBackgroundCityResearch = async (property: PropertyData, userId: string = "unknown", onLog?: (msg: string) => void): Promise<{ status: 'started' | 'skipped', cityStateKey: string, promise?: Promise<void> }> => {
   const { city, state } = property;
   const cityStateKey = generateCityStateKey(city, state);
 
@@ -621,6 +624,11 @@ export const runBackgroundCityResearch = async (property: PropertyData, userId: 
     return { status: 'skipped', cityStateKey: 'unknown' };
   }
 
+  onLog?.(`[runBackgroundCityResearch] Regional Research Suite (Pulse, Market, Deep) is currently DISABLED by configuration.`);
+  return { status: 'skipped', cityStateKey };
+
+  // Original logic preserved but unreachable for now
+  /*
   // 1. Check if already running or completed (within last 6 hours)
   const [pulseRecord, marketRecord, deepRecord] = await Promise.all([
     getCommunityPulseFromCloud(cityStateKey),
@@ -629,46 +637,51 @@ export const runBackgroundCityResearch = async (property: PropertyData, userId: 
   ]);
 
   const now = Date.now();
-  const getAge = (rec: any) => rec?.lastUpdated ? (now - (rec.lastUpdated.seconds * 1000)) : Infinity;
+  const getAge = (rec: any) => rec?.lastRan ? (now - (rec.lastRan.seconds * 1000)) : Infinity;
 
-  const pulseDone = pulseRecord?.status === 'completed' && getAge(pulseRecord) < 6 * 60 * 60 * 1000;
-  const marketDone = marketRecord?.status === 'completed' && getAge(marketRecord) < 6 * 60 * 60 * 1000;
-  const deepDone = deepRecord?.status === 'completed' && getAge(deepRecord) < 6 * 60 * 60 * 1000;
+  // Stale check: if it's 'running' but started > 10 mins ago, it likely crashed
+  const isStale = (rec: any) => rec?.status === 'running' && getAge(rec) > 10 * 60 * 1000;
 
-  const isCurrentlyRunning = pulseRecord?.status === 'running' || marketRecord?.status === 'running' || deepRecord?.status === 'running';
+  const isCurrentlyRunning = (pulseRecord?.status === 'running' && !isStale(pulseRecord)) ||
+    (marketRecord?.status === 'running' && !isStale(marketRecord)) ||
+    (deepRecord?.status === 'running' && !isStale(deepRecord));
 
   if (isCurrentlyRunning) {
-    console.log(`[runBackgroundCityResearch] Research currently running for ${cityStateKey}. Waiting for existing process.`);
+    onLog?.(`[runBackgroundCityResearch] Research currently running for ${cityStateKey}. Waiting for existing process.`);
     return { status: 'skipped', cityStateKey };
   }
-
-  if (pulseDone && marketDone && deepDone) {
-    console.log(`[runBackgroundCityResearch] All research types already completed for ${cityStateKey}. Skipping.`);
-    return { status: 'skipped', cityStateKey };
-  }
-
-  console.log(`[runBackgroundCityResearch] Triggering research for ${cityStateKey} (Pulse: ${!pulseDone}, Market: ${!marketDone}, Deep: ${!deepDone})`);
 
   // 2. Define the Research Task
   const promise = (async () => {
     try {
-      console.log(`[runBackgroundCityResearch] Starting parallel research for: ${cityStateKey}`);
+      onLog?.(`[runBackgroundCityResearch] Starting parallel research suite for: ${cityStateKey}`);
       await setCityResearchFlag(cityStateKey, 'running');
 
-      // Run ONLY Deep Research for now to stay within concurrency limits
-      const deepRes = await analyzeDeepInvestmentResearch(property, userId, cityStateKey);
+      // Run all three in parallel to satisfy the status flags
+      const [pulseRes, marketRes, deepRes] = await Promise.all([
+        analyzeCommunityPulse(property, userId, cityStateKey, onLog),
+        analyzeGeneralMarketIntelligence(property, userId, cityStateKey, onLog),
+        analyzeDeepInvestmentResearch(property, userId, cityStateKey, onLog)
+      ]);
 
-      console.log(`[runBackgroundCityResearch] Successfully completed research for ${cityStateKey}. Saving...`);
-      const saveResult = await saveDeepInvestmentResearchToCloud(cityStateKey, deepRes.data);
-      console.log(`[runBackgroundCityResearch] Saved deep research for ${cityStateKey}:`, saveResult.success);
+      onLog?.(`[runBackgroundCityResearch] Research successful for ${cityStateKey}. Saving results...`);
+
+      await Promise.all([
+        saveCommunityPulseToCloud(cityStateKey, pulseRes.data),
+        saveGeneralMarketIntelligenceToCloud(cityStateKey, marketRes.data),
+        saveDeepInvestmentResearchToCloud(cityStateKey, deepRes.data)
+      ]);
+
+      onLog?.(`[runBackgroundCityResearch] Regional Intelligence synchronized for ${cityStateKey}.`);
     } catch (error: any) {
-      console.error(`[runBackgroundCityResearch] Failed for ${cityStateKey}:`, error);
+      onLog?.(`[runBackgroundCityResearch] Failed for ${cityStateKey}: ${error.message || String(error)}`);
       await setCityResearchFlag(cityStateKey, 'failed', error.message || String(error));
       throw error;
     }
   })();
 
   return { status: 'started', cityStateKey, promise };
+  */
 };
 
 export const analyzeBiddingStrategy = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<BiddingStrategyResult>> => {
