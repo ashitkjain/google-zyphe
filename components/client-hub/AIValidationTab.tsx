@@ -27,6 +27,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [activeTab, setActiveTab] = useState<'audits' | 'reports' | 'instructions'>('audits');
     const [assignmentConfirm, setAssignmentConfirm] = useState<{ zpid: string, address: string, userId: string } | null>(null);
+    const [editingComment, setEditingComment] = useState<{ zpid: string, address: string, comment: string } | null>(null);
     const [reportStartDate, setReportStartDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
     const [reportEndDate, setReportEndDate] = useState(new Date().toISOString().split('T')[0]);
     const pageSize = 20;
@@ -48,7 +49,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
         const filteredStats = stats.filter(stat => stat.total >= 5);
 
         // Sort by pending properties descending, then by name
-        return filteredStats.sort((a, b) => {
+        return (filteredStats as { name: string, total: number, pending: number }[]).sort((a, b) => {
             if (b.pending !== a.pending) return b.pending - a.pending;
             return a.name.localeCompare(b.name);
         });
@@ -151,7 +152,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
         const end = new Date(reportEndDate);
         end.setHours(23, 59, 59, 999);
 
-        const assessmentList = Object.values(assessments);
+        const assessmentList = Object.values(assessments) as AIAssessment[];
         const userStats: Record<string, number> = {};
 
         assessmentList.forEach(a => {
@@ -426,15 +427,24 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                                         </div>
                                                     </td>
                                                     <td className="p-6">
-                                                        <textarea
-                                                            value={localComment}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value;
-                                                                setProperties(prev => prev.map(p => p.zpid === prop.zpid ? { ...p, comment: val } : p));
-                                                            }}
-                                                            placeholder="Enter audit notes..."
-                                                            className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-medium outline-none focus:bg-white focus:border-indigo-500 transition-all text-slate-600 w-full min-h-[40px] max-h-[120px] resize-y"
-                                                        />
+                                                        <div
+                                                            onClick={() => setEditingComment({ zpid: prop.zpid, address: prop.address, comment: localComment })}
+                                                            className={`min-h-[40px] max-h-[60px] p-3 rounded-xl border border-slate-100 bg-slate-50/50 cursor-pointer hover:bg-white hover:border-indigo-200 hover:shadow-sm transition-all overflow-hidden group/comment`}
+                                                        >
+                                                            {localComment ? (
+                                                                <p className="text-[10px] text-slate-600 font-medium leading-relaxed line-clamp-2">
+                                                                    {localComment}
+                                                                </p>
+                                                            ) : (
+                                                                <div className="flex items-center gap-2 text-slate-400">
+                                                                    <i className="fa-solid fa-plus text-[8px]"></i>
+                                                                    <span className="text-[9px] font-black uppercase tracking-widest">Add Comment</span>
+                                                                </div>
+                                                            )}
+                                                            <div className="absolute top-2 right-2 opacity-0 group-hover/comment:opacity-100 transition-opacity">
+                                                                <i className="fa-solid fa-pen-to-square text-indigo-400 text-[10px]"></i>
+                                                            </div>
+                                                        </div>
                                                     </td>
                                                     <td className="p-6 text-right">
                                                         <button
@@ -714,6 +724,104 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                 className="w-full py-4 bg-slate-50 text-slate-500 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-100 transition-all outline-none"
                             >
                                 No, Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Comment Editing Modal */}
+            {editingComment && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[3rem] w-full max-w-2xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+                        {/* Modal Header */}
+                        <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+                                    <i className="fa-solid fa-comment-dots text-xl"></i>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-slate-900 leading-tight">Audit Narrative</h3>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5 truncate max-w-[300px]">
+                                        {editingComment.address}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setEditingComment(null)}
+                                className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center group"
+                            >
+                                <i className="fa-solid fa-xmark group-hover:rotate-90 transition-transform"></i>
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-8 space-y-6">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Observation Details (Max 100+ Words)</label>
+                                <textarea
+                                    autoFocus
+                                    value={editingComment.comment}
+                                    onChange={(e) => setEditingComment(prev => prev ? { ...prev, comment: e.target.value } : null)}
+                                    placeholder="Synthesize your audit findings here. Be specific about visual discrepancies or AI hallucinations..."
+                                    className="w-full min-h-[300px] p-6 bg-slate-50 border border-slate-200 rounded-[2rem] text-sm text-slate-800 font-medium leading-relaxed outline-none focus:bg-white focus:border-indigo-500 transition-all resize-none shadow-inner"
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-100 rounded-full">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Word Count:</span>
+                                    <span className={`text-xs font-black ${editingComment.comment.split(/\s+/).filter(Boolean).length > 100 ? 'text-amber-600' : 'text-slate-900'}`}>
+                                        {editingComment.comment.trim() === '' ? 0 : editingComment.comment.trim().split(/\s+/).length}
+                                    </span>
+                                </div>
+                                <div className="text-[10px] font-bold text-slate-400 italic">
+                                    Changes will be staged until you "Apply Analysis"
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-8 bg-slate-50/50 border-t border-slate-50 flex items-center gap-4">
+                            <button
+                                onClick={async () => {
+                                    const currentProp = properties.find(p => p.zpid === editingComment.zpid);
+                                    const assessment = currentProp?.assessment || assessments[editingComment.zpid]?.assessment || 'other';
+                                    await handleSaveAssessment(editingComment.zpid, editingComment.address, assessment as any, '');
+                                    setEditingComment(null);
+                                }}
+                                disabled={savingZpids.has(editingComment.zpid)}
+                                className="px-6 py-4 bg-white border border-rose-100 text-rose-500 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-rose-50 transition-all flex items-center gap-2 group disabled:opacity-50"
+                            >
+                                <i className={`fa-solid ${savingZpids.has(editingComment.zpid) ? 'fa-spinner animate-spin' : 'fa-trash-can group-hover:shake'}`}></i>
+                                Delete Comment
+                            </button>
+
+                            <div className="flex-1"></div>
+
+                            <button
+                                onClick={() => setEditingComment(null)}
+                                className="px-8 py-4 text-slate-400 font-black text-[11px] uppercase tracking-widest hover:text-slate-600 transition-all"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                onClick={async () => {
+                                    const currentProp = properties.find(p => p.zpid === editingComment.zpid);
+                                    const assessment = currentProp?.assessment || assessments[editingComment.zpid]?.assessment || 'other';
+                                    await handleSaveAssessment(editingComment.zpid, editingComment.address, assessment as any, editingComment.comment);
+                                    setEditingComment(null);
+                                }}
+                                disabled={savingZpids.has(editingComment.zpid)}
+                                className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-slate-200 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50"
+                            >
+                                {savingZpids.has(editingComment.zpid) ? (
+                                    <i className="fa-solid fa-spinner animate-spin"></i>
+                                ) : (
+                                    <i className="fa-solid fa-cloud-arrow-up text-indigo-400"></i>
+                                )}
+                                Save Narrative
                             </button>
                         </div>
                     </div>
