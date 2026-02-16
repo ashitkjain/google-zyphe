@@ -681,10 +681,6 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                     </li>
                                     <li className="flex items-center gap-2">
                                         <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
-                                        <span className="font-bold">Image by image:</span> Verify each description against the specific image.
-                                    </li>
-                                    <li className="flex items-center gap-2">
-                                        <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
                                         Click <span className="font-bold">Generate Full Report:</span> Verify the full report for accuracy based on the above steps.
                                     </li>
                                 </ul>
