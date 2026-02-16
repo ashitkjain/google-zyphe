@@ -669,7 +669,11 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                     </li>
                                     <li className="flex items-center gap-2">
                                         <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
-                                        <span className="font-bold">Interior, Exterior & Rooms:</span> Compare AI descriptions/tags against actual photos.
+                                        <span className="font-bold">Interior & Rooms:</span> Compare AI descriptions/tags against actual photos.
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
+                                        <span className="font-bold">Exterior:</span> Verify Architecture and Lot, Views and Privacy with the actual photos. Skip Forensic AI analysis.
                                     </li>
                                     <li className="flex items-center gap-2">
                                         <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
