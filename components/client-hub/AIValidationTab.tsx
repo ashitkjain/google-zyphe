@@ -651,7 +651,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                     </li>
                                     <li className="flex items-center gap-2">
                                         <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
-                                        <span className="font-bold">Detail Check:</span> Verify primary details shown on Zillow match Zyphe accurately.
+                                        <span className="font-bold">Detail Check:</span> Verify these details shown on Zillow match Zyphe - number of bedrooms, number of bathrooms, listing price and first 5-10 words of mls listing description.
                                     </li>
                                 </ul>
                             </div>
@@ -669,11 +669,11 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                     </li>
                                     <li className="flex items-center gap-2">
                                         <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
-                                        <span className="font-bold">Interior & Rooms:</span> Compare AI descriptions/tags against actual photos.
+                                        <span className="font-bold">Interior, Exterior & Rooms:</span> Compare AI descriptions/tags against actual photos.
                                     </li>
                                     <li className="flex items-center gap-2">
                                         <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
-                                        <span className="font-bold">Neighborhood:</span> Ensure property markings are correct on Google Maps.
+                                        <span className="font-bold">Neighborhood:</span> Ensure that the orientation is correct based on zoom in map, assuming top is north, right is east and so on.
                                     </li>
                                     <li className="flex items-center gap-2">
                                         <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
