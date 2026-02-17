@@ -135,9 +135,14 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
         ];
 
-    const lateTabs: { id: HubTab; label: string; icon: string }[] = isTester ? [] : [
-        { id: 'knowledge_center', label: 'Library', icon: 'fa-book-bookmark' },
-    ];
+    const lateTabs: { id: HubTab; label: string; icon: string }[] = isTester
+        ? [
+            { id: 'my_zyphe', label: 'My Zyphe', icon: 'fa-chart-line' },
+        ]
+        : [
+            { id: 'knowledge_center', label: 'Library', icon: 'fa-book-bookmark' },
+            { id: 'my_zyphe', label: 'My Zyphe', icon: 'fa-chart-line' },
+        ];
 
     const toolTabs: { id: HubTab; label: string; icon: string }[] = isTester ? [] : [
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },

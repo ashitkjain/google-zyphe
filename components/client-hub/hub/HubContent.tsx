@@ -30,6 +30,7 @@ import ExecutiveSummaryTab from '../ExecutiveSummaryTab';
 import UnitEconomicsTab from '../UnitEconomicsTab';
 import PremiumMLSTab from '../PremiumMLSTab';
 import AIValidationTab from '../AIValidationTab';
+import MyZypheTab from '../MyZypheTab';
 import { Lead, CRMTask, UserProfile, ReminderRule, CalendarEvent } from '../../../types';
 
 interface HubContentProps {
@@ -214,6 +215,15 @@ const HubContent: React.FC<HubContentProps> = ({
             {activeTab === 'technical_media' && <TechnicalMediaTab />}
 
             {activeTab === 'video_upload' && <VideoUploadTab />}
+
+            {activeTab === 'my_zyphe' && (
+                <MyZypheTab
+                    userId={realtorId}
+                    displayName={realtorProfile?.displayName || realtorName}
+                    email={realtorProfile?.email || ''}
+                    role={realtorProfile?.role || userRole || 'buyer'}
+                />
+            )}
         </div>
     );
 };

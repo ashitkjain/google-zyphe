@@ -14,12 +14,19 @@ interface Props {
   };
 }
 
+const MAX_DISPLAY_IMAGES = 10;
+
 const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribution }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
+  // Cap images rendered in the browser to save memory (~200KB per image avoided)
+  const displayImages = images ? images.slice(0, MAX_DISPLAY_IMAGES) : [];
+  const totalCount = images?.length || 0;
+  const hiddenCount = totalCount - displayImages.length;
+
   useEffect(() => {
-    if (images && images.length > 0) {
-      setSelectedImage(images[0]);
+    if (displayImages.length > 0) {
+      setSelectedImage(displayImages[0]);
     } else {
       setSelectedImage(null);
     }
@@ -49,7 +56,7 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
         </h3>
         <span className={`text-sm font-bold px-4 py-1.5 rounded-full border shadow-sm ${isOffMarket ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-gray-100 text-gray-500 border-gray-200'
           }`}>
-          {isOffMarket ? 'Data Restricted' : `${images.length} Photos`}
+          {isOffMarket ? 'Data Restricted' : `${totalCount} Photos`}
         </span>
       </div>
 
@@ -69,24 +76,25 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
           {/* Main Large Image */}
           <div className="flex-1 rounded-3xl overflow-hidden shadow-xl border border-gray-100 bg-gray-900 group relative aspect-video md:aspect-auto">
             <img
-              src={selectedImage || images[0]}
+              src={selectedImage || displayImages[0]}
               alt="Property Main View"
               className="w-full h-full object-cover transition-all duration-700 ease-in-out group-hover:scale-[1.02]"
               loading="eager"
+              decoding="async"
             />
             <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2 md:hidden">
-              {images.slice(0, 8).map((_, i) => (
+              {displayImages.slice(0, 8).map((_, i) => (
                 <div
                   key={i}
-                  className={`w-2 h-2 rounded-full transition-all ${images[i] === selectedImage ? 'bg-white w-5' : 'bg-white/50'}`}
+                  className={`w-2 h-2 rounded-full transition-all ${displayImages[i] === selectedImage ? 'bg-white w-5' : 'bg-white/50'}`}
                 ></div>
               ))}
             </div>
           </div>
 
-          {/* Thumbnails */}
+          {/* Thumbnails — capped to MAX_DISPLAY_IMAGES */}
           <div className="flex md:flex-col flex-row gap-4 w-full md:w-32 overflow-x-auto md:overflow-y-auto snap-x md:snap-y scroll-smooth">
-            {images.map((img, idx) => (
+            {displayImages.map((img, idx) => (
               <button
                 key={idx}
                 onClick={() => setSelectedImage(img)}
@@ -100,7 +108,14 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
                   alt={`Thumbnail ${idx + 1}`}
                   className={`w-full h-full object-cover transition-transform duration-300 ${selectedImage === img ? 'scale-110' : 'group-hover:scale-110'}`}
                   loading="lazy"
+                  decoding="async"
                 />
+                {/* "+N more" badge on the last visible thumbnail */}
+                {idx === displayImages.length - 1 && hiddenCount > 0 && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                    <span className="text-white text-xs font-black">+{hiddenCount}</span>
+                  </div>
+                )}
               </button>
             ))}
           </div>

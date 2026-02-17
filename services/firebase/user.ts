@@ -204,12 +204,12 @@ export const toggleFavorite = async (uid: string, property: PropertyData) => {
     }
 };
 
-export const getUserFavorites = async (uid: string) => {
+export const getUserFavorites = async (uid: string, maxItems = 100) => {
     if (!db) return [];
     try {
         const favCol = collection(db, "users", uid, "favorites");
-        const q = query(favCol, orderBy("timestamp", "desc"));
-        logFirestoreQuery('getDocs', 'users/favorites', { uid });
+        const q = query(favCol, orderBy("timestamp", "desc"), limit(maxItems));
+        logFirestoreQuery('getDocs', 'users/favorites', { uid, limit: maxItems });
         const snap = await getDocs(q);
         return snap.docs.map(doc => doc.data());
     } catch (error) {
@@ -218,13 +218,12 @@ export const getUserFavorites = async (uid: string) => {
     }
 };
 
-export const getRealtorClients = async (realtorId: string) => {
+export const getRealtorClients = async (realtorId: string, maxItems = 200) => {
     if (!db) return [];
     try {
         const usersCol = collection(db, "users");
-        // Simple query for realtorId match
-        const q = query(usersCol, where("realtorId", "==", realtorId));
-        logFirestoreQuery('getDocs', 'users', { realtorId });
+        const q = query(usersCol, where("realtorId", "==", realtorId), limit(maxItems));
+        logFirestoreQuery('getDocs', 'users', { realtorId, limit: maxItems });
         const snap = await getDocs(q);
         return snap.docs.map(doc => doc.data() as UserProfile);
     } catch (error) {

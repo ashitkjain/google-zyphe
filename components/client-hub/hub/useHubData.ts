@@ -13,7 +13,9 @@ export const useHubData = (realtorId: string, activeTab?: string) => {
     const [clients, setClients] = useState<UserProfile[]>([]);
     const [loadingData, setLoadingData] = useState(false);
     const [loadingClients, setLoadingClients] = useState(false);
-    const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set());
+
+    // Track whether mock seeding has already run (prevents re-seeding on every tab switch)
+    const seededRef = React.useRef(false);
 
     const refreshLeads = async () => {
         const _leads = await getLeads(realtorId, ['leads']);
@@ -36,26 +38,30 @@ export const useHubData = (realtorId: string, activeTab?: string) => {
 
     useEffect(() => {
         const fetchLeads = async () => {
-            if (!realtorId || loadedTabs.has('leads')) return;
+            if (!realtorId) return;
             setLoadingData(true);
             try {
                 console.log(`[useHubData] Fetching Leads...`);
                 let _leads = await getLeads(realtorId, ['leads']);
 
-                // Seed Check (only if leads is empty)
-                const initialLeads: Lead[] = getInitialMockLeads(realtorId);
-                if (_leads.length < 5) {
-                    const actualShouldSeed = initialLeads.some(l => !_leads.find(ex => ex.id === l.id));
-                    if (actualShouldSeed) {
-                        console.log("[useHubData] Seeding mock leads...");
-                        const initialTasks = getInitialMockTasks(realtorId);
-                        const initialTemplates = getInitialMockTemplates(realtorId);
-                        const initialTransactions = getInitialMockTransactions(realtorId);
-                        await seedMockData(realtorId, initialLeads, initialTasks, initialTemplates, initialTransactions);
-                        _leads = await getLeads(realtorId, ['leads']);
+                // Seed Check (only once per session)
+                if (!seededRef.current) {
+                    const initialLeads: Lead[] = getInitialMockLeads(realtorId);
+                    if (_leads.length < 5) {
+                        const actualShouldSeed = initialLeads.some(l => !_leads.find(ex => ex.id === l.id));
+                        if (actualShouldSeed) {
+                            console.log("[useHubData] Seeding mock leads...");
+                            const initialTasks = getInitialMockTasks(realtorId);
+                            const initialTemplates = getInitialMockTemplates(realtorId);
+                            const initialTransactions = getInitialMockTransactions(realtorId);
+                            await seedMockData(realtorId, initialLeads, initialTasks, initialTemplates, initialTransactions);
+                            _leads = await getLeads(realtorId, ['leads']);
+                        }
                     }
+                    seededRef.current = true;
                 }
 
+                const initialLeads: Lead[] = getInitialMockLeads(realtorId);
                 const mappedLeads = _leads.map(lead => {
                     if (lead.isMock) {
                         const mockTemplate = initialLeads.find(l => l.id === lead.id);
@@ -65,20 +71,18 @@ export const useHubData = (realtorId: string, activeTab?: string) => {
                 });
 
                 setLeads(mappedLeads);
-                setLoadedTabs(prev => new Set(prev).add('leads'));
             } finally {
                 setLoadingData(false);
             }
         };
 
         const fetchTasks = async () => {
-            if (!realtorId || loadedTabs.has('tasks')) return;
+            if (!realtorId) return;
             setLoadingData(true);
             try {
                 console.log(`[useHubData] Fetching Tasks...`);
                 const _tasks = await getTasks(realtorId);
                 setTasks(_tasks);
-                setLoadedTabs(prev => new Set(prev).add('tasks'));
             } finally {
                 setLoadingData(false);
             }
@@ -88,23 +92,17 @@ export const useHubData = (realtorId: string, activeTab?: string) => {
             if (!realtorId) return;
 
             // Calendar Events
-            if ((activeTab === 'calendar' || activeTab === 'leads') && !loadedTabs.has('calendar')) {
-                getCalendarEvents(realtorId).then(evs => {
-                    setCalendarEvents(evs);
-                    setLoadedTabs(prev => new Set(prev).add('calendar'));
-                });
+            if (activeTab === 'calendar' || activeTab === 'leads') {
+                getCalendarEvents(realtorId).then(evs => setCalendarEvents(evs));
             }
 
             // Templates
-            if ((activeTab === 'tasks' || activeTab === 'creative_studio') && !loadedTabs.has('templates')) {
-                getTemplates(realtorId).then(ts => {
-                    setTemplates(ts);
-                    setLoadedTabs(prev => new Set(prev).add('templates'));
-                });
+            if (activeTab === 'tasks' || activeTab === 'creative_studio') {
+                getTemplates(realtorId).then(ts => setTemplates(ts));
             }
 
             // Reminder Rules
-            if ((activeTab === 'reminder_rules' || activeTab === 'reactivate') && !loadedTabs.has('rules')) {
+            if (activeTab === 'reminder_rules' || activeTab === 'reactivate') {
                 getReminderRules(realtorId).then(dbRules => {
                     const appRules = getDefaultReminderRules().map(rule => ({ ...rule, realtorId }));
                     const merged = appRules.map(ar => {
@@ -112,13 +110,12 @@ export const useHubData = (realtorId: string, activeTab?: string) => {
                         return dr ? { ...ar, ...dr } : ar;
                     });
                     setReminderRules(merged);
-                    setLoadedTabs(prev => new Set(prev).add('rules'));
                 });
             }
 
             // Clients
-            if (activeTab === 'clients' && !loadedTabs.has('clients')) {
-                refreshClients().then(() => setLoadedTabs(prev => new Set(prev).add('clients')));
+            if (activeTab === 'clients') {
+                refreshClients();
             }
         };
 

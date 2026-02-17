@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import DevMemoryMonitor from './components/DevMemoryMonitor';
 import {
   PropertyData,
   CustomAIAnalysisResult,
@@ -87,6 +88,17 @@ const App: React.FC = () => {
   const [comprehensiveAnalysis, setComprehensiveAnalysis] = useState<ComprehensiveAnalysisResult | null>(null);
   const [comprehensiveLoading, setComprehensiveLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+
+  // Dev memory monitor — tracks the heaviest React state for debugging
+  const trackedState = useMemo(() => [
+    { label: 'propertyData', value: propertyData },
+    { label: 'customAnalysis', value: customAnalysis },
+    { label: 'comprehensiveAnalysis', value: comprehensiveAnalysis },
+    { label: 'logs', value: logs },
+    { label: 'cloudHistory', value: cloudHistory },
+    { label: 'favorites', value: favorites },
+    { label: 'currentUser', value: currentUser },
+  ], [propertyData, customAnalysis, comprehensiveAnalysis, logs, cloudHistory, favorites, currentUser]);
   const [viewMode, setViewMode] = useState<ViewMode>('main');
   const [showPreload, setShowPreload] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -1137,6 +1149,7 @@ const App: React.FC = () => {
 
         <Footer onNavigate={transitionToView} />
       </main>
+      <DevMemoryMonitor trackedState={trackedState} />
     </div>
   );
 };

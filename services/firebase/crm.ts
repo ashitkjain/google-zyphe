@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs, serverTimestamp, updateDoc, deleteDoc, writeBatch } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs, serverTimestamp, updateDoc, deleteDoc, writeBatch, limit } from "firebase/firestore";
 import {
     db,
     auth,
@@ -185,13 +185,13 @@ export const deleteLead = async (leadId: string, collectionName: string = 'leads
     }
 };
 
-export const getLeads = async (realtorId: string, collectionNames: string[] = ['leads']) => {
+export const getLeads = async (realtorId: string, collectionNames: string[] = ['leads'], maxItems = 200) => {
     if (!db) return [];
     try {
         const allLeads: Lead[] = [];
         for (const name of collectionNames) {
-            const q = query(collection(db, name), where("realtorId", "==", realtorId));
-            logFirestoreQuery('getDocs', name, { realtorId });
+            const q = query(collection(db, name), where("realtorId", "==", realtorId), limit(maxItems));
+            logFirestoreQuery('getDocs', name, { realtorId, limit: maxItems });
             const snap = await getDocs(q);
             allLeads.push(...snap.docs.map(doc => ({
                 id: doc.id,
