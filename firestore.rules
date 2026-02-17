@@ -227,6 +227,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // USER ACTIVITY TRACKING (login, page views, logout, session timeouts)
+    match /user_activity/{eventId} {
+      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+      allow read: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow update, delete: if false;
+    }
+
     match /reactivation_analysis_summary/{summaryId} {
       allow read, write: if request.auth != null && 
                            ( (resource == null && request.resource.data.userId == request.auth.uid) || 

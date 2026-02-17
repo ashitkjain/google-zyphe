@@ -31,7 +31,10 @@ import {
   generateCityStateKey,
   getCommunityPulseFromCloud,
   saveCommunityPulseToCloud,
-  deletePropertyAnalysis
+  deletePropertyAnalysis,
+  trackLogin,
+  trackPageView,
+  trackLogout
 } from './services/firebaseService';
 import { APP_CONFIG } from './config';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -55,6 +58,7 @@ import GuidesTab from './components/client-hub/GuidesTab';
 import LegalDisclaimer from './components/LegalDisclaimer';
 import TermsView from './components/TermsView';
 import PrivacyPolicy from './components/PrivacyPolicy';
+import { useInactivitySignout } from './hooks/useInactivitySignout';
 
 type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'video_upload' | 'technical_media' | 'executive_summary' | 'market_analysis' | 'opportunity_discovery' | 'ai_validation';
 
@@ -89,6 +93,21 @@ const App: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const historyRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
+
+  // Auto sign-out testers after 15 min of inactivity
+  useInactivitySignout(currentUser?.role, () => {
+    if (currentUser) {
+      trackLogout({
+        uid: currentUser.uid,
+        email: currentUser.email || '',
+        displayName: currentUser.displayName || '',
+        role: currentUser.role || 'unknown'
+      }, 'session_timeout');
+    }
+    setCurrentUser(null);
+    setCloudHistory([]);
+    setError(null);
+  });
 
   // Simple Routing Logic
   // Simple Routing Logic
@@ -166,6 +185,19 @@ const App: React.FC = () => {
     const isKnowledgeMode = newMode === 'knowledge_center' || newMode === 'guides' || newMode === 'best_practices';
 
     setViewMode(newMode);
+
+    // Track page view for analytics
+    if (currentUser) {
+      trackPageView({
+        uid: currentUser.uid,
+        email: currentUser.email || '',
+        displayName: currentUser.displayName || '',
+        role: currentUser.role || 'unknown'
+      }, newMode, {
+        address: propertyData?.address,
+        zpid: propertyData?.zpid
+      });
+    }
     let path = '/';
 
     if (customPath && !isAddress) {
@@ -218,8 +250,11 @@ const App: React.FC = () => {
 
     // Handle Direct Property Search via Query Param
     const queryAddr = params.get('q');
-    if (queryAddr) {
-      setAddress(queryAddr);
+    const queryZpid = params.get('zpid');
+
+    if (queryZpid || queryAddr) {
+      if (queryAddr) setAddress(queryAddr);
+
       // If we are already on a realtor path, we might want to stay there, 
       // but usually direct queries should land on the main explore view
       if (window.location.pathname.startsWith('/realtor')) {
@@ -227,7 +262,12 @@ const App: React.FC = () => {
       } else {
         setViewMode('main');
       }
-      performSearch(queryAddr);
+
+      if (queryZpid) {
+        performSearch(queryZpid, false, queryAddr || undefined);
+      } else {
+        performSearch(queryAddr!);
+      }
 
       // Clean URL to prevent re-triggering on refresh while keeping state
       window.history.replaceState({}, '', window.location.pathname);
@@ -274,6 +314,12 @@ const App: React.FC = () => {
             profile.role = 'tester';
           }
           setCurrentUser(profile);
+          trackLogin({
+            uid: user.uid,
+            email: user.email || '',
+            displayName: profile.displayName || user.displayName || '',
+            role: profile.role || 'buyer'
+          });
         } else {
           // Fallback to localStorage role if available, otherwise default to buyer
           const pendingRole = (localStorage.getItem('zyphe_pending_role') as any) || 'buyer';
@@ -289,6 +335,7 @@ const App: React.FC = () => {
               role: 'investor',
               createdAt: new Date()
             });
+            trackLogin({ uid: user.uid, email: user.email || '', displayName: user.displayName || 'System Admin', role: 'investor' });
           } else {
             setCurrentUser({
               uid: user.uid,
@@ -297,6 +344,7 @@ const App: React.FC = () => {
               role: pendingRole,
               createdAt: new Date()
             });
+            trackLogin({ uid: user.uid, email: user.email || '', displayName: user.displayName || 'Guest User', role: pendingRole });
           }
         }
 
@@ -383,7 +431,7 @@ const App: React.FC = () => {
     performSearch(item);
   };
 
-  const performSearch = async (searchAddress: string, forceRefresh: boolean = false) => {
+  const performSearch = async (searchAddress: string, forceRefresh: boolean = false, displayAddressOverride?: string) => {
     if (!searchAddress.trim()) return;
 
     setLoading(true);
@@ -429,12 +477,27 @@ const App: React.FC = () => {
         (step) => setLoadingSublabel(step)
       );
 
+      // IDENTITY RESOLUTION: Centralize the "truth" for the property's primary identity.
+      // Priority chain:
+      //   1. displayAddressOverride — the original address from CityDataTab/URL (preserves user's city context)
+      //   2. finalAddress — the Radar-normalized clean address (for typed searches)
+      //   3. fullData.address — the property record's own address (from Zillow/RESO)
+      //   4. searchAddress — raw user input (last resort)
+      let resolvedAddress = "";
+      if (displayAddressOverride) {
+        resolvedAddress = displayAddressOverride;
+      } else if (isZpid) {
+        resolvedAddress = fullData.address || `Property ID: ${searchAddress}`;
+      } else {
+        resolvedAddress = finalAddress || fullData.address || searchAddress;
+      }
+
       const mergedData: PropertyData = {
         ...fullData,
         coordinates: coords || fullData.coordinates,
         mapZoomIn: mapIn || fullData.mapZoomIn,
         mapZoomOut: mapOut || fullData.mapZoomOut,
-        address: finalAddress || fullData.address
+        address: resolvedAddress
       };
 
       addLog('Zyphe Data Layer', { type: 'response' }, mergedData);
@@ -445,6 +508,7 @@ const App: React.FC = () => {
       }
       console.log(`[Zyphe API] Property Data Loaded. ZPID: ${mergedData.zpid || 'MISSING'}`);
       setPropertyData(mergedData);
+      setAddress(mergedData.address); // Sync search bar with the final resolved identity
       setLoading(false);
       setImagesLoading(false);
 
@@ -648,6 +712,14 @@ const App: React.FC = () => {
   const handleSignOut = async () => {
     if (auth) {
       try {
+        if (currentUser) {
+          trackLogout({
+            uid: currentUser.uid,
+            email: currentUser.email || '',
+            displayName: currentUser.displayName || '',
+            role: currentUser.role || 'unknown'
+          }, 'manual');
+        }
         await signOut(auth);
         setCurrentUser(null);
         setCloudHistory([]);
@@ -879,6 +951,7 @@ const App: React.FC = () => {
       logs={logs}
       userRole={currentUser?.role}
       searchBar={searchBar}
+      address={address}
     />
   );
 

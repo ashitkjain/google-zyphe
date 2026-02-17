@@ -1,37 +1,308 @@
 import React from 'react';
-import { DeepInvestmentResearchResult } from '../../../../types';
+import { DeepInvestmentResearchResult, ChartPoint } from '../../../../types';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, LabelList } from 'recharts';
 
 interface DeepInvestmentViewProps {
     data: DeepInvestmentResearchResult;
 }
 
+const SimpleChart: React.FC<{
+    data: ChartPoint[];
+    title?: string;
+    metric1: string;
+    metric2?: string;
+}> = ({ data, title, metric1, metric2 }) => {
+    if (!data || data.length === 0) return null;
+
+    const formatYAxis = (value: number, metricName: string) => {
+        if (metricName.toLowerCase().includes('price')) {
+            if (value >= 1000000) return `$${(value / 1000000).toFixed(2)}M`;
+            if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
+            return `$${value}`;
+        }
+        return value.toString();
+    };
+
+    const formatDataLabel = (value: number, metricName: string) => {
+        if (metricName.toLowerCase().includes('price')) {
+            return `$${(value / 1000000).toFixed(2)}M`;
+        }
+        if (metricName.toLowerCase().includes('days')) {
+            return `${value} days`;
+        }
+        return value.toString();
+    };
+
+    return (
+        <div className="w-full h-80 mt-6 mb-4">
+            {title && (
+                <div className="flex flex-col items-center mb-6">
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{title}</div>
+                    <div className="flex gap-6 items-center">
+                        <div className="flex items-center gap-2">
+                            <div className="w-4 h-1 bg-[#16a34a] rounded-full"></div>
+                            <span className="text-[10px] font-black text-slate-800 uppercase tracking-wider">{metric1}</span>
+                        </div>
+                        {metric2 && (
+                            <div className="flex items-center gap-2">
+                                <div className="w-4 h-0.5 border-t-2 border-dashed border-[#2563eb]"></div>
+                                <span className="text-[10px] font-black text-slate-800 uppercase tracking-wider">{metric2}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+            <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data} margin={{ top: 30, right: 30, left: 10, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis
+                        dataKey="label"
+                        fontSize={11}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#64748b', fontWeight: 800 }}
+                        dy={15}
+                    />
+                    <YAxis
+                        yAxisId="left"
+                        fontSize={10}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#16a34a', fontWeight: 800 }}
+                        tickFormatter={(v) => formatYAxis(v, metric1)}
+                    />
+                    {metric2 && (
+                        <YAxis
+                            yAxisId="right"
+                            orientation="right"
+                            fontSize={10}
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: '#2563eb', fontWeight: 800 }}
+                            tickFormatter={(v) => formatYAxis(v, metric2)}
+                        />
+                    )}
+                    <Tooltip
+                        contentStyle={{
+                            borderRadius: '20px',
+                            border: 'none',
+                            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            padding: '16px'
+                        }}
+                    />
+                    <Line
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="value"
+                        name={metric1}
+                        stroke="#16a34a"
+                        strokeWidth={4}
+                        dot={{ r: 8, fill: '#16a34a', strokeWidth: 4, stroke: '#fff' }}
+                        activeDot={{ r: 10, strokeWidth: 0 }}
+                    >
+                        <LabelList
+                            dataKey="value"
+                            position="top"
+                            offset={18}
+                            formatter={(v: any) => formatDataLabel(v, metric1)}
+                            style={{ fill: '#0f172a', fontSize: '12px', fontWeight: 900 }}
+                        />
+                    </Line>
+                    {metric2 && (
+                        <Line
+                            yAxisId="right"
+                            type="monotone"
+                            dataKey="value2"
+                            name={metric2}
+                            stroke="#2563eb"
+                            strokeWidth={3}
+                            strokeDasharray="8 6"
+                            dot={{ r: 8, fill: '#2563eb', strokeWidth: 4, stroke: '#fff' }}
+                            activeDot={{ r: 10, strokeWidth: 0 }}
+                        >
+                            <LabelList
+                                dataKey="value2"
+                                position="top"
+                                offset={18}
+                                formatter={(v: any) => formatDataLabel(v, metric2)}
+                                style={{ fill: '#2563eb', fontSize: '12px', fontWeight: 900 }}
+                            />
+                        </Line>
+                    )}
+                </LineChart>
+            </ResponsiveContainer>
+        </div>
+    );
+};
+
 export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) => {
+    const cleanText = (text: any): any => {
+        if (!text) return text;
+        if (Array.isArray(text)) return text.map(item => cleanText(item));
+        if (typeof text !== 'string') return text;
+
+        let cleaned = text.trim();
+
+        // 1. Handle potential triple-wrapped JSON or stringified entities
+        if (cleaned.startsWith('"') && cleaned.endsWith('"') && cleaned.length > 2) {
+            try {
+                const unquoted = JSON.parse(cleaned);
+                if (typeof unquoted === 'string') cleaned = unquoted.trim();
+            } catch (e) { }
+        }
+
+        // 2. If the string is a raw JSON object string (fallback artifact)
+        if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+            try {
+                const parsed = JSON.parse(cleaned);
+                if (parsed.content) return cleanText(parsed.content);
+            } catch (e) { }
+        }
+
+        // 3. Normalize escapes
+        cleaned = cleaned
+            .replace(/\\n/g, '\n')
+            .replace(/\\"/g, '"')
+            .replace(/\\'/g, "'")
+            .replace(/\/"/g, '"');
+
+        // 4. Truncate at meta-data leakage (the "JSON scaffolding" that leaks from GenAI)
+        // We look for where the markdown narrative ends and the JSON format resumes
+        const leakMarkers = [
+            /\n[ \t]*"structured_report":/i,
+            /\n[ \t]*"type":\s*"OBJECT"/i,
+            /\n[ \t]*"properties":/i,
+            /\n[ \t]*"content":/i,
+            /\n[ \t]*"macroeconomic_indicators":/i
+        ];
+
+        for (const pattern of leakMarkers) {
+            const match = cleaned.match(pattern);
+            if (match && match.index !== undefined) {
+                cleaned = cleaned.substring(0, match.index);
+                break;
+            }
+        }
+
+        // 5. Aggressive cleanup of trailing JSON punctuation (quotes, braces, commas)
+        // This removes the "residue" left behind after truncating at a marker or simply 
+        // lingering at the end of a malformed AI response.
+        let prev;
+        do {
+            prev = cleaned;
+            cleaned = cleaned.trim().replace(/["}\s,\]]+$/, '');
+        } while (cleaned !== prev && cleaned.length > 0);
+
+        return cleaned;
+    };
+
+    // PRE-COMPUTE CITATION FALLBACK MAP from the content's Sources section.
+    // When the AI's structured `citations` array is empty or missing,
+    // we parse the markdown Sources section to extract source descriptions.
+    const contentSourceMap: Record<string, string> = {};
+    if (typeof data.content === 'string') {
+        const sourceSectionMatch = data.content.match(/##?\s*Sources?\s*\n([\s\S]*?)(?:\n##?\s|$)/i);
+        if (sourceSectionMatch) {
+            const sourceLines = sourceSectionMatch[1].split('\n');
+            for (const line of sourceLines) {
+                const lineMatch = line.match(/[*\-•]\s*\[cite:\s*([\d,\s]+)\]\s*(.+)/);
+                if (lineMatch) {
+                    const nums = lineMatch[1].split(',').map(n => n.trim());
+                    const description = lineMatch[2].trim();
+                    nums.forEach(n => { contentSourceMap[n] = description; });
+                }
+            }
+        }
+    }
+
+    const renderTable = (lines: string[], key: any) => {
+        const parseRow = (row: string) => row.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+        const headerRow = parseRow(lines[0]);
+        // Filter out rows that are just separators like |---|---|
+        const bodyRows = lines.slice(1).filter(l => !l.match(/^[|\s-:]+$/)).map(parseRow);
+
+        // If the second line was a header separator, and we started at slice(1), 
+        // we might have the header as the first data row. Let's be safer.
+        const actualDataRows = lines.length > 2 && lines[1].includes('---') ? lines.slice(2).map(parseRow) : lines.slice(1).map(parseRow);
+
+        return (
+            <div key={key} className="my-8 overflow-hidden rounded-2xl border border-slate-100 shadow-sm bg-white">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-50/50">
+                            <tr>
+                                {headerRow.map((cell, i) => (
+                                    <th key={i} className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-100">
+                                        {renderTextWithBold(cell)}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {actualDataRows.map((row, i) => (
+                                <tr key={i} className="hover:bg-slate-50/30 transition-colors">
+                                    {row.map((cell, j) => (
+                                        <td key={j} className={`p-4 text-xs ${j === 0 ? 'font-black text-slate-900' : 'text-slate-600'}`}>
+                                            {renderTextWithBold(cell)}
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
     const renderMarkdown = (content: any) => {
         if (typeof content !== 'string') return JSON.stringify(content, null, 2);
 
-        // Fix for literal \n sequences and escaped characters like \$
-        const processedContent = content
-            .replace(/\\n/g, '\n')
-            .replace(/\\(\$|#|\*|_|\[|\])/g, '$1');
+        const processedContent = cleanText(content);
+        if (processedContent.trim() === '') return null;
 
         const lines = processedContent.split('\n');
-        return lines.map((line, idx) => {
-            // Horizontal rule
-            if (line.trim() === '---') {
-                return <hr key={idx} className="my-8 border-gray-100" />;
+        const elements: any[] = [];
+        let i = 0;
+
+        while (i < lines.length) {
+            const line = lines[i];
+            const trimmedLine = line.trim();
+
+            // Table detection
+            if (trimmedLine.startsWith('|')) {
+                const tableLines: string[] = [];
+                while (i < lines.length && lines[i].trim().startsWith('|')) {
+                    tableLines.push(lines[i]);
+                    i++;
+                }
+                if (tableLines.length >= 2) {
+                    elements.push(renderTable(tableLines, `table-${i}`));
+                    continue;
+                } else {
+                    tableLines.forEach((tl, idx) => {
+                        elements.push(<p key={`table-fallback-${i}-${idx}`} className="mb-4 leading-[1.8] text-gray-700 font-medium">{renderTextWithBold(tl)}</p>);
+                    });
+                    continue;
+                }
             }
 
-            // Headers
-            if (line.startsWith('# ')) {
-                return <h1 key={idx} className="text-3xl font-black text-gray-900 mt-12 mb-6 tracking-tight border-b border-gray-50 pb-4">{line.slice(2)}</h1>;
+            // Horizontal rule
+            if (trimmedLine === '---') {
+                elements.push(<hr key={i} className="my-4 border-gray-100" />);
             }
-            if (line.startsWith('## ')) {
+            // Headers
+            else if (line.startsWith('# ')) {
+                elements.push(<h1 key={i} className="text-3xl font-black text-gray-900 mt-6 mb-4 tracking-tight border-b border-gray-50 pb-4">{line.slice(2)}</h1>);
+            }
+            else if (line.startsWith('## ')) {
                 const title = line.slice(3).trim();
                 const isMicroMarkets = title.toLowerCase().includes('micro-market');
                 const isLocalRisks = title.toLowerCase().includes('local risk');
-
-                return (
-                    <div key={idx} className={`mt-10 mb-6 pb-2 border-b ${isLocalRisks ? 'border-red-100' : 'border-gray-50'}`}>
+                elements.push(
+                    <div key={i} className={`mt-6 mb-4 pb-2 border-b ${isLocalRisks ? 'border-red-100' : 'border-gray-50'}`}>
                         <div className="flex items-center gap-3">
                             {isMicroMarkets && <i className="fa-solid fa-archway text-indigo-400 text-sm"></i>}
                             {isLocalRisks && <i className="fa-solid fa-triangle-exclamation text-rose-400 text-sm animate-pulse"></i>}
@@ -42,42 +313,82 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
                     </div>
                 );
             }
-            if (line.startsWith('### ')) {
-                return (
-                    <div key={idx} className="flex items-center gap-2 mt-8 mb-3">
+            else if (line.startsWith('### ')) {
+                elements.push(
+                    <div key={i} className="flex items-center gap-2 mt-6 mb-3">
                         <div className="w-1 h-6 bg-indigo-500 rounded-full opacity-20"></div>
                         <h3 className="text-xl font-black text-gray-800 tracking-tight">{line.slice(4)}</h3>
                     </div>
                 );
             }
-
-            // Bullet points
-            if (line.trim().startsWith('* ') || line.trim().startsWith('- ')) {
-                const bulletContent = line.trim().slice(2);
-                return (
-                    <div key={idx} className="flex gap-3 mb-2 ml-4">
-                        <span className="text-indigo-400 mt-1.5">•</span>
-                        <div className="flex-1">
+            // Bullet points (with nesting support)
+            else if (trimmedLine.startsWith('* ') || trimmedLine.startsWith('- ')) {
+                // Calculate nesting depth from leading whitespace
+                const leadingSpaces = line.length - line.trimStart().length;
+                const depth = Math.floor(leadingSpaces / 2); // 2 spaces = 1 level
+                const bulletContent = trimmedLine.slice(2);
+                const isSubBullet = depth > 0;
+                const marginLeft = isSubBullet ? `${1 + depth * 1.5}rem` : '1rem';
+                elements.push(
+                    <div key={i} className="flex gap-3 mb-2" style={{ marginLeft }}>
+                        <span className={`mt-1.5 flex-shrink-0 ${isSubBullet ? 'text-slate-300 text-[8px]' : 'text-indigo-400'}`}>
+                            {isSubBullet ? '◦' : '•'}
+                        </span>
+                        <div className={`flex-1 ${isSubBullet ? 'text-gray-600' : ''}`}>
                             {renderTextWithBold(bulletContent)}
                         </div>
                     </div>
                 );
             }
-
             // Paragraph
-            if (line.trim() === '') return <div key={idx} className="h-4" />;
-
-            return (
-                <p key={idx} className="mb-4 leading-[1.8] text-gray-700 font-medium">
-                    {renderTextWithBold(line)}
-                </p>
-            );
-        });
+            else if (trimmedLine === '') {
+                elements.push(<div key={i} className="h-2" />);
+            }
+            else {
+                elements.push(
+                    <p key={i} className="mb-4 leading-[1.8] text-gray-700 font-medium">
+                        {renderTextWithBold(line)}
+                    </p>
+                );
+            }
+            i++;
+        }
+        return elements;
     };
 
     const renderTextWithBold = (text: string) => {
-        const parts = text.split(/(\*\*.*?\*\*|__.*?__)/);
+        // First handle citations [cite: 1, 2, 3] or [cite: 1]
+        const parts = text.split(/(\[cite:\s*[\d,\s]+\]|\*\*.*?\*\*|__.*?__)/);
+
+        const citationMap = data.structured_report?.citations || [];
+
         return parts.map((part, i) => {
+            if (part.startsWith('[cite:')) {
+                const numbers = part.replace('[cite:', '').replace(']', '').split(',').map(n => n.trim()).filter(Boolean);
+
+                return (
+                    <span key={i} className="inline-flex flex-wrap gap-1 items-center mx-1">
+                        {numbers.map((num, idx) => {
+                            // Priority: structured citations > content-parsed sources > fallback
+                            const citation = citationMap.find(c => String(c.id) === num);
+                            const sourceName = citation?.name || contentSourceMap[num] || null;
+                            const url = citation?.url;
+
+                            return (
+                                <span
+                                    key={idx}
+                                    onClick={() => url && window.open(url, '_blank')}
+                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded-md text-[9px] font-black border border-indigo-100/50 ${url ? 'cursor-pointer hover:bg-indigo-500 hover:text-white' : 'cursor-default hover:bg-indigo-100'} transition-all align-middle shadow-sm group/cite`}
+                                    title={sourceName || `Source ${num}`}
+                                >
+                                    <i className={`fa-solid ${url ? 'fa-arrow-up-right-from-square' : 'fa-bookmark'} text-[7px] opacity-50 group-hover/cite:opacity-100`}></i>
+                                    <span className="max-w-[120px] truncate">{sourceName ? sourceName.split(/[,.]/, 1)[0] : num}</span>
+                                </span>
+                            );
+                        })}
+                    </span>
+                );
+            }
             if ((part.startsWith('**') && part.endsWith('**')) || (part.startsWith('__') && part.endsWith('__'))) {
                 return <strong key={i} className="font-extrabold text-gray-900">{part.slice(2, -2)}</strong>;
             }
@@ -120,20 +431,29 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
                                                 <i className="fa-solid fa-chart-line text-indigo-500"></i>
                                                 <h3 className="text-lg font-black text-slate-800">Macroeconomics</h3>
                                             </div>
-                                            <p className="text-slate-600 mb-6 font-medium leading-relaxed">{data.structured_report.macroeconomic_indicators.summary}</p>
+                                            <p className="text-slate-600 mb-6 font-medium leading-relaxed">{cleanText(data.structured_report.macroeconomic_indicators?.summary)}</p>
                                             <ul className="space-y-3">
-                                                {data.structured_report.macroeconomic_indicators.details.map((d, i) => (
+                                                {data.structured_report.macroeconomic_indicators?.details?.map((d, i) => (
                                                     <li key={i} className="flex gap-2 text-sm text-slate-500">
                                                         <span className="text-indigo-400">•</span>
-                                                        {d}
+                                                        {cleanText(d)}
                                                     </li>
                                                 ))}
                                             </ul>
                                         </div>
-                                        {data.structured_report.macroeconomic_indicators.visual_hint && (
+                                        {data.structured_report.macroeconomic_indicators?.chart_data ? (
+                                            <div className="p-8 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm mt-4">
+                                                <SimpleChart
+                                                    data={data.structured_report.macroeconomic_indicators.chart_data.points}
+                                                    title={data.structured_report.macroeconomic_indicators.chart_data.title}
+                                                    metric1={data.structured_report.macroeconomic_indicators.chart_data.metric1}
+                                                    metric2={data.structured_report.macroeconomic_indicators.chart_data.metric2}
+                                                />
+                                            </div>
+                                        ) : data.structured_report.macroeconomic_indicators?.visual_hint && (
                                             <div className="h-48 bg-slate-900/5 rounded-[1.5rem] border border-slate-200 border-dashed flex flex-col items-center justify-center p-6 transition-all hover:bg-slate-900/[0.07]">
                                                 <i className="fa-solid fa-chart-area text-slate-300 text-3xl mb-3"></i>
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Data Projection: {data.structured_report.macroeconomic_indicators.visual_hint}</div>
+                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Data Projection: {cleanText(data.structured_report.macroeconomic_indicators.visual_hint)}</div>
                                             </div>
                                         )}
                                     </div>
@@ -144,161 +464,226 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
                                                 <i className="fa-solid fa-house-chimney-window text-indigo-500"></i>
                                                 <h3 className="text-lg font-black text-slate-800">Market Dynamics</h3>
                                             </div>
-                                            <p className="text-slate-600 mb-6 font-medium leading-relaxed">{data.structured_report.market_dynamics.summary}</p>
+                                            <p className="text-slate-600 mb-6 font-medium leading-relaxed">{cleanText(data.structured_report.market_dynamics?.summary)}</p>
                                             <ul className="space-y-3">
-                                                {data.structured_report.market_dynamics.details.map((d, i) => (
+                                                {data.structured_report.market_dynamics?.details?.map((d, i) => (
                                                     <li key={i} className="flex gap-2 text-sm text-slate-500">
                                                         <span className="text-indigo-400">•</span>
-                                                        {d}
+                                                        {cleanText(d)}
                                                     </li>
                                                 ))}
                                             </ul>
                                         </div>
-                                        {data.structured_report.market_dynamics.visual_hint && (
+                                        {data.structured_report.market_dynamics?.chart_data ? (
+                                            <div className="p-8 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm mt-4">
+                                                <SimpleChart
+                                                    data={data.structured_report.market_dynamics.chart_data.points}
+                                                    title={data.structured_report.market_dynamics.chart_data.title}
+                                                    metric1={data.structured_report.market_dynamics.chart_data.metric1}
+                                                    metric2={data.structured_report.market_dynamics.chart_data.metric2}
+                                                />
+                                            </div>
+                                        ) : data.structured_report.market_dynamics?.visual_hint && (
                                             <div className="h-48 bg-slate-900/5 rounded-[1.5rem] border border-slate-200 border-dashed flex flex-col items-center justify-center p-6 transition-all hover:bg-slate-900/[0.07]">
                                                 <i className="fa-solid fa-chart-bar text-slate-300 text-3xl mb-3"></i>
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Market Heatmap: {data.structured_report.market_dynamics.visual_hint}</div>
+                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Market Heatmap: {cleanText(data.structured_report.market_dynamics.visual_hint)}</div>
                                             </div>
                                         )}
                                     </div>
                                 </div>
 
-                                {/* Demographics & Infrastructure */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="flex flex-col gap-4">
-                                        <div className="p-8 bg-indigo-50/30 rounded-[2rem] border border-indigo-100/50 flex-1">
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <i className="fa-solid fa-people-group text-indigo-500"></i>
-                                                <h3 className="text-lg font-black text-slate-800">Demographic Shifts</h3>
-                                            </div>
-                                            <p className="text-slate-600 mb-6 font-medium">{data.structured_report.demographic_shifts.summary}</p>
-                                            <ul className="space-y-3">
-                                                {data.structured_report.demographic_shifts.details.map((d, i) => (
-                                                    <li key={i} className="text-sm text-slate-500 flex gap-2">
-                                                        <span className="text-indigo-400">•</span> {d}
-                                                    </li>
-                                                ))}
-                                            </ul>
+                                {data.structured_report.pro_forma && (
+                                    <div className="p-10 bg-slate-900 rounded-[2.5rem] text-white overflow-hidden relative group">
+                                        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+                                            <i className="fa-solid fa-calculator text-8xl text-indigo-400"></i>
                                         </div>
-                                        {data.structured_report.demographic_shifts.visual_hint && (
-                                            <div className="h-40 bg-indigo-500/5 rounded-[1.5rem] border border-indigo-200 border-dashed flex flex-col items-center justify-center p-6">
-                                                <i className="fa-solid fa-users-rays text-indigo-200 text-2xl mb-2"></i>
-                                                <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest text-center">{data.structured_report.demographic_shifts.visual_hint}</div>
+                                        <div className="relative">
+                                            <div className="flex items-center gap-3 mb-8">
+                                                <div className="w-1.5 h-6 bg-indigo-500 rounded-full"></div>
+                                                <h3 className="text-xl font-black uppercase tracking-widest">Financial Pro-Forma (P&L)</h3>
                                             </div>
-                                        )}
-                                    </div>
 
-                                    <div className="flex flex-col gap-4">
-                                        <div className="p-8 bg-indigo-50/30 rounded-[2rem] border border-indigo-100/50 flex-1">
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <i className="fa-solid fa-bridge text-indigo-500"></i>
-                                                <h3 className="text-lg font-black text-slate-800">Infrastructure</h3>
-                                            </div>
-                                            <p className="text-slate-600 mb-6 font-medium">{data.structured_report.infrastructure_and_development.summary}</p>
-                                            <ul className="space-y-3">
-                                                {data.structured_report.infrastructure_and_development.details.map((d, i) => (
-                                                    <li key={i} className="text-sm text-slate-500 flex gap-2">
-                                                        <span className="text-indigo-400">•</span> {d}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                        {data.structured_report.infrastructure_and_development.visual_hint && (
-                                            <div className="h-40 bg-indigo-500/5 rounded-[1.5rem] border border-indigo-200 border-dashed flex flex-col items-center justify-center p-6">
-                                                <i className="fa-solid fa-map-location-dot text-indigo-200 text-2xl mb-2"></i>
-                                                <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest text-center">{data.structured_report.infrastructure_and_development.visual_hint}</div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Micro Markets */}
-                                <div className="space-y-6">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-1.5 h-6 bg-indigo-500 rounded-full"></div>
-                                        <h3 className="text-xl font-black text-slate-800">Neighborhood Intelligence</h3>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        {data.structured_report.micro_markets.map((m, i) => (
-                                            <div key={i} className="flex flex-col gap-4">
-                                                <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex-1">
-                                                    <h4 className="font-black text-slate-900 mb-2">{m.name}</h4>
-                                                    <div className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3">{m.profile}</div>
-                                                    <p className="text-xs text-slate-500 leading-relaxed font-medium mb-4">{m.investment_thesis}</p>
-                                                </div>
-                                                {m.visual_hint && (
-                                                    <div className="h-32 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center justify-center p-4">
-                                                        <i className="fa-solid fa-image text-slate-200 text-xl mb-1"></i>
-                                                        <div className="text-[8px] font-black text-slate-400 uppercase tracking-tighter text-center line-clamp-2">{m.visual_hint}</div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                                                <div className="space-y-6">
+                                                    <div className="flex justify-between items-end border-b border-slate-800 pb-2">
+                                                        <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Purchase Price</span>
+                                                        <span className="text-2xl font-black text-indigo-400 font-mono">${(data.structured_report.pro_forma.purchase_price || 0).toLocaleString()}</span>
                                                     </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Outlook & Risks */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="flex flex-col gap-4">
-                                        <div className="p-8 bg-slate-950 rounded-[2rem] text-white flex-1">
-                                            <div className="flex items-center gap-3 mb-6">
-                                                <i className="fa-solid fa-compass text-indigo-400"></i>
-                                                <h3 className="text-lg font-black">Investment Outlook</h3>
-                                            </div>
-                                            <div className="space-y-6">
-                                                <div>
-                                                    <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2 font-mono">Short-Term (12M)</div>
-                                                    <p className="text-sm text-slate-300 font-medium leading-relaxed">{data.structured_report.investment_outlook.short_term}</p>
+                                                    <div className="flex justify-between items-end border-b border-slate-800 pb-2">
+                                                        <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Gross Annual Rent</span>
+                                                        <span className="text-2xl font-black text-emerald-400 font-mono">${(data.structured_report.pro_forma.gross_rent || 0).toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="pt-4">
+                                                        <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Expense Breakdown</div>
+                                                        <div className="space-y-3">
+                                                            {Object.entries(data.structured_report.pro_forma.expenses || {}).map(([key, value]) => (
+                                                                <div key={key} className="flex justify-between text-sm">
+                                                                    <span className="text-slate-400 capitalize">{key.replace('_', ' ')}</span>
+                                                                    <span className="font-mono text-slate-200">-${Number(value || 0).toLocaleString()}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <div className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] mb-2 font-mono">Long-Term (5Y)</div>
-                                                    <p className="text-sm text-slate-300 font-medium leading-relaxed">{data.structured_report.investment_outlook.long_term}</p>
+
+                                                <div className="flex flex-col justify-center gap-8 bg-slate-800/50 p-8 rounded-3xl border border-slate-700">
+                                                    <div className="text-center">
+                                                        <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Net Operating Income</div>
+                                                        <div className="text-5xl font-black text-white font-mono tracking-tighter">${(data.structured_report.pro_forma.noi || 0).toLocaleString()}</div>
+                                                    </div>
+                                                    <div className="h-px bg-slate-700 w-2/3 mx-auto"></div>
+                                                    <div className="text-center">
+                                                        <div className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Market Cap Rate</div>
+                                                        <div className="text-4xl font-black text-white font-mono">{(Number(data.structured_report.pro_forma.cap_rate || 0) * 100).toFixed(2)}%</div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                        {data.structured_report.investment_outlook.visual_hint && (
-                                            <div className="h-32 bg-slate-900 rounded-[1.5rem] border border-slate-800 flex flex-col items-center justify-center p-4">
-                                                <i className="fa-solid fa-arrow-trend-up text-indigo-500/50 text-2xl mb-1"></i>
-                                                <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest text-center">{data.structured_report.investment_outlook.visual_hint}</div>
+                                    </div>
+                                )}
+
+                                {data.structured_report.value_add_strategies && data.structured_report.value_add_strategies.length > 0 && (
+                                    <div className="space-y-8">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-1.5 h-6 bg-emerald-500 rounded-full"></div>
+                                            <h3 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">Value-Add Strategy (The Alpha)</h3>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            {data.structured_report.value_add_strategies.map((strategy, i) => (
+                                                <div key={i} className="p-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-500 flex flex-col gap-6 group">
+                                                    <div className="flex justify-between items-start">
+                                                        <h4 className="text-lg font-black text-slate-900 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{cleanText(strategy.name)}</h4>
+                                                        <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500 group-hover:bg-indigo-500 group-hover:text-white transition-all">
+                                                            <i className="fa-solid fa-arrow-trend-up"></i>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-sm text-slate-500 leading-relaxed font-medium">{cleanText(strategy.description)}</p>
+                                                    <div className="grid grid-cols-2 gap-4 mt-auto">
+                                                        <div className="p-4 bg-slate-50 rounded-2xl">
+                                                            <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Est. Cost</div>
+                                                            <div className="text-sm font-black text-slate-700">{strategy.est_cost}</div>
+                                                        </div>
+                                                        <div className="p-4 bg-emerald-50 rounded-2xl">
+                                                            <div className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1">Rent Alpha</div>
+                                                            <div className="text-sm font-black text-emerald-700">+{strategy.est_incremental_rent}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {data.structured_report.school_intelligence && (
+                                    <div className="p-10 bg-indigo-50/50 rounded-[2.5rem] border border-indigo-100">
+                                        <div className="flex items-center gap-3 mb-6">
+                                            <i className="fa-solid fa-graduation-cap text-indigo-500 text-xl"></i>
+                                            <h3 className="text-xl font-black text-slate-800 uppercase tracking-widest">School Intelligence Arbitrage</h3>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+                                            <div className="md:col-span-2">
+                                                <p className="text-slate-600 font-medium leading-relaxed mb-6">{cleanText(data.structured_report.school_intelligence.summary)}</p>
+                                                <div className="flex flex-wrap gap-3">
+                                                    {data.structured_report.school_intelligence.proficiency_metrics?.map((m, i) => (
+                                                        <div key={i} className="px-4 py-2 bg-white rounded-full border border-indigo-100 text-xs font-bold text-indigo-600 flex items-center gap-2 shadow-sm">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
+                                                            {cleanText(m)}
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        )}
+                                            <div className="p-6 bg-white rounded-3xl border border-indigo-200/50 shadow-sm flex flex-col justify-center text-center">
+                                                <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Rating vs. Performance</div>
+                                                <div className="text-xs font-black text-slate-800 italic leading-relaxed">"{cleanText(data.structured_report.school_intelligence.rating_vs_performance_gap)}"</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {data.structured_report.comparative_analysis && (
+                                    <div className="space-y-6">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-1.5 h-6 bg-slate-300 rounded-full"></div>
+                                            <h3 className="text-xl font-black text-slate-800 uppercase tracking-widest">Regional Competitive Grid</h3>
+                                        </div>
+                                        <div className="overflow-hidden border border-slate-100 rounded-[2rem] shadow-sm">
+                                            <table className="w-full text-left border-collapse">
+                                                <thead>
+                                                    <tr className="bg-slate-50">
+                                                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Market</th>
+                                                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Median Price</th>
+                                                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Inventory Age</th>
+                                                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Primary Draw</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-50 bg-white">
+                                                    {data.structured_report.comparative_analysis.map((comp, i) => (
+                                                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                                            <td className="p-6 font-black text-slate-900">{comp.market}</td>
+                                                            <td className="p-6 font-mono text-sm text-slate-600">{comp.median_price}</td>
+                                                            <td className="p-6 text-sm text-slate-500 font-medium">{comp.inventory_age}</td>
+                                                            <td className="p-6 text-xs text-indigo-500 font-black uppercase tracking-wider">{comp.primary_draw}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="flex flex-col gap-4">
+                                        <div className="p-8 bg-slate-950 rounded-[2rem] text-white flex-1 relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 p-8 opacity-5">
+                                                <i className="fa-solid fa-compass text-8xl"></i>
+                                            </div>
+                                            <div className="relative">
+                                                <div className="flex items-center gap-3 mb-6">
+                                                    <i className="fa-solid fa-compass text-indigo-400"></i>
+                                                    <h3 className="text-lg font-black uppercase tracking-widest">Investment Outlook</h3>
+                                                </div>
+                                                <div className="space-y-6">
+                                                    <div>
+                                                        <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-2 font-mono">Short-Term (12M)</div>
+                                                        <p className="text-sm text-slate-300 font-medium leading-relaxed">{cleanText(data.structured_report.investment_outlook?.short_term || 'Analyzing...')}</p>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] mb-2 font-mono">Long-Term (5Y)</div>
+                                                        <p className="text-sm text-slate-300 font-medium leading-relaxed">{cleanText(data.structured_report.investment_outlook?.long_term || 'Analyzing...')}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div className="flex flex-col gap-4">
-                                        <div className="p-8 bg-rose-50 rounded-[2rem] border border-rose-100 flex-1">
+                                        <div className="p-8 bg-rose-50 rounded-[2.5rem] border border-rose-100 flex-1">
                                             <div className="flex items-center gap-3 mb-4">
                                                 <i className="fa-solid fa-triangle-exclamation text-rose-500"></i>
-                                                <h3 className="text-lg font-black text-rose-900">Local Risks</h3>
+                                                <h3 className="text-xl font-black text-rose-900 uppercase tracking-widest">Institutional Risks</h3>
                                             </div>
-                                            <p className="text-rose-800/80 mb-6 text-sm font-medium leading-relaxed">{data.structured_report.local_risks.summary}</p>
-                                            <ul className="space-y-2">
-                                                {data.structured_report.local_risks.risk_factors.map((r, i) => (
-                                                    <li key={i} className="text-xs text-rose-700 font-bold flex gap-2">
-                                                        <span className="opacity-50">!</span> {r}
+                                            <p className="text-rose-800/80 mb-6 text-sm font-medium leading-relaxed">{cleanText(data.structured_report.local_risks?.summary)}</p>
+                                            <ul className="space-y-3">
+                                                {data.structured_report.local_risks?.risk_factors?.map((r, i) => (
+                                                    <li key={i} className="text-xs text-rose-700 font-bold flex gap-3 items-start">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-300 mt-1 flex-shrink-0"></span>
+                                                        {cleanText(r)}
                                                     </li>
                                                 ))}
                                             </ul>
                                         </div>
-                                        {data.structured_report.local_risks.visual_hint && (
-                                            <div className="h-32 bg-rose-100/50 rounded-[1.5rem] border border-rose-200 border-dashed flex flex-col items-center justify-center p-4">
-                                                <i className="fa-solid fa-map text-rose-300 text-2xl mb-1"></i>
-                                                <div className="text-[8px] font-black text-rose-400 uppercase tracking-widest text-center">{data.structured_report.local_risks.visual_hint}</div>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
 
-                                {/* Full content fallback if needed at the bottom */}
-                                <div className="pt-12 border-t border-slate-100">
-                                    <details className="group cursor-pointer">
-                                        <summary className="list-none flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-500 transition-colors">
-                                            <i className="fa-solid fa-chevron-right group-open:rotate-90 transition-transform"></i>
-                                            View Full Grounded Report
-                                        </summary>
-                                        <div className="mt-8 pt-8 border-t border-slate-50 opacity-60">
-                                            {renderMarkdown(data.content)}
-                                        </div>
-                                    </details>
+                                {/* Full Grounded Analyst Report */}
+                                <div className="pt-12 border-t border-slate-100 mt-12">
+                                    <div className="flex items-center gap-3 mb-8">
+                                        <div className="w-1.5 h-6 bg-slate-300 rounded-full"></div>
+                                        <h3 className="text-xl font-black text-slate-400 uppercase tracking-widest">Analyst Narrative & Sources</h3>
+                                    </div>
+                                    <div className="opacity-80">
+                                        {renderMarkdown(data.content)}
+                                    </div>
                                 </div>
                             </div>
                         ) : data.content ? (
@@ -329,7 +714,7 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
 
                 <div className="pt-8 border-t border-gray-50 flex items-center justify-between">
                     <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
-                        Source: Gemini Deep Research Agent {data.status === 'running' ? '(ACTIVE)' : ''}
+                        Source: Zyphe AI Research {data.status === 'running' ? '(ACTIVE)' : ''}
                     </div>
                     {data.lastUpdated && (
                         <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest font-mono">

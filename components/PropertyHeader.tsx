@@ -46,7 +46,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
     <div className="bg-white p-8 md:p-10 md:pb-2 rounded-t-[2.5rem] border-x border-t border-slate-100 shadow-sm space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-50 pb-8">
         <div className="flex items-center gap-4">
-          <h2 className="text-4xl font-black text-slate-900 tracking-tight">{data.address}</h2>
+          <h2 className="text-4xl font-black text-slate-900 tracking-tight">{data.address || 'Property Details'}</h2>
           <div className="flex items-center gap-2 ml-2">
             <button
               onClick={() => onToggleFavorite && onToggleFavorite()}

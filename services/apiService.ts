@@ -35,19 +35,45 @@ const extractNumericValue = (val: any): number | null => {
   return null;
 };
 
-const formatAddress = (addr: any): string => {
-  if (typeof addr === 'string') return addr;
-  if (addr && typeof addr === 'object') {
-    const { streetAddress, city, state, zipcode, zipCode } = addr;
-    const parts = [
-      streetAddress,
-      city,
-      state,
-      zipcode || zipCode
-    ].filter(Boolean);
-    return parts.length > 0 ? parts.join(', ') : JSON.stringify(addr);
+/**
+ * Centralized formatting logic for property addresses.
+ * Reconciles different schemas from Radar, Zillow, RESO, and manual search feeds.
+ */
+export const formatAddress = (addr: any): string => {
+  if (typeof addr === 'string') {
+    // If it's a numeric ID (ZPID), it's not a valid display address string
+    if (/^\d+$/.test(addr)) return "";
+    return addr;
   }
-  return String(addr || "Unknown Address");
+
+  if (addr && typeof addr === 'object') {
+    // Collect all possible address component keys from various providers
+    const {
+      streetAddress, line,
+      city,
+      state, state_code, stateCode,
+      zipcode, zipCode, postal_code
+    } = addr;
+
+    const street = streetAddress || line || "";
+    const resolvedCity = city || "";
+    const resolvedState = state || state_code || stateCode || "";
+    const resolvedZip = zipcode || zipCode || postal_code || "";
+
+    // GUARD: If the street field already contains city/state/zip info
+    // (common in Zillow responses), just return it as-is to avoid duplication
+    // like "4152 Kevin St, Dublin, CA 94568, dublin, California, 94568"
+    if (street && resolvedCity) {
+      const streetLower = street.toLowerCase();
+      if (streetLower.includes(resolvedCity.toLowerCase())) {
+        return street; // Already contains city info, return as-is
+      }
+    }
+
+    const parts = [street, resolvedCity, resolvedState, resolvedZip].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : "";
+  }
+  return "";
 };
 
 const safeStringify = (val: any): string | null => {
@@ -103,23 +129,48 @@ export const normalizeAddress = async (address: string, zpid?: string): Promise<
 
   const geocodeData = await geocodeResponse.json();
 
-  const firstResult = geocodeData.addresses[0];
-  if (!firstResult) throw new Error("No address found for the provided query.");
+  const results = geocodeData.addresses || [];
+  if (results.length === 0) throw new Error("No address found for the provided query.");
 
-  const coordinates = { latitude: firstResult.latitude, longitude: firstResult.longitude };
+  // SMART RESOLUTION: If multiple results, try to match city or zip code mentioned in query
+  let selectedResult = results[0];
+  const queryLower = address.toLowerCase();
+  const zipMatch = address.match(/\b\d{5}\b/);
+  const targetZip = zipMatch ? zipMatch[0] : null;
+
+  if (results.length > 1) {
+    // 1. Try Zip Match (Strongest Signal)
+    if (targetZip) {
+      const bestZip = results.find((r: any) => r.postalCode === targetZip);
+      if (bestZip) {
+        selectedResult = bestZip;
+      }
+    }
+
+    // 2. Try City Match (Backup Signal)
+    if (selectedResult === results[0]) {
+      const cityMatch = results.find((r: any) =>
+        r.city && queryLower.includes(r.city.toLowerCase())
+      );
+      if (cityMatch) selectedResult = cityMatch;
+    }
+  }
+
+  const coordinates = { latitude: selectedResult.latitude, longitude: selectedResult.longitude };
+  const formattedAddress = selectedResult.formattedAddress;
 
   const zoomOutUrl = `https://api.radar.io/maps/static?publishableKey=${RADAR_API_KEY}&center=${coordinates.latitude},${coordinates.longitude}&zoom=15&width=1024&height=1024&style=radar-default-v1&scale=1&markers=color:0x000257%7C${coordinates.latitude},${coordinates.longitude}`;
   const zoomInUrl = `https://api.radar.io/maps/static?publishableKey=${RADAR_API_KEY}&center=${coordinates.latitude},${coordinates.longitude}&zoom=20&width=2048&height=2048&style=radar-default-v1&scale=1&markers=color:0x000257%7C${coordinates.latitude},${coordinates.longitude}`;
 
   return {
     coordinates,
-    formattedAddress: firstResult.formattedAddress,
+    formattedAddress,
     components: {
-      street: firstResult.street,
-      city: firstResult.city,
-      state: firstResult.state,
-      zipCode: firstResult.postalCode,
-      country: firstResult.country,
+      street: selectedResult.street,
+      city: selectedResult.city,
+      state: selectedResult.state,
+      zipCode: selectedResult.postalCode,
+      country: selectedResult.country,
     },
     mapZoomIn: zoomInUrl,
     mapZoomOut: zoomOutUrl
@@ -688,7 +739,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
 
       if (!mappedData) {
         mappedData = {
-          address: formatAddress(data.address || data.props?.address || addressOrZpid),
+          address: formatAddress(data.address || data.props?.address) || (isZpid ? "" : addressOrZpid),
           city: (data.address && typeof data.address === 'object') ? data.address.city : (data.props?.address?.city || undefined),
           state: (data.address && typeof data.address === 'object') ? data.address.state : (data.props?.address?.state || undefined),
           zipCode: (data.address && typeof data.address === 'object') ? (data.address.zipcode || data.address.zipCode) : (data.props?.address?.zipCode || data.props?.address?.zipcode || undefined),
@@ -771,11 +822,10 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
           mappedData.coordinates = geocoded.coordinates;
           mappedData.mapZoomIn = geocoded.mapZoomIn;
           mappedData.mapZoomOut = geocoded.mapZoomOut;
-          // IMPORTANT: Update address to the clean, normalized version from Radar
-          // This ensures our fallback cache key is consistent.
-          if (geocoded.formattedAddress) {
-            mappedData.address = geocoded.formattedAddress;
-          }
+          // NOTE: We intentionally do NOT overwrite mappedData.address here.
+          // The address identity is resolved upstream (in App.tsx performSearch).
+          // Overwriting it here caused city-flipping bugs (e.g., Dublin → Pleasanton)
+          // because Radar's geocoder may return a neighboring city as its top result.
         }
       } catch (e) {
         console.warn("[Solar Fallback] Failed to geocode address:", e);

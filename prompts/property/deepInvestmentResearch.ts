@@ -9,19 +9,27 @@ export const getDeepInvestmentResearchPrompt = (property: PropertyData) => `
   Synthesize a high-fidelity investment thesis for residential real estate in this specific market. Focus on data-driven insights that a sophisticated investor would require to deploy capital.
   
   ## Required Analysis Modules:
-  1. **Macroeconomic Indicators**: Current local inflation, employment rate trends (major employers), and regional GDP growth.
-  2. **Real Estate Market Dynamics**: Historical price appreciation (5yr/10yr), inventory levels (Months of Supply), and Median Days on Market (DOM) trends.
-  3. **Demographic & Sociographic Shifts**: Migration patterns, population growth rates, and school district rankings.
-  4. **Infrastructure & Development**: Upcoming transit projects, major commercial developments, and zoning changes.
-  5. **Investment Outlook**: Explicitly state the 12-month (Short-Term) versus 5-year (Long-Term) perspective.
-  6. **Micro-Markets**: Identify 3-4 distinct neighborhoods or sub-markets within ${property.city}.
-  7. **Local Risks**: Investigate specific risks (Flood, Fire, etc.) and educational infrastructure.
+  1. **Macroeconomic Indicators**: Institutional focus on Innovation Corridors, major regional employers (e.g. Biotech, Life Sciences), and Return-to-Office (RTO) impact on the local economy.
+  2. **Real Estate Market Dynamics**: Quantitative snapshot including Median Price, Price per Square Foot benchmarks, Months of Supply, and Days on Market (DOM) velocity. Mention "Seller Discretionary Concessions".
+  3. **Financial Pro-Forma**: A detailed numerical P&L for a representative single-family asset (Gross Income, Taxes, Insurance, Maintenance, Management, NOI, and Cap Rate).
+  4. **Value-Add Strategy (The Alpha)**: Specific focus on Accessory Dwelling Unit (ADU) intensification and cosmetic rehabilitation potential.
+  5. **School Intelligence**: Arbitrage between algorithmic ratings (GreatSchools) and actual academic proficiency/matriculation performance.
+  6. **Local Risks & Insurance**: The insurability crisis (FAIR Plan), specific environmental zones (Dam Inundation, High Fire Severity), and regulatory growth caps.
+  7. **Regional Grid**: Comparative analysis with exactly 3-4 neighboring or competing markets (e.g. for Pleasanton, compare Dublin, San Ramon, Livermore).
+  8. **Investment Scenarios**: Explicitly model the "Base Case" (Soft Landing), "Bear Case" (Stagflation), and "Bull Case" (AI/Innovation Boom).
   
   ## Output Constraint:
   You MUST return a JSON object with a "structured_report" field matching the specified schema. 
-  For EACH category, you MUST provide a "visual_hint" which is a description of a relevant chart, graph, or picture that would best illustrate the data in that section (e.g., "A line chart showing the 5-year trend of inventory vs median price").
-  The "content" field should still contain the full Markdown summary for fallback, but most analysis should be categorized in "structured_report".
-  Do NOT just list sources. Analyze the data.
+  
+  CRITICAL - CONTENT FIELD:
+  The "content" field MUST contain the full high-fidelity Markdown memorandum (at least 1500 words). It should start with a Executive Summary, follow with detailed analysis of the property and market, and end with Sources. 
+  
+  CRITICAL - SOURCE MAPPING:
+  In the "citations" field of the structured report, you MUST provide a mapping for every [cite: N] used in the content. Include the "id" (e.g. "1"), "name" (e.g. "NAR 2024 Market Report"), and "url" if available.
+  
+  CRITICAL - STRUCTURED DATA:
+  For Market Dynamics: Provide TWO series: "Median Price" (USD) and "Days on Market" (days) in the chart_data field.
+  Use institutional terminology: "Negative Leverage", "Flight to Quality", "Information Asymmetry", "Cap Rate Compression".
 `;
 
 export const deepInvestmentResearchSchema = {
@@ -29,7 +37,7 @@ export const deepInvestmentResearchSchema = {
   properties: {
     content: {
       type: Type.STRING,
-      description: "Full markdown-formatted research report with analysis and sources."
+      description: "Full institutional memorandum (Markdown)."
     },
     structured_report: {
       type: Type.OBJECT,
@@ -39,7 +47,26 @@ export const deepInvestmentResearchSchema = {
           properties: {
             summary: { type: Type.STRING },
             details: { type: Type.ARRAY, items: { type: Type.STRING } },
-            visual_hint: { type: Type.STRING, description: "Description of a relevant chart or image for macroeconomics." }
+            visual_hint: { type: Type.STRING },
+            chart_data: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                metric1: { type: Type.STRING },
+                points: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      label: { type: Type.STRING },
+                      value: { type: Type.NUMBER }
+                    },
+                    required: ["label", "value"]
+                  }
+                }
+              },
+              required: ["title", "metric1", "points"]
+            }
           },
           required: ["summary", "details", "visual_hint"]
         },
@@ -48,70 +75,120 @@ export const deepInvestmentResearchSchema = {
           properties: {
             summary: { type: Type.STRING },
             details: { type: Type.ARRAY, items: { type: Type.STRING } },
-            visual_hint: { type: Type.STRING, description: "Description of a relevant chart for market dynamics." }
+            visual_hint: { type: Type.STRING },
+            chart_data: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                metric1: { type: Type.STRING },
+                metric2: { type: Type.STRING },
+                points: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      label: { type: Type.STRING },
+                      value: { type: Type.NUMBER },
+                      value2: { type: Type.NUMBER }
+                    },
+                    required: ["label", "value", "value2"]
+                  }
+                }
+              },
+              required: ["title", "metric1", "metric2", "points"]
+            }
           },
-          required: ["summary", "details", "visual_hint"]
+          required: ["summary", "details", "visual_hint", "chart_data"]
         },
-        demographic_shifts: {
+        pro_forma: {
           type: Type.OBJECT,
           properties: {
-            summary: { type: Type.STRING },
-            details: { type: Type.ARRAY, items: { type: Type.STRING } },
-            visual_hint: { type: Type.STRING, description: "Description of a relevant chart for demographics." }
+            purchase_price: { type: Type.NUMBER },
+            gross_rent: { type: Type.NUMBER },
+            expenses: {
+              type: Type.OBJECT,
+              properties: {
+                property_tax: { type: Type.NUMBER },
+                insurance: { type: Type.NUMBER },
+                maintenance: { type: Type.NUMBER },
+                management: { type: Type.NUMBER },
+                vacancy: { type: Type.NUMBER }
+              },
+              required: ["property_tax", "insurance", "maintenance", "management", "vacancy"]
+            },
+            noi: { type: Type.NUMBER },
+            cap_rate: { type: Type.NUMBER }
           },
-          required: ["summary", "details", "visual_hint"]
+          required: ["purchase_price", "gross_rent", "expenses", "noi", "cap_rate"]
         },
-        infrastructure_and_development: {
-          type: Type.OBJECT,
-          properties: {
-            summary: { type: Type.STRING },
-            details: { type: Type.ARRAY, items: { type: Type.STRING } },
-            visual_hint: { type: Type.STRING, description: "Description of a relevant image or chart for development." }
-          },
-          required: ["summary", "details", "visual_hint"]
-        },
-        investment_outlook: {
-          type: Type.OBJECT,
-          properties: {
-            short_term: { type: Type.STRING },
-            long_term: { type: Type.STRING },
-            visual_hint: { type: Type.STRING, description: "Description of a visual for the outlook." }
-          },
-          required: ["short_term", "long_term", "visual_hint"]
-        },
-        micro_markets: {
+        value_add_strategies: {
           type: Type.ARRAY,
           items: {
             type: Type.OBJECT,
             properties: {
               name: { type: Type.STRING },
-              profile: { type: Type.STRING },
-              investment_thesis: { type: Type.STRING },
-              visual_hint: { type: Type.STRING, description: "Description of a visual for this micro-market." }
+              description: { type: Type.STRING },
+              est_cost: { type: Type.STRING },
+              est_incremental_rent: { type: Type.STRING }
             },
-            required: ["name", "profile", "investment_thesis", "visual_hint"]
+            required: ["name", "description", "est_cost", "est_incremental_rent"]
           }
+        },
+        school_intelligence: {
+          type: Type.OBJECT,
+          properties: {
+            summary: { type: Type.STRING },
+            rating_vs_performance_gap: { type: Type.STRING },
+            proficiency_metrics: { type: Type.ARRAY, items: { type: Type.STRING } }
+          },
+          required: ["summary", "rating_vs_performance_gap", "proficiency_metrics"]
+        },
+        comparative_analysis: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              market: { type: Type.STRING },
+              median_price: { type: Type.STRING },
+              inventory_age: { type: Type.STRING },
+              school_quality: { type: Type.STRING },
+              primary_draw: { type: Type.STRING }
+            },
+            required: ["market", "median_price", "inventory_age", "school_quality", "primary_draw"]
+          }
+        },
+        investment_outlook: {
+          type: Type.OBJECT,
+          properties: {
+            short_term: { type: Type.STRING },
+            long_term: { type: Type.STRING }
+          },
+          required: ["short_term", "long_term"]
         },
         local_risks: {
           type: Type.OBJECT,
           properties: {
             summary: { type: Type.STRING },
             risk_factors: { type: Type.ARRAY, items: { type: Type.STRING } },
-            visual_hint: { type: Type.STRING, description: "Description of a risk map or chart." }
+            visual_hint: { type: Type.STRING }
           },
-          required: ["summary", "risk_factors", "visual_hint"]
+          required: ["summary", "risk_factors"]
+        },
+        citations: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              id: { type: Type.STRING },
+              name: { type: Type.STRING },
+              url: { type: Type.STRING }
+            },
+            required: ["id", "name"]
+          }
         }
       },
-      required: [
-        "macroeconomic_indicators",
-        "market_dynamics",
-        "demographic_shifts",
-        "infrastructure_and_development",
-        "investment_outlook",
-        "micro_markets",
-        "local_risks"
-      ]
-    }
+      required: ["macroeconomic_indicators", "market_dynamics", "local_risks"],
+    },
   },
-  required: ["content", "structured_report"]
+  required: ["content", "structured_report"],
 };

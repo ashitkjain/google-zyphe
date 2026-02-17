@@ -213,16 +213,8 @@ export const runFullIntelligencePipeline = async (
       }
 
       // Temporarily wired off due to Gemini concurrency limits (2 max)
-      onLog?.(`[Market] Skipping Pulse research (Concurrency limited)`);
+      onLog?.(`[Market] Skipping Pulse research (Disabled)`);
       return null;
-
-      /*
-      onLog?.(`[Market] Analyzing resident sentiment...`);
-      const res = await analyzeCommunityPulse(enrichedData, userId);
-      if (cityStateKey) await saveCommunityPulseToCloud(cityStateKey, res.data);
-      onLog?.(`[Market] Sentiment analysis complete.`);
-      return res.data;
-      */
     };
 
     const propInvTask = async () => {
@@ -254,30 +246,48 @@ export const runFullIntelligencePipeline = async (
       }
 
       // Temporarily wired off due to Gemini concurrency limits (2 max)
-      onLog?.(`[Investment] Skipping General Market Intelligence (Concurrency limited)`);
+      onLog?.(`[Investment] Skipping General Market Intelligence (Disabled)`);
       return null;
+    };
 
-      /*
-      if (skipMissingCityData) {
-        onLog?.(`[Investment] Skipping General Market Logic (Not pre-generated for "${key}")`);
-        return null;
+    const deepResearchTask = async () => {
+      onLog?.(`[Research] Checking Deep Investment Research for key: "${cityStateKey}"`);
+      if (cityStateKey) {
+        let cached = await getDeepInvestmentResearchFromCloud(cityStateKey);
+        onLog?.(`[Research] Current DB status for ${cityStateKey}: ${cached?.status || 'NOT_FOUND'}`);
+
+        // Wait if currently running
+        let attempts = 0;
+        while (cached?.status === 'running' && attempts < 15) {
+          onLog?.(`[Research] Deep research in progress for ${cityStateKey}, waiting 10s...`);
+          await new Promise(r => setTimeout(r, 10000));
+          cached = await getDeepInvestmentResearchFromCloud(cityStateKey);
+          attempts++;
+        }
+
+        if (cached?.status === 'completed') {
+          onLog?.(`[Research] Deep Research loaded for ${cityStateKey}.`);
+          return cached;
+        }
       }
 
-      const res = await analyzeGeneralMarketIntelligence(enrichedData, userId);
-      await saveGeneralMarketIntelligenceToCloud(key, res.data);
+      onLog?.(`[Research] No pre-generated deep research found. Running fresh analysis...`);
+      const res = await analyzeDeepInvestmentResearch(enrichedData, userId);
+      if (cityStateKey) await saveDeepInvestmentResearchToCloud(cityStateKey, res.data);
+      onLog?.(`[Research] Deep Research complete.`);
       return res.data;
-      */
     };
 
     // Execute AI Tasks Parallelized for maximum speed
     // This starts all independent evaluations (Visual, Spatial, Regional, Financial) simultaneously.
     onLog?.(`[Pipeline] Launching parallel AI evaluation suite...`);
-    const [visualResult, neighborhoodData, communityPulse, investmentSpecific, marketIntelligence] = await Promise.all([
+    const [visualResult, neighborhoodData, communityPulse, investmentSpecific, marketIntelligence, deepResearch] = await Promise.all([
       visualTask(),
       neighborhoodTask(),
       pulseTask(),
       propInvTask(),
-      marketIntTask()
+      marketIntTask(),
+      deepResearchTask()
     ]);
 
     // Assembly - Keep visualResult lean (only item-specific data)
@@ -295,7 +305,8 @@ export const runFullIntelligencePipeline = async (
       ...finalVisualResult,
       community_pulse: communityPulse,
       property_investment: investmentSpecific,
-      general_market_intelligence: marketIntelligence
+      general_market_intelligence: marketIntelligence,
+      deep_investment_research: deepResearch
     };
 
     // 10. Narrative AI Synthesis (Final Step)

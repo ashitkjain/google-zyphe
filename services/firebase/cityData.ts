@@ -148,3 +148,30 @@ export const getZipListings = async (zipCode: string): Promise<ZipListingsCache 
         return null;
     }
 };
+/**
+ * Removes a specific property from a zip code's listing cache.
+ */
+export const removePropertyFromZipCache = async (zipCode: string, propertyId: string) => {
+    if (!db || !zipCode || !propertyId) return { success: false };
+    try {
+        const docRef = doc(db, "zip_listings_cache", zipCode);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+            const data = docSnap.data() as ZipListingsCache;
+            const updatedListings = (data.listings || []).filter(l =>
+                String(l.property_id || l.listing_id || l.zpid) !== String(propertyId)
+            );
+
+            await setDoc(docRef, {
+                ...data,
+                listings: updatedListings,
+                timestamp: serverTimestamp()
+            });
+            return { success: true };
+        }
+        return { success: false };
+    } catch (error: any) {
+        return { success: false, error: handleFirestoreError(error, "removePropertyFromZipCache") };
+    }
+};

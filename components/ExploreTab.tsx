@@ -34,6 +34,7 @@ interface ExploreTabProps {
     logs: LogEntry[];
     userRole?: string;
     searchBar?: React.ReactNode;
+    address?: string;
 }
 
 const ExploreTab: React.FC<ExploreTabProps> = ({
@@ -55,7 +56,8 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     addLog,
     logs,
     userRole,
-    searchBar
+    searchBar,
+    address: currentAddress
 }) => {
     if (loading && !propertyData) {
         return (
@@ -64,6 +66,11 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                     <i className="fa-solid fa-house-signal text-8xl text-indigo-200"></i>
                 </div>
                 <h2 className="text-2xl font-black text-slate-900 mt-10">Analyzing Property DNA...</h2>
+                {currentAddress && (
+                    <p className="text-lg font-bold text-slate-500 mt-2 max-w-lg text-center leading-tight">
+                        {currentAddress}
+                    </p>
+                )}
                 <p className="text-sm font-black text-indigo-600 mt-4 uppercase tracking-[0.2em]">{loadingSublabel}</p>
             </div>
         );

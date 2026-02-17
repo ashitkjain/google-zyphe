@@ -252,65 +252,61 @@ export const useAnalysisActions = (
         if (!analysis || !propertyData || deepLoading) return;
 
         setTimer(0);
-        addLog('System', { type: 'info' }, { message: "Deep Investment Research is currently DISABLED." });
-        setDeepLoading(false);
-        return;
-        /*
-                addLog('System', { type: 'info' }, { task: 'deep_investment_research_init', zpid });
-        
-                try {
-                    const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
-                    const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
-                    const cityStateKey = generateCityStateKey(city, state);
-        
-                    let deepData = null;
-                    if (cityStateKey) {
-                        deepData = await getDeepInvestmentResearchFromCloud(cityStateKey);
-                    }
-        
-                    // Polling logic: if it exists but is running, wait for it
-                    let attempts = 0;
-                    const MAX_ATTEMPTS = 30; // 5 minutes at 10s intervals
-        
-                    while (deepData?.status === 'running' && attempts < MAX_ATTEMPTS) {
-                        if (attempts === 0) addLog('Cloud Cache', { type: 'info' }, { status: 'Waiting', task: 'deep_investment_research', message: 'Existing research in progress...' });
-                        await new Promise(r => setTimeout(r, 10000));
-                        if (cityStateKey) {
-                            deepData = await getDeepInvestmentResearchFromCloud(cityStateKey);
-                        }
-                        attempts++;
-                    }
-        
-                    if (deepData && deepData.status === 'completed') {
-                        addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'deep_investment_research', location: cityStateKey || zpid });
-                    } else if (deepData?.status === 'failed') {
-                        addLog('Cloud Cache', { type: 'error' }, { status: 'Failed', task: 'deep_investment_research', message: deepData.error || 'Previous run failed.' });
-                        // If it failed previously, we might want to retry, but for now we fallback to AI call
-                        deepData = null;
-                    }
-        
-                    if (!deepData || !deepData.content) {
-                        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'deep_investment_research', location: cityStateKey || zpid });
-                        const res = await aiAnalyzeDeepResearch(propertyData);
-                        deepData = res.data;
-                        if (cityStateKey) {
-                            await saveDeepInvestmentResearchToCloud(cityStateKey, deepData);
-                        }
-                        addLog('Gemini AI', { type: 'response' }, { task: 'deep_investment_research', location: cityStateKey || zpid }, (res as any).usage);
-                    }
-        
-                    onUpdateAnalysis({
-                        ...analysis,
-                        deep_investment_research: deepData
-                    });
-        
-                } catch (err: any) {
-                    console.error("Deep Investment Research Failed:", err);
-                    addLog('System', { type: 'error' }, { message: "Deep Investment Research Failed", error: err.message || err });
-                } finally {
-                    setDeepLoading(false);
+        setDeepLoading(true);
+        addLog('System', { type: 'info' }, { task: 'deep_investment_research_init', zpid });
+
+        try {
+            const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
+            const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
+            const cityStateKey = generateCityStateKey(city, state);
+
+            let deepData = null;
+            if (cityStateKey) {
+                deepData = await getDeepInvestmentResearchFromCloud(cityStateKey);
+            }
+
+            // Polling logic: if it exists but is running, wait for it
+            let attempts = 0;
+            const MAX_ATTEMPTS = 30; // 5 minutes at 10s intervals
+
+            while (deepData?.status === 'running' && attempts < MAX_ATTEMPTS) {
+                if (attempts === 0) addLog('Cloud Cache', { type: 'info' }, { status: 'Waiting', task: 'deep_investment_research', message: 'Existing research in progress...' });
+                await new Promise(r => setTimeout(r, 10000));
+                if (cityStateKey) {
+                    deepData = await getDeepInvestmentResearchFromCloud(cityStateKey);
                 }
-        */
+                attempts++;
+            }
+
+            if (deepData && deepData.status === 'completed') {
+                addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'deep_investment_research', location: cityStateKey || zpid });
+            } else if (deepData?.status === 'failed') {
+                addLog('Cloud Cache', { type: 'error' }, { status: 'Failed', task: 'deep_investment_research', message: deepData.error || 'Previous run failed.' });
+                // If it failed previously, we might want to retry, but for now we fallback to AI call
+                deepData = null;
+            }
+
+            if (!deepData || !deepData.content) {
+                addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'deep_investment_research', location: cityStateKey || zpid });
+                const res = await aiAnalyzeDeepResearch(propertyData);
+                deepData = res.data;
+                if (cityStateKey) {
+                    await saveDeepInvestmentResearchToCloud(cityStateKey, deepData);
+                }
+                addLog('Gemini AI', { type: 'response' }, { task: 'deep_investment_research', location: cityStateKey || zpid }, (res as any).usage);
+            }
+
+            onUpdateAnalysis({
+                ...analysis,
+                deep_investment_research: deepData
+            });
+
+        } catch (err: any) {
+            console.error("Deep Investment Research Failed:", err);
+            addLog('System', { type: 'error' }, { message: "Deep Investment Research Failed", error: err.message || err });
+        } finally {
+            setDeepLoading(false);
+        }
     };
 
 

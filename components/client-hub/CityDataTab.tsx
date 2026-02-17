@@ -5,7 +5,8 @@ import {
     saveZipMetadataBatch,
     getZipsForCity,
     saveZipListings,
-    getZipListings
+    getZipListings,
+    removePropertyFromZipCache
 } from '../../services/firebase/cityData';
 import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis } from '../../services/firebase/properties';
 import { PropertyData } from '../../types';
@@ -18,6 +19,7 @@ import { APICallEvent } from '../../services/firebase/api_logs';
 import { getPropertyStatusesBatch, PropertyStatusDetails } from '../../services/firebase/properties';
 import { getUserProfile } from '../../services/firebase/user';
 import { searchResoProperties } from '../../services/resoService';
+import { formatAddress as centralFormatAddress } from '../../services/apiService';
 
 
 interface IngestionJob {
@@ -160,6 +162,18 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         setSelectedIds(new Set());
     };
 
+    const selectUnsecured = () => {
+        const targetIds = Object.values(groupedListings)
+            .flat()
+            .filter((item: any) => {
+                const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+                return !propertyStatuses[id]?.assets?.images;
+            })
+            .map((item: any) => String(item.property_id || item.listing_id || item.mls_id || item.mls?.id));
+
+        setSelectedIds(new Set(targetIds));
+    };
+
     const handleBulkSecureImages = async () => {
         if (selectedIds.size === 0) return;
 
@@ -182,9 +196,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         // Initialize Queue
         const newJobs: IngestionJob[] = targets.map(item => {
             const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+            const fullAddress = centralFormatAddress(item.location?.address) || (item.location?.address?.line || id);
             return {
                 zpid: id,
-                address: item.location?.address?.line || id,
+                address: fullAddress,
                 status: 'pending',
                 progress: null
             };
@@ -207,6 +222,21 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
                 const startTime = Date.now();
                 setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'running', startTime } : j));
+
+                // If property doesn't have a real ZPID, it's a "ghost" listing that will fail downstream.
+                // We should remove it from the zip cache so it doesn't reappear in future scans.
+                const hasRealZpid = item.zpid || (item.property_id && !String(item.property_id).includes('.')); // Math.random often has decimals
+                if (!hasRealZpid) {
+                    const zip = item.location?.address?.postal_code;
+                    if (zip) {
+                        addLog(`[System] Removing ghost listing with no ZPID from cache: ${builtAddress}`);
+                        await removePropertyFromZipCache(zip, zpid);
+                        // Refresh local state by removing it from listings
+                        setListings(prev => prev.filter(l => String(l.property_id || l.listing_id || l.mls_id || l.mls?.id) !== zpid));
+                    }
+                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: 'No valid ZPID found. Listing removed from cache.' } : j));
+                    return false;
+                }
 
                 try {
                     await runImageOnlyPipeline(builtAddress, (progress) => {
@@ -316,9 +346,13 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         // Initialize Queue
         const newJobs: IngestionJob[] = targets.map(item => {
             const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+            const addrObj = item.location?.address;
+            const fullAddress = addrObj
+                ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
+                : (item.location?.address?.line || id);
             return {
                 zpid: id,
-                address: item.location?.address?.line || id,
+                address: fullAddress,
                 status: 'pending',
                 progress: null
             };
@@ -782,11 +816,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        const addrObj = item.location?.address;
-                                        const fullAddress = addrObj
-                                            ? `${addrObj.line}, ${addrObj.city}, ${addrObj.state_code} ${addrObj.postal_code}`
-                                            : (item.location?.address?.line || itemId);
-                                        window.open(`${window.location.origin}/?q=${encodeURIComponent(fullAddress)}`, '_blank');
+                                        const fullAddress = centralFormatAddress(item.location?.address) || (item.location?.address?.line || itemId);
+                                        window.open(`${window.location.origin}/?q=${encodeURIComponent(fullAddress)}&zpid=${itemId}`, '_blank');
                                     }}
                                     className="font-bold text-slate-900 text-sm hover:text-indigo-600 hover:underline text-left transition-colors"
                                 >
@@ -883,6 +914,14 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                         className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-rose-600 transition-all"
                                     >
                                         Deselect
+                                    </button>
+                                    <div className="w-px h-4 bg-slate-200 mx-1"></div>
+                                    <button
+                                        onClick={selectUnsecured}
+                                        className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-amber-600 transition-all"
+                                        title="Select properties without images in Firebase Storage"
+                                    >
+                                        Select Unsecured
                                     </button>
                                 </div>
                             )}
@@ -1239,7 +1278,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                 </div>
                                                 {item.status === 'completed' ? (
                                                     <button
-                                                        onClick={() => window.open(`${window.location.origin}/?q=${encodeURIComponent(item.address)}`, '_blank')}
+                                                        onClick={() => window.open(`${window.location.origin}/?q=${encodeURIComponent(item.address)}&zpid=${item.zpid}`, '_blank')}
                                                         className="text-sm font-black text-slate-900 truncate hover:text-indigo-600 hover:underline transition-colors text-left"
                                                     >
                                                         {item.address}
@@ -1291,7 +1330,7 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                         {item.status === 'completed' && (
                                             <div className="flex items-center justify-between">
                                                 <button
-                                                    onClick={() => window.open(`${window.location.origin}/?q=${encodeURIComponent(item.address)}`, '_blank')}
+                                                    onClick={() => window.open(`${window.location.origin}/?q=${encodeURIComponent(item.address)}&zpid=${item.zpid}`, '_blank')}
                                                     className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest bg-emerald-50 py-2 px-4 rounded-xl hover:bg-emerald-100 transition-colors w-fit group"
                                                 >
                                                     <i className="fa-solid fa-check"></i>

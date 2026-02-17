@@ -624,11 +624,6 @@ export const runBackgroundCityResearch = async (property: PropertyData, userId: 
     return { status: 'skipped', cityStateKey: 'unknown' };
   }
 
-  onLog?.(`[runBackgroundCityResearch] Regional Research Suite (Pulse, Market, Deep) is currently DISABLED by configuration.`);
-  return { status: 'skipped', cityStateKey };
-
-  // Original logic preserved but unreachable for now
-  /*
   // 1. Check if already running or completed (within last 6 hours)
   const [pulseRecord, marketRecord, deepRecord] = await Promise.all([
     getCommunityPulseFromCloud(cityStateKey),
@@ -642,37 +637,27 @@ export const runBackgroundCityResearch = async (property: PropertyData, userId: 
   // Stale check: if it's 'running' but started > 10 mins ago, it likely crashed
   const isStale = (rec: any) => rec?.status === 'running' && getAge(rec) > 10 * 60 * 1000;
 
-  const isCurrentlyRunning = (pulseRecord?.status === 'running' && !isStale(pulseRecord)) ||
-    (marketRecord?.status === 'running' && !isStale(marketRecord)) ||
-    (deepRecord?.status === 'running' && !isStale(deepRecord));
+  const isCurrentlyRunning = (deepRecord?.status === 'running' && !isStale(deepRecord));
 
   if (isCurrentlyRunning) {
-    onLog?.(`[runBackgroundCityResearch] Research currently running for ${cityStateKey}. Waiting for existing process.`);
+    onLog?.(`[runBackgroundCityResearch] Deep research currently running for ${cityStateKey}. Waiting for existing process.`);
     return { status: 'skipped', cityStateKey };
   }
 
   // 2. Define the Research Task
   const promise = (async () => {
     try {
-      onLog?.(`[runBackgroundCityResearch] Starting parallel research suite for: ${cityStateKey}`);
+      onLog?.(`[runBackgroundCityResearch] Starting Deep Investment research for: ${cityStateKey}`);
       await setCityResearchFlag(cityStateKey, 'running');
 
-      // Run all three in parallel to satisfy the status flags
-      const [pulseRes, marketRes, deepRes] = await Promise.all([
-        analyzeCommunityPulse(property, userId, cityStateKey, onLog),
-        analyzeGeneralMarketIntelligence(property, userId, cityStateKey, onLog),
-        analyzeDeepInvestmentResearch(property, userId, cityStateKey, onLog)
-      ]);
+      // Only run Deep Research as Pulse and Market Intelligence are disabled
+      const deepRes = await analyzeDeepInvestmentResearch(property, userId, cityStateKey, onLog);
 
-      onLog?.(`[runBackgroundCityResearch] Research successful for ${cityStateKey}. Saving results...`);
+      onLog?.(`[runBackgroundCityResearch] Deep Research successful for ${cityStateKey}. Saving results...`);
 
-      await Promise.all([
-        saveCommunityPulseToCloud(cityStateKey, pulseRes.data),
-        saveGeneralMarketIntelligenceToCloud(cityStateKey, marketRes.data),
-        saveDeepInvestmentResearchToCloud(cityStateKey, deepRes.data)
-      ]);
+      await saveDeepInvestmentResearchToCloud(cityStateKey, deepRes.data);
 
-      onLog?.(`[runBackgroundCityResearch] Regional Intelligence synchronized for ${cityStateKey}.`);
+      onLog?.(`[runBackgroundCityResearch] Deep Intelligence synchronized for ${cityStateKey}.`);
     } catch (error: any) {
       onLog?.(`[runBackgroundCityResearch] Failed for ${cityStateKey}: ${error.message || String(error)}`);
       await setCityResearchFlag(cityStateKey, 'failed', error.message || String(error));
@@ -681,7 +666,6 @@ export const runBackgroundCityResearch = async (property: PropertyData, userId: 
   })();
 
   return { status: 'started', cityStateKey, promise };
-  */
 };
 
 export const analyzeBiddingStrategy = async (property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<BiddingStrategyResult>> => {

@@ -93,6 +93,12 @@ export interface PropertySpecificInvestmentResult {
     };
 }
 
+export interface ChartPoint {
+    label: string;
+    value: number;
+    value2?: number;
+}
+
 export interface DeepInvestmentResearchResult {
     content: string;
     structured_report?: {
@@ -100,38 +106,69 @@ export interface DeepInvestmentResearchResult {
             summary: string;
             details: string[];
             visual_hint?: string;
+            chart_data?: {
+                title: string;
+                metric1: string;
+                metric2?: string;
+                points: ChartPoint[];
+            };
         };
         market_dynamics: {
             summary: string;
             details: string[];
             visual_hint?: string;
+            chart_data?: {
+                title: string;
+                metric1: string;
+                metric2?: string;
+                points: ChartPoint[];
+            };
         };
-        demographic_shifts: {
-            summary: string;
-            details: string[];
-            visual_hint?: string;
-        };
-        infrastructure_and_development: {
-            summary: string;
-            details: string[];
-            visual_hint?: string;
-        };
-        investment_outlook: {
-            short_term: string;
-            long_term: string;
-            visual_hint?: string;
-        };
-        micro_markets: Array<{
-            name: string;
-            profile: string;
-            investment_thesis: string;
-            visual_hint?: string;
-        }>;
         local_risks: {
             summary: string;
             risk_factors: string[];
             visual_hint?: string;
         };
+        investment_outlook: {
+            short_term: string;
+            long_term: string;
+        };
+        pro_forma: {
+            purchase_price: number;
+            gross_rent: number;
+            expenses: {
+                property_tax: number;
+                insurance: number;
+                maintenance: number;
+                management: number;
+                vacancy: number;
+            };
+            noi: number;
+            cap_rate: number;
+        };
+        value_add_strategies: Array<{
+            name: string;
+            description: string;
+            est_cost: string;
+            est_incremental_rent: string;
+        }>;
+        school_intelligence: {
+            summary: string;
+            rating_vs_performance_gap: string;
+            proficiency_metrics: string[];
+        };
+        comparative_analysis: Array<{
+            market: string;
+            median_price: string;
+            inventory_age: string;
+            school_quality: string;
+            primary_draw: string;
+        }>;
+        citations?: Array<{
+            id: string;
+            name: string;
+            url?: string;
+        }>;
     };
     status?: 'running' | 'completed' | 'failed' | string;
     lastRan?: any;
