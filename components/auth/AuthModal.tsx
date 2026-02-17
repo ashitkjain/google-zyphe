@@ -7,14 +7,14 @@ import {
   getUserProfile,
   resetPassword,
   sendInviteEmail
-} from '../services/firebaseService';
+} from '../../services/firebaseService';
 import {
   signInWithPopup,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import Logo from './Logo';
+import Logo from '../shared/Logo';
 
 interface Props {
   isOpen: boolean;

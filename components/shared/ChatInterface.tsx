@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from '../types';
-import { CHAT_MODEL, getAi, executeGeminiRequest } from '../services/geminiService';
-import { APP_CONFIG } from '../config';
-import { getChatInstruction, getChatContext } from '../prompts/property/chatInterface';
-import { logLLMCall, updateLLMCall } from '../services/firebase/llm_logs';
+import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from '../../types';
+import { CHAT_MODEL, getAi, executeGeminiRequest } from '../../services/geminiService';
+import { APP_CONFIG } from '../../config';
+import { getChatInstruction, getChatContext } from '../../prompts/property/chatInterface';
+import { logLLMCall, updateLLMCall } from '../../services/firebase/llm_logs';
 import { serverTimestamp } from 'firebase/firestore';
-import { urlToBase64 } from '../services/geminiService';
+import { urlToBase64 } from '../../services/geminiService';
 
 interface Props {
   property: PropertyData;

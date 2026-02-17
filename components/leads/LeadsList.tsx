@@ -1,15 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { Lead, FunnelStage } from '../types';
-import { LEAD_FIELD_CONFIG, LEAD_STAGE_LIFECYCLE_CONFIG } from '../types/lead';
+import { Lead, FunnelStage } from '../../types';
+import { LEAD_FIELD_CONFIG, LEAD_STAGE_LIFECYCLE_CONFIG } from '../../types/lead';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
-import { InternalProps, DisplayMode } from './leads/types';
-import LeadGalleryItem from './leads/LeadGalleryItem';
-import LeadsHeader from './leads/LeadsHeader';
-import LeadsViewControls from './leads/LeadsViewControls';
-import LeadsKanbanBoard from './leads/LeadsKanbanBoard';
-import LeadsListView from './leads/LeadsListView';
-import ClientDetailsView from './client-hub/ClientDetailsView';
-import DailyPulseModal from './leads/DailyPulseModal';
+import { InternalProps, DisplayMode } from './types';
+import LeadGalleryItem from './LeadGalleryItem';
+import LeadsHeader from './LeadsHeader';
+import LeadsViewControls from './LeadsViewControls';
+import LeadsKanbanBoard from './LeadsKanbanBoard';
+import LeadsListView from './LeadsListView';
+import ClientDetailsView from '../client-hub/ClientDetailsView';
+import DailyPulseModal from './DailyPulseModal';
 
 const LeadsList: React.FC<InternalProps> = ({
     leads,

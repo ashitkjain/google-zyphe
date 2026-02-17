@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ComprehensiveAnalysisResult } from '../types';
+import { ComprehensiveAnalysisResult } from '../../types';
 
 interface Props {
   analysis: ComprehensiveAnalysisResult | null;

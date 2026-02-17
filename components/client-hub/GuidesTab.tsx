@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import GoogleAd from '../GoogleAd';
+import GoogleAd from '../shared/GoogleAd';
 import { getGuideBySlug, saveGuideContent } from '../../services/firebaseService';
 import { generateGuide, generateGuideImage } from '../../services/geminiService';
 import { GuideResult } from '../../prompts/client/guideGeneration';

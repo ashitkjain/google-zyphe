@@ -176,7 +176,7 @@ export function validateGuide(entry: GuideEntry): string[] {
 }
 
 // Execution logic
-const dataPath = path.resolve(__dirname, '../guides_content.json');
+const dataPath = path.resolve(__dirname, '../data/guides_content.json');
 const guides: GuideEntry[] = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
 
 const args = process.argv.slice(2);

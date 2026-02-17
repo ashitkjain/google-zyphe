@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { AIAnalysisResult } from '../types';
+import { AIAnalysisResult } from '../../types';
 
 interface Props {
   analysis: AIAnalysisResult;

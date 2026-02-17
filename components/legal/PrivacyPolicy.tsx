@@ -1,5 +1,5 @@
 import React from 'react';
-import Logo from './Logo';
+import Logo from '../shared/Logo';
 
 const PrivacyPolicy: React.FC = () => {
     return (

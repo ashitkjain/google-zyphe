@@ -1,9 +1,9 @@
 import React from 'react';
-import AnalysisOrchestrator from './analysis/custom-ai/AnalysisOrchestrator';
+import AnalysisOrchestrator from './custom-ai/AnalysisOrchestrator';
 import {
   CustomAIAnalysisResult,
   ComprehensiveAnalysisResult
-} from '../types';
+} from '../../types';
 
 interface Props {
   analysis: CustomAIAnalysisResult | null;

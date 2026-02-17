@@ -1,7 +1,7 @@
 import React from 'react';
 import { HubTab } from './HubHeader';
 import ClientDetailsView from '../ClientDetailsView';
-import LeadsList from '../../LeadsList';
+import LeadsList from '../../leads/LeadsList';
 import ClosingDashboard from '../ClosingDashboard';
 import ReactivateTab from '../ReactivateTab';
 import ReminderRulesManager from '../ReminderRulesManager';

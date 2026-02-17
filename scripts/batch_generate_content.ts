@@ -10,7 +10,7 @@ const apiKeyMatch = envContent.match(/GEMINI_API_KEY=(.*)/);
 const API_KEY = apiKeyMatch ? apiKeyMatch[1].trim() : "";
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
-const OUTPUT_FILE = path.join(process.cwd(), "guides_content.json");
+const OUTPUT_FILE = path.join(process.cwd(), "data/guides_content.json");
 
 async function generateWithRetry(category: string, title: string, retries = 3): Promise<GuideResult | null> {
     for (let i = 0; i < retries; i++) {

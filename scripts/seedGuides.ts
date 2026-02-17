@@ -1,11 +1,11 @@
-import { saveGuideContent } from './services/firebaseService.ts';
+import { saveGuideContent } from '../services/firebaseService.ts';
 import fs from 'fs';
 import path from 'path';
 
 const seedGuides = async () => {
     console.log("Starting Guide Seeding from guides_content.json...");
 
-    const filePath = path.join(process.cwd(), 'guides_content.json');
+    const filePath = path.join(process.cwd(), 'data/guides_content.json');
     if (!fs.existsSync(filePath)) {
         console.error("guides_content.json not found! Run the generation script first.");
         return;

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ResoFacts } from '../types';
+import { ResoFacts } from '../../types';
 
 interface Props {
   facts?: ResoFacts;

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import DevMemoryMonitor from './components/DevMemoryMonitor';
+import DevMemoryMonitor from './components/dev/DevMemoryMonitor';
 import {
   PropertyData,
   CustomAIAnalysisResult,
@@ -39,26 +39,26 @@ import {
 } from './services/firebaseService';
 import { APP_CONFIG } from './config';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import PropertyHeader from './components/PropertyHeader';
-import PropertyFacts from './components/PropertyFacts';
-import CustomAIAnalysis from './components/CustomAIAnalysis';
-import ComprehensiveAnalysis from './components/ComprehensiveAnalysis';
-import PropertyImages from './components/PropertyImages';
-import PropertyMaps from './components/PropertyMaps';
-import ClimateRiskSection from './components/ClimateRiskSection';
+import PropertyHeader from './components/property/PropertyHeader';
+import PropertyFacts from './components/property/PropertyFacts';
+import CustomAIAnalysis from './components/analysis/CustomAIAnalysis';
+import ComprehensiveAnalysis from './components/analysis/ComprehensiveAnalysis';
+import PropertyImages from './components/property/PropertyImages';
+import PropertyMaps from './components/property/PropertyMaps';
+import ClimateRiskSection from './components/property/ClimateRiskSection';
 
-import PreloadManager from './components/PreloadManager';
-import ChatInterface from './components/ChatInterface';
-import Logo from './components/Logo';
-import AuthModal from './components/AuthModal';
-import AddClientModal from './components/AddClientModal';
+import PreloadManager from './components/property/PreloadManager';
+import ChatInterface from './components/shared/ChatInterface';
+import Logo from './components/shared/Logo';
+import AuthModal from './components/auth/AuthModal';
+import AddClientModal from './components/client-hub/AddClientModal';
 import ClientHub from './components/ClientHub';
-import Footer from './components/Footer';
-import ExploreTab from './components/ExploreTab';
+import Footer from './components/shared/Footer';
+import ExploreTab from './components/property/ExploreTab';
 import GuidesTab from './components/client-hub/GuidesTab';
-import LegalDisclaimer from './components/LegalDisclaimer';
-import TermsView from './components/TermsView';
-import PrivacyPolicy from './components/PrivacyPolicy';
+import LegalDisclaimer from './components/legal/LegalDisclaimer';
+import TermsView from './components/legal/TermsView';
+import PrivacyPolicy from './components/legal/PrivacyPolicy';
 import { useInactivitySignout } from './hooks/useInactivitySignout';
 
 type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'video_upload' | 'technical_media' | 'executive_summary' | 'market_analysis' | 'opportunity_discovery' | 'ai_validation';

@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { PropertyData } from '../types';
+import { PropertyData } from '../../types';
 
-import { calculateSolarPotential } from '../utils/solarCalculations';
+import { calculateSolarPotential } from '../../utils/solarCalculations';
 
 interface Props {
     data: PropertyData;

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { UserProfile } from '../types';
-import { getRealtorClients, removeClient } from '../services/firebaseService';
+import { UserProfile } from '../../types';
+import { getRealtorClients, removeClient } from '../../services/firebaseService';
 
 interface Props {
     isOpen: boolean;

@@ -14,7 +14,7 @@ const apiKeyMatch = envContent.match(/GEMINI_API_KEY=(.*)/);
 const API_KEY = apiKeyMatch ? apiKeyMatch[1].trim() : "";
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
-const OUTPUT_FILE = path.resolve(__dirname, "../guides_content.json");
+const OUTPUT_FILE = path.resolve(__dirname, "../data/guides_content.json");
 
 // --- VALIDATION LOGIC COPED HERE ---
 

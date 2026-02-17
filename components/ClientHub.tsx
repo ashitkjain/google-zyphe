@@ -5,10 +5,10 @@ import { useLeadActions } from './client-hub/hub/useLeadActions';
 import HubHeader, { HubTab } from './client-hub/hub/HubHeader';
 import HubMobileMenu from './client-hub/hub/HubMobileMenu';
 import HubContent from './client-hub/hub/HubContent';
-import AddClientModal from './AddClientModal';
-import RemoveClientModal from './RemoveClientModal';
+import AddClientModal from './client-hub/AddClientModal';
+import RemoveClientModal from './client-hub/RemoveClientModal';
 import ClientEditModal from './client-hub/ClientEditModal';
-import Footer from './Footer';
+import Footer from './shared/Footer';
 
 import {
     updateLead,

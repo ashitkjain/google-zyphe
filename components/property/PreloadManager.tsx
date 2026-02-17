@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { runFullIntelligencePipeline, PipelineProgress } from '../services/preloadService';
+import { runFullIntelligencePipeline, PipelineProgress } from '../../services/preloadService';
 
 interface Props {
   onClose: () => void;

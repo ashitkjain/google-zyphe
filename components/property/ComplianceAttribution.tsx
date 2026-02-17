@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { PropertyData } from '../types';
+import { PropertyData } from '../../types';
 
 interface ComplianceAttributionProps {
     data: PropertyData;

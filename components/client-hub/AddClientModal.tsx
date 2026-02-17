@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { sendInviteEmail } from '../services/firebaseService';
-import Logo from './Logo';
+import { sendInviteEmail } from '../../services/firebaseService';
+import Logo from '../shared/Logo';
 
 interface Props {
     isOpen: boolean;

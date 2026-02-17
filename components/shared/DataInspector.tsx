@@ -1,5 +1,5 @@
 import React from 'react';
-import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult } from '../types';
+import { PropertyData, AIAnalysisResult, CustomAIAnalysisResult } from '../../types';
 
 interface Props {
   isOpen: boolean;

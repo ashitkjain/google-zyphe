@@ -6,13 +6,13 @@ import AirQualitySection from './AirQualitySection';
 import PropertyDescription from './PropertyDescription';
 import StreetViewAnalysisSection from './StreetViewAnalysisSection';
 import PropertyMaps from './PropertyMaps';
-import Logo from './Logo';
-import CustomAIAnalysis from './CustomAIAnalysis';
-import ComprehensiveAnalysis from './ComprehensiveAnalysis';
+import Logo from '../shared/Logo';
+import CustomAIAnalysis from '../analysis/CustomAIAnalysis';
+import ComprehensiveAnalysis from '../analysis/ComprehensiveAnalysis';
 import ComplianceAttribution from './ComplianceAttribution';
 
-import ChatInterface from './ChatInterface';
-import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogEntry } from '../types';
+import ChatInterface from '../shared/ChatInterface';
+import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult, LogEntry } from '../../types';
 
 interface ExploreTabProps {
     propertyData: PropertyData | null;
