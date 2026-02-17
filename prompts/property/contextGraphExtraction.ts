@@ -58,7 +58,8 @@ export const buildGraphExtractionContext = (
 
 // ── Prompt ─────────────────────────────────────────────────
 
-export const getContextGraphExtractionPrompt = (context: any) => `
+export const getContextGraphExtractionPrompt = (context: any) => {
+    return `
 You are a real estate data analyst. Your task is to extract structured decision factors from property data.
 
 Given the property data below, extract values for ALL 70 decision factors. For each factor, return:
@@ -70,88 +71,81 @@ Given the property data below, extract values for ALL 70 decision factors. For e
 ## FACTOR DEFINITIONS
 
 ### Financial & Market (1-10)
-1. **Price Bracket**: Classify price as "Entry" (<$800K), "Mid" ($800K-$1.5M), "Luxury" (>$1.5M) — use property.price
-2. **HOA Friction**: Extract monthly HOA fee amount and any notable restrictions — use resoFacts.feesAndDues
-3. **Insurance Viability**: Flag if fire risk is high (score >= 7) suggesting FAIR Plan necessity — use annualHomeownersInsurance + fireRiskScore
-4. **True Carrying Cost**: Estimate monthly cost = mortgage (at 7%) + taxes + HOA + insurance — computed from price, propertyTaxRate, HOA, insurance
-5. **Seller Motivation**: Assess from price drops in priceHistory and days on market — use priceHistory + timeOnZillow/daysOnZillow
-6. **ADU / House-Hacking Potential**: Extract any mentions of ADU, granny flat, guest house potential — use deep_investment_research
-7. **Short-Term Rental Legality**: Extract STR restrictions, zoning friction — use deep_investment_research
-8. **Long-Term Rental Yield**: Compute (rentZestimate × 12) / price as gross yield % — use rentZestimate + price
-9. **Historical Appreciation**: Extract historical appreciation rate — use general_market_intelligence
-10. **Bidding War Probability**: Assess from DOM, inventory, supply/demand — use market data + timeOnZillow
+1. **Price Bracket**: Classify price as "Entry" (<$800K), "Mid" ($800K-$1.5M), "Luxury" (>$1.5M). If price missing, use Zestimate.
+2. **HOA Friction**: Extract amount from resoFacts.feesAndDues or hoaFees. If "None" or missing, set to "None/Low".
+3. **Insurance Viability**: Flag if fireRiskScore >= 7 OR property is in high-risk zone mentioned in description.
+4. **True Carrying Cost**: Estimate monthly cost: Mortgage (Price @ 7%, 30yr) + (Taxes/12) + HOA + (Insurance/12). 
+5. **Seller Motivation**: High if price cuts in priceHistory OR daysOnMarket > 90. Otherwise "Standard".
+6. **ADU / House-Hacking Potential**: Look for "guest house", "basement", "separate entrance", "ADU", or "cottage" in description OR deep_research.
+7. **Short-Term Rental Legality**: Check deep_research OR zoningDescription for STR/Rental restrictions. If unknown, check listing sentiment ("Investment opportunity").
+8. **Long-Term Rental Yield**: (rentZestimate × 12) / price. If rentZestimate missing, use 0.05 average yield.
+9. **Historical Appreciation**: Use general_market_intelligence. If missing, use city-wide defaults from deep_research.
+10. **Listing Urgency**: Assess if "Hot Home" from description or price history (back on market, etc.)
 
 ### Structural & Size (11-20)
-11. **Property Typology**: Direct from homeType (SingleFamily, Condo, Townhouse, etc.)
-12. **Bedroom Count**: Direct from bedrooms
-13. **Bathroom Ratio**: bathrooms count and whether there's a guest half-bath
-14. **Usable Square Footage**: Direct from livingAreaValue
-15. **Lot Size / Acreage**: Direct from lotSize
-16. **Single-Story Flow**: Infer if single story from room_highlights floor assignments + resoFacts
-17. **Dedicated Home Office**: Look for Den/Office/Library in roomTypes or AI room descriptions
-18. **Garage & Parking Capacity**: Direct from resoFacts.garageParkingCapacity
-19. **Foundation Type**: Basement vs Slab — use resoFacts.foundationDetails
-20. **Construction Era**: Classify yearBuilt into "Pre-War" (<1945), "Mid-Century" (1945-1975), "80s-90s" (1976-1999), "2000s" (2000-2015), "New Build" (>2015)
+11. **Property Typology**: From homeType (SingleFamily, Condo, etc.).
+12. **Bedroom Count**: Direct from bedrooms.
+13. **Bathroom Ratio**: bathrooms count. Identify "Half Bath" for guest use.
+14. **Usable Square Footage**: Direct from livingAreaValue.
+15. **Lot Size / Acreage**: Direct from lotSize value.
+16. **Single-Story Living**: "Yes" if no stairs mentioned OR room_highlights only on "Floor 1" OR resoFacts says Single Story.
+17. **Dedicated Home Office**: Look for "Den", "Office", "Library", or "Study" in roomTypes or description.
+18. **Garage & Parking Capacity**: From resoFacts.garageParkingCapacity or garageSpaces.
+19. **Foundation & Storage**: Basement, Crawl Space, or Slab — use resoFacts.
+20. **Construction Era**: Pre-War (<1945), Mid-Century (1945-75), 80s-90s, 2000s, New Build (>2015).
 
 ### Interior Design & Visual (21-30)
-21. **Move-In Readiness**: Assess from condition_and_finish — "Turn-key" vs "Needs Work"
-22. **Fixer-Upper / TLC**: Extract mentions of dated, needs updates, cosmetic work needed
-23. **Architectural Style**: From design_style.style — Mediterranean, Craftsman, Contemporary, etc.
-24. **Natural Light / Brightness**: From lighting description — "Sun-drenched", "Dark", "Skylight-enhanced"
-25. **Open-Concept Flow**: From spatial_flow — open concept vs compartmentalized
-26. **Kitchen Caliber**: Extract kitchen quality descriptors — "Chef's kitchen", "Builder grade", "Renovated"
-27. **Primary Suite Luxury**: Extract master/primary suite features — "Spa bath", "Walk-in closet", "Suite"
-28. **Flooring Material**: From resoFacts.flooring — Hardwood, Carpet, Tile, Laminate
-29. **Ceiling Volume**: Look for vaulted, cathedral, soaring, double-height mentions
-30. **Color Palette Warmth**: From color_and_materials — Warm, Neutral, Cool, Bold
+21. **Move-In Readiness**: "Turn-key" if renovated/new, "Mint" if well-maintained, "Needs Work" if TLC/Fixer mentioned.
+22. **Renovation Upside**: High if condition is "Needs cosmetic updates" but structural era is good.
+23. **Architectural Style**: Mediterranean, Craftsman, Modern, etc. (from visualAnalysis or architecturalStyle).
+24. **Natural Light / Brightness**: From lighting description. If missing, look for "Skylights", "Large windows", "South facing" in description.
+25. **Open-Concept Flow**: Check if "Open concept" or "Vaulted" mentioned in interior analysis or description.
+26. **Kitchen Caliber**: "Chef's" if wolf/subzero/gas mentioned, "Modern" if stainless/quartz, "Original" if dated.
+27. **Primary Suite Luxury**: Look for "Dual vanities", "Walk-in", "Soaking tub" in room_highlights or description.
+28. **Flooring Material**: From resoFacts.flooring (Hardwood, Tile, Carpet).
+29. **Ceiling Volume**: "High/Vaulted" if mentioned in description or spatial_flow.
+30. **Color Palette**: Neutral, Warm, Bold, etc. (from visualAnalysis).
 
 ### Outdoor & Lot (31-40)
-31. **Fenced Yard (Pets/Kids)**: From resoFacts.fencing + AI backyard analysis
-32. **Outdoor Entertaining**: Extract outdoor features — Pergola, Patio, Outdoor kitchen, Fire pit
-33. **Private Pool / Spa**: From MLS + AI analysis
-34. **Neighbor Privacy**: From streetViewAnalysis.privacyRating
-35. **Curb Appeal Score**: From streetViewAnalysis.curbAppealScore (numeric 1-10)
-36. **View Quality**: From views_privacy_orientation — Hills, Golf course, City, None
-37. **Street Typology**: From neighborhood orientation — Cul-de-sac, Corner lot, Through street
-38. **Visual Clutter / Wires**: From streetViewAnalysis.visualClutter + utilityAesthetic
-39. **Usable Lawn Space**: From gardenDescription — "Room for kids", "Compact", "No yard"
-40. **Low-Maintenance Yard**: Drought-tolerant, artificial turf, minimal landscaping
+31. **Fenced Yard**: Check resoFacts.fencing or backyard_and_patio analysis.
+32. **Outdoor Entertainment**: Look for "Pool", "Spa", "Patio", "Deck", "Outdoor Kitchen" in exterior analysis or description.
+33. **Privacy Level**: From streetViewAnalysis.privacyRating or views_privacy_orientation.
+34. **Curb Appeal**: From streetViewAnalysis.curbAppealScore. If missing, use exterior_and_lot_appeal.
+35. **Topography**: "Flat" vs "Hillside" from neighborhood analysis or description.
+36. **View Quality**: Hills, City Lights, Water, or None.
+37. **Street Noise / Traffic**: "Quiet" if Cul-de-sac, "Moderate" if through street, "High" if arterial.
+38. **Visual Clutter**: Overhead wires, messy neighbors, or busy streetscape (from streetViewAnalysis).
+39. **Usable Yard Space**: "Large Level Yard" vs "Steep" vs "Compact".
+40. **Xeriscape / Low Maintenance**: Drought-tolerant or synthetic turf mentioned.
 
 ### Location & Community (41-45)
-41. **School District Quality**: From schools array — extract highest GreatSchools rating
-42. **School Matriculation Power**: From deep_investment_research school intelligence
-43. **Walkability (15-Min City)**: Direct from walkScore + walkScoreDesc
-44. **Proximity to Greenery**: From neighborhood_features.proximity_to_greenery_and_water
-45. **Family Safety / Sidewalks**: From streetViewAnalysis.familySafety
-
-### Environmental & Sustainability (46-50)
-46. **Wildfire Risk**: Direct from fireRiskScore (1-10 scale)
-47. **Flood Risk**: Direct from floodRiskScore (1-10 scale)
-48. **Solar Yield Potential**: From solarData — classify as "High" (>15k kWh), "Medium" (8-15k), "Low" (<8k)
-49. **Allergen / Pollen Safety**: From pollen.score + dominantPollenType
-50. **HVAC Quality / Air Filtration**: From resoFacts.heating/cooling — Central Air vs Window, filtration
+41. **School Quality (Max)**: Highest rating from schools array (e.g., "9/10").
+42. **Commute Convenience**: Proximity to highways or transit hubs mentioned in neighborhood description.
+43. **Walkability**: Direct from walkScore. "Walkable" if > 70.
+44. **Greenery Proximity**: "Park adjacent" or "Near trails" from neighborhood features.
+45. **Sidewalk Continuity**: From streetViewAnalysis.familySafety or pedestrian_infra.
 
 ### Advanced Intelligence (51-70)
-51. **Home Orientation / Facing**: From neighborhood.orientation.final_orientation — "North-facing", "South-facing" — critical for Vastu Shastra, Feng Shui, and natural light preferences
-52. **Specific Allergen Triggers**: From pollen.analysis.primary_triggers — specific allergens like "Juniper", "Oak" — matches buyers with allergies away from problem zones
-53. **Micro-Particulate Load**: From airQuality.pollutants — specifically pm25 or o3 concentrations for buyers with asthma or respiratory concerns
-54. **Topography & Elevation**: From neighborhood_features.topography — "Flat" vs "Rolling hills" — impacts yard usability, drainage, and aging-in-place
-55. **Carbon Offset Potential**: From solarData.estimatedSolarProduction.carbonOffsetTons — appeals to ESG/Eco-conscious buyers
-56. **Utility Aesthetic / Wires**: From streetViewAnalysis.utilityAesthetic — "Underground utilities" vs "Overhead power lines" — subconscious turn-off
-57. **Street Parking Logistics**: From streetViewAnalysis.parkingLogistics — "Ample street parking" vs "Driveway only" — critical for multi-car families
-58. **Sidewalk Continuity & Safety**: From streetViewAnalysis.familySafety — "Continuous sidewalks" — essential for strollers, dog owners, retirees
-59. **Street Layout & Traffic**: From neighborhood_features.street_layout_and_traffic — quiet "Cul-de-sac" vs busy "Arterial" road
-60. **Neighborhood Visual Clutter**: From streetViewAnalysis.visualClutter — messy neighboring yards or chaotic streetscapes
-61. **Multi-Gen / ADU Readiness**: From description + resoFacts.roomTypes — "downstairs bedroom/full bath", "separate entrance", "Basement Full"
-62. **Laundry Logistics**: From resoFacts.laundryFeatures — "Inside/Laundry Room" (desired) vs "In Garage" (dealbreaker for many)
-63. **Water & Air Quality Systems**: From resoFacts.appliances + heating — "Water Softener", "Water Filter System", "Zoned HVAC"
-64. **Life Safety & Security Infra**: From resoFacts.securityFeatures — "Fire Sprinkler System", "Double Strapped Water Heater" — mitigates FAIR plan costs
-65. **Digital Presentation Quality**: From image_quality_analysis.overall_score + staging_and_clutter — find "Ugly Ducklings" with high structural value but bad photos
-66. **AI-Suggested Sweat Equity**: From room_highlights[].potential_improvements — "Add kitchen island", "Add pergola" — perfect for flippers
-67. **Solar Obstruction Friction**: From streetViewAnalysis.solarObstructions — "Large tree potentially obstructs" — kills solar panel ROI
-68. **Proximity to Sticky Job Hubs**: From general_market_intelligence.demand_drivers — links to specific corporate HQs for tenant stability
-69. **Future Megaprojects**: From general_market_intelligence.upcoming_developments — "IKEA Opening 2026", "Valley Link Transit Project"
-70. **Severe Geo-Risks**: From deep_investment_research.local_risks — soil liquefaction, dam inundation zones — hidden tail-risk
+51. **Vastu / Feng Shui Readiness**: Home orientation (North/South facing) — use neighborhood.orientation.
+52. **Asthma / Respiratory Safety**: Check airQuality.aqi and pm25 load.
+53. **Pollen Sensitivity**: Classify triggers like Oak, Grass, etc., from pollen analysis.
+54. **Family-Friendly Level**: "High" if Cul-de-sac + Sidewalks + Backyard + Good Schools.
+55. **Renewable Potential**: Solar production potential (High/Med/Low) from solarData.
+56. **EV Readiness**: Look for "240V", "Level 2", or EV charger in garage description.
+57. **Work-From-Home Score**: Dedicated office + Fiber/High-speed internet mentions.
+58. **Multi-Gen Utility**: Downstairs Bed/Bath or separate entry for in-laws.
+59. **Laundry Logistics**: "Indoor/Separate Room" vs "Garage/Hallway".
+60. **Water / Air Systems**: Softeners, RO filters, or Zoned HVAC mentioned.
+61. **Security Infrastructure**: Gated, Security system, or Cameras.
+62. **Digital Presentation**: Quality of staging and photos (find "Hidden Gems").
+63. **Solar ROI Obstructors**: Large trees or neighbors blocking roof sunshine.
+64. **Job Hub Connectivity**: Proximity to major corporate campuses (Google, Apple, etc.).
+65. **Upcoming Dev Impact**: Nearby construction/development from general_market_intelligence.
+66. **Soil / Geo Consistency**: Soil type or liquefaction risk from deep_research.
+67. **Luxury Finish Level**: High-end details like crown molding, wide plank floors, designer fixtures.
+68. **Backyard Potential**: Room for ADU or pool if not already present.
+69. **Streetscape Aesthetic**: Underground utilities vs overhead wires.
+70. **Market Momentum**: Appreciating vs cooling micro-market indicators.
 
 ## PROPERTY DATA
 
@@ -188,7 +182,7 @@ CRITICAL RULES:
 - Be specific with values - include numbers, percentages, and descriptors
 - The summary should synthesize the factors into actionable buyer intelligence
 `;
-
+};
 // ── Response Schema ───────────────────────────────────────
 
 const factorSchema = {

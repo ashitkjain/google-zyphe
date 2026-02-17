@@ -103,7 +103,7 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                 <div className="text-center">
                     <h3 className="text-xl font-black text-slate-800 mb-2">Context Graph Extraction</h3>
                     <p className="text-sm text-slate-500 max-w-md">
-                        Extract 50 decision factors from this property's analyzed data to power the buyer context graph.
+                        Extract decision factors from this property's analyzed data to power the buyer context graph.
                     </p>
                 </div>
                 <button

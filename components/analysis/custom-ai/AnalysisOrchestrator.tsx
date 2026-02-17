@@ -314,7 +314,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                 {activeTab === 'context_graph' && (
                     <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                         {graphLoading ? (
-                            <AnalysisLoading title="Extracting Context Factors..." subtitle="Analyzing 50 decision dimensions." timer={timer} address={propertyData?.address} icon="fa-diagram-project" />
+                            <AnalysisLoading title="Extracting Context Factors..." subtitle="Analyzing dimensions." timer={timer} address={propertyData?.address} icon="fa-diagram-project" />
                         ) : (
                             <ContextGraphView
                                 data={graphResult!}

@@ -320,7 +320,7 @@ export const useAnalysisActions = (
         addLog('System', { type: 'info' }, { task: 'context_graph_extraction', zpid });
 
         try {
-            // 1. Check Firestore cache first
+            // 1. Check Firestore cache first for the graph itself
             if (zpid) {
                 const cached = await getContextGraphFromCloud(zpid);
                 if (cached && cached.factors && cached.factors.length > 0) {
@@ -332,19 +332,56 @@ export const useAnalysisActions = (
                 addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'context_graph', zpid });
             }
 
-            // 2. Extract via Gemini
-            const visual = analysis;
+            // 2. Proactively enrich 'analysis' with city-level data from cloud if missing
+            // This prevents "Data not available" for factors that depend on deep research
+            const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
+            const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
+            const cityStateKey = generateCityStateKey(city, state);
+
+            let enrichedAnalysis = { ...analysis };
+            let enrichedAny = false;
+
+            if (cityStateKey) {
+                const [pulseData, marketData, deepData] = await Promise.all([
+                    !analysis.community_pulse ? getCommunityPulseFromCloud(cityStateKey) : Promise.resolve(null),
+                    !analysis.general_market_intelligence ? getGeneralMarketIntelligenceFromCloud(cityStateKey) : Promise.resolve(null),
+                    !analysis.deep_investment_research ? getDeepInvestmentResearchFromCloud(cityStateKey) : Promise.resolve(null)
+                ]);
+
+                if (pulseData) {
+                    enrichedAnalysis.community_pulse = pulseData;
+                    enrichedAny = true;
+                }
+                if (marketData) {
+                    enrichedAnalysis.general_market_intelligence = marketData;
+                    enrichedAny = true;
+                }
+                if (deepData && (deepData.status === 'completed' || deepData.content)) {
+                    enrichedAnalysis.deep_investment_research = deepData;
+                    enrichedAny = true;
+                }
+            }
+
+            if (enrichedAny) {
+                addLog('Cloud Cache', { type: 'info' }, { task: 'enriched_context_for_graph', cityStateKey });
+                onUpdateAnalysis(enrichedAnalysis); // Sync back to UI
+            }
+
+            // 3. Extract via Gemini
             const comprehensive = null;
 
             addLog('Gemini AI', { type: 'request' }, { task: 'context_graph_extraction', zpid, model: 'gemini-2.0-flash' });
-            const res = await aiExtractGraphFactors(propertyData, visual, comprehensive);
-            setGraphResult(res.data);
-            addLog('Gemini AI', { type: 'response' }, { task: 'context_graph_extraction', zpid, factors: res.data.factors?.length }, (res as any).usage);
+            const res = await aiExtractGraphFactors(propertyData, enrichedAnalysis, comprehensive);
 
-            // 3. Save to Firestore cache
-            if (zpid && res.data) {
-                await saveContextGraphToCloud(zpid, res.data);
-                addLog('Cloud Cache', { type: 'info' }, { status: 'Saved', task: 'context_graph', zpid });
+            if (res.data) {
+                setGraphResult(res.data);
+                addLog('Gemini AI', { type: 'response' }, { task: 'context_graph_extraction', zpid, factors: res.data.factors?.length }, (res as any).usage);
+
+                // 4. Save to Firestore cache
+                if (zpid) {
+                    await saveContextGraphToCloud(zpid, res.data);
+                    addLog('Cloud Cache', { type: 'info' }, { status: 'Saved', task: 'context_graph', zpid });
+                }
             }
         } catch (err: any) {
             console.error("Context Graph Extraction Failed:", err);
