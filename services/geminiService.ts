@@ -10,6 +10,7 @@ import { getInvestmentResearchPrompt, investmentResearchSchema } from "../prompt
 import { getGeneralMarketIntelligencePrompt, generalMarketIntelligenceSchema } from "../prompts/property/generalMarketIntelligence";
 import { getDeepInvestmentResearchPrompt, deepInvestmentResearchSchema } from "../prompts/property/deepInvestmentResearch";
 import { biddingStrategyPrompt, biddingStrategySchema } from "../prompts/property/biddingStrategy";
+import { buildGraphExtractionContext, getContextGraphExtractionPrompt, contextGraphExtractionSchema, ContextGraphExtractionResult } from "../prompts/property/contextGraphExtraction";
 
 import {
   getCommunityPulseFromCloud,
@@ -409,29 +410,45 @@ export const analyzeNeighborhood = async (mapZoomIn: string, mapZoomOut: string,
 
 export const analyzeCommunityPulse = async (property: PropertyData, userId: string = "unknown", zpid?: string, onLog?: (msg: string) => void): Promise<AIResponseWithUsage<CommunityPulseResult>> => {
   const prompt = getCommunityPulsePrompt(optimizePropertyForAi(property) as PropertyData);
-  const startTime = Date.now();
 
-  onLog?.(`[Python Deep Research] Offloading Community Pulse task to Python Engine...`);
-  console.log(`[Python Deep Research] Starting Community Pulse for ${property.city}...`);
-  const { data } = await executePythonDeepResearch<CommunityPulseResult>(prompt, communityPulseSchema, {
+  onLog?.(`[Community Pulse] Running with gemini-3.0-flash + Google Search grounding for ${property.city}...`);
+  console.log(`[Community Pulse] Starting for ${property.city}, ${property.state}...`);
+
+  return executeGeminiRequest<CommunityPulseResult>({
+    model: 'gemini-3.0-flash',
+    contents: prompt,
+    config: { tools: [groundingTool], temperature: 0.7 },
     userId,
-    zpid,
+    zpid: zpid || property.zpid,
     address: property.address,
-    promptFilename: "communityPulse.ts"
+    promptFilename: "communityPulse.ts",
+    extractResultJson: true,
+    schema: communityPulseSchema
   });
+};
 
-  const usage: AIUsage = {
-    promptTokens: 0,
-    candidatesTokens: 0,
-    totalTokens: 0,
-    cost: 0.10,
-    model: "deep-research-pro-preview"
-  };
+export const extractContextGraphFactors = async (
+  property: PropertyData,
+  visual: CustomAIAnalysisResult | null,
+  comprehensive: ComprehensiveAnalysisResult | null,
+  userId: string = "unknown"
+): Promise<AIResponseWithUsage<ContextGraphExtractionResult>> => {
+  const context = buildGraphExtractionContext(property, visual, comprehensive);
+  const prompt = getContextGraphExtractionPrompt(context);
 
-  return {
-    data,
-    usage
-  };
+  console.log(`[Context Graph] Extracting factors for ${property.address}...`);
+
+  return executeGeminiRequest<ContextGraphExtractionResult>({
+    model: 'gemini-2.0-flash',
+    contents: prompt,
+    config: { temperature: 0.3 },  // Low temp for structured extraction
+    userId,
+    zpid: property.zpid,
+    address: property.address,
+    promptFilename: "contextGraphExtraction.ts",
+    extractResultJson: true,
+    schema: contextGraphExtractionSchema
+  });
 };
 
 export const analyzePropertyImages = async (imageUrls: string[], property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<CustomAIAnalysisResult>> => {

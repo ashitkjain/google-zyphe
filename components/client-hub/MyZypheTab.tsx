@@ -52,6 +52,7 @@ const PAGE_LABELS: Record<string, string> = {
     unit_economics: 'Unit Economics',
     premium_mls: 'Premium MLS',
     reminder_rules: 'Reminder Rules',
+    context_graph_builder: 'Context Graph',
     my_zyphe: 'My Zyphe',
 };
 
@@ -193,8 +194,8 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
                             key={f.id}
                             onClick={() => setFilter(f.id)}
                             className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${filter === f.id
-                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
-                                    : 'bg-white text-slate-400 hover:text-slate-600 border border-slate-100 hover:border-slate-200'
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                                : 'bg-white text-slate-400 hover:text-slate-600 border border-slate-100 hover:border-slate-200'
                                 }`}
                         >
                             <i className={`fa-solid ${f.icon} text-[10px]`}></i>
@@ -252,9 +253,9 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
                                             >
                                                 {/* Dot on timeline */}
                                                 <div className={`absolute -left-[calc(2rem+5px)] w-3 h-3 rounded-full border-2 border-white shadow-sm ${event.event_type === 'login' ? 'bg-emerald-400' :
-                                                        event.event_type === 'logout' ? 'bg-slate-400' :
-                                                            event.event_type === 'session_timeout' ? 'bg-amber-400' :
-                                                                'bg-indigo-400'
+                                                    event.event_type === 'logout' ? 'bg-slate-400' :
+                                                        event.event_type === 'session_timeout' ? 'bg-amber-400' :
+                                                            'bg-indigo-400'
                                                     }`}></div>
 
                                                 <div className="bg-white rounded-2xl p-4 border border-slate-100 hover:border-indigo-100 hover:shadow-md transition-all group-hover:translate-x-1">

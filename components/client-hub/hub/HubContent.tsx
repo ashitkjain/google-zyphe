@@ -31,6 +31,7 @@ import UnitEconomicsTab from '../UnitEconomicsTab';
 import PremiumMLSTab from '../PremiumMLSTab';
 import AIValidationTab from '../AIValidationTab';
 import MyZypheTab from '../MyZypheTab';
+import ContextGraphTab from '../ContextGraphTab';
 import { Lead, CRMTask, UserProfile, ReminderRule, CalendarEvent } from '../../../types';
 
 interface HubContentProps {
@@ -179,6 +180,8 @@ const HubContent: React.FC<HubContentProps> = ({
             {activeTab === 'bulk_prefetch' && <BulkPrefetchTab />}
 
             {activeTab === 'city_data' && <CityDataTab onNavigate={onNavigate} />}
+
+            {activeTab === 'context_graph_builder' && <ContextGraphTab onNavigate={onNavigate} />}
 
             {activeTab === 'data_health' && <DataHealthTab />}
 

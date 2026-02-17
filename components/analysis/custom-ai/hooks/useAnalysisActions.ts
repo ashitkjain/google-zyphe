@@ -12,7 +12,9 @@ import {
     getGeneralMarketIntelligenceFromCloud,
     saveGeneralMarketIntelligenceToCloud,
     getDeepInvestmentResearchFromCloud,
-    saveDeepInvestmentResearchToCloud
+    saveDeepInvestmentResearchToCloud,
+    getContextGraphFromCloud,
+    saveContextGraphToCloud
 } from '../../../../services/firebaseService';
 import {
     analyzePropertyImages as aiAnalyzeImages,
@@ -20,8 +22,10 @@ import {
     analyzeGeneralMarketIntelligence as aiAnalyzeMarket,
     analyzeBiddingStrategy as aiAnalyzeBidding,
     analyzeCommunityPulse as aiAnalyzePulse,
-    analyzeDeepInvestmentResearch as aiAnalyzeDeepResearch
+    analyzeDeepInvestmentResearch as aiAnalyzeDeepResearch,
+    extractContextGraphFactors as aiExtractGraphFactors
 } from '../../../../services/geminiService';
+import { ContextGraphExtractionResult } from '../../../../prompts/property/contextGraphExtraction';
 import { APP_CONFIG } from '../../../../config';
 
 export const useAnalysisActions = (
@@ -124,46 +128,42 @@ export const useAnalysisActions = (
         if (!analysis || !propertyData || pulseLoading) return;
 
         setTimer(0);
-        addLog('System', { type: 'info' }, { message: "Community Pulse is currently DISABLED." });
-        setPulseLoading(false);
-        return;
-        /*
-                addLog('System', { type: 'info' }, { task: 'community_pulse_init', zpid });
-        
-                try {
-                    const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
-                    const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
-                    const cityStateKey = generateCityStateKey(city, state);
-        
-                    let pulseData = null;
-                    if (cityStateKey) {
-                        pulseData = await getCommunityPulseFromCloud(cityStateKey);
-                    }
-        
-                    if (pulseData) {
-                        addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'community_pulse', location: cityStateKey || zpid });
-                    } else {
-                        addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'community_pulse', location: cityStateKey || zpid });
-                        const res = await aiAnalyzePulse(propertyData);
-                        pulseData = res.data;
-                        if (cityStateKey) {
-                            await saveCommunityPulseToCloud(cityStateKey, pulseData);
-                        }
-                        addLog('Gemini AI', { type: 'response' }, { task: 'community_pulse', location: cityStateKey || zpid }, (res as any).usage);
-                    }
-        
-                    onUpdateAnalysis({
-                        ...analysis,
-                        community_pulse: pulseData
-                    });
-        
-                } catch (err: any) {
-                    console.error("Community Pulse Failed:", err);
-                    addLog('System', { type: 'error' }, { message: "Community Pulse Failed", error: err.message || err });
-                } finally {
-                    setPulseLoading(false);
+        setPulseLoading(true);
+        addLog('System', { type: 'info' }, { task: 'community_pulse_init', zpid });
+
+        try {
+            const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
+            const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
+            const cityStateKey = generateCityStateKey(city, state);
+
+            let pulseData = null;
+            if (cityStateKey) {
+                pulseData = await getCommunityPulseFromCloud(cityStateKey);
+            }
+
+            if (pulseData) {
+                addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'community_pulse', location: cityStateKey || zpid });
+            } else {
+                addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'community_pulse', location: cityStateKey || zpid });
+                const res = await aiAnalyzePulse(propertyData);
+                pulseData = res.data;
+                if (cityStateKey) {
+                    await saveCommunityPulseToCloud(cityStateKey, pulseData);
                 }
-        */
+                addLog('Gemini AI', { type: 'response' }, { task: 'community_pulse', location: cityStateKey || zpid }, (res as any).usage);
+            }
+
+            onUpdateAnalysis({
+                ...analysis,
+                community_pulse: pulseData
+            });
+
+        } catch (err: any) {
+            console.error("Community Pulse Failed:", err);
+            addLog('System', { type: 'error' }, { message: "Community Pulse Failed", error: err.message || err });
+        } finally {
+            setPulseLoading(false);
+        }
     };
 
     const handleRunInvestmentResearch = async () => {
@@ -309,6 +309,51 @@ export const useAnalysisActions = (
         }
     };
 
+    const [graphLoading, setGraphLoading] = useState(false);
+    const [graphResult, setGraphResult] = useState<ContextGraphExtractionResult | null>(null);
+
+    const handleExtractContextGraph = async () => {
+        if (!analysis || !propertyData || graphLoading) return;
+
+        setTimer(0);
+        setGraphLoading(true);
+        addLog('System', { type: 'info' }, { task: 'context_graph_extraction', zpid });
+
+        try {
+            // 1. Check Firestore cache first
+            if (zpid) {
+                const cached = await getContextGraphFromCloud(zpid);
+                if (cached && cached.factors && cached.factors.length > 0) {
+                    addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'context_graph', zpid, factors: cached.factors.length });
+                    setGraphResult(cached as ContextGraphExtractionResult);
+                    setGraphLoading(false);
+                    return;
+                }
+                addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'context_graph', zpid });
+            }
+
+            // 2. Extract via Gemini
+            const visual = analysis;
+            const comprehensive = null;
+
+            addLog('Gemini AI', { type: 'request' }, { task: 'context_graph_extraction', zpid, model: 'gemini-2.0-flash' });
+            const res = await aiExtractGraphFactors(propertyData, visual, comprehensive);
+            setGraphResult(res.data);
+            addLog('Gemini AI', { type: 'response' }, { task: 'context_graph_extraction', zpid, factors: res.data.factors?.length }, (res as any).usage);
+
+            // 3. Save to Firestore cache
+            if (zpid && res.data) {
+                await saveContextGraphToCloud(zpid, res.data);
+                addLog('Cloud Cache', { type: 'info' }, { status: 'Saved', task: 'context_graph', zpid });
+            }
+        } catch (err: any) {
+            console.error("Context Graph Extraction Failed:", err);
+            addLog('System', { type: 'error' }, { message: "Context Graph Extraction Failed", error: err.message || err });
+        } finally {
+            setGraphLoading(false);
+        }
+    };
+
 
     return {
         timer,
@@ -317,10 +362,13 @@ export const useAnalysisActions = (
         biddingLoading,
         pulseLoading,
         deepLoading,
+        graphLoading,
+        graphResult,
         handleRunQualityAnalysis,
         handleRunCommunityPulse,
         handleRunInvestmentResearch,
         handleRunBiddingStrategy,
-        handleRunDeepInvestmentResearch
+        handleRunDeepInvestmentResearch,
+        handleExtractContextGraph,
     };
 };

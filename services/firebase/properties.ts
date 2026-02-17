@@ -88,6 +88,27 @@ export const getPropertyFromCloud = async (zpid: string): Promise<PropertyData |
     }
 };
 
+/**
+ * Get all property zpids that belong to a given city.
+ * Queries the 'properties' collection filtering by city field.
+ */
+export const getPropertyZpidsByCity = async (city: string, maxResults: number = 50): Promise<string[]> => {
+    if (!db) return [];
+    try {
+        const q = query(
+            collection(db, "properties"),
+            where("city", "==", city),
+            limit(maxResults)
+        );
+        logFirestoreQuery('getDocs', 'properties', { city, maxResults });
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(d => d.id);
+    } catch (error: any) {
+        handleFirestoreError(error, "getPropertyZpidsByCity");
+        return [];
+    }
+};
+
 export const saveVisualAnalysisToCloud = async (zpid: string, analysis: CustomAIAnalysisResult) => {
     if (!db) return { success: false, error: "Database not initialized" };
     if (!zpid) return { success: false, error: "Missing ZPID" };
@@ -239,10 +260,9 @@ export const saveGeneralMarketIntelligenceToCloud = async (cityStateKey: string,
 export const getGeneralMarketIntelligenceFromCloud = async (cityStateKey: string): Promise<GeneralMarketIntelligenceResult | null> => {
     if (!db || !cityStateKey) return null;
     try {
-        const docRef = doc(db, "general_market_intelligence", cityStateKey);
         logFirestoreQuery('getDoc', 'general_market_intelligence', { cityStateKey });
-        const docSnap = await getDoc(docRef);
-        return docSnap.exists() ? (docSnap.data() as GeneralMarketIntelligenceResult) : null;
+        const data = await getCityDocWithFallback('general_market_intelligence', cityStateKey);
+        return data as GeneralMarketIntelligenceResult | null;
     } catch (error) {
         handleFirestoreError(error, "getGeneralMarketIntelligenceFromCloud");
         return null;
@@ -268,13 +288,51 @@ export const saveCommunityPulseToCloud = async (cityStateKey: string, pulse: Com
     }
 };
 
+/**
+ * Case-robust city document reader.
+ * Firestore doc IDs are case-sensitive, but keys may have been saved with
+ * different casing (e.g. "pleasanton-CA" vs "pleasanton-ca").
+ * Tries the given key first, then common variants.
+ */
+async function getCityDocWithFallback(collectionName: string, cityStateKey: string): Promise<any | null> {
+    if (!db || !cityStateKey) return null;
+
+    // Build case variants from the key  (e.g. "pleasanton-ca")
+    const parts = cityStateKey.split('-');
+    const variants = new Set<string>();
+    variants.add(cityStateKey); // as-is
+
+    if (parts.length === 2) {
+        const [city, state] = parts;
+        variants.add(`${city}-${state.toUpperCase()}`);       // pleasanton-CA
+        variants.add(`${city}-${state.toLowerCase()}`);       // pleasanton-ca
+        variants.add(`${city.toLowerCase()}-${state.toUpperCase()}`); // pleasanton-CA
+        variants.add(`${city.toLowerCase()}-${state.toLowerCase()}`); // pleasanton-ca
+    }
+
+    for (const key of variants) {
+        try {
+            const docRef = doc(db, collectionName, key);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                if (key !== cityStateKey) {
+                    console.log(`[Firestore] Found ${collectionName} with fallback key "${key}" (requested "${cityStateKey}")`);
+                }
+                return docSnap.data();
+            }
+        } catch (e) {
+            // continue to next variant
+        }
+    }
+    return null;
+}
+
 export const getCommunityPulseFromCloud = async (cityStateKey: string): Promise<CommunityPulseResult | null> => {
     if (!db || !cityStateKey) return null;
     try {
-        const docRef = doc(db, "community_pulse", cityStateKey);
         logFirestoreQuery('getDoc', 'community_pulse', { cityStateKey });
-        const docSnap = await getDoc(docRef);
-        return docSnap.exists() ? (docSnap.data() as CommunityPulseResult) : null;
+        const data = await getCityDocWithFallback('community_pulse', cityStateKey);
+        return data as CommunityPulseResult | null;
     } catch (error) {
         handleFirestoreError(error, "getCommunityPulseFromCloud");
         return null;
@@ -301,12 +359,41 @@ export const saveDeepInvestmentResearchToCloud = async (cityStateKey: string, re
 export const getDeepInvestmentResearchFromCloud = async (cityStateKey: string): Promise<DeepInvestmentResearchResult | null> => {
     if (!db || !cityStateKey) return null;
     try {
-        const docRef = doc(db, "deep_investment_research", cityStateKey);
         logFirestoreQuery('getDoc', 'deep_investment_research', { cityStateKey });
-        const docSnap = await getDoc(docRef);
-        return docSnap.exists() ? (docSnap.data() as DeepInvestmentResearchResult) : null;
+        const data = await getCityDocWithFallback('deep_investment_research', cityStateKey);
+        return data as DeepInvestmentResearchResult | null;
     } catch (error) {
         handleFirestoreError(error, "getDeepInvestmentResearchFromCloud");
+        return null;
+    }
+};
+
+// ── Context Graph Extraction Cache (per-property, keyed by zpid) ──
+
+export const saveContextGraphToCloud = async (zpid: string, data: any) => {
+    if (!db || !zpid) return { success: false, error: "Database not initialized or missing ZPID" };
+    try {
+        const docRef = doc(db, "context_graph", String(zpid));
+        logFirestoreQuery('setDoc', 'context_graph', { zpid });
+        await setDoc(docRef, {
+            ...sanitizeForFirestore(data),
+            lastUpdated: serverTimestamp()
+        }, { merge: true });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: handleFirestoreError(error, "saveContextGraphToCloud") as string };
+    }
+};
+
+export const getContextGraphFromCloud = async (zpid: string): Promise<any | null> => {
+    if (!db || !zpid) return null;
+    try {
+        const docRef = doc(db, "context_graph", String(zpid));
+        logFirestoreQuery('getDoc', 'context_graph', { zpid });
+        const docSnap = await getDoc(docRef);
+        return docSnap.exists() ? docSnap.data() : null;
+    } catch (error) {
+        handleFirestoreError(error, "getContextGraphFromCloud");
         return null;
     }
 };

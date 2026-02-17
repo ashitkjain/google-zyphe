@@ -4,7 +4,7 @@ import {
     ComprehensiveAnalysisResult
 } from '../../../types';
 
-export type TabType = 'interior' | 'rooms' | 'exterior_and_neighborhood' | 'neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding' | 'image_analysis' | 'deep_research';
+export type TabType = 'interior' | 'rooms' | 'exterior_and_neighborhood' | 'neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding' | 'image_analysis' | 'deep_research' | 'context_graph';
 import { APP_CONFIG } from '../../../config';
 import { useAnalysisActions } from './hooks/useAnalysisActions';
 import { EmptyState } from './components/CommonComponents';
@@ -18,6 +18,7 @@ import { InteriorView, RoomsView, ExteriorView } from './components/InteriorExte
 import { NeighborhoodView } from './components/NeighborhoodView';
 import { AnalysisLoading, GeneralAnalysisLoading } from './components/AnalysisLoading';
 import { HoverPreview } from './components/HoverPreview';
+import { ContextGraphView } from './components/ContextGraphView';
 
 interface Props {
     analysis: CustomAIAnalysisResult | null;
@@ -70,6 +71,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         { id: 'investment', label: 'Property Economics', icon: 'fa-chart-pie' },
         { id: 'image_analysis', label: 'Image by Image analysis', icon: 'fa-images' },
         { id: 'quality', label: 'Picture Quality Audit', icon: 'fa-camera-rotate' },
+        { id: 'context_graph', label: 'Context Graph', icon: 'fa-diagram-project' },
     ].filter(tab => allowedTabs.includes(tab.id)), [allowedTabs]);
 
     // Initialize activeTab to the first TRULY available tab, fallback to 'interior'
@@ -98,7 +100,10 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         handleRunCommunityPulse,
         handleRunInvestmentResearch,
         handleRunBiddingStrategy,
-        handleRunDeepInvestmentResearch
+        handleRunDeepInvestmentResearch,
+        handleExtractContextGraph,
+        graphLoading,
+        graphResult
     } = useAnalysisActions(analysis, zpid, propertyData, propertyImages, onUpdateAnalysis, addLog, loading);
 
     // Auto-trigger side effects when tabs change
@@ -303,6 +308,19 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                             <EmptyState section="Image Analysis" />
                         ) : (
                             <ImageAnalysisView data={analysis.image_by_image_analysis} />
+                        )}
+                    </section>
+                )}
+                {activeTab === 'context_graph' && (
+                    <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        {graphLoading ? (
+                            <AnalysisLoading title="Extracting Context Factors..." subtitle="Analyzing 50 decision dimensions." timer={timer} address={propertyData?.address} icon="fa-diagram-project" />
+                        ) : (
+                            <ContextGraphView
+                                data={graphResult!}
+                                loading={graphLoading}
+                                onExtract={handleExtractContextGraph}
+                            />
                         )}
                     </section>
                 )}
