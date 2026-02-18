@@ -4,6 +4,8 @@
  * Computes the 22 pure-data factors directly from property fields,
  * without any AI call. The AI prompt is then told to skip these IDs
  * and only fill in the remaining factors.
+ *
+ * Total factors: 75 (STR Legality + STR Performance merged into factor 7)
  */
 
 import { PropertyData } from '../types/property';
@@ -326,24 +328,23 @@ function factor75_marketVelocity(visual: CustomAIAnalysisResult | null): Extract
     };
 }
 
-function factor76_strProfile(visual: CustomAIAnalysisResult | null): ExtractedFactor {
+function factor7_strViability(visual: CustomAIAnalysisResult | null): ExtractedFactor {
     const str = (visual as any)?.property_investment?.str_performance;
-    if (!str) return { id: 76, name: 'STR Performance Profile', value: 'Data not available', confidence: 'low', tags: [] };
+    if (!str) return { id: 7, name: 'STR Viability', value: 'Data not available', confidence: 'low', tags: [] };
 
     const occ = str.occupancy_rate ?? '';
     const adr = str.adr ?? '';
-    // Extract first number from occupancy string
     const occMatch = String(occ).match(/(\d+)%/);
     const adrMatch = String(adr).match(/\$(\d+)/);
     if (occMatch && adrMatch) {
         return {
-            id: 76, name: 'STR Performance Profile',
+            id: 7, name: 'STR Viability',
             value: `${occMatch[1]}% occ @ $${adrMatch[1]}/night`,
             confidence: 'medium',
-            tags: [`${occMatch[1]}% Occupancy`, `$${adrMatch[1]}/night`]
+            tags: [`${occMatch[1]}% Occupancy`, `$${adrMatch[1]}/night`, 'STR']
         };
     }
-    return { id: 76, name: 'STR Performance Profile', value: 'STR data available — see investment tab', confidence: 'low', tags: [] };
+    return { id: 7, name: 'STR Viability', value: 'STR data available — see investment tab', confidence: 'low', tags: ['STR'] };
 }
 
 // ── Main Export ────────────────────────────────────────────────────
@@ -362,6 +363,7 @@ export function precomputeDataFactors(
         factor2_hoaFriction(property),
         factor4_trueCarryingCost(property),
         factor5_sellerMotivation(property),
+        factor7_strViability(visual),
         factor8_ltrYield(property),
         factor10_listingUrgency(property),
         factor11_propertyTypology(property),
@@ -379,7 +381,6 @@ export function precomputeDataFactors(
         factor55_solar(property),
         factor59_laundry(property),
         factor75_marketVelocity(visual),
-        factor76_strProfile(visual),
     ];
 
     const map = new Map<number, ExtractedFactor>();
@@ -388,4 +389,4 @@ export function precomputeDataFactors(
 }
 
 /** IDs of all pre-computed factors — used to tell AI to skip these */
-export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 8, 10, 11, 12, 13, 14, 15, 18, 20, 28, 41, 43, 51, 52, 55, 59, 75, 76];
+export const PRECOMPUTED_FACTOR_IDS = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13, 14, 15, 18, 20, 28, 41, 43, 51, 52, 55, 59, 75];

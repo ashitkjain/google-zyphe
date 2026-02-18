@@ -1,7 +1,7 @@
 /**
  * Context Graph Factor Extraction Prompt
  * 
- * Sends optimized property data to Gemini and extracts the 76 decision factors
+ * Sends optimized property data to Gemini and extracts the 75 decision factors
  * that power the buyer context graph.
  */
 
@@ -73,7 +73,7 @@ export const getContextGraphExtractionPrompt = (context: any, skipIds: number[] 
 You are a real estate data analyst. Your task is to extract structured decision factors from property data.
 ${skipNote}
 Given the property data below, extract values for the required decision factors. For each factor, return:
-- The factor ID (1-76)
+- The factor ID (1-75)
 - A concise value (maximum 10 words — use fragments, numbers, and labels, not full sentences)
 - A confidence score: "high" (directly from data), "medium" (inferred), "low" (insufficient data)
 - Optional tags: 1-3 short labels that could be used as graph node values (e.g., "Luxury", "Turn-key", "High Solar Yield")
@@ -87,7 +87,7 @@ Given the property data below, extract values for the required decision factors.
 4. **True Carrying Cost**: Estimate monthly cost: Mortgage (Price @ 7%, 30yr) + (Taxes/12) + HOA + (Insurance/12). 
 5. **Seller Motivation**: High if price cuts in priceHistory OR daysOnMarket > 90. Otherwise "Standard".
 6. **ADU / House-Hacking Potential**: Look for "guest house", "basement", "separate entrance", "ADU", or "cottage" in description OR deep_research.
-7. **Short-Term Rental Legality**: Check deep_research OR zoningDescription for STR/Rental restrictions. If unknown, check listing sentiment ("Investment opportunity").
+7. **STR Viability**: Combine legality + performance. Check deep_research/zoningDescription for STR restrictions. Then add occupancy/ADR from property_investment.str_performance. Format: "[Legal/Restricted/Unknown] — [occ]% occ @ $[adr]/night" or "Restricted — STR not permitted".
 8. **Long-Term Rental Yield**: (rentZestimate × 12) / price. If rentZestimate missing, use 0.05 average yield.
 9. **Historical Appreciation**: Use general_market_intelligence. If missing, use city-wide defaults from deep_research.
 10. **Listing Urgency**: Assess if "Hot Home" from description or price history (back on market, etc.)
@@ -157,13 +157,12 @@ Given the property data below, extract values for the required decision factors.
 69. **Streetscape Aesthetic**: Underground utilities vs overhead wires.
 70. **Market Momentum**: Appreciating vs cooling micro-market indicators.
 
-### Community & Market Intelligence (71-76)
+### Community & Market Intelligence (71-75)
 71. **Development Maturity**: From neighborhood_features.development_patterns. Classify as "New Build Area" (modern rooflines, recent construction), "Established" (mature trees, older homes), or "Mixed". Affects infrastructure quality, community cohesion, and resale trajectory.
 72. **Resident Complaint Profile**: From community_pulse.common_complaints. Summarize the top 1-2 recurring complaints residents raise (e.g., "HOA strictness", "Traffic congestion", "Noise from nearby road"). This is a hidden risk signal not visible in listing data.
 73. **Resident Satisfaction Drivers**: From community_pulse.what_residents_like. Summarize the top 1-2 things residents love about living here (e.g., "Top schools", "Quiet streets", "Walkable to downtown"). Indicates retention and long-term desirability.
 74. **Perceived Neighborhood Safety**: From community_pulse.safety_and_concerns. Resident-reported safety sentiment ("Very Safe", "Generally Safe", "Mixed", "Concerns Noted"). Distinct from security infrastructure — this is how residents actually feel.
 75. **Market Velocity (DOM)**: From general_market_intelligence.market_dynamics.days_on_market. City-level median days on market. "Fast" if < 14 days, "Moderate" 14-30, "Slow" > 30. Signals buyer urgency and negotiation leverage.
-76. **STR Performance Profile**: From property_investment.str_performance. Combine occupancy rate and average daily rate (ADR) into a single profile. Format as "[Occupancy]% occupancy @ $[ADR]/night (Top 25%: $[top_adr]/night)". If missing, use "Data not available".
 
 ## PROPERTY DATA
 
@@ -185,7 +184,7 @@ Return a JSON object with this structure:
       "confidence": "high",
       "tags": ["Luxury", "$2M+"]
     },
-    ...all 76 factors...
+    ...all 75 factors...
   ],
   "summary": {
     "topStrengths": ["Top 3-5 property strengths as buyer-facing phrases"],
@@ -195,7 +194,7 @@ Return a JSON object with this structure:
 }
 
 CRITICAL RULES:
-- Extract ALL 76 factors. If data is missing, set value to "Data not available" and confidence to "low"
+- Extract ALL 75 factors. If data is missing, set value to "Data not available" and confidence to "low"
 - value MUST be 10 words or fewer — use fragments and labels, never full sentences (e.g. "Luxury — $2.1M" not "This property is in the luxury tier at $2.1M")
 - Tags should be short, reusable labels (1-3 words each) suitable for graph nodes
 - Be specific with values - include numbers, percentages, and descriptors
