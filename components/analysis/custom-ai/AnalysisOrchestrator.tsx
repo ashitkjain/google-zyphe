@@ -58,7 +58,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
     isFavorited,
     onToggleFavorite
 }) => {
-    const role = (userRole as 'buyer' | 'seller' | 'realtor' | 'investor') || 'buyer';
+    const role = (userRole as 'buyer' | 'seller' | 'realtor' | 'investor' | 'tester') || 'buyer';
     const allowedTabs = (APP_CONFIG as any).roleTabs[role] || (APP_CONFIG as any).roleTabs.buyer;
 
     // Memoize the available tabs objects to avoid unnecessary re-renders and ensure stable first-tab lookup

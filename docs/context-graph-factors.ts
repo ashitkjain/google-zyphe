@@ -157,7 +157,7 @@ export const CONTEXT_GRAPH_FACTORS: DecisionFactor[] = [
     },
     {
         id: 13,
-        name: 'Bathroom Ratio',
+        name: 'Bathroom Count',
         nodeLabel: 'StructuralTrait',
         dataSource: 'property.bathrooms',
         computation: 'Buyers look for guest half-baths; ratio to bedrooms matters',
@@ -170,7 +170,7 @@ export const CONTEXT_GRAPH_FACTORS: DecisionFactor[] = [
     },
     {
         id: 15,
-        name: 'Lot Size / Acreage',
+        name: 'Lot Size',
         nodeLabel: 'SizeTier',
         dataSource: 'property.lotSize',
     },

@@ -1,7 +1,7 @@
 /**
  * Context Graph Factor Extraction Prompt
  * 
- * Sends optimized property data to Gemini and extracts the 70 decision factors
+ * Sends optimized property data to Gemini and extracts the 76 decision factors
  * that power the buyer context graph.
  */
 
@@ -68,8 +68,8 @@ export const getContextGraphExtractionPrompt = (context: any) => {
     return `
 You are a real estate data analyst. Your task is to extract structured decision factors from property data.
 
-Given the property data below, extract values for ALL 70 decision factors. For each factor, return:
-- The factor ID (1-70)
+Given the property data below, extract values for ALL 76 decision factors. For each factor, return:
+- The factor ID (1-76)
 - A concise value (the extracted or computed answer)
 - A confidence score: "high" (directly from data), "medium" (inferred), "low" (insufficient data)
 - Optional tags: 1-3 short labels that could be used as graph node values (e.g., "Luxury", "Turn-key", "High Solar Yield")
@@ -153,6 +153,14 @@ Given the property data below, extract values for ALL 70 decision factors. For e
 69. **Streetscape Aesthetic**: Underground utilities vs overhead wires.
 70. **Market Momentum**: Appreciating vs cooling micro-market indicators.
 
+### Community & Market Intelligence (71-76)
+71. **Development Maturity**: From neighborhood_features.development_patterns. Classify as "New Build Area" (modern rooflines, recent construction), "Established" (mature trees, older homes), or "Mixed". Affects infrastructure quality, community cohesion, and resale trajectory.
+72. **Resident Complaint Profile**: From community_pulse.common_complaints. Summarize the top 1-2 recurring complaints residents raise (e.g., "HOA strictness", "Traffic congestion", "Noise from nearby road"). This is a hidden risk signal not visible in listing data.
+73. **Resident Satisfaction Drivers**: From community_pulse.what_residents_like. Summarize the top 1-2 things residents love about living here (e.g., "Top schools", "Quiet streets", "Walkable to downtown"). Indicates retention and long-term desirability.
+74. **Perceived Neighborhood Safety**: From community_pulse.safety_and_concerns. Resident-reported safety sentiment ("Very Safe", "Generally Safe", "Mixed", "Concerns Noted"). Distinct from security infrastructure — this is how residents actually feel.
+75. **Market Velocity (DOM)**: From general_market_intelligence.market_dynamics.days_on_market. City-level median days on market. "Fast" if < 14 days, "Moderate" 14-30, "Slow" > 30. Signals buyer urgency and negotiation leverage.
+76. **STR Performance Profile**: From property_investment.str_performance. Combine occupancy rate and average daily rate (ADR) into a single profile. Format as "[Occupancy]% occupancy @ $[ADR]/night (Top 25%: $[top_adr]/night)". If missing, use "Data not available".
+
 ## PROPERTY DATA
 
 \`\`\`json
@@ -173,7 +181,7 @@ Return a JSON object with this structure:
       "confidence": "high",
       "tags": ["Luxury", "$2M+"]
     },
-    ...all 70 factors...
+    ...all 76 factors...
   ],
   "summary": {
     "topStrengths": ["Top 3-5 property strengths as buyer-facing phrases"],
@@ -183,7 +191,7 @@ Return a JSON object with this structure:
 }
 
 CRITICAL RULES:
-- Extract ALL 70 factors. If data is missing, set value to "Data not available" and confidence to "low"
+- Extract ALL 76 factors. If data is missing, set value to "Data not available" and confidence to "low"
 - Tags should be short, reusable labels (1-3 words each) suitable for graph nodes
 - Be specific with values - include numbers, percentages, and descriptors
 - The summary should synthesize the factors into actionable buyer intelligence

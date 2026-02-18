@@ -1,6 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "./firebase/config";
+import { serverTimestamp } from "firebase/firestore";
 import {
   PropertyData,
   AIAnalysisResult,
@@ -174,10 +173,9 @@ export const executeGeminiRequest = async <T>(
     extractResultJson?: boolean;
     schema?: any;
     imageUrls?: string[];
-    cache?: boolean;
   }
 ): Promise<{ data: T; usage: AIUsage; rawResponse: any }> => {
-  const { model, contents, config, userId, promptFilename, zpid, address, extractResultJson, schema, imageUrls, cache } = params;
+  const { model, contents, config, userId, promptFilename, zpid, address, extractResultJson, schema, imageUrls } = params;
   const ai = getAi();
 
   const logId = await logLLMCall({
@@ -195,43 +193,6 @@ export const executeGeminiRequest = async <T>(
     status: 'pending',
     request_sent_at: serverTimestamp()
   });
-
-  // 0. CACHE CHECK
-  if (cache && zpid) {
-    try {
-      const cacheKey = await generatePayloadHash(params);
-      if (cacheKey) {
-        const cacheRef = doc(db, "llm_cache", cacheKey);
-        const cacheSnap = await getDoc(cacheRef);
-        if (cacheSnap.exists()) {
-          const cached = cacheSnap.data();
-          console.log(`[LLM Cache] Hit for ${cacheKey} (${promptFilename})`);
-
-          if (logId) {
-            await updateLLMCall(logId, {
-              status: 'completed',
-              raw_response: { cached_hit: true, ...cached.data },
-              usage_metadata: {
-                promptTokenCount: 0,
-                candidatesTokenCount: 0,
-                totalTokenCount: 0,
-                cachedContentTokenCount: cached.usage?.totalTokens || 0
-              } as any,
-              response_received_at: serverTimestamp()
-            });
-          }
-
-          return {
-            data: cached.data as T,
-            usage: { ...cached.usage, cached: true } as any,
-            rawResponse: { cached: true }
-          };
-        }
-      }
-    } catch (e) {
-      console.warn("[LLM Cache] Check failed:", e);
-    }
-  }
 
   try {
     // 1. WATCHDOG: Token Limit Enforcement (Hard limit: 50K total)
@@ -283,27 +244,7 @@ export const executeGeminiRequest = async <T>(
     // 4. Extract data first to catch parsing errors before marking as 'completed'
     const data = extractResultJson ? extractJson<T>(responseText) : responseText as unknown as T;
 
-    // 5. Update Cache if requested
-    if (cache && zpid) {
-      try {
-        const cacheKey = await generatePayloadHash(params);
-        if (cacheKey) {
-          const cacheRef = doc(db, "llm_cache", cacheKey);
-          await setDoc(cacheRef, {
-            data,
-            usage,
-            promptFilename,
-            zpid,
-            timestamp: serverTimestamp()
-          });
-          console.log(`[LLM Cache] Saved for ${cacheKey}`);
-        }
-      } catch (e) {
-        console.warn("[LLM Cache] Save failed:", e);
-      }
-    }
-
-    // 6. Update Log with success (NOW AWAITED)
+    // 5. Update Log with success (NOW AWAITED)
     if (logId) {
       await updateLLMCall(logId, {
         raw_response: responseText,
@@ -521,8 +462,7 @@ export const extractContextGraphFactors = async (
     address: property.address,
     promptFilename: "contextGraphExtraction.ts",
     extractResultJson: true,
-    schema: contextGraphExtractionSchema,
-    cache: true
+    schema: contextGraphExtractionSchema
   });
 };
 
@@ -631,8 +571,7 @@ export const analyzeComprehensive = async (property: PropertyData, visual: Custo
     address: property.address,
     promptFilename: "comprehensiveAnalysis.ts",
     extractResultJson: true,
-    schema: comprehensiveAnalysisSchema,
-    cache: true // Large context reuse
+    schema: comprehensiveAnalysisSchema
   });
 };
 
@@ -982,30 +921,6 @@ export const generateDailyPulse = async (leads: Lead[], userId: string = "unknow
     usage
   };
 };
-/**
- * Generate a deterministic hash for a payload to use as a cache key
- */
-async function generatePayloadHash(params: any): Promise<string | null> {
-  try {
-    const body = JSON.stringify({
-      contents: params.contents,
-      systemInstruction: params.config?.systemInstruction,
-      schema: params.schema,
-      model: params.model
-    });
-
-    // SubtleCrypto is standard in modern browsers and Node 18+
-    const msgUint8 = new TextEncoder().encode(body);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-    return `${params.promptFilename.split('.')[0]}_${hashHex.substring(0, 32)}`;
-  } catch (e) {
-    console.error("[Hash] Failed:", e);
-    return null;
-  }
-}
 
 /**
  * Helper to remove massive base64 strings from payloads before logging to Firestore.
