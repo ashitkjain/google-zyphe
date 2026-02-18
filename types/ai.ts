@@ -205,6 +205,25 @@ export interface GeneralMarketIntelligenceResult {
     lastUpdated?: any;
 }
 
+export interface ExtractedFactor {
+    id: number;
+    name: string;
+    value: string;
+    confidence: 'high' | 'medium' | 'low';
+    tags: string[];
+}
+
+export interface ContextGraphExtractionResult {
+    address: string;
+    extractedAt: string;
+    factors: ExtractedFactor[];
+    summary: {
+        topStrengths: string[];
+        topConcerns: string[];
+        buyerProfile: string;
+    };
+}
+
 // Removed InvestmentResearchResult aggregation to avoid redundancy
 
 export interface StreetViewAnalysisResult {
@@ -292,6 +311,7 @@ export interface CustomAIAnalysisResult {
     general_market_intelligence?: GeneralMarketIntelligenceResult;
     deep_investment_research?: DeepInvestmentResearchResult;
     bidding_strategy?: BiddingStrategyResult;
+    context_graph?: ContextGraphExtractionResult;
 }
 
 export interface ComprehensiveAnalysisResult {

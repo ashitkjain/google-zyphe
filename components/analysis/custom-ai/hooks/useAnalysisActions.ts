@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react';
-import { CustomAIAnalysisResult, PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult } from '../../../../types';
+import {
+    CustomAIAnalysisResult,
+    PropertySpecificInvestmentResult,
+    GeneralMarketIntelligenceResult,
+    ContextGraphExtractionResult
+} from '../../../../types';
 import {
     getImageQualityAnalysisFromCloud,
     getCommunityPulseFromCloud,
@@ -25,9 +30,7 @@ import {
     analyzeDeepInvestmentResearch as aiAnalyzeDeepResearch,
     extractContextGraphFactors as aiExtractGraphFactors
 } from '../../../../services/geminiService';
-import { ContextGraphExtractionResult } from '../../../../prompts/property/contextGraphExtraction';
 import { APP_CONFIG } from '../../../../config';
-
 export const useAnalysisActions = (
     analysis: CustomAIAnalysisResult | null,
     zpid: string | undefined,
@@ -35,7 +38,8 @@ export const useAnalysisActions = (
     propertyImages: string[],
     onUpdateAnalysis: (updated: CustomAIAnalysisResult) => void,
     addLog: (service: string, meta: { type: 'request' | 'response' | 'error' | 'info' }, content: any, usage?: any) => void,
-    isInitialLoading?: boolean
+    isInitialLoading?: boolean,
+    comprehensiveResult?: any
 ) => {
     const [timer, setTimer] = useState(0);
     const [qualityLoading, setQualityLoading] = useState(false);
@@ -310,7 +314,13 @@ export const useAnalysisActions = (
     };
 
     const [graphLoading, setGraphLoading] = useState(false);
-    const [graphResult, setGraphResult] = useState<ContextGraphExtractionResult | null>(null);
+    const [graphResult, setGraphResult] = useState<ContextGraphExtractionResult | null>(analysis?.context_graph || null);
+
+    useEffect(() => {
+        if (analysis?.context_graph) {
+            setGraphResult(analysis.context_graph);
+        }
+    }, [analysis?.context_graph]);
 
     const handleExtractContextGraph = async () => {
         if (!analysis || !propertyData || graphLoading) return;
@@ -368,10 +378,8 @@ export const useAnalysisActions = (
             }
 
             // 3. Extract via Gemini
-            const comprehensive = null;
-
             addLog('Gemini AI', { type: 'request' }, { task: 'context_graph_extraction', zpid, model: 'gemini-2.0-flash' });
-            const res = await aiExtractGraphFactors(propertyData, enrichedAnalysis, comprehensive);
+            const res = await aiExtractGraphFactors(propertyData, enrichedAnalysis, comprehensiveResult || null);
 
             if (res.data) {
                 setGraphResult(res.data);
@@ -382,6 +390,12 @@ export const useAnalysisActions = (
                     await saveContextGraphToCloud(zpid, res.data);
                     addLog('Cloud Cache', { type: 'info' }, { status: 'Saved', task: 'context_graph', zpid });
                 }
+
+                // 5. Sync back to main analysis state
+                onUpdateAnalysis({
+                    ...enrichedAnalysis,
+                    context_graph: res.data
+                });
             }
         } catch (err: any) {
             console.error("Context Graph Extraction Failed:", err);

@@ -34,7 +34,9 @@ import {
   deletePropertyAnalysis,
   trackLogin,
   trackPageView,
-  trackLogout
+  trackLogout,
+  getContextGraphFromCloud,
+  saveContextGraphToCloud
 } from './services/firebaseService';
 import { APP_CONFIG } from './config';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -565,7 +567,7 @@ const App: React.FC = () => {
       // Pre-fetch city-level data even on force refresh to avoid redundant work
       const [pulseCached, genMarket, propInv] = await Promise.all([
         cityStateKey ? getCommunityPulseFromCloud(cityStateKey) : Promise.resolve(null),
-        APP_CONFIG.caching.investment_research ? getGeneralMarketIntelligenceFromCloud(propertyData.zpid) : Promise.resolve(null),
+        (APP_CONFIG.caching.investment_research && cityStateKey) ? getGeneralMarketIntelligenceFromCloud(cityStateKey) : Promise.resolve(null),
         APP_CONFIG.caching.investment_research ? getPropertyInvestmentFromCloud(propertyData.zpid) : Promise.resolve(null)
       ]);
 
@@ -573,18 +575,18 @@ const App: React.FC = () => {
         addLog('Cloud Cache', { type: 'request' }, { zpid: propertyData.zpid, task: 'visual_analysis' });
 
         // Parallel cache check for all components
-        const [cached, qualityCached] = await Promise.all([
+        const [cached, qualityCached, graphCached] = await Promise.all([
           getVisualAnalysisFromCloud(propertyData.zpid),
-          APP_CONFIG.caching.image_quality ? getImageQualityAnalysisFromCloud(propertyData.zpid) : Promise.resolve(null)
+          APP_CONFIG.caching.image_quality ? getImageQualityAnalysisFromCloud(propertyData.zpid) : Promise.resolve(null),
+          getContextGraphFromCloud(propertyData.zpid)
         ]);
 
         if (cached) {
           if (qualityCached) cached.image_quality_analysis = qualityCached;
           if (pulseCached) cached.community_pulse = pulseCached;
-          if (propInv && genMarket) {
-            cached.property_investment = propInv;
-            cached.general_market_intelligence = genMarket;
-          }
+          if (propInv) cached.property_investment = propInv;
+          if (genMarket) cached.general_market_intelligence = genMarket;
+          if (graphCached) cached.context_graph = graphCached;
           addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', data: cached });
           setCustomAnalysis(cached);
           setCustomAnalysisLoading(false);
@@ -597,10 +599,8 @@ const App: React.FC = () => {
       // We will seeded the result with any existing city-level data we found above
       const cityDataSeed: any = {};
       if (pulseCached) cityDataSeed.community_pulse = pulseCached;
-      if (propInv && genMarket) {
-        cityDataSeed.property_investment = propInv;
-        cityDataSeed.general_market_intelligence = genMarket;
-      }
+      if (propInv) cityDataSeed.property_investment = propInv;
+      if (genMarket) cityDataSeed.general_market_intelligence = genMarket;
 
 
       // MANDATORY ASSET SECURING ON REFRESH

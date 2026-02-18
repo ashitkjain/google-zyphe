@@ -6,7 +6,13 @@
  */
 
 import { Type } from "@google/genai";
-import { PropertyData, CustomAIAnalysisResult, ComprehensiveAnalysisResult } from "../../types";
+import {
+    PropertyData,
+    CustomAIAnalysisResult,
+    ComprehensiveAnalysisResult,
+    ContextGraphExtractionResult,
+    ExtractedFactor
+} from "../../types";
 import { optimizePropertyForAi, optimizeVisualForAi } from "../../utils/aiOptimization";
 
 // ── Build context specifically for graph extraction ──────
@@ -222,23 +228,3 @@ export const contextGraphExtractionSchema = {
     required: ["address", "extractedAt", "factors", "summary"]
 };
 
-// ── Result Type ───────────────────────────────────────────
-
-export interface ExtractedFactor {
-    id: number;
-    name: string;
-    value: string;
-    confidence: 'high' | 'medium' | 'low';
-    tags: string[];
-}
-
-export interface ContextGraphExtractionResult {
-    address: string;
-    extractedAt: string;
-    factors: ExtractedFactor[];
-    summary: {
-        topStrengths: string[];
-        topConcerns: string[];
-        buyerProfile: string;
-    };
-}

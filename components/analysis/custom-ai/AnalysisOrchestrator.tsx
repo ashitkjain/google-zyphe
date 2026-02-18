@@ -105,7 +105,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         handleExtractContextGraph,
         graphLoading,
         graphResult
-    } = useAnalysisActions(analysis, zpid, propertyData, propertyImages, onUpdateAnalysis, addLog, loading);
+    } = useAnalysisActions(analysis, zpid, propertyData, propertyImages, onUpdateAnalysis, addLog, loading, comprehensiveResult);
 
     // Auto-trigger side effects when tabs change
     useEffect(() => {
@@ -137,6 +137,12 @@ const AnalysisOrchestrator: React.FC<Props> = ({
             handleRunBiddingStrategy();
         }
     }, [activeTab, analysis?.bidding_strategy, biddingLoading]);
+
+    useEffect(() => {
+        if (activeTab === 'context_graph' && !graphResult && !graphLoading) {
+            handleExtractContextGraph();
+        }
+    }, [activeTab, graphResult, graphLoading]);
 
     const clearPreviewTimer = () => {
         if (previewTimerRef.current) {
