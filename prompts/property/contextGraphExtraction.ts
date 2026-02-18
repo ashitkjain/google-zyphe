@@ -110,11 +110,11 @@ Given the property data below, extract values for the required decision factors.
 23. **Architectural Style**: Mediterranean, Craftsman, Modern, etc. (from visualAnalysis or architecturalStyle).
 24. **Natural Light / Brightness**: From lighting description. If missing, look for "Skylights", "Large windows", "South facing" in description.
 25. **Open-Concept Flow**: Check if "Open concept" or "Vaulted" mentioned in interior analysis or description.
-26. **Kitchen Caliber**: "Chef's" if wolf/subzero/gas mentioned, "Modern" if stainless/quartz, "Original" if dated.
-27. **Primary Suite Luxury**: Look for "Dual vanities", "Walk-in", "Soaking tub" in room_highlights or description.
+26. **Kitchen Profile**: Combines caliber ("Chef's", "Standard") with specific materials ("Wood cabinets", "Quartz counters", "Gas range"). From visualAnalysis.
+27. **Bathroom Profile**: Combines luxury ("Spa-like") with specific finishes ("Tile floors", "Wood vanities", "Soaking tub").
 28. **Flooring Material**: From resoFacts.flooring (Hardwood, Tile, Carpet).
 29. **Ceiling Volume**: "High/Vaulted" if mentioned in description or spatial_flow.
-30. **Color Palette**: Neutral, Warm, Bold, etc. (from visualAnalysis).
+30. **Interior Finishes**: Wall colors ("Neutral", "Warm"), Trim ("Crown molding"), and Window treatments ("Shutters", "Blinds").
 
 ### Outdoor & Lot (31-40)
 31. **Fenced Yard**: Check resoFacts.fencing or backyard_and_patio analysis.
@@ -162,7 +162,7 @@ Given the property data below, extract values for the required decision factors.
 72. **Resident Complaint Profile**: From community_pulse.common_complaints. Summarize the top 1-2 recurring complaints residents raise (e.g., "HOA strictness", "Traffic congestion", "Noise from nearby road"). This is a hidden risk signal not visible in listing data.
 73. **Resident Satisfaction Drivers**: From community_pulse.what_residents_like. Summarize the top 1-2 things residents love about living here (e.g., "Top schools", "Quiet streets", "Walkable to downtown"). Indicates retention and long-term desirability.
 74. **Perceived Neighborhood Safety**: From community_pulse.safety_and_concerns. Resident-reported safety sentiment ("Very Safe", "Generally Safe", "Mixed", "Concerns Noted"). Distinct from security infrastructure — this is how residents actually feel.
-75. **Market Velocity (DOM)**: From general_market_intelligence.market_dynamics.days_on_market. City-level median days on market. "Fast" if < 14 days, "Moderate" 14-30, "Slow" > 30. Signals buyer urgency and negotiation leverage.
+165. **Market Velocity (DOM)**: From general_market_intelligence.market_dynamics.days_on_market. City-level median days on market. "Fast" if < 14 days, "Moderate" 14-30, "Slow" > 30. Signals buyer urgency and negotiation leverage.
 
 ## PROPERTY DATA
 
@@ -206,7 +206,7 @@ CRITICAL RULES:
 const factorSchema = {
     type: Type.OBJECT,
     properties: {
-        id: { type: Type.NUMBER, description: "Factor ID (1-70)" },
+        id: { type: Type.NUMBER, description: "Factor ID (1-75)" },
         name: { type: Type.STRING, description: "Factor name" },
         value: { type: Type.STRING, description: "Extracted or computed value" },
         confidence: { type: Type.STRING, description: "high, medium, or low" },

@@ -249,17 +249,17 @@ export const CONTEXT_GRAPH_FACTORS: DecisionFactor[] = [
     },
     {
         id: 26,
-        name: 'Kitchen Caliber',
+        name: 'Kitchen Profile',
         nodeLabel: 'VisualFeature',
-        dataSource: 'visual_analysis.room_highlights (kitchen rooms)',
-        computation: 'AI descriptions: "Chef\'s kitchen", "Quartz waterfall island", etc.',
+        dataSource: 'visual_analysis.home_interior.color_and_materials + room_highlights',
+        computation: 'Extract materials: "Wood cabinets", "Quartz counters" + vibe: "Chef\'s kitchen"',
     },
     {
         id: 27,
-        name: 'Primary Suite Luxury',
+        name: 'Bathroom Profile',
         nodeLabel: 'VisualFeature',
-        dataSource: 'visual_analysis.room_highlights (primary suite/bath rooms)',
-        computation: 'AI descriptions: "Spa-like bath", "Freestanding soaking tub"',
+        dataSource: 'visual_analysis.home_interior.color_and_materials + room_highlights',
+        computation: 'Extract materials: "Wood vanities", "Tile floors" + luxury: "Soaking tub"',
     },
     {
         id: 28,
@@ -277,9 +277,10 @@ export const CONTEXT_GRAPH_FACTORS: DecisionFactor[] = [
     },
     {
         id: 30,
-        name: 'Color Palette Warmth',
+        name: 'Interior Finishes',
         nodeLabel: 'DesignAesthetic',
-        dataSource: 'visual_analysis.home_interior.color_and_materials',
+        dataSource: 'visual_analysis.home_interior',
+        computation: 'Walls ("Neutral paint"), Trim ("Crown molding"), Windows ("Shutters")',
     },
 
     // ═══════════════════════════════════════════════════════
@@ -573,7 +574,48 @@ export const CONTEXT_GRAPH_FACTORS: DecisionFactor[] = [
         dataSource: 'deep_investment_research.local_risks',
         computation: 'Soil types prone to liquefaction or proximity to dam inundation zones — hidden tail-risk',
     },
+
+    // ═══════════════════════════════════════════════════════
+    // COMMUNITY & MARKET INTELLIGENCE (71–75)
+    // ═══════════════════════════════════════════════════════
+
+    {
+        id: 71,
+        name: 'Development Maturity',
+        nodeLabel: 'CommunityVibe',
+        dataSource: 'visual_analysis.neighborhood.neighborhood_features.development_patterns',
+        computation: '"New Build Area" vs "Established" — affects infrastructure and cohesion',
+    },
+    {
+        id: 72,
+        name: 'Resident Complaint Profile',
+        nodeLabel: 'CommunityVibe',
+        dataSource: 'community_pulse.common_complaints',
+        computation: 'Top recurring complaints (e.g., "HOA strictness", "Traffic")',
+    },
+    {
+        id: 73,
+        name: 'Resident Satisfaction Drivers',
+        nodeLabel: 'CommunityVibe',
+        dataSource: 'community_pulse.what_residents_like',
+        computation: 'Top things residents love (e.g., "Walkability", "Schools")',
+    },
+    {
+        id: 74,
+        name: 'Perceived Neighborhood Safety',
+        nodeLabel: 'CommunityVibe',
+        dataSource: 'community_pulse.safety_and_concerns',
+        computation: 'Resident sentiment: "Very Safe" vs "Mixed" vs "Concerns"',
+    },
+    {
+        id: 75,
+        name: 'Market Velocity (DOM)',
+        nodeLabel: 'MarketMomentum',
+        dataSource: 'general_market_intelligence.market_dynamics.days_on_market',
+        computation: 'City-level median DOM: "Fast" (<14), "Moderate", "Slow" (>30)',
+    },
 ];
+
 
 // ── Utilities ─────────────────────────────────────────────
 
