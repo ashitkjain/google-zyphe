@@ -165,3 +165,30 @@ export const getUserActivity = async (
         return [];
     }
 };
+
+/**
+ * Retrieve activity events for ALL users.
+ */
+export const getAllUserActivity = async (
+    maxItems: number = 200
+): Promise<UserActivityEvent[]> => {
+    if (!db) return [];
+    try {
+        const q = query(
+            collection(db, "user_activity"),
+            orderBy("timestamp", "desc"),
+            limit(maxItems)
+        );
+
+        logFirestoreQuery('getDocs', 'user_activity', { limit: maxItems });
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(d => ({ id: d.id, ...(d.data() as Omit<UserActivityEvent, 'id'>) }));
+    } catch (error: any) {
+        if (error.code === 'permission-denied') {
+            console.warn("[UserActivity] Permission denied when reading global activity logs.");
+        } else {
+            console.error("[UserActivity] Error fetching global activity:", error);
+        }
+        return [];
+    }
+};

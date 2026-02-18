@@ -257,3 +257,18 @@ export const removeClient = async (clientId: string) => {
         return false;
     }
 };
+
+export const getAllUsers = async (maxItems = 500) => {
+    if (!db) return [];
+    try {
+        const usersCol = collection(db, "users");
+        // Simple query for all users, limited by maxItems
+        const q = query(usersCol, limit(maxItems));
+        logFirestoreQuery('getDocs', 'users', { limit: maxItems });
+        const snap = await getDocs(q);
+        return snap.docs.map(doc => doc.data() as UserProfile);
+    } catch (error) {
+        console.error("Error fetching all users:", error);
+        return [];
+    }
+};

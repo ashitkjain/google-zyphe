@@ -83,7 +83,7 @@ Given the property data below, extract values for the required decision factors.
 ### Financial & Market (1-10)
 1. **Price Bracket**: Classify price as "Entry" (<$800K), "Mid" ($800K-$1.5M), "Luxury" (>$1.5M). If price missing, use Zestimate.
 2. **HOA Friction**: Extract amount from resoFacts.feesAndDues or hoaFees. If "None" or missing, set to "None/Low".
-3. **Insurance Viability**: Flag if fireRiskScore >= 7 OR property is in high-risk zone mentioned in description.
+3. **Insurance Risk**: Flag if fireRiskScore >= 7 OR property is in high-risk zone mentioned in description.
 4. **True Carrying Cost**: Estimate monthly cost: Mortgage (Price @ 7%, 30yr) + (Taxes/12) + HOA + (Insurance/12). 
 5. **Seller Motivation**: High if price cuts in priceHistory OR daysOnMarket > 90. Otherwise "Standard".
 6. **ADU / House-Hacking Potential**: Look for "guest house", "basement", "separate entrance", "ADU", or "cottage" in description OR deep_research.
@@ -158,7 +158,7 @@ Given the property data below, extract values for the required decision factors.
 70. **Market Momentum**: Appreciating vs cooling micro-market indicators.
 
 ### Community & Market Intelligence (71-75)
-71. **Development Maturity**: From neighborhood_features.development_patterns. Classify as "New Build Area" (modern rooflines, recent construction), "Established" (mature trees, older homes), or "Mixed". Affects infrastructure quality, community cohesion, and resale trajectory.
+71. **Development Maturity**: From neighborhood_features.development_patterns. Classify as \"New Build Area\" (modern rooflines, recent construction), \"Established\" (mature trees, older homes, stable community), or if neither clearly applies, describe the actual blend — e.g. \"Transitional — older homes + new infill\", \"Gentrifying — renovated alongside original stock\", \"Suburban Sprawl — tract homes from multiple eras\". Never use just \"Mixed\" — always qualify what the mix is.
 72. **Resident Complaint Profile**: From community_pulse.common_complaints. Summarize the top 1-2 recurring complaints residents raise (e.g., "HOA strictness", "Traffic congestion", "Noise from nearby road"). This is a hidden risk signal not visible in listing data.
 73. **Resident Satisfaction Drivers**: From community_pulse.what_residents_like. Summarize the top 1-2 things residents love about living here (e.g., "Top schools", "Quiet streets", "Walkable to downtown"). Indicates retention and long-term desirability.
 74. **Perceived Neighborhood Safety**: From community_pulse.safety_and_concerns. Resident-reported safety sentiment ("Very Safe", "Generally Safe", "Mixed", "Concerns Noted"). Distinct from security infrastructure — this is how residents actually feel.

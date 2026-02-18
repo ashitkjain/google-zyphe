@@ -163,6 +163,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         { id: 'storage_registry', label: 'Bulk Prefetch', icon: 'fa-server' },
         { id: 'video_upload', label: 'Video Upload', icon: 'fa-video' },
         { id: 'context_graph_builder', label: 'Context Graph', icon: 'fa-diagram-project' },
+        { id: 'team_stats', label: 'Team Stats', icon: 'fa-users-gear' },
     ];
 
     const investorTabs: { id: HubTab; label: string; icon: string }[] = (isTester || userRole !== 'investor') ? [] : [

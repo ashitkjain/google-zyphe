@@ -86,7 +86,7 @@ export const CONTEXT_GRAPH_FACTORS: DecisionFactor[] = [
     },
     {
         id: 3,
-        name: 'Insurance Viability',
+        name: 'Insurance Risk',
         nodeLabel: 'RiskProfile',
         dataSource: 'property.annualHomeownersInsurance + property.fireRiskScore',
         computation: 'Flags FAIR Plan necessity (CA high-fire-risk insurability)',

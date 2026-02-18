@@ -2,7 +2,7 @@ import React from 'react';
 import Logo from '../../shared/Logo';
 import { UserProfile } from '../../../types';
 
-export type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'profile' | 'closing' | 'reactivate' | 'calendar' | 'reminder_rules' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'lead_ingestion' | 'pdf_csv' | 'sms_registration' | 'bulk_prefetch' | 'city_data' | 'data_health' | 'ai_validation' | 'storage_registry' | 'industry_research' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_recommender' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'industry_case_studies' | 'unit_economics' | 'premium_mls' | 'my_zyphe' | 'context_graph_builder';
+export type HubTab = 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'profile' | 'closing' | 'reactivate' | 'calendar' | 'reminder_rules' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'lead_ingestion' | 'pdf_csv' | 'sms_registration' | 'bulk_prefetch' | 'city_data' | 'data_health' | 'ai_validation' | 'storage_registry' | 'industry_research' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'technical_papers_recommender' | 'technical_papers_context_graph' | 'video_upload' | 'technical_media' | 'executive_summary' | 'industry_case_studies' | 'unit_economics' | 'premium_mls' | 'my_zyphe' | 'context_graph_builder' | 'team_stats';
 
 interface HubHeaderProps {
     realtorName: string;

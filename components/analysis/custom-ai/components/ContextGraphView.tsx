@@ -151,7 +151,7 @@ export const ContextGraphView: React.FC<Props> = ({ data, loading, onExtract }) 
                             Extracted {new Date(data.extractedAt).toLocaleString()} · {totalFactors} factors · {uniqueTags.size} unique tags
                         </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 pr-52">
                         <button
                             onClick={onExtract}
                             className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[11px] font-black text-slate-600 hover:bg-slate-50 transition-all flex items-center gap-2"
