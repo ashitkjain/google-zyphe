@@ -27,6 +27,7 @@ import { getGeneralMarketIntelligencePrompt, generalMarketIntelligenceSchema } f
 import { getDeepInvestmentResearchPrompt, deepInvestmentResearchSchema } from "../prompts/property/deepInvestmentResearch";
 import { biddingStrategyPrompt, biddingStrategySchema } from "../prompts/property/biddingStrategy";
 import { buildGraphExtractionContext, getContextGraphExtractionPrompt, contextGraphExtractionSchema } from "../prompts/property/contextGraphExtraction";
+import { precomputeDataFactors, PRECOMPUTED_FACTOR_IDS } from "../utils/contextGraphPrecompute";
 
 import {
   getCommunityPulseFromCloud,
@@ -448,15 +449,21 @@ export const extractContextGraphFactors = async (
   comprehensive: ComprehensiveAnalysisResult | null,
   userId: string = "unknown"
 ): Promise<AIResponseWithUsage<ContextGraphExtractionResult>> => {
+  // 1. Pre-compute the 22 pure-data factors client-side (no AI tokens)
+  const precomputed = precomputeDataFactors(property, visual, comprehensive);
+  console.log(`[Context Graph] Pre-computed ${precomputed.size} factors from structured data.`);
+
+  // 2. Build context and prompt, telling AI to skip pre-computed IDs
   const context = buildGraphExtractionContext(property, visual, comprehensive);
-  const prompt = getContextGraphExtractionPrompt(context);
+  const prompt = getContextGraphExtractionPrompt(context, PRECOMPUTED_FACTOR_IDS);
 
-  console.log(`[Context Graph] Extracting factors for ${property.address}...`);
+  console.log(`[Context Graph] Requesting AI for remaining ${76 - PRECOMPUTED_FACTOR_IDS.length} factors for ${property.address}...`);
 
-  return executeGeminiRequest<ContextGraphExtractionResult>({
+  // 3. Call Gemini for the remaining factors
+  const aiResult = await executeGeminiRequest<ContextGraphExtractionResult>({
     model: 'gemini-2.0-flash',
     contents: prompt,
-    config: { temperature: 0.3 },  // Low temp for structured extraction
+    config: { temperature: 0.3 },
     userId,
     zpid: property.zpid,
     address: property.address,
@@ -464,6 +471,31 @@ export const extractContextGraphFactors = async (
     extractResultJson: true,
     schema: contextGraphExtractionSchema
   });
+
+  // 4. Merge: pre-computed factors take precedence, AI fills the rest
+  const aiFactors: any[] = aiResult.data?.factors ?? [];
+  const mergedFactors = [...aiFactors];
+
+  for (const [id, factor] of precomputed.entries()) {
+    const existingIdx = mergedFactors.findIndex(f => f.id === id);
+    if (existingIdx >= 0) {
+      // Replace AI version with our accurate computed version
+      mergedFactors[existingIdx] = factor;
+    } else {
+      mergedFactors.push(factor);
+    }
+  }
+
+  // Sort by factor ID for consistent ordering
+  mergedFactors.sort((a, b) => a.id - b.id);
+
+  return {
+    ...aiResult,
+    data: {
+      ...aiResult.data,
+      factors: mergedFactors
+    }
+  };
 };
 
 export const analyzePropertyImages = async (imageUrls: string[], property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<CustomAIAnalysisResult>> => {

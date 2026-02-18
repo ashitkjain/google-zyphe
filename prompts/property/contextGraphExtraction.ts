@@ -64,13 +64,17 @@ export const buildGraphExtractionContext = (
 
 // ── Prompt ─────────────────────────────────────────────────
 
-export const getContextGraphExtractionPrompt = (context: any) => {
+export const getContextGraphExtractionPrompt = (context: any, skipIds: number[] = []) => {
+    const skipNote = skipIds.length > 0
+        ? `\nNOTE: Factors ${skipIds.join(', ')} have already been computed from structured data. SKIP these IDs entirely — do NOT include them in your response. Only return factors NOT in this list.\n`
+        : '';
+
     return `
 You are a real estate data analyst. Your task is to extract structured decision factors from property data.
-
-Given the property data below, extract values for ALL 76 decision factors. For each factor, return:
+${skipNote}
+Given the property data below, extract values for the required decision factors. For each factor, return:
 - The factor ID (1-76)
-- A concise value (the extracted or computed answer)
+- A concise value (maximum 10 words — use fragments, numbers, and labels, not full sentences)
 - A confidence score: "high" (directly from data), "medium" (inferred), "low" (insufficient data)
 - Optional tags: 1-3 short labels that could be used as graph node values (e.g., "Luxury", "Turn-key", "High Solar Yield")
 
@@ -192,6 +196,7 @@ Return a JSON object with this structure:
 
 CRITICAL RULES:
 - Extract ALL 76 factors. If data is missing, set value to "Data not available" and confidence to "low"
+- value MUST be 10 words or fewer — use fragments and labels, never full sentences (e.g. "Luxury — $2.1M" not "This property is in the luxury tier at $2.1M")
 - Tags should be short, reusable labels (1-3 words each) suitable for graph nodes
 - Be specific with values - include numbers, percentages, and descriptors
 - The summary should synthesize the factors into actionable buyer intelligence

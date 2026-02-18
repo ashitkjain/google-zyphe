@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ContextGraphExtractionResult, ExtractedFactor } from '../../../../prompts/property/contextGraphExtraction';
+import { ExtractedFactor } from '../../../../utils/contextGraphPrecompute';
+import { ContextGraphExtractionResult } from '../../../../types';
 
 interface Props {
     data: ContextGraphExtractionResult;

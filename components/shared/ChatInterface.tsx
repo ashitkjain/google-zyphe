@@ -69,7 +69,6 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
         userId: "unknown",
         promptFilename: "ChatInterface.tsx",
         zpid: property.zpid,
-        cache: true
       });
 
       let finalContent = aiText || "I apologize, I'm having trouble processing that request right now.";
@@ -102,7 +101,6 @@ const ChatInterface: React.FC<Props> = ({ property, visual, comprehensive }) => 
                   userId: "unknown",
                   promptFilename: "ChatInterface.tsx (Images)",
                   zpid: property.zpid,
-                  cache: true
                 });
                 finalContent = imgResult.data || finalContent;
               }
