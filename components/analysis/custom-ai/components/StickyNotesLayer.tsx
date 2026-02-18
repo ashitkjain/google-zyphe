@@ -3,6 +3,8 @@ import { UserPropertyComment, StickyNoteColor } from '../../../../types';
 import { getStickyNotes, saveStickyNote, updateStickyNote, deleteStickyNote } from '../../../../services/firebase/stickyNotes';
 import { auth } from '../../../../services/firebase/config';
 import { StickyNote } from './StickyNote';
+import { trackClarityEvent } from '../../../../services/analytics/clarity';
+import { trackEvent as trackPH } from '../../../../services/analytics/posthog';
 
 interface Props {
     zpid: string;
@@ -41,6 +43,8 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
         if (e.cancelable) e.preventDefault();
 
         setDraggingFromPalette(color);
+        trackClarityEvent('Note_Palette_Drag_Start');
+        trackPH('Note_Palette_Drag_Start', { color });
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
         const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
         setDragPos({ x: clientX, y: clientY });
@@ -78,6 +82,8 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
 
                     setPendingNote({ color: draggingFromPalette, location: { x, y } });
                     setDraftContent('');
+                    trackClarityEvent('Note_Dropped_On_Canvas');
+                    trackPH('Note_Dropped_On_Canvas', { color: draggingFromPalette });
                 }
             }
 
@@ -130,6 +136,8 @@ export const StickyNotesLayer: React.FC<Props> = ({ zpid, activeTab, children })
                 lastUpdated: { seconds: Math.floor(Date.now() / 1000) }
             };
             setNotes(prev => [...prev, optimisticNote]);
+            trackClarityEvent('Note_Created');
+            trackPH('Note_Created', { color: ctx.color, tab: activeTab });
 
             try {
                 const id = await saveStickyNote(newNoteData);

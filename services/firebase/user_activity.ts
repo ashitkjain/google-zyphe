@@ -1,5 +1,7 @@
 import { collection, addDoc, serverTimestamp, query, where, orderBy, getDocs, Timestamp, limit } from "firebase/firestore";
 import { db, auth, sanitizeForFirestore, logFirestoreQuery } from "./config";
+import { trackEvent as trackPH, identifyUser as identifyPH, resetUser as resetPH } from "../analytics/posthog";
+import { identifyUser as identifyClarity } from "../analytics/clarity";
 
 /**
  * Tracks user activity events (login, page_view, logout, etc.)
@@ -54,6 +56,16 @@ export const logUserActivity = async (
  * Track a login event. Call when a user successfully authenticates.
  */
 export const trackLogin = (user: { uid: string; email: string; displayName: string; role: string }) => {
+    // Identify user in analytics tools
+    identifyPH(user.uid, {
+        email: user.email,
+        name: user.displayName,
+        role: user.role
+    });
+    identifyClarity(user.uid);
+
+    trackPH('Login', { email: user.email, role: user.role });
+
     return logUserActivity({
         user_id: user.uid,
         email: user.email,
@@ -71,6 +83,13 @@ export const trackPageView = (
     page: string,
     property?: { address?: string; zpid?: string }
 ) => {
+    trackPH('Page_View', {
+        page,
+        address: property?.address,
+        zpid: property?.zpid,
+        user_role: user.role
+    });
+
     return logUserActivity({
         user_id: user.uid,
         email: user.email,
@@ -90,6 +109,9 @@ export const trackLogout = (
     user: { uid: string; email: string; displayName: string; role: string },
     reason: 'manual' | 'session_timeout' = 'manual'
 ) => {
+    trackPH('Logout', { reason });
+    resetPH();
+
     return logUserActivity({
         user_id: user.uid,
         email: user.email,

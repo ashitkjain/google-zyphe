@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserPropertyComment, StickyNoteColor } from '../../../../types';
+import { trackClarityEvent } from '../../../../services/analytics/clarity';
+import { trackEvent as trackPH } from '../../../../services/analytics/posthog';
 
 interface Props {
     note: UserPropertyComment;
@@ -47,8 +49,12 @@ export const StickyNote: React.FC<Props> = ({ note, onUpdate, onDelete, containe
             setIsDragging(false);
             if (hasMoved.current) {
                 onUpdate(note.id, { location: pos });
+                trackClarityEvent('Note_Moved');
+                trackPH('Note_Moved', { noteId: note.id });
             } else {
                 setIsEditing(true);
+                trackClarityEvent('Note_Edit_Start');
+                trackPH('Note_Edit_Start', { noteId: note.id });
             }
         }
     };
@@ -86,8 +92,16 @@ export const StickyNote: React.FC<Props> = ({ note, onUpdate, onDelete, containe
     const handleSave = () => {
         if (editText.trim() !== note.comment) {
             onUpdate(note.id, { comment: editText });
+            trackClarityEvent('Note_Updated');
+            trackPH('Note_Updated', { noteId: note.id });
         }
         setIsEditing(false);
+    };
+
+    const handleDelete = () => {
+        onDelete(note.id);
+        trackClarityEvent('Note_Deleted');
+        trackPH('Note_Deleted', { noteId: note.id });
     };
 
     return (
@@ -103,7 +117,7 @@ export const StickyNote: React.FC<Props> = ({ note, onUpdate, onDelete, containe
         >
             <div className="absolute top-1 right-1 opacity-0 group-hover/note:opacity-100 transition-opacity flex gap-1 bg-white/20 rounded-full px-1 backdrop-blur-sm z-50">
                 <button
-                    onClick={(e) => { e.stopPropagation(); onDelete(note.id); }}
+                    onClick={(e) => { e.stopPropagation(); handleDelete(); }}
                     className="text-slate-600 hover:text-red-500 transition-colors p-0.5"
                     title="Delete"
                 >
@@ -140,7 +154,12 @@ export const StickyNote: React.FC<Props> = ({ note, onUpdate, onDelete, containe
                 {['yellow', 'blue', 'rose', 'emerald'].map(c => (
                     <button
                         key={c}
-                        onClick={(e) => { e.stopPropagation(); onUpdate(note.id, { color: c as StickyNoteColor }); }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onUpdate(note.id, { color: c as StickyNoteColor });
+                            trackClarityEvent('Note_Color_Changed');
+                            trackPH('Note_Color_Changed', { noteId: note.id, newColor: c });
+                        }}
                         className={`w-1.5 h-1.5 rounded-full border border-black/10 transition-transform hover:scale-125 ${COLOR_CLASSES[c as StickyNoteColor].split(' ')[0]}`}
                     />
                 ))}

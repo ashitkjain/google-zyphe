@@ -5,7 +5,6 @@ import {
   PropertyData,
   CustomAIAnalysisResult,
   ComprehensiveAnalysisResult,
-  InvestmentResearchResult,
   LogEntry,
   UserProfile
 } from './types';
@@ -60,10 +59,18 @@ import LegalDisclaimer from './components/legal/LegalDisclaimer';
 import TermsView from './components/legal/TermsView';
 import PrivacyPolicy from './components/legal/PrivacyPolicy';
 import { useInactivitySignout } from './hooks/useInactivitySignout';
+import { initClarity } from './services/analytics/clarity';
+import { initPostHog } from './services/analytics/posthog';
 
 type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'video_upload' | 'technical_media' | 'executive_summary' | 'market_analysis' | 'opportunity_discovery' | 'ai_validation';
 
 const App: React.FC = () => {
+  // Initialize Analytics
+  useEffect(() => {
+    initClarity('vj30ntkkl1');
+    initPostHog();
+  }, []);
+
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [addClientModalOpen, setAddClientModalOpen] = useState(false);
@@ -575,7 +582,8 @@ const App: React.FC = () => {
           if (qualityCached) cached.image_quality_analysis = qualityCached;
           if (pulseCached) cached.community_pulse = pulseCached;
           if (propInv && genMarket) {
-            cached.investment_research = { property_specific: propInv, general: genMarket };
+            cached.property_investment = propInv;
+            cached.general_market_intelligence = genMarket;
           }
           addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', data: cached });
           setCustomAnalysis(cached);
@@ -589,7 +597,10 @@ const App: React.FC = () => {
       // We will seeded the result with any existing city-level data we found above
       const cityDataSeed: any = {};
       if (pulseCached) cityDataSeed.community_pulse = pulseCached;
-      if (propInv && genMarket) cityDataSeed.investment_research = { property_specific: propInv, general: genMarket };
+      if (propInv && genMarket) {
+        cityDataSeed.property_investment = propInv;
+        cityDataSeed.general_market_intelligence = genMarket;
+      }
 
 
       // MANDATORY ASSET SECURING ON REFRESH
