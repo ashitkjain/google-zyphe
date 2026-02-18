@@ -12,3 +12,4 @@ export * from './transaction';
 export * from './system';
 export * from './calendar';
 export * from './contextGraph';
+export * from './stickyNotes';

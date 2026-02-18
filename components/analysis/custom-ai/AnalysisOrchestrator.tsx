@@ -19,6 +19,7 @@ import { NeighborhoodView } from './components/NeighborhoodView';
 import { AnalysisLoading, GeneralAnalysisLoading } from './components/AnalysisLoading';
 import { HoverPreview } from './components/HoverPreview';
 import { ContextGraphView } from './components/ContextGraphView';
+import { StickyNotesLayer } from './components/StickyNotesLayer';
 
 interface Props {
     analysis: CustomAIAnalysisResult | null;
@@ -219,111 +220,113 @@ const AnalysisOrchestrator: React.FC<Props> = ({
             </div>
 
             {/* Content Area */}
-            <div className="min-h-[500px]">
-                {activeTab === 'interior' && <InteriorView data={analysis.home_interior} />}
-                {activeTab === 'rooms' && <RoomsView highlights={analysis.room_highlights} />}
-                {activeTab === 'exterior_and_neighborhood' && (
-                    <ExteriorView
-                        data={analysis.exterior_and_neighborhood}
-                        streetViewAnalysis={propertyData?.streetViewAnalysis}
-                    />
-                )}
-                {activeTab === 'neighborhood' && (
-                    <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        {!analysis.neighborhood ? (
-                            <EmptyState section="Neighborhood" />
-                        ) : (
-                            <NeighborhoodView
-                                data={analysis.neighborhood}
-                                mapZoomIn={propertyData?.mapZoomIn}
-                                mapZoomOut={propertyData?.mapZoomOut}
-                            />
-                        )}
-                    </section>
-                )}
-                {activeTab === 'pulse' && (
-                    <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        {pulseLoading ? (
-                            <AnalysisLoading title="Social Sentiment..." subtitle="Aggregating neighborhood insights." timer={timer} address={propertyData?.address} icon="fa-users-viewfinder" />
-                        ) : !analysis.community_pulse ? (
-                            <EmptyState section="Community Pulse" />
-                        ) : (
-                            <CommunityPulseView data={analysis.community_pulse} />
-                        )}
-                    </section>
-                )}
-                {activeTab === 'quality' && (
-                    <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        {qualityLoading ? (
-                            <AnalysisLoading title="Picture Audit..." timer={timer} address={propertyData?.address} icon="fa-camera" />
-                        ) : !analysis.image_quality_analysis ? (
-                            <EmptyState section="Quality Audit" />
-                        ) : (
-                            <QualityAnalysisView
-                                data={analysis.image_quality_analysis}
-                                propertyImages={propertyImages}
-                                onMouseEnter={onThumbnailMouseEnter}
-                                onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
-                                onMouseLeave={hidePreviewImmediately}
-                            />
-                        )}
-                    </section>
-                )}
-                {activeTab === 'investment' && (
-                    <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        {investmentLoading ? (
-                            <AnalysisLoading title="Market Research..." subtitle="Scouring STR data and historicals." timer={timer} address={propertyData?.address} icon="fa-magnifying-glass-dollar" />
-                        ) : (!analysis.property_investment || !analysis.general_market_intelligence) ? (
-                            <EmptyState section="Investment Research" />
-                        ) : (
-                            <InvestmentView specific={analysis.property_investment} general={analysis.general_market_intelligence} />
-                        )}
-                    </section>
-                )}
-                {activeTab === 'deep_research' && (
-                    <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        {deepLoading ? (
-                            <AnalysisLoading title="Deep Researching..." subtitle="Synthesizing city-wide investment perspectives." timer={timer} address={propertyData?.address} icon="fa-magnifying-glass-chart" />
-                        ) : !analysis.deep_investment_research ? (
-                            <EmptyState section="Investment Research" />
-                        ) : (
-                            <DeepInvestmentView data={analysis.deep_investment_research} />
-                        )}
-                    </section>
-                )}
-                {activeTab === 'bidding' && (
-                    <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        {biddingLoading ? (
-                            <AnalysisLoading title="Strategizing Offer..." subtitle="Analyzing DOM benchmarks and pressure." timer={timer} address={propertyData?.address} icon="fa-gavel" />
-                        ) : !analysis.bidding_strategy ? (
-                            <EmptyState section="Bidding Strategy" />
-                        ) : (
-                            <BiddingView data={analysis.bidding_strategy} comps={propertyData?.comps} priceHistory={propertyData?.priceHistory} onRefresh={handleRunBiddingStrategy} />
-                        )}
-                    </section>
-                )}
-                {activeTab === 'image_analysis' && (
-                    <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        {!analysis.image_by_image_analysis || analysis.image_by_image_analysis.length === 0 ? (
-                            <EmptyState section="Image Analysis" />
-                        ) : (
-                            <ImageAnalysisView data={analysis.image_by_image_analysis} />
-                        )}
-                    </section>
-                )}
-                {activeTab === 'context_graph' && (
-                    <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        {graphLoading ? (
-                            <AnalysisLoading title="Extracting Context Factors..." subtitle="Analyzing dimensions." timer={timer} address={propertyData?.address} icon="fa-diagram-project" />
-                        ) : (
-                            <ContextGraphView
-                                data={graphResult!}
-                                loading={graphLoading}
-                                onExtract={handleExtractContextGraph}
-                            />
-                        )}
-                    </section>
-                )}
+            <div className="min-h-[500px] relative">
+                <StickyNotesLayer zpid={zpid || ''} activeTab={activeTab}>
+                    {activeTab === 'interior' && <InteriorView data={analysis.home_interior} />}
+                    {activeTab === 'rooms' && <RoomsView highlights={analysis.room_highlights} />}
+                    {activeTab === 'exterior_and_neighborhood' && (
+                        <ExteriorView
+                            data={analysis.exterior_and_neighborhood}
+                            streetViewAnalysis={propertyData?.streetViewAnalysis}
+                        />
+                    )}
+                    {activeTab === 'neighborhood' && (
+                        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            {!analysis.neighborhood ? (
+                                <EmptyState section="Neighborhood" />
+                            ) : (
+                                <NeighborhoodView
+                                    data={analysis.neighborhood}
+                                    mapZoomIn={propertyData?.mapZoomIn}
+                                    mapZoomOut={propertyData?.mapZoomOut}
+                                />
+                            )}
+                        </section>
+                    )}
+                    {activeTab === 'pulse' && (
+                        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            {pulseLoading ? (
+                                <AnalysisLoading title="Social Sentiment..." subtitle="Aggregating neighborhood insights." timer={timer} address={propertyData?.address} icon="fa-users-viewfinder" />
+                            ) : !analysis.community_pulse ? (
+                                <EmptyState section="Community Pulse" />
+                            ) : (
+                                <CommunityPulseView data={analysis.community_pulse} />
+                            )}
+                        </section>
+                    )}
+                    {activeTab === 'quality' && (
+                        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            {qualityLoading ? (
+                                <AnalysisLoading title="Picture Audit..." timer={timer} address={propertyData?.address} icon="fa-camera" />
+                            ) : !analysis.image_quality_analysis ? (
+                                <EmptyState section="Quality Audit" />
+                            ) : (
+                                <QualityAnalysisView
+                                    data={analysis.image_quality_analysis}
+                                    propertyImages={propertyImages}
+                                    onMouseEnter={onThumbnailMouseEnter}
+                                    onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
+                                    onMouseLeave={hidePreviewImmediately}
+                                />
+                            )}
+                        </section>
+                    )}
+                    {activeTab === 'investment' && (
+                        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            {investmentLoading ? (
+                                <AnalysisLoading title="Market Research..." subtitle="Scouring STR data and historicals." timer={timer} address={propertyData?.address} icon="fa-magnifying-glass-dollar" />
+                            ) : (!analysis.property_investment || !analysis.general_market_intelligence) ? (
+                                <EmptyState section="Investment Research" />
+                            ) : (
+                                <InvestmentView specific={analysis.property_investment} general={analysis.general_market_intelligence} />
+                            )}
+                        </section>
+                    )}
+                    {activeTab === 'deep_research' && (
+                        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            {deepLoading ? (
+                                <AnalysisLoading title="Deep Researching..." subtitle="Synthesizing city-wide investment perspectives." timer={timer} address={propertyData?.address} icon="fa-magnifying-glass-chart" />
+                            ) : !analysis.deep_investment_research ? (
+                                <EmptyState section="Investment Research" />
+                            ) : (
+                                <DeepInvestmentView data={analysis.deep_investment_research} />
+                            )}
+                        </section>
+                    )}
+                    {activeTab === 'bidding' && (
+                        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            {biddingLoading ? (
+                                <AnalysisLoading title="Strategizing Offer..." subtitle="Analyzing DOM benchmarks and pressure." timer={timer} address={propertyData?.address} icon="fa-gavel" />
+                            ) : !analysis.bidding_strategy ? (
+                                <EmptyState section="Bidding Strategy" />
+                            ) : (
+                                <BiddingView data={analysis.bidding_strategy} comps={propertyData?.comps} priceHistory={propertyData?.priceHistory} onRefresh={handleRunBiddingStrategy} />
+                            )}
+                        </section>
+                    )}
+                    {activeTab === 'image_analysis' && (
+                        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            {!analysis.image_by_image_analysis || analysis.image_by_image_analysis.length === 0 ? (
+                                <EmptyState section="Image Analysis" />
+                            ) : (
+                                <ImageAnalysisView data={analysis.image_by_image_analysis} />
+                            )}
+                        </section>
+                    )}
+                    {activeTab === 'context_graph' && (
+                        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            {graphLoading ? (
+                                <AnalysisLoading title="Extracting Context Factors..." subtitle="Analyzing dimensions." timer={timer} address={propertyData?.address} icon="fa-diagram-project" />
+                            ) : (
+                                <ContextGraphView
+                                    data={graphResult!}
+                                    loading={graphLoading}
+                                    onExtract={handleExtractContextGraph}
+                                />
+                            )}
+                        </section>
+                    )}
+                </StickyNotesLayer>
             </div>
 
             <HoverPreview
