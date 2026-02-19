@@ -27,11 +27,9 @@ export const buildGraphExtractionContext = (
     // Strip noise from visual: no image-by-image, no image quality, no web sources
     let optimizedVisual: any = null;
     if (visual) {
-        const { image_by_image_analysis, image_quality_analysis, ...kept } = visual;
+        // Strip general_market_intelligence — all market data now comes from deep_investment_research
+        const { image_by_image_analysis, image_quality_analysis, general_market_intelligence, ...kept } = visual;
         // Remove sources / citations from nested research objects
-        if (kept.general_market_intelligence) {
-            delete (kept.general_market_intelligence as any).web_sources;
-        }
         if (kept.deep_investment_research) {
             delete (kept.deep_investment_research as any).citations;
             delete (kept.deep_investment_research as any).web_sources;
@@ -89,8 +87,8 @@ Given the property data below, extract values for the required decision factors.
 6. **ADU / House-Hacking Potential**: Look for "guest house", "basement", "separate entrance", "ADU", or "cottage" in description OR deep_research.
 7. **STR Viability**: Combine legality + performance. Check deep_research/zoningDescription for STR restrictions. Then add occupancy/ADR from property_investment.str_performance. Format: "[Legal/Restricted/Unknown] — [occ]% occ @ $[adr]/night" or "Restricted — STR not permitted".
 8. **Long-Term Rental Yield**: (rentZestimate × 12) / price. If rentZestimate missing, use 0.05 average yield.
-9. **Historical Appreciation**: Use general_market_intelligence. If missing, use city-wide defaults from deep_research.
-10. **Listing Urgency**: Assess if "Hot Home" from description or price history (back on market, etc.)
+9. **Historical Appreciation**: From deep_investment_research.macroeconomic_indicators and market_dynamics (look for YoY/5yr appreciation trend, price growth data). Fallback to general_market_intelligence.market_dynamics.historical_appreciation.
+10. **Listing Urgency**: Assess if "Hot Home" from description or price history (back on market, etc.). Also check deep_investment_research.market_dynamics for inventory/supply signals — low supply + low DOM = high urgency.
 
 ### Structural & Size (11-20)
 11. **Property Typology**: From homeType (SingleFamily, Condo, etc.).
@@ -150,19 +148,19 @@ Given the property data below, extract values for the required decision factors.
 62. **Digital Presentation**: Quality of staging and photos (find "Hidden Gems").
 63. **Solar ROI Obstructors**: Large trees or neighbors blocking roof sunshine.
 64. **Job Hub Connectivity**: Proximity to major corporate campuses (Google, Apple, etc.).
-65. **Upcoming Dev Impact**: Nearby construction/development from general_market_intelligence.
+65. **Upcoming Dev Impact**: From deep_investment_research.investment_outlook.long_term and local_risks — look for mentions of new construction, transit projects, or commercial development nearby. Fallback to general_market_intelligence.regulatory_and_growth.upcoming_developments.
 66. **Soil / Geo Consistency**: Soil type or liquefaction risk from deep_research.
 67. **Luxury Finish Level**: High-end details like crown molding, wide plank floors, designer fixtures.
 68. **Backyard Potential**: Room for ADU or pool if not already present.
 69. **Streetscape Aesthetic**: Underground utilities vs overhead wires.
-70. **Market Momentum**: Appreciating vs cooling micro-market indicators.
+70. **Market Momentum**: From deep_investment_research.market_dynamics and macroeconomic_indicators — is this market appreciating, cooling, or flat? Include inventory trend direction. Fallback to general_market_intelligence.
 
 ### Community & Market Intelligence (71-75)
 71. **Development Maturity**: From neighborhood_features.development_patterns. Classify as \"New Build Area\" (modern rooflines, recent construction), \"Established\" (mature trees, older homes, stable community), or if neither clearly applies, describe the actual blend — e.g. \"Transitional — older homes + new infill\", \"Gentrifying — renovated alongside original stock\", \"Suburban Sprawl — tract homes from multiple eras\". Never use just \"Mixed\" — always qualify what the mix is.
 72. **Resident Complaint Profile**: From community_pulse.common_complaints. Summarize the top 1-2 recurring complaints residents raise (e.g., "HOA strictness", "Traffic congestion", "Noise from nearby road"). This is a hidden risk signal not visible in listing data.
 73. **Resident Satisfaction Drivers**: From community_pulse.what_residents_like. Summarize the top 1-2 things residents love about living here (e.g., "Top schools", "Quiet streets", "Walkable to downtown"). Indicates retention and long-term desirability.
 74. **Perceived Neighborhood Safety**: From community_pulse.safety_and_concerns. Resident-reported safety sentiment ("Very Safe", "Generally Safe", "Mixed", "Concerns Noted"). Distinct from security infrastructure — this is how residents actually feel.
-165. **Market Velocity (DOM)**: From general_market_intelligence.market_dynamics.days_on_market. City-level median days on market. "Fast" if < 14 days, "Moderate" 14-30, "Slow" > 30. Signals buyer urgency and negotiation leverage.
+75. **Market Velocity (DOM)**: From deep_investment_research.market_dynamics — look for "Days on Market" or "DOM" mentions (e.g. "29-43 days"). Classify: "Fast" if < 14 days, "Moderate" 14-30, "Slow" > 30. Fallback to general_market_intelligence.market_dynamics.days_on_market. Signals buyer urgency and negotiation leverage.
 
 ## PROPERTY DATA
 

@@ -18,12 +18,21 @@ export const getNeighborhoodAnalysisPrompt = (property: { address: string; descr
 
   1. ORIENTATION ANALYSIS:
      Determine the direction the house is facing following these steps precisely:
-     - STEP 1 (Text Analysis): First, carefully read the "Property Description" provided above. If the description explicitly states the orientation of the home (e.g., "north-facing," "faces east," "front of the house faces south"), use that information as the definitive orientation.
-     - STEP 2 (Visual Analysis - Fallback): If the description does NOT mention the orientation, perform a visual analysis using the Zoom In image:
-       * Assume top of the map image is North, right of the image is East, left is West and bottom is South.
+     - STEP 1 (Text Analysis — HIGHEST PRIORITY): Carefully scan the entire "Property Description" above for ANY mention of the home's facing direction or orientation. This includes — but is not limited to — these phrasings:
+       * "north-facing", "south-facing", "east-facing", "west-facing" (with or without hyphens)
+       * "faces north/south/east/west"
+       * "facing east/west/north/south"
+       * "front faces [direction]", "front door faces [direction]", "entrance faces [direction]"
+       * "east-facing entrance", "south facing lot", "vastu-compliant [direction]"
+       * "facing [direction] per MLS", "[direction] exposure"
+       * Any compass direction (North, South, East, West, Northeast, Northwest, Southeast, Southwest) used in the context of the home's front, entrance, or lot orientation
+       IF YOU FIND ANY SUCH MENTION — use that as the DEFINITIVE final_orientation and report exactly which phrase you found in orientation_explanation. DO NOT perform the visual analysis below. This text clue always overrides the map.
+     - STEP 2 (Visual Analysis — Fallback ONLY): Only use this if the "Property Description" has ZERO mentions of orientation, facing direction, or compass direction in context of the home. If so, analyze the Zoom In map image:
+       * Assume top of the map image is North, right is East, left is West, bottom is South.
        * Identify the Key Elements: Locate the home marker and the labeled street (matching the home address street).
-       * Step A: Determine the direction in which the home street runs (e.g., East-West, North-South, or a diagonal like Northeast-Southwest).
-       * Step B: Observe the home marker's position in relation to the home street (Is it above, below, right, left etc. of the street?).
+       * At the point the home street is closest to the home (street can be changing direction in the map, so we need the directions where it is closest to the home) -
+       * Step A: Determine the direction in which the home street runs (e.g., East-West, North-South or a diagonal like Northeast-Southwest) where it is closest to the home.
+       * Step B: Observe the home marker's position in relation to the home street (Is it above, below, right, left etc. of the street?) where it is closest to the street.
        * Step C: Infer the Facing Direction:
          - If street is East-West and house marker is below the home street, front faces North.
          - If street is North-South and house marker is left of the home street, front faces East.
@@ -81,7 +90,7 @@ export const neighborhoodAnalysisSchema = {
         final_orientation: { type: Type.STRING, description: "The deduced direction the front of the house faces (North, South, etc.)" },
         orientation_explanation: { type: Type.STRING, description: "Detailed reasoning explaining how the orientation was determined, referencing specific map elements or text clues." }
       },
-      required: ["street_direction", "home_position_relative_to_street", "final_orientation", "orientation_explanation"]
+      required: ["final_orientation", "orientation_explanation"]
     }
   },
   required: ["overview", "neighborhood_features", "orientation"]

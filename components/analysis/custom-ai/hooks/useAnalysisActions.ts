@@ -322,16 +322,16 @@ export const useAnalysisActions = (
         }
     }, [analysis?.context_graph]);
 
-    const handleExtractContextGraph = async () => {
+    const handleExtractContextGraph = async (forceRefresh = false) => {
         if (!analysis || !propertyData || graphLoading) return;
 
         setTimer(0);
         setGraphLoading(true);
-        addLog('System', { type: 'info' }, { task: 'context_graph_extraction', zpid });
+        addLog('System', { type: 'info' }, { task: 'context_graph_extraction', zpid, forceRefresh });
 
         try {
-            // 1. Check Firestore cache first for the graph itself
-            if (zpid) {
+            // 1. Check Firestore cache first — skip if forceRefresh (Re-Extract)
+            if (zpid && !forceRefresh) {
                 const cached = await getContextGraphFromCloud(zpid);
                 if (cached && cached.factors && cached.factors.length > 0) {
                     addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', task: 'context_graph', zpid, factors: cached.factors.length });
@@ -340,10 +340,11 @@ export const useAnalysisActions = (
                     return;
                 }
                 addLog('Cloud Cache', { type: 'info' }, { status: 'Miss', task: 'context_graph', zpid });
+            } else if (forceRefresh) {
+                addLog('Cloud Cache', { type: 'info' }, { status: 'Bypassed', task: 'context_graph', zpid, reason: 'Re-Extract forced' });
             }
 
             // 2. Proactively enrich 'analysis' with city-level data from cloud if missing
-            // This prevents "Data not available" for factors that depend on deep research
             const city = propertyData?.city || (propertyData?.address && propertyData.address.split(',')[1]?.trim());
             const state = propertyData?.state || (propertyData?.address && propertyData.address.split(',')[2]?.split(' ')[1]?.trim());
             const cityStateKey = generateCityStateKey(city, state);
@@ -374,7 +375,7 @@ export const useAnalysisActions = (
 
             if (enrichedAny) {
                 addLog('Cloud Cache', { type: 'info' }, { task: 'enriched_context_for_graph', cityStateKey });
-                onUpdateAnalysis(enrichedAnalysis); // Sync back to UI
+                onUpdateAnalysis(enrichedAnalysis);
             }
 
             // 3. Extract via Gemini
@@ -385,7 +386,7 @@ export const useAnalysisActions = (
                 setGraphResult(res.data);
                 addLog('Gemini AI', { type: 'response' }, { task: 'context_graph_extraction', zpid, factors: res.data.factors?.length }, (res as any).usage);
 
-                // 4. Save to Firestore cache
+                // 4. Save to Firestore cache (overwrite on re-extract)
                 if (zpid) {
                     await saveContextGraphToCloud(zpid, res.data);
                     addLog('Cloud Cache', { type: 'info' }, { status: 'Saved', task: 'context_graph', zpid });
@@ -405,6 +406,7 @@ export const useAnalysisActions = (
         }
     };
 
+    const handleReExtractContextGraph = () => handleExtractContextGraph(true);
 
     return {
         timer,
@@ -421,5 +423,6 @@ export const useAnalysisActions = (
         handleRunBiddingStrategy,
         handleRunDeepInvestmentResearch,
         handleExtractContextGraph,
+        handleReExtractContextGraph,
     };
 };

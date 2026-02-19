@@ -424,6 +424,7 @@ export const analyzeNeighborhood = async (mapZoomIn: string, mapZoomOut: string,
   });
 };
 
+
 export const analyzeCommunityPulse = async (property: PropertyData, userId: string = "unknown", zpid?: string, onLog?: (msg: string) => void): Promise<AIResponseWithUsage<CommunityPulseResult>> => {
   const prompt = getCommunityPulsePrompt(optimizePropertyForAi(property) as PropertyData);
 

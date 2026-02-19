@@ -128,14 +128,15 @@ export const CONTEXT_GRAPH_FACTORS: DecisionFactor[] = [
         id: 9,
         name: 'Historical Appreciation',
         nodeLabel: 'MarketTrend',
-        dataSource: 'general_market_intelligence.market_dynamics.historical_appreciation',
+        dataSource: 'deep_investment_research.macroeconomic_indicators + deep_investment_research.market_dynamics',
+        computation: 'YoY/5yr appreciation trend from deep research; fallback to general_market_intelligence.market_dynamics.historical_appreciation',
     },
     {
         id: 10,
         name: 'Bidding War Probability',
         nodeLabel: 'MarketMomentum',
-        dataSource: 'general_market_intelligence.supply_demand + property.timeOnZillow',
-        computation: 'Computed via DOM and inventory supply metrics',
+        dataSource: 'deep_investment_research.market_dynamics + property.timeOnZillow',
+        computation: 'Derived from DOM, months of supply, and inventory data in deep research',
     },
 
     // ═══════════════════════════════════════════════════════
@@ -557,15 +558,15 @@ export const CONTEXT_GRAPH_FACTORS: DecisionFactor[] = [
         id: 68,
         name: 'Proximity to "Sticky" Job Hubs',
         nodeLabel: 'EconomicDriver',
-        dataSource: 'general_market_intelligence.demand_drivers',
-        computation: 'Links properties to specific corporate HQs like Workday or Roche for tenant stability',
+        dataSource: 'deep_investment_research.macroeconomic_indicators',
+        computation: 'Links properties to specific corporate HQs like Workday or Roche for tenant stability; fallback to general_market_intelligence.demand_drivers',
     },
     {
         id: 69,
         name: 'Future Megaprojects',
         nodeLabel: 'MarketCatalyst',
-        dataSource: 'general_market_intelligence.upcoming_developments',
-        computation: 'Flags homes near massive value-adds like "IKEA Opening 2026" or "Valley Link Transit Project"',
+        dataSource: 'deep_investment_research.investment_outlook + deep_investment_research.local_risks',
+        computation: 'Flags homes near massive value-adds like "IKEA Opening 2026" or "Valley Link Transit Project"; fallback to general_market_intelligence.upcoming_developments',
     },
     {
         id: 70,
@@ -611,8 +612,8 @@ export const CONTEXT_GRAPH_FACTORS: DecisionFactor[] = [
         id: 75,
         name: 'Market Velocity (DOM)',
         nodeLabel: 'MarketMomentum',
-        dataSource: 'general_market_intelligence.market_dynamics.days_on_market',
-        computation: 'City-level median DOM: "Fast" (<14), "Moderate", "Slow" (>30)',
+        dataSource: 'deep_investment_research.market_dynamics',
+        computation: 'City-level median DOM from deep research market_dynamics section: "Fast" (<14), "Moderate" (14-30), "Slow" (>30); fallback to general_market_intelligence.market_dynamics.days_on_market',
     },
 ];
 

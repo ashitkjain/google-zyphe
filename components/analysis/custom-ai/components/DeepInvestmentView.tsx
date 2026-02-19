@@ -399,16 +399,6 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 max-w-5xl mx-auto space-y-8 pb-12 font-sans" style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}>
             <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-[0_8px_40px_rgb(0,0,0,0.04)] overflow-hidden p-10 space-y-8">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-                        <i className="fa-solid fa-magnifying-glass-chart text-xl"></i>
-                    </div>
-                    <div className="flex flex-col">
-                        <h4 className="text-2xl font-black text-[#1a2333] tracking-tight">Investment Research</h4>
-                        <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Grounded AI Analysis • Short & Long Term</p>
-                    </div>
-                </div>
-
                 <div className="prose prose-slate max-w-none">
                     <div className="text-gray-700 font-sans font-normal leading-[1.8] text-[15px] selection:bg-indigo-100 selection:text-indigo-900">
                         {data.status === 'running' ? (

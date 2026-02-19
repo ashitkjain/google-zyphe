@@ -1,14 +1,21 @@
 import React, { useState } from 'react';
-import { PropertySpecificInvestmentResult, GeneralMarketIntelligenceResult } from '../../../../types';
+import { PropertySpecificInvestmentResult, DeepInvestmentResearchResult } from '../../../../types';
 import { getCleanDomain } from './CommonComponents';
 
 interface InvestmentViewProps {
     specific: PropertySpecificInvestmentResult;
-    general: GeneralMarketIntelligenceResult;
+    deepResearch: DeepInvestmentResearchResult;
 }
 
-export const InvestmentView: React.FC<InvestmentViewProps> = ({ specific, general }) => {
+export const InvestmentView: React.FC<InvestmentViewProps> = ({ specific, deepResearch }) => {
     const [showAllSources, setShowAllSources] = useState(false);
+    const report = deepResearch?.structured_report;
+    const macroSummary = report?.macroeconomic_indicators?.summary;
+    const macroDetails = report?.macroeconomic_indicators?.details || [];
+    const marketSummary = report?.market_dynamics?.summary;
+    const marketDetails = report?.market_dynamics?.details || [];
+    // Extract DOM from market_dynamics details (look for days on market mention)
+    const domDetail = marketDetails.find(d => /days.on.market|DOM/i.test(d)) || marketSummary || '';
     return (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 max-w-5xl mx-auto space-y-8 pb-12 font-sans" style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}>
             {/* 1. Key Performance Comparison (STR vs LTR) */}
@@ -64,7 +71,7 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({ specific, genera
                 </div>
             </div>
 
-            {/* 2. Market Dynamics */}
+            {/* 2. Market Dynamics — from Deep Investment Research */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="bg-white rounded-[2rem] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-100 flex flex-col h-full">
                     <div className="flex justify-between items-center mb-4">
@@ -73,9 +80,18 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({ specific, genera
                             <i className="fa-solid fa-arrow-trend-up text-xs"></i>
                         </div>
                     </div>
-                    <p className="text-gray-500 text-[13px] leading-relaxed font-normal">
-                        {general.market_dynamics.historical_appreciation}
+                    <p className="text-gray-500 text-[13px] leading-relaxed font-normal flex-1">
+                        {macroSummary || <span className="italic text-gray-300">Run Deep Research to populate</span>}
                     </p>
+                    {macroDetails.length > 0 && (
+                        <ul className="mt-3 space-y-1.5 border-t border-gray-50 pt-3">
+                            {macroDetails.slice(0, 2).map((d, i) => (
+                                <li key={i} className="text-[11px] text-gray-400 flex gap-2">
+                                    <span className="text-amber-400 mt-0.5">•</span>{d}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                 </div>
 
                 <div className="bg-white rounded-[2rem] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-100 flex flex-col h-full">
@@ -85,9 +101,15 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({ specific, genera
                             <i className="fa-solid fa-bullseye text-xs"></i>
                         </div>
                     </div>
-                    <p className="text-gray-500 text-[13px] leading-relaxed font-normal">
-                        {general.market_dynamics.projected_growth}
+                    <p className="text-gray-500 text-[13px] leading-relaxed font-normal flex-1">
+                        {report?.investment_outlook?.long_term || <span className="italic text-gray-300">Run Deep Research to populate</span>}
                     </p>
+                    {report?.investment_outlook?.short_term && (
+                        <div className="mt-3 border-t border-gray-50 pt-3">
+                            <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest block mb-1">Short-Term (12M)</span>
+                            <p className="text-[11px] text-gray-400">{report.investment_outlook.short_term}</p>
+                        </div>
+                    )}
                 </div>
 
                 <div className="bg-white rounded-[2rem] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-100 flex flex-col h-full">
@@ -97,101 +119,19 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({ specific, genera
                             <i className="fa-solid fa-clock text-xs"></i>
                         </div>
                     </div>
-                    <p className="text-gray-500 text-[13px] leading-relaxed font-normal">
-                        {general.market_dynamics.days_on_market}
+                    <p className="text-gray-500 text-[13px] leading-relaxed font-normal flex-1">
+                        {domDetail || <span className="italic text-gray-300">Run Deep Research to populate</span>}
                     </p>
-                </div>
-            </div>
-
-            {/* 3. Detailed Insights Grid */}
-            <div className="bg-white rounded-[2.5rem] p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-                    <div className="space-y-4">
-                        <h4 className="text-lg font-bold text-[#1a2333] tracking-tight">Regulatory & Growth</h4>
-                        <p className="text-gray-600 text-[15px] leading-relaxed">{general.regulatory_and_growth.summary}</p>
-                        <div className="space-y-3">
-                            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                                <span className="text-[11px] font-bold text-[#1a2333]/50 uppercase tracking-widest block mb-1">Laws & Zoning</span>
-                                <p className="text-[14px] leading-relaxed text-[#1a2333]/70">{general.regulatory_and_growth.laws_and_zoning}</p>
-                            </div>
-                            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                                <span className="text-[11px] font-bold text-[#1a2333]/50 uppercase tracking-widest block mb-1">Infrastructure</span>
-                                <p className="text-[14px] leading-relaxed text-[#1a2333]/70">{general.regulatory_and_growth.upcoming_developments}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        <h4 className="text-lg font-bold text-[#1a2333] tracking-tight">Competitive Edge</h4>
-                        <p className="text-gray-600 text-[15px] leading-relaxed">{general.competitor_gaps.recommendations}</p>
-                        <div className="mt-4 space-y-4">
-                            <div>
-                                <span className="text-[11px] font-bold text-indigo-500 uppercase tracking-widest block mb-2">Highly Praised Amenities</span>
-                                <div className="flex flex-wrap gap-2">
-                                    {(general.competitor_gaps?.praised_amenities || []).map((a, i) => (
-                                        <span key={i} className="px-3 py-1 bg-indigo-50 text-indigo-700 text-[12px] font-bold rounded-lg border border-indigo-100">{a}</span>
-                                    ))}
-                                </div>
-                            </div>
-                            <div>
-                                <span className="text-[11px] font-bold text-rose-500 uppercase tracking-widest block mb-2">Friction Points</span>
-                                <ul className="space-y-1.5">
-                                    {(general.competitor_gaps?.friction_points || []).map((p, i) => (
-                                        <li key={i} className="text-[14px] text-gray-500 flex gap-2">
-                                            <span className="text-rose-400">•</span> {p}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        <h4 className="text-lg font-bold text-[#1a2333] tracking-tight">Peak Demand Drivers</h4>
-                        <div className="space-y-4">
-                            {(general.demand_drivers || []).map((d, i) => (
-                                <div key={i} className="flex flex-col border-l-2 border-indigo-100 pl-4 py-0.5 group hover:border-[#1a2333] transition-colors">
-                                    <div className="text-[15px] font-bold text-[#1a2333] mb-0.5">{d.event}</div>
-                                    <div className="flex justify-between items-center text-[11px]">
-                                        <span className="text-indigo-600 font-bold uppercase tracking-widest">{d.date}</span>
-                                        <span className="text-gray-400 font-medium uppercase tracking-tighter">{d.impact}</span>
-                                    </div>
-                                </div>
+                    {marketDetails.length > 0 && (
+                        <ul className="mt-3 space-y-1.5 border-t border-gray-50 pt-3">
+                            {marketDetails.filter(d => !/days.on.market|DOM/i.test(d)).slice(0, 2).map((d, i) => (
+                                <li key={i} className="text-[11px] text-gray-400 flex gap-2">
+                                    <span className="text-gray-300 mt-0.5">•</span>{d}
+                                </li>
                             ))}
-                        </div>
-                    </div>
+                        </ul>
+                    )}
                 </div>
-            </div>
-
-            {/* 4. External Sources */}
-            <div className="flex flex-col items-center gap-4">
-                <div className="flex flex-wrap gap-2 justify-center max-w-3xl">
-                    {general.web_sources?.slice(0, showAllSources ? undefined : 2).map((source, i) => (
-                        <a
-                            key={i}
-                            href={source.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 bg-white border border-gray-100 rounded-full text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:text-indigo-600 hover:border-indigo-100 transition-all flex items-center gap-2 group shadow-sm"
-                        >
-                            <i className="fa-solid fa-link text-[8px] group-hover:animate-pulse"></i>
-                            {source.title || getCleanDomain(source.url)}
-                        </a>
-                    ))}
-                </div>
-
-                {general.web_sources && general.web_sources.length > 2 && (
-                    <button
-                        onClick={() => setShowAllSources(!showAllSources)}
-                        className="text-[11px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-700 transition-colors flex items-center gap-2"
-                    >
-                        {showAllSources ? (
-                            <>Show Less <i className="fa-solid fa-chevron-up"></i></>
-                        ) : (
-                            <>{general.web_sources.length - 2} more sources <i className="fa-solid fa-chevron-down"></i></>
-                        )}
-                    </button>
-                )}
             </div>
         </div>
     );

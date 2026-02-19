@@ -103,6 +103,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         handleRunBiddingStrategy,
         handleRunDeepInvestmentResearch,
         handleExtractContextGraph,
+        handleReExtractContextGraph,
         graphLoading,
         graphResult
     } = useAnalysisActions(analysis, zpid, propertyData, propertyImages, onUpdateAnalysis, addLog, loading, comprehensiveResult);
@@ -281,10 +282,10 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                         <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                             {investmentLoading ? (
                                 <AnalysisLoading title="Market Research..." subtitle="Scouring STR data and historicals." timer={timer} address={propertyData?.address} icon="fa-magnifying-glass-dollar" />
-                            ) : (!analysis.property_investment || !analysis.general_market_intelligence) ? (
+                            ) : (!analysis.property_investment) ? (
                                 <EmptyState section="Investment Research" />
                             ) : (
-                                <InvestmentView specific={analysis.property_investment} general={analysis.general_market_intelligence} />
+                                <InvestmentView specific={analysis.property_investment} deepResearch={analysis.deep_investment_research} />
                             )}
                         </section>
                     )}
@@ -327,7 +328,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                                 <ContextGraphView
                                     data={graphResult!}
                                     loading={graphLoading}
-                                    onExtract={handleExtractContextGraph}
+                                    onExtract={handleReExtractContextGraph}
                                 />
                             )}
                         </section>
