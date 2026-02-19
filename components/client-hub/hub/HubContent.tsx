@@ -225,7 +225,7 @@ const HubContent: React.FC<HubContentProps> = ({
                     userId={realtorId}
                     displayName={realtorProfile?.displayName || realtorName}
                     email={realtorProfile?.email || ''}
-                    role={realtorProfile?.role || userRole || 'buyer'}
+                    role={userRole || realtorProfile?.role || 'buyer'}
                 />
             )}
             {activeTab === 'team_stats' && <TeamStatsTab />}
