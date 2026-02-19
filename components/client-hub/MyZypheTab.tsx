@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { getUserActivity, UserActivityEvent } from '../../services/firebaseService';
 import { getAllUserNotes, deleteStickyNote } from '../../services/firebase/stickyNotes';
 import { UserPropertyComment } from '../../types/stickyNotes';
+import MessagesTab from './MessagesTab';
 
 interface MyZypheTabProps {
     userId: string;
@@ -99,7 +100,7 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
     const [loading, setLoading] = useState(true);
     const [notesLoading, setNotesLoading] = useState(true);
     const [filter, setFilter] = useState<FilterType>('all');
-    const [activeTab, setActiveTab] = useState<'activity' | 'notes'>('activity');
+    const [activeTab, setActiveTab] = useState<'activity' | 'notes' | 'messages'>('activity');
 
     const loadData = async () => {
         setLoading(true);
@@ -205,6 +206,14 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
                                     {stats.notesCount}
                                 </span>
                             </button>
+                            {(role === 'admin' || role === 'tester') && (
+                                <button
+                                    onClick={() => setActiveTab('messages')}
+                                    className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'messages' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
+                                >
+                                    <i className="fa-solid fa-comments"></i> Messages
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -230,6 +239,13 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
                     </div>
                 </div>
             </div>
+
+            {/* Messages tab — full-height chat, no max-width wrapper */}
+            {activeTab === 'messages' && (
+                <div className="flex flex-col" style={{ height: 'calc(100vh - 260px)' }}>
+                    <MessagesTab userId={userId} displayName={displayName} role={role} />
+                </div>
+            )}
 
             {/* Content Area */}
             <div className="max-w-6xl mx-auto px-8 py-8">
@@ -294,8 +310,8 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
                                                 return (
                                                     <div key={event.id || i} className="relative group">
                                                         <div className={`absolute -left-[calc(2.5rem+7px)] w-3.5 h-3.5 rounded-full border-4 border-slate-50 shadow-md ${event.event_type === 'login' ? 'bg-emerald-400' :
-                                                                event.event_type === 'logout' ? 'bg-slate-400' :
-                                                                    'bg-indigo-400'
+                                                            event.event_type === 'logout' ? 'bg-slate-400' :
+                                                                'bg-indigo-400'
                                                             }`}></div>
 
                                                         <div className="bg-white rounded-2xl p-5 border border-slate-100 hover:border-indigo-100 hover:shadow-xl hover:shadow-indigo-50 transition-all group-hover:translate-x-2">
@@ -335,7 +351,7 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
                             </div>
                         )}
                     </div>
-                ) : (
+                ) : activeTab === 'messages' ? null : (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                         {notesLoading ? (
                             <div className="flex flex-col items-center justify-center py-20">
