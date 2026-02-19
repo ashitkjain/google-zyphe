@@ -27,15 +27,11 @@ const MessagesTab: React.FC<MessagesTabProps> = ({ userId, displayName, role }) 
     const [error, setError] = useState<string | null>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
 
-    // Load users eligible for messaging (admin + tester only).
-    // Note: 'admin' role is an in-memory override and may not be stored in Firestore,
-    // so we also match the known admin email as a fallback.
-    const ADMIN_EMAILS = ['ashu.jain.iitk@gmail.com'];
     useEffect(() => {
         getAllUsers().then((all) => {
             const eligible = all.filter((u: UserProfile) =>
                 u.uid !== userId &&
-                (u.role === 'admin' || u.role === 'tester' || ADMIN_EMAILS.includes(u.email))
+                (u.role === 'admin' || u.role === 'tester')
             );
             setUsers(eligible);
             setLoadingUsers(false);

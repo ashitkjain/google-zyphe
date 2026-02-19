@@ -325,11 +325,6 @@ const App: React.FC = () => {
         }
 
         if (profile) {
-          // Hardcoded Admin Override for Production Access
-          if (user.email === 'ashu.jain.iitk@gmail.com') {
-            console.log("⚡️ [Admin Override] Granting admin privileges to:", user.email);
-            profile.role = 'admin';
-          }
           if (user.email === 'tester@zyphe.ai') {
             console.log("⚡️ [Tester Override] Granting tester privileges to:", user.email);
             profile.role = 'tester';
@@ -346,27 +341,14 @@ const App: React.FC = () => {
           const pendingRole = (localStorage.getItem('zyphe_pending_role') as any) || 'buyer';
           console.log(`Profile not found in Firestore. Using role: ${pendingRole}`);
 
-          // Hardcoded Admin Override for Production Access (even if no profile exists)
-          if (user.email === 'ashu.jain.iitk@gmail.com') {
-            console.log("⚡️ [Admin Override] Creating privileged session for:", user.email);
-            setCurrentUser({
-              uid: user.uid,
-              email: user.email || '',
-              displayName: user.displayName || 'System Admin',
-              role: 'admin',
-              createdAt: new Date()
-            });
-            trackLogin({ uid: user.uid, email: user.email || '', displayName: user.displayName || 'System Admin', role: 'admin' });
-          } else {
-            setCurrentUser({
-              uid: user.uid,
-              email: user.email || '',
-              displayName: user.displayName || 'Guest User',
-              role: pendingRole,
-              createdAt: new Date()
-            });
-            trackLogin({ uid: user.uid, email: user.email || '', displayName: user.displayName || 'Guest User', role: pendingRole });
-          }
+          setCurrentUser({
+            uid: user.uid,
+            email: user.email || '',
+            displayName: user.displayName || 'Guest User',
+            role: pendingRole,
+            createdAt: new Date()
+          });
+          trackLogin({ uid: user.uid, email: user.email || '', displayName: user.displayName || 'Guest User', role: pendingRole });
         }
 
         // Fetch cloud data regardless of profile existence as long as we have a UID
@@ -1082,7 +1064,7 @@ const App: React.FC = () => {
                   <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] border border-indigo-500/30">PRO</span>
                   <span className="hidden sm:inline opacity-20">|</span>
                   <span className="hidden sm:inline opacity-40">
-                    {realtorName ? `Client of ${realtorName}` : (currentUser.email === 'ashu.jain.iitk@gmail.com' ? 'System Admin Account' : `${currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)} Account`)}
+                    {realtorName ? `Client of ${realtorName}` : `${currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)} Account`}
                   </span>
                 </>
               ) : (
