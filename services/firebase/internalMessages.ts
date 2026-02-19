@@ -1,6 +1,6 @@
 import {
     collection, addDoc, query, orderBy, limit,
-    onSnapshot, serverTimestamp, Unsubscribe, where, getDocs
+    onSnapshot, serverTimestamp, Unsubscribe, where
 } from "firebase/firestore";
 import { db, logFirestoreQuery } from "./config";
 
@@ -9,9 +9,10 @@ export interface InternalMessage {
     senderId: string;
     senderName: string;
     senderRole: string;
+    recipientIds: string[];      // explicit recipient user IDs
+    participants: string[];      // [senderId, ...recipientIds] — used for array-contains query
     content: string;
     timestamp: any;
-    // Optional property reference
     propertyZpid?: string;
     propertyAddress?: string;
 }
@@ -19,29 +20,34 @@ export interface InternalMessage {
 const COLLECTION = "internal_messages";
 
 /**
- * Send a message to the internal team message center.
+ * Send a message to one or more specific users.
+ * Only the sender + chosen recipients will be able to see it.
  */
 export const sendInternalMessage = async (
     senderId: string,
     senderName: string,
     senderRole: string,
+    recipientIds: string[],
     content: string,
-    property?: { zpid: string; address: string }
+    property?: { zpid?: string; address: string }
 ): Promise<{ success: boolean; error?: string }> => {
     if (!db) return { success: false, error: "Database not initialized" };
     try {
+        const participants = Array.from(new Set([senderId, ...recipientIds]));
         const payload: any = {
             senderId,
             senderName,
             senderRole,
+            recipientIds,
+            participants,
             content: content.trim(),
             timestamp: serverTimestamp(),
         };
-        if (property?.zpid) {
-            payload.propertyZpid = property.zpid;
+        if (property?.address) {
             payload.propertyAddress = property.address;
+            if (property.zpid) payload.propertyZpid = property.zpid;
         }
-        logFirestoreQuery("addDoc", COLLECTION, { senderId });
+        logFirestoreQuery("addDoc", COLLECTION, { senderId, recipientIds });
         await addDoc(collection(db, COLLECTION), payload);
         return { success: true };
     } catch (error) {
@@ -51,19 +57,22 @@ export const sendInternalMessage = async (
 };
 
 /**
- * Subscribe to the latest N internal messages in real-time.
+ * Subscribe in real-time to messages the current user is part of
+ * (either as sender or recipient).
+ * Requires a Firestore composite index on: participants (array) + timestamp (asc).
  */
-export const subscribeToInternalMessages = (
-    limitCount: number = 100,
+export const subscribeToMyMessages = (
+    userId: string,
     onMessages: (messages: InternalMessage[]) => void
 ): Unsubscribe => {
     if (!db) return () => { };
     const q = query(
         collection(db, COLLECTION),
+        where("participants", "array-contains", userId),
         orderBy("timestamp", "asc"),
-        limit(limitCount)
+        limit(200)
     );
-    logFirestoreQuery("onSnapshot", COLLECTION, { limit: limitCount });
+    logFirestoreQuery("onSnapshot", COLLECTION, { participants: userId });
     return onSnapshot(q, (snapshot) => {
         const messages: InternalMessage[] = snapshot.docs.map((doc) => ({
             id: doc.id,
