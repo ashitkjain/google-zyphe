@@ -206,12 +206,14 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
                                     {stats.notesCount}
                                 </span>
                             </button>
-                            <button
-                                onClick={() => setActiveTab('messages')}
-                                className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'messages' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
-                            >
-                                <i className="fa-solid fa-comments"></i> Messages
-                            </button>
+                            {(role === 'admin' || role === 'tester') && (
+                                <button
+                                    onClick={() => setActiveTab('messages')}
+                                    className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'messages' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
+                                >
+                                    <i className="fa-solid fa-comments"></i> Messages
+                                </button>
+                            )}
                         </div>
                     </div>
 
