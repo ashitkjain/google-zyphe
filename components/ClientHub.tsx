@@ -121,6 +121,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     };
 
     const isTester = userRole === 'tester';
+    const isAdmin = userRole === 'admin';
+    const isInvestor = userRole === 'investor';
 
     const earlyTabs: { id: HubTab; label: string; icon: string }[] = isTester
         ? [
@@ -144,7 +146,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             { id: 'my_zyphe', label: 'My Zyphe', icon: 'fa-chart-line' },
         ];
 
-    const toolTabs: { id: HubTab; label: string; icon: string }[] = isTester ? [] : [
+    // CRM tools — not relevant for investors, admins, or testers
+    const toolTabs: { id: HubTab; label: string; icon: string }[] = (isTester || isInvestor || isAdmin) ? [] : [
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
         { id: 'calendar', label: 'Calendar', icon: 'fa-calendar-days' },
         { id: 'lead_ingestion', label: 'Lead Ingestion', icon: 'fa-link' },
@@ -155,7 +158,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         { id: 'sms_registration', label: 'SMS Registration', icon: 'fa-comment-sms' },
     ];
 
-    const adminTabs: { id: HubTab; label: string; icon: string }[] = isTester ? [] : [
+    // Admin-only tools
+    const adminTabs: { id: HubTab; label: string; icon: string }[] = isAdmin ? [
         { id: 'city_data', label: 'City Ingestion', icon: 'fa-city' },
         { id: 'data_health', label: 'Data Health', icon: 'fa-heart-pulse' },
         { id: 'ai_validation', label: 'AI Validation', icon: 'fa-robot' },
@@ -164,9 +168,10 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         { id: 'video_upload', label: 'Video Upload', icon: 'fa-video' },
         { id: 'context_graph_builder', label: 'Context Graph', icon: 'fa-diagram-project' },
         { id: 'team_stats', label: 'Team Stats', icon: 'fa-users-gear' },
-    ];
+    ] : [];
 
-    const investorTabs: { id: HubTab; label: string; icon: string }[] = (isTester || userRole !== 'investor') ? [] : [
+    // Investor tabs — visible to investors AND admins
+    const investorTabs: { id: HubTab; label: string; icon: string }[] = (isInvestor || isAdmin) ? [
         { id: 'executive_summary', label: 'Executive Summary', icon: 'fa-file-signature' },
         { id: 'industry_research', label: 'Industry Research', icon: 'fa-magnifying-glass-chart' },
         { id: 'product_market_fit', label: 'Product Market Fit', icon: 'fa-bullseye' },
@@ -174,7 +179,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         { id: 'industry_case_studies', label: 'Case Studies', icon: 'fa-book-open' },
         { id: 'unit_economics', label: 'Unit Economics', icon: 'fa-calculator' },
         { id: 'technical_papers', label: 'Technical Papers', icon: 'fa-file-invoice' },
-    ];
+    ] : [];
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -214,7 +219,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                 lateTabs={lateTabs}
                 toolTabs={toolTabs}
                 adminTabs={adminTabs}
-                investorTabs={userRole === 'investor' ? investorTabs : []}
+                investorTabs={investorTabs}
                 toolsRef={toolsRef}
                 investorRef={investorRef}
                 syncBestPractices={syncBestPractices}
@@ -235,7 +240,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
                 lateTabs={lateTabs}
                 toolTabs={toolTabs}
                 adminTabs={adminTabs}
-                investorTabs={userRole === 'investor' ? investorTabs : []}
+                investorTabs={investorTabs}
                 isMobileToolsExpanded={isMobileToolsExpanded}
                 setIsMobileToolsExpanded={setIsMobileToolsExpanded}
                 isMobileInvestorExpanded={isMobileInvestorExpanded}

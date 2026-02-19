@@ -228,7 +228,7 @@ const App: React.FC = () => {
     } else if (newMode === 'legal-disclaimer' || newMode === 'terms' || newMode === 'privacy') {
       path = newMode === 'legal-disclaimer' ? '/legal-disclaimer' : newMode === 'terms' ? '/terms' : '/privacy';
     } else if (newMode === 'main' || newMode === 'explore') {
-      path = (currentUser?.role === 'realtor' || currentUser?.role === 'investor') ? '/realtor' : '/';
+      path = (currentUser?.role === 'realtor' || currentUser?.role === 'investor' || currentUser?.role === 'admin') ? '/realtor' : '/';
     } else {
       path = `/realtor/${newMode}`;
     }
@@ -327,8 +327,8 @@ const App: React.FC = () => {
         if (profile) {
           // Hardcoded Admin Override for Production Access
           if (user.email === 'ashu.jain.iitk@gmail.com') {
-            console.log("⚡️ [Admin Override] Granting full privileges to:", user.email);
-            profile.role = 'investor';
+            console.log("⚡️ [Admin Override] Granting admin privileges to:", user.email);
+            profile.role = 'admin';
           }
           if (user.email === 'tester@zyphe.ai') {
             console.log("⚡️ [Tester Override] Granting tester privileges to:", user.email);
@@ -353,10 +353,10 @@ const App: React.FC = () => {
               uid: user.uid,
               email: user.email || '',
               displayName: user.displayName || 'System Admin',
-              role: 'investor',
+              role: 'admin',
               createdAt: new Date()
             });
-            trackLogin({ uid: user.uid, email: user.email || '', displayName: user.displayName || 'System Admin', role: 'investor' });
+            trackLogin({ uid: user.uid, email: user.email || '', displayName: user.displayName || 'System Admin', role: 'admin' });
           } else {
             setCurrentUser({
               uid: user.uid,
@@ -1008,7 +1008,7 @@ const App: React.FC = () => {
   }
 
   // REALTOR/INVESTOR/TESTER LAYOUT: Merged ClientHub + Homepage
-  if (currentUser?.role === 'realtor' || currentUser?.role === 'investor' || currentUser?.role === 'tester') {
+  if (currentUser?.role === 'realtor' || currentUser?.role === 'investor' || currentUser?.role === 'tester' || currentUser?.role === 'admin') {
     return (
       <div className="min-h-screen bg-slate-50">
         {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}
