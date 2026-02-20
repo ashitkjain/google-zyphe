@@ -357,38 +357,69 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
     };
 
     const renderTextWithBold = (text: string) => {
-        // First handle citations [cite: 1, 2, 3] or [cite: 1]
-        const parts = text.split(/(\[cite:\s*[\d,\s]+\]|\*\*.*?\*\*|__.*?__)/);
+        // Split on citations, markdown links, and bold markers
+        const parts = text.split(/(\[cite:[\s\d,]+\]|\[[^\]]+\]\([^)]+\)|\*\*.*?\*\*|__.*?__)/);
 
         const citationMap = data.structured_report?.citations || [];
 
         return parts.map((part, i) => {
+            // [cite: 1, 2, 3] — inline citation badges
             if (part.startsWith('[cite:')) {
                 const numbers = part.replace('[cite:', '').replace(']', '').split(',').map(n => n.trim()).filter(Boolean);
 
                 return (
                     <span key={i} className="inline-flex flex-wrap gap-1 items-center mx-1">
                         {numbers.map((num, idx) => {
-                            // Priority: structured citations > content-parsed sources > fallback
                             const citation = citationMap.find(c => String(c.id) === num);
                             const sourceName = citation?.name || contentSourceMap[num] || null;
                             const url = citation?.url;
 
-                            return (
-                                <span
-                                    key={idx}
-                                    onClick={() => url && window.open(url, '_blank')}
-                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded-md text-[9px] font-black border border-indigo-100/50 ${url ? 'cursor-pointer hover:bg-indigo-500 hover:text-white' : 'cursor-default hover:bg-indigo-100'} transition-all align-middle shadow-sm group/cite`}
-                                    title={sourceName || `Source ${num}`}
-                                >
+                            const badgeClass = `inline-flex items-center gap-1 px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded-md text-[9px] font-black border border-indigo-100/50 transition-all align-middle shadow-sm group/cite ${url ? 'cursor-pointer hover:bg-indigo-500 hover:text-white' : 'cursor-default hover:bg-indigo-100'
+                                }`;
+
+                            const inner = (
+                                <>
                                     <i className={`fa-solid ${url ? 'fa-arrow-up-right-from-square' : 'fa-bookmark'} text-[7px] opacity-50 group-hover/cite:opacity-100`}></i>
                                     <span className="max-w-[120px] truncate">{sourceName ? sourceName.split(/[,.]/, 1)[0] : num}</span>
+                                </>
+                            );
+
+                            return url ? (
+                                <a
+                                    key={idx}
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={badgeClass}
+                                    title={sourceName || `Source ${num}`}
+                                >
+                                    {inner}
+                                </a>
+                            ) : (
+                                <span key={idx} className={badgeClass} title={sourceName || `Source ${num}`}>
+                                    {inner}
                                 </span>
                             );
                         })}
                     </span>
                 );
             }
+            // Markdown hyperlink [label](url)
+            const mdLinkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+            if (mdLinkMatch) {
+                return (
+                    <a
+                        key={i}
+                        href={mdLinkMatch[2]}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-600 underline underline-offset-2 hover:text-indigo-800 font-semibold transition-colors"
+                    >
+                        {mdLinkMatch[1]}
+                    </a>
+                );
+            }
+            // Bold **text** or __text__
             if ((part.startsWith('**') && part.endsWith('**')) || (part.startsWith('__') && part.endsWith('__'))) {
                 return <strong key={i} className="font-extrabold text-gray-900">{part.slice(2, -2)}</strong>;
             }
