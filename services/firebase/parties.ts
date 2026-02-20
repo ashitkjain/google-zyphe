@@ -19,7 +19,22 @@ export const getTransactionParties = async (transactionId: string) => {
             orderBy("created_at", "asc")
         );
         const snap = await getDocs(q);
-        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TransactionParty));
+        const all = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TransactionParty));
+
+        // Deduplicate: keep only the most recent party per role (handles double-seeding)
+        const seen = new Map<string, TransactionParty>();
+        for (const party of all) {
+            const key = (party.role || party.name || party.id);
+            const existing = seen.get(key);
+            if (!existing) {
+                seen.set(key, party);
+            } else {
+                const existingTime = (existing as any).created_at?.toDate?.()?.getTime() ?? 0;
+                const thisTime = (party as any).created_at?.toDate?.()?.getTime() ?? 0;
+                if (thisTime > existingTime) seen.set(key, party);
+            }
+        }
+        return Array.from(seen.values());
     } catch (error) {
         handleFirestoreError(error, "getTransactionParties");
         return [];
@@ -99,9 +114,14 @@ export const deleteTransactionParty = async (transactionId: string, partyId: str
 
 export const seedPartiesForTransaction = async (transactionId: string) => {
     if (!db) return;
-    const MOCK_PARTIES_DATA = generateMockTransactionParties(transactionId);
-
     try {
+        // Guard: skip seeding if parties already exist for this transaction
+        const existing = await getTransactionParties(transactionId);
+        if (existing.length > 0) {
+            console.log(`[seedPartiesForTransaction] Skipping — ${existing.length} parties already exist for tx: ${transactionId}`);
+            return;
+        }
+        const MOCK_PARTIES_DATA = generateMockTransactionParties(transactionId);
         for (const party of MOCK_PARTIES_DATA) {
             await addTransactionParty(transactionId, party as any);
         }

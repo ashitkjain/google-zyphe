@@ -114,10 +114,24 @@ export const getTransactionDocuments = async (transactionId: string) => {
             where("transaction_id", "==", transactionId)
         );
         const snap = await getDocs(q);
+        const all = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Document));
 
-        const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Document));
+        // Deduplicate: keep only the most recent document per name (handles double-seeding)
+        const seen = new Map<string, Document>();
+        for (const document of all) {
+            const key = document.name || document.id;
+            const existing = seen.get(key);
+            if (!existing) {
+                seen.set(key, document);
+            } else {
+                // Prefer whichever was created later (no created_at on parent — fall back to id compare)
+                const existingId = existing.id || '';
+                const thisId = document.id || '';
+                if (thisId > existingId) seen.set(key, document); // Firestore auto-IDs are roughly time-ordered
+            }
+        }
         // Sort by name since created_at is removed from parent
-        return docs.sort((a, b) => a.name.localeCompare(b.name));
+        return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
     } catch (error) {
         handleFirestoreError(error, "getTransactionDocuments");
         return [];
@@ -303,9 +317,14 @@ export const deleteTransactionDocument = async (transactionId: string, docId: st
 
 export const seedDocumentsForTransaction = async (transactionId: string) => {
     if (!db) return;
-    const MOCK_DOCUMENTS_DATA = generateMockTransactionDocuments(transactionId);
-
     try {
+        // Guard: skip seeding if documents already exist for this transaction
+        const existing = await getTransactionDocuments(transactionId);
+        if (existing.length > 0) {
+            console.log(`[seedDocumentsForTransaction] Skipping — ${existing.length} documents already exist for tx: ${transactionId}`);
+            return;
+        }
+        const MOCK_DOCUMENTS_DATA = generateMockTransactionDocuments(transactionId);
         console.log(`[seedDocumentsForTransaction] Starting seed for tx: ${transactionId} with ${MOCK_DOCUMENTS_DATA.length} docs`);
         for (const doc of MOCK_DOCUMENTS_DATA) {
             await addTransactionDocument(transactionId, doc as any);
