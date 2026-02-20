@@ -68,20 +68,21 @@ How staging or furnishings support scale, function, and emotional appeal
 Condition and finish quality—noting if the home feels turnkey, dated, or high-end
 Write this in a natural, emotionally resonant tone suitable for a real estate listing or brochure.
 
-📌 Room & Feature Highlights — EXHAUSTIVE COVERAGE REQUIRED
-You MUST create a separate entry in room_highlights for EVERY identifiable space visible across all images. Do NOT limit to 2-3 hero rooms. Cover each of the following if images are available:
-  • All bedrooms (label each: "Primary Bedroom", "Bedroom 2", "Bedroom 3", etc.)
-  • All bathrooms ("Primary Bathroom", "Bathroom 2", "Half Bath", etc.)
-  • Kitchen (describe appliances, countertops, cabinetry, island if present)
-  • Living Room / Family Room / Great Room
-  • Dining Room or Dining Area
-  • Laundry room or utility space
-  • Office / Den / Bonus Room
-  • Garage (if interior images available)
-  • Entryway / Foyer / Hallways
-  • Any outdoor spaces shown (patio, deck, backyard, pool)
-For each space: write 2-4 sentences on standout features, finishes, and selling points. Include potential improvements.
-If a space is shown in multiple images, synthesize all views into one comprehensive entry. Do NOT skip any space just because it is secondary.
+📌 Room & Feature Highlights — DERIVE FROM IMAGE-BY-IMAGE ANALYSIS
+STEP 1 — After completing image_by_image_analysis above, make a list of EVERY unique room or space you identified in ANY image analysis entry. For example: "Image 3 = Primary Bedroom", "Image 5 = Bathroom 2", "Image 7 = Kitchen", etc.
+
+STEP 2 — Create one room_highlights entry for EACH unique space from your list. Rules:
+  • If a space appears in multiple images, merge all observations into ONE comprehensive entry.
+  • Label bedrooms sequentially: "Primary Bedroom", "Bedroom 2", "Bedroom 3", etc.
+  • Label bathrooms sequentially: "Primary Bathroom", "Bathroom 2", "Half Bath", etc.
+  • Never skip a room just because it seems secondary or less impressive.
+  • Each entry needs 2-4 sentences covering: finishes, key features, condition, and selling points.
+  • Include a potential_improvements suggestion for each room.
+
+STEP 3 — SELF-CHECK before writing the final JSON:
+  Count your image_by_image_analysis entries that identified interior rooms.
+  Count your room_highlights entries.
+  If room_highlights has fewer unique spaces than you identified in Step 1, add the missing ones.
 
 ROOM ORDERING — output room_highlights in this exact logical walk-through sequence:
 1. Entryway / Foyer / Hallways
