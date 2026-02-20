@@ -21,27 +21,38 @@ export const getNeighborhoodAnalysisPrompt = (property: PropertyData) => `
 
   1. ORIENTATION ANALYSIS:
      Determine the direction the house is facing following these steps precisely:
-     - STEP 1 (Text Analysis — HIGHEST PRIORITY): Carefully scan the entire "Property Description" above for ANY mention of the home's facing direction or orientation. This includes — but is not limited to — these phrasings:
+     - STEP 1 (Text Analysis — HIGHEST PRIORITY): Carefully scan the entire "Property Description" above for an EXPLICIT statement of the home's facing direction or orientation. Only trigger on language that directly describes where the FRONT of the home or its ENTRANCE faces. Valid triggers include:
        * "north-facing", "south-facing", "east-facing", "west-facing" (with or without hyphens)
-       * "faces north/south/east/west"
-       * "facing east/west/north/south"
+       * "faces north/south/east/west", "facing north/south/east/west"
        * "front faces [direction]", "front door faces [direction]", "entrance faces [direction]"
        * "east-facing entrance", "south facing lot", "vastu-compliant [direction]"
-       * "facing [direction] per MLS", "[direction] exposure"
-       * Any compass direction (North, South, East, West, Northeast, Northwest, Southeast, Southwest) used in the context of the home's front, entrance, or lot orientation
-       IF YOU FIND ANY SUCH MENTION — use that as the DEFINITIVE final_orientation and report exactly which phrase you found in orientation_explanation. DO NOT perform the visual analysis below. This text clue always overrides the map.
-     - STEP 2 (Visual Analysis — Fallback ONLY): Only use this if the "Property Description" has ZERO mentions of orientation, facing direction, or compass direction in context of the home. If so, analyze the Zoom In map image:
-       * Assume top of the map image is North, right is East, left is West, bottom is South.
-       * Identify the Key Elements: Locate the home marker and the labeled street (matching the home address street).
-       * At the point the home street is closest to the home (street can be changing direction in the map, so we need the directions where it is closest to the home) -
-       * Step A: Determine the direction in which the home street runs (e.g., East-West, North-South or a diagonal like Northeast-Southwest) where it is closest to the home.
-       * Step B: Observe the home marker's position relative to the home street using COMPASS DIRECTIONS ONLY (North=top of map, South=bottom, East=right, West=left). State whether the home marker is North, South, East, or West of the street at the point closest to the home.
-        * Step C: Infer the Facing Direction — the home FACES TOWARD the street (the front door opens toward the street):
-          - If street is East-West and house marker is ABOVE/NORTH of the home street → front faces South (toward street).
-          - If street is East-West and house marker is BELOW/SOUTH of the home street → front faces North (toward street).
-          - If street is North-South and house marker is RIGHT/EAST of the home street → front faces West (toward street).
-          - If street is North-South and house marker is LEFT/WEST of the home street → front faces East (toward street).
-          - Apply this same "faces toward the street" logic to diagonal directions.
+       * "[direction] exposure", "facing [direction] per MLS"
+       DO NOT trigger on compass directions that appear in these NON-orientation contexts:
+       * Locations of nearby features — e.g. "overlooking the fairway to the south", "backing to a north-facing greenbelt", "views to the west", "on the south side of the road"
+       * Lot position descriptions — e.g. "corner lot", "south side of the property", "positioned on the [direction] end"
+       * Street names that contain directions — e.g. "North Main Street", "East Avenue"
+       * Interior room descriptions — e.g. "north-facing master bedroom window"
+       IF AND ONLY IF you find explicit home/entrance facing language — use that as the DEFINITIVE final_orientation and quote the exact phrase in orientation_explanation. DO NOT perform visual analysis below.
+       IF the description mentions compass directions ONLY in the non-orientation contexts above — treat Step 1 as NO MATCH and proceed to Step 2.
+     - STEP 2 (Visual Analysis — Fallback ONLY): Only use this if Step 1 found NO explicit facing language. Analyze the Zoom In map image to determine which direction the front of the home faces:
+       * MAP ORIENTATION: Top = North, Right = East, Bottom = South, Left = West. Diagonals: Top-Right = Northeast, Top-Left = Northwest, Bottom-Right = Southeast, Bottom-Left = Southwest.
+       * STEP A — Find the closest point: Identify the home's address street in the map. For CURVED or DIAGONAL streets, locate the specific segment that is CLOSEST to the home marker (do not average the whole street — zoom in mentally to just the nearest bend or segment).
+       * STEP B — Determine the LOCAL street direction at that closest segment: Describe how that specific segment runs as a compass direction pair (e.g., "Northwest to Southeast", "East to West", "North-Northeast to South-Southwest"). Use the map orientation (top=North) strictly.
+       * STEP C — Determine the home's position relative to the street: State which side of the street the home marker sits on, using ONLY compass terms (e.g., "Southwest of the street", "North of the street"). DO NOT use left/right/above/below.
+       * STEP D — Infer facing direction using the PERPENDICULAR-TO-STREET rule:
+         The front of the home faces TOWARD the street. Draw an imaginary perpendicular line from the home marker to the nearest point on the street — the direction that line points (home → street) is the facing direction.
+         Cardinal examples:
+           - Street runs E-W, home is NORTH of street → faces South
+           - Street runs E-W, home is SOUTH of street → faces North
+           - Street runs N-S, home is EAST of street → faces West
+           - Street runs N-S, home is WEST of street → faces East
+         Diagonal examples (the most common real-world case):
+           - Street runs NW-SE, home is SOUTHWEST of street → faces Northeast
+           - Street runs NW-SE, home is NORTHEAST of street → faces Southwest
+           - Street runs NE-SW, home is NORTHWEST of street → faces Southeast
+           - Street runs NE-SW, home is SOUTHEAST of street → faces Northwest
+         For streets that are slightly off-axis (e.g., NNW-SSE), apply the same logic and choose the closest 8-point compass direction for the result.
+       NOTE FOR CURVED STREETS: If the street curves, analyze ONLY the segment immediately adjacent to the home marker (where the driveway or lot boundary meets the street). Do NOT average across the entire curve — the relevant segment is ~50–100m of street nearest the home.
 
   2. STREET LAYOUT: Identify the street pattern (e.g., quiet cul-de-sac, grid system, busy arterial proximity). Note traffic flow indicators.
   3. DENSITY & LAND USE: Evaluate the neighborhood density. Are homes tightly packed? Are there large lots? Are there commercial or industrial buffers nearby?

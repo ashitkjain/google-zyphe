@@ -5,7 +5,7 @@ import {
     ComprehensiveAnalysisResult
 } from '../../../types';
 
-export type TabType = 'interior' | 'rooms' | 'exterior_and_neighborhood' | 'neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding' | 'image_analysis' | 'deep_research' | 'context_graph';
+export type TabType = 'interior' | 'rooms' | 'exterior_and_neighborhood' | 'neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding' | 'image_analysis' | 'deep_research' | 'context_graph' | 'satellitary';
 import { APP_CONFIG } from '../../../config';
 import { useAnalysisActions } from './hooks/useAnalysisActions';
 import { EmptyState } from './components/CommonComponents';
@@ -21,6 +21,7 @@ import { AnalysisLoading, GeneralAnalysisLoading } from './components/AnalysisLo
 import { HoverPreview } from './components/HoverPreview';
 import { ContextGraphView } from './components/ContextGraphView';
 import { StickyNotesLayer } from './components/StickyNotesLayer';
+import SatellitaryView from './components/SatellitaryView';
 
 interface Props {
     analysis: CustomAIAnalysisResult | null;
@@ -68,6 +69,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         { id: 'rooms', label: 'Rooms', icon: 'fa-star' },
         { id: 'exterior_and_neighborhood', label: 'Exterior', icon: 'fa-house' },
         { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
+        { id: 'satellitary', label: 'Satellitary', icon: 'fa-satellite' },
         { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
         { id: 'deep_research', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
         { id: 'investment', label: 'Property Economics', icon: 'fa-chart-pie' },
@@ -339,6 +341,16 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                                     onExtract={handleReExtractContextGraph}
                                 />
                             )}
+                        </section>
+                    )}
+                    {activeTab === 'satellitary' && (
+                        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            <SatellitaryView
+                                lat={propertyData?.coordinates?.latitude}
+                                lng={propertyData?.coordinates?.longitude}
+                                cachedStreetViewUrl={propertyData?.streetView}
+                                address={propertyData?.address}
+                            />
                         </section>
                     )}
                 </StickyNotesLayer>
