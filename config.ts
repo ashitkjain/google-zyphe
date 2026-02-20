@@ -63,5 +63,11 @@ export const APP_CONFIG = {
     howLoud: {
         // Free tier: 2,500 req/mo — https://howloud.com/developers
         key: (import.meta as any).env?.VITE_HOWLOUD_API_KEY || 'JsFtv3UqoZ2kI6qwB0JmA6TAKmor9pZ741M0VyZc'
+    },
+    fbiCde: {
+        // FBI Crime Data Explorer — api.data.gov key, free unlimited
+        // https://api.usa.gov/crime/fbi/sapi
+        key: (import.meta as any).env?.VITE_FBI_CDE_API_KEY || 'isTsiVvQoZW3VCuwMzBcgHeqnLKDKEmuiCC4ZQD9',
+        baseUrl: 'https://api.usa.gov/crime/fbi/sapi'
     }
 };

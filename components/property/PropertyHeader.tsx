@@ -190,7 +190,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
                     {data.coordinates ? 'Fetching…' : 'N/A'}
                   </span>
                 )}
-                <span className="text-[10px] text-slate-400">Source: CrimeScore API</span>
+                <span className="text-[10px] text-slate-400">Source: FBI Uniform Crime Report</span>
               </div>
             </div>
 

@@ -5,7 +5,7 @@ import { APP_CONFIG } from "../config";
 import { logAPICall, updateAPICall } from "./firebase/api_logs";
 import { auth } from "./firebase/config";
 import { getGoogleDataFromCloud, saveGoogleDataToCloud } from "./firebaseService";
-import { analyzeStreetView, analyzePollen, executeGeminiRequest, FLASH_MODEL } from "./geminiService";
+import { analyzeStreetView, analyzePollen } from "./geminiService";
 import { calculateSolarPotential } from "../utils/solarCalculations";
 import { fetchResoPropertyData } from "./resoService";
 
@@ -684,67 +684,144 @@ export const fetchNoiseScore = async (
   }
 };
 
-// ─── Crime Score (Gemini + Google Search Grounding) ──────────────────────────
-// Uses Gemini Flash with live Google Search to look up real crime statistics
-// from authoritative sources (NeighborhoodScout, AreaVibes, local PD data).
-// Cost: ~$0.0001/call — cached 30 days in Firestore (same env cache key).
+// ─── Crime Score (FBI Crime Data Explorer — api.data.gov) ────────────────────
+// Free & unlimited — official UCR data from local law enforcement agencies.
+// Strategy: 1) find agency ORI for city/state, 2) fetch offense summary, 3) grade by crime rate.
 export const fetchCrimeScore = async (
   lat: number,
   lng: number,
   address: string,
-  zpid?: string
+  zpid?: string,
+  city?: string,
+  state?: string
 ): Promise<{ score: number | null; grade: string | null } | null> => {
+  const { key, baseUrl } = APP_CONFIG.fbiCde;
+  if (!key) {
+    console.warn('[FBI CDE] No API key configured — skipping crime score.');
+    return null;
+  }
+  if (!city || !state) {
+    console.warn('[FBI CDE] Missing city or state — cannot look up agency ORI.');
+    return null;
+  }
+
   try {
-    const prompt = `You are a real estate safety researcher. Use Google Search to find current crime statistics for this location.
-
-Property Address: ${address}
-Coordinates: ${lat}, ${lng}
-
-Search for crime rate data for this specific address and neighbourhood. Look at sources like NeighborhoodScout, AreaVibes, Niche.com, local police crime maps, or city crime statistics.
-
-Based on what you find, assign a crime SAFETY grade:
-- A+ / A = Very safe, crime rate well below national average
-- B = Safer than average
-- C = Average crime rate
-- D = Higher than average crime rate
-- F = High crime rate, significantly above national average
-
-Return ONLY valid JSON in this exact format (no markdown, no commentary):
-{
-  "grade": "B",
-  "score": 78,
-  "summary": "One sentence describing the safety level and key crime types if notable.",
-  "source": "Name of primary data source used"
-}`;
-
-    const userId = auth?.currentUser?.uid || 'unknown';
-    const result = await executeGeminiRequest<{
-      grade: string;
-      score: number;
-      summary: string;
-      source: string;
-    }>({
-      model: FLASH_MODEL,
-      contents: prompt,
-      config: {
-        tools: [{ googleSearch: {} }],
-        temperature: 0.2,
-        maxOutputTokens: 512,
-      },
-      userId,
-      promptFilename: 'crimeScoreGrounding',
+    // Step 1: Find the local police department ORI for this city/state
+    const agencyUrl = `${baseUrl}/api/agencies/byStateAbbr/${encodeURIComponent(state)}?api_key=${key}`;
+    const logId = await logAPICall({
+      user_id: auth?.currentUser?.uid || 'unknown',
       zpid,
       address,
-      extractResultJson: true,
+      api_name: 'FBI CDE',
+      endpoint: 'agencies/byStateAbbr',
+      params: { city, state },
+      status: 'pending'
     });
+    const start = Date.now();
 
-    console.log('[CrimeScore/Gemini] Result:', result.data);
-    return {
-      score: result.data?.score ?? null,
-      grade: result.data?.grade ?? null,
-    };
+    const agencyResp = await fetch(agencyUrl);
+    if (logId) {
+      updateAPICall(logId, {
+        status: agencyResp.ok ? 'completed' : 'failed',
+        response_time_ms: Date.now() - start,
+        error: agencyResp.ok ? undefined : `Status ${agencyResp.status}`
+      });
+    }
+    if (!agencyResp.ok) {
+      console.warn(`[FBI CDE] Agency lookup failed: ${agencyResp.status}`);
+      return null;
+    }
+
+    const agencies: any[] = await agencyResp.json();
+    // Find the city's police dept (agency_type_name = "City")
+    const cityNorm = city.toLowerCase().trim();
+    const match = agencies.find((a: any) =>
+      a.city_name?.toLowerCase()?.trim() === cityNorm &&
+      (a.agency_type_name === 'City' || a.agency_type_name === 'Municipality')
+    ) || agencies.find((a: any) =>
+      a.city_name?.toLowerCase()?.trim() === cityNorm
+    );
+
+    if (!match?.ori) {
+      console.warn(`[FBI CDE] No agency found for ${city}, ${state}`);
+      return null;
+    }
+
+    const ori = match.ori;
+    console.log(`[FBI CDE] Found ORI for ${city}, ${state}: ${ori}`);
+
+    // Step 2: Fetch summarized offenses for this agency (latest available year)
+    const offenseUrl = `${baseUrl}/api/summarized/agencies/${ori}/offenses?api_key=${key}`;
+    const offenseLogId = await logAPICall({
+      user_id: auth?.currentUser?.uid || 'unknown',
+      zpid,
+      address,
+      api_name: 'FBI CDE',
+      endpoint: 'summarized/agencies/offenses',
+      params: { ori },
+      status: 'pending'
+    });
+    const offenseStart = Date.now();
+
+    const offenseResp = await fetch(offenseUrl);
+    if (offenseLogId) {
+      updateAPICall(offenseLogId, {
+        status: offenseResp.ok ? 'completed' : 'failed',
+        response_time_ms: Date.now() - offenseStart,
+        error: offenseResp.ok ? undefined : `Status ${offenseResp.status}`
+      });
+    }
+    if (!offenseResp.ok) {
+      console.warn(`[FBI CDE] Offense fetch failed: ${offenseResp.status}`);
+      return null;
+    }
+
+    const offenseData = await offenseResp.json();
+    console.log('[FBI CDE] Offense data:', offenseData);
+
+    // offenseData.data is an array of yearly records; pick the most recent
+    const records: any[] = Array.isArray(offenseData?.data)
+      ? offenseData.data
+      : Array.isArray(offenseData)
+        ? offenseData
+        : [];
+
+    if (records.length === 0) {
+      console.warn('[FBI CDE] No offense records returned.');
+      return null;
+    }
+
+    // Sort descending by year and pick the latest
+    const latest = records.sort((a, b) => (b.data_year ?? 0) - (a.data_year ?? 0))[0];
+    const population: number = latest?.population ?? match?.population ?? 100000;
+    const violent: number = latest?.violent_crime ?? 0;
+    const property: number = latest?.property_crime ?? 0;
+    const totalCrimes = violent + property;
+
+    // Crimes per 1,000 residents
+    const ratePer1k = population > 0 ? (totalCrimes / population) * 1000 : 0;
+
+    // US national average ~≈ 25 crimes/1k (2022). Thresholds:
+    // < 10   → A+  97
+    // < 18   → A   88
+    // < 28   → B   74
+    // < 40   → C   58
+    // < 60   → D   42
+    // ≥ 60   → F   20
+    let grade: string;
+    let score: number;
+    if (ratePer1k < 10) { grade = 'A+'; score = 97; }
+    else if (ratePer1k < 18) { grade = 'A'; score = 88; }
+    else if (ratePer1k < 28) { grade = 'B'; score = 74; }
+    else if (ratePer1k < 40) { grade = 'C'; score = 58; }
+    else if (ratePer1k < 60) { grade = 'D'; score = 42; }
+    else { grade = 'F'; score = 20; }
+
+    console.log(`[FBI CDE] ${city}: rate=${ratePer1k.toFixed(1)}/1k → grade=${grade} score=${score}`);
+    return { score, grade };
+
   } catch (e) {
-    console.error('[CrimeScore/Gemini] Failed:', e);
+    console.error('[FBI CDE] Failed to fetch crime score:', e);
     return null;
   }
 };
@@ -1063,12 +1140,14 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
         mappedData.crimeScore = cachedEnvData.crimeScore;
         mappedData.crimeGrade = cachedEnvData.crimeGrade;
       } else {
-        onStep?.('Fetching crime score...');
+        onStep?.('Fetching crime data (FBI CDE)...');
         const crime = await fetchCrimeScore(
           mappedData.coordinates.latitude,
           mappedData.coordinates.longitude,
           mappedData.address || '',
-          mappedData.zpid
+          mappedData.zpid,
+          mappedData.city,
+          mappedData.state
         );
         if (crime) {
           mappedData.crimeScore = crime.score;
