@@ -632,13 +632,6 @@ export const fetchNoiseScore = async (
   zpid?: string,
   address?: string
 ): Promise<{ score: number | null; description: string | null } | null> => {
-  const howLoudKey = APP_CONFIG.howLoud.key;
-  if (!howLoudKey) {
-    console.warn('[HowLoud] No API key configured — skipping noise score.');
-    return null;
-  }
-
-  const url = `https://api.howloud.com/score?lat=${lat}&lng=${lng}`;
   const logId = await logAPICall({
     user_id: auth?.currentUser?.uid || 'unknown',
     zpid,
@@ -651,38 +644,38 @@ export const fetchNoiseScore = async (
   const start = Date.now();
 
   try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: { 'x-api-key': howLoudKey },
-    });
-
-    if (logId) {
-      updateAPICall(logId, {
-        status: response.ok ? 'completed' : 'failed',
-        response_time_ms: Date.now() - start,
-        error: response.ok ? undefined : `Status ${response.status}`
-      });
-    }
-
-    if (!response.ok) {
-      console.warn(`[HowLoud] Error: ${response.status}`);
+    // HowLoud blocks CORS on all browser origins — route through Cloud Function proxy
+    const { functions: firebaseFunctions } = await import('./firebase/config');
+    const { httpsCallable } = await import('firebase/functions');
+    if (!firebaseFunctions) {
+      console.warn('[HowLoud] Firebase Functions not initialized — skipping noise score.');
       return null;
     }
+    const proxyFn = httpsCallable(firebaseFunctions, 'proxyNoiseScore');
+    const result: any = await proxyFn({ lat, lng });
+    const data = result.data;
 
-    const data = await response.json();
-    console.log('[HowLoud] Response:', data);
+    if (logId) {
+      updateAPICall(logId, { status: 'completed', response_time_ms: Date.now() - start });
+    }
+
+    console.log('[HowLoud] Proxy response:', data);
 
     // HowLoud returns result[0].score and result[0].text
-    const result = Array.isArray(data?.result) ? data.result[0] : data;
-    const score = extractNumericValue(result?.score ?? result?.soundscore ?? null);
-    const description: string | null = result?.text ?? result?.description ?? null;
+    const row = Array.isArray(data?.result) ? data.result[0] : data;
+    const score = extractNumericValue(row?.score ?? row?.soundscore ?? null);
+    const description: string | null = row?.text ?? row?.description ?? null;
 
     return { score, description };
-  } catch (e) {
-    console.error('[HowLoud] Failed to fetch noise score:', e);
+  } catch (e: any) {
+    if (logId) {
+      updateAPICall(logId, { status: 'failed', response_time_ms: Date.now() - start, error: e.message });
+    }
+    console.error('[HowLoud] Failed to fetch noise score via proxy:', e);
     return null;
   }
 };
+
 
 // ─── Crime Score (FBI Crime Data Explorer — api.data.gov) ────────────────────
 // Free & unlimited — official UCR data from local law enforcement agencies.

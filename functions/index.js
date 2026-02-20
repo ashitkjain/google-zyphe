@@ -758,3 +758,43 @@ exports.proxyStreetViewImage = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError("internal", error.message || "Failed to proxy image fetch.");
     }
 });
+
+/**
+ * Proxy function to call the HowLoud SoundScore API.
+ * HowLoud does not set CORS headers, so all browser requests are blocked.
+ * This function runs server-side where CORS does not apply.
+ */
+exports.proxyNoiseScore = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "User must be logged in.");
+    }
+
+    const { lat, lng } = data;
+    if (lat == null || lng == null) {
+        throw new functions.https.HttpsError("invalid-argument", "Missing lat/lng.");
+    }
+
+    const HOWLOUD_KEY = "JsFtv3UqoZ2kI6qwB0JmA6TAKmor9pZ741M0VyZc";
+    const url = `https://api.howloud.com/score?lat=${lat}&lng=${lng}`;
+
+    console.log(`[ProxyNoiseScore] Fetching score for (${lat}, ${lng})`);
+
+    try {
+        const response = await fetch(url, {
+            method: "GET",
+            headers: { "x-api-key": HOWLOUD_KEY },
+        });
+
+        if (!response.ok) {
+            console.error(`[ProxyNoiseScore] HowLoud error: ${response.status}`);
+            throw new functions.https.HttpsError("internal", `HowLoud API error: ${response.status}`);
+        }
+
+        const json = await response.json();
+        console.log("[ProxyNoiseScore] Response:", JSON.stringify(json));
+        return json;
+    } catch (error) {
+        console.error("[ProxyNoiseScore] Error:", error);
+        throw new functions.https.HttpsError("internal", error.message || "Failed to fetch noise score.");
+    }
+});
