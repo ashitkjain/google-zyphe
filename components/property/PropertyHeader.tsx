@@ -126,7 +126,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
           </div>
         </div>
 
-        {/* Box 3b: Neighbourhood Environment — Noise & Crime */}
+        {/* Box 3b: Neighbourhood Environment — Noise */}
         <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
           <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
             <i className="fa-solid fa-shield-halved text-[13px]"></i>
@@ -157,9 +157,7 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
                     </span>
                   </div>
                 ) : (
-                  <span className="text-[13px] font-normal text-slate-400 italic">
-                    {data.coordinates ? 'Fetching…' : 'N/A'}
-                  </span>
+                  <span className="text-[13px] font-normal text-slate-400 italic">N/A</span>
                 )}
                 {data.noiseScoreDesc && (
                   <span className="text-[11px] text-slate-500">{data.noiseScoreDesc}</span>
@@ -167,35 +165,9 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
               </div>
             </div>
 
-            {/* Crime Score */}
-            <div className="flex items-start gap-3 group">
-              <div className="w-4 flex justify-center flex-shrink-0 mt-0.5">
-                <i className="fa-solid fa-shield text-slate-300 text-[12px] group-hover:text-indigo-500 transition-colors"></i>
-              </div>
-              <div className="flex flex-col gap-1.5 flex-1">
-                <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none">Crime Safety</span>
-                {(data.crimeScore != null || data.crimeGrade) ? (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {data.crimeGrade && (
-                      <span className={`text-[13px] font-black px-3 py-1 rounded-xl ${['A+', 'A', 'A-'].includes(data.crimeGrade) ? 'bg-green-50 text-green-700' : ['B+', 'B', 'B-'].includes(data.crimeGrade) ? 'bg-blue-50 text-blue-700' : ['C+', 'C', 'C-'].includes(data.crimeGrade) ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'}`}>
-                        {data.crimeGrade}
-                      </span>
-                    )}
-                    {data.crimeScore != null && (
-                      <span className="text-[13px] font-normal text-slate-600">Score: {data.crimeScore}</span>
-                    )}
-                  </div>
-                ) : (
-                  <span className="text-[13px] font-normal text-slate-400 italic">
-                    {data.coordinates ? 'Fetching…' : 'N/A'}
-                  </span>
-                )}
-                <span className="text-[10px] text-slate-400">Source: FBI Uniform Crime Report</span>
-              </div>
-            </div>
-
           </div>
         </div>
+
 
         {/* Box 4: Schools */}
         <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300 lg:col-span-2">

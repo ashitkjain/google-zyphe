@@ -1135,25 +1135,6 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
         }
       }
 
-      // 5. Crime Score — cached 30 days
-      if (cachedEnvData?.crimeScore != null && !forceEnvironment) {
-        mappedData.crimeScore = cachedEnvData.crimeScore;
-        mappedData.crimeGrade = cachedEnvData.crimeGrade;
-      } else {
-        onStep?.('Fetching crime data (FBI CDE)...');
-        const crime = await fetchCrimeScore(
-          mappedData.coordinates.latitude,
-          mappedData.coordinates.longitude,
-          mappedData.address || '',
-          mappedData.zpid,
-          mappedData.city,
-          mappedData.state
-        );
-        if (crime) {
-          mappedData.crimeScore = crime.score;
-          mappedData.crimeGrade = crime.grade ?? undefined;
-        }
-      }
 
       // 4. AI Street View Analysis
       if (cachedEnvData?.streetViewAnalysis?.imageUrl && cachedEnvData?.streetViewAnalysis?.privacyRating && !forceEnvironment) {
