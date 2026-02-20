@@ -12,6 +12,10 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
     const analysis = data.streetViewAnalysis;
     if (!analysis || analysis.isImageryAvailable === false) return null;
 
+    // Belt-and-suspenders: if all key fields are empty the AI saw a blank/error image
+    const hasContent = analysis.privacyRating || analysis.curbAppealScore || analysis.neighborhoodVibe;
+    if (!hasContent) return null;
+
     const getScoreColor = (score: number) => {
         if (score >= 8) return 'text-emerald-500';
         if (score >= 5) return 'text-amber-500';

@@ -107,10 +107,6 @@ const App: React.FC = () => {
   const [comprehensiveLoading, setComprehensiveLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [envRefreshing, setEnvRefreshing] = useState(false);
-  // Firebase auth takes 300–800ms to resolve on first load.
-  // During that window currentUser=null, causing a blank/wrong page flash.
-  // We block rendering until we know whether the user is logged in or not.
-  const [authInitializing, setAuthInitializing] = useState(true);
 
   // Dev memory monitor — tracks the heaviest React state for debugging
   const trackedState = useMemo(() => [
@@ -398,8 +394,6 @@ const App: React.FC = () => {
         setCloudHistory([]);
         setFavorites([]);
       }
-      // Auth has resolved — safe to render
-      setAuthInitializing(false);
     });
     return () => unsubscribe();
   }, []);
@@ -1066,20 +1060,6 @@ const App: React.FC = () => {
   );
 
   /* ------------------- Render Logic ------------------- */
-
-  // Block everything until Firebase auth resolves — prevents blank page flash
-  if (authInitializing) {
-    return (
-      <div className="fixed inset-0 bg-slate-50 flex items-center justify-center z-[999]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center animate-pulse shadow-xl shadow-indigo-200">
-            <i className="fa-solid fa-house text-white text-xl"></i>
-          </div>
-          <div className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">Zyphe</div>
-        </div>
-      </div>
-    );
-  }
 
   if (viewMode === 'legal-disclaimer') {
     return (
