@@ -284,6 +284,12 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
                 continue;
             }
 
+            // Skip memo-style header lines the AI adds (DATE:, TO:, FROM:, RE:, SUBJECT:, CC:)
+            if (/^(DATE|TO|FROM|RE|SUBJECT|CC)\s*:/i.test(trimmedLine)) {
+                i++;
+                continue;
+            }
+
             // Table detection
             if (trimmedLine.startsWith('|')) {
                 const tableLines: string[] = [];
