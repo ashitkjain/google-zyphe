@@ -714,7 +714,7 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                         <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-8">
                                             <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-800 mb-2">A Note on Eclectic Homes</h4>
                                             <p className="text-sm font-medium text-slate-500 leading-relaxed">
-                                                Most homes built today \u2014 and many built in the past \u2014 are <strong className="text-slate-700">eclectic</strong>, meaning they borrow elements from multiple styles.
+                                                Most homes built today — and many built in the past — are <strong className="text-slate-700">eclectic</strong>, meaning they borrow elements from multiple styles.
                                                 A home may have a Colonial roofline with Craftsman porch columns and farmhouse siding. These hybrid homes don't fit neatly into one category,
                                                 but you can still identify the <em>dominant influence</em> using the key identifiers above.
                                             </p>
