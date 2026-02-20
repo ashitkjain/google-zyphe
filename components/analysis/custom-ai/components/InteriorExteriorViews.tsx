@@ -58,7 +58,7 @@ export const RoomsView: React.FC<RoomsViewProps> = ({ highlights }) => {
     const ROOM_ORDER: [RegExp, number][] = [
         [/entry|foyer|hall/i, 0],
         [/living|family|great room/i, 1],
-        [/dining/i, 2],
+        [/dining|nook|breakfast nook/i, 2],
         [/kitchen/i, 3],
         [/primary bed|master bed/i, 4],
         [/bedroom|bed/i, 5],         // all other bedrooms after primary
