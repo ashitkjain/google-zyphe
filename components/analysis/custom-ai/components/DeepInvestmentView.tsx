@@ -306,9 +306,10 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
             if (trimmedLine === '---') {
                 elements.push(<hr key={i} className="my-4 border-gray-100" />);
             }
-            // Headers
+            // Skip H1 — it's the big document title the AI always emits, redundant with UI context
             else if (line.startsWith('# ')) {
-                elements.push(<h1 key={i} className="text-3xl font-black text-gray-900 mt-6 mb-4 tracking-tight border-b border-gray-50 pb-4">{line.slice(2)}</h1>);
+                i++;
+                continue;
             }
             else if (line.startsWith('## ')) {
                 const title = line.slice(3).trim();
@@ -746,15 +747,10 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
                     </div>
                 </div>
 
-                <div className="pt-8 border-t border-gray-50 flex items-center justify-between">
+                <div className="pt-8 border-t border-gray-50">
                     <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
                         Source: Zyphe AI Research {data.status === 'running' ? '(ACTIVE)' : ''}
                     </div>
-                    {data.lastUpdated && (
-                        <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest font-mono">
-                            Processed: {new Date(data.lastUpdated?.seconds * 1000 || Date.now()).toLocaleDateString()}
-                        </div>
-                    )}
                 </div>
             </div>
 
