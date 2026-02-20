@@ -4,6 +4,7 @@ from google import genai
 import time
 import json
 import os
+import re
 
 app = Flask(__name__)
 # Enable CORS for the frontend development server
@@ -12,6 +13,80 @@ CORS(app)
 # Use the API key from environment variable or hardcoded for now (matching APP_CONFIG)
 API_KEY = "AIzaSyCNXiqET26-cMRpoM9vttl13SfiA4ifQu4"
 client = genai.Client(api_key=API_KEY)
+
+
+def extract_grounding_urls(outputs) -> dict[str, str]:
+    """
+    Walk all outputs looking for grounding metadata.
+    Returns a dict mapping citation_index (1-based str) -> url.
+
+    The deep-research agent usually exposes grounding sources via:
+      output.grounding_metadata.grounding_chunks[].web.uri  (or .url)
+    and the citation positions via:
+      output.grounding_metadata.grounding_supports[].grounding_chunk_indices
+    along with inline markers like [N] in the text.
+
+    We collect all unique web URIs in encounter order and assign them
+    1-based indices that match the typical [cite: N] numbering.
+    """
+    url_map: dict[str, str] = {}   # "1" -> "https://..."
+    counter = 1
+
+    # Track URIs we've already seen to avoid duplicates
+    seen_uris: set[str] = set()
+
+    for output in outputs:
+        gm = getattr(output, 'grounding_metadata', None)
+        if not gm:
+            continue
+
+        chunks = getattr(gm, 'grounding_chunks', None) or []
+        for chunk in chunks:
+            web = getattr(chunk, 'web', None)
+            if not web:
+                continue
+            uri = getattr(web, 'uri', None) or getattr(web, 'url', None)
+            if uri and uri not in seen_uris:
+                seen_uris.add(uri)
+                url_map[str(counter)] = uri
+                counter += 1
+
+    return url_map
+
+
+def merge_urls_into_citations(parsed: dict, url_map: dict[str, str]) -> dict:
+    """
+    If the structured_report has a citations array, fill in any missing urls
+    from the grounding url_map.  Also create citation entries for any grounding
+    URLs that are NOT already in the citations list.
+    """
+    if not url_map:
+        return parsed
+
+    sr = parsed.get('structured_report')
+    if not sr:
+        parsed['structured_report'] = {}
+        sr = parsed['structured_report']
+
+    citations: list[dict] = sr.get('citations') or []
+
+    # Build a lookup of existing citation ids
+    existing_ids = {str(c.get('id', '')): c for c in citations}
+
+    # Fill missing URLs from grounding
+    for cid, url in url_map.items():
+        if cid in existing_ids:
+            if not existing_ids[cid].get('url'):
+                existing_ids[cid]['url'] = url
+        else:
+            # Grounding returned a URL the AI didn't list — add it
+            existing_ids[cid] = {'id': cid, 'name': f'Source {cid}', 'url': url}
+
+    # Rebuild the citations list sorted by id
+    merged = sorted(existing_ids.values(), key=lambda c: int(c.get('id', 0)) if str(c.get('id', '')).isdigit() else 0)
+    sr['citations'] = merged
+    return parsed
+
 
 @app.route('/research', methods=['POST'])
 def perform_research():
@@ -33,6 +108,8 @@ The JSON object MUST follow this schema strictly:
 {schema_hint}
 
 Place all your research, analysis, and grounding data inside the "content" field as a Markdown-formatted string.
+For every factual claim in the "content" field, add an inline citation marker like [cite: 1] or [cite: 2, 3].
+In the "citations" field of "structured_report", list every source with its id, name, and url.
 DO NOT return any text outside of the JSON block.
 """
     full_input = prompt_template if schema_hint else query
@@ -58,6 +135,10 @@ DO NOT return any text outside of the JSON block.
             print(f"Polling {interaction_name}: {status_check.status}")
             
             if status_check.status == "completed":
+                # Collect grounding URLs from ALL outputs before parsing JSON
+                url_map = extract_grounding_urls(status_check.outputs)
+                print(f"[grounding] Found {len(url_map)} source URLs: {url_map}")
+
                 # Deep Research might have multiple outputs; we want the final synthesis
                 # Search backwards for the first valid JSON we can find
                 for output in reversed(status_check.outputs):
@@ -82,6 +163,8 @@ DO NOT return any text outside of the JSON block.
                             parsed = json.loads(json_str)
                             # Ensure it's a dictionary and has the required field if schema_hint was provided
                             if isinstance(parsed, dict) and (not schema_hint or "content" in parsed):
+                                # Merge grounding URLs into citations
+                                parsed = merge_urls_into_citations(parsed, url_map)
                                 return jsonify({"data": parsed, "status": "success"})
                         except:
                             continue
