@@ -113,7 +113,7 @@ export const NeighborhoodView: React.FC<NeighborhoodViewProps> = ({ data, mapZoo
             {/* Lightbox Modal */}
             {selectedMap && (
                 <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-12 animate-in fade-in duration-300"
+                    className="fixed inset-0 z-[600] flex items-center justify-center p-4 md:p-12 animate-in fade-in duration-300"
                     onKeyDown={(e) => e.key === 'Escape' && setSelectedMap(null)}
                 >
                     {/* Backdrop */}

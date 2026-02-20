@@ -188,6 +188,13 @@ export interface PropertyData {
         analysis?: import('./ai').PollenAnalysisResult;
         raw_data?: any;
     };
+    hoa?: {
+        name?: string;
+        fee?: string;                 // e.g. "$295 monthly"
+        phone?: string;
+        amenities?: string[];         // e.g. ["Pool", "Gated", "Playground"]
+        feeIncludes?: string[];       // e.g. ["Common Area Maint", "Security"]
+    };
     attribution?: {
         listingAgentName?: string;
         listingAgentNumber?: string;

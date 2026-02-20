@@ -33,7 +33,8 @@ import {
   saveCommunityPulseToCloud,
   deletePropertyAnalysis,
   getContextGraphFromCloud,
-  saveContextGraphToCloud
+  saveContextGraphToCloud,
+  getPropertyAssetsFromCloud,
 } from './services/firebaseService';
 import {
   trackLogin,
@@ -792,23 +793,53 @@ const App: React.FC = () => {
   const handleRefreshEnvironment = async () => {
     if (!address || loading) return;
     setEnvRefreshing(true);
-    setLoadingSublabel("Re-analyzing environment...");
+    setLoadingSublabel('Clearing property cache...');
     try {
       const isZpid = /^\d+$/.test(address);
+
+      // ── Step 1: Snapshot existing secured assets BEFORE deleting anything ──
+      // We MUST preserve Firebase Storage image URLs — do NOT delete property_assets.
+      const existingAssets = propertyData?.zpid
+        ? await getPropertyAssetsFromCloud(String(propertyData.zpid))
+        : null;
+
+      // ── Step 2: Delete the property doc + AI analysis caches (NOT assets) ──
+      // This forces fetchPropertyDataFull to hit the live API again (fresh HOA, etc.).
+      if (propertyData?.zpid) {
+        await deletePropertyAnalysis(propertyData.zpid, 'intelligence'); // clears AI caches
+        // Also delete the raw property cache so the API is called fresh
+        const { deleteDoc, doc: fsDoc } = await import('firebase/firestore');
+        const { db } = await import('./services/firebase/config');
+        if (db) await deleteDoc(fsDoc(db, 'properties', String(propertyData.zpid)));
+        addLog('System', { type: 'info' }, `Admin: Cleared property + intelligence cache for ZPID ${propertyData.zpid}`);
+      }
+
+      setLoadingSublabel('Re-fetching property + environment data...');
       const fullData = await fetchPropertyDataFull(
         address,
         isZpid,
         true, // forceEnvironment = true
         (step) => setLoadingSublabel(step)
       );
+
+      // ── Step 3: Restore Firebase Storage images ──
+      // The fresh API call returns raw zillowstatic URLs. Overlay secured URLs
+      // from the preserved assets doc so Gemini never sees the raw Zillow URLs.
+      if (existingAssets?.images?.length) {
+        fullData.images = existingAssets.images;
+        if (existingAssets.mapZoomIn) fullData.mapZoomIn = existingAssets.mapZoomIn;
+        if (existingAssets.mapZoomOut) fullData.mapZoomOut = existingAssets.mapZoomOut;
+        addLog('System', { type: 'info' }, `Admin: Restored ${existingAssets.images.length} secured Firebase Storage images.`);
+      }
+
       setPropertyData(fullData);
       addLog('Zyphe Data Layer', { type: 'force-refresh' }, { target: address, result: 'success' });
     } catch (err: any) {
-      console.error("Environment refresh failed:", err);
+      console.error('Environment refresh failed:', err);
       addLog('Zyphe Data Layer', { type: 'force-refresh' }, { target: address, result: 'failed', error: err.message });
     } finally {
       setEnvRefreshing(false);
-      setLoadingSublabel("");
+      setLoadingSublabel('');
     }
   };
 
@@ -882,6 +913,18 @@ const App: React.FC = () => {
         />
         <i className="fa-solid fa-house-laptop absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+          {/* Admin-only: Force Refresh environmental data */}
+          {propertyData && currentUser?.role === 'admin' && (
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRefreshEnvironment(); }}
+              disabled={envRefreshing || loading}
+              className="w-10 h-10 rounded-xl flex items-center justify-center transition-all bg-amber-50 text-amber-500 hover:bg-amber-100 border border-amber-200 shadow-sm disabled:opacity-50"
+              title="Admin: Force refresh all environmental data (noise, solar, air quality)"
+            >
+              <i className={`fa-solid fa-rotate-right text-sm ${envRefreshing ? 'animate-spin' : ''}`}></i>
+            </button>
+          )}
           {propertyData && (
             <button
               type="button"

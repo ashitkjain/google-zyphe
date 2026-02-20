@@ -106,24 +106,8 @@ const PropertyFacts: React.FC<Props> = ({ facts }) => {
         { label: 'Garage Capacity', value: facts.garageParkingCapacity },
       ]
     },
-    {
-      title: 'Utilities & Climate',
-      items: [
-        { label: 'Heating', value: facts.heating, isComplex: true },
-        { label: 'Cooling', value: facts.cooling, isComplex: true },
-        { label: 'Utilities', value: facts.utilities, isComplex: true },
-        { label: 'Sewer', value: facts.sewer, isComplex: true },
-        { label: 'Water Source', value: facts.waterSource, isComplex: true },
-        { label: 'Zoning', value: facts.zoningDescription },
-      ]
-    },
-    {
-      title: 'Market & Financial',
-      items: [
-        { label: 'Fees And Dues', value: facts.feesAndDues, isComplex: true },
-        { label: 'Approximate Days on Market', value: facts.daysOnZillow },
-      ]
-    }
+
+
   ];
 
   // Fix: Explicitly type FactItem as React.FC to handle React-reserved props like 'key' in mapped components

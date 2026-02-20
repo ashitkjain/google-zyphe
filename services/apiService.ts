@@ -1019,7 +1019,23 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
             securityFeatures: safeStringify(root.resoFacts?.securityFeatures),
             windowFeatures: safeStringify(root.resoFacts?.windowFeatures),
             roomFeatures: safeStringify(root.resoFacts?.roomFeatures),
-          },
+          }, // end resoFacts
+          // ─── HOA / Association ─────────────────────────────────────────────
+          hoa: (() => {
+            const rf = root.resoFacts;
+            if (!rf) return undefined;
+            // Primary source: associations array (richest data)
+            const assoc = Array.isArray(rf.associations) && rf.associations.length > 0
+              ? rf.associations[0]
+              : null;
+            const name = assoc?.name || rf.associationName || undefined;
+            const fee = assoc?.feeFrequency || rf.associationFee || undefined;
+            const phone = assoc?.phone || rf.associationPhone || undefined;
+            const amenities: string[] = Array.isArray(rf.associationAmenities) ? rf.associationAmenities.filter(Boolean) : [];
+            const feeIncludes: string[] = Array.isArray(rf.associationFeeIncludes) ? rf.associationFeeIncludes.filter(Boolean) : [];
+            if (!name && !fee && amenities.length === 0) return undefined;
+            return { name, fee, phone, amenities, feeIncludes };
+          })(),
           coordinates: root.longitude && root.latitude ? { latitude: root.latitude, longitude: root.longitude } : undefined,
           attribution: root.attributionInfo || data.attributionInfo ? {
             listingAgentName: (root.attributionInfo || data.attributionInfo)?.agentName,

@@ -21,12 +21,34 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
     { icon: 'fa-house', label: 'Property Type', value: data.homeType?.replace(/_/g, ' ') },
   ];
 
+  // Compute days on market dynamically from listedDate → today.
+  // listedDate can be an ISO string ("2025-12-15"), a Unix timestamp in seconds (~10 digits),
+  // or milliseconds (~13 digits). Falls back to cached daysOnZillow if unparseable.
+  const computedDaysOnMarket = (() => {
+    const raw = data.listedDate;
+    if (raw == null || raw === 0) return data.resoFacts?.daysOnZillow ?? null;
+    let listed: Date | null = null;
+    if (typeof raw === 'string') {
+      const parsed = new Date(raw);
+      if (!isNaN(parsed.getTime())) listed = parsed;
+    } else if (typeof raw === 'number') {
+      // Heuristic: seconds vs ms
+      listed = new Date(raw > 1e10 ? raw : raw * 1000);
+      if (isNaN(listed.getTime())) listed = null;
+    }
+    if (!listed) return data.resoFacts?.daysOnZillow ?? null;
+    const diffMs = Date.now() - listed.getTime();
+    const days = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+    return days;
+  })();
+
   const financialSpecs = [
     { icon: 'fa-tag', label: 'List Price', value: formatCurrency(data.price) },
     { icon: 'fa-chart-line', label: 'Zestimate', value: formatCurrency(data.zestimate) },
     { icon: 'fa-house-circle-check', label: 'Home Status', value: data.homeStatus?.replace(/_/g, ' ') || 'N/A' },
     { icon: 'fa-hand-holding-dollar', label: 'Rent Estimate', value: data.rentZestimate ? `${formatCurrency(data.rentZestimate)}/month` : 'N/A' },
     { icon: 'fa-shield-heart', label: 'Annual Insurance', value: data.annualHomeownersInsurance ? `${formatCurrency(data.annualHomeownersInsurance)}/year` : 'N/A' },
+    { icon: 'fa-clock', label: 'Days on Market', value: computedDaysOnMarket != null ? `${computedDaysOnMarket} days` : 'N/A' },
   ];
 
   // Fix: Explicitly type MetricItem as React.FC to handle React-reserved props like 'key' in mapped components
@@ -181,6 +203,68 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
           </div>
         </div>
 
+        {/* Box 3c: HOA / Association — only shown when hoa data exists */}
+        {data.hoa && (
+          <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
+            <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+              <i className="fa-solid fa-building-columns text-[13px]"></i>
+              HOA / Association
+            </div>
+            <div className="space-y-4">
+              {/* Name + Fee */}
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none">Association</span>
+                <span className="text-[14px] font-semibold text-slate-800">{data.hoa.name ?? 'N/A'}</span>
+                {data.hoa.fee && (
+                  <span className="text-[12px] text-indigo-600 font-bold">{data.hoa.fee}</span>
+                )}
+              </div>
+              {/* Phone */}
+              {data.hoa.phone && (
+                <div className="flex items-center gap-2">
+                  <i className="fa-solid fa-phone text-slate-300 text-[11px]"></i>
+                  <span className="text-[12px] text-slate-600">{data.hoa.phone}</span>
+                </div>
+              )}
+              {/* Fee includes */}
+              {data.hoa.feeIncludes && data.hoa.feeIncludes.length > 0 && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Fee Includes</span>
+                  <span className="text-[12px] text-slate-600">{data.hoa.feeIncludes.join(' · ')}</span>
+                </div>
+              )}
+              {/* Amenity chips */}
+              {data.hoa.amenities && data.hoa.amenities.filter(a => a !== 'Other').length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {data.hoa.amenities.filter(a => a !== 'Other').map((amenity, i) => (
+                    <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
+                      {amenity}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Box 3d: Utilities & Climate */}
+        {(data.resoFacts?.heating || data.resoFacts?.cooling || data.resoFacts?.utilities || data.resoFacts?.sewer || data.resoFacts?.waterSource) && (
+          <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300">
+            <div className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+              <i className="fa-solid fa-plug text-[13px]"></i>
+              Utilities & Climate
+            </div>
+            <div className="grid grid-cols-1 gap-y-5">
+              {[
+                { icon: 'fa-fire-flame-simple', label: 'Heating', value: data.resoFacts?.heating },
+                { icon: 'fa-snowflake', label: 'Cooling', value: data.resoFacts?.cooling },
+                { icon: 'fa-plug', label: 'Utilities', value: data.resoFacts?.utilities },
+                { icon: 'fa-faucet', label: 'Sewer', value: data.resoFacts?.sewer },
+                { icon: 'fa-droplet', label: 'Water Source', value: data.resoFacts?.waterSource },
+              ].filter(m => m.value).map((m, idx) => <MetricItem key={idx} m={m} />)}
+            </div>
+          </div>
+        )}
 
         {/* Box 4: Schools */}
         <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/80 hover:bg-white transition-colors duration-300 lg:col-span-2">
