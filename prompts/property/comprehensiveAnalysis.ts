@@ -1,5 +1,6 @@
 import { Type } from "@google/genai";
 import { PropertyData, CustomAIAnalysisResult } from "../../types";
+import { buildMlsFactsBlock } from "./mlsFacts";
 
 export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: CustomAIAnalysisResult) => {
   const PROPERTY_DETAILS = JSON.stringify(property, null, 2);
@@ -8,6 +9,11 @@ export const getComprehensiveAnalysisPrompt = (property: PropertyData, visual: C
   return `You are an AI-powered home buying assistant, tasked with generating a comprehensive and compelling analysis of a residential property. 
   Your goal is to provide a detailed, narrative-style, realtor written, professional report to a home buyer, based on a combination of provided - 
 
+  ${buildMlsFactsBlock(property)}
+
+  CRITICAL GROUNDING RULE: Every fact in the "KNOWN MLS / LISTING FACTS" block above is authoritative source-of-truth data from RapidAPI. You MUST NOT contradict any of these values anywhere in your response — including bedroom count, bathroom count, sqft, year built, garage capacity, description mentions, and price. Your response must be consistent with all of them.
+
+  Additional context:
   1. property information ${PROPERTY_DETAILS}, 
   2. image analysis - ${VISUAL_ANALYSIS}, and 
   3. online research. 

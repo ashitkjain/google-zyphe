@@ -1,16 +1,15 @@
 
 import { Type } from "@google/genai";
 import { PropertyData } from "../../types";
+import { buildMlsFactsBlock } from "./mlsFacts";
 
 export const getPropertyAnalysisPrompt = (property: PropertyData) => `
   Perform a deep, intelligent real estate analysis for the following property:
-  Address: ${property.address}
-  Price: $${property.price || property.zestimate}
-  Type: ${property.homeType}
-  Details: ${property.bedrooms} beds, ${property.bathrooms} baths, ${property.livingAreaValue} sqft
-  Year Built: ${property.yearBuilt}
-  Description: ${property.description}
-  Mobility: Walk Score(${property.walkScore || 'N/A'}), Transit Score(${property.transitScore || 'N/A'}), Bike Score(${property.bikeScore || 'N/A'})
+
+  ${buildMlsFactsBlock(property)}
+
+  Above is the authoritative MLS data from RapidAPI. Treat every value as ground truth — do not contradict any of it.
+  Additional mobility context: Walk Score(${property.walkScore || 'N/A'}), Transit Score(${property.transitScore || 'N/A'}), Bike Score(${property.bikeScore || 'N/A'})
   Risk Factors: Wind(${property.windRiskScore}), Flood(${property.floodRiskScore}), Fire(${property.fireRiskScore}), Heat(${property.heatRiskScore})
   
   Please provide:

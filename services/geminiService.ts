@@ -400,10 +400,7 @@ export const analyzeNeighborhood = async (mapZoomIn: string, mapZoomOut: string,
     urlToBase64(mapZoomOut)
   ]);
 
-  const prompt = getNeighborhoodAnalysisPrompt({
-    address: property.address,
-    description: property.description
-  });
+  const prompt = getNeighborhoodAnalysisPrompt(property);
 
   return executeGeminiRequest<NeighborhoodAnalysis>({
     model: FLASH_MODEL,
@@ -778,7 +775,7 @@ import { uploadImageToStorage } from "../services/firebaseService";
 
 export const analyzeStreetView = async (imageUrl: string, property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<StreetViewAnalysisResult>> => {
   const { data, mimeType } = await urlToBase64(imageUrl);
-  const prompt = getStreetViewAnalysisPrompt();
+  const prompt = getStreetViewAnalysisPrompt(property);
 
   // 1. Run AI Analysis
   const aiResponse = await executeGeminiRequest<StreetViewAnalysisResult>({

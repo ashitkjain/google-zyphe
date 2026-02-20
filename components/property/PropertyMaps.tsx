@@ -29,8 +29,8 @@ const PropertyMaps: React.FC<Props> = ({ mapZoomIn, mapZoomOut, coordinates, add
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center text-base font-black text-slate-900 uppercase tracking-widest">
-              <i className="fa-solid fa-cube text-indigo-500 mr-3"></i>
-              Photorealistic 3D Intelligence
+              <i className="fa-brands fa-google text-indigo-500 mr-3"></i>
+              Google 3D Map Exploration
             </div>
             <button
               onClick={() => setShow3D(!show3D)}
@@ -55,10 +55,10 @@ const PropertyMaps: React.FC<Props> = ({ mapZoomIn, mapZoomOut, coordinates, add
                 <div className="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity bg-[url('https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&q=80')] bg-cover bg-center"></div>
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white z-10 transition-transform group-hover:scale-105 duration-700">
                   <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center mb-6">
-                    <i className="fa-solid fa-cube text-3xl animate-pulse"></i>
+                    <i className="fa-brands fa-google text-3xl"></i>
                   </div>
-                  <h4 className="text-xl font-black tracking-tight mb-2">Photorealistic Neural Flyover</h4>
-                  <p className="text-white/60 text-xs font-bold uppercase tracking-widest">Powered by Google Maps 3D Tiles</p>
+                  <h4 className="text-xl font-black tracking-tight mb-2">Google 3D Map Exploration</h4>
+                  <p className="text-white/60 text-xs font-bold uppercase tracking-widest">Powered by Google Maps 3D Tiles · Click to Launch</p>
                 </div>
                 <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-slate-900 to-transparent"></div>
               </div>

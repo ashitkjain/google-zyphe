@@ -5,7 +5,7 @@ import { APP_CONFIG } from "../config";
 import { logAPICall, updateAPICall } from "./firebase/api_logs";
 import { auth } from "./firebase/config";
 import { getGoogleDataFromCloud, saveGoogleDataToCloud } from "./firebaseService";
-import { analyzeStreetView, analyzePollen } from "./geminiService";
+import { analyzeStreetView, analyzePollen, executeGeminiRequest, FLASH_MODEL } from "./geminiService";
 import { calculateSolarPotential } from "../utils/solarCalculations";
 import { fetchResoPropertyData } from "./resoService";
 
@@ -599,16 +599,11 @@ export const fetchPollenData = async (lat: number, lng: number, zpid?: string, a
     }
 
     const data = await response.json();
-    console.log("[Pollen API] Successful response:", data);
+    console.log('[Pollen API] Successful response:', data);
 
-    const today = data.dailyInfo?.[0]; // Day 0 is "today"
+    const today = data.dailyInfo?.[0];
     if (!today) return null;
 
-    // Grass, Tree, Weed types usually available. We pick the highest or simplify.
-    // The API returns distinct types like grass, tree, weed.
-    // We'll extract a simplified summary.
-
-    // Find the max index info
     const maxPollen = today.pollenTypeInfo?.reduce((prev: any, current: any) => {
       return (prev.indexInfo?.value || 0) > (current.indexInfo?.value || 0) ? prev : current;
     });
@@ -618,16 +613,142 @@ export const fetchPollenData = async (lat: number, lng: number, zpid?: string, a
       category: maxPollen?.indexInfo?.category,
       description: maxPollen?.indexInfo?.indexDescription,
       dominantPollenType: maxPollen?.displayName,
-      // Pass along the raw technical data for Gemini analysis
       pollenTypeInfo: today.pollenTypeInfo,
       plantInfo: today.plantInfo
     };
 
   } catch (e) {
-    console.error("Failed to fetch pollen data", e);
+    console.error('Failed to fetch pollen data', e);
     return null;
   }
 };
+
+// ─── Noise Score (HowLoud SoundScore) ────────────────────────────────────────
+// Free tier: 2,500 req/mo — https://howloud.com/developers
+// Score: 50 (very loud) → 100 (very quiet)
+export const fetchNoiseScore = async (
+  lat: number,
+  lng: number,
+  zpid?: string,
+  address?: string
+): Promise<{ score: number | null; description: string | null } | null> => {
+  const howLoudKey = APP_CONFIG.howLoud.key;
+  if (!howLoudKey) {
+    console.warn('[HowLoud] No API key configured — skipping noise score.');
+    return null;
+  }
+
+  const url = `https://api.howloud.com/score?lat=${lat}&lng=${lng}`;
+  const logId = await logAPICall({
+    user_id: auth?.currentUser?.uid || 'unknown',
+    zpid,
+    address,
+    api_name: 'HowLoud',
+    endpoint: 'score',
+    params: { lat, lng },
+    status: 'pending'
+  });
+  const start = Date.now();
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'x-api-key': howLoudKey },
+    });
+
+    if (logId) {
+      updateAPICall(logId, {
+        status: response.ok ? 'completed' : 'failed',
+        response_time_ms: Date.now() - start,
+        error: response.ok ? undefined : `Status ${response.status}`
+      });
+    }
+
+    if (!response.ok) {
+      console.warn(`[HowLoud] Error: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    console.log('[HowLoud] Response:', data);
+
+    // HowLoud returns result[0].score and result[0].text
+    const result = Array.isArray(data?.result) ? data.result[0] : data;
+    const score = extractNumericValue(result?.score ?? result?.soundscore ?? null);
+    const description: string | null = result?.text ?? result?.description ?? null;
+
+    return { score, description };
+  } catch (e) {
+    console.error('[HowLoud] Failed to fetch noise score:', e);
+    return null;
+  }
+};
+
+// ─── Crime Score (Gemini + Google Search Grounding) ──────────────────────────
+// Uses Gemini Flash with live Google Search to look up real crime statistics
+// from authoritative sources (NeighborhoodScout, AreaVibes, local PD data).
+// Cost: ~$0.0001/call — cached 30 days in Firestore (same env cache key).
+export const fetchCrimeScore = async (
+  lat: number,
+  lng: number,
+  address: string,
+  zpid?: string
+): Promise<{ score: number | null; grade: string | null } | null> => {
+  try {
+    const prompt = `You are a real estate safety researcher. Use Google Search to find current crime statistics for this location.
+
+Property Address: ${address}
+Coordinates: ${lat}, ${lng}
+
+Search for crime rate data for this specific address and neighbourhood. Look at sources like NeighborhoodScout, AreaVibes, Niche.com, local police crime maps, or city crime statistics.
+
+Based on what you find, assign a crime SAFETY grade:
+- A+ / A = Very safe, crime rate well below national average
+- B = Safer than average
+- C = Average crime rate
+- D = Higher than average crime rate
+- F = High crime rate, significantly above national average
+
+Return ONLY valid JSON in this exact format (no markdown, no commentary):
+{
+  "grade": "B",
+  "score": 78,
+  "summary": "One sentence describing the safety level and key crime types if notable.",
+  "source": "Name of primary data source used"
+}`;
+
+    const userId = auth?.currentUser?.uid || 'unknown';
+    const result = await executeGeminiRequest<{
+      grade: string;
+      score: number;
+      summary: string;
+      source: string;
+    }>({
+      model: FLASH_MODEL,
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        temperature: 0.2,
+        maxOutputTokens: 512,
+      },
+      userId,
+      promptFilename: 'crimeScoreGrounding',
+      zpid,
+      address,
+      extractResultJson: true,
+    });
+
+    console.log('[CrimeScore/Gemini] Result:', result.data);
+    return {
+      score: result.data?.score ?? null,
+      grade: result.data?.grade ?? null,
+    };
+  } catch (e) {
+    console.error('[CrimeScore/Gemini] Failed:', e);
+    return null;
+  }
+};
+
 
 export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boolean = false, forceEnvironment: boolean = false, onStep?: (step: string) => void): Promise<PropertyData> => {
   const cacheKey = `data-full-${addressOrZpid}`;
@@ -896,26 +1017,62 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
         mappedData.airQuality = await fetchAirQuality(mappedData.coordinates.latitude, mappedData.coordinates.longitude, mappedData.zpid, mappedData.address);
       }
 
-      // 3. Pollen (New Feature)
+      // 3. Pollen
       if (cachedEnvData?.pollen?.analysis && !forceEnvironment) {
         mappedData.pollen = cachedEnvData.pollen;
       } else {
-        onStep?.("Fetching pollen data...");
+        onStep?.('Fetching pollen data...');
         const pollenRaw = await fetchPollenData(mappedData.coordinates.latitude, mappedData.coordinates.longitude, mappedData.zpid, mappedData.address);
 
         if (pollenRaw) {
-          onStep?.("Analyzing allergy profile...");
+          onStep?.('Analyzing allergy profile...');
           try {
-            const userId = auth?.currentUser?.uid || "unknown";
+            const userId = auth?.currentUser?.uid || 'unknown';
             const pollenAnalysis = await analyzePollen(pollenRaw, mappedData, userId);
             mappedData.pollen = {
               ...pollenRaw,
               analysis: pollenAnalysis.data
             };
           } catch (e) {
-            console.warn("Pollen analysis failed, using raw data only:", e);
+            console.warn('Pollen analysis failed, using raw data only:', e);
             mappedData.pollen = pollenRaw;
           }
+        }
+      }
+
+      // 4. Noise Score (HowLoud SoundScore) — cached 30 days
+      if (cachedEnvData?.noiseScore != null && !forceEnvironment) {
+        mappedData.noiseScore = cachedEnvData.noiseScore;
+        mappedData.noiseScoreDesc = cachedEnvData.noiseScoreDesc;
+      } else {
+        onStep?.('Fetching noise score...');
+        const noise = await fetchNoiseScore(
+          mappedData.coordinates.latitude,
+          mappedData.coordinates.longitude,
+          mappedData.zpid,
+          mappedData.address
+        );
+        if (noise) {
+          mappedData.noiseScore = noise.score;
+          mappedData.noiseScoreDesc = noise.description ?? undefined;
+        }
+      }
+
+      // 5. Crime Score — cached 30 days
+      if (cachedEnvData?.crimeScore != null && !forceEnvironment) {
+        mappedData.crimeScore = cachedEnvData.crimeScore;
+        mappedData.crimeGrade = cachedEnvData.crimeGrade;
+      } else {
+        onStep?.('Fetching crime score...');
+        const crime = await fetchCrimeScore(
+          mappedData.coordinates.latitude,
+          mappedData.coordinates.longitude,
+          mappedData.address || '',
+          mappedData.zpid
+        );
+        if (crime) {
+          mappedData.crimeScore = crime.score;
+          mappedData.crimeGrade = crime.grade ?? undefined;
         }
       }
 
@@ -944,8 +1101,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
         }
       }
 
-      // Save back to cache if we fetched anything new (merges with existing)
-      // Save back to cache if we fetched anything new (merges with existing)
+      // Save back to cache (merge with existing)
       if (storageKey) {
         console.log(`[EnvironmentalCache] Saving data to cache key: ${storageKey}`);
         await saveGoogleDataToCloud(storageKey, {
@@ -953,12 +1109,15 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
           airQuality: mappedData.airQuality,
           pollen: mappedData.pollen,
           streetViewAnalysis: mappedData.streetViewAnalysis,
-          // We store the ZPID if we have it, but the doc ID might be the address hash
+          noiseScore: mappedData.noiseScore ?? null,
+          noiseScoreDesc: mappedData.noiseScoreDesc ?? null,
+          crimeScore: mappedData.crimeScore ?? null,
+          crimeGrade: mappedData.crimeGrade ?? null,
           zpid: mappedData.zpid || storageKey
         });
       } else {
-        console.warn("[EnvironmentalCache] Skipping save: No ZPID or Address available for key.");
-      } // End of if (mappedData.coordinates) usage for environmental data
+        console.warn('[EnvironmentalCache] Skipping save: No ZPID or Address available for key.');
+      }
     }
 
     // Final save attempt if we have a ZPID (in case we added environmental data)

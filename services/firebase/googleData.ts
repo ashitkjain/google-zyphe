@@ -9,6 +9,10 @@ export interface GoogleEnvironmentalData {
     airQuality?: any;
     pollen?: any;
     streetViewAnalysis?: StreetViewAnalysisResult;
+    noiseScore?: number | null;
+    noiseScoreDesc?: string | null;
+    crimeScore?: number | null;
+    crimeGrade?: string | null;
     lastUpdated?: any;
 }
 

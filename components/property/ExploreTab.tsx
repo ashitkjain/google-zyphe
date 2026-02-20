@@ -63,6 +63,47 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     onRefreshEnvironment,
     environmentRefreshing
 }) => {
+    // Determine if the property is actively listed for sale
+    const isForSale = !propertyData || !propertyData.homeStatus ||
+        propertyData.homeStatus.toUpperCase().includes('FOR_SALE');
+
+    if (propertyData && !isForSale) {
+        const statusLabel = propertyData.homeStatus?.replace(/_/g, ' ') ?? 'Not For Sale';
+        return (
+            <div className="flex flex-col items-center px-6 select-none">
+                {/* Search bar at top */}
+                {searchBar && (
+                    <div className="w-full max-w-4xl mx-auto pt-8 pb-4 sticky top-0 z-[40] bg-slate-50/80 backdrop-blur-md">
+                        {searchBar}
+                    </div>
+                )}
+
+                <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+                    {/* Icon */}
+                    <div className="relative mb-10">
+                        <div className="w-36 h-36 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center shadow-xl shadow-slate-300/50">
+                            <i className="fa-solid fa-house-lock text-5xl text-slate-400"></i>
+                        </div>
+                        {/* Status pill */}
+                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] font-black uppercase tracking-[0.18em] px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap">
+                            {statusLabel}
+                        </div>
+                    </div>
+
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tight mt-2">
+                        Not Available for Sale
+                    </h2>
+                    {propertyData.address && (
+                        <p className="text-base font-semibold text-slate-500 mt-3 max-w-md leading-snug">
+                            {propertyData.address}
+                        </p>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+
     if (loading && !propertyData) {
         return (
             <div className="flex flex-col items-center justify-center py-32 text-slate-400">

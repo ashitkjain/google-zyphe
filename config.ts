@@ -59,5 +59,9 @@ export const APP_CONFIG = {
     },
     groq: {
         key: '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'
+    },
+    howLoud: {
+        // Free tier: 2,500 req/mo — https://howloud.com/developers
+        key: (import.meta as any).env?.VITE_HOWLOUD_API_KEY || 'JsFtv3UqoZ2kI6qwB0JmA6TAKmor9pZ741M0VyZc'
     }
 };

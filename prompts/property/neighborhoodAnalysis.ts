@@ -1,15 +1,18 @@
 import { Type } from "@google/genai";
 import { PropertyData } from "../../types";
+import { buildMlsFactsBlock } from "./mlsFacts";
 
-export const getNeighborhoodAnalysisPrompt = (property: { address: string; description?: string }) => `
+export const getNeighborhoodAnalysisPrompt = (property: PropertyData) => `
   You are an expert Spatial Analyst and Urban Planning Consultant. 
    
   I am providing you with two map images for the property at: ${property.address}.
   - Image 1 (Zoom In): A close-up view showing the property parcel, home marker, and immediate street.
   - Image 2 (Zoom Out): A broader view of the neighborhood context.
 
-  Property Description:
-  ${property.description || "No description provided."}
+  ${buildMlsFactsBlock(property)}
+
+  IMPORTANT RULE: You MUST treat every fact in the "KNOWN MLS / LISTING FACTS" block above as ground truth.
+  Do NOT contradict or make assumptions that conflict with any of those values in your response — including the property description.
 
   TASK:
   Analyze the provided map images in detail. Your analysis should be based primarily on visual evidence in the maps.

@@ -119,6 +119,10 @@ export interface PropertyData {
     transitScoreDesc?: string;
     bikeScore?: number | null;
     bikeScoreDesc?: string;
+    noiseScore?: number | null;       // HowLoud SoundScore: 50 (loud) – 100 (quiet)
+    noiseScoreDesc?: string;
+    crimeScore?: number | null;       // Numeric crime safety score
+    crimeGrade?: string;              // Letter grade A+ – F
     schools?: School[];
     nearbyHomes?: any[];
     homeInsights?: any;

@@ -31,10 +31,10 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
             </div>
             <div className="flex flex-col min-w-0">
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</span>
-                <div className="text-[13px] font-black text-slate-800 leading-tight truncate">
+                <div className="text-[13px] font-black text-slate-800 leading-snug">
                     {value}
                 </div>
-                {subValue && <span className="text-[10px] text-slate-400 font-medium truncate">{subValue}</span>}
+                {subValue && <span className="text-[10px] text-slate-400 font-medium leading-snug">{subValue}</span>}
             </div>
         </div>
     );
@@ -110,7 +110,7 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
 
                         <InfoStat
                             icon="fa-car-side"
-                            label="Parking Logistics"
+                            label="Street Parking"
                             value={analysis.parkingLogistics}
                             colorClass="text-blue-600"
                         />
@@ -122,6 +122,7 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
                             colorClass="text-amber-600"
                         />
 
+
                         <InfoStat
                             icon="fa-tree-city"
                             label="Neighborhood Vibe"
@@ -129,10 +130,10 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
                         />
                     </div>
 
-                    {/* Detailed Analysis Blocks */}
-                    <div className="grid grid-cols-1 gap-3">
-                        {/* Safety & Family Analysis */}
-                        <div className="bg-slate-50/30 border border-slate-100 p-5 rounded-[1.8rem] relative overflow-hidden group hover:bg-white transition-colors">
+                    {/* Detailed Analysis Blocks — 2-col grid to fill space */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Safety & Family Analysis — full width */}
+                        <div className="sm:col-span-2 bg-slate-50/30 border border-slate-100 p-5 rounded-[1.8rem] relative overflow-hidden group hover:bg-white transition-colors">
                             {analysis.visualClutter && (
                                 <div className="absolute top-0 right-0 bg-rose-50 text-rose-600 px-3 py-1 rounded-bl-xl text-[7px] font-black uppercase tracking-widest border-l border-b border-rose-100 animate-pulse">
                                     <i className="fa-solid fa-triangle-exclamation mr-1"></i> Visual Clutter Alert
@@ -152,7 +153,7 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
                             </div>
                         </div>
 
-                        {/* Landscape & Shade Analysis */}
+                        {/* Solar & Environmental Context */}
                         <div className="bg-slate-50/30 border border-slate-100 p-5 rounded-[1.8rem] group hover:bg-white transition-colors">
                             <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center">
                                 <i className="fa-solid fa-cloud-sun text-emerald-500 mr-2"></i>
@@ -181,9 +182,9 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
                             </div>
                         )}
 
-                        {/* Maintenance Risk Alerts */}
+                        {/* Maintenance Risk Alerts — full width */}
                         {analysis.maintenanceRisks && analysis.maintenanceRisks.length > 0 && (
-                            <div className="bg-rose-50/30 border border-rose-100/50 p-5 rounded-[1.8rem] group hover:bg-white transition-colors">
+                            <div className="sm:col-span-2 bg-rose-50/30 border border-rose-100/50 p-5 rounded-[1.8rem] group hover:bg-white transition-colors">
                                 <div className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-3 flex items-center">
                                     <i className="fa-solid fa-toolbox mr-2"></i>
                                     Visible Maintenance Forensic Alerts
@@ -199,6 +200,7 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshin
                             </div>
                         )}
                     </div>
+
                 </div>
             </div>
         </div>

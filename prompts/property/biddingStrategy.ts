@@ -1,5 +1,6 @@
 
 import { PropertyData } from "../../types";
+import { buildMlsFactsBlock } from "./mlsFacts";
 
 export const biddingStrategyPrompt = (property: PropertyData) => {
   const address = property.address;
@@ -67,6 +68,9 @@ export const biddingStrategyPrompt = (property: PropertyData) => {
     : "";
 
   return `[SYSTEM INSTRUCTION] Act as a Real Estate Quantitative Analyst. Your objective is to perform a deep-dive "Grounded Market Analysis" using your integrated Google Search tool, the provided Comparable Sales, and the raw Transactional Price History to access real-time ${currentDate} data.
+
+${buildMlsFactsBlock(property)}
+GROUNDING RULE: Every fact in the "KNOWN MLS / LISTING FACTS" block above is authoritative RapidAPI data. Never contradict these values. Use them as the definitive baseline for your CMA and strategy.
 
 [USER INPUT] Analyze the property at: **${address}**
 
