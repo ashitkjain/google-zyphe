@@ -68,9 +68,20 @@ How staging or furnishings support scale, function, and emotional appeal
 Condition and finish quality—noting if the home feels turnkey, dated, or high-end
 Write this in a natural, emotionally resonant tone suitable for a real estate listing or brochure.
 
-📌 Room & Feature Highlights
-List and briefly describe the standout rooms and interior features based on the images, only if images have been provided
-Use a bulleted list or short paragraph per room/space.
+📌 Room & Feature Highlights — EXHAUSTIVE COVERAGE REQUIRED
+You MUST create a separate entry in room_highlights for EVERY identifiable space visible across all images. Do NOT limit to 2-3 hero rooms. Cover each of the following if images are available:
+  • All bedrooms (label each: "Primary Bedroom", "Bedroom 2", "Bedroom 3", etc.)
+  • All bathrooms ("Primary Bathroom", "Bathroom 2", "Half Bath", etc.)
+  • Kitchen (describe appliances, countertops, cabinetry, island if present)
+  • Living Room / Family Room / Great Room
+  • Dining Room or Dining Area
+  • Laundry room or utility space
+  • Office / Den / Bonus Room
+  • Garage (if interior images available)
+  • Entryway / Foyer / Hallways
+  • Any outdoor spaces shown (patio, deck, backyard, pool)
+For each space: write 2-4 sentences on standout features, finishes, and selling points. Include potential improvements.
+If a space is shown in multiple images, synthesize all views into one comprehensive entry. Do NOT skip any space just because it is secondary.
 
 Picture Quality Analysis
 For each observation or issue you note, you MUST specify the indices (starting from 0) of the specific images that demonstrate that point.
@@ -153,12 +164,13 @@ export const propertyImagesSchema = {
     },
     room_highlights: {
       type: Type.ARRAY,
+      description: "EXHAUSTIVE list — one entry per identifiable space. Must include every bedroom, bathroom, kitchen, living room, dining area, laundry, office, garage, entryway, and outdoor space visible in the images. Do NOT limit to only the most impressive rooms.",
       items: {
         type: Type.OBJECT,
         properties: {
-          room_name: { type: Type.STRING },
+          room_name: { type: Type.STRING, description: "Specific room name, e.g. 'Primary Bedroom', 'Bathroom 2', 'Kitchen', 'Laundry Room'" },
           floor: { type: Type.STRING },
-          description: { type: Type.STRING, description: "Standout features and selling points." },
+          description: { type: Type.STRING, description: "2-4 sentences on standout features, finishes, and selling points. Synthesize all available images of this space." },
           potential_improvements: { type: Type.STRING, description: "Suggestions for enhancements or alternative uses." }
         },
         required: ["room_name", "description"]
