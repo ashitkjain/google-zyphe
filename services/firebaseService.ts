@@ -9,6 +9,7 @@ export * from './firebase/user';
 export * from './firebase/properties';
 export * from './firebase/crm';
 export * from './firebase/communications';
+export * from './firebase/internalMessages';
 export * from './firebase/reminders';
 export * from './firebase/calendar';
 export * from './firebase/parties';

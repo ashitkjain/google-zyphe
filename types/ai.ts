@@ -228,7 +228,6 @@ export interface ContextGraphExtractionResult {
 
 export interface StreetViewAnalysisResult {
     curbAppealScore: number;
-    architecturalStyle: string;
     neighborhoodVibe: string;
     visualClutter: boolean;
     gardenDescription: string;
@@ -239,6 +238,8 @@ export interface StreetViewAnalysisResult {
     parkingLogistics: string;
     familySafety: string;
     utilityAesthetic: string;
+    isImageryAvailable: boolean;
+    neighborCondition: string;
     imageUrl?: string;
 }
 

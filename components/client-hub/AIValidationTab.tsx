@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
-import { db, auth, saveAIAssessment, getAIAssessments, AIAssessment, getUserProfile, getAllTesters } from '../../services/firebaseService';
+import { db, auth, saveAIAssessment, getAIAssessments, AIAssessment, getUserProfile, getAllTesters, sendInternalMessage } from '../../services/firebaseService';
 import { PropertyData } from '../../types';
 
 interface PropertyValidationStatus extends PropertyData {
@@ -14,9 +14,11 @@ interface PropertyValidationStatus extends PropertyData {
 
 interface AIValidationTabProps {
     onNavigate?: (view: any, path: string) => void;
+    realtorProfile?: any;
+    userRole?: string;
 }
 
-const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
+const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorProfile, userRole }) => {
     const [loading, setLoading] = useState(true);
     const [properties, setProperties] = useState<PropertyValidationStatus[]>([]);
     const [assessments, setAssessments] = useState<Record<string, AIAssessment>>({});
@@ -30,6 +32,14 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
     const [editingComment, setEditingComment] = useState<{ zpid: string, address: string, comment: string } | null>(null);
     const [reportStartDate, setReportStartDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
     const [reportEndDate, setReportEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [messagingModal, setMessagingModal] = useState<{
+        zpid: string;
+        address: string;
+        recipientId: string;
+        recipientName: string;
+        text: string;
+    } | null>(null);
+    const [sendingMessage, setSendingMessage] = useState(false);
     const pageSize = 20;
 
     const cityStats = useMemo(() => {
@@ -263,6 +273,37 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
         window.open(url, '_blank');
     };
 
+    const handleSendMessage = async () => {
+        if (!messagingModal || !messagingModal.text.trim()) return;
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+            alert("Please sign in.");
+            return;
+        }
+
+        setSendingMessage(true);
+        try {
+            const result = await sendInternalMessage(
+                currentUser.uid,
+                realtorProfile?.displayName || currentUser.displayName || currentUser.email || 'Admin',
+                userRole || 'admin',
+                [messagingModal.recipientId],
+                messagingModal.text.trim(),
+                { zpid: messagingModal.zpid, address: messagingModal.address }
+            );
+
+            if (result.success) {
+                setMessagingModal(null);
+            } else {
+                alert(result.error || "Failed to send message.");
+            }
+        } catch (e) {
+            console.error("Message send failed:", e);
+        } finally {
+            setSendingMessage(false);
+        }
+    };
+
     return (
         <div className="p-8 max-w-7xl mx-auto min-h-screen bg-slate-50/50">
             <div className="flex items-center justify-between mb-8">
@@ -368,8 +409,30 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                                                 )}
                                                             </div>
                                                             <div>
-                                                                <div className="text-sm font-black text-slate-900 group-hover/link:text-indigo-600 transition-colors decoration-indigo-500/30 group-hover/link:underline underline-offset-4 leading-tight">
-                                                                    {prop.address}
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="text-sm font-black text-slate-900 group-hover/link:text-indigo-600 transition-colors decoration-indigo-500/30 group-hover/link:underline underline-offset-4 leading-tight">
+                                                                        {prop.address}
+                                                                    </div>
+                                                                    {assessments[prop.zpid]?.tester && (
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                // Copy to clipboard
+                                                                                navigator.clipboard.writeText(prop.address);
+                                                                                setMessagingModal({
+                                                                                    zpid: prop.zpid,
+                                                                                    address: prop.address,
+                                                                                    recipientId: assessments[prop.zpid].tester,
+                                                                                    recipientName: userNames[assessments[prop.zpid].tester] || 'Auditor',
+                                                                                    text: ''
+                                                                                });
+                                                                            }}
+                                                                            className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                                                                            title="Send message to assignee"
+                                                                        >
+                                                                            <i className="fa-solid fa-comment-dots text-[10px]"></i>
+                                                                        </button>
+                                                                    )}
                                                                 </div>
                                                                 <div className="text-[10px] font-mono text-slate-400 mt-1 flex items-center gap-2">
                                                                     ZPID: {prop.zpid}
@@ -822,6 +885,76 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate }) => {
                                     <i className="fa-solid fa-cloud-arrow-up text-indigo-400"></i>
                                 )}
                                 Save Narrative
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Messaging Modal */}
+            {messagingModal && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[3rem] w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+                        {/* Modal Header */}
+                        <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+                                    <i className="fa-solid fa-paper-plane text-xl"></i>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-slate-900 leading-tight">Message Auditor</h3>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
+                                        Recipient: {messagingModal.recipientName}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setMessagingModal(null)}
+                                className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center group"
+                            >
+                                <i className="fa-solid fa-xmark group-hover:rotate-90 transition-transform"></i>
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-8 space-y-4">
+                            <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl mb-4">
+                                <div className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.1em] mb-1">REFERENCING PROPERTY</div>
+                                <div className="text-[11px] font-bold text-slate-700">{messagingModal.address}</div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Your Message</label>
+                                <textarea
+                                    autoFocus
+                                    value={messagingModal.text}
+                                    onChange={(e) => setMessagingModal(prev => prev ? { ...prev, text: e.target.value } : null)}
+                                    placeholder="Type your message to the auditor here..."
+                                    className="w-full min-h-[120px] p-5 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-800 font-medium leading-relaxed outline-none focus:bg-white focus:border-indigo-500 transition-all resize-none shadow-inner"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-8 bg-slate-50/50 border-t border-slate-50 flex items-center gap-4">
+                            <button
+                                onClick={() => setMessagingModal(null)}
+                                className="flex-1 py-4 text-slate-400 font-black text-[11px] uppercase tracking-widest hover:text-slate-600 transition-all"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                onClick={handleSendMessage}
+                                disabled={sendingMessage || !messagingModal.text.trim()}
+                                className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-slate-200 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                {sendingMessage ? (
+                                    <i className="fa-solid fa-spinner animate-spin"></i>
+                                ) : (
+                                    <i className="fa-solid fa-paper-plane text-indigo-400"></i>
+                                )}
+                                Send Message
                             </button>
                         </div>
                     </div>

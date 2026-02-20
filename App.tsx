@@ -98,6 +98,7 @@ const App: React.FC = () => {
   const [comprehensiveAnalysis, setComprehensiveAnalysis] = useState<ComprehensiveAnalysisResult | null>(null);
   const [comprehensiveLoading, setComprehensiveLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [envRefreshing, setEnvRefreshing] = useState(false);
 
   // Dev memory monitor — tracks the heaviest React state for debugging
   const trackedState = useMemo(() => [
@@ -478,6 +479,7 @@ const App: React.FC = () => {
       const fullData = await fetchPropertyDataFull(
         finalAddress,
         isZpid,
+        false, // forceEnvironment
         (step) => setLoadingSublabel(step)
       );
 
@@ -765,6 +767,29 @@ const App: React.FC = () => {
     }
   };
 
+  const handleRefreshEnvironment = async () => {
+    if (!address || loading) return;
+    setEnvRefreshing(true);
+    setLoadingSublabel("Re-analyzing environment...");
+    try {
+      const isZpid = /^\d+$/.test(address);
+      const fullData = await fetchPropertyDataFull(
+        address,
+        isZpid,
+        true, // forceEnvironment = true
+        (step) => setLoadingSublabel(step)
+      );
+      setPropertyData(fullData);
+      addLog('Zyphe Data Layer', { type: 'force-refresh' }, { target: address, result: 'success' });
+    } catch (err: any) {
+      console.error("Environment refresh failed:", err);
+      addLog('Zyphe Data Layer', { type: 'force-refresh' }, { target: address, result: 'failed', error: err.message });
+    } finally {
+      setEnvRefreshing(false);
+      setLoadingSublabel("");
+    }
+  };
+
   const handleToggleFavorite = async () => {
     if (!currentUser || !propertyData || !propertyData.zpid) return;
 
@@ -958,6 +983,8 @@ const App: React.FC = () => {
       userRole={currentUser?.role}
       searchBar={searchBar}
       address={address}
+      onRefreshEnvironment={handleRefreshEnvironment}
+      environmentRefreshing={envRefreshing}
     />
   );
 

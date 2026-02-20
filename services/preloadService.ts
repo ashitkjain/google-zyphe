@@ -53,7 +53,7 @@ export const runFullIntelligencePipeline = async (
     onProgress({ step: 'Discovery', status: 'running', message: 'Mapping location and fetching specifications...' });
     const [radar, propData] = await Promise.all([
       normalizeAddress(rawAddress, providedZpid),
-      fetchPropertyDataFull(providedZpid || rawAddress, !!providedZpid)
+      fetchPropertyDataFull(providedZpid || rawAddress, !!providedZpid, false)
     ]);
 
     const address = radar.formattedAddress;
@@ -386,7 +386,7 @@ export const runImageOnlyPipeline = async (
     onProgress({ step: 'Discovery', status: 'running', message: 'Resolving location and property ID...' });
     const [radar, propData] = await Promise.all([
       normalizeAddress(rawAddress, providedZpid),
-      fetchPropertyDataFull(providedZpid || rawAddress, !!providedZpid)
+      fetchPropertyDataFull(providedZpid || rawAddress, !!providedZpid, false)
     ]);
 
     const zpid = propData.zpid || providedZpid;

@@ -4,11 +4,13 @@ import { PropertyData } from '../../types';
 
 interface Props {
     data: PropertyData;
+    onRefresh?: () => void;
+    refreshing?: boolean;
 }
 
-const StreetViewAnalysisSection: React.FC<Props> = ({ data }) => {
+const StreetViewAnalysisSection: React.FC<Props> = ({ data, onRefresh, refreshing }) => {
     const analysis = data.streetViewAnalysis;
-    if (!analysis) return null;
+    if (!analysis || analysis.isImageryAvailable === false) return null;
 
     const getScoreColor = (score: number) => {
         if (score >= 8) return 'text-emerald-500';
@@ -44,9 +46,21 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data }) => {
                     <i className="fa-solid fa-eye mr-2 text-indigo-400"></i>
                     AI Neighborhood Forensics
                 </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-black font-bold text-[10px]">VISUAL INTELLIGENCE SCAN</span>
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-200"></span>
+                <div className="flex items-center gap-4">
+                    {onRefresh && (
+                        <button
+                            onClick={onRefresh}
+                            disabled={refreshing}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border border-indigo-100 bg-indigo-50/50 text-indigo-600 hover:bg-indigo-100 transition-all group ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            <i className={`fa-solid fa-arrows-rotate text-[10px] ${refreshing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`}></i>
+                            <span className="text-[9px] font-black uppercase tracking-widest">{refreshing ? 'Analyzing...' : 'Re-analyze'}</span>
+                        </button>
+                    )}
+                    <div className="flex items-center gap-2">
+                        <span className="text-black font-bold text-[10px]">VISUAL INTELLIGENCE SCAN</span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-200"></span>
+                    </div>
                 </div>
             </div>
 
@@ -109,12 +123,6 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data }) => {
                         />
 
                         <InfoStat
-                            icon="fa-landmark"
-                            label="Architectural Style"
-                            value={analysis.architecturalStyle}
-                        />
-
-                        <InfoStat
                             icon="fa-tree-city"
                             label="Neighborhood Vibe"
                             value={analysis.neighborhoodVibe}
@@ -159,6 +167,19 @@ const StreetViewAnalysisSection: React.FC<Props> = ({ data }) => {
                                 </p>
                             </div>
                         </div>
+
+                        {/* Neighborhood Condition & Streetscape */}
+                        {analysis.neighborCondition && (
+                            <div className="bg-slate-50/30 border border-slate-100 p-5 rounded-[1.8rem] group hover:bg-white transition-colors">
+                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center">
+                                    <i className="fa-solid fa-house-chimney-window text-blue-500 mr-2"></i>
+                                    Neighborhood Condition & Streetscape
+                                </div>
+                                <p className="text-[12.5px] text-slate-700 font-medium leading-relaxed">
+                                    {analysis.neighborCondition}
+                                </p>
+                            </div>
+                        )}
 
                         {/* Maintenance Risk Alerts */}
                         {analysis.maintenanceRisks && analysis.maintenanceRisks.length > 0 && (

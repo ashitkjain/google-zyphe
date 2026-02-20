@@ -122,7 +122,7 @@ const StorageScannerTab: React.FC<Props> = ({ onNavigate }) => {
                     addLog(`[${item.zpid}] Address missing. Fetching specs by ZPID...`);
                     const freshData = await getPropertyFromCloud(item.zpid) || await (async () => {
                         const { fetchPropertyDataFull } = await import('../../services/apiService');
-                        return await fetchPropertyDataFull(item.zpid, true);
+                        return await fetchPropertyDataFull(item.zpid, true, false);
                     })();
                     if (freshData?.address) {
                         currentAddress = freshData.address;

@@ -55,7 +55,7 @@ describe('Explore Functionality Unit Tests', () => {
                 json: () => Promise.resolve({})
             });
 
-            const result = await fetchPropertyDataFull(mockZpid, true);
+            const result = await fetchPropertyDataFull(mockZpid, true, false);
 
             expect(mockFetch).toHaveBeenCalledWith(
                 expect.stringContaining(`property?zpid=${mockZpid}`),
@@ -93,7 +93,7 @@ describe('Explore Functionality Unit Tests', () => {
                 json: () => Promise.resolve({})
             });
 
-            const result = await fetchPropertyDataFull(mockZpid, true);
+            const result = await fetchPropertyDataFull(mockZpid, true, false);
 
             expect(mockFetch).toHaveBeenCalledTimes(2 + 3); // 2 attempts for property + 3 for subsequent calls (scores, images, comps)
             expect(result.zpid).toBe(mockZpid);

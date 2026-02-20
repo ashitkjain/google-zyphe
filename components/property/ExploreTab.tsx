@@ -35,6 +35,8 @@ interface ExploreTabProps {
     userRole?: string;
     searchBar?: React.ReactNode;
     address?: string;
+    onRefreshEnvironment?: () => void;
+    environmentRefreshing?: boolean;
 }
 
 const ExploreTab: React.FC<ExploreTabProps> = ({
@@ -57,7 +59,9 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
     logs,
     userRole,
     searchBar,
-    address: currentAddress
+    address: currentAddress,
+    onRefreshEnvironment,
+    environmentRefreshing
 }) => {
     if (loading && !propertyData) {
         return (
@@ -94,7 +98,11 @@ const ExploreTab: React.FC<ExploreTabProps> = ({
                                 onRunAnalysis={() => onRunCustomAnalysis(false)}
                             />
                             <AirQualitySection data={propertyData} />
-                            <StreetViewAnalysisSection data={propertyData} />
+                            <StreetViewAnalysisSection
+                                data={propertyData}
+                                onRefresh={onRefreshEnvironment}
+                                refreshing={environmentRefreshing}
+                            />
                             <PropertyImages images={propertyData.images} loading={imagesLoading} attribution={propertyData.attribution} />
                             <PropertyFacts facts={propertyData.resoFacts} />
                             {propertyData.description && <PropertyDescription description={propertyData.description} />}

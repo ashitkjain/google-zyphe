@@ -186,7 +186,7 @@ const HubContent: React.FC<HubContentProps> = ({
 
             {activeTab === 'data_health' && <DataHealthTab />}
 
-            {activeTab === 'ai_validation' && <AIValidationTab onNavigate={onNavigate} />}
+            {activeTab === 'ai_validation' && <AIValidationTab onNavigate={onNavigate} realtorProfile={realtorProfile} userRole={userRole} />}
 
             {activeTab === 'storage_registry' && <StorageScannerTab onNavigate={onNavigate} />}
 

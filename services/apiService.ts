@@ -629,7 +629,7 @@ export const fetchPollenData = async (lat: number, lng: number, zpid?: string, a
   }
 };
 
-export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boolean = false, onStep?: (step: string) => void): Promise<PropertyData> => {
+export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boolean = false, forceEnvironment: boolean = false, onStep?: (step: string) => void): Promise<PropertyData> => {
   const cacheKey = `data-full-${addressOrZpid}`;
   // if (ongoingRequests.has(cacheKey)) return ongoingRequests.get(cacheKey)!;
 
@@ -720,84 +720,86 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
       if (!response || !response.ok) throw new Error(`Property API error: ${response?.status || 'Unknown'}`);
       const data = await response.json();
 
-      // Relaxed ZPID check:
-      // If we can't find it there, try to fallback or generate one (though risky). 
-      // Ideally we want a real ID.
-      const rawZpid = data.zpid ? String(data.zpid) : (data.props?.zpid ? String(data.props.zpid) : undefined);
+      // Universal ZPID extraction: Check root, property wrapper, or props wrapper
+      const rawZpid = data.zpid || data.property?.zpid || data.props?.zpid;
+      const zpidStr = rawZpid ? String(rawZpid) : undefined;
 
-      if (!rawZpid) {
-        console.warn("API Warning: Response missing 'zpid' at root. Proceeding with limited data.", JSON.stringify(data, null, 2));
+      if (!zpidStr) {
+        console.warn("API Warning: Response missing 'zpid'. Proceeding with limited data.", JSON.stringify(data, null, 2));
       }
 
-      if (!isZpid && rawZpid) {
-        const cached = await getPropertyFromCloud(String(rawZpid));
+      if (!isZpid && zpidStr) {
+        const cached = await getPropertyFromCloud(zpidStr);
         if (cached) {
           mappedData = cached;
-          console.log("[fetchPropertyDataFull] Found cached property data for found ZPID:", rawZpid);
+          console.log("[fetchPropertyDataFull] Found cached property data for found ZPID:", zpidStr);
         }
       }
 
       if (!mappedData) {
+        const root = data.property || data.props || data;
+        const addrRoot = root.address || data.address;
+
         mappedData = {
-          address: formatAddress(data.address || data.props?.address) || (isZpid ? "" : addressOrZpid),
-          city: (data.address && typeof data.address === 'object') ? data.address.city : (data.props?.address?.city || undefined),
-          state: (data.address && typeof data.address === 'object') ? data.address.state : (data.props?.address?.state || undefined),
-          zipCode: (data.address && typeof data.address === 'object') ? (data.address.zipcode || data.address.zipCode) : (data.props?.address?.zipCode || data.props?.address?.zipcode || undefined),
-          zpid: rawZpid ? String(rawZpid) : undefined,
-          homeStatus: data.homeStatus || data.props?.homeStatus || "OFF_MARKET",
-          homeType: data.homeType || data.props?.homeType || "SINGLE_FAMILY",
-          livingAreaValue: extractNumericValue(data.livingAreaValue || data.livingArea || data.props?.livingArea),
-          bedrooms: extractNumericValue(data.bedrooms || data.props?.bedrooms),
-          bathrooms: extractNumericValue(data.bathrooms || data.props?.bathrooms),
-          yearBuilt: extractNumericValue(data.yearBuilt || data.props?.yearBuilt),
-          lotSize: safeStringify(data.resoFacts?.lotSize || data.props?.resoFacts?.lotSize) || "N/A",
-          price: extractNumericValue(data.price || data.zestimate || data.props?.price),
-          zestimate: extractNumericValue(data.zestimate || data.props?.zestimate),
-          rentZestimate: extractNumericValue(data.rentZestimate || data.props?.rentZestimate),
-          annualHomeownersInsurance: extractNumericValue(data.annualHomeownersInsurance),
-          windRiskScore: extractNumericValue(data.climate?.windSources?.primary?.riskScore),
-          floodRiskScore: extractNumericValue(data.climate?.floodSources?.primary?.riskScore),
-          fireRiskScore: extractNumericValue(data.climate?.fireSources?.primary?.riskScore),
-          heatRiskScore: extractNumericValue(data.climate?.heatRiskScore),
-          description: data.description || data.props?.description || "No description available.",
-          images: Array.isArray(data.images) ? data.images : (data.props?.images || []),
-          schools: Array.isArray(data.schools) ? data.schools : (data.props?.schools || []),
-          listedDate: data.onMarketDate || data.listedDate || data.props?.onMarketDate || data.daysOnZillow || 0,
-          priceHistory: (Array.isArray(data.priceHistory) ? data.priceHistory : (data.props?.priceHistory || [])).map((item: any) => ({
+          address: formatAddress(addrRoot) || (isZpid ? "" : addressOrZpid),
+          city: (addrRoot && typeof addrRoot === 'object') ? addrRoot.city : undefined,
+          state: (addrRoot && typeof addrRoot === 'object') ? addrRoot.state : undefined,
+          zipCode: (addrRoot && typeof addrRoot === 'object') ? (addrRoot.zipcode || addrRoot.zipCode) : undefined,
+          zpid: zpidStr,
+          homeStatus: root.homeStatus,
+          homeType: root.homeType,
+          livingAreaValue: extractNumericValue(root.livingAreaValue || root.livingArea),
+          bedrooms: extractNumericValue(root.bedrooms),
+          bathrooms: extractNumericValue(root.bathrooms),
+          yearBuilt: extractNumericValue(root.yearBuilt),
+          lotSize: safeStringify(root.resoFacts?.lotSize || root.lotSize) || "N/A",
+          price: extractNumericValue(root.price || root.listPrice),
+          zestimate: extractNumericValue(root.zestimate),
+          rentZestimate: extractNumericValue(root.rentZestimate),
+          annualHomeownersInsurance: extractNumericValue(root.annualHomeownersInsurance),
+          windRiskScore: extractNumericValue(root.climate?.windSources?.primary?.riskScore),
+          floodRiskScore: extractNumericValue(root.climate?.floodSources?.primary?.riskScore),
+          fireRiskScore: extractNumericValue(root.climate?.fireSources?.primary?.riskScore),
+          heatRiskScore: extractNumericValue(root.climate?.heatRiskScore),
+          description: root.description || "No description available.",
+          images: Array.isArray(root.images) ? root.images : (Array.isArray(root.photos) ? root.photos : []),
+          schools: Array.isArray(root.schools) ? root.schools : [],
+          listedDate: root.onMarketDate || root.listedDate || root.daysOnZillow || 0,
+          priceHistory: (Array.isArray(root.priceHistory) ? root.priceHistory : []).map((item: any) => ({
             date: item.date || "N/A",
             price: extractNumericValue(item.price),
             event: item.event || "Price Change"
           })),
           resoFacts: {
-            flooring: safeStringify(data.resoFacts?.flooring),
-            foundationDetails: safeStringify(data.resoFacts?.foundationDetails),
-            rooms: safeStringify(data.resoFacts?.rooms),
-            roomTypes: safeStringify(data.resoFacts?.roomTypes),
-            feesAndDues: safeStringify(data.resoFacts?.feesAndDues),
-            exteriorFeatures: safeStringify(data.resoFacts?.exteriorFeatures),
-            architecturalStyle: safeStringify(data.resoFacts?.architecturalStyle),
-            garageParkingCapacity: extractNumericValue(data.resoFacts?.garageParkingCapacity),
-            lotFeatures: safeStringify(data.resoFacts?.lotFeatures),
-            roofType: safeStringify(data.resoFacts?.roofType),
-            daysOnZillow: extractNumericValue(data.daysOnZillow || data.resoFacts?.daysOnZillow),
-            constructionMaterials: safeStringify(data.resoFacts?.constructionMaterials),
-            fireplaceFeatures: safeStringify(data.resoFacts?.fireplaceFeatures),
-            appliances: safeStringify(data.resoFacts?.appliances),
-            fencing: safeStringify(data.resoFacts?.fencing),
-            cooling: safeStringify(data.resoFacts?.cooling),
-            laundryFeatures: safeStringify(data.resoFacts?.laundryFeatures),
-            heating: safeStringify(data.resoFacts?.heating),
-            basement: safeStringify(data.resoFacts?.basement),
-            utilities: safeStringify(data.resoFacts?.utilities),
-            sewer: safeStringify(data.resoFacts?.sewer),
-            waterSource: safeStringify(data.resoFacts?.waterSource),
-            securityFeatures: safeStringify(data.resoFacts?.securityFeatures),
-            windowFeatures: safeStringify(data.resoFacts?.windowFeatures),
-            roomFeatures: safeStringify(data.resoFacts?.roomFeatures),
+            flooring: safeStringify(root.resoFacts?.flooring),
+            foundationDetails: safeStringify(root.resoFacts?.foundationDetails),
+            rooms: safeStringify(root.resoFacts?.rooms),
+            roomTypes: safeStringify(root.resoFacts?.roomTypes),
+            feesAndDues: safeStringify(root.resoFacts?.feesAndDues),
+            exteriorFeatures: safeStringify(root.resoFacts?.exteriorFeatures),
+            architecturalStyle: safeStringify(root.resoFacts?.architecturalStyle),
+            garageParkingCapacity: extractNumericValue(root.resoFacts?.garageParkingCapacity),
+            lotFeatures: safeStringify(root.resoFacts?.lotFeatures),
+            roofType: safeStringify(root.resoFacts?.roofType),
+            daysOnZillow: extractNumericValue(root.daysOnZillow || root.resoFacts?.daysOnZillow),
+            constructionMaterials: safeStringify(root.resoFacts?.constructionMaterials),
+            fireplaceFeatures: safeStringify(root.resoFacts?.fireplaceFeatures),
+            appliances: safeStringify(root.resoFacts?.appliances),
+            fencing: safeStringify(root.resoFacts?.fencing),
+            cooling: safeStringify(root.resoFacts?.cooling),
+            laundryFeatures: safeStringify(root.resoFacts?.laundryFeatures),
+            heating: safeStringify(root.resoFacts?.heating),
+            basement: safeStringify(root.resoFacts?.basement),
+            utilities: safeStringify(root.resoFacts?.utilities),
+            sewer: safeStringify(root.resoFacts?.sewer),
+            waterSource: safeStringify(root.resoFacts?.waterSource),
+            securityFeatures: safeStringify(root.resoFacts?.securityFeatures),
+            windowFeatures: safeStringify(root.resoFacts?.windowFeatures),
+            roomFeatures: safeStringify(root.resoFacts?.roomFeatures),
           },
-          coordinates: data.longitude && data.latitude ? { latitude: data.latitude, longitude: data.longitude } : undefined,
-          attribution: data.attributionInfo || data.props?.attributionInfo ? {
-            listingAgentName: data.attributionInfo?.agentName || data.props?.attributionInfo?.agentName,
+          coordinates: root.longitude && root.latitude ? { latitude: root.latitude, longitude: root.longitude } : undefined,
+          attribution: root.attributionInfo || data.attributionInfo ? {
+            listingAgentName: (root.attributionInfo || data.attributionInfo)?.agentName,
             listingAgentNumber: data.attributionInfo?.agentPhoneNumber || data.props?.attributionInfo?.agentPhoneNumber,
             brokerageName: data.attributionInfo?.brokerageName || data.props?.attributionInfo?.brokerageName,
             mlsName: data.attributionInfo?.mlsName || data.props?.attributionInfo?.mlsName,
@@ -879,7 +881,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
       }
 
       // 1. Solar Data
-      if (cachedEnvData?.solarData) {
+      if (cachedEnvData?.solarData && !forceEnvironment) {
         mappedData.solarData = cachedEnvData.solarData;
       } else {
         onStep?.("Analyzing solar potential...");
@@ -887,7 +889,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
       }
 
       // 2. Air Quality
-      if (cachedEnvData?.airQuality) {
+      if (cachedEnvData?.airQuality && !forceEnvironment) {
         mappedData.airQuality = cachedEnvData.airQuality;
       } else {
         onStep?.("Fetching air quality data...");
@@ -895,7 +897,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
       }
 
       // 3. Pollen (New Feature)
-      if (cachedEnvData?.pollen?.analysis) {
+      if (cachedEnvData?.pollen?.analysis && !forceEnvironment) {
         mappedData.pollen = cachedEnvData.pollen;
       } else {
         onStep?.("Fetching pollen data...");
@@ -918,7 +920,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
       }
 
       // 4. AI Street View Analysis (Refined with Forensic Analysis)
-      if (cachedEnvData?.streetViewAnalysis?.imageUrl && cachedEnvData?.streetViewAnalysis?.privacyRating) {
+      if (cachedEnvData?.streetViewAnalysis?.imageUrl && cachedEnvData?.streetViewAnalysis?.privacyRating && !forceEnvironment) {
         console.log("[fetchPropertyDataFull] Using cached Forensic Street View analysis.");
         mappedData.streetViewAnalysis = cachedEnvData.streetViewAnalysis;
       } else {
@@ -976,5 +978,5 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
 };
 
 export const fetchPropertyData = async (address: string, forceRefresh: boolean = true): Promise<PropertyData> => {
-  return fetchPropertyDataFull(address, false);
+  return fetchPropertyDataFull(address, false, false);
 };
