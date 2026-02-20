@@ -53,28 +53,110 @@ interface RoomsViewProps {
 
 export const RoomsView: React.FC<RoomsViewProps> = ({ highlights }) => {
     if (!highlights || highlights.length === 0) return <EmptyState section="Room Highlights" />;
+
+    // Canonical walk-through order — lower index = shown first
+    const ROOM_ORDER: [RegExp, number][] = [
+        [/entry|foyer|hall/i, 0],
+        [/living|family|great room/i, 1],
+        [/dining/i, 2],
+        [/kitchen/i, 3],
+        [/primary bed|master bed/i, 4],
+        [/bedroom|bed/i, 5],         // all other bedrooms after primary
+        [/primary bath|master bath/i, 6],
+        [/bathroom|bath|half bath|powder/i, 7],
+        [/laundry|utility/i, 8],
+        [/office|den|bonus/i, 9],
+        [/garage/i, 10],
+        [/patio|deck|backyard|outdoor|pool/i, 11],
+    ];
+
+    const roomSortKey = (name: string = '') => {
+        for (const [pattern, rank] of ROOM_ORDER) {
+            if (pattern.test(name)) return rank;
+        }
+        return 99; // unknown rooms go last
+    };
+
+    const sorted = [...highlights].sort((a, b) => {
+        const rankA = roomSortKey(a.room_name);
+        const rankB = roomSortKey(b.room_name);
+        if (rankA !== rankB) return rankA - rankB;
+        // Within same category, sort alphabetically (Bedroom 2 before Bedroom 3)
+        return (a.room_name || '').localeCompare(b.room_name || '');
+    });
+
+    // Group rooms into sections for visual separation
+    const SECTION_LABELS: Record<number, string> = {
+        0: 'Entry & Hallways', 1: 'Living Areas', 2: 'Dining Areas', 3: 'Kitchen',
+        4: 'Bedrooms', 5: 'Bedrooms', 6: 'Bathrooms', 7: 'Bathrooms',
+        8: 'Laundry & Utility', 9: 'Office & Bonus', 10: 'Garage', 11: 'Outdoor',
+    };
+
+    const ROOM_ICONS: [RegExp, string][] = [
+        [/entry|foyer|hall/i, 'fa-door-open'],
+        [/living|family|great/i, 'fa-couch'],
+        [/dining/i, 'fa-utensils'],
+        [/kitchen/i, 'fa-kitchen-set'],
+        [/bed/i, 'fa-bed'],
+        [/bath|powder/i, 'fa-shower'],
+        [/laundry|utility/i, 'fa-washing-machine'],
+        [/office|den|bonus/i, 'fa-briefcase'],
+        [/garage/i, 'fa-warehouse'],
+        [/patio|deck|backyard|outdoor|pool/i, 'fa-tree'],
+    ];
+
+    const roomIcon = (name: string = '') => {
+        for (const [pattern, icon] of ROOM_ICONS) {
+            if (pattern.test(name)) return icon;
+        }
+        return 'fa-door-open';
+    };
+
+    // Build grouped sections
+    type Section = { label: string; rooms: typeof sorted };
+    const sections: Section[] = [];
+    let lastLabel = '';
+    for (const room of sorted) {
+        const rank = roomSortKey(room.room_name);
+        const label = SECTION_LABELS[rank] || 'Other';
+        if (label !== lastLabel) {
+            sections.push({ label, rooms: [] });
+            lastLabel = label;
+        }
+        sections[sections.length - 1].rooms.push(room);
+    }
+
     return (
-        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {highlights.map((room, idx) => (
-                    <div key={idx} className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
-                        <div className="flex justify-between items-start mb-6">
-                            <div className="w-12 h-12 bg-gray-50 rounded-[1.25rem] flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                                <i className={`fa-solid ${room.room_name?.toLowerCase().includes('kitchen') ? 'fa-kitchen-set' : 'fa-door-open'} text-xl`}></i>
-                            </div>
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">{room.floor || 'N/A'}</span>
-                        </div>
-                        <h4 className="font-black text-gray-900 text-2xl mb-4 tracking-tight">{room.room_name}</h4>
-                        <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625] mb-6">{room.description}</p>
-                        {room.potential_improvements && (
-                            <div className="pt-6 border-t border-gray-100 bg-gray-50 -mx-8 -mb-8 p-8 mt-auto">
-                                <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3">Strategic Enhancement</div>
-                                <p className="text-gray-500 text-[14px] font-sans font-normal italic leading-[1.625]">"{room.potential_improvements}"</p>
-                            </div>
-                        )}
+        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 space-y-10">
+            {sections.map((section, si) => (
+                <div key={si}>
+                    <div className="flex items-center gap-3 mb-5">
+                        <div className="h-px flex-1 bg-gray-100" />
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.25em]">{section.label}</span>
+                        <div className="h-px flex-1 bg-gray-100" />
                     </div>
-                ))}
-            </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {section.rooms.map((room, idx) => (
+                            <div key={idx} className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 group flex flex-col">
+                                <div className="flex justify-between items-start mb-6">
+                                    <div className="w-12 h-12 bg-gray-50 rounded-[1.25rem] flex items-center justify-center text-gray-400 group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                                        <i className={`fa-solid ${roomIcon(room.room_name)} text-xl`}></i>
+                                    </div>
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">{room.floor || 'N/A'}</span>
+                                </div>
+                                <h4 className="font-black text-gray-900 text-2xl mb-4 tracking-tight">{room.room_name}</h4>
+                                <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625] mb-6">{room.description}</p>
+                                {room.potential_improvements && (
+                                    <div className="pt-6 border-t border-gray-100 bg-gray-50 -mx-8 -mb-8 p-8 mt-auto">
+                                        <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-3">Strategic Enhancement</div>
+                                        <p className="text-gray-500 text-[14px] font-sans font-normal italic leading-[1.625]">"{room.potential_improvements}"</p>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ))}
         </section>
     );
 };

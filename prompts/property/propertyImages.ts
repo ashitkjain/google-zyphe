@@ -83,6 +83,19 @@ You MUST create a separate entry in room_highlights for EVERY identifiable space
 For each space: write 2-4 sentences on standout features, finishes, and selling points. Include potential improvements.
 If a space is shown in multiple images, synthesize all views into one comprehensive entry. Do NOT skip any space just because it is secondary.
 
+ROOM ORDERING — output room_highlights in this exact logical walk-through sequence:
+1. Entryway / Foyer / Hallways
+2. Living Room / Family Room / Great Room
+3. Dining Room / Dining Area
+4. Kitchen
+5. All Bedrooms together (Primary Bedroom first, then Bedroom 2, 3...)
+6. All Bathrooms together (Primary Bathroom first, then Bathroom 2, Half Bath...)
+7. Laundry Room / Utility Room
+8. Office / Den / Bonus Room
+9. Garage
+10. Outdoor spaces (Patio, Deck, Backyard, Pool)
+Skip any category with no images; keep the relative order of the remaining categories.
+
 Picture Quality Analysis
 For each observation or issue you note, you MUST specify the indices (starting from 0) of the specific images that demonstrate that point.
 Identify exactly the TOP 5 strongest photos from the gallery. For each of these 5 photos, provide a professional label (e.g., 'Gourmet Kitchen', 'Sun-Drenched Master') and a brief justification of why it is technically and aesthetically superior.
