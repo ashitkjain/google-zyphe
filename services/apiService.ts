@@ -1170,8 +1170,6 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
         const candidateUrls: string[] = [
           // Primary: address-based, narrow radius, outdoor only
           `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${encodedAddress}&fov=90&radius=100&source=outdoor&return_error_code=true&key=${MAPS_API_KEY}`,
-          // Fallback 1: wider radius, no source restriction (picks any panorama nearby)
-          `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${encodedAddress}&fov=90&radius=500&return_error_code=true&key=${MAPS_API_KEY}`,
         ];
 
         // Fallback 2: raw coordinates if available
