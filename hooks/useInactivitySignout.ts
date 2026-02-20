@@ -5,10 +5,10 @@ import { auth } from '../services/firebaseService';
 const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 /**
- * Hook that automatically signs out tester users after 15 minutes of inactivity.
+ * Hook that automatically signs out auditor users after 15 minutes of inactivity.
  * "Inactivity" means no mouse movement, keyboard input, touch, or scroll events.
  * 
- * @param userRole - The current user's role (only activates for 'tester')
+ * @param userRole - The current user's role (only activates for 'auditor')
  * @param onSignOut - Optional callback invoked after sign-out (e.g., to clear local state)
  */
 export const useInactivitySignout = (
@@ -16,12 +16,12 @@ export const useInactivitySignout = (
     onSignOut?: () => void
 ) => {
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const isActive = userRole === 'tester';
+    const isActive = userRole === 'auditor';
 
     const performSignOut = useCallback(async () => {
         if (!auth) return;
         try {
-            console.log('[InactivitySignout] 15 min inactivity timeout reached. Signing out tester...');
+            console.log('[InactivitySignout] 15 min inactivity timeout reached. Signing out auditor...');
             await signOut(auth);
             onSignOut?.();
         } catch (err) {

@@ -134,13 +134,20 @@ service cloud.firestore {
       );
     }
 
-    // Internal team messaging (admin/tester inbox — email-style, no real-time listener)
-    // Any user in the participants array can read and send.
+    // Internal team messaging (admin/auditor inbox — email-style, no real-time listener)
+    // Any user in the participants array can read, send, or delete.
+    // Delete also allows senderId match as fallback for legacy docs missing participants field.
     match /internal_messages/{messageId} {
-      allow read: if request.auth != null &&
-          request.auth.uid in resource.data.participants;
+      allow read: if request.auth != null && (
+          request.auth.uid in resource.data.participants ||
+          resource.data.senderId == request.auth.uid
+      );
       allow create: if request.auth != null &&
           request.auth.uid in request.resource.data.participants;
+      allow delete: if request.auth != null && (
+          request.auth.uid in resource.data.participants ||
+          resource.data.senderId == request.auth.uid
+      );
     }
 
     match /mail/{mailId} {

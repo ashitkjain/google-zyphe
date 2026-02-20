@@ -32,7 +32,6 @@ import PremiumMLSTab from '../PremiumMLSTab';
 import AIValidationTab from '../AIValidationTab';
 import MyZypheTab from '../MyZypheTab';
 import ContextGraphTab from '../ContextGraphTab';
-import TeamStatsTab from '../TeamStatsTab';
 import { Lead, CRMTask, UserProfile, ReminderRule, CalendarEvent } from '../../../types';
 
 interface HubContentProps {
@@ -228,8 +227,6 @@ const HubContent: React.FC<HubContentProps> = ({
                     role={userRole || realtorProfile?.role || 'buyer'}
                 />
             )}
-            {activeTab === 'team_stats' && <TeamStatsTab />}
-
         </div>
     );
 };

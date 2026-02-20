@@ -32,12 +32,16 @@ import {
   getCommunityPulseFromCloud,
   saveCommunityPulseToCloud,
   deletePropertyAnalysis,
-  trackLogin,
-  trackPageView,
-  trackLogout,
   getContextGraphFromCloud,
   saveContextGraphToCloud
 } from './services/firebaseService';
+import {
+  trackLogin,
+  trackPageView,
+  trackLogout,
+} from './services/firebase/user_activity';
+import { identifyUser as identifyPH } from './services/analytics/posthog';
+
 import { saveUserProfile } from './services/firebase/user';
 import { APP_CONFIG } from './config';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -67,11 +71,13 @@ import { initPostHog } from './services/analytics/posthog';
 
 type ViewMode = 'main' | 'visual-report' | 'comprehensive-report' | 'dashboard' | 'guides' | 'legal-disclaimer' | 'terms' | 'privacy' | 'explore' | 'leads' | 'tasks' | 'settings' | 'whiteboard' | 'closing' | 'reactivate' | 'best_practices' | 'knowledge_center' | 'clients' | 'creative_studio' | 'realtor-landing' | 'industry_research' | 'industry_case_studies' | 'unit_economics' | 'product_market_fit' | 'post_close_intelligence' | 'technical_papers' | 'video_upload' | 'technical_media' | 'executive_summary' | 'market_analysis' | 'opportunity_discovery' | 'ai_validation';
 
+// Initialize PostHog immediately (synchronous) so it's ready before any events fire
+initPostHog();
+
 const App: React.FC = () => {
-  // Initialize Analytics
+  // Initialize session-recording tools that need the DOM
   useEffect(() => {
     initClarity('vj30ntkkl1');
-    initPostHog();
   }, []);
 
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -117,7 +123,7 @@ const App: React.FC = () => {
   const historyRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
 
-  // Auto sign-out testers after 15 min of inactivity
+  // Auto sign-out auditors after 15 min of inactivity
   useInactivitySignout(currentUser?.role, () => {
     if (currentUser) {
       trackLogout({
@@ -328,16 +334,28 @@ const App: React.FC = () => {
 
         if (profile) {
           if (user.email === 'tester@zyphe.ai') {
-            console.log("⚡️ [Tester Override] Granting tester privileges to:", user.email);
-            profile.role = 'tester';
+            console.log("⚡️ [Auditor Override] Granting auditor privileges to:", user.email);
+            profile.role = 'auditor';
           }
           setCurrentUser(profile);
-          trackLogin({
-            uid: user.uid,
+          // Always identify the user in PostHog so events are attributed correctly
+          // (even on session restore — not just explicit logins)
+          identifyPH(user.uid, {
             email: user.email || '',
-            displayName: profile.displayName || user.displayName || '',
+            name: profile.displayName || user.displayName || '',
             role: profile.role || 'buyer'
           });
+          // Only log a Login event to Firestore when user explicitly signed in
+          const isExplicitLogin = sessionStorage.getItem('zyphe_explicit_login') === '1';
+          if (isExplicitLogin) {
+            sessionStorage.removeItem('zyphe_explicit_login');
+            trackLogin({
+              uid: user.uid,
+              email: user.email || '',
+              displayName: profile.displayName || user.displayName || '',
+              role: profile.role || 'buyer'
+            });
+          }
         } else {
           // Fallback to localStorage role if available, otherwise default to buyer
           const pendingRole = (localStorage.getItem('zyphe_pending_role') as any) || 'buyer';
@@ -350,7 +368,11 @@ const App: React.FC = () => {
             role: pendingRole,
             createdAt: new Date()
           });
-          trackLogin({ uid: user.uid, email: user.email || '', displayName: user.displayName || 'Guest User', role: pendingRole });
+          const isExplicitLogin2 = sessionStorage.getItem('zyphe_explicit_login') === '1';
+          if (isExplicitLogin2) {
+            sessionStorage.removeItem('zyphe_explicit_login');
+            trackLogin({ uid: user.uid, email: user.email || '', displayName: user.displayName || 'Guest User', role: pendingRole });
+          }
         }
 
         // Fetch cloud data regardless of profile existence as long as we have a UID
@@ -1017,8 +1039,8 @@ const App: React.FC = () => {
     );
   }
 
-  // REALTOR/INVESTOR/TESTER LAYOUT: Merged ClientHub + Homepage
-  if (currentUser?.role === 'realtor' || currentUser?.role === 'investor' || currentUser?.role === 'tester' || currentUser?.role === 'admin') {
+  // REALTOR/INVESTOR/AUDITOR LAYOUT: Merged ClientHub + Homepage
+  if (currentUser?.role === 'realtor' || currentUser?.role === 'investor' || currentUser?.role === 'auditor' || currentUser?.role === 'admin') {
     return (
       <div className="min-h-screen bg-slate-50">
         {showPreload && <PreloadManager onClose={() => setShowPreload(false)} initialAddress={address} />}

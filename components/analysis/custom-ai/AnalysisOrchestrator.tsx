@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { setCurrentPage } from '../../../services/analytics/posthog';
 import {
     CustomAIAnalysisResult,
     ComprehensiveAnalysisResult
@@ -58,7 +59,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
     isFavorited,
     onToggleFavorite
 }) => {
-    const role = (userRole as 'buyer' | 'seller' | 'realtor' | 'investor' | 'tester') || 'buyer';
+    const role = (userRole as 'buyer' | 'seller' | 'realtor' | 'investor' | 'auditor') || 'buyer';
     const allowedTabs = (APP_CONFIG as any).roleTabs[role] || (APP_CONFIG as any).roleTabs.buyer;
 
     // Memoize the available tabs objects to avoid unnecessary re-renders and ensure stable first-tab lookup
@@ -84,6 +85,13 @@ const AnalysisOrchestrator: React.FC<Props> = ({
             setActiveTab(tabs[0].id as TabType);
         }
     }, [tabs, activeTab]);
+
+    // Update PostHog super properties with the deepest sub-tab so every autocapture
+    // click carries full page context (e.g. 'explore > Interior')
+    useEffect(() => {
+        const tabLabel = tabs.find(t => t.id === activeTab)?.label || activeTab;
+        setCurrentPage(activeTab, `Explore > ${tabLabel}`);
+    }, [activeTab, tabs]);
 
     // Hover preview state
     const [hoveredImage, setHoveredImage] = useState<string | null>(null);

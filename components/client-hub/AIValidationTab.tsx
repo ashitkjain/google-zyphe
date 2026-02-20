@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
-import { db, auth, saveAIAssessment, getAIAssessments, AIAssessment, getUserProfile, getAllTesters, sendInternalMessage } from '../../services/firebaseService';
+import { db, auth, saveAIAssessment, getAIAssessments, AIAssessment, getUserProfile, getAllAuditors, sendInternalMessage } from '../../services/firebaseService';
 import { PropertyData } from '../../types';
 
 interface PropertyValidationStatus extends PropertyData {
@@ -25,7 +25,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
     const [activeCity, setActiveCity] = useState<string | null>(null);
     const [savingZpids, setSavingZpids] = useState<Set<string>>(new Set());
     const [userNames, setUserNames] = useState<Record<string, string>>({});
-    const [allTesters, setAllTesters] = useState<{ uid: string, displayName: string }[]>([]);
+    const [allAuditors, setAllAuditors] = useState<{ uid: string, displayName: string }[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [activeTab, setActiveTab] = useState<'audits' | 'reports' | 'instructions'>('audits');
     const [assignmentConfirm, setAssignmentConfirm] = useState<{ zpid: string, address: string, userId: string } | null>(null);
@@ -94,19 +94,19 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
             const assessmentMap = Object.fromEntries(existingAssessments.map(a => [a.mlsid, a]));
             setAssessments(assessmentMap);
 
-            // Fetch ALL testers for assignment dropdown
-            const testers = await getAllTesters();
-            const testerList = testers.map(t => ({ uid: t.uid, displayName: t.displayName || t.email || 'Unknown' }));
-            setAllTesters(testerList);
+            // Fetch ALL auditors for assignment dropdown
+            const auditors = await getAllAuditors();
+            const auditorList = auditors.map(t => ({ uid: t.uid, displayName: t.displayName || t.email || 'Unknown' }));
+            setAllAuditors(auditorList);
 
             // Fetch user names for audit trail
             const nameMap: Record<string, string> = { ...userNames };
-            testers.forEach(t => {
+            auditors.forEach(t => {
                 nameMap[t.uid] = t.displayName || t.email || 'Unknown';
             });
 
-            const uniqueTesters = Array.from(new Set(existingAssessments.map(a => a.tester).filter(Boolean)));
-            await Promise.all(uniqueTesters.map(async (uid) => {
+            const uniqueAuditors = Array.from(new Set(existingAssessments.map(a => a.auditor).filter(Boolean)));
+            await Promise.all(uniqueAuditors.map(async (uid) => {
                 if (!nameMap[uid]) {
                     const profile = await getUserProfile(uid);
                     if (profile) nameMap[uid] = profile.displayName || profile.email || 'Unknown';
@@ -169,7 +169,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
             if (!a.last_update_date) return;
             const updateDate = a.last_update_date.toDate ? a.last_update_date.toDate() : new Date(a.last_update_date);
             if (updateDate >= start && updateDate <= end) {
-                userStats[a.tester] = (userStats[a.tester] || 0) + 1;
+                userStats[a.auditor] = (userStats[a.auditor] || 0) + 1;
             }
         });
 
@@ -180,9 +180,9 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
         })).sort((a, b) => b.count - a.count);
     }, [assessments, userNames, reportStartDate, reportEndDate]);
 
-    const handleAssignTester = async (zpid: string, address: string, targetUserId: string, force: boolean = false) => {
+    const handleAssignAuditor = async (zpid: string, address: string, targetUserId: string, force: boolean = false) => {
         const existing = assessments[zpid];
-        if (existing && existing.tester && existing.tester !== targetUserId && !force) {
+        if (existing && existing.auditor && existing.auditor !== targetUserId && !force) {
             setAssignmentConfirm({ zpid, address, userId: targetUserId });
             return;
         }
@@ -192,7 +192,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
             const payload = {
                 mlsid: zpid,
                 propertyAddress: address,
-                tester: targetUserId,
+                auditor: targetUserId,
                 userId: targetUserId, // Maintain both for legacy
                 assessment: existing?.assessment || '',
                 comment: existing?.comment || ''
@@ -234,7 +234,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                 propertyAddress: address,
                 assessment,
                 comment,
-                tester: userId,
+                auditor: userId,
                 userId: userId
             });
 
@@ -246,7 +246,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                     propertyAddress: address,
                     assessment,
                     comment,
-                    tester: userId,
+                    auditor: userId,
                     userId: userId,
                     create_date: prev[zpid]?.create_date || new Date(),
                     last_update_date: new Date()
@@ -413,7 +413,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                                                                     <div className="text-sm font-black text-slate-900 group-hover/link:text-indigo-600 transition-colors decoration-indigo-500/30 group-hover/link:underline underline-offset-4 leading-tight">
                                                                         {prop.address}
                                                                     </div>
-                                                                    {assessments[prop.zpid]?.tester && (
+                                                                    {assessments[prop.zpid]?.auditor && (
                                                                         <button
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
@@ -422,8 +422,8 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                                                                                 setMessagingModal({
                                                                                     zpid: prop.zpid,
                                                                                     address: prop.address,
-                                                                                    recipientId: assessments[prop.zpid].tester,
-                                                                                    recipientName: userNames[assessments[prop.zpid].tester] || 'Auditor',
+                                                                                    recipientId: assessments[prop.zpid].auditor,
+                                                                                    recipientName: userNames[assessments[prop.zpid].auditor] || 'Auditor',
                                                                                     text: ''
                                                                                 });
                                                                             }}
@@ -444,15 +444,15 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                                                     <td className="p-6">
                                                         <div className="flex justify-center">
                                                             <select
-                                                                value={assessments[prop.zpid]?.tester || ''}
-                                                                onChange={(e) => handleAssignTester(prop.zpid, prop.address, e.target.value)}
+                                                                value={assessments[prop.zpid]?.auditor || ''}
+                                                                onChange={(e) => handleAssignAuditor(prop.zpid, prop.address, e.target.value)}
                                                                 className={`bg-white border rounded-lg px-3 py-2 text-[10px] font-bold text-slate-600 outline-none transition-all w-32
-                                                                    ${assessments[prop.zpid]?.tester ? 'border-indigo-200 bg-indigo-50/30' : 'border-slate-200 opacity-60'}
+                                                                    ${assessments[prop.zpid]?.auditor ? 'border-indigo-200 bg-indigo-50/30' : 'border-slate-200 opacity-60'}
                                                                     ${savingZpids.has(prop.zpid) ? 'animate-pulse pointer-events-none' : ''}
                                                                 `}
                                                             >
                                                                 <option value="">Unassigned</option>
-                                                                {allTesters.map(t => (
+                                                                {allAuditors.map(t => (
                                                                     <option key={t.uid} value={t.uid}>{t.displayName}</option>
                                                                 ))}
                                                             </select>
@@ -666,7 +666,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                                     </li>
                                     <li className="flex items-center gap-2">
                                         <i className="fa-solid fa-circle-chevron-right text-[10px] text-indigo-400"></i>
-                                        Create an account as a <span className="font-bold text-indigo-600">tester</span>
+                                        Create an account as a <span className="font-bold text-indigo-600">auditor</span>
                                     </li>
                                 </ul>
                             </div>
@@ -777,7 +777,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                         </p>
                         <div className="flex flex-col gap-3">
                             <button
-                                onClick={() => handleAssignTester(assignmentConfirm.zpid, assignmentConfirm.address, assignmentConfirm.userId, true)}
+                                onClick={() => handleAssignAuditor(assignmentConfirm.zpid, assignmentConfirm.address, assignmentConfirm.userId, true)}
                                 className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
                             >
                                 Yes, Change Assignee

@@ -35,7 +35,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
   const [name, setName] = useState(inviteData?.name || '');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [role, setRole] = useState<'buyer' | 'seller' | 'realtor' | 'investor' | 'tester'>(inviteData?.role || 'buyer');
+  const [role, setRole] = useState<'buyer' | 'seller' | 'realtor' | 'investor' | 'auditor'>(inviteData?.role || 'buyer');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorLink, setErrorLink] = useState<{ url: string, label: string } | null>(null);
@@ -144,6 +144,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
     try {
       localStorage.setItem('zyphe_pending_role', role);
       console.log("[Google Auth] Starting sign-in flow...");
+      sessionStorage.setItem('zyphe_explicit_login', '1');
       const result = (await Promise.race([
         signInWithPopup(auth, googleProvider),
         timeoutPromise
@@ -198,12 +199,13 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
 
     try {
       if (isLogin) {
+        sessionStorage.setItem('zyphe_explicit_login', '1');
         await signInWithEmailAndPassword(auth, email, password);
       } else {
         // Store the intended role in localStorage so App.tsx can find it if Firestore fails or is slow
         localStorage.setItem('zyphe_pending_role', role);
         console.log("Stored pending role in localStorage:", role);
-
+        sessionStorage.setItem('zyphe_explicit_login', '1');
         const result = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(result.user, { displayName: name });
 
@@ -329,7 +331,7 @@ const AuthModal: React.FC<Props> = ({ isOpen, onClose, inviteData }) => {
                   { id: 'seller', label: 'Seller', icon: 'fa-house-user' },
                   { id: 'realtor', label: 'Realtor', icon: 'fa-briefcase' },
                   { id: 'investor', label: 'Investor', icon: 'fa-chart-pie' },
-                  { id: 'tester', label: 'Tester', icon: 'fa-robot' }
+                  { id: 'auditor', label: 'Auditor', icon: 'fa-magnifying-glass' }
                 ].map((r) => (
                   <button
                     key={r.id}

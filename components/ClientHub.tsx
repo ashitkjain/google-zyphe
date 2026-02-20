@@ -17,6 +17,8 @@ import {
     deleteUserAccount,
     syncBestPractices
 } from '../services/firebaseService';
+import { trackPageView } from '../services/firebase/user_activity';
+import { setCurrentPage } from '../services/analytics/posthog';
 import { getInitialMockLeads, getInitialMockTasks, getInitialMockTemplates, getInitialMockTransactions } from '../services/mockDataService';
 import { seedMockData, getRealtorClients } from '../services/firebaseService';
 import { Lead, UserProfile } from '../types';
@@ -31,7 +33,7 @@ interface Props {
     initialTab?: HubTab;
     onNavigate?: (view: any, path: string) => void;
     onUpdateProfile?: (updates: Partial<UserProfile>) => void;
-    userRole?: 'buyer' | 'seller' | 'realtor' | 'investor' | 'tester' | 'admin';
+    userRole?: 'buyer' | 'seller' | 'realtor' | 'investor' | 'auditor' | 'admin';
 }
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab, onNavigate, onUpdateProfile: onUpdateProfileProp, userRole }) => {
@@ -67,6 +69,38 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
     } = hubData;
 
     const { realtorProfile, handleUpdateProfile } = useRealtorProfile(realtorId, realtorName, onUpdateProfileProp);
+
+    // Track every sub-tab switch in PostHog (skip initial mount to avoid double-counting)
+    const isFirstRender = useRef(true);
+    useEffect(() => {
+        // Always update the page context super-property (even on first mount)
+        // so every autocapture click knows which sub-tab it came from
+        const PAGE_LABELS: Record<string, string> = {
+            explore: 'Explore', leads: 'Funnel', clients: 'Clients', closing: 'Closing',
+            reactivate: 'Reactivate', tasks: 'Tasks', calendar: 'Calendar',
+            whiteboard: 'Whiteboard', creative_studio: 'Creative Studio', settings: 'Data Fields',
+            profile: 'Profile', knowledge_center: 'Library', best_practices: 'Best Practices',
+            guides: 'Guides', city_data: 'City Ingestion', data_health: 'Data Health',
+            ai_validation: 'AI Validation', lead_ingestion: 'Lead Ingestion', pdf_csv: 'PDF to CSV',
+            sms_registration: 'SMS Registration', storage_registry: 'Bulk Prefetch',
+            bulk_prefetch: 'Bulk Prefetch', industry_research: 'Industry Research',
+            product_market_fit: 'Product Market Fit', post_close_intelligence: 'Post-Close',
+            technical_papers: 'Technical Papers', video_upload: 'Video Upload',
+            technical_media: 'Technical Media', executive_summary: 'Executive Summary',
+            industry_case_studies: 'Case Studies', unit_economics: 'Unit Economics',
+            premium_mls: 'Premium MLS', reminder_rules: 'Reminder Rules',
+            my_zyphe: 'My Zyphe', context_graph_builder: 'Context Graph',
+        };
+        const label = PAGE_LABELS[activeTab] || activeTab;
+        setCurrentPage(activeTab, label);          // sets super property on ALL future events
+
+        if (isFirstRender.current) { isFirstRender.current = false; return; }
+        if (!realtorId) return;
+        trackPageView(
+            { uid: realtorId, email: realtorProfile?.email || '', displayName: realtorProfile?.displayName || realtorName, role: userRole || realtorProfile?.role || 'unknown' },
+            activeTab
+        );
+    }, [activeTab]);
 
     const {
         handleUpdateLead, handleDragEnd, handleSaveLeadNote,
@@ -120,11 +154,11 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         setIsCreateLeadModalOpen(true);
     };
 
-    const isTester = userRole === 'tester';
+    const isAuditor = userRole === 'auditor';
     const isAdmin = userRole === 'admin';
     const isInvestor = userRole === 'investor';
 
-    const earlyTabs: { id: HubTab; label: string; icon: string }[] = isTester
+    const earlyTabs: { id: HubTab; label: string; icon: string }[] = isAuditor
         ? [
             { id: 'explore', label: 'Explore', icon: 'fa-globe' },
             { id: 'ai_validation', label: 'AI Validation', icon: 'fa-robot' },
@@ -137,7 +171,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             { id: 'clients', label: 'Clients', icon: 'fa-user-group' },
         ];
 
-    const lateTabs: { id: HubTab; label: string; icon: string }[] = isTester
+    const lateTabs: { id: HubTab; label: string; icon: string }[] = isAuditor
         ? [
             { id: 'my_zyphe', label: 'My Zyphe', icon: 'fa-chart-line' },
         ]
@@ -146,8 +180,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             { id: 'my_zyphe', label: 'My Zyphe', icon: 'fa-chart-line' },
         ];
 
-    // CRM tools — not relevant for investors or testers (admins get full realtor toolset)
-    const toolTabs: { id: HubTab; label: string; icon: string }[] = (isTester || isInvestor) ? [] : [
+    // CRM tools — not relevant for investors or auditors (admins get full realtor toolset)
+    const toolTabs: { id: HubTab; label: string; icon: string }[] = (isAuditor || isInvestor) ? [] : [
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
         { id: 'calendar', label: 'Calendar', icon: 'fa-calendar-days' },
         { id: 'lead_ingestion', label: 'Lead Ingestion', icon: 'fa-link' },
@@ -167,7 +201,7 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
         { id: 'storage_registry', label: 'Bulk Prefetch', icon: 'fa-server' },
         { id: 'video_upload', label: 'Video Upload', icon: 'fa-video' },
         { id: 'context_graph_builder', label: 'Context Graph', icon: 'fa-diagram-project' },
-        { id: 'team_stats', label: 'Team Stats', icon: 'fa-users-gear' },
+
     ] : [];
 
     // Investor tabs — visible to investors AND admins

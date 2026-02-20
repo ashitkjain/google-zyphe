@@ -19,7 +19,7 @@ export interface AIAssessment {
     comment: string;
     create_date: any;
     last_update_date: any;
-    tester: string;
+    auditor: string;
     userId: string;
 }
 

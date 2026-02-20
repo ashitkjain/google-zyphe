@@ -15,9 +15,23 @@ export const initPostHog = () => {
 
     posthog.init(POSTHOG_KEY, {
         api_host: POSTHOG_HOST,
-        person_profiles: 'identified_only', // or 'always' if you want to track anonymous users as people
-        capture_pageview: false, // We'll handle this manually for better control
+        person_profiles: 'always',      // capture events from ALL users, not just identified ones
+        capture_pageview: false,        // we track page views manually for full control
+        capture_pageleave: true,        // useful for session duration
+
+        // --- Click & interaction tracking ---
+        autocapture: true,              // capture ALL clicks, form submits, input changes automatically
+        capture_performance: true,      // capture page load / network performance metrics
+
+        // --- Session recording ---
+        session_recording: {
+            maskAllText: false,         // show button labels in recordings (readable UI)
+            maskAllInputs: true,        // always mask input field values (passwords etc.)
+            recordCrossOriginIframes: false,
+        },
+
         loaded: (ph) => {
+            ph.startSessionRecording();  // start recording for every session
             if (import.meta.env.DEV) ph.debug();
         }
     });
@@ -42,6 +56,24 @@ export const trackEvent = (event: string, properties?: Record<string, any>) => {
 export const identifyUser = (userId: string, properties?: Record<string, any>) => {
     if (typeof window !== 'undefined') {
         posthog.identify(userId, properties);
+    }
+};
+
+/**
+ * Set the current page context as a super property.
+ * All subsequent PostHog events (including autocapture clicks) will
+ * automatically include `current_page` and `current_page_key`.
+ * Call this every time the user navigates to a new sub-tab.
+ */
+export const setCurrentPage = (pageKey: string, pageLabel: string) => {
+    if (typeof window !== 'undefined') {
+        posthog.register({
+            current_page_key: pageKey,
+            current_page_label: pageLabel,
+        });
+        if (import.meta.env.DEV) {
+            console.log(`[PostHog] setCurrentPage → key="${pageKey}" label="${pageLabel}"`);
+        }
     }
 };
 

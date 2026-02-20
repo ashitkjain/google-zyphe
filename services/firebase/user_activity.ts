@@ -52,19 +52,44 @@ export const logUserActivity = async (
     }
 };
 
+// Human-readable labels for page keys — mirrors PAGE_LABELS in MyZypheTab
+const PAGE_LABELS: Record<string, string> = {
+    explore: 'Explore', main: 'Home', leads: 'Funnel', closing: 'Closing',
+    reactivate: 'Reactivate', clients: 'Clients', tasks: 'Tasks', calendar: 'Calendar',
+    whiteboard: 'Whiteboard', creative_studio: 'Creative Studio', settings: 'Data Fields',
+    profile: 'Profile', knowledge_center: 'Library', best_practices: 'Best Practices',
+    guides: 'Guides', city_data: 'City Ingestion', data_health: 'Data Health',
+    ai_validation: 'AI Validation', lead_ingestion: 'Lead Ingestion', pdf_csv: 'PDF to CSV',
+    sms_registration: 'SMS Registration', storage_registry: 'Bulk Prefetch',
+    bulk_prefetch: 'Bulk Prefetch', industry_research: 'Industry Research',
+    product_market_fit: 'Product Market Fit', post_close_intelligence: 'Post-Close',
+    technical_papers: 'Technical Papers', video_upload: 'Video Upload',
+    technical_media: 'Technical Media', executive_summary: 'Executive Summary',
+    industry_case_studies: 'Case Studies', unit_economics: 'Unit Economics',
+    premium_mls: 'Premium MLS', reminder_rules: 'Reminder Rules',
+    my_zyphe: 'My Zyphe', context_graph_builder: 'Context Graph',
+};
+
 /**
- * Track a login event. Call when a user successfully authenticates.
+ * Track a login event. Call when a user explicitly authenticates.
  */
 export const trackLogin = (user: { uid: string; email: string; displayName: string; role: string }) => {
-    // Identify user in analytics tools
+    // Identify user in PostHog & Clarity so all subsequent events are attributed correctly
     identifyPH(user.uid, {
         email: user.email,
         name: user.displayName,
-        role: user.role
+        role: user.role,
     });
     identifyClarity(user.uid);
 
-    trackPH('Login', { email: user.email, role: user.role });
+    trackPH('Login', {
+        user_name: user.displayName,
+        user_email: user.email,
+        user_role: user.role,
+        login_method: 'email',
+        timestamp_utc: new Date().toISOString(),
+        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+    });
 
     return logUserActivity({
         user_id: user.uid,
@@ -83,11 +108,21 @@ export const trackPageView = (
     page: string,
     property?: { address?: string; zpid?: string }
 ) => {
+    const pageLabel = PAGE_LABELS[page] || page;
+    const hasProperty = !!(property?.address || property?.zpid);
+
     trackPH('Page_View', {
-        page,
-        address: property?.address,
-        zpid: property?.zpid,
-        user_role: user.role
+        // Page context
+        page_key: page,
+        page_label: pageLabel,
+        // Property context (when viewing a specific property)
+        has_property: hasProperty,
+        property_address: property?.address || null,
+        property_zpid: property?.zpid || null,
+        // User context
+        user_name: user.displayName,
+        user_email: user.email,
+        user_role: user.role,
     });
 
     return logUserActivity({
@@ -109,7 +144,14 @@ export const trackLogout = (
     user: { uid: string; email: string; displayName: string; role: string },
     reason: 'manual' | 'session_timeout' = 'manual'
 ) => {
-    trackPH('Logout', { reason });
+    trackPH('Logout', {
+        reason,
+        logout_type: reason === 'session_timeout' ? 'Inactivity Timeout' : 'Manual Sign-Out',
+        user_name: user.displayName,
+        user_email: user.email,
+        user_role: user.role,
+        timestamp_utc: new Date().toISOString(),
+    });
     resetPH();
 
     return logUserActivity({

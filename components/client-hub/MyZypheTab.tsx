@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { getUserActivity, UserActivityEvent } from '../../services/firebaseService';
+import { getAllUsers } from '../../services/firebase/user';
 import { getAllUserNotes, deleteStickyNote } from '../../services/firebase/stickyNotes';
 import { UserPropertyComment } from '../../types/stickyNotes';
 import MessagesTab from './MessagesTab';
+import { UserProfile } from '../../types/user';
 
 interface MyZypheTabProps {
     userId: string;
@@ -92,16 +94,26 @@ const formatFullDate = (ts: any): string => {
     });
 };
 
-type FilterType = 'all' | 'login' | 'page_view' | 'logout' | 'session_timeout';
+
 
 const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, role }) => {
     const [activity, setActivity] = useState<UserActivityEvent[]>([]);
     const [notes, setNotes] = useState<UserPropertyComment[]>([]);
     const [loading, setLoading] = useState(true);
     const [notesLoading, setNotesLoading] = useState(true);
-    const [filter, setFilter] = useState<FilterType>('all');
-    const [activeTab, setActiveTab] = useState<'activity' | 'notes' | 'messages'>('activity');
 
+    const [activeTab, setActiveTab] = useState<'activity' | 'notes' | 'messages' | 'all_users'>('activity');
+
+    // Admin-only: users list + per-user activity cache
+    const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+    const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+    // cache: uid → fetched events (undefined = not yet loaded)
+    const userActivityCache = useRef<Record<string, UserActivityEvent[]>>({});
+    const [selectedUserEvents, setSelectedUserEvents] = useState<UserActivityEvent[]>([]);
+    const [selectedUserLoading, setSelectedUserLoading] = useState(false);
+
+    // Personal activity + notes
     const loadData = async () => {
         setLoading(true);
         try {
@@ -131,6 +143,52 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
         loadNotes();
     }, [userId]);
 
+    // Load user list when admin opens the tab
+    useEffect(() => {
+        if (role !== 'admin') return;
+        const loadUsers = async () => {
+            setAdminUsersLoading(true);
+            try {
+                const users = await getAllUsers();
+                const sorted = [...users].sort((a, b) =>
+                    (a.displayName || a.email || '').localeCompare(b.displayName || b.email || '')
+                );
+                setAllUsers(sorted);
+                // Auto-select admin's own entry first, else first user
+                const firstUid = sorted.find(u => u.uid === userId)?.uid ?? sorted[0]?.uid ?? null;
+                setSelectedUserId(firstUid);
+            } catch (err) {
+                console.error('[MyZyphe] Failed to load users:', err);
+            } finally {
+                setAdminUsersLoading(false);
+            }
+        };
+        loadUsers();
+    }, [role]);
+
+    // Fetch selected user's activity on demand, using the cache
+    useEffect(() => {
+        if (!selectedUserId) return;
+        if (userActivityCache.current[selectedUserId]) {
+            setSelectedUserEvents(userActivityCache.current[selectedUserId]);
+            return;
+        }
+        const fetchUserActivity = async () => {
+            setSelectedUserLoading(true);
+            try {
+                const events = await getUserActivity(selectedUserId, undefined, undefined, 200);
+                userActivityCache.current[selectedUserId] = events;
+                setSelectedUserEvents(events);
+            } catch (err) {
+                console.error('[MyZyphe] Failed to load user activity:', err);
+                setSelectedUserEvents([]);
+            } finally {
+                setSelectedUserLoading(false);
+            }
+        };
+        fetchUserActivity();
+    }, [selectedUserId]);
+
     const handleDeleteNote = async (id: string) => {
         if (!window.confirm('Delete this sticky note permanently?')) return;
         const success = await deleteStickyNote(id);
@@ -139,10 +197,6 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
         }
     };
 
-    const filteredActivity = useMemo(() => {
-        if (filter === 'all') return activity;
-        return activity.filter(e => e.event_type === filter);
-    }, [activity, filter]);
 
     const stats = useMemo(() => {
         const logins = activity.filter(e => e.event_type === 'login').length;
@@ -152,22 +206,51 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
         return { logins, pageViews, uniquePages, propertiesViewed, notesCount: notes.length };
     }, [activity, notes]);
 
-    const groupedByDate = useMemo(() => {
-        const groups: { date: string; events: UserActivityEvent[] }[] = [];
-        let currentDate = '';
-        for (const event of filteredActivity) {
+    type DaySummaryEntry = {
+        date: string;
+        dateRaw: Date;
+        logins: number;
+        pageCounts: Record<string, number>;
+        propCounts: Map<string, { address: string; count: number }>;
+    };
+
+    const daySummary = useMemo((): DaySummaryEntry[] => {
+        const map = new Map<string, {
+            date: string;
+            dateRaw: Date;
+            logins: number;
+            pageCounts: Record<string, number>;          // page key → view count
+            propCounts: Map<string, { address: string; count: number }>; // zpid → {address, count}
+        }>();
+
+        for (const event of activity) {
             const ts = event.timestamp;
             if (!ts) continue;
-            const date = (ts.toDate ? ts.toDate() : new Date(ts.seconds ? ts.seconds * 1000 : ts));
-            const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-            if (dateStr !== currentDate) {
-                currentDate = dateStr;
-                groups.push({ date: dateStr, events: [] });
+            const d = ts.toDate ? ts.toDate() : new Date(ts.seconds ? ts.seconds * 1000 : ts);
+            const key = d.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+            const label = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+            if (!map.has(key)) {
+                map.set(key, { date: label, dateRaw: d, logins: 0, pageCounts: {}, propCounts: new Map<string, { address: string; count: number }>() });
             }
-            groups[groups.length - 1].events.push(event);
+            const entry = map.get(key)!;
+            if (event.event_type === 'login') {
+                entry.logins++;
+            } else if (event.event_type === 'page_view') {
+                const pageKey = event.page || 'unknown';
+                entry.pageCounts[pageKey] = (entry.pageCounts[pageKey] || 0) + 1;
+                if (event.zpid) {
+                    const existing = entry.propCounts.get(event.zpid);
+                    entry.propCounts.set(event.zpid, {
+                        address: event.address || event.zpid,
+                        count: (existing?.count || 0) + 1
+                    });
+                }
+            }
         }
-        return groups;
-    }, [filteredActivity]);
+
+        return Array.from(map.values()).sort((a, b) => b.dateRaw.getTime() - a.dateRaw.getTime());
+    }, [activity]);
 
     return (
         <div className="bg-slate-50 min-h-screen">
@@ -206,12 +289,20 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
                                     {stats.notesCount}
                                 </span>
                             </button>
-                            {(role === 'admin' || role === 'tester') && (
+                            {(role === 'admin' || role === 'auditor') && (
                                 <button
                                     onClick={() => setActiveTab('messages')}
                                     className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'messages' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
                                 >
                                     <i className="fa-solid fa-comments"></i> Messages
+                                </button>
+                            )}
+                            {role === 'admin' && (
+                                <button
+                                    onClick={() => setActiveTab('all_users')}
+                                    className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'all_users' ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30' : 'text-white/40 hover:text-white/70'}`}
+                                >
+                                    <i className="fa-solid fa-users"></i> All Users
                                 </button>
                             )}
                         </div>
@@ -251,27 +342,6 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
             <div className="max-w-6xl mx-auto px-8 py-8">
                 {activeTab === 'activity' ? (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        {/* Filter Bar */}
-                        <div className="flex items-center gap-2 mb-8 overflow-x-auto no-scrollbar pb-2">
-                            {([
-                                { id: 'all', label: 'All Events', icon: 'fa-layer-group' },
-                                { id: 'login', label: 'Logins', icon: 'fa-right-to-bracket' },
-                                { id: 'page_view', label: 'Page Views', icon: 'fa-eye' },
-                            ] as { id: FilterType; label: string; icon: string }[]).map((f) => (
-                                <button
-                                    key={f.id}
-                                    onClick={() => setFilter(f.id)}
-                                    className={`px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap shadow-sm border ${filter === f.id
-                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-indigo-200 shadow-xl'
-                                        : 'bg-white text-slate-500 hover:text-slate-800 border-slate-200'
-                                        }`}
-                                >
-                                    <i className={`fa-solid ${f.icon}`}></i>
-                                    {f.label}
-                                </button>
-                            ))}
-                        </div>
-
                         {loading ? (
                             <div className="flex flex-col items-center justify-center py-20">
                                 <div className="w-20 h-20 rounded-3xl bg-indigo-50 flex items-center justify-center mb-6 animate-pulse">
@@ -279,75 +349,262 @@ const MyZypheTab: React.FC<MyZypheTabProps> = ({ userId, displayName, email, rol
                                 </div>
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Compiling activities...</p>
                             </div>
-                        ) : filteredActivity.length === 0 ? (
+                        ) : daySummary.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-32 bg-white rounded-[2rem] border border-slate-100 shadow-sm">
                                 <i className="fa-solid fa-wind text-slate-100 text-7xl mb-6"></i>
                                 <h3 className="text-xl font-black text-slate-800 mb-2">The timeline is clear.</h3>
                                 <p className="text-sm text-slate-400 font-medium max-w-xs text-center">Your future explorations will document your journey here.</p>
                             </div>
                         ) : (
-                            <div className="space-y-12">
-                                {groupedByDate.map((group) => (
-                                    <div key={group.date}>
-                                        <div className="flex items-center gap-6 mb-8 group">
-                                            <div className="w-12 h-12 rounded-2xl bg-slate-900 border-4 border-white shadow-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                                                <i className="fa-solid fa-calendar-check text-white text-sm"></i>
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <h2 className="text-base font-black text-slate-800 tracking-tight">{group.date}</h2>
-                                                <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">
-                                                    {group.events.length} Interaction{group.events.length !== 1 ? 's' : ''}
+                            <div className="space-y-2">
+                                {daySummary.map((day) => {
+                                    const pageRows: [string, number][] = (Object.entries(day.pageCounts) as [string, number][]).sort((a, b) => b[1] - a[1]);
+                                    const propRows: { address: string; count: number }[] = (Array.from(day.propCounts.values()) as { address: string; count: number }[]).sort((a, b) => b.count - a.count);
+                                    const totalViews: number = pageRows.reduce((s, [, c]) => s + c, 0);
+                                    return (
+                                        <div key={day.date} className="bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all overflow-hidden">
+                                            {/* Day header — single compact row */}
+                                            <div className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-50 bg-slate-50/60">
+                                                <i className="fa-solid fa-calendar-day text-slate-400 text-[11px]"></i>
+                                                <span className="text-[11px] font-black text-slate-700 tracking-tight flex-1">{day.date}</span>
+                                                {day.logins > 0 && (
+                                                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-100 text-emerald-700 text-[9px] font-black uppercase tracking-widest">
+                                                        <i className="fa-solid fa-right-to-bracket mr-1"></i>{day.logins} sign-in{day.logins !== 1 ? 's' : ''}
+                                                    </span>
+                                                )}
+                                                <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-600 text-[9px] font-black uppercase tracking-widest">
+                                                    {totalViews} view{totalViews !== 1 ? 's' : ''}
                                                 </span>
                                             </div>
-                                            <div className="flex-1 h-px bg-slate-200"></div>
-                                        </div>
 
-                                        <div className="relative ml-6 pl-10 border-l-2 border-slate-200/60 pb-8 space-y-4">
-                                            {group.events.map((event, i) => {
-                                                const cfg = EVENT_ICONS[event.event_type] || EVENT_ICONS['page_view'];
-                                                const pageLabel = event.page ? (PAGE_LABELS[event.page] || event.page) : '';
-
-                                                return (
-                                                    <div key={event.id || i} className="relative group">
-                                                        <div className={`absolute -left-[calc(2.5rem+7px)] w-3.5 h-3.5 rounded-full border-4 border-slate-50 shadow-md ${event.event_type === 'login' ? 'bg-emerald-400' :
-                                                            event.event_type === 'logout' ? 'bg-slate-400' :
-                                                                'bg-indigo-400'
-                                                            }`}></div>
-
-                                                        <div className="bg-white rounded-2xl p-5 border border-slate-100 hover:border-indigo-100 hover:shadow-xl hover:shadow-indigo-50 transition-all group-hover:translate-x-2">
-                                                            <div className="flex items-center gap-4">
-                                                                <div className={`w-12 h-12 rounded-2xl ${cfg.bg} flex items-center justify-center flex-shrink-0 shadow-inner`}>
-                                                                    <i className={`fa-solid ${cfg.icon} ${cfg.color} text-lg`}></i>
-                                                                </div>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <div className="flex items-center gap-3 mb-1.5 flex-wrap">
-                                                                        <span className="text-sm font-black text-slate-900">{cfg.label}</span>
-                                                                        {pageLabel && (
-                                                                            <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-[9px] font-black uppercase tracking-widest border border-indigo-100/50">
-                                                                                {pageLabel}
+                                            {/* Two-column breakdown */}
+                                            <div className="grid grid-cols-2 divide-x divide-slate-50">
+                                                {/* Left: page breakdown */}
+                                                <div className="px-3 py-2">
+                                                    <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1.5">Tabs visited</p>
+                                                    {pageRows.length === 0 ? (
+                                                        <p className="text-[10px] text-slate-300 italic">—</p>
+                                                    ) : (
+                                                        <table className="w-full">
+                                                            <tbody>
+                                                                {pageRows.map(([page, count]) => (
+                                                                    <tr key={page} className="group">
+                                                                        <td className="py-0.5 pr-2">
+                                                                            <span className="text-[10px] font-semibold text-slate-600 group-hover:text-indigo-600 transition-colors">
+                                                                                {PAGE_LABELS[page] || page}
                                                                             </span>
-                                                                        )}
-                                                                    </div>
-                                                                    {event.address && (
-                                                                        <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500">
-                                                                            <i className="fa-solid fa-location-dot text-indigo-400"></i>
-                                                                            {event.address}
-                                                                            {event.zpid && <span className="opacity-40 font-mono ml-2">#{event.zpid}</span>}
-                                                                        </div>
+                                                                        </td>
+                                                                        <td className="py-0.5 text-right">
+                                                                            <span className="text-[10px] font-black text-indigo-500 tabular-nums">{count}×</span>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    )}
+                                                </div>
+
+                                                {/* Right: property breakdown */}
+                                                <div className="px-3 py-2">
+                                                    <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1.5">Properties explored</p>
+                                                    {propRows.length === 0 ? (
+                                                        <p className="text-[10px] text-slate-300 italic">None</p>
+                                                    ) : (
+                                                        <table className="w-full">
+                                                            <tbody>
+                                                                {propRows.map((prop) => (
+                                                                    <tr key={prop.address} className="group">
+                                                                        <td className="py-0.5 pr-2 max-w-0 w-full">
+                                                                            <span className="text-[10px] font-semibold text-slate-600 group-hover:text-amber-600 transition-colors truncate block">
+                                                                                {prop.address}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="py-0.5 text-right">
+                                                                            <span className="text-[10px] font-black text-amber-500 tabular-nums">{prop.count}×</span>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                ) : activeTab === 'all_users' ? (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {adminUsersLoading ? (
+                            <div className="flex flex-col items-center justify-center py-20">
+                                <div className="w-20 h-20 rounded-3xl bg-violet-50 flex items-center justify-center mb-6 animate-pulse">
+                                    <i className="fa-solid fa-users text-violet-400 text-2xl"></i>
+                                </div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Loading all user activity...</p>
+                            </div>
+                        ) : (
+                            <div>
+                                {/* User sub-tabs */}
+                                <div className="flex gap-1.5 flex-wrap mb-6">
+                                    {allUsers.map((u) => {
+                                        const userEventCount = userActivityCache.current[u.uid]?.length ?? null;
+                                        const isSelected = selectedUserId === u.uid;
+                                        return (
+                                            <button
+                                                key={u.uid}
+                                                onClick={() => setSelectedUserId(u.uid)}
+                                                className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${isSelected
+                                                    ? 'bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-200'
+                                                    : 'bg-white text-slate-500 border-slate-200 hover:border-violet-300 hover:text-violet-600'
+                                                    }`}
+                                            >
+                                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black ${isSelected ? 'bg-white/20' : 'bg-slate-100 text-slate-400'}`}>
+                                                    {(u.displayName || u.email || '?')[0].toUpperCase()}
+                                                </span>
+                                                <span className="truncate max-w-[120px]">{u.displayName || u.email}</span>
+                                                <span className={`px-1.5 py-0.5 rounded-md text-[8px] ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                                    {userEventCount !== null ? userEventCount : '…'}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Selected user's activity breakdown */}
+                                {(() => {
+                                    const userEvents = selectedUserEvents;
+                                    const selectedUser = allUsers.find(u => u.uid === selectedUserId);
+
+                                    // Build daySummary for selected user
+                                    type AdminDayEntry = {
+                                        date: string; dateRaw: Date; logins: number;
+                                        pageCounts: Record<string, number>;
+                                        propCounts: Map<string, { address: string; count: number }>;
+                                    };
+                                    const dayMap = new Map<string, AdminDayEntry>();
+                                    for (const event of userEvents) {
+                                        const ts = event.timestamp;
+                                        if (!ts) continue;
+                                        const d = ts.toDate ? ts.toDate() : new Date(ts.seconds ? ts.seconds * 1000 : ts);
+                                        const key = d.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+                                        const label = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+                                        if (!dayMap.has(key)) {
+                                            dayMap.set(key, { date: label, dateRaw: d, logins: 0, pageCounts: {}, propCounts: new Map<string, { address: string; count: number }>() });
+                                        }
+                                        const entry = dayMap.get(key)!;
+                                        if (event.event_type === 'login') {
+                                            entry.logins++;
+                                        } else if (event.event_type === 'page_view') {
+                                            const pk = event.page || 'unknown';
+                                            entry.pageCounts[pk] = (entry.pageCounts[pk] || 0) + 1;
+                                            if (event.zpid) {
+                                                const ex = entry.propCounts.get(event.zpid);
+                                                entry.propCounts.set(event.zpid, { address: event.address || event.zpid, count: (ex?.count || 0) + 1 });
+                                            }
+                                        }
+                                    }
+                                    const userDays: AdminDayEntry[] = Array.from(dayMap.values()).sort((a, b) => b.dateRaw.getTime() - a.dateRaw.getTime());
+
+                                    if (selectedUserLoading) {
+                                        return (
+                                            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                                                <div className="w-14 h-14 rounded-2xl bg-violet-50 flex items-center justify-center mb-4 animate-pulse">
+                                                    <i className="fa-solid fa-spinner fa-spin text-violet-400 text-xl"></i>
+                                                </div>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Loading activity...</p>
+                                            </div>
+                                        );
+                                    }
+
+                                    if (!selectedUser || userDays.length === 0) {
+                                        return (
+                                            <div className="flex flex-col items-center justify-center py-24 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                                                <i className="fa-solid fa-wind text-slate-100 text-5xl mb-4"></i>
+                                                <p className="text-sm font-black text-slate-400">No activity recorded for this user.</p>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div>
+                                            <div className="flex items-center gap-3 mb-4 px-1">
+                                                <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center text-violet-600 font-black text-sm">
+                                                    {(selectedUser.displayName || selectedUser.email || '?')[0].toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-black text-slate-800">{selectedUser.displayName || selectedUser.email}</p>
+                                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{selectedUser.role} · {selectedUser.email}</p>
+                                                </div>
+                                                <div className="ml-auto flex gap-3 text-right">
+                                                    <div className="px-3 py-1.5 rounded-xl bg-violet-50 border border-violet-100 text-violet-700 text-[9px] font-black uppercase tracking-widest">
+                                                        {userEvents.filter(e => e.event_type === 'login').length} sign-ins
+                                                    </div>
+                                                    <div className="px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 text-[9px] font-black uppercase tracking-widest">
+                                                        {userEvents.filter(e => e.event_type === 'page_view').length} page views
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                {userDays.map((day) => {
+                                                    const pageRows: [string, number][] = (Object.entries(day.pageCounts) as [string, number][]).sort((a, b) => b[1] - a[1]);
+                                                    const propRows: { address: string; count: number }[] = (Array.from(day.propCounts.values()) as { address: string; count: number }[]).sort((a, b) => b.count - a.count);
+                                                    const totalViews: number = pageRows.reduce((s, [, c]) => s + c, 0);
+                                                    return (
+                                                        <div key={day.date} className="bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md hover:border-violet-100 transition-all overflow-hidden">
+                                                            <div className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-50 bg-slate-50/60">
+                                                                <i className="fa-solid fa-calendar-day text-slate-400 text-[11px]"></i>
+                                                                <span className="text-[11px] font-black text-slate-700 tracking-tight flex-1">{day.date}</span>
+                                                                {day.logins > 0 && (
+                                                                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-100 text-emerald-700 text-[9px] font-black uppercase tracking-widest">
+                                                                        <i className="fa-solid fa-right-to-bracket mr-1"></i>{day.logins} sign-in{day.logins !== 1 ? 's' : ''}
+                                                                    </span>
+                                                                )}
+                                                                <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-600 text-[9px] font-black uppercase tracking-widest">
+                                                                    {totalViews} view{totalViews !== 1 ? 's' : ''}
+                                                                </span>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 divide-x divide-slate-50">
+                                                                <div className="px-3 py-2">
+                                                                    <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1.5">Tabs visited</p>
+                                                                    {pageRows.length === 0 ? (
+                                                                        <p className="text-[10px] text-slate-300 italic">—</p>
+                                                                    ) : (
+                                                                        <table className="w-full"><tbody>
+                                                                            {pageRows.map(([page, count]) => (
+                                                                                <tr key={page} className="group">
+                                                                                    <td className="py-0.5 pr-2"><span className="text-[10px] font-semibold text-slate-600 group-hover:text-indigo-600 transition-colors">{PAGE_LABELS[page] || page}</span></td>
+                                                                                    <td className="py-0.5 text-right"><span className="text-[10px] font-black text-indigo-500 tabular-nums">{count}×</span></td>
+                                                                                </tr>
+                                                                            ))}
+                                                                        </tbody></table>
                                                                     )}
                                                                 </div>
-                                                                <div className="text-right">
-                                                                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-tighter mb-0.5">{formatFullDate(event.timestamp).split(',')[0]}</p>
-                                                                    <p className="text-xs font-black text-slate-800 tabular-nums">{formatTimestamp(event.timestamp)}</p>
+                                                                <div className="px-3 py-2">
+                                                                    <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1.5">Properties explored</p>
+                                                                    {propRows.length === 0 ? (
+                                                                        <p className="text-[10px] text-slate-300 italic">None</p>
+                                                                    ) : (
+                                                                        <table className="w-full"><tbody>
+                                                                            {propRows.map((prop) => (
+                                                                                <tr key={prop.address} className="group">
+                                                                                    <td className="py-0.5 pr-2 max-w-0 w-full"><span className="text-[10px] font-semibold text-slate-600 group-hover:text-amber-600 transition-colors truncate block">{prop.address}</span></td>
+                                                                                    <td className="py-0.5 text-right"><span className="text-[10px] font-black text-amber-500 tabular-nums">{prop.count}×</span></td>
+                                                                                </tr>
+                                                                            ))}
+                                                                        </tbody></table>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                );
-                                            })}
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })()}
                             </div>
                         )}
                     </div>
