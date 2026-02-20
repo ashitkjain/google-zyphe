@@ -21,7 +21,7 @@ TASK: Analyze the provided Street View image and output a JSON object with the f
   8. solarObstructions: Identify if tall buildings, oversized trees, or structures might obstruct sunlight for solar panels.
   9. parkingLogistics: Describe ONLY what is visible on the street: e.g.availability of street parking, presence of no - parking signs, red curbs, fire hydrants, or narrow street width.Do NOT guess or describe garage or driveway capacity — that data comes from MLS records.
   10. familySafety: Assessment of child / pet safety(e.g., "Fully fenced front yard", "Continuous sidewalk infrastructure", "Proximity to high-traffic intersection").
-  10. utilityAesthetic: Note if overhead power lines are VISIBLY present.Do not assume or guess; if you don't see them, state they are underground.
+  10. utilityAesthetic: Note if overhead power lines are PROMINENTLY visible and visually impactful (e.g., lines running directly in front of the home, across the main view, or dominating the streetscape). Do NOT flag faint, distant, or partially-obscured lines in the background — only report them if they meaningfully affect the street-level aesthetic. If not prominently visible, state "Utilities appear underground or not prominently visible."
 11. isImageryAvailable: A boolean string("true", "false").Set to false ONLY if the image provided contains a clear "no imagery" placeholder, is a solid black / gray screen, or clearly says "Sorry, we have no imagery here."
 12. neighborCondition: A sentence evaluating the upkeep of the surrounding houses and neighborhood.Identify any 'visual disorder' like litter, overgrown lots, or abandoned vehicles.
 
