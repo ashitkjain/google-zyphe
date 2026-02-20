@@ -796,8 +796,9 @@ export const analyzeStreetView = async (imageUrl: string, property: PropertyData
 
   // 2. Permanently Store Image in Firebase Storage
   try {
-    const storagePath = `properties/${property.zpid || 'unknown'}/streetview_${Date.now()}.jpg`;
-    console.log(`[analyzeStreetView] Attempting to store image to: ${storagePath}`);
+    // Fixed path — overwrites any existing file rather than accumulating timestamped duplicates
+    const storagePath = `properties/${property.zpid || 'unknown'}/maps/street_view.jpg`;
+    console.log(`[analyzeStreetView] Storing street view image to: ${storagePath}`);
     const permanentImageUrl = await uploadImageToStorage(`data:${mimeType};base64,${data}`, storagePath);
 
     console.log("[analyzeStreetView] Permanent image URL generated:", permanentImageUrl);

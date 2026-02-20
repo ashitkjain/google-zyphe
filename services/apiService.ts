@@ -1157,57 +1157,24 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
 
       // 4. AI Street View Analysis
       if (cachedEnvData?.streetViewAnalysis?.imageUrl && cachedEnvData?.streetViewAnalysis?.privacyRating && !forceEnvironment) {
-        console.log("[fetchPropertyDataFull] Using cached Forensic Street View analysis.");
+        console.log("[fetchPropertyDataFull] Using cached Street View analysis.");
         mappedData.streetViewAnalysis = cachedEnvData.streetViewAnalysis;
       } else {
         onStep?.("Analyzing curb appeal with AI...");
         const encodedAddress = encodeURIComponent(mappedData.address);
-        const lat = mappedData.coordinates?.latitude;
-        const lng = mappedData.coordinates?.longitude;
         console.log(`[fetchPropertyDataFull] ${cachedEnvData?.streetViewAnalysis ? 'Re-analyzing' : 'Analyzing'} Street View for: ${mappedData.address}`);
 
-        // Build candidate URLs to try in order
-        const candidateUrls: string[] = [
-          // Primary: address-based, narrow radius, outdoor only
-          `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${encodedAddress}&fov=90&radius=100&source=outdoor&return_error_code=true&key=${MAPS_API_KEY}`,
-        ];
+        const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${encodedAddress}&fov=90&radius=100&source=outdoor&return_error_code=true&key=${MAPS_API_KEY}`;
 
-        // Fallback 2: raw coordinates if available
-        if (lat && lng) {
-          candidateUrls.push(
-            `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${lat},${lng}&fov=90&radius=500&return_error_code=true&key=${MAPS_API_KEY}`
-          );
-        }
-
-        const userId = auth?.currentUser?.uid || "unknown";
-        let analysisSucceeded = false;
-
-        for (let i = 0; i < candidateUrls.length; i++) {
-          const url = candidateUrls[i];
-          const label = i === 0 ? 'primary' : `fallback-${i}`;
-          try {
-            console.log(`[fetchPropertyDataFull] Trying Street View (${label}): ${url}`);
-            const svAnalysis = await analyzeStreetView(url, mappedData, userId);
-            mappedData.streetViewAnalysis = svAnalysis.data;
-            console.log(`[fetchPropertyDataFull] Street View analysis complete (${label}). Image URL:`, mappedData.streetViewAnalysis?.imageUrl);
-            analysisSucceeded = true;
-            break; // success — stop trying
-          } catch (e: any) {
-            const is404 = e.message?.includes('404') || e.message?.includes('ZERO_RESULTS') || e.message?.includes('Status 4');
-            console.warn(`[fetchPropertyDataFull] Street View (${label}) failed: ${e.message || e}`);
-            if (!is404 || i === candidateUrls.length - 1) {
-              // Non-image error (network / AI failure) or exhausted all candidates — give up
-              break;
-            }
-            // 404/no imagery → try next candidate
-          }
-        }
-
-        if (!analysisSucceeded) {
-          console.warn("[fetchPropertyDataFull] No Street View imagery available for this address. Section will be hidden.");
+        try {
+          const userId = auth?.currentUser?.uid || "unknown";
+          const svAnalysis = await analyzeStreetView(streetViewUrl, mappedData, userId);
+          mappedData.streetViewAnalysis = svAnalysis.data;
+          console.log("[fetchPropertyDataFull] Street View analysis complete. Image URL:", mappedData.streetViewAnalysis?.imageUrl);
+        } catch (e: any) {
+          console.warn("[fetchPropertyDataFull] Street View not available for this address. Section will be hidden.", e.message || e);
         }
       }
-
 
       // Save back to cache (merge with existing)
       if (storageKey) {
