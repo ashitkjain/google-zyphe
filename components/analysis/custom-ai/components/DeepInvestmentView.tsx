@@ -186,9 +186,16 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
             }
         }
 
-        // 5. Aggressive cleanup of trailing JSON punctuation (quotes, braces, commas)
-        // This removes the "residue" left behind after truncating at a marker or simply 
-        // lingering at the end of a malformed AI response.
+        // 5. Line-level strip: remove trailing lines that are pure JSON punctuation.
+        // e.g. lines containing only ", }, }, ... that slip through step 4.
+        const jsonPunctLine = /^[\s"{}\[\],\.]+$/;
+        const lines = cleaned.split('\n');
+        while (lines.length > 0 && jsonPunctLine.test(lines[lines.length - 1])) {
+            lines.pop();
+        }
+        cleaned = lines.join('\n');
+
+        // 6. Char-level aggressive cleanup of any remaining trailing punctuation residue.
         let prev;
         do {
             prev = cleaned;
@@ -270,6 +277,12 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
         while (i < lines.length) {
             const line = lines[i];
             const trimmedLine = line.trim();
+
+            // Skip lines that are pure JSON punctuation leakage (e.g. `"`, `}`, `},`, `...`)
+            if (/^[\s"{}[\],\.]+$/.test(trimmedLine) && trimmedLine !== '') {
+                i++;
+                continue;
+            }
 
             // Table detection
             if (trimmedLine.startsWith('|')) {
