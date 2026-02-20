@@ -1,193 +1,233 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 
-interface Property3DMapProps {
+interface Props {
     latitude: number;
     longitude: number;
-    address: string;
+    address?: string;
 }
 
-// Google Maps 3D Custom Element types are handled via any casting in the component
+const CESIUM_VERSION = '1.122';
+const CESIUM_BASE = `https://cesium.com/downloads/cesiumjs/releases/${CESIUM_VERSION}/Build/Cesium`;
+const GOOGLE_MAPS_KEY = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyCQ-OcGRDMK8nGmCMzpuxHT0Y9vJgqajRI';
 
-const Property3DMap: React.FC<Property3DMapProps> = ({ latitude, longitude, address }) => {
+/** Generates a data URL for an indigo map pin SVG used as the Cesium billboard. */
+function buildPinSVG(): string {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="48" viewBox="0 0 36 48">
+      <path fill="#4f46e5" stroke="#312e81" stroke-width="1.5"
+        d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 30 18 30S36 31.5 36 18C36 8.06 27.94 0 18 0z"/>
+      <circle cx="18" cy="18" r="8" fill="white"/>
+      <circle cx="18" cy="18" r="5" fill="#4f46e5"/>
+    </svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+
+/** Dynamically load a CSS link tag (idempotent) */
+function loadCSS(href: string, id: string) {
+    if (document.getElementById(id)) return;
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
+}
+
+/** Dynamically load a script tag (idempotent, returns promise) */
+function loadScript(src: string, id: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        if (document.getElementById(id)) { resolve(); return; }
+        const script = document.createElement('script');
+        script.id = id;
+        script.src = src;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Failed to load ${src}`));
+        document.head.appendChild(script);
+    });
+}
+
+const Property3DMap: React.FC<Props> = ({ latitude, longitude, address }) => {
     const containerRef = useRef<HTMLDivElement>(null);
-    const mapRef = useRef<any>(null);
+    const viewerRef = useRef<any>(null);
     const [isLoaded, setIsLoaded] = useState(false);
-    const isLoadedRef = useRef(false);
     const [error, setError] = useState<string | null>(null);
-    const [debugInfo, setDebugInfo] = useState<string>("");
-    const [loadingStep, setLoadingStep] = useState<string>("Initializing...");
+    const [loadingStep, setLoadingStep] = useState('Initializing...');
 
     useEffect(() => {
-        let timeoutId: any;
-        let isCancelled = false; // Track if the effect is cleaned up
+        let isCancelled = false;
 
-        isLoadedRef.current = false;
-        setIsLoaded(false);
-        setError(null);
-        setLoadingStep("Connecting to Google Neural Link...");
-
-        const startTimeout = () => {
-            timeoutId = setTimeout(() => {
-                if (!isLoadedRef.current && !isCancelled) {
-                    console.error("[3D Map] Neural Link Timeout.");
-                    setError("Neural Link Timed Out. Please ensure the 'Map Tiles API' is enabled and your API Key '...hqvk' is correctly configured with no restrictions.");
-                }
-            }, 15000);
-        };
-
-        const initMap = async () => {
+        const init = async () => {
             try {
-                if (isCancelled) return;
-                setDebugInfo(`LOC: ${latitude.toFixed(4)}, ${longitude.toFixed(5)}`);
-
                 if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
-                    if (!isCancelled) setError("Neural data missing: Latitude/Longitude not found.");
+                    setError('Invalid coordinates — latitude/longitude not found.');
                     return;
                 }
 
-                if (isCancelled) return;
-                setLoadingStep("Fetching 3D Geometry Libraries...");
+                // 1. Load Cesium assets from CDN
+                setLoadingStep('Loading 3D Engine...');
+                loadCSS(`${CESIUM_BASE}/Widgets/widgets.css`, 'cesium-css');
+                await loadScript(`${CESIUM_BASE}/Cesium.js`, 'cesium-js');
 
-                // Check for google object
-                // @ts-ignore
-                if (!window.google) {
-                    if (isCancelled) return;
-                    setLoadingStep("Waiting for Maps.js to arrive...");
-                    setTimeout(() => { if (!isCancelled) initMap(); }, 1000);
+                if (isCancelled) return;
+
+                const Cesium = (window as any).Cesium;
+                if (!Cesium) {
+                    setError('Cesium failed to load from CDN.');
                     return;
                 }
 
-                // @ts-ignore
-                if (!google.maps || !google.maps.importLibrary) {
-                    if (isCancelled) return;
-                    setLoadingStep("Bootstrapping Maps Engine...");
-                    setTimeout(() => { if (!isCancelled) initMap(); }, 500);
-                    return;
-                }
+                // Use a blank Ion token — we're using Google tiles directly, not Cesium Ion
+                Cesium.Ion.defaultAccessToken = '';
 
-                if (isCancelled) return;
-                setLoadingStep("Rendering Cinematic 3D Scene...");
-                // @ts-ignore
-                const { Map3DElement } = await google.maps.importLibrary("maps3d");
-
-                if (isCancelled) return;
-                if (!containerRef.current) return;
+                if (isCancelled || !containerRef.current) return;
                 containerRef.current.innerHTML = '';
 
-                const map3d = new Map3DElement({
-                    center: { lat: latitude, lng: longitude, altitude: 250 },
-                    tilt: 65,
-                    heading: 0,
-                    range: 550
+                setLoadingStep('Initializing 3D Viewer...');
+
+                // 2. Create Cesium Viewer with minimal UI — disable all Ion-dependent assets
+                const viewer = new Cesium.Viewer(containerRef.current, {
+                    baseLayerPicker: false,
+                    geocoder: false,
+                    homeButton: false,
+                    sceneModePicker: false,
+                    navigationHelpButton: false,
+                    animation: false,
+                    timeline: false,
+                    fullscreenButton: false,
+                    vrButton: false,
+                    infoBox: false,
+                    selectionIndicator: false,
+                    // Prevent any Cesium Ion asset loading (no Ion token needed)
+                    imageryProvider: false,
+                    terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+                    creditContainer: Object.assign(document.createElement('div'), {
+                        style: 'display:none'
+                    }),
                 });
 
-                if (isCancelled) return;
-                containerRef.current.appendChild(map3d);
-                mapRef.current = map3d;
+                // Hide the globe entirely — we use Google 3D tiles, not Cesium's globe
+                viewer.scene.globe.show = false;
 
-                setLoadingStep("Finalizing Photorealistic Stream...");
-                setTimeout(() => {
-                    if (!isCancelled) {
-                        isLoadedRef.current = true;
-                        setIsLoaded(true);
-                    }
-                }, 2000);
-            } catch (err) {
+                viewerRef.current = viewer;
+
+                // 3. Add Google Photorealistic 3D Tiles
+                // NOTE: Cesium 1.122 takes the key as a direct string argument, not { key }
+                setLoadingStep('Streaming Photorealistic Tiles...');
+                const tileset = await Cesium.createGooglePhotorealistic3DTileset(GOOGLE_MAPS_KEY);
+
+                if (isCancelled) { viewer.destroy(); return; }
+
+                viewer.scene.primitives.add(tileset);
+
+                // 4. Property marker pin + label
+                // Use HeightReference.NONE + explicit altitude — CLAMP_TO_GROUND requires globe
+                viewer.entities.add({
+                    position: Cesium.Cartesian3.fromDegrees(longitude, latitude, 80),
+                    billboard: {
+                        image: buildPinSVG(),
+                        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+                        heightReference: Cesium.HeightReference.NONE,
+                        scale: 1.2,
+                        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+                    },
+                    label: {
+                        text: address || 'Property',
+                        font: '700 11px sans-serif',
+                        fillColor: Cesium.Color.WHITE,
+                        outlineColor: Cesium.Color.fromCssColorString('#312e81'),
+                        outlineWidth: 3,
+                        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+                        pixelOffset: new Cesium.Cartesian2(0, -52),
+                        heightReference: Cesium.HeightReference.NONE,
+                        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+                        showBackground: true,
+                        backgroundColor: Cesium.Color.fromCssColorString('#312e81').withAlpha(0.85),
+                        backgroundPadding: new Cesium.Cartesian2(10, 6),
+                    },
+                });
+
+                // 5. Point camera AT the property (lookAt keeps it centered regardless of pitch)
+                viewer.resize();
+                const target = Cesium.Cartesian3.fromDegrees(longitude, latitude, 80);
+                viewer.camera.lookAt(
+                    target,
+                    new Cesium.HeadingPitchRange(
+                        Cesium.Math.toRadians(0),    // heading (north)
+                        Cesium.Math.toRadians(-45),  // pitch (-90 = straight down)
+                        400                           // distance from target in metres
+                    )
+                );
+                // Allow user to orbit freely after initial lookAt
+                viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+
+
+                if (!isCancelled) {
+                    setIsLoaded(true);
+                }
+
+            } catch (err: any) {
                 if (isCancelled) return;
-                console.error("[3D Map] Fatal Fail:", err);
-                setError(`API Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                console.error('[3D Map] Cesium error:', err);
+                // Cesium Ion auth errors are confusing — give a cleaner message
+                const msg = err?.message || 'Unknown error';
+                const isIonError = msg.includes('ion') || msg.includes('401') || msg.includes('403');
+                setError(
+                    isIonError
+                        ? 'Google Photorealistic Tiles API key issue. Ensure Map Tiles API is enabled in Google Cloud Console.'
+                        : `3D Engine Error: ${msg}`
+                );
             }
         };
 
-        startTimeout();
-        const initTimer = setTimeout(initMap, 100);
+        init();
 
         return () => {
             isCancelled = true;
-            clearTimeout(initTimer);
-            if (timeoutId) clearTimeout(timeoutId);
+            if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+                viewerRef.current.destroy();
+                viewerRef.current = null;
+            }
         };
     }, [latitude, longitude]);
 
     return (
-        <div className="relative w-full h-[500px] rounded-3xl overflow-hidden shadow-2xl bg-slate-900 border border-slate-800">
+        <div
+            className="relative w-full h-[500px] shadow-2xl bg-slate-900 border border-slate-800"
+            style={{ borderRadius: '1.5rem', clipPath: 'inset(0% round 1.5rem)' }}
+        >
+
+            {/* Loading overlay */}
             {!isLoaded && !error && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-900/50 backdrop-blur-sm z-10">
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-900/80 backdrop-blur-sm z-10 pointer-events-none">
                     <div className="animate-spin mb-4">
                         <i className="fa-solid fa-circle-notch text-3xl text-indigo-400"></i>
                     </div>
-                    <span className="font-black text-[10px] uppercase tracking-[0.25em] text-white/80">{loadingStep}</span>
-                    <div className="mt-4 flex flex-col items-center gap-1">
-                        <span className="text-[9px] text-slate-500 font-mono uppercase tracking-widest">{debugInfo}</span>
-                        <span className="text-[8px] text-slate-700 font-bold uppercase tracking-[0.2em]">BETA 3D READY</span>
-                    </div>
+                    <span className="font-black text-[10px] uppercase tracking-[0.25em] text-white/80">
+                        {loadingStep}
+                    </span>
+                    <span className="mt-3 text-[9px] font-mono text-slate-600 uppercase tracking-widest">
+                        {latitude.toFixed(4)}, {longitude.toFixed(5)}
+                    </span>
                 </div>
             )}
 
+            {/* Error state */}
             {error && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-rose-400 p-8 text-center bg-slate-900 z-10">
                     <i className="fa-solid fa-triangle-exclamation text-4xl mb-4"></i>
                     <p className="font-bold text-sm tracking-tight mb-2">Neural Link Failed</p>
                     <p className="text-xs text-slate-500 max-w-xs mb-4">{error}</p>
                     <div className="bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
-                        <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">{debugInfo}</span>
+                        <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
+                            LOC: {latitude.toFixed(4)}, {longitude.toFixed(5)}
+                        </span>
                     </div>
                 </div>
             )}
 
+            {/* Cesium mounts here */}
             <div ref={containerRef} className="w-full h-full" />
-
-            <div className="absolute bottom-6 left-6 right-6 flex justify-between items-end pointer-events-none">
-                <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 pointer-events-auto">
-                    <div className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-0.5">Location Intelligence</div>
-                    <div className="text-xs font-bold text-white max-w-[200px] md:max-w-md truncate">{address}</div>
-                </div>
-
-                <div className="flex gap-2 pointer-events-auto">
-                    <button
-                        onClick={() => {
-                            window.location.reload();
-                        }}
-                        className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 text-white flex items-center justify-center transition-all active:scale-95"
-                        title="Hard Refresh"
-                    >
-                        <i className="fa-solid fa-sync"></i>
-                    </button>
-                    <button
-                        onClick={() => {
-                            if (mapRef.current) {
-                                mapRef.current.heading += 45;
-                            }
-                        }}
-                        className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 text-white flex items-center justify-center transition-all active:scale-95"
-                        title="Rotate"
-                    >
-                        <i className="fa-solid fa-rotate-right"></i>
-                    </button>
-                    <button
-                        onClick={() => {
-                            if (mapRef.current) {
-                                mapRef.current.tilt = mapRef.current.tilt === 0 ? 65 : 0;
-                            }
-                        }}
-                        className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 text-white flex items-center justify-center transition-all active:scale-95"
-                        title="Toggle Tilt"
-                    >
-                        <i className="fa-solid fa-cube"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div className="absolute top-6 left-6">
-                <div className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/30">
-                    <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                    </span>
-                    Photorealistic 3D Active
-                </div>
-            </div>
         </div>
     );
 };
