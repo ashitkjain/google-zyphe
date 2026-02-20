@@ -151,7 +151,24 @@ export const getTransactionTasks = async (transactionId: string, realtorId: stri
         );
         logFirestoreQuery('getDocs', 'tasks', { transactionId, realtorId });
         const snap = await getDocs(q);
-        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CRMTask));
+        const all = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CRMTask));
+
+        // Deduplicate: if multiple tasks share the same name+categoryId (caused by
+        // createTransaction being called more than once), keep only the newest one.
+        const seen = new Map<string, CRMTask>();
+        for (const task of all) {
+            const key = `${task.categoryId}__${task.name}`;
+            const existing = seen.get(key);
+            if (!existing) {
+                seen.set(key, task);
+            } else {
+                // Keep the one with the later createdAt
+                const existingTime = (existing as any).createdAt?.toDate?.()?.getTime() ?? 0;
+                const thisTime = (task as any).createdAt?.toDate?.()?.getTime() ?? 0;
+                if (thisTime > existingTime) seen.set(key, task);
+            }
+        }
+        return Array.from(seen.values());
     } catch (error) {
         handleFirestoreError(error, "getTransactionTasks");
         return [];

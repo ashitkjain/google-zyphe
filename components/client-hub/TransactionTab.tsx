@@ -133,6 +133,8 @@ const TransactionTab: React.FC<Props> = ({ lead, realtorId }) => {
     }, [lead, realtorId]);
 
     const handleCreateTransaction = async () => {
+        // Guard: never create a second transaction if one already loaded
+        if (transaction || isCreating) return;
         setIsCreating(true);
         try {
             const initialCats = getInitialCategories(lead.leadType === 'Seller' ? 'Seller' : 'Buyer');
