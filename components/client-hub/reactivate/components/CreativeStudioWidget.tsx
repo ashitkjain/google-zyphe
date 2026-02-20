@@ -13,7 +13,7 @@ const CreativeStudioWidget: React.FC = () => {
     };
 
     const videoScript = `
-        "Hi [Lead Name], it's Ashit. 
+        "Hi [Lead Name], it's [Your Name]. 
         I was just reviewing market numbers this morning and noticed something interesting about [Neighborhood].
         Inventory has dropped significantly, which usually signals a price jump is coming.
         I know you were thinking about selling last fall—wanted to see if you're open to a quick chat this week?"

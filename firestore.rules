@@ -111,19 +111,36 @@ service cloud.firestore {
     }
 
     // 5. COMMUNICATION & MESSAGES
+    // Reactivation module stores outbound & inbound SMS under 'messages'.
+    // senderId = realtorId (outbound) or leadId (inbound)
+    // receiverId = leadId (outbound) or realtorId (inbound)
+    // Access is granted when the authenticated user is either the sender or receiver.
     match /messages/{messageId} {
-      allow read: if request.auth != null && (
-          resource.data.senderId == request.auth.uid || 
+      allow read, list: if request.auth != null && (
+          resource.data.senderId == request.auth.uid ||
           resource.data.receiverId == request.auth.uid
       );
       allow create: if request.auth != null && (
-          request.resource.data.senderId == request.auth.uid || 
+          request.resource.data.senderId == request.auth.uid ||
           request.resource.data.receiverId == request.auth.uid
       );
       allow update: if request.auth != null && (
-          resource.data.senderId == request.auth.uid || 
+          resource.data.senderId == request.auth.uid ||
           resource.data.receiverId == request.auth.uid
       );
+      allow delete: if request.auth != null && (
+          resource.data.senderId == request.auth.uid ||
+          resource.data.receiverId == request.auth.uid
+      );
+    }
+
+    // Internal team messaging (admin/tester inbox — email-style, no real-time listener)
+    // Any user in the participants array can read and send.
+    match /internal_messages/{messageId} {
+      allow read: if request.auth != null &&
+          request.auth.uid in resource.data.participants;
+      allow create: if request.auth != null &&
+          request.auth.uid in request.resource.data.participants;
     }
 
     match /mail/{mailId} {

@@ -38,6 +38,7 @@ import {
   getContextGraphFromCloud,
   saveContextGraphToCloud
 } from './services/firebaseService';
+import { saveUserProfile } from './services/firebase/user';
 import { APP_CONFIG } from './config';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import PropertyHeader from './components/property/PropertyHeader';

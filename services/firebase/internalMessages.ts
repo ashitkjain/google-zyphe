@@ -1,6 +1,6 @@
 import {
-    collection, addDoc, query, orderBy, limit,
-    onSnapshot, serverTimestamp, Unsubscribe, where
+    collection, addDoc, query, orderBy,
+    getDocs, serverTimestamp, where, limit
 } from "firebase/firestore";
 import { db, logFirestoreQuery } from "./config";
 
@@ -9,7 +9,7 @@ export interface InternalMessage {
     senderId: string;
     senderName: string;
     senderRole: string;
-    recipientIds: string[];      // explicit recipient user IDs
+    recipientIds: string[];
     participants: string[];      // [senderId, ...recipientIds] — used for array-contains query
     content: string;
     timestamp: any;
@@ -21,7 +21,7 @@ const COLLECTION = "internal_messages";
 
 /**
  * Send a message to one or more specific users.
- * Only the sender + chosen recipients will be able to see it.
+ * Writes once to Firestore — no listener needed.
  */
 export const sendInternalMessage = async (
     senderId: string,
@@ -57,27 +57,29 @@ export const sendInternalMessage = async (
 };
 
 /**
- * Subscribe in real-time to messages the current user is part of
- * (either as sender or recipient).
- * Requires a Firestore composite index on: participants (array) + timestamp (asc).
+ * Fetch all messages the current user is part of (sent or received).
+ * One-time read — call this on mount and on manual refresh.
  */
-export const subscribeToMyMessages = (
+export const getMyMessages = async (
     userId: string,
-    onMessages: (messages: InternalMessage[]) => void
-): Unsubscribe => {
-    if (!db) return () => { };
-    const q = query(
-        collection(db, COLLECTION),
-        where("participants", "array-contains", userId),
-        orderBy("timestamp", "asc"),
-        limit(200)
-    );
-    logFirestoreQuery("onSnapshot", COLLECTION, { participants: userId });
-    return onSnapshot(q, (snapshot) => {
-        const messages: InternalMessage[] = snapshot.docs.map((doc) => ({
+    limitCount: number = 20
+): Promise<InternalMessage[]> => {
+    if (!db) return [];
+    try {
+        const q = query(
+            collection(db, COLLECTION),
+            where("participants", "array-contains", userId),
+            orderBy("timestamp", "desc"), // newest first — limit(n) gives the n most recent
+            limit(limitCount)
+        );
+        logFirestoreQuery("getDocs", COLLECTION, { participants: userId });
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map((doc) => ({
             id: doc.id,
             ...(doc.data() as Omit<InternalMessage, "id">),
         }));
-        onMessages(messages);
-    });
+    } catch (error) {
+        console.error("[InternalMessages] Failed to fetch:", error);
+        return [];
+    }
 };

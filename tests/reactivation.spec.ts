@@ -30,7 +30,7 @@ test.describe('Zyphe AI - Reactivation Regression Suite', () => {
             const emailInput = page.getByPlaceholder('email@example.com');
             await expect(emailInput).toBeVisible({ timeout: 10000 });
 
-            await emailInput.fill('shivani@homesbyshivani.com');
+            await emailInput.fill(process.env.TEST_USER_EMAIL ?? 'test@example.com');
             await page.getByPlaceholder('••••••••').fill('password');
 
             // Click the submit button inside the form

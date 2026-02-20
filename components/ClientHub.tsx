@@ -31,7 +31,7 @@ interface Props {
     initialTab?: HubTab;
     onNavigate?: (view: any, path: string) => void;
     onUpdateProfile?: (updates: Partial<UserProfile>) => void;
-    userRole?: 'buyer' | 'seller' | 'realtor' | 'investor' | 'tester';
+    userRole?: 'buyer' | 'seller' | 'realtor' | 'investor' | 'tester' | 'admin';
 }
 
 const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack, exploreContent, initialTab, onNavigate, onUpdateProfile: onUpdateProfileProp, userRole }) => {
@@ -146,8 +146,8 @@ const ClientHub: React.FC<Props> = ({ realtorId, realtorName, onSignOut, onBack,
             { id: 'my_zyphe', label: 'My Zyphe', icon: 'fa-chart-line' },
         ];
 
-    // CRM tools — not relevant for investors, admins, or testers
-    const toolTabs: { id: HubTab; label: string; icon: string }[] = (isTester || isInvestor || isAdmin) ? [] : [
+    // CRM tools — not relevant for investors or testers (admins get full realtor toolset)
+    const toolTabs: { id: HubTab; label: string; icon: string }[] = (isTester || isInvestor) ? [] : [
         { id: 'tasks', label: 'Tasks', icon: 'fa-check-double' },
         { id: 'calendar', label: 'Calendar', icon: 'fa-calendar-days' },
         { id: 'lead_ingestion', label: 'Lead Ingestion', icon: 'fa-link' },
