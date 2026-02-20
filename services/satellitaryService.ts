@@ -45,7 +45,7 @@ function buildAerialUrl(lat: number, lng: number): string {
 
 /**
  * Build the Street View Static API URL for the given coordinates.
- * Uses outdoor source and a broad radius to find the best shot.
+ * Only used as a last-resort reference — prefer Firebase cached URL.
  */
 function buildStreetViewUrl(lat: number, lng: number): string {
     return (
@@ -122,9 +122,16 @@ export async function runSatellitaryAnalysis(
 ): Promise<SatellitaryResult> {
     // ── 1. Resolve image URLs ──────────────────────────────────────────────────
     const aerialUrl = buildAerialUrl(lat, lng);
-    const streetViewUrl = (cachedStreetViewUrl && cachedStreetViewUrl.includes('firebasestorage'))
-        ? cachedStreetViewUrl
-        : buildStreetViewUrl(lat, lng);
+
+    // Street view MUST come from Firebase Storage (cached during main property analysis).
+    // If not yet cached, the user needs to run the main street view analysis first.
+    if (!cachedStreetViewUrl || !cachedStreetViewUrl.includes('firebasestorage')) {
+        throw new Error(
+            'No cached street view found in Firebase Storage. ' +
+            'Please run the main property analysis first so the street view image can be captured and stored.'
+        );
+    }
+    const streetViewUrl = cachedStreetViewUrl;
 
     console.log('[Satellitary] Aerial URL:', aerialUrl);
     console.log('[Satellitary] Street View URL:', streetViewUrl);

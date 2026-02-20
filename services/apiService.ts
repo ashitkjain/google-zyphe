@@ -1207,7 +1207,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
         const encodedAddress = encodeURIComponent(mappedData.address);
         console.log(`[fetchPropertyDataFull] ${cachedEnvData?.streetViewAnalysis ? 'Re-analyzing' : 'Analyzing'} Street View for: ${mappedData.address}`);
 
-        const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${encodedAddress}&fov=90&radius=100&source=outdoor&return_error_code=true&key=${MAPS_API_KEY}`;
+        const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=640x640&location=${encodedAddress}&fov=90&radius=100&source=outdoor&return_error_code=true&key=${MAPS_API_KEY}`;
 
         try {
           const userId = auth?.currentUser?.uid || "unknown";

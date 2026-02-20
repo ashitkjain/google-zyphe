@@ -146,17 +146,25 @@ const SatellitaryView: React.FC<Props> = ({ lat, lng, cachedStreetViewUrl, addre
                                 <div className="text-[11px] text-slate-400">North always up · Per-lot resolution</div>
                             </div>
                         </div>
-                        <div className="bg-slate-50 rounded-2xl p-4 flex items-start gap-3">
-                            <i className="fa-solid fa-street-view text-indigo-400 mt-0.5"></i>
+                        <div className={`rounded-2xl p-4 flex items-start gap-3 ${cachedStreetViewUrl?.includes('firebasestorage') ? 'bg-slate-50' : 'bg-amber-50 border border-amber-200'}`}>
+                            <i className={`fa-solid fa-street-view mt-0.5 ${cachedStreetViewUrl?.includes('firebasestorage') ? 'text-indigo-400' : 'text-amber-500'}`}></i>
                             <div>
                                 <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Image B</div>
                                 <div className="text-[12px] text-slate-700 font-semibold">Street View</div>
-                                <div className="text-[11px] text-slate-400">
-                                    {cachedStreetViewUrl?.includes('firebasestorage') ? '✅ From Firebase cache' : 'Live from Google API'}
+                                <div className={`text-[11px] font-bold ${cachedStreetViewUrl?.includes('firebasestorage') ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                    {cachedStreetViewUrl?.includes('firebasestorage')
+                                        ? '✅ Cached in Firebase Storage'
+                                        : '⚠️ Not cached yet'}
                                 </div>
                             </div>
                         </div>
                     </div>
+                    {!cachedStreetViewUrl?.includes('firebasestorage') && (
+                        <div className="w-full max-w-lg bg-amber-50 text-amber-700 rounded-2xl p-4 text-[12px] font-semibold border border-amber-200 text-center">
+                            <i className="fa-solid fa-circle-info mr-2"></i>
+                            Run the main property analysis (Visual AI Report) first to capture and cache the street view image, then return here.
+                        </div>
+                    )}
                     {error && (
                         <div className="w-full max-w-lg bg-rose-50 text-rose-600 rounded-2xl p-4 text-[12px] font-semibold border border-rose-100">
                             <i className="fa-solid fa-triangle-exclamation mr-2"></i>{error}
@@ -164,7 +172,8 @@ const SatellitaryView: React.FC<Props> = ({ lat, lng, cachedStreetViewUrl, addre
                     )}
                     <button
                         onClick={run}
-                        className="flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-indigo-600 to-slate-800 text-white rounded-2xl font-black text-[13px] uppercase tracking-widest shadow-xl hover:scale-[1.03] transition-all"
+                        disabled={!cachedStreetViewUrl?.includes('firebasestorage')}
+                        className="flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-indigo-600 to-slate-800 text-white rounded-2xl font-black text-[13px] uppercase tracking-widest shadow-xl hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                     >
                         <i className="fa-solid fa-satellite"></i>
                         Run Orientation Analysis

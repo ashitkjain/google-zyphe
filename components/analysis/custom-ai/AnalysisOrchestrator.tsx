@@ -348,7 +348,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                             <SatellitaryView
                                 lat={propertyData?.coordinates?.latitude}
                                 lng={propertyData?.coordinates?.longitude}
-                                cachedStreetViewUrl={propertyData?.streetView}
+                                cachedStreetViewUrl={propertyData?.streetViewAnalysis?.imageUrl || propertyData?.streetView}
                                 address={propertyData?.address}
                             />
                         </section>
