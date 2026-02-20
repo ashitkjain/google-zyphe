@@ -97,6 +97,8 @@ const Property3DMap: React.FC<Props> = ({ latitude, longitude, address }) => {
                     vrButton: false,
                     infoBox: false,
                     selectionIndicator: false,
+                    skyBox: false,           // prevents the green/blue sky before tiles load
+                    skyAtmosphere: false,    // same
                     // Prevent any Cesium Ion asset loading (no Ion token needed)
                     imageryProvider: false,
                     terrainProvider: new Cesium.EllipsoidTerrainProvider(),
@@ -104,6 +106,9 @@ const Property3DMap: React.FC<Props> = ({ latitude, longitude, address }) => {
                         style: 'display:none'
                     }),
                 });
+
+                // Dark background so the pre-tile gap is slate, not green
+                viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#0f172a');
 
                 // Hide the globe entirely — we use Google 3D tiles, not Cesium's globe
                 viewer.scene.globe.show = false;
@@ -161,10 +166,25 @@ const Property3DMap: React.FC<Props> = ({ latitude, longitude, address }) => {
                 // Allow user to orbit freely after initial lookAt
                 viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
 
-
+                // 6. Keep loading overlay visible until the first batch of tiles finishes
+                //    rendering — this prevents the brief green flash between "viewer ready"
+                //    and "tiles actually drawn".
                 if (!isCancelled) {
-                    setIsLoaded(true);
+                    const onTilesDone = () => {
+                        if (!isCancelled) setIsLoaded(true);
+                        tileset.allTilesLoaded.removeEventListener(onTilesDone);
+                    };
+                    // allTilesLoaded fires once per frame when queue is empty.
+                    // Use a one-shot render listener as a fallback for fast tile loads too.
+                    tileset.allTilesLoaded.addEventListener(onTilesDone);
+
+                    // Safety fallback: show after 4 s regardless
+                    setTimeout(() => {
+                        if (!isCancelled) setIsLoaded(true);
+                    }, 4000);
                 }
+
+
 
             } catch (err: any) {
                 if (isCancelled) return;
