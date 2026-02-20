@@ -1161,6 +1161,14 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
         mappedData.streetViewAnalysis = cachedEnvData.streetViewAnalysis;
       } else {
         onStep?.("Analyzing curb appeal with AI...");
+
+        // If this is a forced re-analysis, clear stale Firestore entry first
+        if (forceEnvironment && storageKey && cachedEnvData?.streetViewAnalysis) {
+          console.log("[fetchPropertyDataFull] Clearing stale streetViewAnalysis from cache before re-analysis.");
+          await saveGoogleDataToCloud(storageKey, { streetViewAnalysis: undefined });
+          mappedData.streetViewAnalysis = undefined;
+        }
+
         const encodedAddress = encodeURIComponent(mappedData.address);
         console.log(`[fetchPropertyDataFull] ${cachedEnvData?.streetViewAnalysis ? 'Re-analyzing' : 'Analyzing'} Street View for: ${mappedData.address}`);
 
@@ -1175,6 +1183,7 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
           console.warn("[fetchPropertyDataFull] Street View not available for this address. Section will be hidden.", e.message || e);
         }
       }
+
 
       // Save back to cache (merge with existing)
       if (storageKey) {

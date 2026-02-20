@@ -771,7 +771,7 @@ export const transformLeadCsv = async (csvData: string, userId: string = "unknow
 
 import { getStreetViewAnalysisPrompt, streetViewAnalysisSchema } from "../prompts/property/streetViewAnalysis";
 import { StreetViewAnalysisResult } from "../types";
-import { uploadImageToStorage } from "../services/firebaseService";
+import { uploadImageToStorage, deleteFileFromStorage } from "../services/firebaseService";
 
 export const analyzeStreetView = async (imageUrl: string, property: PropertyData, userId: string = "unknown"): Promise<AIResponseWithUsage<StreetViewAnalysisResult>> => {
   const { data, mimeType } = await urlToBase64(imageUrl);
@@ -798,6 +798,8 @@ export const analyzeStreetView = async (imageUrl: string, property: PropertyData
   try {
     // Fixed path — overwrites any existing file rather than accumulating timestamped duplicates
     const storagePath = `properties/${property.zpid || 'unknown'}/maps/street_view.jpg`;
+    // Delete the old file first so re-analysis never serves a stale cached URL
+    await deleteFileFromStorage(storagePath);
     console.log(`[analyzeStreetView] Storing street view image to: ${storagePath}`);
     const permanentImageUrl = await uploadImageToStorage(`data:${mimeType};base64,${data}`, storagePath);
 

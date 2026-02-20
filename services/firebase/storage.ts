@@ -1,4 +1,4 @@
-import { ref, uploadString, getDownloadURL, uploadBytes, listAll } from 'firebase/storage';
+import { ref, uploadString, getDownloadURL, uploadBytes, listAll, deleteObject } from 'firebase/storage';
 import { storage } from './config';
 
 /**
@@ -27,6 +27,24 @@ export const uploadImageToStorage = async (base64Data: string, path: string): Pr
     } catch (error: any) {
         console.error(`[Storage] Failed to upload image to ${path}:`, error);
         throw new Error(`Image upload failed: ${error.message}`);
+    }
+};
+
+/**
+ * Deletes a file from Firebase Storage at the given path.
+ * Silently succeeds if the file doesn't exist.
+ */
+export const deleteFileFromStorage = async (path: string): Promise<void> => {
+    if (!storage) return;
+    try {
+        const storageRef = ref(storage, path);
+        await deleteObject(storageRef);
+        console.log(`[Storage] Deleted: ${path}`);
+    } catch (error: any) {
+        // object-not-found is fine — nothing to delete
+        if (error?.code !== 'storage/object-not-found') {
+            console.warn(`[Storage] Failed to delete ${path}:`, error.message || error);
+        }
     }
 };
 
