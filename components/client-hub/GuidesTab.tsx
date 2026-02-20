@@ -201,6 +201,7 @@ const ARCH_STYLE_GROUPS = [
         styles: [
             {
                 name: 'Colonial',
+                image: '/arch-styles/colonial.png',
                 material: 'Wood or Brick',
                 roof: 'Gabled (Side)',
                 mainFeature: 'Perfect Symmetry',
@@ -209,6 +210,7 @@ const ARCH_STYLE_GROUPS = [
             },
             {
                 name: 'Victorian',
+                image: '/arch-styles/victorian.png',
                 material: 'Painted Wood',
                 roof: 'Steep / Complex',
                 mainFeature: 'Ornate Trim & Turrets',
@@ -217,6 +219,7 @@ const ARCH_STYLE_GROUPS = [
             },
             {
                 name: 'Greek Revival',
+                image: '/arch-styles/greek-revival.png',
                 material: 'White-painted Wood',
                 roof: 'Low-pitched Gable',
                 mainFeature: 'Temple-like Columns',
@@ -234,6 +237,7 @@ const ARCH_STYLE_GROUPS = [
         styles: [
             {
                 name: 'Craftsman (Bungalow)',
+                image: '/arch-styles/craftsman.png',
                 material: 'Wood & Stone',
                 roof: 'Low-slung Gable',
                 mainFeature: 'Exposed Rafters & Eaves',
@@ -242,6 +246,7 @@ const ARCH_STYLE_GROUPS = [
             },
             {
                 name: 'Tudor',
+                image: '/arch-styles/tudor.png',
                 material: 'Brick & Stucco',
                 roof: 'Steep Gable',
                 mainFeature: 'Half-Timbering',
@@ -250,6 +255,7 @@ const ARCH_STYLE_GROUPS = [
             },
             {
                 name: 'Cape Cod',
+                image: '/arch-styles/cape-cod.png',
                 material: 'Wood Shingle / Clapboard',
                 roof: 'Steep Symmetrical Gable',
                 mainFeature: 'Dormer Windows',
@@ -267,6 +273,7 @@ const ARCH_STYLE_GROUPS = [
         styles: [
             {
                 name: 'Spanish Colonial / Mission',
+                image: '/arch-styles/spanish-mission.png',
                 material: 'Stucco',
                 roof: 'Red Clay Tile',
                 mainFeature: 'Arched Openings',
@@ -275,6 +282,7 @@ const ARCH_STYLE_GROUPS = [
             },
             {
                 name: 'French Provincial',
+                image: '/arch-styles/french-provincial.png',
                 material: 'Stone or Stucco with Stone Trim',
                 roof: 'High Hipped Roof',
                 mainFeature: 'Tall Arched Windows',
@@ -283,6 +291,7 @@ const ARCH_STYLE_GROUPS = [
             },
             {
                 name: 'Pueblo Revival',
+                image: '/arch-styles/pueblo-revival.png',
                 material: 'Adobe / Earth-toned Stucco',
                 roof: 'Flat Roof',
                 mainFeature: 'Vigas & Rounded Walls',
@@ -300,6 +309,7 @@ const ARCH_STYLE_GROUPS = [
         styles: [
             {
                 name: 'Mid-Century Modern',
+                image: '/arch-styles/midcentury-modern.png',
                 material: 'Glass, Steel & Wood',
                 roof: 'Flat or Butterfly',
                 mainFeature: 'Floor-to-Ceiling Glass',
@@ -308,6 +318,7 @@ const ARCH_STYLE_GROUPS = [
             },
             {
                 name: 'Contemporary',
+                image: '/arch-styles/contemporary.png',
                 material: 'Steel, Concrete & Glass',
                 roof: 'Asymmetrical / Flat',
                 mainFeature: 'Industrial Materials',
@@ -316,6 +327,7 @@ const ARCH_STYLE_GROUPS = [
             },
             {
                 name: 'Modern Farmhouse',
+                image: '/arch-styles/modern-farmhouse.png',
                 material: 'Wood (Board & Batten)',
                 roof: 'Gabled with Metal Accents',
                 mainFeature: 'Board & Batten Siding',
@@ -586,14 +598,24 @@ const GuidesTab: React.FC<GuidesTabProps> = ({ onNavigate }) => {
                                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                                         {group.styles.map(style => (
                                                             <div key={style.name} className="bg-white border border-slate-100 rounded-[1.75rem] overflow-hidden shadow-sm hover:shadow-lg hover:border-slate-200 transition-all duration-300 group">
+                                                                {/* Illustration */}
+                                                                <div className="bg-slate-50 border-b border-slate-100 flex items-center justify-center overflow-hidden h-52">
+                                                                    <img
+                                                                        src={(style as any).image}
+                                                                        alt={`${style.name} architectural style illustration`}
+                                                                        className="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-105"
+                                                                        loading="lazy"
+                                                                    />
+                                                                </div>
+
                                                                 {/* Card Header */}
-                                                                <div className="bg-gradient-to-br from-slate-50 to-slate-100 px-6 py-5 border-b border-slate-100">
-                                                                    <div className={`text-[10px] font-black uppercase tracking-widest ${c.icon} mb-1`}>{group.label}</div>
+                                                                <div className="px-6 pt-4 pb-2">
+                                                                    <div className={`text-[9px] font-black uppercase tracking-widest ${c.icon} mb-1`}>{group.label}</div>
                                                                     <h3 className="text-lg font-black text-slate-900 leading-tight group-hover:text-indigo-700 transition-colors">{style.name}</h3>
                                                                 </div>
 
                                                                 {/* Description */}
-                                                                <div className="px-6 py-4">
+                                                                <div className="px-6 pb-4">
                                                                     <p className="text-slate-600 text-sm font-medium leading-relaxed">{style.description}</p>
                                                                 </div>
 
