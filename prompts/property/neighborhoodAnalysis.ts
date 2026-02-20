@@ -35,11 +35,13 @@ export const getNeighborhoodAnalysisPrompt = (property: PropertyData) => `
        * Identify the Key Elements: Locate the home marker and the labeled street (matching the home address street).
        * At the point the home street is closest to the home (street can be changing direction in the map, so we need the directions where it is closest to the home) -
        * Step A: Determine the direction in which the home street runs (e.g., East-West, North-South or a diagonal like Northeast-Southwest) where it is closest to the home.
-       * Step B: Observe the home marker's position in relation to the home street (Is it above, below, right, left etc. of the street?) where it is closest to the street.
-       * Step C: Infer the Facing Direction:
-         - If street is East-West and house marker is below the home street, front faces North.
-         - If street is North-South and house marker is left of the home street, front faces East.
-         - Apply this exact logic to diagonal directions.
+       * Step B: Observe the home marker's position relative to the home street using COMPASS DIRECTIONS ONLY (North=top of map, South=bottom, East=right, West=left). State whether the home marker is North, South, East, or West of the street at the point closest to the home.
+        * Step C: Infer the Facing Direction — the home FACES TOWARD the street (the front door opens toward the street):
+          - If street is East-West and house marker is ABOVE/NORTH of the home street → front faces South (toward street).
+          - If street is East-West and house marker is BELOW/SOUTH of the home street → front faces North (toward street).
+          - If street is North-South and house marker is RIGHT/EAST of the home street → front faces West (toward street).
+          - If street is North-South and house marker is LEFT/WEST of the home street → front faces East (toward street).
+          - Apply this same "faces toward the street" logic to diagonal directions.
 
   2. STREET LAYOUT: Identify the street pattern (e.g., quiet cul-de-sac, grid system, busy arterial proximity). Note traffic flow indicators.
   3. DENSITY & LAND USE: Evaluate the neighborhood density. Are homes tightly packed? Are there large lots? Are there commercial or industrial buffers nearby?
@@ -89,8 +91,8 @@ export const neighborhoodAnalysisSchema = {
       type: Type.OBJECT,
       properties: {
         street_direction: { type: Type.STRING, description: "e.g., East-West, North-South, etc." },
-        home_position_relative_to_street: { type: Type.STRING, description: "Position of the home in relation to the street (above/north of the street, below/south of the street, right/east of the street, left/west of the street, etc.)" },
-        final_orientation: { type: Type.STRING, description: "The deduced direction the front of the house faces (North, South, etc.)" },
+        home_position_relative_to_street: { type: Type.STRING, description: "Position of the home in relation to the street using compass directions only — e.g. 'North of the street', 'South of the street', 'East of the street', 'West of the street'. Do NOT use left/right/above/below." },
+        final_orientation: { type: Type.STRING, description: "The deduced direction the front of the house faces. Must be a short compass direction ONLY — e.g. 'North', 'South', 'East', 'West', 'Northeast', 'Southwest', etc. Do NOT include any explanation here; put all reasoning in orientation_explanation." },
         orientation_explanation: { type: Type.STRING, description: "Detailed reasoning explaining how the orientation was determined, referencing specific map elements or text clues." }
       },
       required: ["final_orientation", "orientation_explanation"]

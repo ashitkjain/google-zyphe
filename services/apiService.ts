@@ -625,13 +625,22 @@ export const fetchPollenData = async (lat: number, lng: number, zpid?: string, a
 
 // ─── Noise Score (HowLoud SoundScore) ────────────────────────────────────────
 // Free tier: 2,500 req/mo — https://howloud.com/developers
-// Score: 50 (very loud) → 100 (very quiet)
+// Response: { status:"OK", result:[{ score, scoretext, traffic, traffictext, local, localtext, airports, airportstext }] }
 export const fetchNoiseScore = async (
   lat: number,
   lng: number,
   zpid?: string,
   address?: string
-): Promise<{ score: number | null; description: string | null } | null> => {
+): Promise<{
+  score: number | null;
+  description: string | null;
+  trafficScore: number | null;
+  trafficDesc: string | null;
+  localScore: number | null;
+  localDesc: string | null;
+  airportScore: number | null;
+  airportDesc: string | null;
+} | null> => {
   const logId = await logAPICall({
     user_id: auth?.currentUser?.uid || 'unknown',
     zpid,
@@ -644,29 +653,51 @@ export const fetchNoiseScore = async (
   const start = Date.now();
 
   try {
-    // HowLoud blocks CORS on all browser origins — route through Cloud Function proxy
-    const { functions: firebaseFunctions } = await import('./firebase/config');
-    const { httpsCallable } = await import('firebase/functions');
-    if (!firebaseFunctions) {
-      console.warn('[HowLoud] Firebase Functions not initialized — skipping noise score.');
+    // HowLoud blocks CORS — route through Cloud Function proxy (onRequest with explicit CORS headers).
+    const { auth: firebaseAuth } = await import('./firebase/config');
+    const idToken = firebaseAuth?.currentUser
+      ? await firebaseAuth.currentUser.getIdToken()
+      : null;
+
+    if (!idToken) {
+      console.warn('[HowLoud] No auth token available — skipping noise score.');
       return null;
     }
-    const proxyFn = httpsCallable(firebaseFunctions, 'proxyNoiseScore');
-    const result: any = await proxyFn({ lat, lng });
-    const data = result.data;
+
+    const proxyUrl = 'https://us-central1-zyphe-af0bf.cloudfunctions.net/proxyNoiseScore';
+    const response = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({ lat, lng }),
+    });
+
+    const data = await response.json();
 
     if (logId) {
       updateAPICall(logId, { status: 'completed', response_time_ms: Date.now() - start });
     }
 
-    console.log('[HowLoud] Proxy response:', data);
+    // HowLoud response: { status:"OK", result:[{ score, scoretext, traffic, traffictext, local, localtext, airports, airportstext }] }
+    // result is an ARRAY — use index [0]
+    if (data?.status !== 'OK' || !Array.isArray(data?.result) || data.result.length === 0) {
+      console.warn('[HowLoud] Unexpected response:', data);
+      return null;
+    }
 
-    // HowLoud returns result[0].score and result[0].text
-    const row = Array.isArray(data?.result) ? data.result[0] : data;
-    const score = extractNumericValue(row?.score ?? row?.soundscore ?? null);
-    const description: string | null = row?.text ?? row?.description ?? null;
-
-    return { score, description };
+    const row = data.result[0];
+    return {
+      score: extractNumericValue(row.score ?? null),
+      description: row.scoretext ?? null,
+      trafficScore: extractNumericValue(row.traffic ?? null),
+      trafficDesc: row.traffictext ?? null,
+      localScore: extractNumericValue(row.local ?? null),
+      localDesc: row.localtext ?? null,
+      airportScore: extractNumericValue(row.airports ?? null),
+      airportDesc: row.airportstext ?? null,
+    };
   } catch (e: any) {
     if (logId) {
       updateAPICall(logId, { status: 'failed', response_time_ms: Date.now() - start, error: e.message });
@@ -674,6 +705,7 @@ export const fetchNoiseScore = async (
     console.error('[HowLoud] Failed to fetch noise score via proxy:', e);
     return null;
   }
+
 };
 
 
@@ -1111,9 +1143,16 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
       }
 
       // 4. Noise Score (HowLoud SoundScore) — cached 30 days
+      console.log('[HowLoud DEBUG] cachedEnvData.noiseScore:', cachedEnvData?.noiseScore, '| forceEnvironment:', forceEnvironment);
       if (cachedEnvData?.noiseScore != null && !forceEnvironment) {
         mappedData.noiseScore = cachedEnvData.noiseScore;
         mappedData.noiseScoreDesc = cachedEnvData.noiseScoreDesc;
+        mappedData.noiseTrafficScore = cachedEnvData.noiseTrafficScore;
+        mappedData.noiseTrafficDesc = cachedEnvData.noiseTrafficDesc;
+        mappedData.noiseLocalScore = cachedEnvData.noiseLocalScore;
+        mappedData.noiseLocalDesc = cachedEnvData.noiseLocalDesc;
+        mappedData.noiseAirportScore = cachedEnvData.noiseAirportScore;
+        mappedData.noiseAirportDesc = cachedEnvData.noiseAirportDesc;
       } else {
         onStep?.('Fetching noise score...');
         const noise = await fetchNoiseScore(
@@ -1125,6 +1164,12 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
         if (noise) {
           mappedData.noiseScore = noise.score;
           mappedData.noiseScoreDesc = noise.description ?? undefined;
+          mappedData.noiseTrafficScore = noise.trafficScore;
+          mappedData.noiseTrafficDesc = noise.trafficDesc ?? undefined;
+          mappedData.noiseLocalScore = noise.localScore;
+          mappedData.noiseLocalDesc = noise.localDesc ?? undefined;
+          mappedData.noiseAirportScore = noise.airportScore;
+          mappedData.noiseAirportDesc = noise.airportDesc ?? undefined;
         }
       }
 
@@ -1169,6 +1214,12 @@ export const fetchPropertyDataFull = async (addressOrZpid: string, isZpid: boole
           streetViewAnalysis: mappedData.streetViewAnalysis,
           noiseScore: mappedData.noiseScore ?? null,
           noiseScoreDesc: mappedData.noiseScoreDesc ?? null,
+          noiseTrafficScore: mappedData.noiseTrafficScore ?? null,
+          noiseTrafficDesc: mappedData.noiseTrafficDesc ?? null,
+          noiseLocalScore: mappedData.noiseLocalScore ?? null,
+          noiseLocalDesc: mappedData.noiseLocalDesc ?? null,
+          noiseAirportScore: mappedData.noiseAirportScore ?? null,
+          noiseAirportDesc: mappedData.noiseAirportDesc ?? null,
           crimeScore: mappedData.crimeScore ?? null,
           crimeGrade: mappedData.crimeGrade ?? null,
           zpid: mappedData.zpid || storageKey

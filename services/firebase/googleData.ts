@@ -11,6 +11,12 @@ export interface GoogleEnvironmentalData {
     streetViewAnalysis?: StreetViewAnalysisResult;
     noiseScore?: number | null;
     noiseScoreDesc?: string | null;
+    noiseTrafficScore?: number | null;
+    noiseTrafficDesc?: string | null;
+    noiseLocalScore?: number | null;
+    noiseLocalDesc?: string | null;
+    noiseAirportScore?: number | null;
+    noiseAirportDesc?: string | null;
     crimeScore?: number | null;
     crimeGrade?: string | null;
     lastUpdated?: any;

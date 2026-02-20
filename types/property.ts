@@ -119,8 +119,14 @@ export interface PropertyData {
     transitScoreDesc?: string;
     bikeScore?: number | null;
     bikeScoreDesc?: string;
-    noiseScore?: number | null;       // HowLoud SoundScore: 50 (loud) – 100 (quiet)
-    noiseScoreDesc?: string;
+    noiseScore?: number | null;           // HowLoud overall SoundScore: 50 (loud) – 100 (quiet)
+    noiseScoreDesc?: string;               // e.g. "Calm", "Active"
+    noiseTrafficScore?: number | null;     // Traffic noise contribution (0–100)
+    noiseTrafficDesc?: string;             // e.g. "Calm", "Active"
+    noiseLocalScore?: number | null;       // Local noise contribution (0–100)
+    noiseLocalDesc?: string;
+    noiseAirportScore?: number | null;     // Airport noise contribution (0–100)
+    noiseAirportDesc?: string;
     crimeScore?: number | null;       // Numeric crime safety score
     crimeGrade?: string;              // Letter grade A+ – F
     schools?: School[];

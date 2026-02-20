@@ -139,28 +139,41 @@ const PropertyHeader: React.FC<Props> = ({ data, isFavorited, onToggleFavorite, 
               <div className="w-4 flex justify-center flex-shrink-0 mt-0.5">
                 <i className="fa-solid fa-volume-xmark text-slate-300 text-[12px] group-hover:text-indigo-500 transition-colors"></i>
               </div>
-              <div className="flex flex-col gap-1.5 flex-1">
+              <div className="flex flex-col gap-2 flex-1">
                 <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none">Noise Level</span>
-                {data.noiseScore != null ? (
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${((data.noiseScore - 50) / 50) * 100}%`,
-                          background: data.noiseScore >= 80 ? '#22c55e' : data.noiseScore >= 65 ? '#eab308' : '#f97316'
-                        }}
-                      />
+                {data.noiseScore != null ? (() => {
+                  const pct = (s: number) => Math.max(0, Math.min(100, ((s - 0) / 100) * 100));
+                  const color = (s: number) => s >= 80 ? '#22c55e' : s >= 65 ? '#eab308' : '#f97316';
+                  const badge = (s: number) => s >= 80 ? 'bg-green-50 text-green-700' : s >= 65 ? 'bg-yellow-50 text-yellow-700' : 'bg-orange-50 text-orange-700';
+                  return (
+                    <div className="space-y-3">
+                      {/* Overall */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all" style={{ width: `${pct(data.noiseScore!)}%`, background: color(data.noiseScore!) }} />
+                        </div>
+                        <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg whitespace-nowrap ${badge(data.noiseScore!)}`}>
+                          {data.noiseScore}/100 · {data.noiseScoreDesc ?? ''}
+                        </span>
+                      </div>
+                      {/* Sub-scores */}
+                      {[
+                        { label: 'Traffic', score: data.noiseTrafficScore, desc: data.noiseTrafficDesc },
+                        { label: 'Local', score: data.noiseLocalScore, desc: data.noiseLocalDesc },
+                        { label: 'Airport', score: data.noiseAirportScore, desc: data.noiseAirportDesc },
+                      ].filter(s => s.score != null).map(({ label, score, desc }) => (
+                        <div key={label} className="flex items-center gap-2 pl-1">
+                          <span className="text-[10px] text-slate-400 uppercase tracking-widest w-12 flex-shrink-0">{label}</span>
+                          <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all" style={{ width: `${pct(score!)}%`, background: color(score!) }} />
+                          </div>
+                          <span className="text-[10px] text-slate-500 w-12 text-right flex-shrink-0">{desc ?? score}</span>
+                        </div>
+                      ))}
                     </div>
-                    <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg ${data.noiseScore >= 80 ? 'bg-green-50 text-green-700' : data.noiseScore >= 65 ? 'bg-yellow-50 text-yellow-700' : 'bg-orange-50 text-orange-700'}`}>
-                      {data.noiseScore}/100
-                    </span>
-                  </div>
-                ) : (
+                  );
+                })() : (
                   <span className="text-[13px] font-normal text-slate-400 italic">N/A</span>
-                )}
-                {data.noiseScoreDesc && (
-                  <span className="text-[11px] text-slate-500">{data.noiseScoreDesc}</span>
                 )}
               </div>
             </div>

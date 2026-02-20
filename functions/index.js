@@ -764,14 +764,34 @@ exports.proxyStreetViewImage = functions.https.onCall(async (data, context) => {
  * HowLoud does not set CORS headers, so all browser requests are blocked.
  * This function runs server-side where CORS does not apply.
  */
-exports.proxyNoiseScore = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "User must be logged in.");
+exports.proxyNoiseScore = functions.https.onRequest(async (req, res) => {
+    // Handle CORS preflight
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+        res.status(204).send("");
+        return;
     }
 
-    const { lat, lng } = data;
+    // Verify Firebase auth token
+    const authHeader = req.headers.authorization || "";
+    const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!idToken) {
+        res.status(401).json({ status: "ERROR", error: "Unauthenticated" });
+        return;
+    }
+    try {
+        await admin.auth().verifyIdToken(idToken);
+    } catch (e) {
+        res.status(401).json({ status: "ERROR", error: "Invalid auth token" });
+        return;
+    }
+
+    const { lat, lng } = req.body;
     if (lat == null || lng == null) {
-        throw new functions.https.HttpsError("invalid-argument", "Missing lat/lng.");
+        res.status(400).json({ status: "ERROR", error: "Missing lat/lng" });
+        return;
     }
 
     const HOWLOUD_KEY = "JsFtv3UqoZ2kI6qwB0JmA6TAKmor9pZ741M0VyZc";
@@ -787,14 +807,16 @@ exports.proxyNoiseScore = functions.https.onCall(async (data, context) => {
 
         if (!response.ok) {
             console.error(`[ProxyNoiseScore] HowLoud error: ${response.status}`);
-            throw new functions.https.HttpsError("internal", `HowLoud API error: ${response.status}`);
+            res.status(200).json({ status: "ERROR", error: `HowLoud API error: ${response.status}` });
+            return;
         }
 
         const json = await response.json();
         console.log("[ProxyNoiseScore] Response:", JSON.stringify(json));
-        return json;
+        res.status(200).json(json);
     } catch (error) {
         console.error("[ProxyNoiseScore] Error:", error);
-        throw new functions.https.HttpsError("internal", error.message || "Failed to fetch noise score.");
+        res.status(200).json({ status: "ERROR", error: error.message || "Failed to fetch noise score." });
     }
 });
+
