@@ -87,9 +87,9 @@ export const RoomsView: React.FC<RoomsViewProps> = ({ highlights }) => {
 
     // Group rooms into sections for visual separation
     const SECTION_LABELS: Record<number, string> = {
-        0: 'Entry & Hallways', 1: 'Living Areas', 2: 'Dining Areas', 3: 'Kitchen',
+        0: 'Common Areas', 1: 'Common Areas', 2: 'Common Areas', 3: 'Common Areas',
         4: 'Bedrooms', 5: 'Bedrooms', 6: 'Bathrooms', 7: 'Bathrooms',
-        8: 'Laundry & Utility', 9: 'Office & Bonus', 10: 'Garage', 11: 'Outdoor',
+        8: 'Other Spaces', 9: 'Other Spaces', 10: 'Other Spaces', 11: 'Other Spaces',
     };
 
     const ROOM_ICONS: [RegExp, string][] = [
