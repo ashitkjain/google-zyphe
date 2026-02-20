@@ -35,6 +35,7 @@ import {
   getContextGraphFromCloud,
   saveContextGraphToCloud,
   getPropertyAssetsFromCloud,
+  getDeepInvestmentResearchFromCloud,
 } from './services/firebaseService';
 import {
   trackLogin,
@@ -573,10 +574,12 @@ const App: React.FC = () => {
       const cityStateKey = generateCityStateKey(city, state);
 
       // Pre-fetch city-level data even on force refresh to avoid redundant work
-      const [pulseCached, genMarket, propInv] = await Promise.all([
+      // deep_investment_research is city-level — never re-run during property refresh
+      const [pulseCached, genMarket, propInv, deepResearch] = await Promise.all([
         cityStateKey ? getCommunityPulseFromCloud(cityStateKey) : Promise.resolve(null),
         (APP_CONFIG.caching.investment_research && cityStateKey) ? getGeneralMarketIntelligenceFromCloud(cityStateKey) : Promise.resolve(null),
-        APP_CONFIG.caching.investment_research ? getPropertyInvestmentFromCloud(propertyData.zpid) : Promise.resolve(null)
+        APP_CONFIG.caching.investment_research ? getPropertyInvestmentFromCloud(propertyData.zpid) : Promise.resolve(null),
+        cityStateKey ? getDeepInvestmentResearchFromCloud(cityStateKey) : Promise.resolve(null),
       ]);
 
       if (!force && propertyData.zpid) {
@@ -595,6 +598,8 @@ const App: React.FC = () => {
           if (propInv) cached.property_investment = propInv;
           if (genMarket) cached.general_market_intelligence = genMarket;
           if (graphCached) cached.context_graph = graphCached;
+          // Always preserve city-level deep research — never re-run at property level
+          if (deepResearch?.content) cached.deep_investment_research = deepResearch;
           addLog('Cloud Cache', { type: 'response' }, { status: 'Hit', data: cached });
           setCustomAnalysis(cached);
           setCustomAnalysisLoading(false);
@@ -603,12 +608,13 @@ const App: React.FC = () => {
         addLog('Cloud Cache', { type: 'info' }, { status: 'Miss' });
       }
 
-      // If we are here, we are doing a fresh run (either forced or cache miss)
-      // We will seeded the result with any existing city-level data we found above
+      // Seed result with city-level data so it's present from the first render
       const cityDataSeed: any = {};
       if (pulseCached) cityDataSeed.community_pulse = pulseCached;
       if (propInv) cityDataSeed.property_investment = propInv;
       if (genMarket) cityDataSeed.general_market_intelligence = genMarket;
+      // deep_investment_research is city-level — always preserve, never re-run here
+      if (deepResearch?.content) cityDataSeed.deep_investment_research = deepResearch;
 
 
       // MANDATORY ASSET SECURING ON REFRESH
