@@ -74,12 +74,25 @@ const OrientationAuditTab: React.FC = () => {
     const [redownloadRunning, setRedownloadRunning] = useState(false);
     const [redownloadProgress, setRedownloadProgress] = useState<{ done: number; total: number } | null>(null);
 
-    // ── Fetch all properties ──────────────────────────────────────────────────
+    // ── Fetch all properties + visual analyses ────────────────────────────────
     const fetchData = async () => {
         setLoading(true);
         try {
-            const snap = await getDocs(query(collection(db, 'properties'), orderBy('address', 'asc')));
-            const built: OrientationRow[] = snap.docs.map(d => {
+            // Fetch properties and their visual analyses in parallel
+            const [propSnap, visualSnap] = await Promise.all([
+                getDocs(query(collection(db, 'properties'), orderBy('address', 'asc'))),
+                getDocs(collection(db, 'property_analyses_visual')),
+            ]);
+
+            // Build a zpid → neighborhood orientation lookup from visual analyses
+            const visualOrientationMap: Record<string, string> = {};
+            visualSnap.docs.forEach(d => {
+                const va = d.data() as any;
+                const fo = va?.neighborhood?.orientation?.final_orientation;
+                if (fo) visualOrientationMap[d.id] = fo;
+            });
+
+            const built: OrientationRow[] = propSnap.docs.map(d => {
                 const p = d.data() as any;
                 return {
                     zpid: d.id,
@@ -91,8 +104,10 @@ const OrientationAuditTab: React.FC = () => {
                     orientationAI: p.orientation_ai || null,
                     orientationGeocoding: p.orientation_geocoding || null,
                     finalOrientation:
-                        p.visual_analysis?.neighborhood?.orientation?.final_orientation ||
-                        p.analysis?.neighborhood?.orientation?.final_orientation ||
+                        // 1. Neighborhood AI analysis (property_analyses_visual collection)
+                        visualOrientationMap[d.id] ||
+                        // 2. Satellitary-cached orientation (from our new caching)
+                        (p.orientation_ai?.final_orientation as string | undefined) ||
                         null,
                     coordinates: p.coordinates || undefined,
                     status: 'idle' as const,
