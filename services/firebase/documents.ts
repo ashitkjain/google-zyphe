@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, addDoc, setDoc, serverTimestamp, doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import {
     db,
@@ -326,8 +326,16 @@ export const seedDocumentsForTransaction = async (transactionId: string) => {
         }
         const MOCK_DOCUMENTS_DATA = generateMockTransactionDocuments(transactionId);
         console.log(`[seedDocumentsForTransaction] Starting seed for tx: ${transactionId} with ${MOCK_DOCUMENTS_DATA.length} docs`);
-        for (const doc of MOCK_DOCUMENTS_DATA) {
-            await addTransactionDocument(transactionId, doc as any);
+        for (const document of MOCK_DOCUMENTS_DATA) {
+            // Deterministic ID: txdoc_{transactionId}_{slugifiedName} — setDoc is idempotent
+            const slug = (document.name || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+            const deterministicId = `txdoc_${transactionId}_${slug}`;
+            const docRef = doc(db, "transaction_documents", deterministicId);
+            await setDoc(docRef, sanitizeForFirestore({
+                ...document,
+                id: deterministicId,
+                transaction_id: transactionId,
+            }), { merge: true });
         }
     } catch (error) {
         console.error("Error seeding documents:", error);

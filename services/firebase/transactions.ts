@@ -178,10 +178,14 @@ export const getTransactionTasks = async (transactionId: string, realtorId: stri
 export const seedTasksForTransaction = (batch: any, transaction: Transaction, initialCategories: ChecklistCategory[]): ChecklistCategory[] => {
     const oldIdToNewId: Record<string, string> = {};
 
-    // First pass: Pre-generate IDs to ensure they are available for dependency mapping
+    // First pass: generate DETERMINISTIC IDs so batch.set() is idempotent.
+    // Format: task_{transactionId}_{categoryId}_{templateTaskId}
+    // Writing the exact same ID twice just overwrites — no duplicate documents.
     for (const cat of initialCategories) {
         for (const t of cat.tasks) {
-            oldIdToNewId[t.id] = doc(collection(db, "tasks")).id;
+            // Sanitize template ID to be Firestore-safe (no slashes, spaces, etc.)
+            const safeTemplateId = t.id.replace(/[^a-zA-Z0-9_-]/g, '_');
+            oldIdToNewId[t.id] = `task_${transaction.id}_${cat.id}_${safeTemplateId}`;
         }
     }
 

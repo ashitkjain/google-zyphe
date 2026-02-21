@@ -1,4 +1,4 @@
-import { collection, query, where, orderBy, getDocs, addDoc, serverTimestamp, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, query, where, orderBy, getDocs, addDoc, setDoc, serverTimestamp, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import {
     db,
     sanitizeForFirestore,
@@ -123,7 +123,16 @@ export const seedPartiesForTransaction = async (transactionId: string) => {
         }
         const MOCK_PARTIES_DATA = generateMockTransactionParties(transactionId);
         for (const party of MOCK_PARTIES_DATA) {
-            await addTransactionParty(transactionId, party as any);
+            // Deterministic ID: party_{transactionId}_{slugifiedRole} — setDoc is idempotent
+            const slug = (party.role || party.name || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+            const deterministicId = `party_${transactionId}_${slug}`;
+            const docRef = doc(db, "transaction_parties", deterministicId);
+            await setDoc(docRef, sanitizeForFirestore({
+                ...party,
+                id: deterministicId,
+                transaction_id: transactionId,
+                created_at: serverTimestamp()
+            }), { merge: true });
         }
     } catch (error) {
         console.error("Error seeding parties:", error);
