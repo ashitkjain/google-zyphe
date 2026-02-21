@@ -653,7 +653,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                         </table>
                     </div>
                 </div>
-            ) : (
+            ) : activeTab === 'instructions' ? (
                 <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-10 max-w-4xl mx-auto">
                     <h2 className="text-2xl font-black text-slate-900 mb-8 flex items-center gap-3">
                         <i className="fa-solid fa-file-invoice text-indigo-600"></i>
@@ -769,7 +769,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                         </div>
                     </div>
                 </div>
-            )}
+            ) : null}
 
             {activeTab === 'orientation' && (
                 <OrientationAuditTab />
