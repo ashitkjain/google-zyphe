@@ -16,6 +16,7 @@
 import { APP_CONFIG } from '../config';
 import { urlToBase64, executeGeminiRequest, FLASH_MODEL } from './geminiService';
 import { Type } from '@google/genai';
+import { savePropertyOrientationToCloud } from './firebase/properties';
 
 const MAPS_API_KEY = APP_CONFIG.maps.key;
 
@@ -329,7 +330,7 @@ export async function runSatellitaryAnalysis(
         imageUrls: streetViewUrl ? [aerialUrl, streetViewUrl] : [aerialUrl]
     });
 
-    return {
+    const result: SatellitaryResult = {
         ...data,
         azimuth_degrees: data.azimuth_degrees ?? null,
         aerial_url: aerialUrl,
@@ -339,4 +340,22 @@ export async function runSatellitaryAnalysis(
         geocoding_orientation: geocodingResult?.orientation ?? null,
         geocoding_entrance_available: !!geocodingResult,
     };
+
+    // ── 4. Cache results to Firestore (fire-and-forget) ───────────────────────
+    if (zpid) {
+        savePropertyOrientationToCloud(
+            zpid,
+            {
+                final_orientation: result.final_orientation,
+                azimuth_degrees: result.azimuth_degrees,
+                confidence: result.confidence,
+                aerial_only_mode: result.aerial_only_mode,
+                aerial_url: result.aerial_url,
+                street_view_url: result.street_view_url,
+            },
+            geocodingResult ? { azimuth_degrees: geocodingResult.azimuth, orientation: geocodingResult.orientation } : null
+        ).catch(e => console.warn('[Satellitary] Orientation cache write failed (non-blocking):', e));
+    }
+
+    return result;
 }

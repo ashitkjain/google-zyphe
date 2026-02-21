@@ -72,6 +72,45 @@ export const savePropertyToCloud = async (zpid: string, data: Partial<PropertyDa
     }
 };
 
+/**
+ * Persists computed orientation results into the property document.
+ * Uses merge:true — only writes the orientation subfields, never touching other data.
+ */
+export const savePropertyOrientationToCloud = async (
+    zpid: string,
+    orientationAI: {
+        final_orientation: string;
+        azimuth_degrees: number | null;
+        confidence: 'high' | 'medium' | 'low';
+        aerial_only_mode: boolean;
+        aerial_url: string;
+        street_view_url: string;
+    } | null,
+    orientationGeocoding: {
+        azimuth_degrees: number;
+        orientation: string;
+    } | null
+): Promise<{ success: boolean; error?: string }> => {
+    if (!db || !zpid) return { success: false, error: 'Missing db or zpid' };
+    try {
+        const docRef = doc(db, 'properties', String(zpid));
+        const payload: Record<string, any> = { orientation_computed_at: serverTimestamp() };
+        if (orientationAI) {
+            payload.orientation_ai = sanitizeForFirestore(orientationAI);
+        }
+        if (orientationGeocoding) {
+            payload.orientation_geocoding = sanitizeForFirestore(orientationGeocoding);
+        }
+        logFirestoreQuery('setDoc', 'properties', { zpid, fields: Object.keys(payload) });
+        await setDoc(docRef, payload, { merge: true });
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: handleFirestoreError(error, 'savePropertyOrientationToCloud') as string };
+    }
+};
+
+
+
 export const getPropertyFromCloud = async (zpid: string): Promise<PropertyData | null> => {
     if (!db) return null;
     try {

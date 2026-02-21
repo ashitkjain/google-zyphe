@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db, auth, saveAIAssessment, getAIAssessments, AIAssessment, getUserProfile, getAllAuditors, sendInternalMessage } from '../../services/firebaseService';
 import { PropertyData } from '../../types';
+import OrientationAuditTab from './OrientationAuditTab';
 
 interface PropertyValidationStatus extends PropertyData {
     hasCoreData: boolean;
@@ -27,7 +28,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
     const [userNames, setUserNames] = useState<Record<string, string>>({});
     const [allAuditors, setAllAuditors] = useState<{ uid: string, displayName: string }[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
-    const [activeTab, setActiveTab] = useState<'audits' | 'reports' | 'instructions'>('audits');
+    const [activeTab, setActiveTab] = useState<'audits' | 'reports' | 'instructions' | 'orientation'>('audits');
     const [assignmentConfirm, setAssignmentConfirm] = useState<{ zpid: string, address: string, userId: string } | null>(null);
     const [editingComment, setEditingComment] = useState<{ zpid: string, address: string, comment: string } | null>(null);
     const [reportStartDate, setReportStartDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
@@ -327,6 +328,12 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                             className={`text-xs font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all ${activeTab === 'instructions' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
                         >
                             Instructions
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('orientation')}
+                            className={`text-xs font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all ${activeTab === 'orientation' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                        >
+                            <i className="fa-solid fa-satellite-dish mr-1.5 text-[10px]"></i>Orientation
                         </button>
                     </div>
                 </div>
@@ -762,6 +769,10 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
                         </div>
                     </div>
                 </div>
+            )}
+
+            {activeTab === 'orientation' && (
+                <OrientationAuditTab />
             )}
 
             {/* Reassignment Confirmation Modal */}
