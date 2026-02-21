@@ -45,6 +45,7 @@ function buildAerialUrl(lat: number, lng: number): string {
         `&zoom=20` +
         `&size=640x640` +
         `&maptype=satellite` +
+        `&markers=color:red%7C${lat},${lng}` +
         `&key=${MAPS_API_KEY}`
     );
 }
@@ -68,7 +69,7 @@ export async function getOrCacheAerialSatelliteUrl(
     const { savePropertyToCloud } = await import('./firebase/properties');
 
     const aerialUrl = buildAerialUrl(lat, lng);
-    const storagePath = `properties/${zpid}/maps/aerial_satellite.jpg`;
+    const storagePath = `properties/${zpid}/maps/aerial_satellite_marked.jpg`;
 
     // uploadRemoteImageToStorage already does a getDownloadURL check before uploading
     const cachedUrl = await uploadRemoteImageToStorage(aerialUrl, storagePath);
