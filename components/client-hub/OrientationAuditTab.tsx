@@ -189,6 +189,24 @@ const OrientationAuditTab: React.FC = () => {
         activeCity ? rows.filter(r => r.city === activeCity) : rows
         , [rows, activeCity]);
 
+    // Running tally: how many filteredRows include each assessment option
+    const assessmentCounts = useMemo(() => {
+        const counts: Record<OrientationAssessmentValue, number> = {
+            radar_map: 0, satellite: 0, geocode: 0, none: 0, all: 0,
+        };
+        for (const row of filteredRows) {
+            for (const v of row.orientationAssessment) {
+                counts[v] = (counts[v] ?? 0) + 1;
+            }
+        }
+        return counts;
+    }, [filteredRows]);
+
+    const assessedCount = useMemo(() =>
+        filteredRows.filter(r => r.orientationAssessment.length > 0).length,
+        [filteredRows]
+    );
+
     // ── Run single row ────────────────────────────────────────────────────────
     const runForRow = async (zpid: string) => {
         const row = rows.find(r => r.zpid === zpid);
@@ -433,6 +451,38 @@ const OrientationAuditTab: React.FC = () => {
                 </div>
             ) : (
                 <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+
+                    {/* Assessment accuracy summary bar */}
+                    <div className="px-6 pt-5 pb-4 border-b border-slate-100">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mr-1">Assessment counts</span>
+                            {([
+                                { v: 'radar_map' as OrientationAssessmentValue, label: 'Radar Map', bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200', dot: 'bg-amber-400' },
+                                { v: 'satellite' as OrientationAssessmentValue, label: 'Satellite', bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200', dot: 'bg-blue-400' },
+                                { v: 'geocode' as OrientationAssessmentValue, label: 'Geocode', bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-400' },
+                                { v: 'none' as OrientationAssessmentValue, label: 'None', bg: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-200', dot: 'bg-rose-400' },
+                                { v: 'all' as OrientationAssessmentValue, label: 'All', bg: 'bg-violet-100', text: 'text-violet-700', border: 'border-violet-200', dot: 'bg-violet-400' },
+                            ]).map(({ v, label, bg, text, border, dot }) => {
+                                const count = assessmentCounts[v];
+                                const pct = filteredRows.length > 0 ? Math.round((count / filteredRows.length) * 100) : 0;
+                                return (
+                                    <div
+                                        key={v}
+                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border ${bg} ${border} transition-all`}
+                                    >
+                                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
+                                        <span className={`text-[9px] font-black uppercase tracking-wide ${text}`}>{label}</span>
+                                        <span className={`text-[11px] font-black ${text}`}>{count}</span>
+                                        <span className={`text-[8px] font-semibold opacity-60 ${text}`}>{pct}%</span>
+                                    </div>
+                                );
+                            })}
+                            <div className="ml-auto flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                <span className="text-slate-600">{assessedCount}</span> / {filteredRows.length} assessed
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse min-w-[1100px]">
                             <thead>
