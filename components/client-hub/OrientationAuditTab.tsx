@@ -26,7 +26,7 @@ interface OrientationRow {
     } | null;
     finalOrientation?: string | null;
     coordinates?: { latitude: number; longitude: number };
-    orientationAssessment?: OrientationAssessmentValue | null;
+    orientationAssessment: OrientationAssessmentValue[];  // multi-select
     geocodingNA?: boolean;   // true = geocoding ran but API returned no entrance data
     status: 'idle' | 'running' | 'done' | 'error';
     error?: string;
@@ -98,11 +98,18 @@ const OrientationAuditTab: React.FC = () => {
                 if (fo) visualOrientationMap[d.id] = fo;
             });
 
-            // Build a zpid → orientation_assessment lookup from ai_assessment
-            const orientationAssessmentMap: Record<string, OrientationAssessmentValue> = {};
+            // Build a zpid → orientation_assessment[] lookup from ai_assessment
+            // Handles both old single-string format and new array format
+            const orientationAssessmentMap: Record<string, OrientationAssessmentValue[]> = {};
             assessmentSnap.docs.forEach(d => {
-                const oa = (d.data() as any)?.orientation_assessment as OrientationAssessmentValue | undefined;
-                if (oa) orientationAssessmentMap[d.id] = oa;
+                const raw = (d.data() as any)?.orientation_assessment;
+                if (!raw) return;
+                if (Array.isArray(raw)) {
+                    orientationAssessmentMap[d.id] = raw as OrientationAssessmentValue[];
+                } else if (typeof raw === 'string') {
+                    // backward compat: old single-value string
+                    orientationAssessmentMap[d.id] = [raw as OrientationAssessmentValue];
+                }
             });
 
             const built: OrientationRow[] = propSnap.docs.map(d => {
@@ -123,7 +130,7 @@ const OrientationAuditTab: React.FC = () => {
                         (p.orientation_ai?.final_orientation as string | undefined) ||
                         null,
                     coordinates: p.coordinates || undefined,
-                    orientationAssessment: orientationAssessmentMap[d.id] ?? null,
+                    orientationAssessment: orientationAssessmentMap[d.id] ?? [],
                     status: 'idle' as const,
                 };
             });
@@ -470,9 +477,12 @@ const OrientationAuditTab: React.FC = () => {
                                             <MapThumb url={row.mapZoomIn} label="Close-up Map" orientations={{
                                                 ...row,
                                                 selectedAssessment: row.orientationAssessment,
-                                                onSelectAssessment: async (v) => {
-                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: v } : r));
-                                                    saveOrientationAssessment(row.zpid, v).catch(console.error);
+                                                onSelectAssessment: (v) => {
+                                                    const next = row.orientationAssessment.includes(v)
+                                                        ? row.orientationAssessment.filter(x => x !== v)
+                                                        : [...row.orientationAssessment, v];
+                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: next } : r));
+                                                    saveOrientationAssessment(row.zpid, next).catch(console.error);
                                                 },
                                             }} />
                                         </td>
@@ -482,9 +492,12 @@ const OrientationAuditTab: React.FC = () => {
                                             <MapThumb url={row.mapZoomOut} label="Satellite" orientations={{
                                                 ...row,
                                                 selectedAssessment: row.orientationAssessment,
-                                                onSelectAssessment: async (v) => {
-                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: v } : r));
-                                                    saveOrientationAssessment(row.zpid, v).catch(console.error);
+                                                onSelectAssessment: (v) => {
+                                                    const next = row.orientationAssessment.includes(v)
+                                                        ? row.orientationAssessment.filter(x => x !== v)
+                                                        : [...row.orientationAssessment, v];
+                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: next } : r));
+                                                    saveOrientationAssessment(row.zpid, next).catch(console.error);
                                                 },
                                             }} />
                                         </td>
@@ -494,9 +507,12 @@ const OrientationAuditTab: React.FC = () => {
                                             <MapThumb url={row.streetView} label="Street View" orientations={{
                                                 ...row,
                                                 selectedAssessment: row.orientationAssessment,
-                                                onSelectAssessment: async (v) => {
-                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: v } : r));
-                                                    saveOrientationAssessment(row.zpid, v).catch(console.error);
+                                                onSelectAssessment: (v) => {
+                                                    const next = row.orientationAssessment.includes(v)
+                                                        ? row.orientationAssessment.filter(x => x !== v)
+                                                        : [...row.orientationAssessment, v];
+                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: next } : r));
+                                                    saveOrientationAssessment(row.zpid, next).catch(console.error);
                                                 },
                                             }} />
                                         </td>
@@ -542,10 +558,10 @@ const OrientationAuditTab: React.FC = () => {
                                                     />
                                                     {row.orientationAI?.azimuth_degrees != null && (
                                                         <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black border ${Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)) <= 22.5
-                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                                : Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)) <= 45
-                                                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                                                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                            : Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)) <= 45
+                                                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                                                : 'bg-rose-50 text-rose-700 border-rose-200'
                                                             }`}>
                                                             Δ {Math.round(Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)))}°
                                                         </div>
@@ -565,18 +581,15 @@ const OrientationAuditTab: React.FC = () => {
                                         </td>
 
                                         {/* Orientation Assessment */}
-                                        < td className="p-5" >
+                                        <td className="p-5">
                                             <AssessmentDropdown
-                                                value={row.orientationAssessment ?? null}
-                                                onChange={async (val) => {
+                                                value={row.orientationAssessment}
+                                                onChange={(next) => {
                                                     setRows(prev => prev.map(r =>
-                                                        r.zpid === row.zpid ? { ...r, orientationAssessment: val } : r
+                                                        r.zpid === row.zpid ? { ...r, orientationAssessment: next } : r
                                                     ));
-                                                    try {
-                                                        await saveOrientationAssessment(row.zpid, val);
-                                                    } catch (e) {
-                                                        console.error('[OrientationAudit] Failed to save assessment:', e);
-                                                    }
+                                                    saveOrientationAssessment(row.zpid, next)
+                                                        .catch(e => console.error('[OrientationAudit] Failed to save assessment:', e));
                                                 }}
                                             />
                                         </td>
@@ -619,7 +632,7 @@ interface OrientationSummary {
         azimuth_degrees: number;
         orientation: string;
     } | null;
-    selectedAssessment?: OrientationAssessmentValue | null;
+    selectedAssessment?: OrientationAssessmentValue[];  // multi-select array
     onSelectAssessment?: (v: OrientationAssessmentValue) => void;
 }
 
@@ -666,7 +679,7 @@ function MapThumb({ url, label, orientations }: {
 
                                 {/* Radar Map */}
                                 {(() => {
-                                    const isSelected = orientations.selectedAssessment === 'radar_map';
+                                    const isSelected = (orientations.selectedAssessment ?? []).includes('radar_map');
                                     const hasData = !!orientations.finalOrientation;
                                     return (
                                         <button
@@ -695,7 +708,7 @@ function MapThumb({ url, label, orientations }: {
 
                                 {/* Satellite */}
                                 {(() => {
-                                    const isSelected = orientations.selectedAssessment === 'satellite';
+                                    const isSelected = (orientations.selectedAssessment ?? []).includes('satellite');
                                     const hasData = !!orientations.orientationAI;
                                     return (
                                         <button
@@ -746,7 +759,7 @@ function MapThumb({ url, label, orientations }: {
 
                                 {/* Geocoding */}
                                 {(() => {
-                                    const isSelected = orientations.selectedAssessment === 'geocode';
+                                    const isSelected = (orientations.selectedAssessment ?? []).includes('geocode');
                                     const hasData = !!orientations.orientationGeocoding;
                                     return (
                                         <button
@@ -790,6 +803,32 @@ function MapThumb({ url, label, orientations }: {
                                     );
                                 })()}
 
+                                {/* None / All row */}
+                                {orientations.onSelectAssessment && (
+                                    <div className="col-span-3 flex gap-2 mt-1">
+                                        {(['none', 'all'] as OrientationAssessmentValue[]).map(v => {
+                                            const isSelected = (orientations.selectedAssessment ?? []).includes(v);
+                                            return (
+                                                <button
+                                                    key={v}
+                                                    onClick={() => orientations.onSelectAssessment!(v)}
+                                                    className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide border transition-all ${isSelected
+                                                            ? v === 'none'
+                                                                ? 'bg-rose-400/40 border-rose-300 ring-2 ring-rose-300 text-rose-100'
+                                                                : 'bg-violet-400/40 border-violet-300 ring-2 ring-violet-300 text-violet-100'
+                                                            : v === 'none'
+                                                                ? 'bg-rose-500/20 border-rose-400/20 text-rose-300 hover:bg-rose-500/30'
+                                                                : 'bg-violet-500/20 border-violet-400/20 text-violet-300 hover:bg-violet-500/30'
+                                                        }`}
+                                                >
+                                                    {isSelected && <i className="fa-solid fa-check mr-1.5 text-[8px]" />}
+                                                    {v.charAt(0).toUpperCase() + v.slice(1)}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
                             </div>
                         )}
 
@@ -817,35 +856,108 @@ const ASSESSMENT_OPTIONS: { value: OrientationAssessmentValue; label: string }[]
     { value: 'all', label: 'All' },
 ];
 
-const ASSESSMENT_COLOR: Record<OrientationAssessmentValue, string> = {
-    radar_map: 'border-blue-200   bg-blue-50   text-blue-700',
-    satellite: 'border-indigo-200 bg-indigo-50 text-indigo-700',
-    geocode: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    none: 'border-rose-200   bg-rose-50   text-rose-700',
-    all: 'border-violet-200 bg-violet-50 text-violet-700',
+const ASSESSMENT_CHIP_COLOR: Record<OrientationAssessmentValue, string> = {
+    radar_map: 'bg-blue-100   text-blue-700   border-blue-200',
+    satellite: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+    geocode: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    none: 'bg-rose-100   text-rose-700   border-rose-200',
+    all: 'bg-violet-100 text-violet-700 border-violet-200',
 };
 
 function AssessmentDropdown({
     value,
     onChange,
 }: {
-    value: OrientationAssessmentValue | null;
-    onChange: (v: OrientationAssessmentValue) => void;
+    value: OrientationAssessmentValue[];
+    onChange: (next: OrientationAssessmentValue[]) => void;
 }) {
-    const colorClass = value ? ASSESSMENT_COLOR[value] : 'border-slate-200 bg-white text-slate-400';
+    const [open, setOpen] = useState(false);
+    const ref = React.useRef<HTMLDivElement>(null);
+
+    // Close on outside click
+    React.useEffect(() => {
+        if (!open) return;
+        const handler = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [open]);
+
+    const toggle = (v: OrientationAssessmentValue) => {
+        const next = value.includes(v) ? value.filter(x => x !== v) : [...value, v];
+        onChange(next);
+    };
+
     return (
-        <select
-            value={value ?? ''}
-            onChange={e => {
-                if (e.target.value) onChange(e.target.value as OrientationAssessmentValue);
-            }}
-            className={`w-full text-[10px] font-black uppercase tracking-wider px-3 py-2 rounded-xl border cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-indigo-300 ${colorClass}`}
-        >
-            <option value="" disabled>— select —</option>
-            {ASSESSMENT_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-        </select>
+        <div ref={ref} className="relative w-full min-w-[140px]">
+            {/* Trigger */}
+            <button
+                type="button"
+                onClick={() => setOpen(o => !o)}
+                className="w-full text-left px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-200 min-h-[34px]"
+            >
+                {value.length === 0 ? (
+                    <span className="text-[10px] font-bold text-slate-400">— select —</span>
+                ) : (
+                    <div className="flex flex-wrap gap-1">
+                        {value.map(v => (
+                            <span
+                                key={v}
+                                className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wide border ${ASSESSMENT_CHIP_COLOR[v]}`}
+                            >
+                                {ASSESSMENT_OPTIONS.find(o => o.value === v)?.label}
+                                <button
+                                    type="button"
+                                    onClick={e => { e.stopPropagation(); toggle(v); }}
+                                    className="ml-0.5 text-[7px] opacity-60 hover:opacity-100"
+                                >×</button>
+                            </span>
+                        ))}
+                    </div>
+                )}
+            </button>
+
+            {/* Dropdown */}
+            {open && (
+                <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
+                    {ASSESSMENT_OPTIONS.map(o => {
+                        const checked = value.includes(o.value);
+                        return (
+                            <button
+                                key={o.value}
+                                type="button"
+                                onClick={() => toggle(o.value)}
+                                className={`flex items-center gap-2.5 w-full px-3 py-2 text-left text-[10px] font-black uppercase tracking-wide transition-colors ${checked ? 'bg-slate-50' : 'hover:bg-slate-50'
+                                    }`}
+                            >
+                                <span className={`w-4 h-4 rounded-md border flex items-center justify-center flex-shrink-0 transition-all ${checked
+                                        ? `border-2 ${ASSESSMENT_CHIP_COLOR[o.value]}`
+                                        : 'border-slate-300 bg-white'
+                                    }`}>
+                                    {checked && <i className="fa-solid fa-check text-[7px]" />}
+                                </span>
+                                <span className={checked ? ASSESSMENT_CHIP_COLOR[o.value].split(' ')[1] : 'text-slate-600'}>
+                                    {o.label}
+                                </span>
+                            </button>
+                        );
+                    })}
+                    {/* Clear all */}
+                    {value.length > 0 && (
+                        <div className="border-t border-slate-100 px-3 py-1.5">
+                            <button
+                                type="button"
+                                onClick={() => onChange([])}
+                                className="text-[9px] font-black text-slate-400 hover:text-rose-500 uppercase tracking-wide transition-colors"
+                            >
+                                × Clear all
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
     );
 }
 

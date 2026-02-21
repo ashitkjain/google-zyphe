@@ -70,10 +70,11 @@ export type OrientationAssessmentValue = 'radar_map' | 'satellite' | 'geocode' |
  * Saves only the orientation_assessment field to ai_assessment/{zpid}.
  * Uses merge:true so it never overwrites any other field.
  * Creates the document if it doesn't already exist.
+ * Accepts an array of values — multiple assessments can be stored.
  */
 export const saveOrientationAssessment = async (
     zpid: string,
-    value: OrientationAssessmentValue
+    value: OrientationAssessmentValue[]
 ): Promise<void> => {
     if (!db) throw new Error('DB not initialized');
     const docRef = doc(db, COLLECTION_NAME, zpid);
