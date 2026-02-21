@@ -111,7 +111,7 @@ const OrientationAuditTab: React.FC = () => {
             const toFetch = built.filter(
                 r => r.coordinates && (!r.mapZoomOut || !r.mapZoomOut.includes('firebasestorage'))
             );
-            const CONCURRENCY = 3;
+            const CONCURRENCY = 10;
             for (let i = 0; i < toFetch.length; i += CONCURRENCY) {
                 const batch = toFetch.slice(i, i + CONCURRENCY);
                 await Promise.allSettled(
@@ -212,7 +212,7 @@ const OrientationAuditTab: React.FC = () => {
         if (targets.length === 0) return;
         setRedownloadRunning(true);
         setRedownloadProgress({ done: 0, total: targets.length });
-        const CONCURRENCY = 3;
+        const CONCURRENCY = 10;
         for (let i = 0; i < targets.length; i += CONCURRENCY) {
             const batch = targets.slice(i, i + CONCURRENCY);
             await Promise.allSettled(
@@ -429,10 +429,10 @@ const OrientationAuditTab: React.FC = () => {
                                                     />
                                                     {row.orientationAI?.azimuth_degrees != null && (
                                                         <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black border ${Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)) <= 22.5
-                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                                : Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)) <= 45
-                                                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                                                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                            : Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)) <= 45
+                                                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                                                : 'bg-rose-50 text-rose-700 border-rose-200'
                                                             }`}>
                                                             Δ {Math.round(Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)))}°
                                                         </div>
