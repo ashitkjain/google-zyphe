@@ -49,6 +49,40 @@ function buildAerialUrl(lat: number, lng: number): string {
     );
 }
 
+/**
+ * Fetches the Google Maps Static API aerial satellite image for a property,
+ * uploads it to Firebase Storage (path: properties/{zpid}/maps/aerial_satellite.jpg),
+ * and saves the Storage URL back to the property document.
+ *
+ * If the file already exists in Storage (checked by getDownloadURL before upload),
+ * it returns the cached URL immediately without re-downloading.
+ *
+ * @returns Firebase Storage download URL (or the raw Google URL as fallback)
+ */
+export async function getOrCacheAerialSatelliteUrl(
+    zpid: string,
+    lat: number,
+    lng: number
+): Promise<string> {
+    const { uploadRemoteImageToStorage } = await import('./firebase/storage');
+    const { savePropertyToCloud } = await import('./firebase/properties');
+
+    const aerialUrl = buildAerialUrl(lat, lng);
+    const storagePath = `properties/${zpid}/maps/aerial_satellite.jpg`;
+
+    // uploadRemoteImageToStorage already does a getDownloadURL check before uploading
+    const cachedUrl = await uploadRemoteImageToStorage(aerialUrl, storagePath);
+
+    // Persist the cached URL to Firestore so we can read it back without re-downloading
+    if (cachedUrl.includes('firebasestorage')) {
+        savePropertyToCloud(zpid, { mapZoomOut: cachedUrl } as any)
+            .catch(e => console.warn('[Satellitary] Failed to cache aerial URL to property doc:', e));
+    }
+
+    return cachedUrl;
+}
+
+
 // ─── Geocoding Azimuth (entrance-based precise bearing) ───────────────────────
 
 /**

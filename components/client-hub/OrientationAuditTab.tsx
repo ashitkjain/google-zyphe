@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebaseService';
-import { runSatellitaryAnalysis } from '../../services/satellitaryService';
+import { runSatellitaryAnalysis, getOrCacheAerialSatelliteUrl } from '../../services/satellitaryService';
 import { savePropertyOrientationToCloud } from '../../services/firebase/properties';
 import { PropertyData } from '../../types';
 
@@ -96,6 +96,33 @@ const OrientationAuditTab: React.FC<OrientationAuditTabProps> = () => {
                 built.forEach(r => { cityCounts[r.city] = (cityCounts[r.city] || 0) + 1; });
                 const sorted = Object.entries(cityCounts).sort((a, b) => b[1] - a[1]);
                 setActiveCity(sorted[0]?.[0] || null);
+            }
+
+            // ── Background: fetch & cache aerial satellite images ───────────────
+            // Only process rows that have coords and don't already have a cached
+            // firebase storage satellite URL. Run 3 at a time to avoid rate limits.
+            const toFetch = built.filter(
+                r => r.coordinates && (!r.mapZoomOut || !r.mapZoomOut.includes('firebasestorage'))
+            );
+            const CONCURRENCY = 3;
+            for (let i = 0; i < toFetch.length; i += CONCURRENCY) {
+                const batch = toFetch.slice(i, i + CONCURRENCY);
+                await Promise.allSettled(
+                    batch.map(async row => {
+                        try {
+                            const url = await getOrCacheAerialSatelliteUrl(
+                                row.zpid,
+                                row.coordinates!.latitude,
+                                row.coordinates!.longitude
+                            );
+                            setRows(prev => prev.map(r =>
+                                r.zpid === row.zpid ? { ...r, mapZoomOut: url } : r
+                            ));
+                        } catch (e) {
+                            console.warn(`[OrientationAudit] Satellite cache failed for ${row.zpid}:`, e);
+                        }
+                    })
+                );
             }
         } catch (e) {
             console.error('[OrientationAudit] Failed to fetch properties:', e);
@@ -364,10 +391,10 @@ const OrientationAuditTab: React.FC<OrientationAuditTabProps> = () => {
                                                     {/* Delta vs AI */}
                                                     {row.orientationAI?.azimuth_degrees != null && (
                                                         <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black border ${Math.abs(row.orientationGeocoding.azimuth_degrees - row.orientationAI.azimuth_degrees!) <= 22.5
-                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                                : Math.abs(row.orientationGeocoding.azimuth_degrees - row.orientationAI.azimuth_degrees!) <= 45
-                                                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                                                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                            : Math.abs(row.orientationGeocoding.azimuth_degrees - row.orientationAI.azimuth_degrees!) <= 45
+                                                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                                                : 'bg-rose-50 text-rose-700 border-rose-200'
                                                             }`}>
                                                             Δ {Math.round(Math.abs(row.orientationGeocoding.azimuth_degrees - row.orientationAI.azimuth_degrees!))}°
                                                         </div>
