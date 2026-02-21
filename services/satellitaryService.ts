@@ -149,16 +149,14 @@ function bearingToOrientation(deg: number): string {
 async function computeGeocodingAzimuth(
     lat: number,
     lng: number,
-    address?: string
+    _address?: string   // kept for API compatibility but unused — latlng is always more precise
 ): Promise<{ azimuth: number; orientation: string } | null> {
     try {
-        // Prefer reverse geocoding by latlng (more precise for a known location)
-        const query = address
-            ? `address=${encodeURIComponent(address)}`
-            : `latlng=${lat},${lng}`;
+        // BUILDING_AND_ENTRANCES only works with latlng (reverse geocoding).
+        // Forward address= queries don't return entrance data.
         const url =
             `https://maps.googleapis.com/maps/api/geocode/json` +
-            `?${query}` +
+            `?latlng=${lat},${lng}` +
             `&extra_computations=BUILDING_AND_ENTRANCES` +
             `&key=${MAPS_API_KEY}`;
 
