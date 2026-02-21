@@ -433,8 +433,8 @@ const OrientationAuditTab: React.FC = () => {
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Close-up Map</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Satellite</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Street View</th>
-                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[130px]">Cached (Property)</th>
-                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[150px]">AI Orientation</th>
+                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[130px]">Radar Map</th>
+                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[150px]">Satellite</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[150px]">Geocoding Orientation</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[160px]">Orientation Assessment</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right min-w-[100px]">Action</th>
@@ -633,7 +633,7 @@ function MapThumb({ url, label, orientations }: {
                             <div className="grid grid-cols-3 gap-3">
                                 {/* Cached (property-level) */}
                                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                    <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-2">Cached (Property)</div>
+                                    <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-2">Radar Map</div>
                                     {orientations.finalOrientation ? (
                                         <div className="text-sm font-black text-white">{orientations.finalOrientation}</div>
                                     ) : (
@@ -643,7 +643,7 @@ function MapThumb({ url, label, orientations }: {
 
                                 {/* AI Orientation */}
                                 <div className="bg-indigo-500/20 backdrop-blur-md rounded-2xl p-4 border border-indigo-400/20">
-                                    <div className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-2">AI (Satellite)</div>
+                                    <div className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-2">Satellite</div>
                                     {orientations.orientationAI ? (
                                         <>
                                             <div className="text-sm font-black text-white leading-tight">
