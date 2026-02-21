@@ -52,6 +52,7 @@ export const getAIAssessments = async () => {
     return snapshot.docs.map(doc => ({ mlsid: doc.id, ...doc.data() } as AIAssessment));
 };
 
+
 export const getAIAssessmentForProperty = async (mlsid: string) => {
     const docRef = doc(db, COLLECTION_NAME, mlsid);
     const snapshot = await getDoc(docRef);
@@ -59,4 +60,25 @@ export const getAIAssessmentForProperty = async (mlsid: string) => {
         return snapshot.data() as AIAssessment;
     }
     return null;
+};
+
+// ─── Orientation Assessment ───────────────────────────────────────────────────
+
+export type OrientationAssessmentValue = 'radar_map' | 'satellite' | 'geocode' | 'none' | 'all';
+
+/**
+ * Saves only the orientation_assessment field to ai_assessment/{zpid}.
+ * Uses merge:true so it never overwrites any other field.
+ * Creates the document if it doesn't already exist.
+ */
+export const saveOrientationAssessment = async (
+    zpid: string,
+    value: OrientationAssessmentValue
+): Promise<void> => {
+    if (!db) throw new Error('DB not initialized');
+    const docRef = doc(db, COLLECTION_NAME, zpid);
+    await setDoc(docRef, {
+        orientation_assessment: value,
+        last_update_date: Timestamp.now(),
+    }, { merge: true });
 };

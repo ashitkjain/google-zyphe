@@ -3,6 +3,7 @@ import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebaseService';
 import { runSatellitaryAnalysis, getOrCacheAerialSatelliteUrl, forceRefreshAerialSatelliteUrl, computeGeocodingAzimuth } from '../../services/satellitaryService';
 import { savePropertyOrientationToCloud } from '../../services/firebase/properties';
+import { saveOrientationAssessment, OrientationAssessmentValue } from '../../services/firebase/ai_assessment';
 
 // ─── Local Types ──────────────────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ interface OrientationRow {
     } | null;
     finalOrientation?: string | null;
     coordinates?: { latitude: number; longitude: number };
+    orientationAssessment?: OrientationAssessmentValue | null;
     status: 'idle' | 'running' | 'done' | 'error';
     error?: string;
 }
@@ -80,10 +82,11 @@ const OrientationAuditTab: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            // Fetch properties and their visual analyses in parallel
-            const [propSnap, visualSnap] = await Promise.all([
+            // Fetch properties, visual analyses, and ai_assessment in parallel
+            const [propSnap, visualSnap, assessmentSnap] = await Promise.all([
                 getDocs(query(collection(db, 'properties'), orderBy('address', 'asc'))),
                 getDocs(collection(db, 'property_analyses_visual')),
+                getDocs(collection(db, 'ai_assessment')),
             ]);
 
             // Build a zpid → neighborhood orientation lookup from visual analyses
@@ -92,6 +95,13 @@ const OrientationAuditTab: React.FC = () => {
                 const va = d.data() as any;
                 const fo = va?.neighborhood?.orientation?.final_orientation;
                 if (fo) visualOrientationMap[d.id] = fo;
+            });
+
+            // Build a zpid → orientation_assessment lookup from ai_assessment
+            const orientationAssessmentMap: Record<string, OrientationAssessmentValue> = {};
+            assessmentSnap.docs.forEach(d => {
+                const oa = (d.data() as any)?.orientation_assessment as OrientationAssessmentValue | undefined;
+                if (oa) orientationAssessmentMap[d.id] = oa;
             });
 
             const built: OrientationRow[] = propSnap.docs.map(d => {
@@ -112,6 +122,7 @@ const OrientationAuditTab: React.FC = () => {
                         (p.orientation_ai?.final_orientation as string | undefined) ||
                         null,
                     coordinates: p.coordinates || undefined,
+                    orientationAssessment: orientationAssessmentMap[d.id] ?? null,
                     status: 'idle' as const,
                 };
             });
@@ -425,13 +436,14 @@ const OrientationAuditTab: React.FC = () => {
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[130px]">Cached (Property)</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[150px]">AI Orientation</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[150px]">Geocoding Orientation</th>
+                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[160px]">Orientation Assessment</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right min-w-[100px]">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredRows.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8} className="py-24 text-center">
+                                        <td colSpan={9} className="py-24 text-center">
                                             <i className="fa-solid fa-folder-open text-4xl text-slate-100 mb-3 block" />
                                             <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No properties in this city</p>
                                         </td>
@@ -520,6 +532,23 @@ const OrientationAuditTab: React.FC = () => {
                                             ) : (
                                                 <span className="text-[10px] text-slate-300 font-bold">—</span>
                                             )}
+                                        </td>
+
+                                        {/* Orientation Assessment */}
+                                        <td className="p-5">
+                                            <AssessmentDropdown
+                                                value={row.orientationAssessment ?? null}
+                                                onChange={async (val) => {
+                                                    setRows(prev => prev.map(r =>
+                                                        r.zpid === row.zpid ? { ...r, orientationAssessment: val } : r
+                                                    ));
+                                                    try {
+                                                        await saveOrientationAssessment(row.zpid, val);
+                                                    } catch (e) {
+                                                        console.error('[OrientationAudit] Failed to save assessment:', e);
+                                                    }
+                                                }}
+                                            />
                                         </td>
 
                                         {/* Action */}
@@ -627,8 +656,8 @@ function MapThumb({ url, label, orientations }: {
                                             )}
                                             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                                                 <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${orientations.orientationAI.confidence === 'high' ? 'bg-emerald-400/30 text-emerald-300'
-                                                        : orientations.orientationAI.confidence === 'medium' ? 'bg-amber-400/30 text-amber-300'
-                                                            : 'bg-rose-400/30 text-rose-300'
+                                                    : orientations.orientationAI.confidence === 'medium' ? 'bg-amber-400/30 text-amber-300'
+                                                        : 'bg-rose-400/30 text-rose-300'
                                                     }`}>
                                                     {orientations.orientationAI.confidence}
                                                 </span>
@@ -657,10 +686,10 @@ function MapThumb({ url, label, orientations }: {
                                             </div>
                                             {orientations.orientationAI?.azimuth_degrees != null && (
                                                 <div className={`text-[8px] font-black px-1.5 py-0.5 rounded-md mt-1.5 inline-block ${Math.abs(orientations.orientationGeocoding.azimuth_degrees - (orientations.orientationAI.azimuth_degrees ?? 0)) <= 22.5
-                                                        ? 'bg-emerald-400/30 text-emerald-300'
-                                                        : Math.abs(orientations.orientationGeocoding.azimuth_degrees - (orientations.orientationAI.azimuth_degrees ?? 0)) <= 45
-                                                            ? 'bg-amber-400/30 text-amber-300'
-                                                            : 'bg-rose-400/30 text-rose-300'
+                                                    ? 'bg-emerald-400/30 text-emerald-300'
+                                                    : Math.abs(orientations.orientationGeocoding.azimuth_degrees - (orientations.orientationAI.azimuth_degrees ?? 0)) <= 45
+                                                        ? 'bg-amber-400/30 text-amber-300'
+                                                        : 'bg-rose-400/30 text-rose-300'
                                                     }`}>
                                                     Δ {Math.round(Math.abs(orientations.orientationGeocoding.azimuth_degrees - (orientations.orientationAI.azimuth_degrees ?? 0)))}° vs AI
                                                 </div>
@@ -684,6 +713,48 @@ function MapThumb({ url, label, orientations }: {
                 </div>
             )}
         </>
+    );
+}
+
+// \u2500\u2500\u2500 Assessment dropdown ─────────────────────────────────────────────────────────
+
+const ASSESSMENT_OPTIONS: { value: OrientationAssessmentValue; label: string }[] = [
+    { value: 'radar_map', label: 'Radar Map' },
+    { value: 'satellite', label: 'Satellite' },
+    { value: 'geocode', label: 'Geocode' },
+    { value: 'none', label: 'None' },
+    { value: 'all', label: 'All' },
+];
+
+const ASSESSMENT_COLOR: Record<OrientationAssessmentValue, string> = {
+    radar_map: 'border-blue-200   bg-blue-50   text-blue-700',
+    satellite: 'border-indigo-200 bg-indigo-50 text-indigo-700',
+    geocode: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    none: 'border-rose-200   bg-rose-50   text-rose-700',
+    all: 'border-violet-200 bg-violet-50 text-violet-700',
+};
+
+function AssessmentDropdown({
+    value,
+    onChange,
+}: {
+    value: OrientationAssessmentValue | null;
+    onChange: (v: OrientationAssessmentValue) => void;
+}) {
+    const colorClass = value ? ASSESSMENT_COLOR[value] : 'border-slate-200 bg-white text-slate-400';
+    return (
+        <select
+            value={value ?? ''}
+            onChange={e => {
+                if (e.target.value) onChange(e.target.value as OrientationAssessmentValue);
+            }}
+            className={`w-full text-[10px] font-black uppercase tracking-wider px-3 py-2 rounded-xl border cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-indigo-300 ${colorClass}`}
+        >
+            <option value="" disabled>— select —</option>
+            {ASSESSMENT_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+        </select>
     );
 }
 
