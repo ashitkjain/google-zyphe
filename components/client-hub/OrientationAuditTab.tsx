@@ -466,17 +466,38 @@ const OrientationAuditTab: React.FC = () => {
 
                                         {/* Close-up map */}
                                         <td className="p-5 text-center">
-                                            <MapThumb url={row.mapZoomIn} label="Close-up Map" orientations={row} />
+                                            <MapThumb url={row.mapZoomIn} label="Close-up Map" orientations={{
+                                                ...row,
+                                                selectedAssessment: row.orientationAssessment,
+                                                onSelectAssessment: async (v) => {
+                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: v } : r));
+                                                    saveOrientationAssessment(row.zpid, v).catch(console.error);
+                                                },
+                                            }} />
                                         </td>
 
                                         {/* Satellite */}
                                         <td className="p-5 text-center">
-                                            <MapThumb url={row.mapZoomOut} label="Satellite" orientations={row} />
+                                            <MapThumb url={row.mapZoomOut} label="Satellite" orientations={{
+                                                ...row,
+                                                selectedAssessment: row.orientationAssessment,
+                                                onSelectAssessment: async (v) => {
+                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: v } : r));
+                                                    saveOrientationAssessment(row.zpid, v).catch(console.error);
+                                                },
+                                            }} />
                                         </td>
 
                                         {/* Street view */}
                                         <td className="p-5 text-center">
-                                            <MapThumb url={row.streetView} label="Street View" orientations={row} />
+                                            <MapThumb url={row.streetView} label="Street View" orientations={{
+                                                ...row,
+                                                selectedAssessment: row.orientationAssessment,
+                                                onSelectAssessment: async (v) => {
+                                                    setRows(prev => prev.map(r => r.zpid === row.zpid ? { ...r, orientationAssessment: v } : r));
+                                                    saveOrientationAssessment(row.zpid, v).catch(console.error);
+                                                },
+                                            }} />
                                         </td>
 
                                         {/* Cached property orientation */}
@@ -589,6 +610,8 @@ interface OrientationSummary {
         azimuth_degrees: number;
         orientation: string;
     } | null;
+    selectedAssessment?: OrientationAssessmentValue | null;
+    onSelectAssessment?: (v: OrientationAssessmentValue) => void;
 }
 
 // ─── Image thumbnail with full-screen modal ───────────────────────────────────
@@ -631,74 +654,133 @@ function MapThumb({ url, label, orientations }: {
                         {/* Orientation panel */}
                         {orientations && (
                             <div className="grid grid-cols-3 gap-3">
-                                {/* Cached (property-level) */}
-                                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                    <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-2">Radar Map</div>
-                                    {orientations.finalOrientation ? (
-                                        <div className="text-sm font-black text-white">{orientations.finalOrientation}</div>
-                                    ) : (
-                                        <div className="text-[11px] text-white/30 font-bold">—</div>
-                                    )}
-                                </div>
 
-                                {/* AI Orientation */}
-                                <div className="bg-indigo-500/20 backdrop-blur-md rounded-2xl p-4 border border-indigo-400/20">
-                                    <div className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-2">Satellite</div>
-                                    {orientations.orientationAI ? (
-                                        <>
-                                            <div className="text-sm font-black text-white leading-tight">
-                                                {orientations.orientationAI.final_orientation}
+                                {/* Radar Map */}
+                                {(() => {
+                                    const isSelected = orientations.selectedAssessment === 'radar_map';
+                                    const hasData = !!orientations.finalOrientation;
+                                    return (
+                                        <button
+                                            onClick={() => hasData && orientations.onSelectAssessment?.('radar_map')}
+                                            disabled={!hasData || !orientations.onSelectAssessment}
+                                            title={hasData ? 'Set assessment to Radar Map' : 'No radar map orientation available'}
+                                            className={`text-left rounded-2xl p-4 border transition-all ${isSelected
+                                                    ? 'bg-white/20 border-white ring-2 ring-white shadow-lg scale-[1.02]'
+                                                    : hasData && orientations.onSelectAssessment
+                                                        ? 'bg-white/10 border-white/10 hover:bg-white/15 hover:border-white/30 cursor-pointer'
+                                                        : 'bg-white/5 border-white/5 opacity-50 cursor-not-allowed'
+                                                }`}
+                                        >
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="text-[9px] font-black text-white/50 uppercase tracking-widest">Radar Map</div>
+                                                {isSelected && <i className="fa-solid fa-check text-[10px] text-white" />}
                                             </div>
-                                            {orientations.orientationAI.azimuth_degrees != null && (
-                                                <div className="text-[10px] text-indigo-300 font-mono mt-0.5">
-                                                    {orientations.orientationAI.azimuth_degrees}°
-                                                </div>
+                                            {orientations.finalOrientation ? (
+                                                <div className="text-sm font-black text-white">{orientations.finalOrientation}</div>
+                                            ) : (
+                                                <div className="text-[11px] text-white/30 font-bold">—</div>
                                             )}
-                                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${orientations.orientationAI.confidence === 'high' ? 'bg-emerald-400/30 text-emerald-300'
-                                                    : orientations.orientationAI.confidence === 'medium' ? 'bg-amber-400/30 text-amber-300'
-                                                        : 'bg-rose-400/30 text-rose-300'
-                                                    }`}>
-                                                    {orientations.orientationAI.confidence}
-                                                </span>
-                                                {orientations.orientationAI.aerial_only_mode && (
-                                                    <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md bg-amber-400/20 text-amber-300">
-                                                        aerial only
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div className="text-[11px] text-white/30 font-bold">—</div>
-                                    )}
-                                </div>
+                                        </button>
+                                    );
+                                })()}
 
-                                {/* Geocoding Orientation */}
-                                <div className="bg-emerald-500/20 backdrop-blur-md rounded-2xl p-4 border border-emerald-400/20">
-                                    <div className="text-[9px] font-black text-emerald-300 uppercase tracking-widest mb-2">Geocoding</div>
-                                    {orientations.orientationGeocoding ? (
-                                        <>
-                                            <div className="text-sm font-black text-white leading-tight">
-                                                {orientations.orientationGeocoding.orientation}
+                                {/* Satellite */}
+                                {(() => {
+                                    const isSelected = orientations.selectedAssessment === 'satellite';
+                                    const hasData = !!orientations.orientationAI;
+                                    return (
+                                        <button
+                                            onClick={() => hasData && orientations.onSelectAssessment?.('satellite')}
+                                            disabled={!hasData || !orientations.onSelectAssessment}
+                                            title={hasData ? 'Set assessment to Satellite' : 'No satellite orientation available'}
+                                            className={`text-left rounded-2xl p-4 border transition-all ${isSelected
+                                                    ? 'bg-indigo-400/40 border-indigo-300 ring-2 ring-indigo-300 shadow-lg scale-[1.02]'
+                                                    : hasData && orientations.onSelectAssessment
+                                                        ? 'bg-indigo-500/20 border-indigo-400/20 hover:bg-indigo-500/30 hover:border-indigo-300/40 cursor-pointer'
+                                                        : 'bg-indigo-500/10 border-indigo-400/10 opacity-50 cursor-not-allowed'
+                                                }`}
+                                        >
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="text-[9px] font-black text-indigo-300 uppercase tracking-widest">Satellite</div>
+                                                {isSelected && <i className="fa-solid fa-check text-[10px] text-indigo-200" />}
                                             </div>
-                                            <div className="text-[10px] text-emerald-300 font-mono mt-0.5">
-                                                {orientations.orientationGeocoding.azimuth_degrees}°
-                                            </div>
-                                            {orientations.orientationAI?.azimuth_degrees != null && (
-                                                <div className={`text-[8px] font-black px-1.5 py-0.5 rounded-md mt-1.5 inline-block ${Math.abs(orientations.orientationGeocoding.azimuth_degrees - (orientations.orientationAI.azimuth_degrees ?? 0)) <= 22.5
-                                                    ? 'bg-emerald-400/30 text-emerald-300'
-                                                    : Math.abs(orientations.orientationGeocoding.azimuth_degrees - (orientations.orientationAI.azimuth_degrees ?? 0)) <= 45
-                                                        ? 'bg-amber-400/30 text-amber-300'
-                                                        : 'bg-rose-400/30 text-rose-300'
-                                                    }`}>
-                                                    Δ {Math.round(Math.abs(orientations.orientationGeocoding.azimuth_degrees - (orientations.orientationAI.azimuth_degrees ?? 0)))}° vs AI
-                                                </div>
+                                            {orientations.orientationAI ? (
+                                                <>
+                                                    <div className="text-sm font-black text-white leading-tight">
+                                                        {orientations.orientationAI.final_orientation}
+                                                    </div>
+                                                    {orientations.orientationAI.azimuth_degrees != null && (
+                                                        <div className="text-[10px] text-indigo-300 font-mono mt-0.5">
+                                                            {orientations.orientationAI.azimuth_degrees}°
+                                                        </div>
+                                                    )}
+                                                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${orientations.orientationAI.confidence === 'high' ? 'bg-emerald-400/30 text-emerald-300'
+                                                            : orientations.orientationAI.confidence === 'medium' ? 'bg-amber-400/30 text-amber-300'
+                                                                : 'bg-rose-400/30 text-rose-300'
+                                                            }`}>
+                                                            {orientations.orientationAI.confidence}
+                                                        </span>
+                                                        {orientations.orientationAI.aerial_only_mode && (
+                                                            <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md bg-amber-400/20 text-amber-300">
+                                                                aerial only
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="text-[11px] text-white/30 font-bold">—</div>
                                             )}
-                                        </>
-                                    ) : (
-                                        <div className="text-[11px] text-white/30 font-bold">—</div>
-                                    )}
-                                </div>
+                                        </button>
+                                    );
+                                })()}
+
+                                {/* Geocoding */}
+                                {(() => {
+                                    const isSelected = orientations.selectedAssessment === 'geocode';
+                                    const hasData = !!orientations.orientationGeocoding;
+                                    return (
+                                        <button
+                                            onClick={() => hasData && orientations.onSelectAssessment?.('geocode')}
+                                            disabled={!hasData || !orientations.onSelectAssessment}
+                                            title={hasData ? 'Set assessment to Geocode' : 'No geocoding orientation available'}
+                                            className={`text-left rounded-2xl p-4 border transition-all ${isSelected
+                                                    ? 'bg-emerald-400/40 border-emerald-300 ring-2 ring-emerald-300 shadow-lg scale-[1.02]'
+                                                    : hasData && orientations.onSelectAssessment
+                                                        ? 'bg-emerald-500/20 border-emerald-400/20 hover:bg-emerald-500/30 hover:border-emerald-300/40 cursor-pointer'
+                                                        : 'bg-emerald-500/10 border-emerald-400/10 opacity-50 cursor-not-allowed'
+                                                }`}
+                                        >
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="text-[9px] font-black text-emerald-300 uppercase tracking-widest">Geocoding</div>
+                                                {isSelected && <i className="fa-solid fa-check text-[10px] text-emerald-200" />}
+                                            </div>
+                                            {orientations.orientationGeocoding ? (
+                                                <>
+                                                    <div className="text-sm font-black text-white leading-tight">
+                                                        {orientations.orientationGeocoding.orientation}
+                                                    </div>
+                                                    <div className="text-[10px] text-emerald-300 font-mono mt-0.5">
+                                                        {orientations.orientationGeocoding.azimuth_degrees}°
+                                                    </div>
+                                                    {orientations.orientationAI?.azimuth_degrees != null && (
+                                                        <div className={`text-[8px] font-black px-1.5 py-0.5 rounded-md mt-1.5 inline-block ${Math.abs(orientations.orientationGeocoding.azimuth_degrees - (orientations.orientationAI.azimuth_degrees ?? 0)) <= 22.5
+                                                            ? 'bg-emerald-400/30 text-emerald-300'
+                                                            : Math.abs(orientations.orientationGeocoding.azimuth_degrees - (orientations.orientationAI.azimuth_degrees ?? 0)) <= 45
+                                                                ? 'bg-amber-400/30 text-amber-300'
+                                                                : 'bg-rose-400/30 text-rose-300'
+                                                            }`}>
+                                                            Δ {Math.round(Math.abs(orientations.orientationGeocoding.azimuth_degrees - (orientations.orientationAI.azimuth_degrees ?? 0)))}° vs AI
+                                                        </div>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <div className="text-[11px] text-white/30 font-bold">—</div>
+                                            )}
+                                        </button>
+                                    );
+                                })()}
+
                             </div>
                         )}
 
