@@ -27,6 +27,7 @@ interface OrientationRow {
     finalOrientation?: string | null;
     coordinates?: { latitude: number; longitude: number };
     orientationAssessment?: OrientationAssessmentValue | null;
+    geocodingNA?: boolean;   // true = geocoding ran but API returned no entrance data
     status: 'idle' | 'running' | 'done' | 'error';
     error?: string;
 }
@@ -541,14 +542,22 @@ const OrientationAuditTab: React.FC = () => {
                                                     />
                                                     {row.orientationAI?.azimuth_degrees != null && (
                                                         <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black border ${Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)) <= 22.5
-                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                            : Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)) <= 45
-                                                                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                                                : 'bg-rose-50 text-rose-700 border-rose-200'
+                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                                : Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)) <= 45
+                                                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                                                    : 'bg-rose-50 text-rose-700 border-rose-200'
                                                             }`}>
                                                             Δ {Math.round(Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)))}°
                                                         </div>
                                                     )}
+                                                </div>
+                                            ) : row.geocodingNA ? (
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black bg-amber-50 text-amber-600 border border-amber-200">
+                                                        <i className="fa-solid fa-triangle-exclamation text-[8px]" />
+                                                        N/A
+                                                    </span>
+                                                    <span className="text-[8px] text-slate-400">No entrance data</span>
                                                 </div>
                                             ) : (
                                                 <span className="text-[10px] text-slate-300 font-bold">—</span>
@@ -556,7 +565,7 @@ const OrientationAuditTab: React.FC = () => {
                                         </td>
 
                                         {/* Orientation Assessment */}
-                                        <td className="p-5">
+                                        < td className="p-5" >
                                             <AssessmentDropdown
                                                 value={row.orientationAssessment ?? null}
                                                 onChange={async (val) => {
@@ -590,9 +599,9 @@ const OrientationAuditTab: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
-                </div>
+                </div >
             )}
-        </div>
+        </div >
     );
 };
 
@@ -665,10 +674,10 @@ function MapThumb({ url, label, orientations }: {
                                             disabled={!hasData || !orientations.onSelectAssessment}
                                             title={hasData ? 'Set assessment to Radar Map' : 'No radar map orientation available'}
                                             className={`text-left rounded-2xl p-4 border transition-all ${isSelected
-                                                    ? 'bg-white/20 border-white ring-2 ring-white shadow-lg scale-[1.02]'
-                                                    : hasData && orientations.onSelectAssessment
-                                                        ? 'bg-white/10 border-white/10 hover:bg-white/15 hover:border-white/30 cursor-pointer'
-                                                        : 'bg-white/5 border-white/5 opacity-50 cursor-not-allowed'
+                                                ? 'bg-white/20 border-white ring-2 ring-white shadow-lg scale-[1.02]'
+                                                : hasData && orientations.onSelectAssessment
+                                                    ? 'bg-white/10 border-white/10 hover:bg-white/15 hover:border-white/30 cursor-pointer'
+                                                    : 'bg-white/5 border-white/5 opacity-50 cursor-not-allowed'
                                                 }`}
                                         >
                                             <div className="flex items-center justify-between mb-2">
@@ -694,10 +703,10 @@ function MapThumb({ url, label, orientations }: {
                                             disabled={!hasData || !orientations.onSelectAssessment}
                                             title={hasData ? 'Set assessment to Satellite' : 'No satellite orientation available'}
                                             className={`text-left rounded-2xl p-4 border transition-all ${isSelected
-                                                    ? 'bg-indigo-400/40 border-indigo-300 ring-2 ring-indigo-300 shadow-lg scale-[1.02]'
-                                                    : hasData && orientations.onSelectAssessment
-                                                        ? 'bg-indigo-500/20 border-indigo-400/20 hover:bg-indigo-500/30 hover:border-indigo-300/40 cursor-pointer'
-                                                        : 'bg-indigo-500/10 border-indigo-400/10 opacity-50 cursor-not-allowed'
+                                                ? 'bg-indigo-400/40 border-indigo-300 ring-2 ring-indigo-300 shadow-lg scale-[1.02]'
+                                                : hasData && orientations.onSelectAssessment
+                                                    ? 'bg-indigo-500/20 border-indigo-400/20 hover:bg-indigo-500/30 hover:border-indigo-300/40 cursor-pointer'
+                                                    : 'bg-indigo-500/10 border-indigo-400/10 opacity-50 cursor-not-allowed'
                                                 }`}
                                         >
                                             <div className="flex items-center justify-between mb-2">
@@ -745,10 +754,10 @@ function MapThumb({ url, label, orientations }: {
                                             disabled={!hasData || !orientations.onSelectAssessment}
                                             title={hasData ? 'Set assessment to Geocode' : 'No geocoding orientation available'}
                                             className={`text-left rounded-2xl p-4 border transition-all ${isSelected
-                                                    ? 'bg-emerald-400/40 border-emerald-300 ring-2 ring-emerald-300 shadow-lg scale-[1.02]'
-                                                    : hasData && orientations.onSelectAssessment
-                                                        ? 'bg-emerald-500/20 border-emerald-400/20 hover:bg-emerald-500/30 hover:border-emerald-300/40 cursor-pointer'
-                                                        : 'bg-emerald-500/10 border-emerald-400/10 opacity-50 cursor-not-allowed'
+                                                ? 'bg-emerald-400/40 border-emerald-300 ring-2 ring-emerald-300 shadow-lg scale-[1.02]'
+                                                : hasData && orientations.onSelectAssessment
+                                                    ? 'bg-emerald-500/20 border-emerald-400/20 hover:bg-emerald-500/30 hover:border-emerald-300/40 cursor-pointer'
+                                                    : 'bg-emerald-500/10 border-emerald-400/10 opacity-50 cursor-not-allowed'
                                                 }`}
                                         >
                                             <div className="flex items-center justify-between mb-2">
