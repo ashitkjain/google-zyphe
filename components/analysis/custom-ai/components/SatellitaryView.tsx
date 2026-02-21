@@ -162,7 +162,7 @@ const SatellitaryView: React.FC<Props> = ({ lat, lng, cachedStreetViewUrl, addre
                     {!cachedStreetViewUrl?.includes('firebasestorage') && (
                         <div className="w-full max-w-lg bg-amber-50 text-amber-700 rounded-2xl p-4 text-[12px] font-semibold border border-amber-200 text-center">
                             <i className="fa-solid fa-circle-info mr-2"></i>
-                            Run the main property analysis (Visual AI Report) first to capture and cache the street view image, then return here.
+                            No cached street view found. The analysis will run using the aerial satellite image only — accuracy may be slightly lower.
                         </div>
                     )}
                     {error && (
@@ -172,8 +172,7 @@ const SatellitaryView: React.FC<Props> = ({ lat, lng, cachedStreetViewUrl, addre
                     )}
                     <button
                         onClick={run}
-                        disabled={!cachedStreetViewUrl?.includes('firebasestorage')}
-                        className="flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-indigo-600 to-slate-800 text-white rounded-2xl font-black text-[13px] uppercase tracking-widest shadow-xl hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                        className="flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-indigo-600 to-slate-800 text-white rounded-2xl font-black text-[13px] uppercase tracking-widest shadow-xl hover:scale-[1.03] transition-all"
                     >
                         <i className="fa-solid fa-satellite"></i>
                         Run Orientation Analysis
@@ -185,7 +184,7 @@ const SatellitaryView: React.FC<Props> = ({ lat, lng, cachedStreetViewUrl, addre
                     {/* Main result card */}
                     <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden p-8 md:p-12">
                         <div className="flex flex-col md:flex-row items-center md:items-start gap-10">
-                            {/* Compass rose */}
+                            {/* Compass rose + orientation */}
                             <div className="flex flex-col items-center gap-3 flex-shrink-0">
                                 <CompassRose azimuth={azimuthToAngle(result.azimuth_degrees, result.final_orientation)} />
                                 <div className="text-center">
@@ -198,6 +197,11 @@ const SatellitaryView: React.FC<Props> = ({ lat, lng, cachedStreetViewUrl, addre
                                 <div className={`text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${CONFIDENCE_COLOR[result.confidence]}`}>
                                     {result.confidence} confidence
                                 </div>
+                                {result.aerial_only_mode && (
+                                    <div className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border bg-amber-50 text-amber-600 border-amber-200">
+                                        <i className="fa-solid fa-satellite-dish mr-1"></i>Aerial Only
+                                    </div>
+                                )}
                             </div>
 
                             {/* Explanation */}
@@ -212,19 +216,21 @@ const SatellitaryView: React.FC<Props> = ({ lat, lng, cachedStreetViewUrl, addre
                     </div>
 
                     {/* Source images */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className={`grid ${result.aerial_only_mode ? 'grid-cols-1 max-w-md mx-auto' : 'grid-cols-1 md:grid-cols-2'} gap-6`}>
                         <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
                             <div className="px-6 pt-5 pb-3 text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                 <i className="fa-solid fa-satellite-dish text-indigo-400"></i>Image A — Aerial Satellite
                             </div>
                             <img src={result.aerial_url} alt="Aerial satellite" className="w-full object-cover" />
                         </div>
-                        <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
-                            <div className="px-6 pt-5 pb-3 text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                <i className="fa-solid fa-street-view text-indigo-400"></i>Image B — Street View
+                        {!result.aerial_only_mode && result.street_view_url && (
+                            <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
+                                <div className="px-6 pt-5 pb-3 text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                    <i className="fa-solid fa-street-view text-indigo-400"></i>Image B — Street View
+                                </div>
+                                <img src={result.street_view_url} alt="Street view" className="w-full object-cover" />
                             </div>
-                            <img src={result.street_view_url} alt="Street view" className="w-full object-cover" />
-                        </div>
+                        )}
                     </div>
 
                     {/* Re-run */}
