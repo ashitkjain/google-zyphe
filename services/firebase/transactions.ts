@@ -1,4 +1,4 @@
-import { collection, doc, query, where, getDocs, addDoc, serverTimestamp, setDoc, writeBatch, orderBy, WriteBatch } from "firebase/firestore";
+import { collection, doc, query, where, getDocs, addDoc, getDoc, setDoc, serverTimestamp, writeBatch, orderBy, WriteBatch } from "firebase/firestore";
 import {
     db,
     sanitizeForFirestore,
@@ -175,35 +175,47 @@ export const getTransactionTasks = async (transactionId: string, realtorId: stri
     }
 };
 
-export const seedTasksForTransaction = (batch: any, transaction: Transaction, initialCategories: ChecklistCategory[]): ChecklistCategory[] => {
+/**
+ * Builds the deterministic checklist in memory (synchronous).
+ * Only computes IDs and schedules — does NOT write to Firestore.
+ * Used by createTransaction to get the checklist structure for the
+ * transaction document itself.
+ */
+export const buildTaskChecklist = (transaction: Transaction, initialCategories: ChecklistCategory[]): ChecklistCategory[] => {
     const oldIdToNewId: Record<string, string> = {};
 
-    // First pass: generate DETERMINISTIC IDs so batch.set() is idempotent.
-    // Format: task_{transactionId}_{categoryId}_{templateTaskId}
-    // Writing the exact same ID twice just overwrites — no duplicate documents.
+    // Generate DETERMINISTIC IDs: task_{transactionId}_{categoryId}_{templateTaskId}
     for (const cat of initialCategories) {
         for (const t of cat.tasks) {
-            // Sanitize template ID to be Firestore-safe (no slashes, spaces, etc.)
             const safeTemplateId = t.id.replace(/[^a-zA-Z0-9_-]/g, '_');
             oldIdToNewId[t.id] = `task_${transaction.id}_${cat.id}_${safeTemplateId}`;
         }
     }
 
-    // Second pass: Use shared scheduling logic to calculate all dates and map IDs
     const baseDate = transaction.important_dates?.acceptance_date?.toDate
         ? transaction.important_dates.acceptance_date.toDate()
         : (transaction.important_dates?.acceptance_date ? new Date(transaction.important_dates.acceptance_date) : new Date());
 
-    const finalChecklist = calculateChecklistSchedule(initialCategories, baseDate, oldIdToNewId);
+    return calculateChecklistSchedule(initialCategories, baseDate, oldIdToNewId);
+};
 
-    // Third pass: Add individual CRMTask documents to the batch
-    finalChecklist.forEach(cat => {
-        cat.tasks.forEach(t => {
+/**
+ * Writes task documents to Firestore with immutable create-only semantics.
+ * Each task gets a getDoc check — if the document already exists it is
+ * NEVER overwritten, preserving any user edits (status, comments, dates).
+ */
+export const seedTaskDocuments = async (transaction: Transaction, finalChecklist: ChecklistCategory[]): Promise<void> => {
+    if (!db) return;
+    for (const cat of finalChecklist) {
+        for (const t of cat.tasks) {
             const taskDocRef = doc(db, "tasks", t.id);
-            const taskData = {
+            const snap = await getDoc(taskDocRef);
+            if (snap.exists()) continue; // Immutable: never overwrite an existing task
+
+            await setDoc(taskDocRef, sanitizeForFirestore({
                 id: t.id,
                 realtorId: transaction.realtorId,
-                clientId: transaction.clientId || null, // Ensuring clientId from transaction is propagated to tasks
+                clientId: transaction.clientId || null,
                 transaction_id: transaction.id,
                 name: t.name,
                 comment: t.comments || '',
@@ -215,16 +227,19 @@ export const seedTasksForTransaction = (batch: any, transaction: Transaction, in
                 dependsOn: t.dependsOn,
                 durationDays: t.durationDays,
                 categoryId: cat.id,
-                isMock: transaction.isMock ?? false, // Inherit mock status from transaction
+                isMock: transaction.isMock ?? false,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp()
-            };
-            batch.set(taskDocRef, sanitizeForFirestore(taskData));
-        });
-    });
-
-    return finalChecklist;
+            }));
+        }
+    }
 };
+
+/** @deprecated Use buildTaskChecklist + seedTaskDocuments — kept for backward compat */
+export const seedTasksForTransaction = (batch: any, transaction: Transaction, initialCategories: ChecklistCategory[]): ChecklistCategory[] => {
+    return buildTaskChecklist(transaction, initialCategories);
+};
+
 
 export const createTransaction = async (transaction: Transaction, initialCategories?: ChecklistCategory[]) => {
     if (!db) return null;
@@ -238,7 +253,8 @@ export const createTransaction = async (transaction: Transaction, initialCategor
         let fullChecklistForCalendar: ChecklistCategory[] = [];
 
         if (initialCategories) {
-            fullChecklistForCalendar = seedTasksForTransaction(batch, finalTransactionObj, initialCategories);
+            // Build checklist in memory (computes deterministic IDs + schedule) — no writes yet
+            fullChecklistForCalendar = buildTaskChecklist(finalTransactionObj, initialCategories);
             finalChecklist = fullChecklistForCalendar.map(cat => ({
                 ...cat,
                 tasks: cat.tasks.map(t => ({ id: t.id }))
@@ -274,11 +290,11 @@ export const createTransaction = async (transaction: Transaction, initialCategor
             diff: { after: finalTransactionObj }
         });
 
-        // After commit, seed initial parties and documents (asynchronously)
+        // After the transaction doc is committed, seed tasks + parties + documents.
+        // All three seed functions use immutable create-only writes (getDoc check before setDoc).
+        // Re-calling createTransaction for the same client is safe — nothing gets overwritten.
         if (initialCategories) {
-            // We start these but don't await them to block return? 
-            // Actually we probably should await inside try/catch so user knows it's fully done or handle error.
-            // But preserving original logic which called them.
+            await seedTaskDocuments(finalTransaction, fullChecklistForCalendar);
             await seedPartiesForTransaction(transactionId);
             await seedDocumentsForTransaction(transactionId);
         }

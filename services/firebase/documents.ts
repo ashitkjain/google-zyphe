@@ -327,15 +327,19 @@ export const seedDocumentsForTransaction = async (transactionId: string) => {
         const MOCK_DOCUMENTS_DATA = generateMockTransactionDocuments(transactionId);
         console.log(`[seedDocumentsForTransaction] Starting seed for tx: ${transactionId} with ${MOCK_DOCUMENTS_DATA.length} docs`);
         for (const document of MOCK_DOCUMENTS_DATA) {
-            // Deterministic ID: txdoc_{transactionId}_{slugifiedName} — setDoc is idempotent
+            // Deterministic ID: txdoc_{transactionId}_{slugifiedName}
             const slug = (document.name || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '_');
             const deterministicId = `txdoc_${transactionId}_${slug}`;
             const docRef = doc(db, "transaction_documents", deterministicId);
-            await setDoc(docRef, sanitizeForFirestore({
-                ...document,
-                id: deterministicId,
-                transaction_id: transactionId,
-            }), { merge: true });
+            // Immutable write: only create if the document doesn't already exist
+            const snap = await getDoc(docRef);
+            if (!snap.exists()) {
+                await setDoc(docRef, sanitizeForFirestore({
+                    ...document,
+                    id: deterministicId,
+                    transaction_id: transactionId,
+                }));
+            }
         }
     } catch (error) {
         console.error("Error seeding documents:", error);

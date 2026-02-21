@@ -1,4 +1,4 @@
-import { collection, query, where, orderBy, getDocs, addDoc, setDoc, serverTimestamp, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, query, where, orderBy, getDocs, addDoc, setDoc, getDoc, serverTimestamp, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import {
     db,
     sanitizeForFirestore,
@@ -123,16 +123,20 @@ export const seedPartiesForTransaction = async (transactionId: string) => {
         }
         const MOCK_PARTIES_DATA = generateMockTransactionParties(transactionId);
         for (const party of MOCK_PARTIES_DATA) {
-            // Deterministic ID: party_{transactionId}_{slugifiedRole} — setDoc is idempotent
+            // Deterministic ID: party_{transactionId}_{slugifiedRole}
             const slug = (party.role || party.name || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '_');
             const deterministicId = `party_${transactionId}_${slug}`;
             const docRef = doc(db, "transaction_parties", deterministicId);
-            await setDoc(docRef, sanitizeForFirestore({
-                ...party,
-                id: deterministicId,
-                transaction_id: transactionId,
-                created_at: serverTimestamp()
-            }), { merge: true });
+            // Immutable write: only create if the document doesn't already exist
+            const snap = await getDoc(docRef);
+            if (!snap.exists()) {
+                await setDoc(docRef, sanitizeForFirestore({
+                    ...party,
+                    id: deterministicId,
+                    transaction_id: transactionId,
+                    created_at: serverTimestamp()
+                }));
+            }
         }
     } catch (error) {
         console.error("Error seeding parties:", error);
