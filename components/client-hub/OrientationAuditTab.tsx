@@ -813,12 +813,12 @@ function MapThumb({ url, label, orientations }: {
                                                     key={v}
                                                     onClick={() => orientations.onSelectAssessment!(v)}
                                                     className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide border transition-all ${isSelected
-                                                            ? v === 'none'
-                                                                ? 'bg-rose-400/40 border-rose-300 ring-2 ring-rose-300 text-rose-100'
-                                                                : 'bg-violet-400/40 border-violet-300 ring-2 ring-violet-300 text-violet-100'
-                                                            : v === 'none'
-                                                                ? 'bg-rose-500/20 border-rose-400/20 text-rose-300 hover:bg-rose-500/30'
-                                                                : 'bg-violet-500/20 border-violet-400/20 text-violet-300 hover:bg-violet-500/30'
+                                                        ? v === 'none'
+                                                            ? 'bg-rose-400/40 border-rose-300 ring-2 ring-rose-300 text-rose-100'
+                                                            : 'bg-violet-400/40 border-violet-300 ring-2 ring-violet-300 text-violet-100'
+                                                        : v === 'none'
+                                                            ? 'bg-rose-500/20 border-rose-400/20 text-rose-300 hover:bg-rose-500/30'
+                                                            : 'bg-violet-500/20 border-violet-400/20 text-violet-300 hover:bg-violet-500/30'
                                                         }`}
                                                 >
                                                     {isSelected && <i className="fa-solid fa-check mr-1.5 text-[8px]" />}
@@ -923,23 +923,31 @@ function AssessmentDropdown({
                 <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
                     {ASSESSMENT_OPTIONS.map(o => {
                         const checked = value.includes(o.value);
+                        // Extract individual Tailwind classes from the chip-color string
+                        const parts = ASSESSMENT_CHIP_COLOR[o.value].trim().split(/\s+/).filter(Boolean);
+                        // parts = ['bg-*', 'text-*', 'border-*']
+                        const bgCls = parts[0] ?? '';   // e.g. bg-blue-100
+                        const textCls = parts[1] ?? '';   // e.g. text-blue-700
+                        const borderCls = parts[2] ?? '';  // e.g. border-blue-200
                         return (
                             <button
                                 key={o.value}
                                 type="button"
                                 onClick={() => toggle(o.value)}
-                                className={`flex items-center gap-2.5 w-full px-3 py-2 text-left text-[10px] font-black uppercase tracking-wide transition-colors ${checked ? 'bg-slate-50' : 'hover:bg-slate-50'
+                                className={`flex items-center gap-2.5 w-full px-3 py-2 text-left text-[10px] font-black uppercase tracking-wide transition-all border-l-2 ${checked
+                                        ? `${bgCls} ${borderCls}`
+                                        : `bg-white border-transparent hover:${bgCls} hover:border-l-2 hover:${borderCls}`
                                     }`}
                             >
-                                <span className={`w-4 h-4 rounded-md border flex items-center justify-center flex-shrink-0 transition-all ${checked
-                                        ? `border-2 ${ASSESSMENT_CHIP_COLOR[o.value]}`
-                                        : 'border-slate-300 bg-white'
+                                {/* Checkbox */}
+                                <span className={`w-4 h-4 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${checked ? `${bgCls} ${borderCls}` : `border-slate-200 bg-white`
                                     }`}>
-                                    {checked && <i className="fa-solid fa-check text-[7px]" />}
+                                    {checked && <i className={`fa-solid fa-check text-[7px] ${textCls}`} />}
                                 </span>
-                                <span className={checked ? ASSESSMENT_CHIP_COLOR[o.value].split(' ')[1] : 'text-slate-600'}>
-                                    {o.label}
-                                </span>
+                                {/* Coloured dot */}
+                                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${bgCls} border ${borderCls}`} />
+                                {/* Label — always in its colour */}
+                                <span className={textCls}>{o.label}</span>
                             </button>
                         );
                     })}
