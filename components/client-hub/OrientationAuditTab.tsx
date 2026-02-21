@@ -1,21 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebaseService';
-import { runSatellitaryAnalysis, getOrCacheAerialSatelliteUrl } from '../../services/satellitaryService';
+import { runSatellitaryAnalysis, getOrCacheAerialSatelliteUrl, forceRefreshAerialSatelliteUrl } from '../../services/satellitaryService';
 import { savePropertyOrientationToCloud } from '../../services/firebase/properties';
-import { PropertyData } from '../../types';
 
-// ─── Local Types ─────────────────────────────────────────────────────────────
+// ─── Local Types ──────────────────────────────────────────────────────────────
 
 interface OrientationRow {
     zpid: string;
     address: string;
     city: string;
-    // Images
-    mapZoomIn?: string;         // close-up map used to assess orientation manually
-    mapZoomOut?: string;        // satellite overview
-    streetView?: string;        // street view
-    // Cached results (from property doc)
+    mapZoomIn?: string;
+    mapZoomOut?: string;
+    streetView?: string;
     orientationAI?: {
         final_orientation: string;
         azimuth_degrees: number | null;
@@ -26,23 +23,15 @@ interface OrientationRow {
         azimuth_degrees: number;
         orientation: string;
     } | null;
-    // Property-level "final" orientation (from neighborhood analysis or manual)
     finalOrientation?: string | null;
-    // Coords for running analysis
     coordinates?: { latitude: number; longitude: number };
-    // Runtime status
     status: 'idle' | 'running' | 'done' | 'error';
     error?: string;
 }
 
-interface OrientationAuditTabProps {
-    /** Optionally pre-filter to one city */
-    targetCity?: string;
-}
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// ─── Helper ──────────────────────────────────────────────────────────────────
-
-const CONF_COLOR = {
+const CONF_COLOR: Record<string, string> = {
     high: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     medium: 'bg-amber-50 text-amber-700 border-amber-200',
     low: 'bg-rose-50 text-rose-700 border-rose-200',
@@ -57,16 +46,35 @@ function DirBadge({ label, azimuth, color }: { label: string; azimuth?: number |
     );
 }
 
+function ProgressBar({ label, progress }: { label: string; progress: { done: number; total: number } }) {
+    return (
+        <div className="bg-white rounded-2xl border border-indigo-100 p-4">
+            <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">{label}</span>
+                <span className="text-[11px] font-mono text-slate-500">{progress.done} / {progress.total}</span>
+            </div>
+            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                    className="h-full bg-gradient-to-r from-indigo-500 to-indigo-700 rounded-full transition-all duration-300"
+                    style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                />
+            </div>
+        </div>
+    );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const OrientationAuditTab: React.FC<OrientationAuditTabProps> = () => {
+const OrientationAuditTab: React.FC = () => {
     const [rows, setRows] = useState<OrientationRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeCity, setActiveCity] = useState<string | null>(null);
     const [batchRunning, setBatchRunning] = useState(false);
     const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
+    const [redownloadRunning, setRedownloadRunning] = useState(false);
+    const [redownloadProgress, setRedownloadProgress] = useState<{ done: number; total: number } | null>(null);
 
-    // ── Fetch all properties + their cached orientation ────────────────────────
+    // ── Fetch all properties ──────────────────────────────────────────────────
     const fetchData = async () => {
         setLoading(true);
         try {
@@ -82,25 +90,24 @@ const OrientationAuditTab: React.FC<OrientationAuditTabProps> = () => {
                     streetView: p.streetViewAnalysis?.imageUrl || p.streetView || undefined,
                     orientationAI: p.orientation_ai || null,
                     orientationGeocoding: p.orientation_geocoding || null,
-                    finalOrientation: p.visual_analysis?.neighborhood?.orientation?.final_orientation
-                        || p.analysis?.neighborhood?.orientation?.final_orientation
-                        || null,
+                    finalOrientation:
+                        p.visual_analysis?.neighborhood?.orientation?.final_orientation ||
+                        p.analysis?.neighborhood?.orientation?.final_orientation ||
+                        null,
                     coordinates: p.coordinates || undefined,
-                    status: 'idle',
+                    status: 'idle' as const,
                 };
             });
             setRows(built);
+
             if (!activeCity && built.length > 0) {
-                // Default to city with most properties
                 const cityCounts: Record<string, number> = {};
                 built.forEach(r => { cityCounts[r.city] = (cityCounts[r.city] || 0) + 1; });
                 const sorted = Object.entries(cityCounts).sort((a, b) => b[1] - a[1]);
                 setActiveCity(sorted[0]?.[0] || null);
             }
 
-            // ── Background: fetch & cache aerial satellite images ───────────────
-            // Only process rows that have coords and don't already have a cached
-            // firebase storage satellite URL. Run 3 at a time to avoid rate limits.
+            // Background: cache satellite images for rows without one
             const toFetch = built.filter(
                 r => r.coordinates && (!r.mapZoomOut || !r.mapZoomOut.includes('firebasestorage'))
             );
@@ -146,7 +153,7 @@ const OrientationAuditTab: React.FC<OrientationAuditTabProps> = () => {
         activeCity ? rows.filter(r => r.city === activeCity) : rows
         , [rows, activeCity]);
 
-    // ── Run analysis for a single property ────────────────────────────────────
+    // ── Run single row ────────────────────────────────────────────────────────
     const runForRow = async (zpid: string) => {
         const row = rows.find(r => r.zpid === zpid);
         if (!row?.coordinates) {
@@ -154,9 +161,7 @@ const OrientationAuditTab: React.FC<OrientationAuditTabProps> = () => {
                 ? { ...r, status: 'error', error: 'No coordinates' } : r));
             return;
         }
-
         setRows(prev => prev.map(r => r.zpid === zpid ? { ...r, status: 'running', error: undefined } : r));
-
         try {
             const result = await runSatellitaryAnalysis(
                 row.coordinates.latitude,
@@ -166,7 +171,6 @@ const OrientationAuditTab: React.FC<OrientationAuditTabProps> = () => {
                 zpid,
                 row.address
             );
-            // Update local row with fresh data
             setRows(prev => prev.map(r => r.zpid === zpid ? {
                 ...r,
                 status: 'done',
@@ -180,7 +184,7 @@ const OrientationAuditTab: React.FC<OrientationAuditTabProps> = () => {
                     ? { azimuth_degrees: result.geocoding_azimuth_degrees, orientation: result.geocoding_orientation! }
                     : r.orientationGeocoding,
                 mapZoomIn: r.mapZoomIn || result.aerial_url,
-                streetView: r.streetView || (result.street_view_url || undefined),
+                streetView: r.streetView || result.street_view_url || undefined,
             } : r));
         } catch (e: any) {
             setRows(prev => prev.map(r => r.zpid === zpid
@@ -188,21 +192,49 @@ const OrientationAuditTab: React.FC<OrientationAuditTabProps> = () => {
         }
     };
 
-    // ── Batch run for all in active city ──────────────────────────────────────
+    // ── Batch calculate orientations ──────────────────────────────────────────
     const handleBatchRun = async () => {
         const targets = filteredRows.filter(r => r.coordinates && r.status !== 'running');
         if (targets.length === 0) return;
-
         setBatchRunning(true);
         setBatchProgress({ done: 0, total: targets.length });
-
         for (let i = 0; i < targets.length; i++) {
             await runForRow(targets[i].zpid);
             setBatchProgress({ done: i + 1, total: targets.length });
         }
-
         setBatchRunning(false);
         setBatchProgress(null);
+    };
+
+    // ── Force re-download satellite images ────────────────────────────────────
+    const handleRedownloadSatellites = async () => {
+        const targets = filteredRows.filter(r => r.coordinates);
+        if (targets.length === 0) return;
+        setRedownloadRunning(true);
+        setRedownloadProgress({ done: 0, total: targets.length });
+        const CONCURRENCY = 3;
+        for (let i = 0; i < targets.length; i += CONCURRENCY) {
+            const batch = targets.slice(i, i + CONCURRENCY);
+            await Promise.allSettled(
+                batch.map(async row => {
+                    try {
+                        const url = await forceRefreshAerialSatelliteUrl(
+                            row.zpid,
+                            row.coordinates!.latitude,
+                            row.coordinates!.longitude
+                        );
+                        setRows(prev => prev.map(r =>
+                            r.zpid === row.zpid ? { ...r, mapZoomOut: url } : r
+                        ));
+                    } catch (e) {
+                        console.warn(`[OrientationAudit] Re-download failed for ${row.zpid}:`, e);
+                    }
+                })
+            );
+            setRedownloadProgress({ done: Math.min(i + CONCURRENCY, targets.length), total: targets.length });
+        }
+        setRedownloadRunning(false);
+        setRedownloadProgress(null);
     };
 
     // ─── Render ───────────────────────────────────────────────────────────────
@@ -216,18 +248,41 @@ const OrientationAuditTab: React.FC<OrientationAuditTabProps> = () => {
                         Compare AI, geocoding, and cached orientation across all properties
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                    {/* Refresh */}
                     <button
                         onClick={fetchData}
                         disabled={loading}
                         className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all shadow-sm disabled:opacity-40"
-                        title="Refresh"
+                        title="Refresh data"
                     >
                         <i className={`fa-solid fa-arrows-rotate text-xs ${loading ? 'animate-spin' : ''}`} />
                     </button>
+
+                    {/* Re-download satellites */}
+                    <button
+                        onClick={handleRedownloadSatellites}
+                        disabled={redownloadRunning || batchRunning || loading || filteredRows.filter(r => r.coordinates).length === 0}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                        title="Force re-download all satellite images for this city (ignores cache)"
+                    >
+                        {redownloadRunning ? (
+                            <>
+                                <i className="fa-solid fa-spinner animate-spin text-xs" />
+                                {redownloadProgress ? `${redownloadProgress.done}/${redownloadProgress.total}` : 'Downloading…'}
+                            </>
+                        ) : (
+                            <>
+                                <i className="fa-solid fa-satellite text-xs" />
+                                Re-download Satellites
+                            </>
+                        )}
+                    </button>
+
+                    {/* Calculate all orientations */}
                     <button
                         onClick={handleBatchRun}
-                        disabled={batchRunning || loading || filteredRows.length === 0}
+                        disabled={batchRunning || redownloadRunning || loading || filteredRows.length === 0}
                         className="flex items-center gap-2.5 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-slate-800 text-white rounded-xl font-black text-[11px] uppercase tracking-widest shadow-lg hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                     >
                         {batchRunning ? (
@@ -237,7 +292,7 @@ const OrientationAuditTab: React.FC<OrientationAuditTabProps> = () => {
                             </>
                         ) : (
                             <>
-                                <i className="fa-solid fa-satellite text-xs" />
+                                <i className="fa-solid fa-satellite-dish text-xs" />
                                 Calculate All ({filteredRows.filter(r => r.coordinates).length})
                             </>
                         )}
@@ -264,24 +319,12 @@ const OrientationAuditTab: React.FC<OrientationAuditTabProps> = () => {
                 ))}
             </div>
 
-            {/* Progress bar */}
+            {/* Progress bars */}
             {batchProgress && (
-                <div className="bg-white rounded-2xl border border-indigo-100 p-4">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">
-                            Calculating orientations…
-                        </span>
-                        <span className="text-[11px] font-mono text-slate-500">
-                            {batchProgress.done} / {batchProgress.total}
-                        </span>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                            className="h-full bg-gradient-to-r from-indigo-500 to-indigo-700 rounded-full transition-all duration-300"
-                            style={{ width: `${(batchProgress.done / batchProgress.total) * 100}%` }}
-                        />
-                    </div>
-                </div>
+                <ProgressBar label="Calculating orientations…" progress={batchProgress} />
+            )}
+            {redownloadProgress && (
+                <ProgressBar label="Re-downloading satellite images…" progress={redownloadProgress} />
             )}
 
             {/* Table */}
@@ -319,7 +362,6 @@ const OrientationAuditTab: React.FC<OrientationAuditTabProps> = () => {
                                         key={row.zpid}
                                         className={`group hover:bg-slate-50/40 transition-colors ${row.status === 'running' ? 'animate-pulse' : ''}`}
                                     >
-                                        {/* Property */}
                                         <td className="p-5">
                                             <div className="text-[11px] font-black text-slate-800 leading-tight line-clamp-2">{row.address}</div>
                                             <div className="text-[9px] font-mono text-slate-400 mt-0.5">{row.zpid}</div>
@@ -332,27 +374,24 @@ const OrientationAuditTab: React.FC<OrientationAuditTabProps> = () => {
                                         </td>
 
                                         {/* Close-up map */}
-                                        <td className="p-5">
-                                            <MapThumb url={row.mapZoomIn} label="Close-up" />
+                                        <td className="p-5 text-center">
+                                            <MapThumb url={row.mapZoomIn} label="Close-up Map" />
                                         </td>
 
                                         {/* Satellite */}
-                                        <td className="p-5">
+                                        <td className="p-5 text-center">
                                             <MapThumb url={row.mapZoomOut} label="Satellite" />
                                         </td>
 
                                         {/* Street view */}
-                                        <td className="p-5">
+                                        <td className="p-5 text-center">
                                             <MapThumb url={row.streetView} label="Street View" />
                                         </td>
 
-                                        {/* Cached property-level orientation */}
+                                        {/* Cached property orientation */}
                                         <td className="p-5">
                                             {row.finalOrientation ? (
-                                                <DirBadge
-                                                    label={row.finalOrientation}
-                                                    color="bg-slate-100 text-slate-700 border-slate-200"
-                                                />
+                                                <DirBadge label={row.finalOrientation} color="bg-slate-100 text-slate-700 border-slate-200" />
                                             ) : (
                                                 <span className="text-[10px] text-slate-300 font-bold">—</span>
                                             )}
@@ -388,15 +427,14 @@ const OrientationAuditTab: React.FC<OrientationAuditTabProps> = () => {
                                                         azimuth={row.orientationGeocoding.azimuth_degrees}
                                                         color="bg-emerald-50 text-emerald-700 border-emerald-200"
                                                     />
-                                                    {/* Delta vs AI */}
                                                     {row.orientationAI?.azimuth_degrees != null && (
-                                                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black border ${Math.abs(row.orientationGeocoding.azimuth_degrees - row.orientationAI.azimuth_degrees!) <= 22.5
-                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                            : Math.abs(row.orientationGeocoding.azimuth_degrees - row.orientationAI.azimuth_degrees!) <= 45
-                                                                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                                                : 'bg-rose-50 text-rose-700 border-rose-200'
+                                                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black border ${Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)) <= 22.5
+                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                                : Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)) <= 45
+                                                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                                                    : 'bg-rose-50 text-rose-700 border-rose-200'
                                                             }`}>
-                                                            Δ {Math.round(Math.abs(row.orientationGeocoding.azimuth_degrees - row.orientationAI.azimuth_degrees!))}°
+                                                            Δ {Math.round(Math.abs(row.orientationGeocoding.azimuth_degrees - (row.orientationAI.azimuth_degrees ?? 0)))}°
                                                         </div>
                                                     )}
                                                 </div>
@@ -413,11 +451,9 @@ const OrientationAuditTab: React.FC<OrientationAuditTabProps> = () => {
                                                 title={!row.coordinates ? 'No coordinates available' : 'Run orientation analysis'}
                                                 className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                                             >
-                                                {row.status === 'running' ? (
-                                                    <i className="fa-solid fa-spinner animate-spin" />
-                                                ) : (
-                                                    <i className="fa-solid fa-satellite-dish" />
-                                                )}
+                                                {row.status === 'running'
+                                                    ? <i className="fa-solid fa-spinner animate-spin" />
+                                                    : <i className="fa-solid fa-satellite-dish" />}
                                             </button>
                                         </td>
                                     </tr>
@@ -431,12 +467,12 @@ const OrientationAuditTab: React.FC<OrientationAuditTabProps> = () => {
     );
 };
 
-// ─── Small image thumb helper ─────────────────────────────────────────────────
+// ─── Image thumbnail with full-screen modal ───────────────────────────────────
 
 function MapThumb({ url, label }: { url?: string; label: string }) {
     const [open, setOpen] = useState(false);
     if (!url) return (
-        <div className="w-16 h-12 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-200">
+        <div className="w-16 h-12 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-200 mx-auto">
             <i className="fa-solid fa-image text-xs" />
         </div>
     );
@@ -444,17 +480,17 @@ function MapThumb({ url, label }: { url?: string; label: string }) {
         <>
             <button
                 onClick={() => setOpen(true)}
-                className="w-16 h-12 rounded-lg overflow-hidden border border-slate-100 shadow-sm hover:shadow-md hover:scale-105 transition-all"
+                className="w-16 h-12 rounded-lg overflow-hidden border border-slate-100 shadow-sm hover:shadow-md hover:scale-105 transition-all mx-auto block"
                 title={`View ${label}`}
             >
                 <img src={url} alt={label} className="w-full h-full object-cover" />
             </button>
             {open && (
                 <div
-                    className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-6 animate-in fade-in duration-200"
+                    className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-6"
                     onClick={() => setOpen(false)}
                 >
-                    <div className="relative max-w-2xl w-full animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                    <div className="relative max-w-2xl w-full" onClick={e => e.stopPropagation()}>
                         <div className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-2">{label}</div>
                         <img src={url} alt={label} className="w-full rounded-2xl shadow-2xl" />
                         <button

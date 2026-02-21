@@ -83,6 +83,40 @@ export async function getOrCacheAerialSatelliteUrl(
     return cachedUrl;
 }
 
+/**
+ * Force-refreshes the aerial satellite image for a property.
+ * Deletes any existing cached file in Firebase Storage first, then
+ * re-downloads a fresh image from the Google Maps Static API and re-uploads it.
+ *
+ * Use this when you want to ignore the existing cache (e.g., after changing
+ * the marker style or zoom level).
+ */
+export async function forceRefreshAerialSatelliteUrl(
+    zpid: string,
+    lat: number,
+    lng: number
+): Promise<string> {
+    const { deleteFileFromStorage, uploadRemoteImageToStorage } = await import('./firebase/storage');
+    const { savePropertyToCloud } = await import('./firebase/properties');
+
+    const storagePath = `properties/${zpid}/maps/aerial_satellite_marked.jpg`;
+
+    // Delete the old cached file so uploadRemoteImageToStorage doesn't skip
+    await deleteFileFromStorage(storagePath);
+
+    // Re-download and re-upload
+    const aerialUrl = buildAerialUrl(lat, lng);
+    const freshUrl = await uploadRemoteImageToStorage(aerialUrl, storagePath);
+
+    if (freshUrl.includes('firebasestorage')) {
+        savePropertyToCloud(zpid, { mapZoomOut: freshUrl } as any)
+            .catch(e => console.warn('[Satellitary] Failed to update aerial URL in property doc:', e));
+    }
+
+    return freshUrl;
+}
+
+
 
 // ─── Geocoding Azimuth (entrance-based precise bearing) ───────────────────────
 
