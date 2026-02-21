@@ -146,7 +146,7 @@ function bearingToOrientation(deg: number): string {
  *
  * Returns null if the Geocoding API returns no entrance data.
  */
-async function computeGeocodingAzimuth(
+export async function computeGeocodingAzimuth(
     lat: number,
     lng: number,
     _address?: string   // kept for API compatibility but unused — latlng is always more precise

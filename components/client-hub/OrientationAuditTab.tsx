@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebaseService';
-import { runSatellitaryAnalysis, getOrCacheAerialSatelliteUrl, forceRefreshAerialSatelliteUrl } from '../../services/satellitaryService';
+import { runSatellitaryAnalysis, getOrCacheAerialSatelliteUrl, forceRefreshAerialSatelliteUrl, computeGeocodingAzimuth } from '../../services/satellitaryService';
 import { savePropertyOrientationToCloud } from '../../services/firebase/properties';
 
 // ─── Local Types ──────────────────────────────────────────────────────────────
@@ -71,6 +71,8 @@ const OrientationAuditTab: React.FC = () => {
     const [activeCity, setActiveCity] = useState<string | null>(null);
     const [batchRunning, setBatchRunning] = useState(false);
     const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
+    const [geocodeBatchRunning, setGeocodeBatchRunning] = useState(false);
+    const [geocodeBatchProgress, setGeocodeBatchProgress] = useState<{ done: number; total: number } | null>(null);
     const [redownloadRunning, setRedownloadRunning] = useState(false);
     const [redownloadProgress, setRedownloadProgress] = useState<{ done: number; total: number } | null>(null);
 
@@ -221,6 +223,45 @@ const OrientationAuditTab: React.FC = () => {
         setBatchProgress(null);
     };
 
+    // ── Batch geocoding orientation (no Gemini) ────────────────────────────────
+    const handleBatchGeocode = async () => {
+        const targets = filteredRows.filter(r => r.coordinates);
+        if (targets.length === 0) return;
+        setGeocodeBatchRunning(true);
+        setGeocodeBatchProgress({ done: 0, total: targets.length });
+        const CONCURRENCY = 10;
+        for (let i = 0; i < targets.length; i += CONCURRENCY) {
+            const batch = targets.slice(i, i + CONCURRENCY);
+            await Promise.allSettled(
+                batch.map(async row => {
+                    try {
+                        const geo = await computeGeocodingAzimuth(
+                            row.coordinates!.latitude,
+                            row.coordinates!.longitude
+                        );
+                        if (geo) {
+                            savePropertyOrientationToCloud(
+                                row.zpid,
+                                null,
+                                { azimuth_degrees: geo.azimuth, orientation: geo.orientation }
+                            ).catch(e => console.warn('[OrientationAudit] Geocode cache write failed:', e));
+                            setRows(prev => prev.map(r =>
+                                r.zpid === row.zpid
+                                    ? { ...r, orientationGeocoding: { azimuth_degrees: geo.azimuth, orientation: geo.orientation } }
+                                    : r
+                            ));
+                        }
+                    } catch (e) {
+                        console.warn(`[OrientationAudit] Geocode failed for ${row.zpid}:`, e);
+                    }
+                })
+            );
+            setGeocodeBatchProgress({ done: Math.min(i + CONCURRENCY, targets.length), total: targets.length });
+        }
+        setGeocodeBatchRunning(false);
+        setGeocodeBatchProgress(null);
+    };
+
     // ── Force re-download satellite images ────────────────────────────────────
     const handleRedownloadSatellites = async () => {
         const targets = filteredRows.filter(r => r.coordinates);
@@ -274,6 +315,26 @@ const OrientationAuditTab: React.FC = () => {
                         <i className={`fa-solid fa-arrows-rotate text-xs ${loading ? 'animate-spin' : ''}`} />
                     </button>
 
+                    {/* Geocode All */}
+                    <button
+                        onClick={handleBatchGeocode}
+                        disabled={geocodeBatchRunning || batchRunning || redownloadRunning || loading || filteredRows.filter(r => r.coordinates).length === 0}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                        title="Run geocoding orientation for all properties in this city (no AI, fast)"
+                    >
+                        {geocodeBatchRunning ? (
+                            <>
+                                <i className="fa-solid fa-spinner animate-spin text-xs" />
+                                {geocodeBatchProgress ? `${geocodeBatchProgress.done}/${geocodeBatchProgress.total}` : 'Geocoding…'}
+                            </>
+                        ) : (
+                            <>
+                                <i className="fa-solid fa-location-crosshairs text-xs" />
+                                Geocode All
+                            </>
+                        )}
+                    </button>
+
                     {/* Re-download satellites */}
                     <button
                         onClick={handleRedownloadSatellites}
@@ -297,7 +358,7 @@ const OrientationAuditTab: React.FC = () => {
                     {/* Calculate all orientations */}
                     <button
                         onClick={handleBatchRun}
-                        disabled={batchRunning || redownloadRunning || loading || filteredRows.length === 0}
+                        disabled={batchRunning || geocodeBatchRunning || redownloadRunning || loading || filteredRows.length === 0}
                         className="flex items-center gap-2.5 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-slate-800 text-white rounded-xl font-black text-[11px] uppercase tracking-widest shadow-lg hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                     >
                         {batchRunning ? (
@@ -336,7 +397,10 @@ const OrientationAuditTab: React.FC = () => {
 
             {/* Progress bars */}
             {batchProgress && (
-                <ProgressBar label="Calculating orientations…" progress={batchProgress} />
+                <ProgressBar label="Calculating satellite orientations…" progress={batchProgress} />
+            )}
+            {geocodeBatchProgress && (
+                <ProgressBar label="Geocoding orientations…" progress={geocodeBatchProgress} />
             )}
             {redownloadProgress && (
                 <ProgressBar label="Re-downloading satellite images…" progress={redownloadProgress} />
