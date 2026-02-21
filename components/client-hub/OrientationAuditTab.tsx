@@ -454,17 +454,17 @@ const OrientationAuditTab: React.FC = () => {
 
                                         {/* Close-up map */}
                                         <td className="p-5 text-center">
-                                            <MapThumb url={row.mapZoomIn} label="Close-up Map" />
+                                            <MapThumb url={row.mapZoomIn} label="Close-up Map" orientations={row} />
                                         </td>
 
                                         {/* Satellite */}
                                         <td className="p-5 text-center">
-                                            <MapThumb url={row.mapZoomOut} label="Satellite" />
+                                            <MapThumb url={row.mapZoomOut} label="Satellite" orientations={row} />
                                         </td>
 
                                         {/* Street view */}
                                         <td className="p-5 text-center">
-                                            <MapThumb url={row.streetView} label="Street View" />
+                                            <MapThumb url={row.streetView} label="Street View" orientations={row} />
                                         </td>
 
                                         {/* Cached property orientation */}
@@ -546,9 +546,29 @@ const OrientationAuditTab: React.FC = () => {
     );
 };
 
+// ─── Orientation summary types shared with MapThumb ─────────────────────────
+
+interface OrientationSummary {
+    finalOrientation?: string | null;
+    orientationAI?: {
+        final_orientation: string;
+        azimuth_degrees: number | null;
+        confidence: 'high' | 'medium' | 'low';
+        aerial_only_mode: boolean;
+    } | null;
+    orientationGeocoding?: {
+        azimuth_degrees: number;
+        orientation: string;
+    } | null;
+}
+
 // ─── Image thumbnail with full-screen modal ───────────────────────────────────
 
-function MapThumb({ url, label }: { url?: string; label: string }) {
+function MapThumb({ url, label, orientations }: {
+    url?: string;
+    label: string;
+    orientations?: OrientationSummary;
+}) {
     const [open, setOpen] = useState(false);
     if (!url) return (
         <div className="w-16 h-12 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-200 mx-auto">
@@ -566,15 +586,97 @@ function MapThumb({ url, label }: { url?: string; label: string }) {
             </button>
             {open && (
                 <div
-                    className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-6"
+                    className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4"
                     onClick={() => setOpen(false)}
                 >
-                    <div className="relative max-w-2xl w-full" onClick={e => e.stopPropagation()}>
-                        <div className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-2">{label}</div>
-                        <img src={url} alt={label} className="w-full rounded-2xl shadow-2xl" />
+                    <div
+                        className="relative w-full max-w-2xl flex flex-col gap-4"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Image */}
+                        <div>
+                            <div className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-2">{label}</div>
+                            <img src={url} alt={label} className="w-full rounded-2xl shadow-2xl" />
+                        </div>
+
+                        {/* Orientation panel */}
+                        {orientations && (
+                            <div className="grid grid-cols-3 gap-3">
+                                {/* Cached (property-level) */}
+                                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                                    <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-2">Cached (Property)</div>
+                                    {orientations.finalOrientation ? (
+                                        <div className="text-sm font-black text-white">{orientations.finalOrientation}</div>
+                                    ) : (
+                                        <div className="text-[11px] text-white/30 font-bold">—</div>
+                                    )}
+                                </div>
+
+                                {/* AI Orientation */}
+                                <div className="bg-indigo-500/20 backdrop-blur-md rounded-2xl p-4 border border-indigo-400/20">
+                                    <div className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-2">AI (Satellite)</div>
+                                    {orientations.orientationAI ? (
+                                        <>
+                                            <div className="text-sm font-black text-white leading-tight">
+                                                {orientations.orientationAI.final_orientation}
+                                            </div>
+                                            {orientations.orientationAI.azimuth_degrees != null && (
+                                                <div className="text-[10px] text-indigo-300 font-mono mt-0.5">
+                                                    {orientations.orientationAI.azimuth_degrees}°
+                                                </div>
+                                            )}
+                                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${orientations.orientationAI.confidence === 'high' ? 'bg-emerald-400/30 text-emerald-300'
+                                                        : orientations.orientationAI.confidence === 'medium' ? 'bg-amber-400/30 text-amber-300'
+                                                            : 'bg-rose-400/30 text-rose-300'
+                                                    }`}>
+                                                    {orientations.orientationAI.confidence}
+                                                </span>
+                                                {orientations.orientationAI.aerial_only_mode && (
+                                                    <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md bg-amber-400/20 text-amber-300">
+                                                        aerial only
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="text-[11px] text-white/30 font-bold">—</div>
+                                    )}
+                                </div>
+
+                                {/* Geocoding Orientation */}
+                                <div className="bg-emerald-500/20 backdrop-blur-md rounded-2xl p-4 border border-emerald-400/20">
+                                    <div className="text-[9px] font-black text-emerald-300 uppercase tracking-widest mb-2">Geocoding</div>
+                                    {orientations.orientationGeocoding ? (
+                                        <>
+                                            <div className="text-sm font-black text-white leading-tight">
+                                                {orientations.orientationGeocoding.orientation}
+                                            </div>
+                                            <div className="text-[10px] text-emerald-300 font-mono mt-0.5">
+                                                {orientations.orientationGeocoding.azimuth_degrees}°
+                                            </div>
+                                            {orientations.orientationAI?.azimuth_degrees != null && (
+                                                <div className={`text-[8px] font-black px-1.5 py-0.5 rounded-md mt-1.5 inline-block ${Math.abs(orientations.orientationGeocoding.azimuth_degrees - (orientations.orientationAI.azimuth_degrees ?? 0)) <= 22.5
+                                                        ? 'bg-emerald-400/30 text-emerald-300'
+                                                        : Math.abs(orientations.orientationGeocoding.azimuth_degrees - (orientations.orientationAI.azimuth_degrees ?? 0)) <= 45
+                                                            ? 'bg-amber-400/30 text-amber-300'
+                                                            : 'bg-rose-400/30 text-rose-300'
+                                                    }`}>
+                                                    Δ {Math.round(Math.abs(orientations.orientationGeocoding.azimuth_degrees - (orientations.orientationAI.azimuth_degrees ?? 0)))}° vs AI
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div className="text-[11px] text-white/30 font-bold">—</div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Close button */}
                         <button
                             onClick={() => setOpen(false)}
-                            className="absolute top-6 right-2 w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-all"
+                            className="absolute top-0 right-0 w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-all"
                         >
                             <i className="fa-solid fa-xmark text-xs" />
                         </button>
