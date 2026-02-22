@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
-import { db } from '../../services/firebaseService';
+import { db, auth } from '../../services/firebaseService';
 import { runSatellitaryAnalysis, getOrCacheAerialSatelliteUrl, forceRefreshAerialSatelliteUrl, computeGeocodingAzimuth } from '../../services/satellitaryService';
 import { savePropertyOrientationToCloud } from '../../services/firebase/properties';
 import { saveOrientationAssessment, OrientationAssessmentValue } from '../../services/firebase/ai_assessment';
@@ -221,7 +221,7 @@ const OrientationAuditTab: React.FC = () => {
                 row.coordinates.latitude,
                 row.coordinates.longitude,
                 row.streetView,
-                'audit',
+                auth?.currentUser?.uid || 'unknown',  // userId for llm_call_events logging
                 zpid,
                 row.address
             );
