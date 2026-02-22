@@ -464,7 +464,7 @@ const OrientationAuditTab: React.FC = () => {
                                 { v: 'all' as OrientationAssessmentValue, label: 'All', bg: 'bg-violet-100', text: 'text-violet-700', border: 'border-violet-200', dot: 'bg-violet-400' },
                             ]).map(({ v, label, bg, text, border, dot }) => {
                                 const count = assessmentCounts[v];
-                                const pct = filteredRows.length > 0 ? Math.round((count / filteredRows.length) * 100) : 0;
+                                const pct = assessedCount > 0 ? Math.round((count / assessedCount) * 100) : 0;
                                 return (
                                     <div
                                         key={v}
