@@ -118,14 +118,14 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
           <div className="flex flex-col md:flex-row gap-5 items-start">
             {/* Main image — no fixed height, no black bars */}
             <button
-              className="flex-1 min-w-0 rounded-3xl overflow-hidden shadow-xl border border-gray-100 group relative cursor-zoom-in"
+              className="flex-1 min-w-0 rounded-3xl overflow-hidden shadow-xl border border-gray-100 group relative cursor-zoom-in max-h-[220px]"
               onClick={() => openLightbox(allImages.indexOf(selectedImage ?? allImages[0]))}
               title="Click to view all photos"
             >
               <img
                 src={selectedImage || displayImages[0]}
                 alt="Property Main View"
-                className="w-full h-auto block transition-all duration-700 ease-in-out group-hover:brightness-95"
+                className="w-full h-full object-cover transition-all duration-700 ease-in-out group-hover:brightness-95"
                 loading="eager"
                 decoding="async"
               />
@@ -160,8 +160,8 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
                       }
                     }}
                     className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all group ${selectedImage === img && !isLast
-                        ? 'border-indigo-500 ring-2 ring-indigo-100 z-10'
-                        : 'border-transparent hover:border-gray-300'
+                      ? 'border-indigo-500 ring-2 ring-indigo-100 z-10'
+                      : 'border-transparent hover:border-gray-300'
                       }`}
                   >
                     <img
