@@ -65,11 +65,11 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
 
   if (loading) {
     return (
-      <div className="flex flex-col md:flex-row gap-5 mb-10 items-start">
-        <div className="flex-1 min-w-0 bg-gray-200 animate-pulse rounded-3xl aspect-video"></div>
-        <div className="hidden md:grid grid-cols-2 gap-2 w-56 flex-shrink-0">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="aspect-square bg-gray-200 animate-pulse rounded-xl"></div>
+      <div className="flex flex-col md:flex-row gap-5 h-[350px] md:h-[400px] mb-10">
+        <div className="flex-1 bg-gray-200 animate-pulse rounded-2xl"></div>
+        <div className="hidden md:flex flex-col gap-4 w-36 overflow-hidden">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-24 bg-gray-200 animate-pulse rounded-xl flex-shrink-0"></div>
           ))}
         </div>
       </div>
@@ -115,17 +115,17 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
             </p>
           </div>
         ) : (
-          <div className="flex flex-col md:flex-row gap-5 items-start">
-            {/* Main image — no fixed height, no black bars */}
+          <div className="flex flex-col md:flex-row gap-5 h-auto md:h-[400px]">
+            {/* Main large image — click to open lightbox */}
             <button
-              className="flex-1 min-w-0 rounded-3xl overflow-hidden shadow-xl border border-gray-100 group relative cursor-zoom-in max-h-[220px]"
+              className="flex-1 rounded-3xl overflow-hidden shadow-xl border border-gray-100 bg-gray-900 group relative aspect-video md:aspect-auto cursor-zoom-in"
               onClick={() => openLightbox(allImages.indexOf(selectedImage ?? allImages[0]))}
               title="Click to view all photos"
             >
               <img
                 src={selectedImage || displayImages[0]}
                 alt="Property Main View"
-                className="w-full h-full object-cover transition-all duration-700 ease-in-out group-hover:brightness-95"
+                className="w-full h-full object-contain transition-all duration-700 ease-in-out"
                 loading="eager"
                 decoding="async"
               />
@@ -145,8 +145,8 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
               </div>
             </button>
 
-            {/* 2-column thumbnail grid */}
-            <div className="hidden md:grid grid-cols-2 gap-2 w-56 flex-shrink-0 overflow-y-auto max-h-[600px]">
+            {/* Thumbnail sidebar */}
+            <div className="flex md:flex-col flex-row gap-4 w-full md:w-32 overflow-x-auto md:overflow-y-auto snap-x md:snap-y scroll-smooth">
               {displayImages.map((img, idx) => {
                 const isLast = idx === displayImages.length - 1 && hiddenCount > 0;
                 return (
@@ -154,12 +154,13 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
                     key={idx}
                     onClick={() => {
                       if (isLast) {
+                        // Open lightbox at the first hidden image
                         openLightbox(MAX_SIDEBAR_IMAGES);
                       } else {
                         setSelectedImage(img);
                       }
                     }}
-                    className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all group ${selectedImage === img && !isLast
+                    className={`relative flex-shrink-0 w-24 md:w-full h-20 md:h-24 rounded-xl overflow-hidden border-2 transition-all snap-start group ${selectedImage === img && !isLast
                       ? 'border-indigo-500 ring-2 ring-indigo-100 z-10'
                       : 'border-transparent hover:border-gray-300'
                       }`}
@@ -172,34 +173,12 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
                       loading="lazy"
                       decoding="async"
                     />
-                    {/* "+N more" overlay */}
+                    {/* "+N more" overlay — clicking opens lightbox at first unseen image */}
                     {isLast && (
                       <div className="absolute inset-0 bg-black/65 flex flex-col items-center justify-center gap-0.5 cursor-pointer">
                         <i className="fa-solid fa-images text-white/80 text-sm" />
                         <span className="text-white text-xs font-black">+{hiddenCount}</span>
                         <span className="text-white/60 text-[8px] font-semibold">more</span>
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Mobile horizontal thumbnail strip (single row) */}
-            <div className="flex md:hidden flex-row gap-3 w-full overflow-x-auto snap-x scroll-smooth">
-              {displayImages.map((img, idx) => {
-                const isLast = idx === displayImages.length - 1 && hiddenCount > 0;
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => isLast ? openLightbox(MAX_SIDEBAR_IMAGES) : setSelectedImage(img)}
-                    className={`relative flex-shrink-0 w-20 h-16 rounded-xl overflow-hidden border-2 transition-all snap-start group ${selectedImage === img && !isLast ? 'border-indigo-500' : 'border-transparent hover:border-gray-300'
-                      }`}
-                  >
-                    <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" />
-                    {isLast && (
-                      <div className="absolute inset-0 bg-black/65 flex items-center justify-center">
-                        <span className="text-white text-xs font-black">+{hiddenCount}</span>
                       </div>
                     )}
                   </button>
