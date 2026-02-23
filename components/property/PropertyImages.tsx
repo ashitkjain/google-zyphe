@@ -125,7 +125,7 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
               <img
                 src={selectedImage || displayImages[0]}
                 alt="Property Main View"
-                className="w-full h-full object-cover transition-all duration-700 ease-in-out group-hover:scale-[1.02]"
+                className="w-full h-full object-contain transition-all duration-700 ease-in-out"
                 loading="eager"
                 decoding="async"
               />
@@ -161,8 +161,8 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
                       }
                     }}
                     className={`relative flex-shrink-0 w-24 md:w-full h-20 md:h-24 rounded-xl overflow-hidden border-2 transition-all snap-start group ${selectedImage === img && !isLast
-                        ? 'border-indigo-500 ring-2 ring-indigo-100 z-10'
-                        : 'border-transparent hover:border-gray-300'
+                      ? 'border-indigo-500 ring-2 ring-indigo-100 z-10'
+                      : 'border-transparent hover:border-gray-300'
                       }`}
                   >
                     <img
@@ -277,8 +277,8 @@ const PropertyImages: React.FC<Props> = ({ images, loading, homeStatus, attribut
                 key={idx}
                 onClick={() => setLightboxIndex(idx)}
                 className={`flex-shrink-0 w-16 h-12 rounded-lg overflow-hidden border-2 transition-all ${idx === lightboxIndex
-                    ? 'border-indigo-400 ring-2 ring-indigo-400/30 scale-105'
-                    : 'border-white/10 hover:border-white/40 opacity-60 hover:opacity-100'
+                  ? 'border-indigo-400 ring-2 ring-indigo-400/30 scale-105'
+                  : 'border-white/10 hover:border-white/40 opacity-60 hover:opacity-100'
                   }`}
               >
                 <img
