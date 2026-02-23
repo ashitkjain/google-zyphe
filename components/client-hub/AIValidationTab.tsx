@@ -97,23 +97,33 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
 
             // Fetch ALL auditors for assignment dropdown
             const auditors = await getAllAuditors();
-            const auditorList = auditors.map(t => ({ uid: t.uid, displayName: t.displayName || t.email || 'Unknown' }));
-            setAllAuditors(auditorList);
+            const auditorList: { uid: string, displayName: string }[] = auditors.map(t => ({
+                uid: t.uid,
+                displayName: t.displayName || t.email || 'Unknown'
+            }));
 
-            // Fetch user names for audit trail
+            // Fetch user names for audit trail + fill in any auditors missing from the role query
             const nameMap: Record<string, string> = { ...userNames };
             auditors.forEach(t => {
                 nameMap[t.uid] = t.displayName || t.email || 'Unknown';
             });
 
-            const uniqueAuditors = Array.from(new Set(existingAssessments.map(a => a.auditor).filter(Boolean)));
-            await Promise.all(uniqueAuditors.map(async (uid) => {
+            // Supplement: pull profiles for everyone already assigned in existing assessments
+            // This means if a user's role changes, they stay visible in the dropdown
+            const uniqueAuditorUids = Array.from(new Set(existingAssessments.map(a => a.auditor).filter(Boolean)));
+            await Promise.all(uniqueAuditorUids.map(async (uid) => {
                 if (!nameMap[uid]) {
                     const profile = await getUserProfile(uid);
                     if (profile) nameMap[uid] = profile.displayName || profile.email || 'Unknown';
                 }
+                // Add to dropdown if not already there
+                if (!auditorList.find(a => a.uid === uid)) {
+                    auditorList.push({ uid, displayName: nameMap[uid] || uid });
+                }
             }));
+
             setUserNames(nameMap);
+            setAllAuditors(auditorList);
 
             // 4. Map and determine status
             const mapped: PropertyValidationStatus[] = rawProperties.map(p => {

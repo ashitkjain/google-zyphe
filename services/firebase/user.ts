@@ -235,10 +235,21 @@ export const getAllAuditors = async () => {
     if (!db) return [];
     try {
         const usersCol = collection(db, "users");
-        const q = query(usersCol, where("role", "==", "auditor"));
-        logFirestoreQuery('getDocs', 'users', { role: 'auditor' });
-        const snap = await getDocs(q);
-        return snap.docs.map(doc => doc.data() as UserProfile);
+        // Include both auditor and admin roles — admins often self-assign
+        const [auditorSnap, adminSnap] = await Promise.all([
+            getDocs(query(usersCol, where("role", "==", "auditor"))),
+            getDocs(query(usersCol, where("role", "==", "admin"))),
+        ]);
+        const seen = new Set<string>();
+        const results: UserProfile[] = [];
+        [...auditorSnap.docs, ...adminSnap.docs].forEach(d => {
+            if (!seen.has(d.id)) {
+                seen.add(d.id);
+                results.push(d.data() as UserProfile);
+            }
+        });
+        logFirestoreQuery('getDocs', 'users', { role: 'auditor|admin' });
+        return results;
     } catch (error) {
         console.error("Error fetching auditors:", error);
         return [];
