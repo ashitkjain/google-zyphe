@@ -800,6 +800,7 @@ export async function runSatellitaryAnalysis(
         lot_coverage_pervious: data.lot_coverage_pervious ?? null,
         buyer_pro: data.buyer_pro ?? '',
         buyer_con: data.buyer_con ?? '',
+        orientation_highlights: data.orientation_highlights ?? '',
         aerial_url: aerialUrl,
         street_view_url: streetViewUrl ?? '',
         aerial_only_mode: !usesDualImage,

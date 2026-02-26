@@ -109,9 +109,13 @@ const AnalysisOrchestrator: React.FC<Props> = ({
     const satelliteTriggeredRef = React.useRef(false);
 
     React.useEffect(() => {
+        // Run if: no orientation data at all, OR orientation_ai exists but is missing orientation_highlights (stale cache)
+        const isMissingData = !orientationAI;
+        const isStaleCache = orientationAI && !orientationAI.orientation_highlights;
+
         const shouldAutoRun =
             activeTab === 'exterior_and_neighborhood' &&
-            !orientationAI &&
+            (isMissingData || isStaleCache) &&
             !satelliteLoading &&
             !satelliteTriggeredRef.current &&
             propertyData?.coordinates?.latitude &&
@@ -263,7 +267,11 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-4">
-                    <button onClick={onRefresh} className="flex items-center gap-3 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-sm hover:shadow-md hover:bg-slate-50 transition-all group shadow-indigo-100">
+                    <button onClick={() => {
+                        setOrientationAI(null);
+                        satelliteTriggeredRef.current = false;
+                        onRefresh();
+                    }} className="flex items-center gap-3 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-sm hover:shadow-md hover:bg-slate-50 transition-all group shadow-indigo-100">
                         <i className="fa-solid fa-rotate group-hover:rotate-180 transition-transform duration-500"></i> Refresh Analysis
                     </button>
                     <button onClick={onRunComprehensive} className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-indigo-700 to-gray-900 text-white rounded-xl font-black text-[11px] uppercase tracking-widest shadow-xl hover:scale-[1.05] transition-all group">
