@@ -63,6 +63,14 @@ const AnalysisOrchestrator: React.FC<Props> = ({
     const role = (userRole as 'buyer' | 'seller' | 'realtor' | 'investor' | 'auditor') || 'buyer';
     const allowedTabs = (APP_CONFIG as any).roleTabs[role] || (APP_CONFIG as any).roleTabs.buyer;
 
+    // Live-patched orientation_ai — starts from Firestore cache, updated when Satellitary tab runs
+    const [orientationAI, setOrientationAI] = React.useState<any>(propertyData?.orientation_ai ?? null);
+
+    // Keep in sync if propertyData changes (e.g. navigating to a different property)
+    React.useEffect(() => {
+        setOrientationAI(propertyData?.orientation_ai ?? null);
+    }, [propertyData?.orientation_ai]);
+
     // Memoize the available tabs objects to avoid unnecessary re-renders and ensure stable first-tab lookup
     const tabs = useMemo(() => [
         { id: 'interior', label: 'Interior', icon: 'fa-couch' },
@@ -245,6 +253,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                         <ExteriorView
                             data={analysis.exterior_and_neighborhood}
                             streetViewAnalysis={propertyData?.streetViewAnalysis}
+                            satellitaryOrientation={orientationAI}
                         />
                     )}
                     {activeTab === 'neighborhood' && (
@@ -350,6 +359,21 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                                 lng={propertyData?.coordinates?.longitude}
                                 cachedStreetViewUrl={propertyData?.streetViewAnalysis?.imageUrl || propertyData?.streetView}
                                 address={propertyData?.address}
+                                zpid={zpid || undefined}
+                                onResult={(res) => setOrientationAI({
+                                    final_orientation: res.final_orientation,
+                                    azimuth_degrees: res.azimuth_degrees,
+                                    confidence: res.confidence,
+                                    aerial_only_mode: res.aerial_only_mode,
+                                    image_quality: res.image_quality,
+                                    feng_shui_vastu: res.feng_shui_vastu ?? null,
+                                    privacy_insight: res.privacy_insight,
+                                    lot_coverage_hardscape: res.lot_coverage_hardscape,
+                                    lot_coverage_pervious: res.lot_coverage_pervious,
+                                    buyer_pro: res.buyer_pro,
+                                    buyer_con: res.buyer_con,
+                                    orientation_highlights: res.orientation_highlights,
+                                })}
                             />
                         </section>
                     )}

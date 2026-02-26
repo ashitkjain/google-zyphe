@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db, auth } from '../../services/firebaseService';
-import { runSatellitaryAnalysis, getOrCacheAerialSatelliteUrl, forceRefreshAerialSatelliteUrl, computeGeocodingAzimuth } from '../../services/satellitaryService';
+import { runSatellitaryAnalysis, getOrCacheAerialSatelliteUrl, forceRefreshAerialSatelliteUrl, forceRefreshAllImagesAndAnalyze, computeGeocodingAzimuth } from '../../services/satellitaryService';
 import { savePropertyOrientationToCloud } from '../../services/firebase/properties';
 import { saveOrientationAssessment, OrientationAssessmentValue } from '../../services/firebase/ai_assessment';
 
@@ -18,7 +18,14 @@ interface OrientationRow {
         final_orientation: string;
         azimuth_degrees: number | null;
         confidence: 'high' | 'medium' | 'low';
+        image_quality?: 'clear' | 'acceptable' | 'blurry';
         aerial_only_mode: boolean;
+        feng_shui_vastu?: string | null;
+        privacy_insight?: string;
+        lot_coverage_hardscape?: number | null;
+        lot_coverage_pervious?: number | null;
+        buyer_pro?: string;
+        buyer_con?: string;
     } | null;
     orientationGeocoding?: {
         azimuth_degrees: number;
@@ -28,7 +35,7 @@ interface OrientationRow {
     coordinates?: { latitude: number; longitude: number };
     orientationAssessment: OrientationAssessmentValue[];  // multi-select
     geocodingNA?: boolean;   // true = geocoding ran but API returned no entrance data
-    status: 'idle' | 'running' | 'done' | 'error';
+    status: 'idle' | 'running' | 'refreshing' | 'done' | 'error';
     error?: string;
 }
 
@@ -68,7 +75,7 @@ function ProgressBar({ label, progress }: { label: string; progress: { done: num
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const OrientationAuditTab: React.FC = () => {
+const OrientationAuditTab: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => {
     const [rows, setRows] = useState<OrientationRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeCity, setActiveCity] = useState<string | null>(null);
@@ -232,7 +239,14 @@ const OrientationAuditTab: React.FC = () => {
                     final_orientation: result.final_orientation,
                     azimuth_degrees: result.azimuth_degrees,
                     confidence: result.confidence,
+                    image_quality: result.image_quality,
                     aerial_only_mode: result.aerial_only_mode,
+                    feng_shui_vastu: result.feng_shui_vastu,
+                    privacy_insight: result.privacy_insight,
+                    lot_coverage_hardscape: result.lot_coverage_hardscape,
+                    lot_coverage_pervious: result.lot_coverage_pervious,
+                    buyer_pro: result.buyer_pro,
+                    buyer_con: result.buyer_con,
                 },
                 orientationGeocoding: result.geocoding_entrance_available && result.geocoding_azimuth_degrees != null
                     ? { azimuth_degrees: result.geocoding_azimuth_degrees, orientation: result.geocoding_orientation! }
@@ -243,6 +257,54 @@ const OrientationAuditTab: React.FC = () => {
         } catch (e: any) {
             setRows(prev => prev.map(r => r.zpid === zpid
                 ? { ...r, status: 'error', error: e.message || 'Unknown error' } : r));
+        }
+    };
+
+    // ── Force-refresh single row (delete images → re-download → re-analyze) ───
+    const forceRefreshForRow = async (zpid: string) => {
+        const row = rows.find(r => r.zpid === zpid);
+        if (!row?.coordinates) {
+            setRows(prev => prev.map(r => r.zpid === zpid
+                ? { ...r, status: 'error', error: 'No coordinates' } : r));
+            return;
+        }
+        setRows(prev => prev.map(r => r.zpid === zpid
+            ? { ...r, status: 'refreshing', error: undefined } : r));
+        try {
+            const result = await forceRefreshAllImagesAndAnalyze(
+                zpid,
+                row.coordinates.latitude,
+                row.coordinates.longitude,
+                auth?.currentUser?.uid || 'unknown',
+                row.address
+            );
+            setRows(prev => prev.map(r => r.zpid === zpid ? {
+                ...r,
+                status: 'done',
+                // Update images with freshly downloaded versions
+                mapZoomOut: result.freshAerialUrl || r.mapZoomOut,
+                streetView: result.freshStreetViewUrl || r.streetView,
+                // Update orientation results
+                orientationAI: {
+                    final_orientation: result.final_orientation,
+                    azimuth_degrees: result.azimuth_degrees,
+                    confidence: result.confidence,
+                    image_quality: result.image_quality,
+                    aerial_only_mode: result.aerial_only_mode,
+                    feng_shui_vastu: result.feng_shui_vastu,
+                    privacy_insight: result.privacy_insight,
+                    lot_coverage_hardscape: result.lot_coverage_hardscape,
+                    lot_coverage_pervious: result.lot_coverage_pervious,
+                    buyer_pro: result.buyer_pro,
+                    buyer_con: result.buyer_con,
+                },
+                orientationGeocoding: result.geocoding_entrance_available && result.geocoding_azimuth_degrees != null
+                    ? { azimuth_degrees: result.geocoding_azimuth_degrees, orientation: result.geocoding_orientation! }
+                    : r.orientationGeocoding,
+            } : r));
+        } catch (e: any) {
+            setRows(prev => prev.map(r => r.zpid === zpid
+                ? { ...r, status: 'error', error: e.message || 'Refresh failed' } : r));
         }
     };
 
@@ -338,78 +400,86 @@ const OrientationAuditTab: React.FC = () => {
                 <div>
                     <h2 className="text-xl font-black text-slate-900">Orientation Audit</h2>
                     <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                        Compare AI, geocoding, and cached orientation across all properties
+                        Estimated orientation based on AI satellite analysis, geocoding, and cached data — results are indicative, not definitive
                     </p>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                    {/* Refresh */}
-                    <button
-                        onClick={fetchData}
-                        disabled={loading}
-                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all shadow-sm disabled:opacity-40"
-                        title="Refresh data"
-                    >
-                        <i className={`fa-solid fa-arrows-rotate text-xs ${loading ? 'animate-spin' : ''}`} />
-                    </button>
+                    {/* Refresh — admin only */}
+                    {isAdmin && (
+                        <button
+                            onClick={fetchData}
+                            disabled={loading}
+                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all shadow-sm disabled:opacity-40"
+                            title="Refresh data"
+                        >
+                            <i className={`fa-solid fa-arrows-rotate text-xs ${loading ? 'animate-spin' : ''}`} />
+                        </button>
+                    )}
 
-                    {/* Geocode All */}
-                    <button
-                        onClick={handleBatchGeocode}
-                        disabled={geocodeBatchRunning || batchRunning || redownloadRunning || loading || filteredRows.filter(r => r.coordinates).length === 0}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
-                        title="Run geocoding orientation for all properties in this city (no AI, fast)"
-                    >
-                        {geocodeBatchRunning ? (
-                            <>
-                                <i className="fa-solid fa-spinner animate-spin text-xs" />
-                                {geocodeBatchProgress ? `${geocodeBatchProgress.done}/${geocodeBatchProgress.total}` : 'Geocoding…'}
-                            </>
-                        ) : (
-                            <>
-                                <i className="fa-solid fa-location-crosshairs text-xs" />
-                                Geocode All
-                            </>
-                        )}
-                    </button>
+                    {/* Geocode All — admin only */}
+                    {isAdmin && (
+                        <button
+                            onClick={handleBatchGeocode}
+                            disabled={geocodeBatchRunning || batchRunning || redownloadRunning || loading || filteredRows.filter(r => r.coordinates).length === 0}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                            title="Run geocoding orientation for all properties in this city (no AI, fast)"
+                        >
+                            {geocodeBatchRunning ? (
+                                <>
+                                    <i className="fa-solid fa-spinner animate-spin text-xs" />
+                                    {geocodeBatchProgress ? `${geocodeBatchProgress.done}/${geocodeBatchProgress.total}` : 'Geocoding…'}
+                                </>
+                            ) : (
+                                <>
+                                    <i className="fa-solid fa-location-crosshairs text-xs" />
+                                    Geocode All
+                                </>
+                            )}
+                        </button>
+                    )}
 
-                    {/* Re-download satellites */}
-                    <button
-                        onClick={handleRedownloadSatellites}
-                        disabled={redownloadRunning || batchRunning || loading || filteredRows.filter(r => r.coordinates).length === 0}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
-                        title="Force re-download all satellite images for this city (ignores cache)"
-                    >
-                        {redownloadRunning ? (
-                            <>
-                                <i className="fa-solid fa-spinner animate-spin text-xs" />
-                                {redownloadProgress ? `${redownloadProgress.done}/${redownloadProgress.total}` : 'Downloading…'}
-                            </>
-                        ) : (
-                            <>
-                                <i className="fa-solid fa-satellite text-xs" />
-                                Re-download Satellites
-                            </>
-                        )}
-                    </button>
+                    {/* Re-download satellites — admin only */}
+                    {isAdmin && (
+                        <button
+                            onClick={handleRedownloadSatellites}
+                            disabled={redownloadRunning || batchRunning || loading || filteredRows.filter(r => r.coordinates).length === 0}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                            title="Force re-download all satellite images for this city (ignores cache)"
+                        >
+                            {redownloadRunning ? (
+                                <>
+                                    <i className="fa-solid fa-spinner animate-spin text-xs" />
+                                    {redownloadProgress ? `${redownloadProgress.done}/${redownloadProgress.total}` : 'Downloading…'}
+                                </>
+                            ) : (
+                                <>
+                                    <i className="fa-solid fa-satellite text-xs" />
+                                    Re-download Satellites
+                                </>
+                            )}
+                        </button>
+                    )}
 
-                    {/* Calculate all orientations */}
-                    <button
-                        onClick={handleBatchRun}
-                        disabled={batchRunning || geocodeBatchRunning || redownloadRunning || loading || filteredRows.length === 0}
-                        className="flex items-center gap-2.5 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-slate-800 text-white rounded-xl font-black text-[11px] uppercase tracking-widest shadow-lg hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
-                    >
-                        {batchRunning ? (
-                            <>
-                                <i className="fa-solid fa-spinner animate-spin text-xs" />
-                                {batchProgress ? `${batchProgress.done}/${batchProgress.total}` : 'Running…'}
-                            </>
-                        ) : (
-                            <>
-                                <i className="fa-solid fa-satellite-dish text-xs" />
-                                Calculate All ({filteredRows.filter(r => r.coordinates).length})
-                            </>
-                        )}
-                    </button>
+                    {/* Calculate all orientations — admin only */}
+                    {isAdmin && (
+                        <button
+                            onClick={handleBatchRun}
+                            disabled={batchRunning || geocodeBatchRunning || redownloadRunning || loading || filteredRows.length === 0}
+                            className="flex items-center gap-2.5 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-slate-800 text-white rounded-xl font-black text-[11px] uppercase tracking-widest shadow-lg hover:scale-[1.03] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                        >
+                            {batchRunning ? (
+                                <>
+                                    <i className="fa-solid fa-spinner animate-spin text-xs" />
+                                    {batchProgress ? `${batchProgress.done}/${batchProgress.total}` : 'Running…'}
+                                </>
+                            ) : (
+                                <>
+                                    <i className="fa-solid fa-satellite-dish text-xs" />
+                                    Calculate All ({filteredRows.filter(r => r.coordinates).length})
+                                </>
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -487,6 +557,7 @@ const OrientationAuditTab: React.FC = () => {
                         <table className="w-full text-left border-collapse min-w-[1100px]">
                             <thead>
                                 <tr className="bg-slate-50 border-b border-slate-100">
+                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest w-10">#</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[140px]">Property</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Close-up Map</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[100px]">Satellite</th>
@@ -495,22 +566,25 @@ const OrientationAuditTab: React.FC = () => {
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[150px]">Satellite</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[150px]">Geocoding Orientation</th>
                                     <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[160px]">Orientation Assessment</th>
-                                    <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right min-w-[100px]">Action</th>
+                                    {isAdmin && <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right min-w-[100px]">Action</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredRows.length === 0 ? (
                                     <tr>
-                                        <td colSpan={9} className="py-24 text-center">
+                                        <td colSpan={10} className="py-24 text-center">
                                             <i className="fa-solid fa-folder-open text-4xl text-slate-100 mb-3 block" />
                                             <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No properties in this city</p>
                                         </td>
                                     </tr>
-                                ) : filteredRows.map(row => (
+                                ) : filteredRows.map((row, idx) => (
                                     <tr
                                         key={row.zpid}
-                                        className={`group hover:bg-slate-50/40 transition-colors ${row.status === 'running' ? 'animate-pulse' : ''}`}
+                                        className={`group hover:bg-slate-50/40 transition-colors ${(row.status === 'running' || row.status === 'refreshing') ? 'animate-pulse' : ''}`}
                                     >
+                                        <td className="p-5 text-center w-10">
+                                            <span className="text-[11px] font-black text-slate-300 font-mono">{idx + 1}</span>
+                                        </td>
                                         <td className="p-5">
                                             <div className="text-[11px] font-black text-slate-800 leading-tight line-clamp-2">{row.address}</div>
                                             <div className="text-[9px] font-mono text-slate-400 mt-0.5">{row.zpid}</div>
@@ -519,6 +593,9 @@ const OrientationAuditTab: React.FC = () => {
                                             )}
                                             {row.status === 'done' && (
                                                 <div className="text-[9px] text-emerald-600 font-black mt-1">✓ Updated</div>
+                                            )}
+                                            {row.status === 'refreshing' && (
+                                                <div className="text-[9px] text-indigo-500 font-black mt-1">↻ Refreshing…</div>
                                             )}
                                         </td>
 
@@ -580,13 +657,30 @@ const OrientationAuditTab: React.FC = () => {
                                         <td className="p-5">
                                             {row.orientationAI ? (
                                                 <div className="space-y-1.5">
-                                                    <DirBadge
-                                                        label={row.orientationAI.final_orientation}
-                                                        azimuth={row.orientationAI.azimuth_degrees}
-                                                        color="bg-indigo-50 text-indigo-700 border-indigo-200"
-                                                    />
-                                                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${CONF_COLOR[row.orientationAI.confidence]}`}>
-                                                        {row.orientationAI.confidence}
+                                                    {row.orientationAI.image_quality === 'blurry' ? (
+                                                        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-xl border text-[10px] font-black bg-slate-100 text-slate-400 border-slate-200">
+                                                            <i className="fa-solid fa-eye-slash text-[8px]" />
+                                                            Unclear Image
+                                                        </div>
+                                                    ) : (
+                                                        <DirBadge
+                                                            label={`~${row.orientationAI.final_orientation}`}
+                                                            azimuth={row.orientationAI.azimuth_degrees}
+                                                            color="bg-indigo-50 text-indigo-700 border-indigo-200"
+                                                        />
+                                                    )}
+                                                    <div className="flex items-center gap-1 flex-wrap">
+                                                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${CONF_COLOR[row.orientationAI.confidence]}`}>
+                                                            {row.orientationAI.confidence}
+                                                        </div>
+                                                        {row.orientationAI.image_quality && row.orientationAI.image_quality !== 'clear' && (
+                                                            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${row.orientationAI.image_quality === 'blurry'
+                                                                    ? 'bg-slate-100 text-slate-400 border-slate-200'
+                                                                    : 'bg-amber-50 text-amber-600 border-amber-200'
+                                                                }`}>
+                                                                {row.orientationAI.image_quality}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     {row.orientationAI.aerial_only_mode && (
                                                         <div className="text-[9px] text-amber-600 font-black">aerial only</div>
@@ -644,19 +738,35 @@ const OrientationAuditTab: React.FC = () => {
                                             />
                                         </td>
 
-                                        {/* Action */}
-                                        <td className="p-5 text-right">
-                                            <button
-                                                onClick={() => runForRow(row.zpid)}
-                                                disabled={row.status === 'running' || batchRunning || !row.coordinates}
-                                                title={!row.coordinates ? 'No coordinates available' : 'Run orientation analysis'}
-                                                className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                                            >
-                                                {row.status === 'running'
-                                                    ? <i className="fa-solid fa-spinner animate-spin" />
-                                                    : <i className="fa-solid fa-satellite-dish" />}
-                                            </button>
-                                        </td>
+                                        {/* Action — admin only */}
+                                        {isAdmin && (
+                                            <td className="p-5 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {/* Force-refresh: delete images → re-download → re-analyze */}
+                                                    <button
+                                                        onClick={() => forceRefreshForRow(row.zpid)}
+                                                        disabled={row.status === 'running' || row.status === 'refreshing' || batchRunning || !row.coordinates}
+                                                        title={!row.coordinates ? 'No coordinates available' : 'Force-refresh: delete cached images, re-download, and re-run orientation analysis'}
+                                                        className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                                    >
+                                                        {row.status === 'refreshing'
+                                                            ? <i className="fa-solid fa-spinner animate-spin text-xs" />
+                                                            : <i className="fa-solid fa-arrows-rotate text-xs" />}
+                                                    </button>
+                                                    {/* Run analysis only (uses existing cached images) */}
+                                                    <button
+                                                        onClick={() => runForRow(row.zpid)}
+                                                        disabled={row.status === 'running' || row.status === 'refreshing' || batchRunning || !row.coordinates}
+                                                        title={!row.coordinates ? 'No coordinates available' : 'Run orientation analysis (uses existing cached images)'}
+                                                        className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                                    >
+                                                        {row.status === 'running'
+                                                            ? <i className="fa-solid fa-spinner animate-spin text-xs" />
+                                                            : <i className="fa-solid fa-satellite-dish text-xs" />}
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>
@@ -676,7 +786,14 @@ interface OrientationSummary {
         final_orientation: string;
         azimuth_degrees: number | null;
         confidence: 'high' | 'medium' | 'low';
+        image_quality?: 'clear' | 'acceptable' | 'blurry';
         aerial_only_mode: boolean;
+        feng_shui_vastu?: string | null;
+        privacy_insight?: string;
+        lot_coverage_hardscape?: number | null;
+        lot_coverage_pervious?: number | null;
+        buyer_pro?: string;
+        buyer_con?: string;
     } | null;
     orientationGeocoding?: {
         azimuth_degrees: number;
@@ -778,13 +895,23 @@ function MapThumb({ url, label, orientations }: {
                                             </div>
                                             {orientations.orientationAI ? (
                                                 <>
-                                                    <div className="text-sm font-black text-white leading-tight">
-                                                        {orientations.orientationAI.final_orientation}
-                                                    </div>
-                                                    {orientations.orientationAI.azimuth_degrees != null && (
-                                                        <div className="text-[10px] text-indigo-300 font-mono mt-0.5">
-                                                            {orientations.orientationAI.azimuth_degrees}°
+                                                    {orientations.orientationAI.image_quality === 'blurry' ? (
+                                                        <div className="text-[11px] text-slate-300 font-bold flex items-center gap-1.5">
+                                                            <i className="fa-solid fa-eye-slash text-[10px]" />
+                                                            Unclear image
                                                         </div>
+                                                    ) : (
+                                                        <>
+                                                            <div className="text-[10px] text-indigo-300 font-semibold mb-0.5">likely faces</div>
+                                                            <div className="text-sm font-black text-white leading-tight">
+                                                                {orientations.orientationAI.final_orientation}
+                                                            </div>
+                                                            {orientations.orientationAI.azimuth_degrees != null && (
+                                                                <div className="text-[10px] text-indigo-300 font-mono mt-0.5">
+                                                                    ~{orientations.orientationAI.azimuth_degrees}°
+                                                                </div>
+                                                            )}
+                                                        </>
                                                     )}
                                                     <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                                                         <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${orientations.orientationAI.confidence === 'high' ? 'bg-emerald-400/30 text-emerald-300'
@@ -793,12 +920,75 @@ function MapThumb({ url, label, orientations }: {
                                                             }`}>
                                                             {orientations.orientationAI.confidence}
                                                         </span>
+                                                        {orientations.orientationAI.image_quality && orientations.orientationAI.image_quality !== 'clear' && (
+                                                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${orientations.orientationAI.image_quality === 'blurry'
+                                                                    ? 'bg-slate-400/20 text-slate-300'
+                                                                    : 'bg-amber-400/20 text-amber-300'
+                                                                }`}>
+                                                                {orientations.orientationAI.image_quality}
+                                                            </span>
+                                                        )}
                                                         {orientations.orientationAI.aerial_only_mode && (
                                                             <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md bg-amber-400/20 text-amber-300">
                                                                 aerial only
                                                             </span>
                                                         )}
                                                     </div>
+                                                    {/* Privacy & Overlook */}
+                                                    {orientations.orientationAI.privacy_insight && orientations.orientationAI.image_quality !== 'blurry' && (
+                                                        <div className="mt-2 pt-2 border-t border-white/10">
+                                                            <div className="flex items-center gap-1 mb-1">
+                                                                <i className="fa-solid fa-eye text-[8px] text-sky-300" />
+                                                                <span className="text-[8px] font-black text-sky-300 uppercase tracking-wide">Privacy</span>
+                                                            </div>
+                                                            <p className="text-[10px] text-white/70 leading-relaxed">{orientations.orientationAI.privacy_insight}</p>
+                                                        </div>
+                                                    )}
+                                                    {/* Lot Coverage */}
+                                                    {orientations.orientationAI.lot_coverage_hardscape != null && orientations.orientationAI.image_quality !== 'blurry' && (
+                                                        <div className="mt-2 pt-2 border-t border-white/10">
+                                                            <div className="flex items-center gap-1 mb-1">
+                                                                <i className="fa-solid fa-layer-group text-[8px] text-emerald-300" />
+                                                                <span className="text-[8px] font-black text-emerald-300 uppercase tracking-wide">Lot Coverage</span>
+                                                            </div>
+                                                            <div className="flex gap-2 mt-0.5">
+                                                                <span className="text-[10px] font-black text-white/80">
+                                                                    {orientations.orientationAI.lot_coverage_hardscape}% Hardscape
+                                                                </span>
+                                                                <span className="text-[10px] text-white/30">/</span>
+                                                                <span className="text-[10px] font-black text-emerald-300">
+                                                                    {orientations.orientationAI.lot_coverage_pervious}% Pervious
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {/* Buyer Pro / Con */}
+                                                    {(orientations.orientationAI.buyer_pro || orientations.orientationAI.buyer_con) && orientations.orientationAI.image_quality !== 'blurry' && (
+                                                        <div className="mt-2 pt-2 border-t border-white/10 space-y-1">
+                                                            {orientations.orientationAI.buyer_pro && (
+                                                                <div className="flex items-start gap-1.5">
+                                                                    <i className="fa-solid fa-circle-check text-[8px] text-emerald-400 mt-0.5 shrink-0" />
+                                                                    <p className="text-[10px] text-emerald-300 leading-relaxed">{orientations.orientationAI.buyer_pro}</p>
+                                                                </div>
+                                                            )}
+                                                            {orientations.orientationAI.buyer_con && (
+                                                                <div className="flex items-start gap-1.5">
+                                                                    <i className="fa-solid fa-circle-xmark text-[8px] text-rose-400 mt-0.5 shrink-0" />
+                                                                    <p className="text-[10px] text-rose-300 leading-relaxed">{orientations.orientationAI.buyer_con}</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {/* Feng Shui / Vastu */}
+                                                    {orientations.orientationAI.feng_shui_vastu && orientations.orientationAI.image_quality !== 'blurry' && (
+                                                        <div className="mt-2 pt-2 border-t border-white/10">
+                                                            <div className="flex items-center gap-1 mb-1">
+                                                                <i className="fa-solid fa-yin-yang text-[8px] text-violet-300" />
+                                                                <span className="text-[8px] font-black text-violet-300 uppercase tracking-wide">Feng Shui / Vastu</span>
+                                                            </div>
+                                                            <p className="text-[10px] text-white/70 leading-relaxed">{orientations.orientationAI.feng_shui_vastu}</p>
+                                                        </div>
+                                                    )}
                                                 </>
                                             ) : (
                                                 <div className="text-[11px] text-white/30 font-bold">—</div>

@@ -7,6 +7,8 @@ interface Props {
     lng?: number;
     cachedStreetViewUrl?: string | null;
     address?: string;
+    zpid?: string;
+    onResult?: (result: SatellitaryResult) => void;
 }
 
 const COMPASS_ICON: Record<string, string> = {
@@ -74,7 +76,7 @@ const CompassRose: React.FC<{ azimuth: number }> = ({ azimuth }) => (
     </svg>
 );
 
-const SatellitaryView: React.FC<Props> = ({ lat, lng, cachedStreetViewUrl, address }) => {
+const SatellitaryView: React.FC<Props> = ({ lat, lng, cachedStreetViewUrl, address, zpid, onResult }) => {
     const [result, setResult] = useState<SatellitaryResult | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -90,8 +92,9 @@ const SatellitaryView: React.FC<Props> = ({ lat, lng, cachedStreetViewUrl, addre
         const interval = window.setInterval(() => setTimer(t => t + 1), 1000);
 
         try {
-            const res = await runSatellitaryAnalysis(lat, lng, cachedStreetViewUrl);
+            const res = await runSatellitaryAnalysis(lat, lng, cachedStreetViewUrl, 'unknown', zpid, address);
             setResult(res);
+            onResult?.(res);
         } catch (e: any) {
             setError(e.message || 'Analysis failed.');
         } finally {
@@ -241,13 +244,13 @@ const SatellitaryView: React.FC<Props> = ({ lat, lng, cachedStreetViewUrl, addre
                                         <div className="mt-1">
                                             <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">vs AI Estimate</div>
                                             <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] font-black border ${Math.abs(result.geocoding_azimuth_degrees - result.azimuth_degrees) <= 22.5
-                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                    : Math.abs(result.geocoding_azimuth_degrees - result.azimuth_degrees) <= 45
-                                                        ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                                        : 'bg-rose-50 text-rose-700 border-rose-200'
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                : Math.abs(result.geocoding_azimuth_degrees - result.azimuth_degrees) <= 45
+                                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                                    : 'bg-rose-50 text-rose-700 border-rose-200'
                                                 }`}>
                                                 <i className={`fa-solid ${Math.abs(result.geocoding_azimuth_degrees - result.azimuth_degrees) <= 22.5
-                                                        ? 'fa-circle-check' : 'fa-circle-exclamation'
+                                                    ? 'fa-circle-check' : 'fa-circle-exclamation'
                                                     } text-xs`}></i>
                                                 {Math.round(Math.abs(result.geocoding_azimuth_degrees - result.azimuth_degrees))}° delta from AI
                                             </div>

@@ -782,7 +782,7 @@ const AIValidationTab: React.FC<AIValidationTabProps> = ({ onNavigate, realtorPr
             ) : null}
 
             {activeTab === 'orientation' && (
-                <OrientationAuditTab />
+                <OrientationAuditTab isAdmin={userRole === 'admin'} />
             )}
 
             {/* Reassignment Confirmation Modal */}

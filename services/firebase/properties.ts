@@ -85,6 +85,14 @@ export const savePropertyOrientationToCloud = async (
         aerial_only_mode: boolean;
         aerial_url: string;
         street_view_url: string;
+        image_quality?: 'clear' | 'acceptable' | 'blurry';
+        feng_shui_vastu?: string | null;
+        privacy_insight?: string;
+        lot_coverage_hardscape?: number | null;
+        lot_coverage_pervious?: number | null;
+        buyer_pro?: string;
+        buyer_con?: string;
+        orientation_highlights?: string;
     } | null,
     orientationGeocoding: {
         azimuth_degrees: number;

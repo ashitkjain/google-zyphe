@@ -15,29 +15,29 @@ export const InteriorView: React.FC<InteriorViewProps> = ({ data }) => {
                     <div className="text-2xl font-black text-indigo-600 uppercase tracking-[0.3em]">SUMMARY</div>
                     <p className="text-gray-800 font-sans font-normal text-[14px] leading-[1.625]">{data.overall_description}</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 pt-12 border-t border-gray-100">
-                    <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-12 border-t border-gray-100">
+                    <div className="space-y-2">
                         <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Design Philosophy</div>
                         <div className="inline-block bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase px-3 py-1.5 rounded-full mb-2">{data.design_style?.style}</div>
                         <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.design_style?.reasoning}</p>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                         <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Colors & Materials</div>
                         <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.color_and_materials}</p>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                         <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Lighting Environment</div>
                         <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.lighting}</p>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                         <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Spatial Architecture</div>
                         <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.spatial_flow}</p>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                         <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Staging & Furnishings</div>
                         <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.staging_and_furnishings}</p>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                         <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Condition & Finish</div>
                         <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.condition_and_finish}</p>
                     </div>
@@ -161,12 +161,28 @@ export const RoomsView: React.FC<RoomsViewProps> = ({ highlights }) => {
     );
 };
 
+interface SatellitaryOrientation {
+    final_orientation: string;
+    azimuth_degrees?: number | null;
+    confidence?: 'high' | 'medium' | 'low';
+    image_quality?: 'clear' | 'acceptable' | 'blurry';
+    aerial_only_mode?: boolean;
+    feng_shui_vastu?: string | null;
+    privacy_insight?: string;
+    lot_coverage_hardscape?: number | null;
+    lot_coverage_pervious?: number | null;
+    buyer_pro?: string;
+    buyer_con?: string;
+    orientation_highlights?: string;
+}
+
 interface ExteriorViewProps {
     data: CustomAIAnalysisResult['exterior_and_neighborhood'];
     streetViewAnalysis?: any;
+    satellitaryOrientation?: SatellitaryOrientation | null;
 }
 
-export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnalysis }) => {
+export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnalysis, satellitaryOrientation }) => {
     if (!data?.exterior_and_lot_appeal?.architecture_style) return <EmptyState section="Exterior" />;
     return (
         <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-5xl mx-auto space-y-8">
@@ -266,36 +282,77 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnal
                     </div>
                 )}
 
-                <div className="space-y-6 pt-12 border-t border-gray-100">
-                    <div className="text-2xl font-black text-indigo-600 uppercase tracking-[0.3em]">ARCHITECTURE & LOT</div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
-                        <div className="space-y-3">
-                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Style</div>
-                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.exterior_and_lot_appeal.architecture_style}</p>
-                        </div>
-                        <div className="space-y-3">
-                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Curb Appeal</div>
-                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.exterior_and_lot_appeal.curb_appeal}</p>
-                        </div>
-                        <div className="space-y-3">
-                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Backyard & Patio</div>
-                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.exterior_and_lot_appeal.backyard_and_patio}</p>
-                        </div>
-                    </div>
-                </div>
+                {/* ── Unified card grid ───── */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 pt-6">
 
-                <div className="pt-12 border-t border-gray-100 space-y-6">
-                    <div className="text-2xl font-black text-indigo-600 uppercase tracking-[0.3em]">VIEWS & PRIVACY</div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                        <div className="space-y-3">
-                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Views</div>
-                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.views_privacy_orientation?.views}</p>
-                        </div>
-                        <div className="space-y-3">
-                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Privacy</div>
-                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.views_privacy_orientation?.privacy}</p>
-                        </div>
+                    {/* Satellite cards — only when orientation data is available */}
+                    {satellitaryOrientation && satellitaryOrientation.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
+                        const sat = satellitaryOrientation;
+                        return (<>
+                            <div className="space-y-2">
+                                <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Front Orientation</div>
+                                <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">
+                                    The front of the home likely faces <strong>{sat.final_orientation}</strong>.
+                                    {sat.orientation_highlights ? ` ${sat.orientation_highlights}` : ''}
+                                </p>
+                                {(sat.aerial_only_mode || (sat.image_quality && sat.image_quality !== 'clear')) && (
+                                    <div className="flex gap-2 pt-1 flex-wrap">
+                                        {sat.aerial_only_mode && <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">aerial only</span>}
+                                        {sat.image_quality && sat.image_quality !== 'clear' && (
+                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${sat.image_quality === 'blurry' ? 'bg-gray-100 text-gray-500' : 'bg-amber-50 text-amber-700'}`}>{sat.image_quality} image</span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            {sat.privacy_insight && (
+                                <div className="space-y-2">
+                                    <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Privacy</div>
+                                    <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{sat.privacy_insight}</p>
+                                </div>
+                            )}
+                            {sat.lot_coverage_hardscape != null && (
+                                <div className="space-y-2">
+                                    <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Lot Coverage</div>
+                                    <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                                        <div className="h-full bg-gray-400 rounded-full" style={{ width: `${sat.lot_coverage_hardscape}%` }} />
+                                    </div>
+                                    <div className="flex justify-between text-[11px] font-black text-gray-500">
+                                        <span>{sat.lot_coverage_hardscape}% hardscape</span>
+                                        <span className="text-emerald-600">{sat.lot_coverage_pervious ?? (100 - sat.lot_coverage_hardscape)}% green</span>
+                                    </div>
+                                    <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">
+                                        ~{sat.lot_coverage_hardscape}% of the lot is hardscape (roof, driveway, patio) and ~{sat.lot_coverage_pervious ?? (100 - sat.lot_coverage_hardscape)}% is pervious green space.
+                                    </p>
+                                </div>
+                            )}
+                            {sat.feng_shui_vastu && (
+                                <div className="space-y-2">
+                                    <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Feng Shui / Vastu</div>
+                                    <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{sat.feng_shui_vastu}</p>
+                                </div>
+                            )}
+                        </>);
+                    })()}
+
+                    {/* Architecture & lot cards — always shown */}
+                    <div className="space-y-2">
+                        <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Style</div>
+                        <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.exterior_and_lot_appeal.architecture_style}</p>
                     </div>
+                    <div className="space-y-2">
+                        <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Curb Appeal</div>
+                        <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.exterior_and_lot_appeal.curb_appeal}</p>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Backyard & Patio</div>
+                        <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.exterior_and_lot_appeal.backyard_and_patio}</p>
+                    </div>
+                    {data.views_privacy_orientation?.views && (
+                        <div className="space-y-2">
+                            <div className="text-2xl font-black text-gray-400 uppercase tracking-widest">Views</div>
+                            <p className="text-gray-700 font-sans font-normal text-[14px] leading-[1.625]">{data.views_privacy_orientation.views}</p>
+                        </div>
+                    )}
                 </div>
 
             </div>
