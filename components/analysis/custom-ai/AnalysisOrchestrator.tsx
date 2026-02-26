@@ -5,7 +5,7 @@ import {
     ComprehensiveAnalysisResult
 } from '../../../types';
 
-export type TabType = 'interior' | 'rooms' | 'exterior_and_neighborhood' | 'neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding' | 'image_analysis' | 'deep_research' | 'context_graph' | 'satellitary';
+export type TabType = 'interior' | 'rooms' | 'exterior_and_neighborhood' | 'neighborhood' | 'pulse' | 'quality' | 'investment' | 'bidding' | 'image_analysis' | 'deep_research' | 'context_graph';
 import { APP_CONFIG } from '../../../config';
 import { useAnalysisActions } from './hooks/useAnalysisActions';
 import { EmptyState } from './components/CommonComponents';
@@ -22,6 +22,7 @@ import { HoverPreview } from './components/HoverPreview';
 import { ContextGraphView } from './components/ContextGraphView';
 import { StickyNotesLayer } from './components/StickyNotesLayer';
 import SatellitaryView from './components/SatellitaryView';
+import { runSatellitaryAnalysis } from '../../../services/satellitaryService';
 
 interface Props {
     analysis: CustomAIAnalysisResult | null;
@@ -71,13 +72,14 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         setOrientationAI(propertyData?.orientation_ai ?? null);
     }, [propertyData?.orientation_ai]);
 
+
+
     // Memoize the available tabs objects to avoid unnecessary re-renders and ensure stable first-tab lookup
     const tabs = useMemo(() => [
         { id: 'interior', label: 'Interior', icon: 'fa-couch' },
         { id: 'rooms', label: 'Rooms', icon: 'fa-star' },
         { id: 'exterior_and_neighborhood', label: 'Exterior', icon: 'fa-house' },
         { id: 'neighborhood', label: 'Neighborhood', icon: 'fa-map-location-dot' },
-        { id: 'satellitary', label: 'Satellitary', icon: 'fa-satellite' },
         { id: 'pulse', label: 'Community Pulse', icon: 'fa-users-viewfinder' },
         { id: 'deep_research', label: 'Investment Research', icon: 'fa-magnifying-glass-chart' },
         { id: 'investment', label: 'Property Economics', icon: 'fa-chart-pie' },
@@ -96,12 +98,57 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         }
     }, [tabs, activeTab]);
 
-    // Update PostHog super properties with the deepest sub-tab so every autocapture
-    // click carries full page context (e.g. 'explore > Interior')
+    // Update PostHog super properties with the deepest sub-tab
     useEffect(() => {
         const tabLabel = tabs.find(t => t.id === activeTab)?.label || activeTab;
         setCurrentPage(activeTab, `Explore > ${tabLabel}`);
     }, [activeTab, tabs]);
+
+    // Auto-run satellite analysis when Exterior tab is active and no orientation_ai cached
+    const [satelliteLoading, setSatelliteLoading] = React.useState(false);
+    const satelliteTriggeredRef = React.useRef(false);
+
+    React.useEffect(() => {
+        const shouldAutoRun =
+            activeTab === 'exterior_and_neighborhood' &&
+            !orientationAI &&
+            !satelliteLoading &&
+            !satelliteTriggeredRef.current &&
+            propertyData?.coordinates?.latitude &&
+            propertyData?.coordinates?.longitude;
+
+        if (!shouldAutoRun) return;
+
+        satelliteTriggeredRef.current = true;
+        setSatelliteLoading(true);
+
+        runSatellitaryAnalysis(
+            propertyData.coordinates.latitude,
+            propertyData.coordinates.longitude,
+            propertyData?.streetViewAnalysis?.imageUrl || propertyData?.streetView || null,
+            'unknown',
+            zpid || undefined,
+            propertyData?.address
+        )
+            .then(res => {
+                setOrientationAI({
+                    final_orientation: res.final_orientation,
+                    azimuth_degrees: res.azimuth_degrees,
+                    confidence: res.confidence,
+                    aerial_only_mode: res.aerial_only_mode,
+                    image_quality: res.image_quality,
+                    feng_shui_vastu: res.feng_shui_vastu ?? null,
+                    privacy_insight: res.privacy_insight,
+                    lot_coverage_hardscape: res.lot_coverage_hardscape,
+                    lot_coverage_pervious: res.lot_coverage_pervious,
+                    buyer_pro: res.buyer_pro,
+                    buyer_con: res.buyer_con,
+                    orientation_highlights: res.orientation_highlights,
+                });
+            })
+            .catch(e => console.warn('[Exterior] Auto satellite analysis failed:', e))
+            .finally(() => setSatelliteLoading(false));
+    }, [activeTab, orientationAI]);
 
     // Hover preview state
     const [hoveredImage, setHoveredImage] = useState<string | null>(null);
@@ -254,6 +301,7 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                             data={analysis.exterior_and_neighborhood}
                             streetViewAnalysis={propertyData?.streetViewAnalysis}
                             satellitaryOrientation={orientationAI}
+                            satelliteLoading={satelliteLoading}
                         />
                     )}
                     {activeTab === 'neighborhood' && (
@@ -350,31 +398,6 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                                     onExtract={handleReExtractContextGraph}
                                 />
                             )}
-                        </section>
-                    )}
-                    {activeTab === 'satellitary' && (
-                        <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                            <SatellitaryView
-                                lat={propertyData?.coordinates?.latitude}
-                                lng={propertyData?.coordinates?.longitude}
-                                cachedStreetViewUrl={propertyData?.streetViewAnalysis?.imageUrl || propertyData?.streetView}
-                                address={propertyData?.address}
-                                zpid={zpid || undefined}
-                                onResult={(res) => setOrientationAI({
-                                    final_orientation: res.final_orientation,
-                                    azimuth_degrees: res.azimuth_degrees,
-                                    confidence: res.confidence,
-                                    aerial_only_mode: res.aerial_only_mode,
-                                    image_quality: res.image_quality,
-                                    feng_shui_vastu: res.feng_shui_vastu ?? null,
-                                    privacy_insight: res.privacy_insight,
-                                    lot_coverage_hardscape: res.lot_coverage_hardscape,
-                                    lot_coverage_pervious: res.lot_coverage_pervious,
-                                    buyer_pro: res.buyer_pro,
-                                    buyer_con: res.buyer_con,
-                                    orientation_highlights: res.orientation_highlights,
-                                })}
-                            />
                         </section>
                     )}
                 </StickyNotesLayer>

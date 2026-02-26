@@ -180,9 +180,10 @@ interface ExteriorViewProps {
     data: CustomAIAnalysisResult['exterior_and_neighborhood'];
     streetViewAnalysis?: any;
     satellitaryOrientation?: SatellitaryOrientation | null;
+    satelliteLoading?: boolean;
 }
 
-export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnalysis, satellitaryOrientation }) => {
+export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnalysis, satellitaryOrientation, satelliteLoading }) => {
     if (!data?.exterior_and_lot_appeal?.architecture_style) return <EmptyState section="Exterior" />;
     return (
         <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-5xl mx-auto space-y-8">
@@ -284,6 +285,17 @@ export const ExteriorView: React.FC<ExteriorViewProps> = ({ data, streetViewAnal
 
                 {/* ── Unified card grid ───── */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 pt-6">
+
+                    {/* Satellite loading placeholder */}
+                    {satelliteLoading && !satellitaryOrientation && (
+                        <div className="col-span-full flex items-center gap-3 text-gray-400">
+                            <svg className="animate-spin h-4 w-4 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                            <span className="text-[13px] font-semibold text-gray-400">Analysing satellite imagery…</span>
+                        </div>
+                    )}
 
                     {/* Satellite cards — only when orientation data is available */}
                     {satellitaryOrientation && satellitaryOrientation.final_orientation !== 'UNCLEAR_IMAGE' && (() => {
