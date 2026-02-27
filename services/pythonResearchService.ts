@@ -36,10 +36,11 @@ export const executePythonDeepResearch = async <T>(
         console.warn("[executePythonDeepResearch] Failed to log start:", e);
     }
 
-    const startTime = Date.now();
+    // Cloud Run URL set via VITE_DEEP_RESEARCH_URL env var; falls back to localhost for local dev
+    const serviceUrl = import.meta.env.VITE_DEEP_RESEARCH_URL || 'http://localhost:5001';
 
     try {
-        const response = await fetch('http://localhost:5001/research', {
+        const response = await fetch(`${serviceUrl}/research`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

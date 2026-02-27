@@ -10,7 +10,7 @@ import {
 } from '../../services/firebase/cityData';
 import { savePropertyToCloud, checkExistingPropertiesBatch, deletePropertyAnalysis } from '../../services/firebase/properties';
 import { PropertyData } from '../../types';
-import { runFullIntelligencePipeline, runImageOnlyPipeline, PipelineProgress, prefetchCityIntelligence } from '../../services/preloadService';
+import { runFullIntelligencePipeline, runImageOnlyPipeline, PipelineProgress, runCityDeepResearch } from '../../services/preloadService';
 import { getLLMLogsForTimeRange } from '../../services/firebase/llm_logs';
 import { getAPILogsForTimeRange } from '../../services/firebase/api_logs';
 import { auth, STATE_MAP } from '../../services/firebase/config';
@@ -265,6 +265,39 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
         if (successCount === targets.length) setSelectedIds(new Set());
     };
 
+    const handleCityDeepResearch = async () => {
+        if (selectedIds.size === 0) return;
+        setLoading(true);
+        addLog(`Running Deep City Research for selected properties...`);
+
+        // Collect unique cities from selected listings
+        const citySet = new Set<string>();
+        Object.values(groupedListings).flat().forEach((item: any) => {
+            const id = String(item.property_id || item.listing_id || item.mls_id || item.mls?.id);
+            if (!selectedIds.has(id)) return;
+            const city = item.location?.address?.city;
+            const stateRaw = item.location?.address?.state_code || item.location?.address?.state;
+            if (city && stateRaw) {
+                const normState = stateRaw.trim().toUpperCase();
+                const state = STATE_MAP[normState] || (normState.length === 2 ? normState : normState);
+                citySet.add(`${city.trim()}|${state.trim()}`);
+            }
+        });
+
+        for (const context of Array.from(citySet)) {
+            const [city, state] = context.split('|');
+            try {
+                const userId = auth?.currentUser?.uid || 'unknown';
+                addLog(`[Deep Research] Starting for ${city}, ${state}...`);
+                await runCityDeepResearch(city, state, userId, addLog);
+                addLog(`[Deep Research] Complete for ${city}, ${state}.`);
+            } catch (e: any) {
+                addLog(`[Deep Research] Failed for ${city}: ${e.message}`);
+            }
+        }
+        setLoading(false);
+    };
+
     const handleCityWarmUp = async () => {
         if (selectedIds.size === 0) {
             addLog("No properties selected. Please select at least one property to identify target cities.");
@@ -309,14 +342,14 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 const [city, state] = context.split('|');
                 try {
                     const userId = auth?.currentUser?.uid || 'unknown';
-                    addLog(`Manual Warm: Triggering deep research for ${city}, ${state}...`);
-                    await prefetchCityIntelligence(city, state, userId, addLog);
-                    addLog(`Manual Warm: Success for ${city}.`);
+                    addLog(`[Deep Research] Starting for ${city}, ${state}...`);
+                    await runCityDeepResearch(city, state, userId, addLog);
+                    addLog(`[Deep Research] Complete for ${city}.`);
                 } catch (e: any) {
-                    addLog(`Manual Warm: Error for ${city}: ${e.message || String(e)}`);
+                    addLog(`[Deep Research] Error for ${city}: ${e.message || String(e)}`);
                 }
             }
-            addLog(`Manual Regional Warming Complete.`);
+            addLog(`City Deep Research Complete.`);
         } else {
             addLog("No valid city/state contexts found in selection.");
         }
@@ -386,19 +419,10 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             }
         });
 
-        if (cityContexts.size > 0) {
-            addLog(`Phase 1: Warming Regional Intelligence for ${cityContexts.size} cities...`);
-            for (const context of Array.from(cityContexts)) {
-                const [city, state] = context.split('|');
-                try {
-                    const userId = auth?.currentUser?.uid || 'unknown';
-                    await prefetchCityIntelligence(city, state, userId, addLog);
-                } catch (e) {
-                    addLog(`Warning: Failed to warm context for ${city}: ${e}`);
-                }
-            }
-            addLog(`Phase 1 Complete. Regional contexts established.`);
-        }
+        // Phase 1 (city-level intelligence warm-up) is intentionally skipped here.
+        // Deep Research, Community Pulse, and Market Intelligence are city-level tasks
+        // that run separately via the "Run City Research" button — not per-property ingestion.
+
 
         const CHUNK_SIZE = 5;
         let successCount = 0;
@@ -427,13 +451,24 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                 try {
                     const userId = auth?.currentUser?.uid || 'unknown';
                     // Run Full Intelligence Pipeline
-                    await runFullIntelligencePipeline(builtAddress, (progress) => {
+                    const { zpid: resultZpid, warnings } = await runFullIntelligencePipeline(builtAddress, (progress) => {
                         setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, progress } : j));
                     }, zpid, userId, (msg) => addLog(`[${builtAddress}] ${msg}`), true);
 
-                    addLog(`Successfully completed intelligence suite for: ${builtAddress}`);
-                    setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
-                    return true;
+                    if (warnings && warnings.length > 0) {
+                        addLog(`Completed with warnings for: ${builtAddress} — ${warnings.join(', ')} needs retry.`);
+                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? {
+                            ...j,
+                            status: 'partial',
+                            endTime: Date.now(),
+                            error: `Needs retry: ${warnings.join(', ')}`
+                        } : j));
+                        return 'partial';
+                    } else {
+                        addLog(`Successfully completed intelligence suite for: ${builtAddress}`);
+                        setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'completed', endTime: Date.now() } : j));
+                        return true;
+                    }
                 } catch (e: any) {
                     console.error(`Ingestion failed for ${zpid}:`, e);
                     setIngestionQueue(prev => prev.map(j => j.zpid === zpid ? { ...j, status: 'error', error: e.message } : j));
@@ -444,6 +479,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             // Wait for current batch to complete
             const results = await Promise.all(chunkPromises);
             successCount += results.filter(r => r === true).length;
+            const partialCount = results.filter(r => r === 'partial').length;
+            if (partialCount > 0) addLog(`${partialCount} properties completed with warnings (Visual AI needs retry).`);
 
             // Short rest between chunks to stabilize Firebase storage and APIs
             if (i + CHUNK_SIZE < targets.length) {
@@ -451,7 +488,8 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
             }
         }
 
-        addLog(`Bulk Ingest Complete. Successfully processed ${successCount} / ${targets.length} properties.`);
+        const partialTotal = ingestionQueue.filter(j => j.status === 'partial').length;
+        addLog(`Bulk Ingest Complete. ${successCount} fully processed, ${partialTotal} partial (need retry) / ${targets.length} total.`);
         setLoading(false);
 
         if (successCount === targets.length) {
@@ -936,16 +974,18 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                         Secure Images ({selectedIds.size})
                                     </button>
                                     <button
-                                        onClick={handleCityWarmUp}
+                                        onClick={handleCityDeepResearch}
                                         disabled={loading}
-                                        className="px-6 py-3 bg-white border-2 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group"
+                                        className="px-6 py-3 bg-white border-2 border-violet-200 hover:border-violet-400 hover:bg-violet-50 text-slate-700 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest shadow-sm transition-all animate-in slide-in-from-right flex items-center gap-3 group disabled:opacity-50"
+                                        title="Run Deep Investment Research for the cities of selected properties"
                                     >
-                                        <i className="fa-solid fa-earth-americas text-emerald-500 group-hover:rotate-12 transition-transform"></i>
-                                        Warm Region ({selectedIds.size})
+                                        <i className="fa-solid fa-microscope text-violet-500 group-hover:scale-110 transition-transform"></i>
+                                        City Research ({selectedIds.size})
                                     </button>
                                     <button
                                         onClick={handleBulkIngest}
-                                        className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[1.2rem] text-sm font-black shadow-lg shadow-indigo-200 transition-all animate-in slide-in-from-right flex items-center gap-3 group"
+                                        disabled={loading}
+                                        className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-[1.2rem] text-sm font-black shadow-lg shadow-indigo-200 transition-all animate-in slide-in-from-right flex items-center gap-3 group"
                                     >
                                         <i className="fa-solid fa-bolt-lightning group-hover:scale-125 transition-transform"></i>
                                         Full Intel Suite ({selectedIds.size})
@@ -1067,14 +1107,14 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                     if (!s) s = 'CA'; // Default to CA for speed in common regions
 
                                     const displayTarget = `${c}, ${s}`;
-                                    addLog(`Manual Warm: Triggering deep research for ${displayTarget}...`);
+                                    addLog(`[Deep Research] Triggering for ${displayTarget}...`);
 
                                     try {
                                         const userId = auth?.currentUser?.uid || 'unknown';
-                                        await prefetchCityIntelligence(c, s, userId, addLog);
-                                        addLog(`Manual Warm: Success for ${displayTarget}. Research is now live in DB.`);
+                                        await runCityDeepResearch(c, s, userId, addLog);
+                                        addLog(`[Deep Research] Complete for ${displayTarget}. Research is now live in DB.`);
                                     } catch (e: any) {
-                                        addLog(`Manual Warm: Error for ${displayTarget}: ${e.message}`);
+                                        addLog(`[Deep Research] Error for ${displayTarget}: ${e.message}`);
                                     }
                                     setLoading(false);
                                 }}
@@ -1262,18 +1302,20 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
 
                             <div className="grid grid-cols-1 gap-4">
                                 {ingestionQueue.map((item) => (
-                                    <div key={item.zpid} className={`bg-white p-6 rounded-[2rem] border transition-all ${item.status === 'completed' ? 'border-emerald-100 shadow-emerald-50' : item.status === 'error' ? 'border-rose-100 shadow-rose-50' : 'border-slate-100 shadow-lg shadow-slate-200/50'}`}>
+                                    <div key={item.zpid} className={`bg-white p-6 rounded-[2rem] border transition-all ${item.status === 'completed' ? 'border-emerald-100 shadow-emerald-50' : item.status === 'partial' ? 'border-amber-200 shadow-amber-50' : item.status === 'error' ? 'border-rose-100 shadow-rose-50' : 'border-slate-100 shadow-lg shadow-slate-200/50'}`}>
                                         <div className="flex items-center justify-between mb-4">
                                             <div className="flex items-center gap-3 overflow-hidden">
                                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
-                                                    item.status === 'error' ? 'bg-rose-50 text-rose-600' :
-                                                        item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
-                                                            'bg-slate-50 text-slate-400'
+                                                    item.status === 'partial' ? 'bg-amber-50 text-amber-600' :
+                                                        item.status === 'error' ? 'bg-rose-50 text-rose-600' :
+                                                            item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
+                                                                'bg-slate-50 text-slate-400'
                                                     }`}>
                                                     <i className={`fa-solid ${item.status === 'completed' ? 'fa-circle-check' :
-                                                        item.status === 'error' ? 'fa-circle-xmark' :
-                                                            item.status === 'running' ? 'fa-spinner animate-spin' :
-                                                                'fa-hourglass-start'
+                                                        item.status === 'partial' ? 'fa-triangle-exclamation' :
+                                                            item.status === 'error' ? 'fa-circle-xmark' :
+                                                                item.status === 'running' ? 'fa-spinner animate-spin' :
+                                                                    'fa-hourglass-start'
                                                         }`}></i>
                                                 </div>
                                                 {item.status === 'completed' ? (
@@ -1288,11 +1330,12 @@ const CityDataTab: React.FC<{ onNavigate?: (view: string, address: string) => vo
                                                 )}
                                             </div>
                                             <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
-                                                item.status === 'error' ? 'bg-rose-50 text-rose-600' :
-                                                    item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
-                                                        'bg-slate-100 text-slate-400'
+                                                item.status === 'partial' ? 'bg-amber-50 text-amber-600' :
+                                                    item.status === 'error' ? 'bg-rose-50 text-rose-600' :
+                                                        item.status === 'running' ? 'bg-indigo-50 text-indigo-600' :
+                                                            'bg-slate-100 text-slate-400'
                                                 }`}>
-                                                {item.status}
+                                                {item.status === 'partial' ? 'Needs Retry' : item.status}
                                             </span>
                                         </div>
 

@@ -7,12 +7,13 @@ import os
 import re
 
 app = Flask(__name__)
-# Enable CORS for the frontend development server
-CORS(app)
+# Enable CORS — in production, restrict to your Firebase hosting domain
+CORS(app, origins=["https://zyphe-af0bf.web.app", "https://zyphe-af0bf.firebaseapp.com", "http://localhost:3000"])
 
-# Use the API key from environment variable or hardcoded for now (matching APP_CONFIG)
-API_KEY = "AIzaSyCNXiqET26-cMRpoM9vttl13SfiA4ifQu4"
+# API key from environment variable (set in Cloud Run secrets)
+API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyCNXiqET26-cMRpoM9vttl13SfiA4ifQu4")
 client = genai.Client(api_key=API_KEY)
+
 
 
 def extract_grounding_urls(outputs) -> dict[str, str]:
@@ -185,6 +186,6 @@ DO NOT return any text outside of the JSON block.
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    # Running on a different port than Vite
-    # threaded=True allows parallel requests to not block each other
-    app.run(port=5001, threaded=True)
+    # Cloud Run sets PORT=8080; locally defaults to 5001
+    port = int(os.environ.get("PORT", 5001))
+    app.run(host='0.0.0.0', port=port, threaded=True)

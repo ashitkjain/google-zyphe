@@ -121,7 +121,8 @@ export const uploadRemoteImageToStorage = async (url: string, path: string): Pro
                 return existingURL;
             }
         } catch (e) {
-            // File doesn't exist, proceed with download/upload
+            // 404 = file not yet in Firebase Storage (expected cache miss). Proceeding to download & upload.
+            console.log(`[Storage] Not in Firebase Storage yet, downloading: ${path}`);
         }
 
         // Fetch the image (with proxy fallback if direct fetch fails due to CORS/etc)

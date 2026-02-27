@@ -149,7 +149,7 @@ export async function forceRefreshStreetViewUrl(
     // Check Street View availability + get camera heading (free metadata call)
     const headingResult = await fetchStreetViewHeading(lat, lng);
     if (!headingResult) {
-        console.log(`[Satellitary] No street view available for zpid ${zpid} — skipping street view refresh.`);
+
         return '';
     }
 
@@ -184,7 +184,7 @@ export async function forceRefreshAllImagesAndAnalyze(
     userId: string = 'unknown',
     address?: string
 ): Promise<SatellitaryResult & { freshAerialUrl: string; freshStreetViewUrl: string }> {
-    console.log(`[Satellitary] Force-refresh start for zpid ${zpid}`);
+
 
     // Step 1 & 2: Re-download both images in parallel
     const [freshAerialUrl, freshStreetViewUrl] = await Promise.all([
@@ -192,8 +192,6 @@ export async function forceRefreshAllImagesAndAnalyze(
         forceRefreshStreetViewUrl(zpid, lat, lng),
     ]);
 
-    console.log(`[Satellitary] Fresh aerial: ${freshAerialUrl}`);
-    console.log(`[Satellitary] Fresh street view: ${freshStreetViewUrl || '(none)'}`);
 
     // Step 3: Run analysis with fresh images
     // Pass the freshStreetViewUrl as the cachedStreetViewUrl so the analysis skips
@@ -277,7 +275,7 @@ export async function computeGeocodingAzimuth(
         ) ?? entrances[0] ?? null;
 
         if (!preferred?.location?.lat || !preferred?.location?.lng) {
-            console.log('[Satellitary/Geocoding] No entrance data in response.');
+
             return null;
         }
 
@@ -297,7 +295,7 @@ export async function computeGeocodingAzimuth(
         const bearingRad = Math.atan2(y, x);
         const azimuth = Math.round(((bearingRad * (180 / Math.PI)) + 360) % 360 * 100) / 100;
 
-        console.log(`[Satellitary/Geocoding] Centroid (${lat1}, ${lon1}) → Entrance (${lat2}, ${lon2}) = ${azimuth}°`);
+
         return { azimuth, orientation: bearingToOrientation(azimuth) };
 
     } catch (e: any) {
@@ -357,14 +355,14 @@ async function fetchStreetViewHeading(
 
         // null == truly unavailable at this location
         if (meta.status !== 'OK') {
-            console.log(`[Satellitary] Street View metadata: ${meta.status} — unavailable.`);
+
             return null;
         }
 
         // 1. Use the API-provided heading if present
         if (meta.heading != null) {
             const heading = Math.round(meta.heading);
-            console.log(`[Satellitary] Street View heading (from API): ${heading}°`);
+
             return { heading, status: meta.status };
         }
 
@@ -381,15 +379,11 @@ async function fetchStreetViewHeading(
             const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
             const bearing = Math.round(((Math.atan2(y, x) * (180 / Math.PI)) + 360) % 360);
 
-            console.log(
-                `[Satellitary] Street View heading (computed from pano ${panoLoc.lat.toFixed(6)},` +
-                `${panoLoc.lng.toFixed(6)} → property): ${bearing}°`
-            );
             return { heading: bearing, status: meta.status };
         }
 
         // Panorama location missing — street view available but no heading derivable
-        console.log('[Satellitary] Street View available but could not derive heading — building URL without heading param.');
+
         return { heading: null, status: meta.status };
 
     } catch (e) {
@@ -714,18 +708,13 @@ export async function runSatellitaryAnalysis(
             if (headingResult) {
                 streetViewHeading = headingResult.heading;
                 streetViewUrl = buildStreetViewUrl(lat, lng, streetViewHeading);
-                console.log('[Satellitary] No cached street view; using live Street View API with heading', streetViewHeading);
-            } else {
-                console.log('[Satellitary] Street View unavailable — running aerial-only analysis.');
             }
         } catch (e) {
             console.warn('[Satellitary] Street View metadata check failed; running aerial-only.', e);
         }
     }
 
-    console.log('[Satellitary] Aerial URL:', aerialUrl);
-    console.log('[Satellitary] Street View URL:', streetViewUrl ?? '(none — aerial-only)');
-    console.log('[Satellitary] Street View heading:', streetViewHeading != null ? `${streetViewHeading}°` : '(unknown)');
+
 
     // ── 2. Fetch base64 images + geocoding azimuth in parallel ────────────────
     const aerialB64Promise = urlToBase64(aerialUrl);

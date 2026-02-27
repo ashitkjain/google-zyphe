@@ -317,6 +317,15 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
                 i++;
                 continue;
             }
+            // Skip the ## Sources section entirely — rendered separately by the Sources panel below
+            else if (line.startsWith('## ') && line.slice(3).trim().match(/^sources?$/i)) {
+                // Consume all lines until the next ## heading or end of content
+                i++;
+                while (i < lines.length && !lines[i].startsWith('## ') && !lines[i].startsWith('# ')) {
+                    i++;
+                }
+                continue;
+            }
             else if (line.startsWith('## ')) {
                 const title = line.slice(3).trim();
                 const isMicroMarkets = title.toLowerCase().includes('micro-market');
@@ -394,13 +403,20 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
                             const sourceName = citation?.name || contentSourceMap[num] || null;
                             const url = citation?.url;
 
+                            const getHostname = (u: string) => {
+                                try { return new URL(u).hostname.replace('www.', ''); }
+                                catch { return null; }
+                            };
+                            const label = url ? (getHostname(url) || sourceName?.split(/[,.]/, 1)[0] || num)
+                                : (sourceName ? sourceName.split(/[,.]/, 1)[0] : num);
+
                             const badgeClass = `inline-flex items-center gap-1 px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded-md text-[9px] font-black border border-indigo-100/50 transition-all align-middle shadow-sm group/cite ${url ? 'cursor-pointer hover:bg-indigo-500 hover:text-white' : 'cursor-default hover:bg-indigo-100'
                                 }`;
 
                             const inner = (
                                 <>
                                     <i className={`fa-solid ${url ? 'fa-arrow-up-right-from-square' : 'fa-bookmark'} text-[7px] opacity-50 group-hover/cite:opacity-100`}></i>
-                                    <span className="max-w-[120px] truncate">{sourceName ? sourceName.split(/[,.]/, 1)[0] : num}</span>
+                                    <span className="max-w-[120px] truncate">{label}</span>
                                 </>
                             );
 
@@ -411,7 +427,7 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className={badgeClass}
-                                    title={sourceName || `Source ${num}`}
+                                    title={sourceName || url}
                                 >
                                     {inner}
                                 </a>
@@ -452,17 +468,8 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
             <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-[0_8px_40px_rgb(0,0,0,0.04)] overflow-hidden p-10 space-y-8">
                 <div className="prose prose-slate max-w-none">
                     <div className="text-gray-700 font-sans font-normal leading-[1.8] text-[15px] selection:bg-indigo-100 selection:text-indigo-900">
-                        {data.status === 'running' ? (
-                            <div className="flex flex-col items-center justify-center py-20 bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
-                                <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center mb-6">
-                                    <i className="fa-solid fa-circle-notch animate-spin text-2xl text-indigo-500"></i>
-                                </div>
-                                <h3 className="text-xl font-black text-slate-900 mb-2">Deep Research in Progress</h3>
-                                <p className="text-slate-500 font-medium text-center max-w-sm">
-                                    Our AI agents are currently scouring urban planning documents and market historicals. This typically takes 2-5 minutes.
-                                </p>
-                            </div>
-                        ) : data.structured_report ? (
+
+                        {data.structured_report ? (
                             <div className="space-y-12">
                                 {/* Macro & Market Grid */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -726,6 +733,77 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
                                         {renderMarkdown(data.content)}
                                     </div>
                                 </div>
+
+                                {/* Sources Panel */}
+                                {(() => {
+                                    // Parse all source lines from the markdown Sources section
+                                    const parsedSources: { name: string; url?: string }[] = [];
+                                    if (typeof data.content === 'string') {
+                                        const srcMatch = data.content.match(/##?\s*Sources?\s*\n([\s\S]*?)(?:\n##?\s|$)/i);
+
+                                        if (srcMatch) {
+                                            srcMatch[1].split('\n').forEach(line => {
+                                                const trimmed = line.trim();
+                                                if (!trimmed || /^[*\-•\s]+$/.test(trimmed)) return;
+
+                                                // Strip leading bullet + [cite: N] prefix to get name
+                                                const strippedName = trimmed
+                                                    .replace(/^[*\-•\d.]+\s*/, '')
+                                                    .replace(/^\[cite:[\d,\s]+\]\s*/i, '')
+                                                    .trim();
+
+                                                // Try to extract a URL
+                                                const mdLink = line.match(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/);
+                                                const descUrl = line.match(/[—–-]+\s*(https?:\/\/[^\s),>"]+)/);
+                                                const bareUrl = line.match(/(https?:\/\/[^\s),>"]+)/);
+                                                const url = mdLink?.[2] || descUrl?.[1] || bareUrl?.[1];
+
+                                                if (strippedName) parsedSources.push({ name: strippedName, url });
+                                            });
+                                        }
+                                    }
+
+                                    // Also pull structured citations with URLs
+                                    (data.structured_report?.citations || []).forEach((c: any) => {
+                                        if (c.url && !parsedSources.some(s => s.url === c.url)) {
+                                            parsedSources.push({ name: c.name || c.url, url: c.url });
+                                        }
+                                    });
+
+                                    if (parsedSources.length === 0) return null;
+
+                                    const getHostname = (url: string) => {
+                                        try { return new URL(url).hostname.replace('www.', ''); }
+                                        catch { return url.slice(0, 40); }
+                                    };
+
+                                    return (
+                                        <div className="mt-10 pt-8 border-t border-slate-100">
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <i className="fa-solid fa-link text-slate-300 text-xs"></i>
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Sources</span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {parsedSources.map((src, i) => {
+                                                    const label = src.url ? getHostname(src.url) : src.name.split(/[,.(]/)[0].trim().slice(0, 48);
+                                                    const chipClass = "inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-500 transition-all group";
+                                                    return src.url ? (
+                                                        <a key={i} href={src.url} target="_blank" rel="noopener noreferrer" title={src.name}
+                                                            className={chipClass + " hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 cursor-pointer"}>
+                                                            <i className="fa-solid fa-arrow-up-right-from-square text-[9px] opacity-40 group-hover:opacity-100 transition-opacity"></i>
+                                                            <span className="max-w-[160px] truncate">{label}</span>
+                                                        </a>
+                                                    ) : (
+                                                        <span key={i} title={src.name} className={chipClass + " cursor-default"}>
+                                                            <i className="fa-solid fa-bookmark text-[9px] opacity-30"></i>
+                                                            <span className="max-w-[160px] truncate">{label}</span>
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         ) : data.content ? (
                             renderMarkdown(data.content)
@@ -753,9 +831,77 @@ export const DeepInvestmentView: React.FC<DeepInvestmentViewProps> = ({ data }) 
                     </div>
                 </div>
 
+                {/* Sources Panel — always rendered outside content branches */}
+                {(() => {
+                    const contentStr = typeof data.content === 'string' ? data.content
+                        : Object.keys(data).some(k => /^\d+$/.test(k))
+                            ? Object.entries(data).filter(([k]) => /^\d+$/.test(k)).sort(([a], [b]) => parseInt(a) - parseInt(b)).map(([_, v]) => v).join('')
+                            : '';
+
+                    if (!contentStr) return null;
+
+                    const parsedSources: { name: string; url?: string }[] = [];
+
+                    // Scan EVERY line for numbered markdown links: `N. [name]( url)` or `N. [name](url)`
+                    // The AI uses Vertex AI redirect URLs with optional leading space
+                    contentStr.split('\n').forEach(line => {
+                        // Match: optional bullet/number prefix, then [label]( url) allowing whitespace before url
+                        const linkMatch = line.match(/\[([^\]]+)\]\(\s*(https?:\/\/[^\s)]+)\s*\)/);
+                        if (linkMatch) {
+                            const name = linkMatch[1].trim();
+                            const url = linkMatch[2].trim();
+                            // Dedupe by url
+                            if (!parsedSources.some(s => s.url === url)) {
+                                parsedSources.push({ name, url });
+                            }
+                        }
+                    });
+
+                    // Also try structured citations with URLs
+                    (data.structured_report?.citations || []).forEach((c: any) => {
+                        if (c.url && !parsedSources.some(s => s.url === c.url))
+                            parsedSources.push({ name: c.name || c.url, url: c.url });
+                    });
+
+                    if (parsedSources.length === 0) return null;
+
+                    const getHostname = (url: string) => {
+                        try { return new URL(url).hostname.replace('www.', ''); }
+                        catch { return url.slice(0, 40); }
+                    };
+
+                    return (
+                        <div className="mt-6 pt-6 border-t border-slate-100">
+                            <div className="flex items-center gap-2 mb-3">
+                                <i className="fa-solid fa-link text-slate-300 text-xs"></i>
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Sources</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {parsedSources.map((src, i) => {
+                                    // Show the [name] the AI gave (e.g. "zillow.com") — it's already a domain label
+                                    const label = src.name.length > 40 ? getHostname(src.url!) : src.name;
+                                    const base = "inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-500 transition-all group";
+                                    return src.url ? (
+                                        <a key={i} href={src.url} target="_blank" rel="noopener noreferrer" title={src.url}
+                                            className={base + " hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 cursor-pointer"}>
+                                            <i className="fa-solid fa-arrow-up-right-from-square text-[9px] opacity-40 group-hover:opacity-100 transition-opacity"></i>
+                                            <span className="max-w-[180px] truncate">{label}</span>
+                                        </a>
+                                    ) : (
+                                        <span key={i} title={src.name} className={base + " cursor-default"}>
+                                            <i className="fa-solid fa-bookmark text-[9px] opacity-30"></i>
+                                            <span className="max-w-[200px] truncate">{src.name.slice(0, 48)}</span>
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })()}
+
                 <div className="pt-8 border-t border-gray-50">
                     <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
-                        Source: Zyphe AI Research {data.status === 'running' ? '(ACTIVE)' : ''}
+                        Source: Zyphe AI Research
                     </div>
                 </div>
             </div>

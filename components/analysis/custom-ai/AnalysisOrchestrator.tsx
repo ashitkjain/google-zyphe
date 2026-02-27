@@ -196,11 +196,8 @@ const AnalysisOrchestrator: React.FC<Props> = ({
         }
     }, [activeTab, analysis?.community_pulse, pulseLoading]);
 
-    useEffect(() => {
-        if (activeTab === 'deep_research' && !analysis?.deep_investment_research && !deepLoading) {
-            handleRunDeepInvestmentResearch();
-        }
-    }, [activeTab, analysis?.deep_investment_research, deepLoading]);
+    // Deep Research is NOT auto-triggered — data must be pre-populated via "City Research" in the ingestion tab.
+    // useEffect removed intentionally.
 
     useEffect(() => {
         if (activeTab === 'bidding' && !analysis?.bidding_strategy && !biddingLoading) {
@@ -366,10 +363,19 @@ const AnalysisOrchestrator: React.FC<Props> = ({
                     )}
                     {activeTab === 'deep_research' && (
                         <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                            {deepLoading ? (
-                                <AnalysisLoading title="Deep Researching..." subtitle="Synthesizing city-wide investment perspectives." timer={timer} address={propertyData?.address} icon="fa-magnifying-glass-chart" />
-                            ) : !analysis.deep_investment_research ? (
-                                <EmptyState section="Investment Research" />
+                            {!analysis.deep_investment_research ? (
+                                <div className="flex flex-col items-center justify-center py-24 gap-6 text-center">
+                                    <div className="w-16 h-16 rounded-2xl bg-violet-50 flex items-center justify-center">
+                                        <i className="fa-solid fa-microscope text-2xl text-violet-300"></i>
+                                    </div>
+                                    <div>
+                                        <p className="text-slate-800 font-black text-lg tracking-tight">City Research Not Available</p>
+                                        <p className="text-slate-400 text-sm mt-1 max-w-xs">
+                                            Deep Investment Research for this city hasn't been run yet.
+                                            Use the <span className="font-black text-violet-600">City Research</span> button in the Market Discovery tab to generate it.
+                                        </p>
+                                    </div>
+                                </div>
                             ) : (
                                 <DeepInvestmentView data={analysis.deep_investment_research} />
                             )}
